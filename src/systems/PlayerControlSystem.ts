@@ -2,6 +2,7 @@ import { BaseSystem } from '../ecs/System.js';
 import { ECS } from '../ecs/ECS.js';
 import { Transform } from '../components/Transform.js';
 import { Velocity } from '../components/Velocity.js';
+import { SelectedNpc } from '../components/SelectedNpc.js';
 import { Destination } from '../components/Destination.js';
 
 /**
@@ -42,6 +43,9 @@ export class PlayerControlSystem extends BaseSystem {
       // Quando il mouse non è premuto, ferma il player
       this.stopPlayerMovement();
     }
+
+    // Se c'è un NPC selezionato, ruota il player verso di esso (ha priorità)
+    this.faceSelectedNpc();
   }
 
   /**
@@ -96,9 +100,14 @@ export class PlayerControlSystem extends BaseSystem {
       const speed = 200; // pixels per second
       velocity.setVelocity(dirX * speed, dirY * speed);
 
-      // Calcola l'angolo e ruota la nave
-      const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
-      transform.rotation = angle;
+      // NON ruotare verso il mouse se c'è un NPC selezionato
+      // La rotazione verso l'NPC ha priorità e viene gestita in faceSelectedNpc()
+      const hasSelectedNpc = this.ecs.getEntitiesWithComponents(SelectedNpc).length > 0;
+      if (!hasSelectedNpc) {
+        // Solo se non c'è NPC selezionato, ruota verso la direzione del movimento
+        const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
+        transform.rotation = angle;
+      }
     } else {
       // Vicino al mouse, ferma il movimento
       velocity.stop();
@@ -115,5 +124,30 @@ export class PlayerControlSystem extends BaseSystem {
     if (velocity) {
       velocity.stop();
     }
+  }
+
+  /**
+   * Ruota il player verso l'NPC selezionato (se presente)
+   */
+  private faceSelectedNpc(): void {
+    if (!this.playerEntity) return;
+
+    // Trova l'NPC selezionato
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    if (selectedNpcs.length === 0) return;
+
+    const selectedNpc = selectedNpcs[0];
+    const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
+    const playerTransform = this.ecs.getComponent(this.playerEntity, Transform);
+
+    if (!npcTransform || !playerTransform) return;
+
+    // Calcola l'angolo verso l'NPC
+    const dx = npcTransform.x - playerTransform.x;
+    const dy = npcTransform.y - playerTransform.y;
+
+    // Calcola l'angolo e ruota la nave
+    const angle = Math.atan2(dy, dx) + Math.PI / 2;
+    playerTransform.rotation = angle;
   }
 }

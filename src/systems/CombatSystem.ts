@@ -4,6 +4,7 @@ import { Health } from '../components/Health.js';
 import { Damage } from '../components/Damage.js';
 import { Transform } from '../components/Transform.js';
 import { SelectedNpc } from '../components/SelectedNpc.js';
+import { Velocity } from '../components/Velocity.js';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -19,7 +20,10 @@ export class CombatSystem extends BaseSystem {
   update(deltaTime: number): void {
     this.lastUpdateTime += deltaTime;
 
-    // Trova tutti gli NPC selezionati con capacità di danno
+    // Combattimento automatico per NPC selezionati
+    this.processPlayerCombat();
+
+    // NPC attaccano automaticamente il player quando nel range
     const attackers = this.ecs.getEntitiesWithComponents(Damage, SelectedNpc);
 
     for (const attackerEntity of attackers) {
@@ -81,16 +85,28 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
-   * Permette al player di attaccare un NPC selezionato
+   * Ruota l'entità attaccante per puntare verso il target
    */
-  attackSelectedNpc(): void {
+  private faceTarget(attackerTransform: Transform, targetTransform: Transform): void {
+    const dx = targetTransform.x - attackerTransform.x;
+    const dy = targetTransform.y - attackerTransform.y;
+
+    // Calcola l'angolo e ruota la nave
+    const angle = Math.atan2(dy, dx) + Math.PI / 2;
+    attackerTransform.rotation = angle;
+  }
+
+  /**
+   * Elabora il combattimento automatico del player contro NPC selezionati
+   */
+  private processPlayerCombat(): void {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     if (selectedNpcs.length === 0) return;
 
     const selectedNpc = selectedNpcs[0];
 
-    // Trova il player (entità senza SelectedNpc ma con Damage e Health)
+    // Trova il player
     const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
     const playerEntity = playerEntities.find(entity => {
       return !this.ecs.hasComponent(entity, SelectedNpc);
@@ -113,16 +129,97 @@ export class CombatSystem extends BaseSystem {
       npcTransform.x, npcTransform.y
     )) {
       if (playerDamage.canAttack(this.lastUpdateTime)) {
+        // Ruota il player verso l'NPC prima di attaccare
+        this.faceTarget(playerTransform, npcTransform);
+
         // Il player attacca l'NPC
         this.performAttack(playerDamage, npcHealth);
-        console.log(`Player attacked NPC for ${playerDamage.damage} damage!`);
+        console.log(`Player auto-attacked NPC for ${playerDamage.damage} damage! Health remaining: ${npcHealth.current}/${npcHealth.max}`);
 
         // Controlla se l'NPC è morto
         if (npcHealth.isDead()) {
-          console.log('NPC is dead!');
+          console.log('NPC is dead! Removing from world...');
           // Rimuovi l'NPC morto dal mondo
           this.ecs.removeEntity(selectedNpc);
           console.log('NPC removed from world');
+        }
+      }
+    }
+  }
+
+  /**
+   * Permette al player di attaccare un NPC selezionato (per uso futuro)
+   */
+  attackSelectedNpc(): void {
+    console.log('CombatSystem.attackSelectedNpc() called');
+
+    // Trova l'NPC selezionato
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    console.log(`Found ${selectedNpcs.length} selected NPCs`);
+
+    if (selectedNpcs.length === 0) return;
+
+    const selectedNpc = selectedNpcs[0];
+
+    // Trova il player (entità senza SelectedNpc ma con Damage e Health)
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
+    const playerEntity = playerEntities.find(entity => {
+      return !this.ecs.hasComponent(entity, SelectedNpc);
+    });
+
+    console.log(`Found ${playerEntities.length} player entities, selected: ${!!playerEntity}`);
+
+    if (!playerEntity) return;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const playerDamage = this.ecs.getComponent(playerEntity, Damage);
+    const npcHealth = this.ecs.getComponent(selectedNpc, Health);
+
+    if (!playerTransform || !playerDamage || !npcHealth) {
+      console.log('Missing components:', {
+        playerTransform: !!playerTransform,
+        playerDamage: !!playerDamage,
+        npcHealth: !!npcHealth
+      });
+      return;
+    }
+
+    // Controlla se il player è nel range di attacco
+    const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
+    if (!npcTransform) {
+      console.log('Missing NPC transform');
+      return;
+    }
+
+    const distance = Math.sqrt(
+      Math.pow(playerTransform.x - npcTransform.x, 2) +
+      Math.pow(playerTransform.y - npcTransform.y, 2)
+    );
+
+    console.log(`Player at (${playerTransform.x.toFixed(0)}, ${playerTransform.y.toFixed(0)}), NPC at (${npcTransform.x.toFixed(0)}, ${npcTransform.y.toFixed(0)}), distance: ${distance.toFixed(0)}, range: ${playerDamage.attackRange}`);
+
+    if (playerDamage.isInRange(
+      playerTransform.x, playerTransform.y,
+      npcTransform.x, npcTransform.y
+    )) {
+      if (playerDamage.canAttack(this.lastUpdateTime)) {
+        console.log('Player can attack!');
+
+        // Ruota il player verso l'NPC prima di attaccare
+        this.faceTarget(playerTransform, npcTransform);
+
+        // Il player attacca l'NPC
+        this.performAttack(playerDamage, npcHealth);
+        console.log(`Player attacked NPC for ${playerDamage.damage} damage! Health remaining: ${npcHealth.current}/${npcHealth.max}`);
+
+        // Controlla se l'NPC è morto
+        if (npcHealth.isDead()) {
+          console.log('NPC is dead! Removing from world...');
+          // Rimuovi l'NPC morto dal mondo
+          this.ecs.removeEntity(selectedNpc);
+          console.log('NPC removed from world');
+        } else {
+          console.log(`NPC still alive with ${npcHealth.current} HP`);
         }
       } else {
         console.log('Player attack on cooldown');

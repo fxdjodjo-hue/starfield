@@ -189,6 +189,10 @@ export class PlayState extends GameState {
     // Collega input al controllo player e selezione NPC
     inputSystem.setMouseStateCallback((pressed, x, y) => {
       if (pressed) {
+        // Assicurati che il canvas abbia il focus per gli eventi tastiera
+        this.context.canvas.focus();
+        console.log('Canvas focused for keyboard input');
+
         // Su mouse down: prima seleziona NPC se presente, poi inizia movimento
         // Converte coordinate schermo in mondo per la selezione
         const canvasSize = this.world.getCanvasSize();
@@ -204,12 +208,7 @@ export class PlayState extends GameState {
       playerControlSystem.handleMouseMoveWhilePressed(x, y);
     });
 
-    // Collega la barra spaziatrice all'attacco
-    inputSystem.setKeyPressCallback((key) => {
-      if (key === 'Space') {
-        combatSystem.attackSelectedNpc();
-      }
-    });
+    // Combattimento ora automatico - non serve più la barra spaziatrice
   }
 
   /**
