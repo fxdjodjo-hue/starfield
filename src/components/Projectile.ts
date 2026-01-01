@@ -1,4 +1,4 @@
-import { Component } from './Component';
+import { Component } from '../ecs/Component';
 
 /**
  * Componente per i proiettili
