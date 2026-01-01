@@ -10,6 +10,7 @@ import { NpcSelectionSystem } from '../systems/NpcSelectionSystem.js';
 import { Transform } from '../components/Transform.js';
 import { Velocity } from '../components/Velocity.js';
 import { Npc } from '../components/Npc.js';
+import { Npc } from '../components/Npc.js';
 
 /**
  * Stato del gameplay attivo
