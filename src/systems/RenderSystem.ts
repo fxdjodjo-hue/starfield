@@ -4,6 +4,8 @@ import { Transform } from '../components/Transform';
 import { Npc } from '../components/Npc';
 import { SelectedNpc } from '../components/SelectedNpc';
 import { Health } from '../components/Health';
+import { Damage } from '../components/Damage';
+import { Projectile } from '../components/Projectile';
 import { MovementSystem } from './MovementSystem';
 
 /**
@@ -66,6 +68,9 @@ export class RenderSystem extends BaseSystem {
         }
       }
     }
+
+    // Renderizza i proiettili
+    this.renderProjectiles(ctx);
   }
 
   /**
@@ -188,5 +193,36 @@ export class RenderSystem extends BaseSystem {
     ctx.stroke();
 
     ctx.restore();
+  }
+
+  /**
+   * Renderizza tutti i proiettili
+   */
+  private renderProjectiles(ctx: CanvasRenderingContext2D): void {
+    const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+
+    for (const projectileEntity of projectiles) {
+      const transform = this.ecs.getComponent(projectileEntity, Transform);
+      const projectile = this.ecs.getComponent(projectileEntity, Projectile);
+
+      if (!transform || !projectile) continue;
+
+      // Converte coordinate mondo a schermo
+      const screenPos = this.worldToScreen(transform.x, transform.y);
+
+      // Renderizza il proiettile come un piccolo cerchio giallo
+      ctx.save();
+      ctx.fillStyle = '#ffff00'; // Giallo per i proiettili
+      ctx.beginPath();
+      ctx.arc(screenPos.x, screenPos.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Aggiungi un alone luminoso
+      ctx.shadowColor = '#ffff00';
+      ctx.shadowBlur = 5;
+      ctx.fill();
+
+      ctx.restore();
+    }
   }
 }

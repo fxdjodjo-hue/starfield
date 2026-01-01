@@ -4,6 +4,7 @@ import { Health } from '../components/Health.js';
 import { Damage } from '../components/Damage.js';
 import { Transform } from '../components/Transform.js';
 import { SelectedNpc } from '../components/SelectedNpc.js';
+import { Projectile } from '../components/Projectile.js';
 import { Velocity } from '../components/Velocity.js';
 
 /**
@@ -32,7 +33,7 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
-   * Elabora il combattimento per un'entità attaccante
+   * Elabora il combattimento per un'entità attaccante (NPC selezionati che attaccano il player)
    */
   private processCombat(attackerEntity: any): void {
     const attackerTransform = this.ecs.getComponent(attackerEntity, Transform);
@@ -40,48 +41,70 @@ export class CombatSystem extends BaseSystem {
 
     if (!attackerTransform || !attackerDamage) return;
 
-    // Trova un target nel range di attacco (per ora il player)
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health);
-    // Rimuovi l'entità attaccante dalla lista dei possibili target se presente
-    const potentialTargets = playerEntities.filter(entity => entity !== attackerEntity);
+    // Trova il player come target
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
+    // Il player è l'entità con Damage ma senza SelectedNpc
+    const playerEntity = playerEntities.find(entity => {
+      return !this.ecs.hasComponent(entity, SelectedNpc);
+    });
 
-    for (const targetEntity of potentialTargets) {
-      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      const targetHealth = this.ecs.getComponent(targetEntity, Health);
+    if (!playerEntity) return;
 
-      if (!targetTransform || !targetHealth) continue;
+    const targetTransform = this.ecs.getComponent(playerEntity, Transform);
+    const targetHealth = this.ecs.getComponent(playerEntity, Health);
 
-      // Verifica se il target è nel range di attacco
-      if (attackerDamage.isInRange(
-        attackerTransform.x, attackerTransform.y,
-        targetTransform.x, targetTransform.y
-      )) {
-        // Verifica se l'attaccante può attaccare (cooldown)
-        if (attackerDamage.canAttack(this.lastUpdateTime)) {
-          // Esegui l'attacco
-          this.performAttack(attackerDamage, targetHealth);
-          console.log(`NPC attacked player for ${attackerDamage.damage} damage!`);
-        }
-        break; // Attacca solo un target alla volta
+    if (!targetTransform || !targetHealth) return;
+
+    // Verifica se il player è nel range di attacco dell'NPC
+    const distance = Math.sqrt(
+      Math.pow(attackerTransform.x - targetTransform.x, 2) +
+      Math.pow(attackerTransform.y - targetTransform.y, 2)
+    );
+
+    if (attackerDamage.isInRange(
+      attackerTransform.x, attackerTransform.y,
+      targetTransform.x, targetTransform.y
+    )) {
+      // Verifica se l'NPC può attaccare (cooldown)
+      if (attackerDamage.canAttack(this.lastUpdateTime)) {
+        // Esegui l'attacco
+        this.performAttack(attackerEntity, attackerTransform, attackerDamage, targetTransform);
+        console.log(`NPC fired projectile at player! Distance: ${distance.toFixed(0)}, range: ${attackerDamage.attackRange}`);
       }
     }
   }
 
   /**
-   * Esegue un attacco da attaccante a target
+   * Crea un proiettile dall'attaccante verso il target
    */
-  private performAttack(attackerDamage: Damage, targetHealth: Health): void {
-    // Applica il danno al target
-    targetHealth.takeDamage(attackerDamage.damage);
+  private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform): void {
+    // Calcola direzione del proiettile (verso il target)
+    const dx = targetTransform.x - attackerTransform.x;
+    const dy = targetTransform.y - attackerTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Normalizza la direzione
+    const directionX = dx / distance;
+    const directionY = dy / distance;
+
+    // Crea il proiettile leggermente avanti all'attaccante per evitare auto-collisione
+    const projectileX = attackerTransform.x + directionX * 25; // 25 pixel avanti (dimensione nave)
+    const projectileY = attackerTransform.y + directionY * 25;
+
+    // Crea l'entità proiettile
+    const projectileEntity = this.ecs.createEntity();
+
+    // Aggiungi componenti al proiettile
+    const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
+    const projectile = new Projectile(attackerDamage.damage, 400, directionX, directionY, attackerEntity.id);
+
+    this.ecs.addComponent(projectileEntity, projectileTransform);
+    this.ecs.addComponent(projectileEntity, projectile);
 
     // Registra l'attacco per il cooldown
     attackerDamage.performAttack(this.lastUpdateTime);
 
-    // Controlla se il target è morto
-    if (targetHealth.isDead()) {
-      console.log('Player is dead!');
-      // Qui potremmo emettere un evento di morte o cambiare stato di gioco
-    }
+    console.log(`Projectile fired! From (${attackerTransform.x.toFixed(0)}, ${attackerTransform.y.toFixed(0)}) to (${targetTransform.x.toFixed(0)}, ${targetTransform.y.toFixed(0)})`);
   }
 
   /**
@@ -132,9 +155,9 @@ export class CombatSystem extends BaseSystem {
         // Ruota il player verso l'NPC prima di attaccare
         this.faceTarget(playerTransform, npcTransform);
 
-        // Il player attacca l'NPC
-        this.performAttack(playerDamage, npcHealth);
-        console.log(`Player auto-attacked NPC for ${playerDamage.damage} damage! Health remaining: ${npcHealth.current}/${npcHealth.max}`);
+        // Il player spara un proiettile verso l'NPC
+        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform);
+        console.log(`Player fired projectile at NPC!`);
 
         // Controlla se l'NPC è morto
         if (npcHealth.isDead()) {
@@ -196,21 +219,20 @@ export class CombatSystem extends BaseSystem {
       Math.pow(playerTransform.y - npcTransform.y, 2)
     );
 
-    console.log(`Player at (${playerTransform.x.toFixed(0)}, ${playerTransform.y.toFixed(0)}), NPC at (${npcTransform.x.toFixed(0)}, ${npcTransform.y.toFixed(0)}), distance: ${distance.toFixed(0)}, range: ${playerDamage.attackRange}`);
-
     if (playerDamage.isInRange(
       playerTransform.x, playerTransform.y,
       npcTransform.x, npcTransform.y
     )) {
+      console.log(`Player attacking NPC - distance: ${distance.toFixed(0)}, range: ${playerDamage.attackRange}`);
       if (playerDamage.canAttack(this.lastUpdateTime)) {
         console.log('Player can attack!');
 
         // Ruota il player verso l'NPC prima di attaccare
         this.faceTarget(playerTransform, npcTransform);
 
-        // Il player attacca l'NPC
-        this.performAttack(playerDamage, npcHealth);
-        console.log(`Player attacked NPC for ${playerDamage.damage} damage! Health remaining: ${npcHealth.current}/${npcHealth.max}`);
+        // Il player spara un proiettile verso l'NPC
+        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform);
+        console.log(`Player fired projectile at NPC!`);
 
         // Controlla se l'NPC è morto
         if (npcHealth.isDead()) {

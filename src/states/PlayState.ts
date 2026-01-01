@@ -8,6 +8,7 @@ import { PlayerControlSystem } from '../systems/PlayerControlSystem.js';
 import { NpcBehaviorSystem } from '../systems/NpcBehaviorSystem.js';
 import { NpcSelectionSystem } from '../systems/NpcSelectionSystem.js';
 import { CombatSystem } from '../systems/CombatSystem.js';
+import { ProjectileSystem } from '../systems/ProjectileSystem.js';
 import { Transform } from '../components/Transform.js';
 import { Velocity } from '../components/Velocity.js';
 import { Npc } from '../components/Npc.js';
@@ -167,12 +168,14 @@ export class PlayState extends GameState {
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const combatSystem = new CombatSystem(ecs);
+    const projectileSystem = new ProjectileSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
     ecs.addSystem(npcSelectionSystem); // Selezione NPC
     ecs.addSystem(playerControlSystem); // Poi controllo player
     ecs.addSystem(combatSystem);       // Sistema combattimento
+    ecs.addSystem(projectileSystem);   // Sistema proiettili
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Infine rendering
