@@ -96,7 +96,7 @@ export class CombatSystem extends BaseSystem {
 
     // Aggiungi componenti al proiettile
     const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
-    const projectile = new Projectile(attackerDamage.damage, 400, directionX, directionY, attackerEntity.id);
+    const projectile = new Projectile(attackerDamage.damage, 600, directionX, directionY, attackerEntity.id);
 
     this.ecs.addComponent(projectileEntity, projectileTransform);
     this.ecs.addComponent(projectileEntity, projectile);

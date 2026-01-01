@@ -229,7 +229,7 @@ export class PlayState extends GameState {
     ecs.addComponent(ship, Transform, new Transform(worldCenterX, worldCenterY, 0)); // Centro del mondo
     ecs.addComponent(ship, Velocity, new Velocity(0, 0, 0)); // Inizialmente ferma
     ecs.addComponent(ship, Health, new Health(100, 100)); // 100 HP
-    ecs.addComponent(ship, Damage, new Damage(25, 80, 500)); // 25 danno, 80 range, 500ms cooldown
+    ecs.addComponent(ship, Damage, new Damage(25, 300, 500)); // 25 danno, 300 range, 500ms cooldown
 
     console.log(`Created player ship at world center: (${worldCenterX}, ${worldCenterY})`);
     return ship;
