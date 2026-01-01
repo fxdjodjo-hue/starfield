@@ -2,6 +2,7 @@ import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
 import { Transform } from '../components/Transform';
 import { Npc } from '../components/Npc';
+import { SelectedNpc } from '../components/SelectedNpc';
 import { MovementSystem } from './MovementSystem';
 
 /**
@@ -29,6 +30,7 @@ export class RenderSystem extends BaseSystem {
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const npc = this.ecs.getComponent(entity, Npc);
+      const selected = this.ecs.getComponent(entity, SelectedNpc);
 
       if (transform) {
         // Converte le coordinate world in coordinate schermo usando la camera
@@ -36,7 +38,7 @@ export class RenderSystem extends BaseSystem {
 
         if (npc) {
           // Renderizza come NPC
-          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y);
+          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined);
         } else {
           // Renderizza come player
           this.renderEntity(ctx, transform, screenPos.x, screenPos.y);
@@ -78,13 +80,22 @@ export class RenderSystem extends BaseSystem {
   /**
    * Renderizza un NPC
    */
-  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number): void {
+  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false): void {
     ctx.save();
 
     // Applica trasformazioni usando le coordinate schermo
     ctx.translate(screenX, screenY);
     ctx.rotate(transform.rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
+
+    // Cerchio rosso di selezione (se selezionato)
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 25, 0, Math.PI * 2); // Cerchio di raggio 25px attorno all'NPC
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
 
     // Quadrato per gli NPC (diversi dal triangolo del player)
     const size = 12;

@@ -6,6 +6,7 @@ import { RenderSystem } from '../systems/RenderSystem.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { PlayerControlSystem } from '../systems/PlayerControlSystem.js';
 import { NpcBehaviorSystem } from '../systems/NpcBehaviorSystem.js';
+import { NpcSelectionSystem } from '../systems/NpcSelectionSystem.js';
 import { Transform } from '../components/Transform.js';
 import { Velocity } from '../components/Velocity.js';
 import { Npc } from '../components/Npc.js';
@@ -161,9 +162,11 @@ export class PlayState extends GameState {
     const inputSystem = new InputSystem(ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(ecs);
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
+    const npcSelectionSystem = new NpcSelectionSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
+    ecs.addSystem(npcSelectionSystem); // Selezione NPC
     ecs.addSystem(playerControlSystem); // Poi controllo player
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
@@ -178,8 +181,13 @@ export class PlayState extends GameState {
     // Crea alcuni NPC
     this.createNpcs(ecs, 3); // Crea 3 NPC
 
-    // Collega input al controllo player
+    // Collega input al controllo player e selezione NPC
     inputSystem.setMouseStateCallback((pressed, x, y) => {
+      if (pressed) {
+        // Su mouse down: prima seleziona NPC se presente, poi inizia movimento
+        npcSelectionSystem.handleMouseClick(x, y);
+      }
+      // Passa sempre lo stato del mouse al controllo player (per movimento)
       playerControlSystem.handleMouseState(pressed, x, y);
     });
 

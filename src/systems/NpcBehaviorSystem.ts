@@ -63,11 +63,13 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Aggiorna il comportamento di un singolo NPC
    */
   private updateNpcBehavior(npc: Npc): void {
-    // AI semplice: cambia comportamento casualmente
-    const behaviors = ['idle', 'wander', 'circle'];
-    const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+    // Per ora, tutti gli NPC stanno fermi
+    npc.setBehavior('idle');
 
-    npc.setBehavior(randomBehavior);
+    // In futuro, possiamo riattivare comportamenti casuali:
+    // const behaviors = ['idle', 'wander', 'circle'];
+    // const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+    // npc.setBehavior(randomBehavior);
   }
 
   /**
@@ -93,7 +95,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento idle - l'NPC sta fermo
    */
   private executeIdleBehavior(velocity: Velocity): void {
-    velocity.stop();
+    // Forza la velocità a zero per assicurarsi che stia fermo
+    velocity.setVelocity(0, 0);
+    velocity.setAngularVelocity(0);
   }
 
   /**
