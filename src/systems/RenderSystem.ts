@@ -5,7 +5,7 @@ import { Npc } from '../components/Npc';
 import { SelectedNpc } from '../components/SelectedNpc';
 import { Health } from '../components/Health';
 import { Damage } from '../components/Damage';
-import { Projectile } from '../components/Projectile';
+import { Projectile } from '../components/Projectile.js';
 import { MovementSystem } from './MovementSystem';
 
 /**

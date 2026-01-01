@@ -1,7 +1,7 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
 import { Transform } from '../components/Transform';
-import { Projectile } from '../components/Projectile';
+import { Projectile } from '../components/Projectile.js';
 import { Health } from '../components/Health';
 
 /**
