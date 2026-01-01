@@ -26,42 +26,35 @@ export class NpcSelectionSystem extends BaseSystem {
   }
 
   /**
-   * Gestisce un click del mouse alle coordinate schermo
+   * Gestisce un click del mouse alle coordinate mondo
    */
-  handleMouseClick(screenX: number, screenY: number): void {
+  handleMouseClick(worldX: number, worldY: number): void {
     // Trova l'NPC più vicino al punto di click (se entro una certa distanza)
-    const clickedNpc = this.findNpcAtScreenPosition(screenX, screenY);
+    const clickedNpc = this.findNpcAtWorldPosition(worldX, worldY);
 
     if (clickedNpc) {
       this.selectNpc(clickedNpc);
       this.onNpcClick?.(clickedNpc);
-      console.log(`NPC selected at screen position: (${screenX}, ${screenY})`);
-    } else {
-      // Click su area vuota - deseleziona tutti gli NPC
-      this.deselectAllNpcs();
-      console.log('No NPC clicked - deselected all');
+      console.log(`NPC selected at world position: (${worldX.toFixed(0)}, ${worldY.toFixed(0)})`);
     }
+    // Nota: Non deselezionare automaticamente se non si clicca su un NPC
+    // La selezione rimane attiva fino a quando non si clicca su un altro NPC
   }
 
   /**
-   * Trova l'NPC più vicino alla posizione schermo (se entro 30px)
+   * Trova l'NPC più vicino alla posizione mondo (se entro 50px)
    */
-  private findNpcAtScreenPosition(screenX: number, screenY: number): any | null {
+  private findNpcAtWorldPosition(worldX: number, worldY: number): any | null {
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
     let closestNpc: any = null;
-    let closestDistance = 30; // Distanza massima per il click (30px)
+    let closestDistance = 50; // Distanza massima per il click (50px nel mondo)
 
     for (const npcEntity of npcs) {
       const transform = this.ecs.getComponent(npcEntity, Transform);
       if (transform) {
-        // Converti coordinate mondo in schermo (semplificato, assumendo camera centrata su player)
-        // In un sistema reale, dovremmo usare la camera per la conversione precisa
-        const npcScreenX = transform.x; // Per ora semplificato
-        const npcScreenY = transform.y;
-
         const distance = Math.sqrt(
-          Math.pow(screenX - npcScreenX, 2) +
-          Math.pow(screenY - npcScreenY, 2)
+          Math.pow(worldX - transform.x, 2) +
+          Math.pow(worldY - transform.y, 2)
         );
 
         if (distance < closestDistance) {

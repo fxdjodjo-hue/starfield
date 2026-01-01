@@ -10,7 +10,6 @@ import { NpcSelectionSystem } from '../systems/NpcSelectionSystem.js';
 import { Transform } from '../components/Transform.js';
 import { Velocity } from '../components/Velocity.js';
 import { Npc } from '../components/Npc.js';
-import { Npc } from '../components/Npc.js';
 
 /**
  * Stato del gameplay attivo
@@ -186,7 +185,11 @@ export class PlayState extends GameState {
     inputSystem.setMouseStateCallback((pressed, x, y) => {
       if (pressed) {
         // Su mouse down: prima seleziona NPC se presente, poi inizia movimento
-        npcSelectionSystem.handleMouseClick(x, y);
+        // Converte coordinate schermo in mondo per la selezione
+        const canvasSize = this.world.getCanvasSize();
+        const worldX = x - canvasSize.width / 2;
+        const worldY = y - canvasSize.height / 2;
+        npcSelectionSystem.handleMouseClick(worldX, worldY);
       }
       // Passa sempre lo stato del mouse al controllo player (per movimento)
       playerControlSystem.handleMouseState(pressed, x, y);
