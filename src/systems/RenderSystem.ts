@@ -3,6 +3,7 @@ import { ECS } from '../ecs/ECS';
 import { Transform } from '../components/Transform';
 import { Npc } from '../components/Npc';
 import { SelectedNpc } from '../components/SelectedNpc';
+import { Health } from '../components/Health';
 import { MovementSystem } from './MovementSystem';
 
 /**
@@ -42,6 +43,12 @@ export class RenderSystem extends BaseSystem {
         } else {
           // Renderizza come player
           this.renderEntity(ctx, transform, screenPos.x, screenPos.y);
+        }
+
+        // Renderizza la barra della salute se l'entità ha Health
+        const health = this.ecs.getComponent(entity, Health);
+        if (health) {
+          this.renderHealthBar(ctx, screenPos.x, screenPos.y, health);
         }
       }
     }
@@ -116,5 +123,36 @@ export class RenderSystem extends BaseSystem {
     ctx.fill();
 
     ctx.restore();
+  }
+
+  /**
+   * Renderizza una barra della salute sopra l'entità
+   */
+  private renderHealthBar(ctx: CanvasRenderingContext2D, x: number, y: number, health: Health): void {
+    const barWidth = 40;
+    const barHeight = 6;
+    const barY = y - 35; // Posiziona sopra l'entità
+
+    // Sfondo barra (rosso scuro)
+    ctx.fillStyle = '#330000';
+    ctx.fillRect(x - barWidth/2, barY, barWidth, barHeight);
+
+    // Barra salute (verde per buona salute, giallo per media, rosso per bassa)
+    const healthPercent = health.getHealthPercentage();
+    let healthColor = '#00ff00'; // Verde
+
+    if (healthPercent < 0.3) {
+      healthColor = '#ff0000'; // Rosso
+    } else if (healthPercent < 0.6) {
+      healthColor = '#ffff00'; // Giallo
+    }
+
+    ctx.fillStyle = healthColor;
+    ctx.fillRect(x - barWidth/2, barY, barWidth * healthPercent, barHeight);
+
+    // Bordino bianco
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - barWidth/2, barY, barWidth, barHeight);
   }
 }

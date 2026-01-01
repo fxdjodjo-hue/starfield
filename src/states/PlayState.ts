@@ -7,9 +7,12 @@ import { InputSystem } from '../systems/InputSystem.js';
 import { PlayerControlSystem } from '../systems/PlayerControlSystem.js';
 import { NpcBehaviorSystem } from '../systems/NpcBehaviorSystem.js';
 import { NpcSelectionSystem } from '../systems/NpcSelectionSystem.js';
+import { CombatSystem } from '../systems/CombatSystem.js';
 import { Transform } from '../components/Transform.js';
 import { Velocity } from '../components/Velocity.js';
 import { Npc } from '../components/Npc.js';
+import { Health } from '../components/Health.js';
+import { Damage } from '../components/Damage.js';
 
 /**
  * Stato del gameplay attivo
@@ -163,11 +166,13 @@ export class PlayState extends GameState {
     const playerControlSystem = new PlayerControlSystem(ecs);
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
+    const combatSystem = new CombatSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
     ecs.addSystem(npcSelectionSystem); // Selezione NPC
     ecs.addSystem(playerControlSystem); // Poi controllo player
+    ecs.addSystem(combatSystem);       // Sistema combattimento
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Infine rendering
@@ -198,6 +203,13 @@ export class PlayState extends GameState {
     inputSystem.setMouseMoveWhilePressedCallback((x, y) => {
       playerControlSystem.handleMouseMoveWhilePressed(x, y);
     });
+
+    // Collega la barra spaziatrice all'attacco
+    inputSystem.setKeyPressCallback((key) => {
+      if (key === 'Space') {
+        combatSystem.attackSelectedNpc();
+      }
+    });
   }
 
   /**
@@ -214,6 +226,8 @@ export class PlayState extends GameState {
     // Aggiungi componenti alla nave player
     ecs.addComponent(ship, Transform, new Transform(worldCenterX, worldCenterY, 0)); // Centro del mondo
     ecs.addComponent(ship, Velocity, new Velocity(0, 0, 0)); // Inizialmente ferma
+    ecs.addComponent(ship, Health, new Health(100, 100)); // 100 HP
+    ecs.addComponent(ship, Damage, new Damage(25, 80, 500)); // 25 danno, 80 range, 500ms cooldown
 
     console.log(`Created player ship at world center: (${worldCenterX}, ${worldCenterY})`);
     return ship;
@@ -235,6 +249,8 @@ export class PlayState extends GameState {
       // Aggiungi componenti all'NPC
       ecs.addComponent(npc, Transform, new Transform(x, y, 0));
       ecs.addComponent(npc, Velocity, new Velocity(0, 0, 0));
+      ecs.addComponent(npc, Health, new Health(50, 50)); // 50 HP per gli NPC
+      ecs.addComponent(npc, Damage, new Damage(10, 60, 1000)); // 10 danno, 60 range, 1000ms cooldown
       ecs.addComponent(npc, Npc, new Npc('patrol', 'idle'));
 
       console.log(`Created NPC ${i + 1} at position: (${x.toFixed(0)}, ${y.toFixed(0)})`);

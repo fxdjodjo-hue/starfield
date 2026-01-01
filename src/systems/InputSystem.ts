@@ -11,6 +11,7 @@ export class InputSystem extends BaseSystem {
   private isMouseDown = false;
   private onMouseState?: (pressed: boolean, x: number, y: number) => void;
   private onMouseMoveWhilePressed?: (x: number, y: number) => void;
+  private onKeyPress?: (key: string) => void;
 
   constructor(ecs: ECS, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -30,6 +31,13 @@ export class InputSystem extends BaseSystem {
    */
   setMouseMoveWhilePressedCallback(callback: (x: number, y: number) => void): void {
     this.onMouseMoveWhilePressed = callback;
+  }
+
+  /**
+   * Imposta il callback per la pressione dei tasti
+   */
+  setKeyPressCallback(callback: (key: string) => void): void {
+    this.onKeyPress = callback;
   }
 
 
@@ -81,6 +89,15 @@ export class InputSystem extends BaseSystem {
       if (event.button === 0) {
         this.isMouseDown = false;
         this.onMouseState?.(false, this.mousePosition.x, this.mousePosition.y);
+      }
+    });
+
+    // Gestione tastiera
+    window.addEventListener('keydown', (event) => {
+      // Preveniamo comportamenti di default per alcuni tasti
+      if (event.code === 'Space') {
+        event.preventDefault();
+        this.onKeyPress?.('Space');
       }
     });
 
