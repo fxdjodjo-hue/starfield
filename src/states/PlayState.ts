@@ -5,8 +5,10 @@ import { MovementSystem } from '../systems/MovementSystem.js';
 import { RenderSystem } from '../systems/RenderSystem.js';
 import { InputSystem } from '../systems/InputSystem.js';
 import { PlayerControlSystem } from '../systems/PlayerControlSystem.js';
+import { NpcBehaviorSystem } from '../systems/NpcBehaviorSystem.js';
 import { Transform } from '../components/Transform.js';
 import { Velocity } from '../components/Velocity.js';
+import { Npc } from '../components/Npc.js';
 
 /**
  * Stato del gameplay attivo
@@ -158,10 +160,12 @@ export class PlayState extends GameState {
     const renderSystem = new RenderSystem(ecs, movementSystem);
     const inputSystem = new InputSystem(ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(ecs);
+    const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
     ecs.addSystem(playerControlSystem); // Poi controllo player
+    ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Infine rendering
 
@@ -170,6 +174,9 @@ export class PlayState extends GameState {
 
     // Imposta il player nel sistema di controllo
     playerControlSystem.setPlayerEntity(playerShip);
+
+    // Crea alcuni NPC
+    this.createNpcs(ecs, 3); // Crea 3 NPC
 
     // Collega input al controllo player
     inputSystem.setMouseStateCallback((pressed, x, y) => {
@@ -198,6 +205,30 @@ export class PlayState extends GameState {
 
     console.log(`Created player ship at world center: (${worldCenterX}, ${worldCenterY})`);
     return ship;
+  }
+
+  /**
+   * Crea NPC nel mondo di gioco
+   */
+  private createNpcs(ecs: any, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const npc = ecs.createEntity();
+
+      // Posizioni casuali attorno al player
+      const angle = (Math.PI * 2 * i) / count;
+      const distance = 200 + Math.random() * 100; // Tra 200 e 300 pixel dal centro
+      const x = Math.cos(angle) * distance;
+      const y = Math.sin(angle) * distance;
+
+      // Aggiungi componenti all'NPC
+      ecs.addComponent(npc, Transform, new Transform(x, y, 0));
+      ecs.addComponent(npc, Velocity, new Velocity(0, 0, 0));
+      ecs.addComponent(npc, Npc, new Npc('patrol', 'idle'));
+
+      console.log(`Created NPC ${i + 1} at position: (${x.toFixed(0)}, ${y.toFixed(0)})`);
+    }
+
+    console.log(`Created ${count} NPCs`);
   }
 
   /**
