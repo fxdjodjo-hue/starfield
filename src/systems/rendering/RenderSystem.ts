@@ -416,7 +416,7 @@ export class RenderSystem extends BaseSystem {
 
       // Colore basato sul comportamento
       let lineColor = '#ffffff'; // Bianco di default
-      let lineLength = 30; // Lunghezza della linea
+      let lineLength = 20; // Lunghezza più corta, più vicina all'NPC
 
       switch (npc.behavior) {
         case 'cruise':
@@ -427,11 +427,11 @@ export class RenderSystem extends BaseSystem {
           break;
         case 'circle':
           lineColor = '#ff8800'; // Arancione per circle
-          lineLength = 20; // Più corta per circle
+          lineLength = 15; // Più corta per circle
           break;
         case 'pursuit':
           lineColor = '#ff0000'; // Rosso per pursuit
-          lineLength = 50; // Più lunga per pursuit
+          lineLength = 30; // Lunghezza media per pursuit
           break;
       }
 
@@ -443,8 +443,8 @@ export class RenderSystem extends BaseSystem {
       ctx.lineWidth = 2;
       ctx.stroke();
 
-      // Punta della freccia
-      const arrowSize = 5;
+      // Punta della freccia (più piccola e proporzionale)
+      const arrowSize = 3;
       ctx.beginPath();
       ctx.moveTo(directionX * lineLength, directionY * lineLength);
       ctx.lineTo(
@@ -460,11 +460,11 @@ export class RenderSystem extends BaseSystem {
       ctx.fill();
     }
 
-    // Testo del comportamento
-    ctx.font = 'bold 10px monospace';
+    // Testo del comportamento (più vicino all'NPC)
+    ctx.font = 'bold 9px monospace';
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
 
@@ -472,18 +472,18 @@ export class RenderSystem extends BaseSystem {
     const text = npc.behavior.toUpperCase();
     const textMetrics = ctx.measureText(text);
     const textWidth = textMetrics.width;
-    const textHeight = 12;
+    const textHeight = 10;
 
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(-textWidth/2 - 2, -35 - textHeight, textWidth + 4, textHeight + 2);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(-textWidth/2 - 1, -20 - textHeight, textWidth + 2, textHeight + 1);
 
     // Testo del comportamento
     ctx.strokeStyle = '#000000';
-    ctx.lineWidth = 2;
-    ctx.strokeText(text, 0, -35);
+    ctx.lineWidth = 1;
+    ctx.strokeText(text, 0, -20);
 
     ctx.fillStyle = '#ffffff';
-    ctx.fillText(text, 0, -35);
+    ctx.fillText(text, 0, -20);
 
     // Linea verso il player se in pursuit
     if (npc.behavior === 'pursuit') {
