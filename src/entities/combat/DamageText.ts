@@ -7,8 +7,9 @@ import { Component } from '/src/infrastructure/ecs/Component';
 export class DamageText extends Component {
   public value: number;
   public targetEntityId: number; // ID dell'entità da seguire
-  public offsetX: number; // Offset orizzontale dal centro dell'entità
-  public offsetY: number; // Offset verticale dal centro dell'entità
+  public initialOffsetX: number; // Offset orizzontale iniziale dal centro dell'entità
+  public initialOffsetY: number; // Offset verticale iniziale dal centro dell'entità
+  public currentOffsetY: number; // Offset verticale corrente (si muove verso l'alto)
   public lifetime: number;
   public maxLifetime: number;
   public color: string;
@@ -17,8 +18,9 @@ export class DamageText extends Component {
     super();
     this.value = value;
     this.targetEntityId = targetEntityId;
-    this.offsetX = offsetX;
-    this.offsetY = offsetY;
+    this.initialOffsetX = offsetX;
+    this.initialOffsetY = offsetY;
+    this.currentOffsetY = offsetY; // Inizia dalla posizione iniziale
     this.lifetime = lifetime;
     this.maxLifetime = lifetime;
     this.color = color;

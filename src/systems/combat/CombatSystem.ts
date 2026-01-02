@@ -78,7 +78,6 @@ export class CombatSystem extends BaseSystem {
    * Crea un proiettile dall'attaccante verso il target
    */
   private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any): void {
-    console.log(`[Combat] Entity ${attackerEntity.id} attacking entity ${targetEntity.id}`);
     // Calcola direzione del proiettile (verso il target)
     const dx = targetTransform.x - attackerTransform.x;
     const dy = targetTransform.y - attackerTransform.y;
