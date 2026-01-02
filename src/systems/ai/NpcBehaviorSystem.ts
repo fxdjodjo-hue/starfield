@@ -85,7 +85,7 @@ export class NpcBehaviorSystem extends BaseSystem {
 
       if (npc && transform && velocity) {
         this.executeNpcBehavior(npc, transform, velocity, deltaTime, entity.id);
-        this.enforceWorldBounds(transform, velocity);
+        this.enforceWorldBounds(transform, velocity, entity.id);
       }
     }
   }
@@ -487,51 +487,89 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   /**
-   * Impone i confini del mondo agli NPC per evitare che escano
+   * Impone i confini del mondo agli NPC con controllo PREVENTIVO
+   * Gli NPC cambiano direzione prima di raggiungere i bounds
    */
-  private enforceWorldBounds(transform: Transform, velocity: Velocity): void {
+  private enforceWorldBounds(transform: Transform, velocity: Velocity, entityId: number): void {
     const margin = 50; // Margine dai bordi per evitare che gli NPC si blocchino esattamente sui confini
+    const preventionDistance = 200; // Distanza preventiva per cambiare direzione (più grande per cambi tempestivi)
     const worldLeft = -CONFIG.WORLD_WIDTH / 2 + margin;
     const worldRight = CONFIG.WORLD_WIDTH / 2 - margin;
     const worldTop = -CONFIG.WORLD_HEIGHT / 2 + margin;
     const worldBottom = CONFIG.WORLD_HEIGHT / 2 - margin;
 
+    let needsDirectionChange = false;
+
+    // 🎯 CONTROLLO PREVENTIVO: cambia direzione prima di raggiungere i bounds
+    if (velocity.x < 0 && transform.x < worldLeft + preventionDistance) {
+      // Sta andando a sinistra e si avvicina al bound sinistro → cambia direzione verso destra
+      velocity.x = Math.abs(velocity.x);
+      needsDirectionChange = true;
+    } else if (velocity.x > 0 && transform.x > worldRight - preventionDistance) {
+      // Sta andando a destra e si avvicina al bound destro → cambia direzione verso sinistra
+      velocity.x = -Math.abs(velocity.x);
+      needsDirectionChange = true;
+    }
+
+    if (velocity.y < 0 && transform.y < worldTop + preventionDistance) {
+      // Sta andando in alto e si avvicina al bound superiore → cambia direzione verso il basso
+      velocity.y = Math.abs(velocity.y);
+      needsDirectionChange = true;
+    } else if (velocity.y > 0 && transform.y > worldBottom - preventionDistance) {
+      // Sta andando in basso e si avvicina al bound inferiore → cambia direzione verso l'alto
+      velocity.y = -Math.abs(velocity.y);
+      needsDirectionChange = true;
+    }
+
+    // 🛡️ CONTROLLO REATTIVO: backup se nonostante tutto è uscito dai bounds
     let bounced = false;
 
-    // Controlla confini orizzontali
     if (transform.x < worldLeft) {
       transform.x = worldLeft;
-      velocity.x = Math.abs(velocity.x); // Rimbalza verso destra
+      velocity.x = Math.abs(velocity.x);
       bounced = true;
     } else if (transform.x > worldRight) {
       transform.x = worldRight;
-      velocity.x = -Math.abs(velocity.x); // Rimbalza verso sinistra
+      velocity.x = -Math.abs(velocity.x);
       bounced = true;
     }
 
-    // Controlla confini verticali
     if (transform.y < worldTop) {
       transform.y = worldTop;
-      velocity.y = Math.abs(velocity.y); // Rimbalza verso il basso
+      velocity.y = Math.abs(velocity.y);
       bounced = true;
     } else if (transform.y > worldBottom) {
       transform.y = worldBottom;
-      velocity.y = -Math.abs(velocity.y); // Rimbalza verso l'alto
+      velocity.y = -Math.abs(velocity.y);
       bounced = true;
     }
 
-    // Se ha rimbalzato, cambia leggermente direzione per evitare loop
-    if (bounced) {
-      // Aggiungi una piccola variazione casuale alla direzione
-      const angleVariation = (Math.random() - 0.5) * Math.PI * 0.3; // ±27 gradi
-      const currentSpeed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+    // 🔄 Aggiorna stato movimento fluido se ha cambiato direzione
+    if (needsDirectionChange || bounced) {
+      const npcState = this.npcStates.get(entityId);
+      if (npcState) {
+        npcState.targetAngle = Math.atan2(velocity.y, velocity.x);
+        npcState.patrolAngle = npcState.targetAngle;
+      }
 
-      if (currentSpeed > 0) {
-        const currentAngle = Math.atan2(velocity.y, velocity.x);
-        const newAngle = currentAngle + angleVariation;
+      // Aggiungi variazione casuale per comportamenti più naturali
+      if (needsDirectionChange) {
+        const angleVariation = (Math.random() - 0.5) * Math.PI * 0.4; // ±36 gradi
+        const currentSpeed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
 
-        velocity.x = Math.cos(newAngle) * currentSpeed;
-        velocity.y = Math.sin(newAngle) * currentSpeed;
+        if (currentSpeed > 0) {
+          const currentAngle = Math.atan2(velocity.y, velocity.x);
+          const newAngle = currentAngle + angleVariation;
+
+          velocity.x = Math.cos(newAngle) * currentSpeed;
+          velocity.y = Math.sin(newAngle) * currentSpeed;
+
+          // Aggiorna anche lo stato
+          if (npcState) {
+            npcState.targetAngle = newAngle;
+            npcState.patrolAngle = newAngle;
+          }
+        }
       }
     }
   }
