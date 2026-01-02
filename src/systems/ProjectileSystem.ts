@@ -6,13 +6,17 @@ import { Health } from '../components/Health';
 import { Damage } from '../components/Damage';
 import { SelectedNpc } from '../components/SelectedNpc';
 import { DamageTextSystem } from './DamageTextSystem';
+import { MovementSystem } from './MovementSystem';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
  */
 export class ProjectileSystem extends BaseSystem {
-  constructor(ecs: ECS) {
+  private movementSystem: MovementSystem;
+
+  constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
+    this.movementSystem = movementSystem;
   }
 
   update(deltaTime: number): void {
@@ -144,13 +148,21 @@ export class ProjectileSystem extends BaseSystem {
         // Crea testo di danno
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
         if (targetTransform) {
+          // Converti coordinate mondo in coordinate schermo
+          const canvasSize = (this.ecs as any).context?.canvas ?
+                            { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
+                            { width: window.innerWidth, height: window.innerHeight };
+
+          const camera = this.movementSystem.getCamera();
+          const screenPos = camera.worldToScreen(targetTransform.x, targetTransform.y - 30, canvasSize.width, canvasSize.height);
+
           // Determina il colore del testo (rosso per danno al player, bianco per NPC)
           const isPlayerDamage = this.ecs.hasComponent(targetEntity, Damage) &&
                                 !this.ecs.hasComponent(targetEntity, SelectedNpc);
           const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
 
-          // Crea testo leggermente sopra l'entità colpita
-          this.createDamageText(damageDealt, targetTransform.x, targetTransform.y - 30, textColor);
+          // Crea testo nelle coordinate schermo
+          this.createDamageText(damageDealt, screenPos.x, screenPos.y, textColor);
         }
 
         // Rimuovi il proiettile dopo l'impatto

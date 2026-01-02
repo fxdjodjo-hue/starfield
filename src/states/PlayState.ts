@@ -309,7 +309,7 @@ export class PlayState extends GameState {
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const combatSystem = new CombatSystem(ecs);
-    const projectileSystem = new ProjectileSystem(ecs);
+    const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
