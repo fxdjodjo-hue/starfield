@@ -402,29 +402,50 @@ export class PlayState extends GameState {
 
 
   /**
-   * Crea Streuner (NPC che si muovono) nel mondo di gioco con spaziatura garantita
+   * Crea Streuner distribuiti uniformemente su tutta la mappa
    */
   private createStreuner(ecs: any, count: number): void {
-    const minDistance = 80; // Distanza minima tra Streuner (ridotta per 50 NPC)
-    const baseRadius = 400; // Raggio base dal centro (aumentato)
-    const radiusVariation = 400; // Variazione del raggio (+/- 400 pixel, aumentata)
+    const minDistance = 100; // Distanza minima tra Streuner
+    const minDistanceFromPlayer = 200; // Distanza minima dal player (centro)
+    const worldWidth = CONFIG.WORLD_WIDTH;
+    const worldHeight = CONFIG.WORLD_HEIGHT;
     const positions: { x: number, y: number }[] = [];
+
+    // Dividi la mappa in una griglia per distribuzione uniforme
+    const gridCols = Math.ceil(Math.sqrt(count * worldWidth / worldHeight));
+    const gridRows = Math.ceil(count / gridCols);
 
     for (let i = 0; i < count; i++) {
       let attempts = 0;
       let validPosition = false;
       let x = 0, y = 0;
 
-      // Trova una posizione valida che non sia troppo vicina ad altri Streuner
-      while (!validPosition && attempts < 50) { // Max 50 tentativi per posizione
-        // Distribuisci equamente in cerchio con variazione casuale
-        const baseAngle = (Math.PI * 2 * i) / count;
-        const angleVariation = (Math.random() - 0.5) * Math.PI * 0.5; // +/- 45 gradi
-        const angle = baseAngle + angleVariation;
+      // Trova una posizione valida distribuita uniformemente
+      while (!validPosition && attempts < 100) { // Più tentativi per distribuzione uniforme
+        // Usa una distribuzione a griglia con variazioni casuali
+        const gridX = i % gridCols;
+        const gridY = Math.floor(i / gridCols);
 
-        const radius = baseRadius + (Math.random() - 0.5) * radiusVariation;
-        x = Math.cos(angle) * radius;
-        y = Math.sin(angle) * radius;
+        // Calcola posizione base nella griglia
+        const cellWidth = worldWidth / gridCols;
+        const cellHeight = worldHeight / gridRows;
+
+        const baseX = gridX * cellWidth + cellWidth / 2 - worldWidth / 2;
+        const baseY = gridY * cellHeight + cellHeight / 2 - worldHeight / 2;
+
+        // Aggiungi variazione casuale entro la cella
+        const variationX = (Math.random() - 0.5) * cellWidth * 0.8; // 80% della cella
+        const variationY = (Math.random() - 0.5) * cellHeight * 0.8;
+
+        x = baseX + variationX;
+        y = baseY + variationY;
+
+        // Verifica che non sia troppo vicino al player
+        const distanceFromPlayer = Math.sqrt(x * x + y * y);
+        if (distanceFromPlayer < minDistanceFromPlayer) {
+          attempts++;
+          continue;
+        }
 
         // Verifica che non sia troppo vicino ad altri Streuner
         validPosition = positions.every(pos => {
@@ -435,7 +456,19 @@ export class PlayState extends GameState {
         attempts++;
       }
 
-      // Se dopo 50 tentativi non trova posizione valida, usa comunque quella corrente
+      // Se dopo 100 tentativi non trova posizione valida, posiziona casualmente
+      if (!validPosition) {
+        x = (Math.random() - 0.5) * worldWidth;
+        y = (Math.random() - 0.5) * worldHeight;
+
+        // Assicurati che non sia troppo vicino al player
+        const distanceFromPlayer = Math.sqrt(x * x + y * y);
+        if (distanceFromPlayer < minDistanceFromPlayer) {
+          x = x * (worldWidth / 2 / distanceFromPlayer);
+          y = y * (worldWidth / 2 / distanceFromPlayer);
+        }
+      }
+
       positions.push({ x, y });
 
       const streuner = ecs.createEntity();

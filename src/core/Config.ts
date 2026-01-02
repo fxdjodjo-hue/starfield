@@ -14,8 +14,8 @@ export const CONFIG = {
   BACKGROUND_COLOR: '#000011',
 
   // World
-  WORLD_WIDTH: 2000,
-  WORLD_HEIGHT: 1500,
+  WORLD_WIDTH: 21000,
+  WORLD_HEIGHT: 13100,
 
 
   // Debug
