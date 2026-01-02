@@ -427,6 +427,7 @@ export class PlayState extends GameState {
         // Prova a selezionare NPC
         const canvasSize = this.world.getCanvasSize();
         const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
+        console.log(`[DEBUG] Mouse click at screen: (${x}, ${y}) -> world: (${worldPos.x.toFixed(1)}, ${worldPos.y.toFixed(1)})`);
         const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
 
         // Se non ha selezionato un NPC, attiva il movimento del player normale
