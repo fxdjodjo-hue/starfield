@@ -120,8 +120,9 @@ export class MinimapSystem extends System {
       const transform = this.ecs.getComponent(entityId, Transform);
       if (transform) {
         const isSelected = this.ecs.getComponent(entityId, SelectedNpc) !== null;
-        this.renderEntityDot(ctx, transform.x, transform.y,
-                           isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor);
+        // Debug: forza sempre colore rosso per verificare
+        const color = this.minimap.npcColor; // Forza sempre rosso per debug
+        this.renderEntityDot(ctx, transform.x, transform.y, color);
       }
     });
   }
