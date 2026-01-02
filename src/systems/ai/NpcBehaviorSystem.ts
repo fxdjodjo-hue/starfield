@@ -3,6 +3,7 @@ import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Npc } from '/src/entities/ai/Npc';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
+import { Damage } from '/src/entities/combat/Damage';
 import { CONFIG } from '/src/utils/config/Config';
 
 /**
@@ -93,12 +94,20 @@ export class NpcBehaviorSystem extends BaseSystem {
   private updateNpcBehavior(npc: Npc, entityId: number): void {
     // Solo gli Scouter cambiano comportamento periodicamente
     if (npc.npcType === 'Scouter') {
-      // Comportamenti più fluidi per gli Scouter
-      // cruise: mantiene direzione molto a lungo (tratte lunghissime)
-      // patrol: mantiene direzione più a lungo
-      // wander: cambia direzione gradualmente
-      // circle: movimento circolare fluido
-      const behaviors = ['cruise', 'patrol', 'wander', 'circle'];
+      // Controlla se l'NPC ha attaccato recentemente (negli ultimi 2 secondi)
+      const isAttackingPlayer = this.isNpcAttackingPlayer(entityId);
+
+      // Comportamenti disponibili
+      let behaviors: string[];
+
+      if (isAttackingPlayer) {
+        // Quando attacca il player: può usare circle per movimenti evasivi
+        behaviors = ['cruise', 'patrol', 'circle'];
+      } else {
+        // Quando non attacca: solo cruise e patrol per movimenti normali
+        behaviors = ['cruise', 'patrol'];
+      }
+
       const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
       npc.setBehavior(randomBehavior);
 
@@ -106,6 +115,23 @@ export class NpcBehaviorSystem extends BaseSystem {
       this.initializeNpcStateForEntity(entityId, npc);
     }
     // Gli altri NPC mantengono il loro comportamento attuale
+  }
+
+  /**
+   * Verifica se un NPC sta attaccando il player (ha sparato negli ultimi 2 secondi)
+   */
+  private isNpcAttackingPlayer(entityId: number): boolean {
+    const entities = this.ecs.getEntitiesWithComponents(Damage);
+    const entity = entities.find(e => e.id === entityId);
+
+    if (!entity) return false;
+
+    const damageComponent = this.ecs.getComponent(entity, Damage);
+    if (!damageComponent) return false;
+
+    // Controlla se ha attaccato negli ultimi 2 secondi
+    const timeSinceLastAttack = Date.now() - damageComponent['lastAttackTime'];
+    return timeSinceLastAttack < 2000; // 2000ms = 2 secondi
   }
 
   /**
@@ -126,6 +152,16 @@ export class NpcBehaviorSystem extends BaseSystem {
       }
     }
 
+    // Controlla se l'NPC sta combattendo (player nel raggio di attacco)
+    const isInCombat = this.isNpcInCombat(entity, transform);
+
+    // Se sta combattendo, forza comportamento circle
+    if (isInCombat && npc.npcType === 'Scouter') {
+      this.executeSmoothCircleBehavior(transform, velocity, deltaTime, state);
+      return; // Salta la logica normale dei comportamenti
+    }
+
+    // Logica normale dei comportamenti
     switch (npc.behavior) {
       case 'idle':
         this.executeIdleBehavior(velocity);
@@ -133,10 +169,9 @@ export class NpcBehaviorSystem extends BaseSystem {
       case 'patrol':
         this.executePatrolBehavior(transform, velocity, deltaTime, state);
         break;
-      case 'wander':
-        this.executeSmoothWanderBehavior(transform, velocity, deltaTime, state);
-        break;
       case 'circle':
+        // Circle non dovrebbe più essere selezionato casualmente
+        // ma manteniamo il case per compatibilità
         this.executeSmoothCircleBehavior(transform, velocity, deltaTime, state);
         break;
       case 'cruise':
@@ -145,6 +180,31 @@ export class NpcBehaviorSystem extends BaseSystem {
       default:
         this.executeIdleBehavior(velocity);
     }
+  }
+
+  /**
+   * Verifica se un NPC sta combattendo con il player
+   */
+  private isNpcInCombat(entity: any, npcTransform: Transform): boolean {
+    const damage = this.ecs.getComponent(entity, Damage);
+    if (!damage) return false;
+
+    // Trova il player (entità senza componente Npc)
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
+      .filter(playerEntity => !this.ecs.hasComponent(playerEntity, Npc));
+
+    if (playerEntities.length === 0) return false;
+
+    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+    if (!playerTransform) return false;
+
+    // Controlla se il player è nel raggio di attacco
+    const distance = Math.sqrt(
+      Math.pow(playerTransform.x - npcTransform.x, 2) +
+      Math.pow(playerTransform.y - npcTransform.y, 2)
+    );
+
+    return distance <= damage.range;
   }
 
   /**
@@ -172,38 +232,7 @@ export class NpcBehaviorSystem extends BaseSystem {
     this.updateSmoothVelocity(velocity, state.targetSpeed, state.patrolAngle, deltaTime, state);
   }
 
-  /**
-   * Comportamento wander fluido - cambia direzione gradualmente
-   */
-  private executeSmoothWanderBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
-    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il wander
-    velocity.setAngularVelocity(0);
 
-    // Cambia direzione gradualmente (ogni 5-10 secondi circa)
-    if (Math.random() < 0.001) { // ~0.1% probabilità per frame (molto più rara)
-      state.targetAngle = Math.random() * Math.PI * 2;
-      state.targetSpeed = 50; // Velocità fissa
-    }
-
-    this.updateSmoothVelocity(velocity, state.targetSpeed, state.targetAngle, deltaTime, state);
-  }
-
-  /**
-   * Comportamento wander - l'NPC si muove casualmente (vecchio metodo, mantenuto per compatibilità)
-   */
-  private executeWanderBehavior(transform: Transform, velocity: Velocity): void {
-    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il wander
-    velocity.setAngularVelocity(0);
-
-    // Movimento casuale con velocità moderata
-    const speed = 50; // pixels per second
-    const angle = Math.random() * Math.PI * 2; // Direzione casuale
-
-    velocity.setVelocity(
-      Math.cos(angle) * speed,
-      Math.sin(angle) * speed
-    );
-  }
 
   /**
    * Comportamento cruise - mantiene direzione fissa per tratte molto lunghe
