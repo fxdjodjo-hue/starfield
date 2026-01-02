@@ -9,6 +9,7 @@ import { NpcBehaviorSystem } from '../systems/NpcBehaviorSystem';
 import { NpcSelectionSystem } from '../systems/NpcSelectionSystem';
 import { CombatSystem } from '../systems/CombatSystem';
 import { ProjectileSystem } from '../systems/ProjectileSystem';
+import { DamageTextSystem } from '../systems/DamageTextSystem';
 import { Transform } from '../components/Transform';
 import { Velocity } from '../components/Velocity';
 import { Npc } from '../components/Npc';
@@ -309,6 +310,7 @@ export class PlayState extends GameState {
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const combatSystem = new CombatSystem(ecs);
     const projectileSystem = new ProjectileSystem(ecs);
+    const damageTextSystem = new DamageTextSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -318,7 +320,8 @@ export class PlayState extends GameState {
     ecs.addSystem(projectileSystem);   // Sistema proiettili
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
-    ecs.addSystem(renderSystem);       // Infine rendering
+    ecs.addSystem(renderSystem);       // Rendering principale
+    ecs.addSystem(damageTextSystem);   // Infine testi danno (sopra tutto)
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);

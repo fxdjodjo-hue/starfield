@@ -5,6 +5,7 @@ import { Projectile } from '../components/Projectile';
 import { Health } from '../components/Health';
 import { Damage } from '../components/Damage';
 import { SelectedNpc } from '../components/SelectedNpc';
+import { DamageTextSystem } from './DamageTextSystem';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
@@ -137,11 +138,38 @@ export class ProjectileSystem extends BaseSystem {
       const hitDistance = 15; // Raggio di collisione
       if (distance < hitDistance) {
         // Applica danno
-        targetHealth.current -= projectile.damage;
+        const damageDealt = projectile.damage;
+        targetHealth.current -= damageDealt;
+
+        // Crea testo di danno
+        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+        if (targetTransform) {
+          // Determina il colore del testo (rosso per danno al player, bianco per NPC)
+          const isPlayerDamage = this.ecs.hasComponent(targetEntity, Damage) &&
+                                !this.ecs.hasComponent(targetEntity, SelectedNpc);
+          const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
+
+          // Crea testo leggermente sopra l'entità colpita
+          this.createDamageText(damageDealt, targetTransform.x, targetTransform.y - 30, textColor);
+        }
 
         // Rimuovi il proiettile dopo l'impatto
         this.ecs.removeEntity(projectileEntity);
         return; // Un proiettile colpisce solo un bersaglio
+      }
+    }
+  }
+
+  /**
+   * Crea un testo di danno
+   */
+  private createDamageText(value: number, x: number, y: number, color: string): void {
+    // Trova il DamageTextSystem nell'ECS
+    const systems = (this.ecs as any).systems;
+    for (const system of systems) {
+      if (system instanceof DamageTextSystem) {
+        system.createDamageText(value, x, y, color);
+        break;
       }
     }
   }
