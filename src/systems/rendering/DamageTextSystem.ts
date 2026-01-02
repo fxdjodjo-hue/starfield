@@ -65,74 +65,39 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
-    const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
-
-    // Se non abbiamo il canvas, non renderizzare
-    if (!ctx.canvas) return;
-
-    const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
-
-    // Se non abbiamo la camera, non renderizzare
-    if (!this.movementSystem) {
-      this.movementSystem = this.findMovementSystem(); // Riprova a trovarla
-      if (!this.movementSystem) return;
-    }
+    if (!ctx.canvas || !this.movementSystem) return;
 
     const camera = this.movementSystem.getCamera();
     if (!camera) return;
 
-    for (const entity of damageTextEntities) {
+    const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
+
+    for (const entity of this.ecs.getEntitiesWithComponents(DamageText)) {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
-      let worldX: number;
-      let worldY: number;
-
       const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
-      if (targetEntity) {
-        // Entità ancora viva
-        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-        if (!targetTransform) continue;
+      if (!targetEntity) continue; // Se entità non esiste, testo sparisce
 
-        // Salva la posizione base dell'entità (senza offset di movimento del testo)
-        damageText.entityBaseX = targetTransform.x;
-        damageText.entityBaseY = targetTransform.y;
+      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+      if (!targetTransform) continue;
 
-        // Calcola posizione del testo con movimento
-        worldX = targetTransform.x + damageText.initialOffsetX;
-        worldY = targetTransform.y + damageText.currentOffsetY;
-        damageText.lastKnownWorldX = worldX;
-        damageText.lastKnownWorldY = worldY;
-      } else {
-        // Entità morta - usa posizione base dell'entità + offset iniziale fisso
-        worldX = damageText.entityBaseX + damageText.initialOffsetX;
-        worldY = damageText.entityBaseY + damageText.initialOffsetY;
-      }
-
+      const worldX = targetTransform.x + damageText.initialOffsetX;
+      const worldY = targetTransform.y + damageText.currentOffsetY;
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
 
-      const alpha = damageText.getAlpha();
-
-      // Salva il contesto
       ctx.save();
-
-      // Imposta stile del testo
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = damageText.getAlpha();
       ctx.fillStyle = damageText.color;
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-
-      // Aggiungi ombra per leggibilità
       ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
       ctx.shadowBlur = 4;
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      // Disegna il testo alla posizione calcolata
       ctx.fillText(damageText.value.toString(), screenPos.x, screenPos.y);
-
-      // Ripristina il contesto
       ctx.restore();
     }
   }
