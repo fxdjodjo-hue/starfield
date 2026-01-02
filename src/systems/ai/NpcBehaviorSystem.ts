@@ -3,6 +3,7 @@ import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Npc } from '/src/entities/ai/Npc';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
+import { CONFIG } from '/src/utils/config/Config';
 
 /**
  * Stato interno per gestire movimenti fluidi degli NPC
@@ -81,6 +82,7 @@ export class NpcBehaviorSystem extends BaseSystem {
 
       if (npc && transform && velocity) {
         this.executeNpcBehavior(npc, transform, velocity, deltaTime);
+        this.enforceWorldBounds(transform, velocity);
       }
     }
   }
@@ -337,6 +339,56 @@ export class NpcBehaviorSystem extends BaseSystem {
           velocityA.x = (velocityA.x / currentSpeed) * maxSpeed;
           velocityA.y = (velocityA.y / currentSpeed) * maxSpeed;
         }
+      }
+    }
+  }
+
+  /**
+   * Impone i confini del mondo agli NPC per evitare che escano
+   */
+  private enforceWorldBounds(transform: Transform, velocity: Velocity): void {
+    const margin = 50; // Margine dai bordi per evitare che gli NPC si blocchino esattamente sui confini
+    const worldLeft = -CONFIG.WORLD_WIDTH / 2 + margin;
+    const worldRight = CONFIG.WORLD_WIDTH / 2 - margin;
+    const worldTop = -CONFIG.WORLD_HEIGHT / 2 + margin;
+    const worldBottom = CONFIG.WORLD_HEIGHT / 2 - margin;
+
+    let bounced = false;
+
+    // Controlla confini orizzontali
+    if (transform.x < worldLeft) {
+      transform.x = worldLeft;
+      velocity.x = Math.abs(velocity.x); // Rimbalza verso destra
+      bounced = true;
+    } else if (transform.x > worldRight) {
+      transform.x = worldRight;
+      velocity.x = -Math.abs(velocity.x); // Rimbalza verso sinistra
+      bounced = true;
+    }
+
+    // Controlla confini verticali
+    if (transform.y < worldTop) {
+      transform.y = worldTop;
+      velocity.y = Math.abs(velocity.y); // Rimbalza verso il basso
+      bounced = true;
+    } else if (transform.y > worldBottom) {
+      transform.y = worldBottom;
+      velocity.y = -Math.abs(velocity.y); // Rimbalza verso l'alto
+      bounced = true;
+    }
+
+    // Se ha rimbalzato, cambia leggermente direzione per evitare loop
+    if (bounced) {
+      // Aggiungi una piccola variazione casuale alla direzione
+      const angleVariation = (Math.random() - 0.5) * Math.PI * 0.3; // ±27 gradi
+      const currentSpeed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+
+      if (currentSpeed > 0) {
+        const currentAngle = Math.atan2(velocity.y, velocity.x);
+        const newAngle = currentAngle + angleVariation;
+
+        velocity.x = Math.cos(newAngle) * currentSpeed;
+        velocity.y = Math.sin(newAngle) * currentSpeed;
       }
     }
   }
