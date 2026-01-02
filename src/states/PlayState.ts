@@ -419,7 +419,7 @@ export class PlayState extends GameState {
       ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0));
       ecs.addComponent(streuner, Health, new Health(40, 40)); // 40 HP per gli Streuner
       ecs.addComponent(streuner, Damage, new Damage(12, 220, 1200)); // 12 danno, 220 range, 1200ms cooldown
-      ecs.addComponent(streuner, Npc, new Npc('Streuner', 'wander')); // Tipo Streuner con movimento iniziale
+      ecs.addComponent(streuner, Npc, new Npc('Streuner', 'wander', 'Streuner')); // Tipo Streuner con nickname
     }
   }
 

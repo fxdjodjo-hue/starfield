@@ -166,6 +166,9 @@ export class RenderSystem extends BaseSystem {
       ctx.arc(0, 0, 3, 0, Math.PI * 2);
       ctx.fillStyle = '#ffffff';
       ctx.fill();
+
+      // Renderizza il nickname sopra l'NPC
+      this.renderNpcNickname(ctx, npc, 0, -20);
     }
 
     ctx.restore();
@@ -267,5 +270,34 @@ export class RenderSystem extends BaseSystem {
 
       ctx.restore();
     }
+  }
+
+  /**
+   * Renderizza il nickname dell'NPC sopra di esso
+   */
+  private renderNpcNickname(ctx: CanvasRenderingContext2D, npc: Npc, offsetX: number, offsetY: number): void {
+    if (!npc.nickname) return;
+
+    ctx.save();
+
+    // Stile del testo
+    ctx.font = 'bold 12px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 3;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Aggiungi ombra per leggibilità
+    ctx.shadowColor = '#000000';
+    ctx.shadowBlur = 4;
+
+    // Disegna il contorno nero
+    ctx.strokeText(npc.nickname, offsetX, offsetY);
+
+    // Disegna il testo bianco
+    ctx.fillText(npc.nickname, offsetX, offsetY);
+
+    ctx.restore();
   }
 }

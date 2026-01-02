@@ -7,14 +7,17 @@ import { Component } from '../ecs/Component';
 export class Npc extends Component {
   public npcType: string;
   public behavior: string;
+  public nickname: string;
 
   constructor(
     npcType: string = 'generic',
-    behavior: string = 'idle'
+    behavior: string = 'idle',
+    nickname: string = ''
   ) {
     super();
     this.npcType = npcType;
     this.behavior = behavior;
+    this.nickname = nickname || npcType; // Se non specificato, usa il tipo come nickname
   }
 
   /**
@@ -29,5 +32,12 @@ export class Npc extends Component {
    */
   setBehavior(behavior: string): void {
     this.behavior = behavior;
+  }
+
+  /**
+   * Imposta il nickname dell'NPC
+   */
+  setNickname(nickname: string): void {
+    this.nickname = nickname;
   }
 }
