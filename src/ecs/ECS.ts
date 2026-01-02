@@ -87,6 +87,23 @@ export class ECS {
   }
 
   /**
+   * Verifica se un'entità esiste
+   */
+  entityExists(id: number): boolean {
+    return this.entities.has(id);
+  }
+
+  /**
+   * Ottiene un'entità per ID
+   */
+  getEntity(id: number): Entity | undefined {
+    if (this.entities.has(id)) {
+      return new Entity(id);
+    }
+    return undefined;
+  }
+
+  /**
    * Ottiene tutte le entità che hanno determinati componenti
    */
   getEntitiesWithComponents(...componentTypes: (new (...args: any[]) => Component)[]): Entity[] {

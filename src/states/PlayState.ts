@@ -332,6 +332,8 @@ export class PlayState extends GameState {
     const playerShip = this.createPlayerShip(ecs);
     this.playerEntity = playerShip;
 
+    console.log(`PlayState: Created playerShip with id: ${playerShip?.id}`);
+
     // Imposta il player nel sistema di controllo
     playerControlSystem.setPlayerEntity(playerShip);
 
@@ -351,17 +353,17 @@ export class PlayState extends GameState {
         // Assicurati che il canvas abbia il focus per gli eventi tastiera
         this.context.canvas.focus();
 
-        // Su mouse down: prima prova a selezionare NPC
+        // Prova a selezionare NPC
         const canvasSize = this.world.getCanvasSize();
         const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
         const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
 
-        // Se non ha selezionato un NPC, attiva il movimento del player
+        // Se non ha selezionato un NPC, attiva il movimento del player normale
         if (!npcSelected) {
           playerControlSystem.handleMouseState(pressed, x, y);
         }
       } else {
-        // Su mouse up, ferma sempre il movimento del player
+        // Su mouse up, ferma il movimento del player
         playerControlSystem.handleMouseState(pressed, x, y);
       }
     });
@@ -444,6 +446,7 @@ export class PlayState extends GameState {
 
     }
   }
+
 
   /**
    * Crea elementi parallax per lo sfondo

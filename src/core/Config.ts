@@ -17,6 +17,7 @@ export const CONFIG = {
   WORLD_WIDTH: 2000,
   WORLD_HEIGHT: 1500,
 
+
   // Debug
   DEBUG_MODE: false,
 } as const;
