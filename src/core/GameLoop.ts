@@ -1,4 +1,4 @@
-import { CONFIG } from './Config';
+import { CONFIG } from '../utils/Config';
 
 /**
  * Game loop basato su requestAnimationFrame con delta time

@@ -1,9 +1,9 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { Transform } from '../components/Transform';
-import { Velocity } from '../components/Velocity';
-import { SelectedNpc } from '../components/SelectedNpc';
-import { Camera } from '../components/Camera';
+import { Transform } from '../entities/Transform';
+import { Velocity } from '../entities/Velocity';
+import { SelectedNpc } from '../entities/SelectedNpc';
+import { Camera } from '../entities/Camera';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo

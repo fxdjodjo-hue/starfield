@@ -1,8 +1,8 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { Npc } from '../components/Npc';
-import { Transform } from '../components/Transform';
-import { Velocity } from '../components/Velocity';
+import { Npc } from '../entities/Npc';
+import { Transform } from '../entities/Transform';
+import { Velocity } from '../entities/Velocity';
 
 /**
  * Stato interno per gestire movimenti fluidi degli NPC

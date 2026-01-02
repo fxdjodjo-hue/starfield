@@ -1,5 +1,5 @@
 import { ECS } from '../ecs/ECS';
-import { CONFIG } from './Config';
+import { CONFIG } from '../utils/Config';
 
 /**
  * World che gestisce il gioco, ECS e tutti i sistemi

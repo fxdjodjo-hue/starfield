@@ -1,10 +1,10 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { Transform } from '../components/Transform';
-import { Projectile } from '../components/Projectile';
-import { Health } from '../components/Health';
-import { Damage } from '../components/Damage';
-import { SelectedNpc } from '../components/SelectedNpc';
+import { Transform } from '../entities/Transform';
+import { Projectile } from '../entities/Projectile';
+import { Health } from '../entities/Health';
+import { Damage } from '../entities/Damage';
+import { SelectedNpc } from '../entities/SelectedNpc';
 import { DamageTextSystem } from './DamageTextSystem';
 import { MovementSystem } from './MovementSystem';
 

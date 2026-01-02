@@ -10,14 +10,14 @@ import { NpcSelectionSystem } from '../systems/NpcSelectionSystem';
 import { CombatSystem } from '../systems/CombatSystem';
 import { ProjectileSystem } from '../systems/ProjectileSystem';
 import { DamageTextSystem } from '../systems/DamageTextSystem';
-import { Transform } from '../components/Transform';
-import { Velocity } from '../components/Velocity';
-import { Npc } from '../components/Npc';
-import { SelectedNpc } from '../components/SelectedNpc';
-import { Health } from '../components/Health';
-import { Damage } from '../components/Damage';
-import { ParallaxLayer } from '../components/ParallaxLayer';
-import { CONFIG } from '../core/Config';
+import { Transform } from '../entities/Transform';
+import { Velocity } from '../entities/Velocity';
+import { Npc } from '../entities/Npc';
+import { SelectedNpc } from '../entities/SelectedNpc';
+import { Health } from '../entities/Health';
+import { Damage } from '../entities/Damage';
+import { ParallaxLayer } from '../entities/ParallaxLayer';
+import { CONFIG } from '../utils/Config';
 
 /**
  * Stato del gameplay attivo

@@ -1,11 +1,11 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { Health } from '../components/Health';
-import { Damage } from '../components/Damage';
-import { Transform } from '../components/Transform';
-import { SelectedNpc } from '../components/SelectedNpc';
-import { Npc } from '../components/Npc';
-import { Projectile } from '../components/Projectile';
+import { Health } from '../entities/Health';
+import { Damage } from '../entities/Damage';
+import { Transform } from '../entities/Transform';
+import { SelectedNpc } from '../entities/SelectedNpc';
+import { Npc } from '../entities/Npc';
+import { Projectile } from '../entities/Projectile';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità

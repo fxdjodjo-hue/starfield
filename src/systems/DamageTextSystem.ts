@@ -1,6 +1,6 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { DamageText } from '../components/DamageText';
+import { DamageText } from '../entities/DamageText';
 
 /**
  * Sistema per gestire e renderizzare testi di danno fluttuanti

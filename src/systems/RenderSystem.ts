@@ -1,14 +1,14 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { Transform } from '../components/Transform';
-import { Npc } from '../components/Npc';
-import { SelectedNpc } from '../components/SelectedNpc';
-import { Health } from '../components/Health';
-import { Damage } from '../components/Damage';
-import { Projectile } from '../components/Projectile';
-import { Camera } from '../components/Camera';
+import { Transform } from '../entities/Transform';
+import { Npc } from '../entities/Npc';
+import { SelectedNpc } from '../entities/SelectedNpc';
+import { Health } from '../entities/Health';
+import { Damage } from '../entities/Damage';
+import { Projectile } from '../entities/Projectile';
+import { Camera } from '../entities/Camera';
 import { MovementSystem } from './MovementSystem';
-import { ParallaxLayer } from '../components/ParallaxLayer';
+import { ParallaxLayer } from '../entities/ParallaxLayer';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -27,7 +27,6 @@ export class RenderSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    console.log('RenderSystem.render() called');
     const camera = this.movementSystem.getCamera();
 
     // Renderizza stelle di sfondo semplici

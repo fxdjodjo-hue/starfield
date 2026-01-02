@@ -1,9 +1,9 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { Transform } from '../components/Transform';
-import { Velocity } from '../components/Velocity';
-import { Camera } from '../components/Camera';
-import { Npc } from '../components/Npc';
+import { Transform } from '../entities/Transform';
+import { Velocity } from '../entities/Velocity';
+import { Camera } from '../entities/Camera';
+import { Npc } from '../entities/Npc';
 
 /**
  * Sistema di movimento che aggiorna le posizioni basandosi sulla velocity

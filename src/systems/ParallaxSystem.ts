@@ -1,7 +1,7 @@
 import { BaseSystem } from '../ecs/System';
 import { ECS } from '../ecs/ECS';
-import { Transform } from '../components/Transform';
-import { ParallaxLayer } from '../components/ParallaxLayer';
+import { Transform } from '../entities/Transform';
+import { ParallaxLayer } from '../entities/ParallaxLayer';
 import { MovementSystem } from './MovementSystem';
 
 /**
