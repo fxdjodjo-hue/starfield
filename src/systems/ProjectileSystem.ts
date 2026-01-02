@@ -50,7 +50,7 @@ export class ProjectileSystem extends BaseSystem {
         continue;
       }
 
-      // Per i proiettili homing (NPC verso player), aggiorna direzione verso il bersaglio
+      // Per i proiettili homing (NPC verso player, o player verso NPC), aggiorna direzione verso il bersaglio
       if (this.shouldBeHoming(projectileEntity)) {
         this.updateHomingDirection(transform, projectile);
       }
@@ -87,8 +87,13 @@ export class ProjectileSystem extends BaseSystem {
 
     const playerEntity = playerEntities[0];
 
-    // I proiettili homing sono quelli sparati DA NPC (ownerId diverso dal player)
-    return projectile.ownerId !== playerEntity.id;
+    // I proiettili homing sono:
+    // 1. Quelli sparati DA NPC verso il player
+    // 2. Quelli sparati DAL player verso NPC selezionati
+    const isNpcProjectile = projectile.ownerId !== playerEntity.id;
+    const isPlayerProjectileToNpc = projectile.ownerId === playerEntity.id && projectile.targetId !== playerEntity.id;
+
+    return isNpcProjectile || isPlayerProjectileToNpc;
   }
 
   /**
