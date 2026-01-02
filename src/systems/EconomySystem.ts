@@ -208,7 +208,7 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Crea l'elemento UI per i Rank Points e il Rango
+   * Crea l'elemento UI per l'Honor
    */
   private createHonorDisplay(): void {
     this.removeHonorDisplay();
@@ -232,23 +232,16 @@ export class EconomySystem extends BaseSystem {
     `;
 
     const iconSpan = document.createElement('span');
-    iconSpan.textContent = 'RK';
+    iconSpan.textContent = 'HN';
     iconSpan.style.marginRight = '6px';
     iconSpan.style.fontWeight = 'bold';
 
     const textSpan = document.createElement('span');
-    textSpan.id = 'rank-points-amount';
+    textSpan.id = 'honor-amount';
     textSpan.textContent = '0';
-
-    const rankSpan = document.createElement('span');
-    rankSpan.id = 'honor-rank';
-    rankSpan.textContent = ' Recruit';
-    rankSpan.style.marginLeft = '8px';
-    rankSpan.style.fontSize = '10px';
 
     this.honorDisplayElement.appendChild(iconSpan);
     this.honorDisplayElement.appendChild(textSpan);
-    this.honorDisplayElement.appendChild(rankSpan);
     document.body.appendChild(this.honorDisplayElement);
   }
 
@@ -417,16 +410,11 @@ export class EconomySystem extends BaseSystem {
     if (!this.honorDisplayElement) return;
 
     const honor = this.getPlayerHonor();
-    const rankPoints = this.calculatePlayerRankPoints();
-    if (honor && rankPoints !== undefined) {
-      const amountElement = this.honorDisplayElement.querySelector('#rank-points-amount');
-      const rankElement = this.honorDisplayElement.querySelector('#honor-rank');
+    if (honor) {
+      const amountElement = this.honorDisplayElement.querySelector('#honor-amount');
 
       if (amountElement) {
-        amountElement.textContent = rankPoints.toLocaleString(); // Mostra rank points
-      }
-      if (rankElement) {
-        rankElement.textContent = ` ${honor.honorRank}`;
+        amountElement.textContent = honor.honor.toString();
       }
     }
   }
