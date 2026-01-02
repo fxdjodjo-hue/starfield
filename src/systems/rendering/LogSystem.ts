@@ -8,7 +8,7 @@ import { LogMessage, LogType } from '/src/entities/ui/LogMessage';
  * Mostra informazioni importanti del gameplay con animazioni e styling
  */
 export class LogSystem extends BaseSystem {
-  private maxMessages: number = 5; // Numero massimo di messaggi visibili contemporaneamente
+  private maxMessages: number = 2; // Numero massimo di messaggi visibili contemporaneamente
   private messageSpacing: number = 8; // Spazio tra i messaggi
   private topMargin: number = 50; // Margine dall'alto dello schermo
 
