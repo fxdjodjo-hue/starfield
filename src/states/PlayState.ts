@@ -175,14 +175,19 @@ export class PlayState extends GameState {
       const damage = this.world.getECS().getComponent(this.playerEntity, Damage);
       if (damage) {
         const cooldownRemaining = damage.getCooldownRemaining(Date.now()) / 1000; // Converte in secondi
+        const canAttack = damage.canAttack(Date.now());
         infoText += `Damage: ${damage.damage}\n`;
-        infoText += `Cooldown: ${cooldownRemaining.toFixed(1)}s\n`;
+        infoText += `Status: ${canAttack ? 'Ready' : cooldownRemaining.toFixed(1) + 's'}\n`;
       }
     }
 
-    // Conteggio nemici
+    // Conteggio nemici e selezione
     const npcEntities = this.world.getECS().getEntitiesWithComponents(Npc);
+    const selectedNpcs = this.world.getECS().getEntitiesWithComponents(SelectedNpc);
     infoText += `Enemies: ${npcEntities.length}`;
+    if (selectedNpcs.length > 0) {
+      infoText += ` (1 selected)`;
+    }
 
     this.expandedHudElement.textContent = infoText;
     this.expandedHudElement.style.display = 'block';
