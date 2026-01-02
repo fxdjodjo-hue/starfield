@@ -360,8 +360,6 @@ export class PlayState extends GameState {
     const playerShip = this.createPlayerShip(ecs);
     this.playerEntity = playerShip;
 
-    console.log(`PlayState: Created playerShip with id: ${playerShip?.id}`);
-
     // Imposta il player nel sistema di controllo
     playerControlSystem.setPlayerEntity(playerShip);
 
@@ -426,14 +424,22 @@ export class PlayState extends GameState {
         // Se si clicca normalmente (non sulla minimappa), cancella destinazione minimappa
         minimapSystem.clearDestination();
 
-        // Prova a selezionare NPC
-        const canvasSize = this.world.getCanvasSize();
-        const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
-        const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
+        // Controlla se CTRL è premuto per attaccare
+        const isCtrlPressed = this.context.keysPressed.has('ControlLeft') || this.context.keysPressed.has('ControlRight');
 
-        // Se non ha selezionato un NPC, attiva il movimento del player normale
-        if (!npcSelected) {
-          playerControlSystem.handleMouseState(pressed, x, y);
+        if (isCtrlPressed) {
+          // CTRL + click: attacca l'NPC selezionato (se presente)
+          combatSystem.attackSelectedNpc();
+        } else {
+          // Click normale: seleziona NPC
+          const canvasSize = this.world.getCanvasSize();
+          const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
+          const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
+
+          // Se non ha selezionato un NPC, attiva il movimento del player normale
+          if (!npcSelected) {
+            playerControlSystem.handleMouseState(pressed, x, y);
+          }
         }
       } else {
         // Su mouse up, ferma il movimento dalla minimappa e del player

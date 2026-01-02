@@ -104,8 +104,8 @@ export class NpcBehaviorSystem extends BaseSystem {
       if (isLowHealth) {
         // NPC con poca salute fugge dal player
         npc.setBehavior('flee');
-      } else if (isDamaged) {
-        // NPC danneggiato insegue il player per vendetta
+      } else if (isDamaged && !this.isNpcTooFarFromPlayer(entityId)) {
+        // NPC danneggiato insegue il player per vendetta, ma solo se non è troppo lontano
         npc.setBehavior('pursuit');
       } else {
         // Comportamenti normali quando non è danneggiato né con poca salute
@@ -137,6 +137,34 @@ export class NpcBehaviorSystem extends BaseSystem {
 
     // Controlla se è stato danneggiato negli ultimi 5 secondi
     return damageTaken.wasDamagedRecently(Date.now(), 5000); // 5000ms = 5 secondi
+  }
+
+  /**
+   * Verifica se un NPC è troppo lontano dal player per continuare l'inseguimento
+   */
+  private isNpcTooFarFromPlayer(entityId: number): boolean {
+    const npcEntities = this.ecs.getEntitiesWithComponents(Transform);
+    const npcEntity = npcEntities.find(e => e.id === entityId);
+
+    if (!npcEntity) return true;
+
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+    if (!npcTransform) return true;
+
+    // Trova il player
+    const playerEntity = this.ecs.getPlayerEntity();
+    if (!playerEntity) return true;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    if (!playerTransform) return true;
+
+    // Calcola distanza
+    const dx = npcTransform.x - playerTransform.x;
+    const dy = npcTransform.y - playerTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Considera "troppo lontano" se oltre 400px (più del doppio del range di attacco)
+    return distance > 400;
   }
 
   /**
