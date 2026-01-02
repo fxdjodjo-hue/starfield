@@ -121,8 +121,8 @@ export class CombatSystem extends BaseSystem {
 
     // Controlla quanti testi sono già attivi per questa entità
     const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
-    const maxTexts = isBoundsDamage ? 5 : 3; // Permetti più testi per danno bounds
-    if (activeCount >= maxTexts) return;
+    // Per danni bounds non applicare limiti - mostra sempre
+    if (!isBoundsDamage && activeCount >= 3) return;
 
     // Determina il colore e offset del testo
     const playerEntity = this.ecs.getPlayerEntity();
