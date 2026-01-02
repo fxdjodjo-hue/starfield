@@ -214,7 +214,7 @@ export class ProjectileSystem extends BaseSystem {
     const textColor = '#4444ff'; // Blu per danno shield
 
     // Crea testo di danno per lo shield
-    this.createDamageText(value, targetEntity.id, 0, -45, textColor); // Offset Y diverso per distinguere da HP
+    this.createDamageText(value, targetEntity.id, 0, -30, textColor); // Stessa altezza iniziale dell'HP
   }
 
   /**
