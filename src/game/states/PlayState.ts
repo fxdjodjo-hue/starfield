@@ -148,28 +148,27 @@ export class PlayState extends GameState {
    * Mostra le info del giocatore
    */
   private showPlayerInfo(): void {
-    let hpText = '';
+    let hpHtml = '';
     if (this.playerEntity) {
       const health = this.world.getECS().getComponent(this.playerEntity, Health);
       if (health) {
-        hpText = ` | HP: ${health.current}/${health.max}`;
+        hpHtml = ` <span style="color: #00ff88;">HP: </span><span style="color: #ffffff;">${health.current}/${health.max}</span>`;
       }
     }
 
     // Ottieni valori economici
     const economyStatus = this.economySystem?.getPlayerEconomyStatus();
-    let economyValues = '';
-    let separatorText = '';
-
+    let economyHtml = '';
     if (economyStatus) {
-      economyValues = `CR:${economyStatus.credits} CO:${economyStatus.cosmos} XP:${economyStatus.experience}/${economyStatus.expForNextLevel} LV:${economyStatus.level} HN:${economyStatus.honor}`;
-      separatorText = ' | ';
+      economyHtml = ` <span style="color: #00ff88;">CR:</span><span style="color: #ffffff;">${economyStatus.credits}</span> <span style="color: #00ff88;">CO:</span><span style="color: #ffffff;">${economyStatus.cosmos}</span> <span style="color: #00ff88;">XP:</span><span style="color: #ffffff;">${economyStatus.experience}/${economyStatus.expForNextLevel}</span> <span style="color: #00ff88;">LV:</span><span style="color: #ffffff;">${economyStatus.level}</span> <span style="color: #00ff88;">HN:</span><span style="color: #ffffff;">${economyStatus.honor}</span>`;
     }
 
-    // HUD con separatori verdi e valori delle valute bianche
+    // HUD con colori diversi per etichette (verde) e valori (bianco)
     this.playerInfoElement.innerHTML =
-      `<span style="color: #00ff88;">Pilot: ${this.context.playerNickname}${hpText}</span>` +
-      (economyStatus ? `<span style="color: #00ff88;">${separatorText}</span><span style="color: #ffffff;">${economyValues}</span>` : '');
+      `<span style="color: #00ff88;">Pilot: </span><span style="color: #ffffff;">${this.context.playerNickname}</span>` +
+      hpHtml +
+      economyHtml;
+
     if (!document.body.contains(this.playerInfoElement)) {
       document.body.appendChild(this.playerInfoElement);
     }
