@@ -107,7 +107,7 @@ export class BoundsSystem extends BaseSystem {
     // Stile della linea di confine
     ctx.strokeStyle = '#ff0000';
     ctx.lineWidth = 3;
-    ctx.setLineDash([10, 5]); // Linea tratteggiata
+    ctx.setLineDash([]); // Linea continua
     ctx.globalAlpha = 0.8;
 
     // Ottieni la camera dal movement system
