@@ -149,6 +149,7 @@ export class ProjectileSystem extends BaseSystem {
       // Se la distanza è minore di una soglia (hitbox), colpisce
       const hitDistance = 15; // Raggio di collisione
       if (distance < hitDistance) {
+        console.log(`[Projectile] Projectile ${projectileEntity.id} hit target ${targetEntity.id}, dealing ${projectile.damage} damage`);
         // Applica danno (prima shield, poi HP)
         const damageDealt = projectile.damage;
         this.applyDamage(targetEntity, damageDealt);
@@ -165,6 +166,7 @@ export class ProjectileSystem extends BaseSystem {
    * Applica danno a un'entità (prima shield, poi HP)
    */
   private applyDamage(targetEntity: any, damage: number): void {
+    console.log(`[Damage] Applying ${damage} damage to entity ${targetEntity.id}`);
     const targetShield = this.ecs.getComponent(targetEntity, Shield);
     const targetHealth = this.ecs.getComponent(targetEntity, Health);
 
@@ -201,6 +203,7 @@ export class ProjectileSystem extends BaseSystem {
       const playerEntity = this.ecs.getPlayerEntity();
       const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
       const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
+      console.log(`[DamageText] Creating HP damage text: ${damageToHp} for entity ${targetEntity.id} (player damage: ${isPlayerDamage})`);
       // Aggiungi leggera variazione casuale per evitare sovrapposizione completa
       const randomOffsetX = (Math.random() - 0.5) * 20; // ±10px
       this.createDamageText(damageToHp, targetEntity.id, randomOffsetX, -30, textColor);
@@ -227,6 +230,7 @@ export class ProjectileSystem extends BaseSystem {
    * Crea un testo di danno
    */
   private createDamageText(value: number, targetEntityId: number, offsetX: number, offsetY: number, color: string): void {
+    console.log(`[DamageText] Creating damage text entity for value ${value}, target ${targetEntityId}`);
     const damageTextEntity = this.ecs.createEntity();
     const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
     this.ecs.addComponent(damageTextEntity, DamageText, damageText);
