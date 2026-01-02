@@ -15,7 +15,6 @@ import { MovementSystem } from '/src/systems/physics/MovementSystem';
  */
 export class ProjectileSystem extends BaseSystem {
   private movementSystem: MovementSystem;
-  private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
 
   constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
@@ -235,41 +234,14 @@ export class ProjectileSystem extends BaseSystem {
     if (targetEntityId < 0) return; // ID entità non valido
     if (!color || typeof color !== 'string') color = '#ffffff'; // Colore di default
 
-    // Controlla se l'entità esiste ancora
-    const targetEntity = this.ecs.getEntity(targetEntityId);
-
-    // Se l'entità è morta, non creare nuovi testi (il testo di morte rimane attivo)
-    if (!targetEntity) {
-      return;
-    }
-
-    // Per entità vive, permetti fino a 3 testi attivi
-    const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
-    if (activeCount >= 3) {
-      return; // Salta la creazione per mantenere pulizia visiva
-    }
-
+    // Crea sempre il testo di danno - continuerà a esistere anche se l'entità muore
     try {
       const damageTextEntity = this.ecs.createEntity();
       const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
       this.ecs.addComponent(damageTextEntity, DamageText, damageText);
-
-      // Aggiorna il contatore nella cache
-      this.activeDamageTexts.set(targetEntityId, activeCount + 1);
     } catch (error) {
       console.warn('[DamageText] Failed to create damage text:', error);
     }
   }
 
-  /**
-   * Decrementa il contatore di testi attivi per un'entità (chiamato dal DamageTextSystem)
-   */
-  decrementDamageTextCount(targetEntityId: number): void {
-    const currentCount = this.activeDamageTexts.get(targetEntityId) || 0;
-    if (currentCount > 0) {
-      this.activeDamageTexts.set(targetEntityId, currentCount - 1);
-    } else {
-      this.activeDamageTexts.delete(targetEntityId);
-    }
-  }
 }

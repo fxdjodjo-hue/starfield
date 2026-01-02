@@ -6,10 +6,9 @@ import { Transform } from '/src/entities/spatial/Transform';
 /**
  * Sistema per gestire e renderizzare testi di danno fissi sopra le entità
  * Mostra numeri di danno che seguono le entità colpite durante il movimento
- * Limita il numero di testi attivi per entità per evitare sovrapposizioni
+ * I testi continuano a esistere anche quando l'entità muore
  */
 export class DamageTextSystem extends BaseSystem {
-  private maxTextsPerEntity: number = 3; // Massimo 3 testi di danno per entità viva
   private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
 
   constructor(ecs: ECS) {
@@ -30,18 +29,9 @@ export class DamageTextSystem extends BaseSystem {
   }
 
   /**
-   * Rimuove un testo di danno e aggiorna i contatori (solo quando scade naturalmente)
+   * Rimuove un testo di danno quando scade naturalmente
    */
   private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
-    // Trova il ProjectileSystem per aggiornare i contatori
-    const projectileSystem = (this.ecs as any).systems?.find((system: any) =>
-      system.constructor.name === 'ProjectileSystem'
-    );
-
-    if (projectileSystem && projectileSystem.decrementDamageTextCount) {
-      projectileSystem.decrementDamageTextCount(targetEntityId);
-    }
-
     this.ecs.removeEntity(damageTextEntity);
   }
 
