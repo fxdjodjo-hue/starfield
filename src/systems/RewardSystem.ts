@@ -5,6 +5,7 @@ import { Npc } from '../entities/ai/Npc';
 import { PlayerStats } from '../entities/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
 import { LogSystem } from './rendering/LogSystem';
+import { NpcRespawnSystem } from './NpcRespawnSystem';
 
 /**
  * Sistema Reward - gestisce l'assegnazione di ricompense quando gli NPC vengono sconfitti
@@ -14,6 +15,7 @@ export class RewardSystem extends BaseSystem {
   private economySystem: any = null;
   private playerEntity: any = null;
   private logSystem: LogSystem | null = null;
+  private respawnSystem: NpcRespawnSystem | null = null;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -38,6 +40,13 @@ export class RewardSystem extends BaseSystem {
    */
   setLogSystem(logSystem: LogSystem): void {
     this.logSystem = logSystem;
+  }
+
+  /**
+   * Imposta il riferimento al RespawnSystem per la rigenerazione degli NPC
+   */
+  setRespawnSystem(respawnSystem: NpcRespawnSystem): void {
+    this.respawnSystem = respawnSystem;
   }
 
   update(deltaTime: number): void {
@@ -106,6 +115,11 @@ export class RewardSystem extends BaseSystem {
     // Log dell'NPC ucciso
     if (this.logSystem) {
       this.logSystem.logNpcKilled(npc.npcType);
+    }
+
+    // Pianifica il respawn dell'NPC morto
+    if (this.respawnSystem) {
+      this.respawnSystem.scheduleRespawn(npc.npcType, Date.now());
     }
 
     // Rimuovi immediatamente l'entità NPC morta (i testi di danno continuano autonomamente)

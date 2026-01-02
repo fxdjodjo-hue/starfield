@@ -16,6 +16,7 @@ import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
 import { BoundsSystem } from '/src/systems/BoundsSystem';
+import { NpcRespawnSystem } from '/src/systems/NpcRespawnSystem';
 import { PlayerHUD } from '/src/ui/PlayerHUD';
 import type { PlayerHUDData } from '/src/ui/PlayerHUD';
 import { Transform } from '/src/entities/spatial/Transform';
@@ -452,6 +453,7 @@ export class PlayState extends GameState {
     const rankSystem = new RankSystem(ecs);
     const rewardSystem = new RewardSystem(ecs);
     const boundsSystem = new BoundsSystem(ecs, movementSystem);
+    const respawnSystem = new NpcRespawnSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -469,6 +471,7 @@ export class PlayState extends GameState {
     ecs.addSystem(this.economySystem); // Sistema economia
     ecs.addSystem(rankSystem); // Sistema rank
     ecs.addSystem(rewardSystem); // Sistema ricompense
+    ecs.addSystem(respawnSystem); // Sistema respawn NPC
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
@@ -505,6 +508,10 @@ export class PlayState extends GameState {
 
     // Configura sistema bounds
     boundsSystem.setPlayerEntity(playerShip);
+
+    // Configura sistema respawn NPC
+    respawnSystem.setPlayerEntity(playerShip);
+    rewardSystem.setRespawnSystem(respawnSystem);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {

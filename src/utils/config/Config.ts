@@ -28,6 +28,12 @@ export const CONFIG = {
   PROJECTILE_SPEED: 500,
   MAX_HEALTH: 100,
 
+  // Sistema respawn NPC
+  NPC_RESPAWN_DELAY: 10000, // 10 secondi dopo la morte
+  NPC_RESPAWN_DISTANCE_MIN: 800, // Distanza minima dal player
+  NPC_RESPAWN_DISTANCE_MAX: 2000, // Distanza massima dal player
+  NPC_RESPAWN_ANGLE_VARIATION: Math.PI * 0.5, // ±90 gradi variazione
+
   // Dimensioni minimappa
   MINIMAP_WIDTH: 320,
   MINIMAP_HEIGHT: 200,
