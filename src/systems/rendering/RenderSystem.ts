@@ -57,13 +57,7 @@ export class RenderSystem extends BaseSystem {
           // Renderizza come NPC
           this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined);
 
-          // Mostra range di attacco se selezionato
-          if (selected !== undefined) {
-            const damage = this.ecs.getComponent(entity, Damage);
-            if (damage) {
-              this.renderAttackRange(ctx, screenPos.x, screenPos.y, damage.attackRange, '#ff4444');
-            }
-          }
+          // Range di attacco NPC rimosso per pulizia visiva
         } else {
           // Renderizza come player
           this.renderEntity(ctx, transform, screenPos.x, screenPos.y);
