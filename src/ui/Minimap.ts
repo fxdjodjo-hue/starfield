@@ -52,17 +52,11 @@ export class Minimap {
     this.worldWidth = worldWidth;
     this.worldHeight = worldHeight;
 
-    // Calcola la scala per adattare il mondo rettangolare alla minimappa quadrata
-    const worldAspectRatio = worldWidth / worldHeight;
-    const minimapAspectRatio = width / height;
-
-    if (worldAspectRatio > minimapAspectRatio) {
-      // Mondo più largo: scala basata su larghezza
-      this.scale = width / worldWidth;
-    } else {
-      // Mondo più alto: scala basata su altezza
-      this.scale = height / worldHeight;
-    }
+    // Calcola la scala per adattare tutto il mondo nella minimappa mantenendo proporzioni
+    // Scala uniformemente per far entrare tutto il mondo nella minimappa
+    const scaleX = width / worldWidth;
+    const scaleY = height / worldHeight;
+    this.scale = Math.min(scaleX, scaleY); // Usa la scala più piccola per far entrare tutto
 
     this.entityDotSize = 3; // Dimensione fissa dei pallini
     this.visible = true;
