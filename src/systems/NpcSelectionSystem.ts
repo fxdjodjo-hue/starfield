@@ -35,7 +35,6 @@ export class NpcSelectionSystem extends BaseSystem {
     if (clickedNpc) {
       this.selectNpc(clickedNpc);
       this.onNpcClick?.(clickedNpc);
-      console.log(`NPC selected at world position: (${worldX.toFixed(0)}, ${worldY.toFixed(0)})`);
     }
     // Nota: Non deselezionare automaticamente se non si clicca su un NPC
     // La selezione rimane attiva fino a quando non si clicca su un altro NPC

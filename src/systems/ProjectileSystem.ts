@@ -15,23 +15,10 @@ export class ProjectileSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    console.log(`🔫 ProjectileSystem: update called with deltaTime: ${deltaTime}`);
     const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
-    console.log(`🔫 ProjectileSystem: updating ${projectiles.length} projectiles`);
 
     // Converti deltaTime da millisecondi a secondi
     const deltaTimeSeconds = deltaTime / 1000;
-
-    if (projectiles.length > 0) {
-      console.log(`🔫 Projectile entities: ${projectiles.map(p => p.id).join(', ')}`);
-      projectiles.forEach(p => {
-        const transform = this.ecs.getComponent(p, Transform);
-        const projectile = this.ecs.getComponent(p, Projectile);
-        if (transform && projectile) {
-          console.log(`🔫 Projectile ${p.id}: pos(${transform.x.toFixed(0)}, ${transform.y.toFixed(0)}), lifetime: ${projectile.lifetime}`);
-        }
-      });
-    }
 
     for (const projectileEntity of projectiles) {
       const transform = this.ecs.getComponent(projectileEntity, Transform);
@@ -48,14 +35,12 @@ export class ProjectileSystem extends BaseSystem {
         if (targetEntity) {
           const targetHealth = this.ecs.getComponent(targetEntity, Health);
           if (targetHealth && targetHealth.isDead()) {
-            console.log(`Target ${projectile.targetId} is dead, removing projectile ${projectileEntity.id}`);
             this.ecs.removeEntity(projectileEntity);
             continue;
           }
         }
       } else {
         // Il bersaglio non esiste più (rimosso dal gioco)
-        console.log(`Target ${projectile.targetId} no longer exists, removing projectile ${projectileEntity.id}`);
         this.ecs.removeEntity(projectileEntity);
         continue;
       }
@@ -77,7 +62,6 @@ export class ProjectileSystem extends BaseSystem {
 
       // Rimuovi proiettili scaduti
       if (projectile.lifetime <= 0) {
-        console.log('Projectile expired, removing');
         this.ecs.removeEntity(projectileEntity);
       }
     }
@@ -155,15 +139,7 @@ export class ProjectileSystem extends BaseSystem {
         // Applica danno
         targetHealth.current -= projectile.damage;
 
-        console.log(`Projectile hit target! Damage: ${projectile.damage}, Health remaining: ${targetHealth.current}/${targetHealth.max}`);
-
-        // Controlla se il bersaglio è morto
-        if (targetHealth.isDead()) {
-          console.log('Target killed by projectile!');
-        }
-
         // Rimuovi il proiettile dopo l'impatto
-        console.log('Projectile hit target, removing');
         this.ecs.removeEntity(projectileEntity);
         return; // Un proiettile colpisce solo un bersaglio
       }

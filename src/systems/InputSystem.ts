@@ -97,7 +97,6 @@ export class InputSystem extends BaseSystem {
       // Preveniamo comportamenti di default per alcuni tasti
       if (event.code === 'Space') {
         event.preventDefault();
-        console.log('InputSystem: Spacebar pressed');
         this.onKeyPress?.('Space');
       }
     });

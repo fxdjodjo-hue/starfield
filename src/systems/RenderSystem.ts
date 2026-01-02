@@ -222,21 +222,15 @@ export class RenderSystem extends BaseSystem {
    */
   private renderProjectiles(ctx: CanvasRenderingContext2D, camera: Camera): void {
     const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
-    console.log(`🎨 RenderSystem: Rendering ${projectiles.length} projectiles`);
 
     for (const projectileEntity of projectiles) {
       const transform = this.ecs.getComponent(projectileEntity, Transform);
       const projectile = this.ecs.getComponent(projectileEntity, Projectile);
 
-      if (!transform || !projectile) {
-        console.log(`❌ Missing components for projectile ${projectileEntity.id}`);
-        continue;
-      }
+      if (!transform || !projectile) continue;
 
       // Converte coordinate mondo a schermo
       const screenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
-
-      console.log(`🎨 Projectile ${projectileEntity.id} at world (${transform.x.toFixed(0)}, ${transform.y.toFixed(0)}) -> screen (${screenPos.x.toFixed(0)}, ${screenPos.y.toFixed(0)})`);
 
       // Renderizza il proiettile come laser rosso
       ctx.save();
@@ -267,7 +261,6 @@ export class RenderSystem extends BaseSystem {
       ctx.stroke();
 
       ctx.restore();
-      console.log(`✅ Projectile ${projectileEntity.id} rendered successfully`);
     }
   }
 }
