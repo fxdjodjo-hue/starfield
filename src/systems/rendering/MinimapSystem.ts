@@ -15,6 +15,8 @@ export class MinimapSystem extends System {
   private camera: Camera | null = null;
   private canvas: HTMLCanvasElement;
   private onMoveToCallback: ((worldX: number, worldY: number) => void) | null = null;
+  private destinationX: number | null = null;
+  private destinationY: number | null = null;
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -54,6 +56,10 @@ export class MinimapSystem extends System {
 
     if (this.minimap.isPointInside(screenX, screenY)) {
       const worldPos = this.minimap.minimapToWorld(screenX, screenY);
+
+      // Salva la destinazione per mostrare la linea
+      this.destinationX = worldPos.x;
+      this.destinationY = worldPos.y;
 
       if (this.onMoveToCallback) {
         this.onMoveToCallback(worldPos.x, worldPos.y);
@@ -140,6 +146,11 @@ export class MinimapSystem extends System {
 
     // Renderizza player con forma diversa (triangolo)
     this.renderPlayerTriangle(ctx, playerX, playerY);
+
+    // Renderizza linea verso destinazione se presente
+    if (this.destinationX !== null && this.destinationY !== null) {
+      this.renderDestinationLine(ctx, playerX, playerY, this.destinationX, this.destinationY);
+    }
   }
 
   /**
@@ -157,6 +168,31 @@ export class MinimapSystem extends System {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
     ctx.lineWidth = 1;
     ctx.stroke();
+  }
+
+  /**
+   * Renderizza una linea dalla posizione del player alla destinazione
+   */
+  private renderDestinationLine(ctx: CanvasRenderingContext2D, playerX: number, playerY: number, destX: number, destY: number): void {
+    const playerPos = this.minimap.worldToMinimap(playerX, playerY);
+    const destPos = this.minimap.worldToMinimap(destX, destY);
+
+    // Salva lo stato del contesto
+    ctx.save();
+
+    // Imposta stile linea tratteggiata
+    ctx.strokeStyle = '#00ff88'; // Verde come il bordo della minimappa
+    ctx.lineWidth = 2;
+    ctx.setLineDash([5, 5]); // Linea tratteggiata
+
+    // Disegna la linea
+    ctx.beginPath();
+    ctx.moveTo(playerPos.x, playerPos.y);
+    ctx.lineTo(destPos.x, destPos.y);
+    ctx.stroke();
+
+    // Ripristina lo stato del contesto
+    ctx.restore();
   }
 
   /**
@@ -181,6 +217,14 @@ export class MinimapSystem extends System {
    */
   private handleResize(): void {
     this.minimap.updateViewport(window.innerWidth, window.innerHeight);
+  }
+
+  /**
+   * Cancella la destinazione della minimappa (chiamato quando il movimento finisce)
+   */
+  clearDestination(): void {
+    this.destinationX = null;
+    this.destinationY = null;
   }
 
   /**

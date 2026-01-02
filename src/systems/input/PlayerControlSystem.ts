@@ -18,6 +18,7 @@ export class PlayerControlSystem extends BaseSystem {
   private lastMouseY = 0;
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
+  private onMinimapMovementComplete?: () => void;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -42,6 +43,13 @@ export class PlayerControlSystem extends BaseSystem {
    */
   setCamera(camera: Camera): void {
     this.camera = camera;
+  }
+
+  /**
+   * Imposta callback per quando finisce il movimento dalla minimappa
+   */
+  setMinimapMovementCompleteCallback(callback: () => void): void {
+    this.onMinimapMovementComplete = callback;
   }
 
   update(deltaTime: number): void {
@@ -137,6 +145,11 @@ export class PlayerControlSystem extends BaseSystem {
       velocity.stop();
       this.minimapTargetX = null;
       this.minimapTargetY = null;
+
+      // Notifica che il movimento dalla minimappa è completato
+      if (this.onMinimapMovementComplete) {
+        this.onMinimapMovementComplete();
+      }
     }
   }
 

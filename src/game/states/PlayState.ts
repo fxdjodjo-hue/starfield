@@ -347,6 +347,11 @@ export class PlayState extends GameState {
       playerControlSystem.movePlayerTo(worldX, worldY);
     });
 
+    // Quando finisce il movimento dalla minimappa, cancella la linea
+    playerControlSystem.setMinimapMovementCompleteCallback(() => {
+      minimapSystem.clearDestination();
+    });
+
     // Crea alcuni NPC
     this.createStreuner(ecs, 50); // Crea 50 Streuner che si muovono
 
