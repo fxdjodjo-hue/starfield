@@ -25,7 +25,7 @@ export class MinimapSystem extends System {
 
     // Crea minimappa con dimensioni mondo dal config
     this.minimap = new Minimap(
-      0, 0, 200, 200, // posizione e dimensioni verranno aggiornate
+      0, 0, 400, 250, // posizione e dimensioni verranno aggiornate
       CONFIG.WORLD_WIDTH,
       CONFIG.WORLD_HEIGHT
     );
