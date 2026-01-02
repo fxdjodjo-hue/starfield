@@ -33,7 +33,7 @@ export interface NpcDefinition {
 export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
   'Scouter': {
     type: 'Scouter',
-    defaultBehavior: 'wander',
+    defaultBehavior: 'cruise',
     stats: {
       health: 800,
       shield: 560,

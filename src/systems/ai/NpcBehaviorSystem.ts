@@ -4,6 +4,7 @@ import { Npc } from '/src/entities/ai/Npc';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Damage } from '/src/entities/combat/Damage';
+import { DamageTaken } from '/src/entities/combat/DamageTaken';
 import { CONFIG } from '/src/utils/config/Config';
 
 /**
@@ -94,22 +95,29 @@ export class NpcBehaviorSystem extends BaseSystem {
   private updateNpcBehavior(npc: Npc, entityId: number): void {
     // Solo gli Scouter cambiano comportamento periodicamente
     if (npc.npcType === 'Scouter') {
-      // Controlla se l'NPC ha attaccato recentemente (negli ultimi 2 secondi)
+      // Controlla se l'NPC è stato danneggiato recentemente (comportamento di difesa)
+      const isDamaged = this.isNpcUnderAttack(entityId);
+      // Controlla se l'NPC ha attaccato recentemente (comportamento offensivo)
       const isAttackingPlayer = this.isNpcAttackingPlayer(entityId);
 
-      // Comportamenti disponibili
-      let behaviors: string[];
-
-      if (isAttackingPlayer) {
-        // Quando attacca il player: può usare circle per movimenti evasivi
-        behaviors = ['cruise', 'patrol', 'circle'];
+      // Logica prioritaria: se danneggiato, insegue il player
+      if (isDamaged) {
+        npc.setBehavior('pursuit');
       } else {
-        // Quando non attacca: solo cruise e patrol per movimenti normali
-        behaviors = ['cruise', 'patrol'];
-      }
+        // Comportamenti disponibili quando non è danneggiato
+        let behaviors: string[];
 
-      const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
-      npc.setBehavior(randomBehavior);
+        if (isAttackingPlayer) {
+          // Quando attacca il player: può usare circle per movimenti evasivi
+          behaviors = ['cruise', 'patrol', 'circle'];
+        } else {
+          // Quando non attacca: solo cruise e patrol per movimenti normali
+          behaviors = ['cruise', 'patrol'];
+        }
+
+        const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+        npc.setBehavior(randomBehavior);
+      }
 
       // Assicurati che lo stato sia inizializzato
       this.initializeNpcStateForEntity(entityId, npc);
@@ -118,20 +126,30 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   /**
-   * Verifica se un NPC sta attaccando il player (ha sparato negli ultimi 2 secondi)
+   * Verifica se un NPC è stato danneggiato recentemente (negli ultimi 3 secondi)
    */
-  private isNpcAttackingPlayer(entityId: number): boolean {
-    const entities = this.ecs.getEntitiesWithComponents(Damage);
+  /**
+   * Verifica se un NPC è stato danneggiato recentemente (negli ultimi 5 secondi)
+   */
+  private isNpcDamagedRecently(entityId: number): boolean {
+    const entities = this.ecs.getEntitiesWithComponents(DamageTaken);
     const entity = entities.find(e => e.id === entityId);
 
     if (!entity) return false;
 
-    const damageComponent = this.ecs.getComponent(entity, Damage);
-    if (!damageComponent) return false;
+    const damageTaken = this.ecs.getComponent(entity, DamageTaken);
+    if (!damageTaken) return false;
 
-    // Controlla se ha attaccato negli ultimi 2 secondi
-    const timeSinceLastAttack = Date.now() - damageComponent['lastAttackTime'];
-    return timeSinceLastAttack < 2000; // 2000ms = 2 secondi
+    // Controlla se è stato danneggiato negli ultimi 5 secondi
+    return damageTaken.wasDamagedRecently(Date.now(), 5000); // 5000ms = 5 secondi
+  }
+
+  /**
+   * Verifica se un NPC è sotto attacco (vecchio metodo, mantenuto per compatibilità)
+   * @deprecated Usa isNpcDamagedRecently invece
+   */
+  private isNpcUnderAttack(entityId: number): boolean {
+    return this.isNpcDamagedRecently(entityId);
   }
 
   /**
@@ -161,12 +179,14 @@ export class NpcBehaviorSystem extends BaseSystem {
         this.executePatrolBehavior(transform, velocity, deltaTime, state);
         break;
       case 'circle':
-        // Circle non dovrebbe più essere selezionato casualmente
-        // ma manteniamo il case per compatibilità
+        // Circle attivato solo quando NPC attacca il player
         this.executeSmoothCircleBehavior(transform, velocity, deltaTime, state);
         break;
       case 'cruise':
         this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+        break;
+      case 'pursuit':
+        this.executePursuitBehavior(transform, velocity, deltaTime, state);
         break;
       default:
         this.executeIdleBehavior(velocity);
@@ -245,6 +265,49 @@ export class NpcBehaviorSystem extends BaseSystem {
     if (length > 0) {
       const targetAngle = Math.atan2(tangentY, tangentX);
       this.updateSmoothVelocity(velocity, speed, targetAngle, deltaTime, state);
+    }
+  }
+
+  /**
+   * Comportamento pursuit - l'NPC insegue il player quando danneggiato
+   */
+  private executePursuitBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante l'inseguimento
+    velocity.setAngularVelocity(0);
+
+    // Trova il player
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
+      .filter(playerEntity => !this.ecs.hasComponent(playerEntity, Npc));
+
+    if (playerEntities.length === 0) {
+      // Se non trova il player, torna a cruise
+      this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+      return;
+    }
+
+    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+    if (!playerTransform) {
+      this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+      return;
+    }
+
+    // Calcola direzione verso il player
+    const dx = playerTransform.x - transform.x;
+    const dy = playerTransform.y - transform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0) {
+      // Normalizza la direzione
+      const directionX = dx / distance;
+      const directionY = dy / distance;
+
+      // Calcola angolo target
+      const targetAngle = Math.atan2(directionY, directionX);
+
+      // Usa velocità più alta per l'inseguimento (velocità di "carica")
+      const pursuitSpeed = 80; // Più veloce del normale movimento
+
+      this.updateSmoothVelocity(velocity, pursuitSpeed, targetAngle, deltaTime, state);
     }
   }
 

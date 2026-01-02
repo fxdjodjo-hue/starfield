@@ -6,6 +6,7 @@ import { Health } from '/src/entities/combat/Health';
 import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
+import { DamageTaken } from '/src/entities/combat/DamageTaken';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MovementSystem } from '/src/systems/physics/MovementSystem';
 
@@ -170,6 +171,14 @@ export class ProjectileSystem extends BaseSystem {
     const targetHealth = this.ecs.getComponent(targetEntity, Health);
 
     if (!targetHealth) return;
+
+    // Registra che l'entità è stata danneggiata (per comportamenti AI reattivi)
+    let damageTaken = this.ecs.getComponent(targetEntity, DamageTaken);
+    if (!damageTaken) {
+      damageTaken = new DamageTaken();
+      this.ecs.addComponent(targetEntity, DamageTaken, damageTaken);
+    }
+    damageTaken.takeDamage(Date.now());
 
     let damageToHp = damage;
 

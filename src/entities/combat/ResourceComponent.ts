@@ -7,6 +7,7 @@ import { Component } from '/src/infrastructure/ecs/Component';
 export abstract class ResourceComponent extends Component {
   protected current: number;
   protected max: number;
+  protected lastDamageTime: number = 0;
 
   constructor(current: number, max: number) {
     super();
@@ -20,7 +21,13 @@ export abstract class ResourceComponent extends Component {
    * Riduce la risorsa dell'entità
    */
   takeDamage(amount: number): void {
+    const oldCurrent = this.current;
     this.current = Math.max(0, this.current - amount);
+
+    // Se ha effettivamente ricevuto danno, registra il timestamp
+    if (this.current < oldCurrent) {
+      this.lastDamageTime = Date.now();
+    }
   }
 
   /**
@@ -95,6 +102,20 @@ export abstract class ResourceComponent extends Component {
   set maxValue(value: number) {
     this.max = Math.max(0, value);
     this.current = Math.min(this.current, this.max);
+  }
+
+  /**
+   * Ottiene il timestamp dell'ultimo danno ricevuto
+   */
+  getLastDamageTime(): number {
+    return this.lastDamageTime;
+  }
+
+  /**
+   * Verifica se l'entità è stata danneggiata recentemente
+   */
+  wasDamagedRecently(currentTime: number, timeWindow: number = 3000): boolean {
+    return (currentTime - this.lastDamageTime) < timeWindow;
   }
 }
 
