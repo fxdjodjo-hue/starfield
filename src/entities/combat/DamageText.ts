@@ -6,13 +6,15 @@ import { Component } from '/src/infrastructure/ecs/Component';
  */
 export class DamageText extends Component {
   public value: number;
-  public targetEntityId: number; // ID dell'entità da seguire
+  public targetEntityId: number; // ID dell'entità da seguire (0 se entità morta)
   public initialOffsetX: number; // Offset orizzontale iniziale dal centro dell'entità
   public initialOffsetY: number; // Offset verticale iniziale dal centro dell'entità
   public currentOffsetY: number; // Offset verticale corrente (si muove verso l'alto)
   public lifetime: number;
   public maxLifetime: number;
   public color: string;
+  public lastKnownWorldX: number; // Ultima posizione X conosciuta (per testi orfani)
+  public lastKnownWorldY: number; // Ultima posizione Y conosciuta (per testi orfani)
 
   constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 2000) {
     super();
@@ -36,6 +38,8 @@ export class DamageText extends Component {
     this.lifetime = lifetime;
     this.maxLifetime = lifetime;
     this.color = color || '#ffffff';
+    this.lastKnownWorldX = 0;
+    this.lastKnownWorldY = 0;
   }
 
   /**

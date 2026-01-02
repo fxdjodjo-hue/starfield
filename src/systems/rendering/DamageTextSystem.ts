@@ -30,7 +30,7 @@ export class DamageTextSystem extends BaseSystem {
   }
 
   /**
-   * Rimuove un testo di danno e aggiorna i contatori
+   * Rimuove un testo di danno e aggiorna i contatori (solo quando scade naturalmente)
    */
   private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
     // Trova il ProjectileSystem per aggiornare i contatori
@@ -97,20 +97,29 @@ export class DamageTextSystem extends BaseSystem {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
+      let worldX: number;
+      let worldY: number;
+
       // Trova la posizione dell'entità target
       const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
-      if (!targetEntity) {
-        // Rimuovi il testo di danno se l'entità target non esiste più
-        this.cleanupDamageText(damageText.targetEntityId, entity);
-        continue;
+      if (targetEntity) {
+        // Entità ancora viva - usa la sua posizione corrente
+        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+        if (!targetTransform) continue;
+
+        // Calcola posizione sopra l'entità con offset (X fisso, Y che si muove)
+        worldX = targetTransform.x + damageText.initialOffsetX;
+        worldY = targetTransform.y + damageText.currentOffsetY;
+
+        // Salva l'ultima posizione conosciuta
+        damageText.lastKnownWorldX = worldX;
+        damageText.lastKnownWorldY = worldY;
+      } else {
+        // Entità morta - usa l'ultima posizione conosciuta e continua l'animazione
+        // I testi continuano fino alla scadenza naturale anche senza entità target
+        worldX = damageText.lastKnownWorldX;
+        worldY = damageText.lastKnownWorldY + (damageText.currentOffsetY - damageText.initialOffsetY);
       }
-
-      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      if (!targetTransform) continue;
-
-      // Calcola posizione sopra l'entità con offset (X fisso, Y che si muove)
-      const worldX = targetTransform.x + damageText.initialOffsetX;
-      const worldY = targetTransform.y + damageText.currentOffsetY;
 
       // Converti coordinate mondo in coordinate schermo
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
