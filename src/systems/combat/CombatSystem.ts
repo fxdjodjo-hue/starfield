@@ -3,6 +3,7 @@ import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Health } from '/src/entities/combat/Health';
 import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
+import { DamageTaken } from '/src/entities/combat/DamageTaken';
 import { Transform } from '/src/entities/spatial/Transform';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Npc } from '/src/entities/ai/Npc';
@@ -44,6 +45,13 @@ export class CombatSystem extends BaseSystem {
     const attackerDamage = this.ecs.getComponent(attackerEntity, Damage);
 
     if (!attackerTransform || !attackerDamage) return;
+
+    // Verifica se l'NPC è stato danneggiato recentemente (solo NPC danneggiati attaccano)
+    const damageTaken = this.ecs.getComponent(attackerEntity, DamageTaken);
+    if (!damageTaken || !damageTaken.wasDamagedRecently(Date.now(), 10000)) {
+      // L'NPC non è stato danneggiato negli ultimi 10 secondi, non attacca
+      return;
+    }
 
     // Trova il player come target
     const playerEntity = this.ecs.getPlayerEntity();
