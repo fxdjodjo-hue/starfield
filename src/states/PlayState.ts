@@ -216,45 +216,9 @@ export class PlayState extends GameState {
       playerControlSystem.handleMouseMoveWhilePressed(x, y);
     });
 
-    // Aggiungi pulsante per forzare attacco (per debug)
-    this.addForceAttackButton();
-
     // Combattimento ora automatico - non serve più la barra spaziatrice
   }
 
-  /**
-   * Aggiungi pulsante per forzare attacco (debug)
-   */
-  private addForceAttackButton(): void {
-    const button = document.createElement('button');
-    button.textContent = 'FORCE ATTACK';
-    button.style.cssText = `
-      position: fixed;
-      top: 80px;
-      left: 20px;
-      background: rgba(255, 0, 0, 0.8);
-      color: white;
-      border: 1px solid #ff4444;
-      border-radius: 8px;
-      padding: 8px 12px;
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-      cursor: pointer;
-      z-index: 100;
-    `;
-
-    button.addEventListener('click', () => {
-      console.log('Force attack button clicked');
-      const combatSystem = this.world.getECS().getSystem(CombatSystem);
-      if (combatSystem) {
-        (combatSystem as any).forceAttack();
-      }
-    });
-
-    if (!document.body.contains(button)) {
-      document.body.appendChild(button);
-    }
-  }
 
   /**
    * Crea la nave player controllabile

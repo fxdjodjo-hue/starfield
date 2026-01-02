@@ -151,33 +151,6 @@ export class CombatSystem extends BaseSystem {
     }
   }
 
-  /**
-   * Forza un attacco immediato per testare i proiettili
-   */
-  forceAttack(): void {
-    // Trova il primo NPC disponibile
-    const allNpcs = this.ecs.getEntitiesWithComponents(Npc, Damage, Transform);
-    if (allNpcs.length === 0) return;
-
-    const npcEntity = allNpcs[0];
-
-    // Trova il player
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
-    const playerEntity = playerEntities.find(entity => {
-      return !this.ecs.hasComponent(entity, SelectedNpc);
-    });
-
-    if (!playerEntity) return;
-
-    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
-    const npcDamage = this.ecs.getComponent(npcEntity, Damage);
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-
-    if (!npcTransform || !npcDamage || !playerTransform) return;
-
-    // Forza l'attacco ignorando range e cooldown
-    this.performAttack(npcEntity, npcTransform, npcDamage, playerTransform, playerEntity);
-  }
 
   /**
    * Permette al player di attaccare un NPC selezionato (per uso futuro)
