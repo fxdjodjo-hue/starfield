@@ -62,9 +62,9 @@ export class ParallaxSystem extends BaseSystem {
           Math.pow(transform.y - camera.y, 2)
         );
 
-        // Salta stelle oltre 4000 pixel dalla camera (fuori dal campo visivo)
-        // Aumentato rispetto a prima dato che abbiamo più stelle distribuite
-        if (distanceFromCamera > 4000) {
+        // Salta stelle oltre 8000 pixel dalla camera (fuori dal campo visivo)
+        // Aumentato per la mappa enorme 21000x13100
+        if (distanceFromCamera > 8000) {
           continue;
         }
 
@@ -104,8 +104,8 @@ export class ParallaxSystem extends BaseSystem {
     const screenX = screenPos.x;
     const screenY = screenPos.y;
 
-    // Salta se l'elemento è fuori dallo schermo (con margine aumentato)
-    const margin = 100; // Aumentato da 50 a 100 per catturare più elementi
+    // Salta se l'elemento è fuori dallo schermo (con margine aumentato per mappa grande)
+    const margin = 200; // Aumentato a 200 per la mappa 21000x13100
     if (screenX < -margin || screenX > ctx.canvas.width + margin ||
         screenY < -margin || screenY > ctx.canvas.height + margin) {
       ctx.restore();
