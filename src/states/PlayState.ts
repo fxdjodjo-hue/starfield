@@ -23,6 +23,7 @@ export class PlayState extends GameState {
   private world: World;
   private playerInfoElement: HTMLElement;
   private context: GameContext;
+  private playerEntity: any = null;
 
   constructor(context: GameContext) {
     super();
@@ -59,6 +60,9 @@ export class PlayState extends GameState {
   update(deltaTime: number): void {
     // Aggiorna il mondo di gioco
     this.world.update(deltaTime);
+
+    // Aggiorna le informazioni del player (HP)
+    this.showPlayerInfo();
   }
 
   /**
@@ -113,7 +117,15 @@ export class PlayState extends GameState {
    * Mostra le info del giocatore
    */
   private showPlayerInfo(): void {
-    this.playerInfoElement.textContent = `Pilot: ${this.context.playerNickname}`;
+    let hpText = '';
+    if (this.playerEntity) {
+      const health = this.world.getECS().getComponent(this.playerEntity, Health);
+      if (health) {
+        hpText = ` | HP: ${health.current}/${health.max}`;
+      }
+    }
+
+    this.playerInfoElement.textContent = `Pilot: ${this.context.playerNickname}${hpText}`;
     if (!document.body.contains(this.playerInfoElement)) {
       document.body.appendChild(this.playerInfoElement);
     }
@@ -178,6 +190,7 @@ export class PlayState extends GameState {
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
+    this.playerEntity = playerShip;
 
     // Imposta il player nel sistema di controllo
     playerControlSystem.setPlayerEntity(playerShip);
