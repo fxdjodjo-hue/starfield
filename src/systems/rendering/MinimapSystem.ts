@@ -182,7 +182,7 @@ export class MinimapSystem extends System {
 
     // Imposta stile linea continua
     ctx.strokeStyle = '#00ff88'; // Verde come il bordo della minimappa
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 1;
     ctx.setLineDash([]); // Linea continua (rimuovi tratteggio)
 
     // Disegna la linea
