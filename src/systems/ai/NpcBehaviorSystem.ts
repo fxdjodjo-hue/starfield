@@ -64,7 +64,7 @@ export class NpcBehaviorSystem extends BaseSystem {
     for (const entity of npcs) {
       const npc = this.ecs.getComponent(entity, Npc);
       if (npc) {
-        this.updateNpcBehavior(npc);
+        this.updateNpcBehavior(npc, entity.id);
       }
     }
   }
@@ -81,7 +81,7 @@ export class NpcBehaviorSystem extends BaseSystem {
       const velocity = this.ecs.getComponent(entity, Velocity);
 
       if (npc && transform && velocity) {
-        this.executeNpcBehavior(npc, transform, velocity, deltaTime);
+        this.executeNpcBehavior(npc, transform, velocity, deltaTime, entity.id);
         this.enforceWorldBounds(transform, velocity);
       }
     }
@@ -90,8 +90,8 @@ export class NpcBehaviorSystem extends BaseSystem {
   /**
    * Aggiorna il comportamento di un singolo NPC
    */
-  private updateNpcBehavior(npc: Npc): void {
-    // Solo gli Streuner si muovono, gli altri rimangono fermi
+  private updateNpcBehavior(npc: Npc, entityId: number): void {
+    // Solo gli Streuner cambiano comportamento periodicamente
     if (npc.npcType === 'Streuner') {
       // Comportamenti più fluidi per gli Streuner
       // cruise: mantiene direzione molto a lungo (tratte lunghissime)
@@ -102,24 +102,28 @@ export class NpcBehaviorSystem extends BaseSystem {
       const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
       npc.setBehavior(randomBehavior);
 
-      // Inizializza lo stato dell'NPC se necessario
-      this.initializeNpcState(npc);
-    } else {
-      // Gli altri NPC stanno fermi
-      npc.setBehavior('idle');
+      // Assicurati che lo stato sia inizializzato
+      this.initializeNpcStateForEntity(entityId, npc);
     }
+    // Gli altri NPC mantengono il loro comportamento attuale
   }
 
   /**
    * Esegue il comportamento corrente di un NPC
    */
-  private executeNpcBehavior(npc: Npc, transform: Transform, velocity: Velocity, deltaTime: number): void {
-    const npcId = npc.npcType === 'Streuner' ? 1 : 0;
-    const state = this.npcStates.get(npcId);
+  private executeNpcBehavior(npc: Npc, transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
+    // Usa l'ID dell'entità invece del tipo per avere stati unici per ogni NPC
+    const npcId = entityId || 0; // Fallback se non fornito
+    let state = this.npcStates.get(npcId);
 
+    // Inizializza lo stato se necessario (per nuovi NPC)
     if (!state) {
-      this.executeIdleBehavior(velocity);
-      return;
+      this.initializeNpcStateForEntity(npcId, npc);
+      state = this.npcStates.get(npcId);
+      if (!state) {
+        this.executeIdleBehavior(velocity);
+        return;
+      }
     }
 
     switch (npc.behavior) {
@@ -263,14 +267,11 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   /**
-   * Inizializza lo stato di un NPC per movimenti fluidi
+   * Inizializza lo stato di un NPC per movimenti fluidi usando l'entity ID
    */
-  private initializeNpcState(npc: Npc): void {
-    // Per ora usiamo un ID semplice basato sul tipo (potrebbe essere migliorato)
-    const npcId = npc.npcType === 'Streuner' ? 1 : 0;
-
-    if (!this.npcStates.has(npcId)) {
-      this.npcStates.set(npcId, {
+  private initializeNpcStateForEntity(entityId: number, npc: Npc): void {
+    if (!this.npcStates.has(entityId)) {
+      this.npcStates.set(entityId, {
         targetAngle: Math.random() * Math.PI * 2,
         currentSpeed: 0,
         targetSpeed: 50, // Velocità fissa di 50 pixels/second
@@ -281,6 +282,15 @@ export class NpcBehaviorSystem extends BaseSystem {
         lastUpdateTime: Date.now()
       });
     }
+  }
+
+  /**
+   * Inizializza lo stato di un NPC per movimenti fluidi (vecchio metodo per compatibilità)
+   * @deprecated Usa initializeNpcStateForEntity invece
+   */
+  private initializeNpcState(npc: Npc): void {
+    // Questo metodo è mantenuto per compatibilità ma non dovrebbe essere usato
+    console.warn('initializeNpcState is deprecated, use initializeNpcStateForEntity');
   }
 
   /**
