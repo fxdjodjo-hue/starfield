@@ -139,6 +139,21 @@ export class CombatSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
     if (!npcTransform) return;
 
+    // Controlla se il player è troppo lontano dall'NPC selezionato (distanza massima assoluta)
+    const distance = Math.sqrt(
+      Math.pow(playerTransform.x - npcTransform.x, 2) +
+      Math.pow(playerTransform.y - npcTransform.y, 2)
+    );
+
+    // Distanza massima assoluta per mantenere la selezione (500px)
+    const maxSelectionDistance = 500;
+
+    if (distance > maxSelectionDistance) {
+      // Player troppo lontano - deseleziona automaticamente l'NPC
+      this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      return; // Esci dalla funzione, non continuare con la logica di combattimento
+    }
+
     if (playerDamage.isInRange(
       playerTransform.x, playerTransform.y,
       npcTransform.x, npcTransform.y
@@ -151,8 +166,8 @@ export class CombatSystem extends BaseSystem {
         this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
       }
     }
-    // Nota: Non deselezionare l'NPC quando fuori range
-    // Mantieni la selezione attiva, ma permetti attacco solo quando nel range
+    // Nota: L'attacco finisce quando il player si allontana troppo (500px)
+    // ma la selezione rimane attiva finché non superi questa distanza massima
   }
 
 
