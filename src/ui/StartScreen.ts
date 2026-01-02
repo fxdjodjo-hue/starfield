@@ -56,6 +56,8 @@ export class StartScreen {
       margin: 0;
       text-shadow: 0 0 20px #00ff88;
       letter-spacing: 4px;
+      text-align: center;
+      width: 100%;
     `;
 
     // Versione
@@ -66,6 +68,8 @@ export class StartScreen {
       font-size: 14px;
       font-family: monospace;
       letter-spacing: 1px;
+      text-align: center;
+      width: 100%;
     `;
 
     // Container header per titolo e versione
@@ -74,7 +78,9 @@ export class StartScreen {
       display: flex;
       flex-direction: column;
       align-items: center;
+      justify-content: center;
       margin-bottom: 30px;
+      width: 100%;
     `;
 
     // Container form
