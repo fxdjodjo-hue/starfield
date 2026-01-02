@@ -458,7 +458,6 @@ export class EconomySystem extends BaseSystem {
     const added = credits.addCredits(amount);
 
     if (added > 0) {
-      console.log(`Credits: +${added} (${reason}) - Total: ${credits.credits}`);
       this.onCreditsChanged?.(credits.credits, added);
     }
 
@@ -476,7 +475,6 @@ export class EconomySystem extends BaseSystem {
     const removed = credits.removeCredits(amount);
 
     if (removed > 0) {
-      console.log(`Credits: -${removed} (${reason}) - Total: ${credits.credits}`);
       this.onCreditsChanged?.(credits.credits, -removed);
     }
 
@@ -504,7 +502,6 @@ export class EconomySystem extends BaseSystem {
     const added = cosmos.addCosmos(amount);
 
     if (added > 0) {
-      console.log(`Cosmos: +${added} (${reason}) - Total: ${cosmos.cosmos}`);
       this.onCosmosChanged?.(cosmos.cosmos, added);
     }
 
@@ -522,7 +519,6 @@ export class EconomySystem extends BaseSystem {
     const removed = cosmos.removeCosmos(amount);
 
     if (removed > 0) {
-      console.log(`Cosmos: -${removed} (${reason}) - Total: ${cosmos.cosmos}`);
       this.onCosmosChanged?.(cosmos.cosmos, -removed);
     }
 
@@ -549,10 +545,7 @@ export class EconomySystem extends BaseSystem {
     const oldLevel = experience.level;
     const leveledUp = experience.addExp(amount);
 
-    console.log(`Experience: +${amount} (${reason}) - Level: ${experience.level}, Exp: ${experience.exp}/${experience.expForNextLevel - experience.getExpRequiredForLevel(experience.level - 1)}`);
-
     if (leveledUp) {
-      console.log(`🎉 LEVEL UP! ${oldLevel} → ${experience.level}`);
     }
 
     this.onExperienceChanged?.(experience.totalExpEarned, amount, leveledUp);
@@ -578,7 +571,6 @@ export class EconomySystem extends BaseSystem {
     const honor = this.getPlayerHonor();
     if (honor) {
       honor.setAdministrator(isAdmin);
-      console.log(`Administrator status: ${isAdmin}`);
     }
   }
 
@@ -589,7 +581,6 @@ export class EconomySystem extends BaseSystem {
     const honor = this.getPlayerHonor();
     if (honor) {
       honor.addHonor(amount);
-      console.log(`Honor: +${amount} (${reason}) - Total: ${honor.honor}`);
     }
   }
 
@@ -600,7 +591,6 @@ export class EconomySystem extends BaseSystem {
     const honor = this.getPlayerHonor();
     if (honor) {
       honor.addHonor(amount);
-      console.log(`Local Honor: +${amount} (${reason}) - Total: ${honor.honor}`);
     }
   }
 
@@ -611,7 +601,6 @@ export class EconomySystem extends BaseSystem {
     const honor = this.getPlayerHonor();
     if (honor) {
       honor.removeHonor(amount);
-      console.log(`Local Honor: -${amount} (${reason}) - Total: ${honor.honor}`);
     }
   }
 
@@ -648,7 +637,6 @@ export class EconomySystem extends BaseSystem {
       honorRank: this.rankSystem?.calculateCurrentRank() || 'Recruit'
     };
 
-    console.log(`DEBUG Economy Status: CR=${result.credits}, CO=${result.cosmos}, XP=${result.experience}/${result.expForNextLevel}, LV=${result.level}, HN=${result.honor}, RK=${result.honorRank}`);
     return result;
   }
 

@@ -45,12 +45,10 @@ export class ParallaxSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    console.log('ParallaxSystem.render() called');
     const camera = this.movementSystem.getCamera();
 
     // Ottiene tutti gli elementi parallax
     const parallaxEntities = this.ecs.getEntitiesWithComponents(Transform, ParallaxLayer);
-    console.log(`Found ${parallaxEntities.length} parallax entities`);
 
     // Renderizza ogni elemento parallax (ottimizzato: solo quelli potenzialmente visibili)
     for (const entity of parallaxEntities) {

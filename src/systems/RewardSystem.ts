@@ -55,18 +55,14 @@ export class RewardSystem extends BaseSystem {
 
     const npcDef = getNpcDefinition(npc.npcType);
     if (!npcDef) {
-      console.warn(`No reward definition found for NPC type: ${npc.npcType}`);
       return;
     }
-
-    console.log(`🎉 NPC defeated: ${npc.npcType}`);
 
     // Incrementa contatore kills del player
     if (this.playerEntity) {
       const playerStats = this.ecs.getComponent(this.playerEntity, PlayerStats);
       if (playerStats) {
         playerStats.addKill();
-        console.log(`⚔️ Kill counter: ${playerStats.kills}`);
       }
     }
 
@@ -86,7 +82,5 @@ export class RewardSystem extends BaseSystem {
     if (npcDef.rewards.honor > 0) {
       this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
     }
-
-    console.log(`💰 Rewards: ${npcDef.rewards.credits} CR, ${npcDef.rewards.cosmos} CO, ${npcDef.rewards.experience} XP, ${npcDef.rewards.honor} HN`);
   }
 }

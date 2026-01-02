@@ -9,7 +9,6 @@ export class InputSystem extends BaseSystem {
   private canvas: HTMLCanvasElement;
   private mousePosition = { x: 0, y: 0 };
   private isMouseDown = false;
-  private isCtrlPressed = false;
   private onMouseState?: (pressed: boolean, x: number, y: number) => void;
   private onMouseMoveWhilePressed?: (x: number, y: number) => void;
   private onKeyPress?: (key: string) => void;
@@ -62,13 +61,6 @@ export class InputSystem extends BaseSystem {
   }
 
   /**
-   * Verifica se il tasto CTRL è premuto
-   */
-  isCtrlPressed(): boolean {
-    return this.isCtrlPressed;
-  }
-
-  /**
    * Setup degli event listener per mouse
    */
   private setupEventListeners(): void {
@@ -102,22 +94,10 @@ export class InputSystem extends BaseSystem {
 
     // Gestione tastiera
     window.addEventListener('keydown', (event) => {
-      // Gestione tasto CTRL
-      if (event.code === 'ControlLeft' || event.code === 'ControlRight') {
-        this.isCtrlPressed = true;
-      }
-
       // Preveniamo comportamenti di default per alcuni tasti
       if (event.code === 'Space') {
         event.preventDefault();
         this.onKeyPress?.('Space');
-      }
-    });
-
-    window.addEventListener('keyup', (event) => {
-      // Rilascio tasto CTRL
-      if (event.code === 'ControlLeft' || event.code === 'ControlRight') {
-        this.isCtrlPressed = false;
       }
     });
 

@@ -67,9 +67,6 @@ export class RankSystem extends BaseSystem {
     // - Kills: bonus efficienza minima (÷10)
     const points = experience.totalExpEarned + (honor.honor * 1.5) + (experience.level * 30) + (playerStats.kills / 10);
 
-    // DEBUG: mostra calcolo dettagliato
-    console.log(`DEBUG Rank Points: exp=${experience.totalExpEarned}, honor=${honor.honor}, level=${experience.level}, kills=${playerStats.kills}, points=${points}`);
-
     return points;
   }
 
