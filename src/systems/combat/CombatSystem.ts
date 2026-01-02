@@ -4,6 +4,7 @@ import { Health } from '/src/entities/combat/Health';
 import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { DamageTaken } from '/src/entities/combat/DamageTaken';
+import { DamageText } from '/src/entities/combat/DamageText';
 import { Transform } from '/src/entities/spatial/Transform';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Npc } from '/src/entities/ai/Npc';
@@ -17,6 +18,7 @@ import { MovementSystem } from '../physics/MovementSystem';
 export class CombatSystem extends BaseSystem {
   private lastUpdateTime: number = Date.now();
   private movementSystem: MovementSystem;
+  private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
 
   constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
@@ -103,6 +105,60 @@ export class CombatSystem extends BaseSystem {
 
     // Registra l'attacco per il cooldown
     attackerDamage.performAttack(this.lastUpdateTime);
+  }
+
+  /**
+   * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
+   */
+  createDamageText(targetEntity: any, damage: number, isShieldDamage: boolean = false): void {
+    if (damage <= 0) return;
+
+    const targetEntityId = targetEntity.id;
+
+    // Controlla quanti testi sono già attivi per questa entità
+    const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
+    if (activeCount >= 3) return; // Limite di 3 testi per entità
+
+    // Determina il colore e offset del testo
+    const playerEntity = this.ecs.getPlayerEntity();
+    const isPlayerDamage = playerEntity && targetEntityId === playerEntity.id;
+
+    let textColor: string;
+    let offsetY: number;
+    let offsetX: number;
+
+    if (isShieldDamage) {
+      textColor = '#4444ff'; // Blu per shield
+      offsetY = -30;
+      offsetX = (Math.random() - 0.5) * 25; // ±12.5px
+    } else {
+      textColor = isPlayerDamage ? '#ff4444' : '#ffffff'; // Rosso per danno al player, bianco per danno agli NPC
+      offsetY = -30; // Default, sarà aggiustato sotto
+      offsetX = (Math.random() - 0.5) * 20; // ±10px
+    }
+
+    // Se abbiamo appena applicato danno shield, il prossimo danno HP va più in basso
+    if (!isShieldDamage && this.hasRecentShieldDamage(targetEntity)) {
+      offsetY = -15; // HP più in basso quando c'è stato danno shield
+    }
+
+    // Crea il testo di danno
+    const damageTextEntity = this.ecs.createEntity();
+    const damageText = new DamageText(damage, targetEntityId, offsetX, offsetY, textColor);
+    this.ecs.addComponent(damageTextEntity, DamageText, damageText);
+
+    // Aggiorna il contatore
+    this.activeDamageTexts.set(targetEntityId, activeCount + 1);
+  }
+
+  /**
+   * Controlla se l'entità ha subito danno shield recentemente
+   */
+  private hasRecentShieldDamage(targetEntity: any): boolean {
+    // Per ora semplificato - controlla se ha uno shield attivo con danni recenti
+    // In futuro potrebbe usare un timestamp più sofisticato
+    const shield = this.ecs.getComponent(targetEntity, Shield);
+    return shield && shield.isActive() && shield.current < shield.max;
   }
 
   /**

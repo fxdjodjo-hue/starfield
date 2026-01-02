@@ -82,5 +82,8 @@ export class RewardSystem extends BaseSystem {
     if (npcDef.rewards.honor > 0) {
       this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
     }
+
+    // Rimuovi l'entità NPC morta (i testi di danno continuano autonomamente)
+    this.ecs.removeEntity(npcEntity);
   }
 }

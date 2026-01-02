@@ -90,7 +90,6 @@ export class EconomySystem extends BaseSystem {
       font-size: 12px;
       font-weight: bold;
       z-index: 100;
-      pointer-events: none;
       display: none;
     `;
 
@@ -129,7 +128,6 @@ export class EconomySystem extends BaseSystem {
       font-size: 12px;
       font-weight: bold;
       z-index: 100;
-      pointer-events: none;
       display: none;
     `;
 
@@ -161,7 +159,6 @@ export class EconomySystem extends BaseSystem {
       top: 120px;
       left: 20px;
       z-index: 100;
-      pointer-events: none;
       display: none;
     `;
 
@@ -240,7 +237,6 @@ export class EconomySystem extends BaseSystem {
       font-size: 12px;
       font-weight: bold;
       z-index: 100;
-      pointer-events: none;
       display: none;
     `;
 

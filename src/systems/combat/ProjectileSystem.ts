@@ -155,6 +155,9 @@ export class ProjectileSystem extends BaseSystem {
         const damageDealt = projectile.damage;
         this.applyDamage(targetEntity, damageDealt);
 
+        // Notifica il CombatSystem per creare i testi danno
+        this.notifyCombatSystemOfDamage(targetEntity, damageDealt);
+
 
         // Rimuovi il proiettile dopo l'impatto
         this.ecs.removeEntity(projectileEntity);
@@ -164,7 +167,39 @@ export class ProjectileSystem extends BaseSystem {
   }
 
   /**
-   * Applica danno a un'entità (prima shield, poi HP)
+   * Notifica il CombatSystem quando viene applicato danno
+   */
+  private notifyCombatSystemOfDamage(targetEntity: any, damage: number): void {
+    // Cerca il CombatSystem nell'ECS
+    const combatSystem = (this.ecs as any).systems?.find((system: any) =>
+      system.constructor.name === 'CombatSystem'
+    );
+
+    if (combatSystem && combatSystem.createDamageText) {
+      // Applica la logica di danno divisa tra shield e HP
+      const targetShield = this.ecs.getComponent(targetEntity, Shield);
+      const targetHealth = this.ecs.getComponent(targetEntity, Health);
+
+      if (!targetHealth) return;
+
+      let damageToHp = damage;
+
+      // Prima applica danno allo shield se presente
+      if (targetShield && targetShield.isActive()) {
+        const shieldDamage = Math.min(damage, targetShield.current);
+        combatSystem.createDamageText(targetEntity, shieldDamage, true); // true = shield damage
+        damageToHp = damage - shieldDamage;
+      }
+
+      // Poi applica danno all'HP
+      if (damageToHp > 0) {
+        combatSystem.createDamageText(targetEntity, damageToHp, false); // false = HP damage
+      }
+    }
+  }
+
+  /**
+   * Applica danno a un'entità (modifica gli HP/shield, la UI è gestita dal CombatSystem)
    */
   private applyDamage(targetEntity: any, damage: number): void {
     const targetShield = this.ecs.getComponent(targetEntity, Shield);

@@ -20,7 +20,7 @@ export class DamageText extends Component {
     this.y = y;
     this.lifetime = lifetime;
     this.maxLifetime = lifetime;
-    this.color = color;
+    this.color = color || '#ffffff';
     this.velocityY = -50; // Pixel al secondo verso l'alto
   }
 

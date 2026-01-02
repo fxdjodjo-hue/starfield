@@ -57,12 +57,22 @@ export class RenderSystem extends BaseSystem {
           // Renderizza come NPC
           this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined);
 
-          // Range di attacco NPC rimosso per pulizia visiva
+          // Mostra range di attacco se selezionato
+          if (selected !== undefined) {
+            const damage = this.ecs.getComponent(entity, Damage);
+            if (damage) {
+              this.renderAttackRange(ctx, screenPos.x, screenPos.y, damage.attackRange, '#ff4444');
+            }
+          }
         } else {
           // Renderizza come player
           this.renderEntity(ctx, transform, screenPos.x, screenPos.y);
 
-          // Range di attacco del player rimosso per pulizia visiva
+          // Mostra sempre il range di attacco del player
+          const damage = this.ecs.getComponent(entity, Damage);
+          if (damage) {
+            this.renderAttackRange(ctx, screenPos.x, screenPos.y, damage.attackRange, '#44ff44');
+          }
         }
 
         // Renderizza le barre salute/shield se l'entità ha componenti
@@ -119,7 +129,14 @@ export class RenderSystem extends BaseSystem {
     ctx.rotate(transform.rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
 
-    // Cerchio di selezione rimosso per permettere click liberi attorno agli NPC
+    // Cerchio rosso di selezione (se selezionato)
+    if (isSelected) {
+      ctx.beginPath();
+      ctx.arc(0, 0, 25, 0, Math.PI * 2); // Cerchio di raggio 25px attorno all'NPC
+      ctx.strokeStyle = '#ff0000';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
 
     if (npc.npcType === 'triangle') {
       // Triangolo rosso per NPC nemici
