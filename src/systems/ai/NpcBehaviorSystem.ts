@@ -160,6 +160,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento patrol - mantiene una direzione più a lungo per movimenti fluidi
    */
   private executePatrolBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il patrol
+    velocity.setAngularVelocity(0);
+
     // Aggiorna occasionalmente la direzione (ogni 15-25 secondi circa)
     if (Math.random() < 0.0005) { // ~0.05% probabilità per frame (molto più rara)
       state.patrolAngle = Math.random() * Math.PI * 2;
@@ -173,6 +176,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento wander fluido - cambia direzione gradualmente
    */
   private executeSmoothWanderBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il wander
+    velocity.setAngularVelocity(0);
+
     // Cambia direzione gradualmente (ogni 5-10 secondi circa)
     if (Math.random() < 0.001) { // ~0.1% probabilità per frame (molto più rara)
       state.targetAngle = Math.random() * Math.PI * 2;
@@ -186,6 +192,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento wander - l'NPC si muove casualmente (vecchio metodo, mantenuto per compatibilità)
    */
   private executeWanderBehavior(transform: Transform, velocity: Velocity): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il wander
+    velocity.setAngularVelocity(0);
+
     // Movimento casuale con velocità moderata
     const speed = 50; // pixels per second
     const angle = Math.random() * Math.PI * 2; // Direzione casuale
@@ -200,6 +209,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento cruise - mantiene direzione fissa per tratte molto lunghe
    */
   private executeCruiseBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il cruise
+    velocity.setAngularVelocity(0);
+
     // Cambia direzione molto raramente (ogni 30-60 secondi circa)
     if (Math.random() < 0.0002) { // ~0.02% probabilità per frame (estremamente rara)
       state.targetAngle = Math.random() * Math.PI * 2;
@@ -213,6 +225,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento circle fluido - movimento circolare relativo alla posizione iniziale
    */
   private executeSmoothCircleBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il movimento circolare
+    velocity.setAngularVelocity(0);
+
     // Inizializza il centro del cerchio alla prima esecuzione
     if (state.circleCenterX === 0 && state.circleCenterY === 0) {
       state.circleCenterX = transform.x + (Math.random() - 0.5) * 200; // Centro casuale vicino all'NPC
@@ -241,6 +256,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento circle - l'NPC gira in cerchio (vecchio metodo, mantenuto per compatibilità)
    */
   private executeCircleBehavior(transform: Transform, velocity: Velocity): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il movimento circolare
+    velocity.setAngularVelocity(0);
+
     // Movimento circolare con velocità costante
     const speed = 80; // pixels per second
     const radius = 100; // raggio del cerchio

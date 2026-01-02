@@ -1,6 +1,7 @@
 import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Health } from '/src/entities/combat/Health';
+import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { Transform } from '/src/entities/spatial/Transform';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
@@ -45,11 +46,7 @@ export class CombatSystem extends BaseSystem {
     if (!attackerTransform || !attackerDamage) return;
 
     // Trova il player come target
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
-    // Il player è l'entità con Damage ma senza SelectedNpc
-    const playerEntity = playerEntities.find(entity => {
-      return !this.ecs.hasComponent(entity, SelectedNpc);
-    });
+    const playerEntity = this.ecs.getPlayerEntity();
 
     if (!playerEntity) return;
 
@@ -120,10 +117,7 @@ export class CombatSystem extends BaseSystem {
     const selectedNpc = selectedNpcs[0];
 
     // Trova il player
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
-    const playerEntity = playerEntities.find(entity => {
-      return !this.ecs.hasComponent(entity, SelectedNpc);
-    });
+    const playerEntity = this.ecs.getPlayerEntity();
 
     if (!playerEntity) return;
 
@@ -203,7 +197,12 @@ export class CombatSystem extends BaseSystem {
 
     for (const entity of entitiesWithHealth) {
       const health = this.ecs.getComponent(entity, Health);
-      if (health && health.isDead()) {
+      const shield = this.ecs.getComponent(entity, Shield);
+
+      // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
+      const isDead = health && health.isDead() && (!shield || !shield.isActive());
+
+      if (isDead) {
         this.ecs.removeEntity(entity);
       }
     }

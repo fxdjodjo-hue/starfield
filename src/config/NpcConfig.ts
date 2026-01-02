@@ -5,6 +5,7 @@
 
 export interface NpcStats {
   health: number;
+  shield: number;
   damage: number;
   range: number;
   cooldown: number;
@@ -34,10 +35,12 @@ export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
     type: 'Scouter',
     defaultBehavior: 'wander',
     stats: {
-      health: 40,
-      damage: 12,
+      health: 800,
+      shield: 560,
+      damage: 50,
       range: 220,
       cooldown: 1200, // 1.2 secondi
+      speed: 200
     },
     rewards: {
       credits: 824,

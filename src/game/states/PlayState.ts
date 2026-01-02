@@ -19,6 +19,7 @@ import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Health } from '/src/entities/combat/Health';
+import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { Credits, Cosmos } from '/src/entities/Currency';
 import { Experience } from '/src/entities/Experience';
@@ -333,8 +334,8 @@ export class PlayState extends GameState {
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const combatSystem = new CombatSystem(ecs);
-    const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
+    const projectileSystem = new ProjectileSystem(ecs, movementSystem, damageTextSystem);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
     this.economySystem = new EconomySystem(ecs);
     const rankSystem = new RankSystem(ecs);
@@ -570,10 +571,11 @@ export class PlayState extends GameState {
 
       // Aggiungi componenti allo Scouter usando la configurazione
       ecs.addComponent(streuner, Transform, new Transform(x, y, 0));
-      ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0));
+      ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0)); // velocità angolare = 0
       ecs.addComponent(streuner, Health, new Health(npcDef.stats.health, npcDef.stats.health));
+      ecs.addComponent(streuner, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
       ecs.addComponent(streuner, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
-      ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior, npcDef.type));
+      ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
     }
   }
 

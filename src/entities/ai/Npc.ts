@@ -3,21 +3,19 @@ import { Component } from '/src/infrastructure/ecs/Component';
 /**
  * Componente NPC - identifica un'entità come Non-Player Character
  * Gli NPC hanno comportamenti autonomi e possono interagire con il giocatore
+ * Il nome visualizzato corrisponde al tipo dell'NPC (npcType)
  */
 export class Npc extends Component {
   public npcType: string;
   public behavior: string;
-  public nickname: string;
 
   constructor(
     npcType: string = 'generic',
-    behavior: string = 'idle',
-    nickname: string = ''
+    behavior: string = 'idle'
   ) {
     super();
     this.npcType = npcType;
     this.behavior = behavior;
-    this.nickname = nickname || npcType; // Se non specificato, usa il tipo come nickname
   }
 
   /**
@@ -34,10 +32,4 @@ export class Npc extends Component {
     this.behavior = behavior;
   }
 
-  /**
-   * Imposta il nickname dell'NPC
-   */
-  setNickname(nickname: string): void {
-    this.nickname = nickname;
-  }
 }

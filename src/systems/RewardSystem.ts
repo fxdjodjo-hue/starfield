@@ -1,9 +1,9 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Health } from '/src/entities/combat/Health';
-import { Npc } from '/src/entities/ai/Npc';
-import { PlayerStats } from '/src/entities/PlayerStats';
-import { getNpcDefinition } from '/src/config/NpcConfig';
+import { System as BaseSystem } from '../infrastructure/ecs/System';
+import { ECS } from '../infrastructure/ecs/ECS';
+import { Health } from '../entities/combat/Health';
+import { Npc } from '../entities/ai/Npc';
+import { PlayerStats } from '../entities/PlayerStats';
+import { getNpcDefinition } from '../config/NpcConfig';
 
 /**
  * Sistema Reward - gestisce l'assegnazione di ricompense quando gli NPC vengono sconfitti
@@ -35,7 +35,7 @@ export class RewardSystem extends BaseSystem {
     if (!this.economySystem) return;
 
     // Trova tutti gli NPC morti che non sono ancora stati processati
-    const deadNpcs = this.ecs.getEntitiesWithComponents(Npc, Health).filter(entity => {
+    const deadNpcs = this.ecs.getEntitiesWithComponents(Npc, Health).filter((entity: any) => {
       const health = this.ecs.getComponent(entity, Health);
       return health && health.isDead();
     });
@@ -59,7 +59,7 @@ export class RewardSystem extends BaseSystem {
       return;
     }
 
-    console.log(`🎉 NPC defeated: ${npc.nickname} (${npc.npcType})`);
+    console.log(`🎉 NPC defeated: ${npc.npcType}`);
 
     // Incrementa contatore kills del player
     if (this.playerEntity) {

@@ -3,6 +3,7 @@ import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Projectile } from '/src/entities/combat/Projectile';
 import { Health } from '/src/entities/combat/Health';
+import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
@@ -13,10 +14,12 @@ import { MovementSystem } from '/src/systems/physics/MovementSystem';
  */
 export class ProjectileSystem extends BaseSystem {
   private movementSystem: MovementSystem;
+  private damageTextSystem: DamageTextSystem;
 
-  constructor(ecs: ECS, movementSystem: MovementSystem) {
+  constructor(ecs: ECS, movementSystem: MovementSystem, damageTextSystem: DamageTextSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
+    this.damageTextSystem = damageTextSystem;
   }
 
   update(deltaTime: number): void {
@@ -31,7 +34,7 @@ export class ProjectileSystem extends BaseSystem {
 
       if (!transform || !projectile) continue;
 
-      // Controlla se il bersaglio è ancora vivo
+      // Controlla se il bersaglio è ancora vivo (ha HP o shield attivo)
       const allTargets = this.ecs.getEntitiesWithComponents(Health);
       const targetExists = allTargets.some(entity => entity.id === projectile.targetId);
 
@@ -39,7 +42,12 @@ export class ProjectileSystem extends BaseSystem {
         const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
         if (targetEntity) {
           const targetHealth = this.ecs.getComponent(targetEntity, Health);
-          if (targetHealth && targetHealth.isDead()) {
+          const targetShield = this.ecs.getComponent(targetEntity, Shield);
+
+          // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
+          const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
+
+          if (isDead) {
             this.ecs.removeEntity(projectileEntity);
             continue;
           }
@@ -79,13 +87,9 @@ export class ProjectileSystem extends BaseSystem {
     const projectile = this.ecs.getComponent(projectileEntity, Projectile);
     if (!projectile) return false;
 
-    // Trova il player (entità con Transform, Health, Damage ma senza SelectedNpc)
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage)
-      .filter(entity => !this.ecs.hasComponent(entity, SelectedNpc));
-
-    if (playerEntities.length === 0) return false;
-
-    const playerEntity = playerEntities[0];
+    // Trova il player
+    const playerEntity = this.ecs.getPlayerEntity();
+    if (!playerEntity) return false;
 
     // I proiettili homing sono:
     // 1. Quelli sparati DA NPC verso il player
@@ -146,29 +150,10 @@ export class ProjectileSystem extends BaseSystem {
       // Se la distanza è minore di una soglia (hitbox), colpisce
       const hitDistance = 15; // Raggio di collisione
       if (distance < hitDistance) {
-        // Applica danno
+        // Applica danno (prima shield, poi HP)
         const damageDealt = projectile.damage;
-        targetHealth.current -= damageDealt;
+        this.applyDamage(targetEntity, damageDealt);
 
-        // Crea testo di danno
-        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-        if (targetTransform) {
-          // Converti coordinate mondo in coordinate schermo
-          const canvasSize = (this.ecs as any).context?.canvas ?
-                            { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
-                            { width: window.innerWidth, height: window.innerHeight };
-
-          const camera = this.movementSystem.getCamera();
-          const screenPos = camera.worldToScreen(targetTransform.x, targetTransform.y - 30, canvasSize.width, canvasSize.height);
-
-          // Determina il colore del testo (rosso per danno al player, bianco per NPC)
-          const isPlayerDamage = this.ecs.hasComponent(targetEntity, Damage) &&
-                                !this.ecs.hasComponent(targetEntity, SelectedNpc);
-          const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
-
-          // Crea testo nelle coordinate schermo
-          this.createDamageText(damageDealt, screenPos.x, screenPos.y, textColor);
-        }
 
         // Rimuovi il proiettile dopo l'impatto
         this.ecs.removeEntity(projectileEntity);
@@ -178,16 +163,64 @@ export class ProjectileSystem extends BaseSystem {
   }
 
   /**
+   * Applica danno a un'entità (prima shield, poi HP)
+   */
+  private applyDamage(targetEntity: any, damage: number): void {
+    const targetShield = this.ecs.getComponent(targetEntity, Shield);
+    const targetHealth = this.ecs.getComponent(targetEntity, Health);
+
+    if (!targetHealth) return;
+
+    let damageToHp = damage;
+
+    // Prima applica danno allo shield se presente e attivo
+    if (targetShield && targetShield.isActive()) {
+      const shieldDamage = Math.min(damage, targetShield.current);
+      targetShield.takeDamage(shieldDamage);
+      damageToHp = damage - shieldDamage;
+
+      // Crea testo di danno per lo shield (colore blu)
+      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+      if (targetTransform) {
+        this.createShieldDamageText(shieldDamage, targetTransform);
+      }
+    }
+
+    // Poi applica il danno rimanente all'HP
+    if (damageToHp > 0) {
+      targetHealth.takeDamage(damageToHp);
+
+      // Crea testo di danno per l'HP (colore rosso/bianco)
+      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+      if (targetTransform) {
+          const playerEntity = this.ecs.getPlayerEntity();
+          const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
+        const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
+        this.createDamageText(damageToHp, targetTransform.x, targetTransform.y - 30, textColor);
+      }
+    }
+  }
+
+  /**
+   * Crea testo di danno per lo shield
+   */
+  private createShieldDamageText(value: number, targetTransform: Transform): void {
+    // Converti coordinate mondo in coordinate schermo
+    const canvasSize = (this.ecs as any).context?.canvas ?
+                      { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
+                      { width: window.innerWidth, height: window.innerHeight };
+
+    const camera = this.movementSystem.getCamera();
+    const screenPos = camera.worldToScreen(targetTransform.x, targetTransform.y - 15, canvasSize.width, canvasSize.height);
+
+    // Crea testo blu per danno allo shield
+    this.damageTextSystem.createDamageText(value, screenPos.x, screenPos.y, '#4444ff');
+  }
+
+  /**
    * Crea un testo di danno
    */
   private createDamageText(value: number, x: number, y: number, color: string): void {
-    // Trova il DamageTextSystem nell'ECS
-    const systems = (this.ecs as any).systems;
-    for (const system of systems) {
-      if (system instanceof DamageTextSystem) {
-        system.createDamageText(value, x, y, color);
-        break;
-      }
-    }
+    this.damageTextSystem.createDamageText(value, x, y, color);
   }
 }

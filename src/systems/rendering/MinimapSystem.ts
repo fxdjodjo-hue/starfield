@@ -1,4 +1,4 @@
-import { System } from '../../infrastructure/ecs/System';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
@@ -10,7 +10,7 @@ import { CONFIG } from '../../utils/config/Config';
  * Sistema per gestire la minimappa quadrata
  * Gestisce rendering e interazione click-to-move
  */
-export class MinimapSystem extends System {
+export class MinimapSystem extends BaseSystem {
   private minimap: Minimap;
   private camera: Camera | null = null;
   private canvas: HTMLCanvasElement;
