@@ -15,6 +15,8 @@ import { LogSystem } from '/src/systems/rendering/LogSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
+import { PlayerHUD } from '/src/ui/PlayerHUD';
+import type { PlayerHUDData } from '/src/ui/PlayerHUD';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
@@ -36,7 +38,7 @@ import { getNpcDefinition } from '/src/config/NpcConfig';
  */
 export class PlayState extends GameState {
   private world: World;
-  private playerInfoElement: HTMLElement;
+  private playerHUD: PlayerHUD;
   private expandedHudElement: HTMLElement | null = null;
   private context: GameContext;
   private playerEntity: any = null;
@@ -44,6 +46,7 @@ export class PlayState extends GameState {
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
   private economySystem: any = null;
   private logSystem: LogSystem | null = null;
+  private playerNicknameElement: HTMLElement | null = null;
 
   constructor(context: GameContext) {
     super();
@@ -51,8 +54,8 @@ export class PlayState extends GameState {
     // Crea il mondo di gioco
     this.world = new World(context.canvas);
 
-    // Crea elemento per mostrare info giocatore
-    this.playerInfoElement = this.createPlayerInfoElement();
+    // Crea l'HUD del giocatore (separazione presentazione/logica)
+    this.playerHUD = new PlayerHUD();
   }
 
   /**
@@ -62,19 +65,22 @@ export class PlayState extends GameState {
     // Nasconde il titolo principale
     this.hideMainTitle();
 
-    // Mostra info del giocatore
-    this.showPlayerInfo();
-
-    // Setup HUD toggle listener
-    this.setupHudToggle();
-
     try {
-      // Inizializza il mondo e crea il giocatore
+      // Inizializza il mondo e crea il giocatore PRIMA di mostrare l'HUD
       await this.initializeGame();
     } catch (error) {
       console.error('Failed to initialize game:', error);
       throw error;
     }
+
+    // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
+    this.showPlayerInfo();
+
+    // Crea elemento nickname sotto la nave
+    this.createPlayerNicknameElement();
+
+    // Setup HUD toggle listener
+    this.setupHudToggle();
   }
 
   /**
@@ -86,6 +92,9 @@ export class PlayState extends GameState {
 
     // Aggiorna le informazioni del player (HP)
     this.showPlayerInfo();
+
+    // Aggiorna posizione del nickname
+    this.updatePlayerNicknamePosition();
   }
 
   /**
@@ -114,7 +123,13 @@ export class PlayState extends GameState {
       this.hudToggleListener = null;
     }
 
+    // Cleanup completo dell'HUD
+    this.playerHUD.destroy();
     this.hidePlayerInfo();
+
+    // Rimuovi elemento nickname
+    this.removePlayerNicknameElement();
+
     this.showMainTitle();
     // Qui potremmo salvare lo stato di gioco, cleanup, etc.
   }
@@ -122,55 +137,49 @@ export class PlayState extends GameState {
   /**
    * Crea l'elemento HTML per mostrare le info del giocatore
    */
-  private createPlayerInfoElement(): HTMLElement {
-    const element = document.createElement('div');
-    element.id = 'player-info';
-    element.style.cssText = `
-      position: fixed;
-      top: 20px;
-      left: 20px;
-      background: rgba(0, 0, 0, 0.8);
-      color: #00ff88;
-      padding: 10px 15px;
-      border-radius: 8px;
-      border: 1px solid #00ff88;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      z-index: 100;
-      display: none;
-    `;
-    return element;
+  /**
+   * Raccoglie i dati del giocatore per l'HUD
+   * Separazione netta: logica di business fornisce dati, UI presenta
+   */
+  private collectPlayerHUDData(): PlayerHUDData {
+    // Dati di default
+    const hudData: PlayerHUDData = {
+      level: 1,
+      credits: 0,
+      cosmos: 0,
+      experience: 0,
+      expForNextLevel: 100,
+      honor: 0
+    };
+
+    // Aggiorna dati economici se disponibili
+    const economyStatus = this.economySystem?.getPlayerEconomyStatus();
+    if (economyStatus) {
+      hudData.level = economyStatus.level;
+      hudData.credits = economyStatus.credits;
+      hudData.cosmos = economyStatus.cosmos;
+      hudData.experience = economyStatus.experience;
+      hudData.expForNextLevel = economyStatus.expForNextLevel;
+      hudData.honor = economyStatus.honor;
+    }
+
+    return hudData;
   }
 
   /**
    * Mostra le info del giocatore
    */
+  /**
+   * Mostra l'HUD del giocatore
+   * Architettura pulita: PlayState fornisce dati, PlayerHUD presenta
+   */
   private showPlayerInfo(): void {
-    let hpHtml = '';
-    if (this.playerEntity) {
-      const health = this.world.getECS().getComponent(this.playerEntity, Health);
-      if (health) {
-        hpHtml = ` <span style="color: #00ff88;">HP: </span><span style="color: #ffffff;">${health.current}/${health.max}</span>`;
-      }
-    }
+    // Raccogli dati dalla logica di business
+    const hudData = this.collectPlayerHUDData();
 
-    // Ottieni valori economici
-    const economyStatus = this.economySystem?.getPlayerEconomyStatus();
-    let economyHtml = '';
-    if (economyStatus) {
-      economyHtml = ` <span style="color: #00ff88;">CR:</span><span style="color: #ffffff;">${economyStatus.credits}</span> <span style="color: #00ff88;">CO:</span><span style="color: #ffffff;">${economyStatus.cosmos}</span> <span style="color: #00ff88;">XP:</span><span style="color: #ffffff;">${economyStatus.experience}/${economyStatus.expForNextLevel}</span> <span style="color: #00ff88;">LV:</span><span style="color: #ffffff;">${economyStatus.level}</span> <span style="color: #00ff88;">HN:</span><span style="color: #ffffff;">${economyStatus.honor}</span> <span style="color: #00ff88;">RK:</span><span style="color: #ffffff;">${economyStatus.honorRank}</span>`;
-    }
-
-    // HUD con colori diversi per etichette (verde) e valori (bianco)
-    this.playerInfoElement.innerHTML =
-      `<span style="color: #00ff88;">Pilot: </span><span style="color: #ffffff;">${this.context.playerNickname}</span>` +
-      hpHtml +
-      economyHtml;
-
-    if (!document.body.contains(this.playerInfoElement)) {
-      document.body.appendChild(this.playerInfoElement);
-    }
-    this.playerInfoElement.style.display = 'block';
+    // Passa dati alla presentazione (separazione responsabilità)
+    this.playerHUD.updateData(hudData);
+    this.playerHUD.show();
 
     // HUD espanso: informazioni aggiuntive (se necessario in futuro)
     if (this.hudExpanded) {
@@ -275,25 +284,17 @@ export class PlayState extends GameState {
     this.hudExpanded = !this.hudExpanded;
     this.showPlayerInfo();
 
-    // Aggiorna stile elemento base per indicare lo stato
-    if (this.hudExpanded) {
-      this.playerInfoElement.style.borderColor = '#ffff00'; // Giallo quando espanso
-      this.playerInfoElement.style.color = '#ffff00';
-    } else {
-      this.playerInfoElement.style.borderColor = '#00ff88'; // Verde quando minimal
-      this.playerInfoElement.style.color = '#00ff88';
-    }
+    // Nota: Lo styling dell'HUD è ora gestito da PlayerHUD
+    // Il toggle riguarda solo l'HUD espanso, non l'HUD principale
   }
 
 
   /**
-   * Nasconde le info del giocatore
+   * Nasconde l'HUD del giocatore
    */
   private hidePlayerInfo(): void {
-    this.playerInfoElement.style.display = 'none';
-    if (document.body.contains(this.playerInfoElement)) {
-      document.body.removeChild(this.playerInfoElement);
-    }
+    // Usa PlayerHUD per nascondere (separazione responsabilità)
+    this.playerHUD.hide();
 
     // Nasconde anche HUD espanso
     this.hideExpandedHud();
@@ -319,6 +320,112 @@ export class PlayState extends GameState {
     const titleElement = document.querySelector('h1');
     if (titleElement) {
       titleElement.style.display = 'block';
+    }
+  }
+
+  /**
+   * Crea l'elemento DOM per mostrare il nickname sotto la nave del player
+   */
+  private createPlayerNicknameElement(): void {
+    this.playerNicknameElement = document.createElement('div');
+    this.playerNicknameElement.id = 'player-nickname';
+    this.playerNicknameElement.style.cssText = `
+      position: fixed;
+      color: rgba(255, 255, 255, 0.9);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-weight: 500;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      user-select: none;
+      z-index: 50;
+      text-align: center;
+      line-height: 1.4;
+    `;
+    document.body.appendChild(this.playerNicknameElement);
+    this.updatePlayerNicknameContent();
+  }
+
+  /**
+   * Aggiorna il contenuto del nickname con rank
+   */
+  private updatePlayerNicknameContent(): void {
+    if (!this.playerNicknameElement) return;
+
+    const nickname = this.context.playerNickname || 'Commander';
+    const rank = this.getPlayerRank();
+
+    this.playerNicknameElement.innerHTML = `
+      <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
+      <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
+    `;
+  }
+
+  /**
+   * Ottiene il rank corrente del player
+   */
+  private getPlayerRank(): string {
+    if (!this.economySystem) return 'Recruit';
+
+    // Ottieni il componente Honor del player per il rank
+    const honor = this.economySystem.getPlayerHonor?.();
+    if (honor && typeof honor.getRank === 'function') {
+      return honor.getRank();
+    }
+
+    return 'Recruit';
+  }
+
+  /**
+   * Aggiorna la posizione del nickname sotto la nave del player
+   */
+  private updatePlayerNicknamePosition(): void {
+    if (!this.playerNicknameElement || !this.playerEntity) return;
+
+    const transform = this.world.getECS().getComponent(this.playerEntity, Transform);
+    if (!transform) return;
+
+    // Trova il MovementSystem nei sistemi registrati
+    const movementSystem = this.findMovementSystem();
+    if (!movementSystem) return;
+
+    const camera = movementSystem.getCamera();
+    const canvasSize = this.world.getCanvasSize();
+
+    // Converte le coordinate mondo in coordinate schermo
+    const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
+
+    // Aggiorna il contenuto (potrebbe essere cambiato il rank)
+    this.updatePlayerNicknameContent();
+
+    // Forza il ricalcolo delle dimensioni dopo l'aggiornamento del contenuto
+    this.playerNicknameElement.style.display = 'block';
+
+    // Posiziona il nickname 45px sotto il centro della nave (più spazio per due righe)
+    const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
+    const nicknameY = screenPos.y + 45;
+
+    this.playerNicknameElement.style.left = `${nicknameX}px`;
+    this.playerNicknameElement.style.top = `${nicknameY}px`;
+  }
+
+  /**
+   * Trova il MovementSystem nei sistemi registrati
+   */
+  private findMovementSystem(): any {
+    const ecs = this.world.getECS();
+    if (ecs && (ecs as any).systems) {
+      return (ecs as any).systems.find((system: any) => system.getCamera);
+    }
+    return null;
+  }
+
+  /**
+   * Rimuove l'elemento DOM del nickname
+   */
+  private removePlayerNicknameElement(): void {
+    if (this.playerNicknameElement && document.body.contains(this.playerNicknameElement)) {
+      document.body.removeChild(this.playerNicknameElement);
+      this.playerNicknameElement = null;
     }
   }
 
@@ -409,6 +516,7 @@ export class PlayState extends GameState {
 
     this.economySystem.setHonorChangedCallback((newAmount, change, newRank) => {
       this.showPlayerInfo();
+      this.updatePlayerNicknameContent();
     });
 
     // Crea alcuni NPC

@@ -201,6 +201,7 @@ export class ProjectileSystem extends BaseSystem {
 
     if (!targetHealth) return;
 
+
     // Registra che l'entità è stata danneggiata (per comportamenti AI reattivi)
     let damageTaken = this.ecs.getComponent(targetEntity, DamageTaken);
     if (!damageTaken) {

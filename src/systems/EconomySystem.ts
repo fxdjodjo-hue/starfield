@@ -580,7 +580,14 @@ export class EconomySystem extends BaseSystem {
   addHonor(amount: number, reason: string = 'unknown'): void {
     const honor = this.getPlayerHonor();
     if (honor) {
+      const oldAmount = honor.honor;
       honor.addHonor(amount);
+      const newAmount = honor.honor;
+      const change = newAmount - oldAmount;
+
+      if (change !== 0) {
+        this.onHonorChanged?.(newAmount, change, honor.getRank());
+      }
     }
   }
 

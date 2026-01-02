@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import path from 'path';
 
 export default defineConfig({
   server: {
@@ -9,5 +10,8 @@ export default defineConfig({
   },
   resolve: {
     extensions: ['.ts', '.js'],
+    alias: {
+      '/src': path.resolve(__dirname, 'src'),
+    },
   },
 });

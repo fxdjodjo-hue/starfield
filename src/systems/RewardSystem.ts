@@ -67,6 +67,7 @@ export class RewardSystem extends BaseSystem {
       return;
     }
 
+
     // Incrementa contatore kills del player
     if (this.playerEntity) {
       const playerStats = this.ecs.getComponent(this.playerEntity, PlayerStats);
