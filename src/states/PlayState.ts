@@ -16,6 +16,9 @@ import { Npc } from '../components/Npc';
 import { SelectedNpc } from '../components/SelectedNpc';
 import { Health } from '../components/Health';
 import { Damage } from '../components/Damage';
+import { ParallaxLayer } from '../components/ParallaxLayer';
+import { ParallaxSystem } from '../systems/ParallaxSystem';
+import { CONFIG } from '../core/Config';
 
 /**
  * Stato del gameplay attivo
@@ -311,6 +314,7 @@ export class PlayState extends GameState {
     const combatSystem = new CombatSystem(ecs);
     const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
+    const parallaxSystem = new ParallaxSystem(ecs, movementSystem);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -320,6 +324,7 @@ export class PlayState extends GameState {
     ecs.addSystem(projectileSystem);   // Sistema proiettili
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
+    ecs.addSystem(parallaxSystem);     // Sistema parallax (sfondo)
     ecs.addSystem(renderSystem);       // Rendering principale
     ecs.addSystem(damageTextSystem);   // Infine testi danno (sopra tutto)
 
@@ -336,6 +341,9 @@ export class PlayState extends GameState {
     // Crea alcuni NPC
     this.createNpcs(ecs, 3); // Crea 3 NPC quadrati
     this.createTriangles(ecs, 2); // Crea 2 triangoli nemici
+
+    // Crea stelle distribuite su tutta la mappa
+    this.createParallaxElements(ecs, 80); // Crea 80 stelle distribuite sulla mappa
 
     // Collega input al controllo player e selezione NPC
     inputSystem.setMouseStateCallback((pressed, x, y) => {
@@ -434,6 +442,30 @@ export class PlayState extends GameState {
       ecs.addComponent(triangle, Damage, new Damage(15, 180, 800)); // 15 danno, 180 range, 800ms cooldown
       ecs.addComponent(triangle, Npc, new Npc('triangle', 'idle')); // Tipo triangolo
 
+    }
+  }
+
+  /**
+   * Crea elementi parallax per lo sfondo
+   */
+  private createParallaxElements(ecs: any, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const parallaxElement = ecs.createEntity();
+
+      // Distribuisci le stelle su tutta la superficie della mappa
+      const x = (Math.random() - 0.5) * CONFIG.WORLD_WIDTH * 1.8; // Copri tutta la mappa + margini
+      const y = (Math.random() - 0.5) * CONFIG.WORLD_HEIGHT * 1.8;
+
+      // Velocità parallax casuale (stelle più lontane si muovono più lentamente)
+      // Le stelle sono fisse nel cielo, ma con velocità diverse per effetto profondità
+      const speed = 0.05 + Math.random() * 0.15; // Velocità molto basse (0.05-0.20)
+
+      // Z-index basato sulla velocità (stelle più lente = più lontane = sotto)
+      const zIndex = Math.floor(speed * 100); // Scala diversa per basse velocità
+
+      // Aggiungi componenti
+      ecs.addComponent(parallaxElement, Transform, new Transform(x, y, 0));
+      ecs.addComponent(parallaxElement, ParallaxLayer, new ParallaxLayer(speed, speed, 0, 0, zIndex));
     }
   }
 

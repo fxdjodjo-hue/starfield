@@ -8,6 +8,7 @@ import { Damage } from '../components/Damage';
 import { Projectile } from '../components/Projectile';
 import { Camera } from '../components/Camera';
 import { MovementSystem } from './MovementSystem';
+import { ParallaxLayer } from '../components/ParallaxLayer';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -36,9 +37,13 @@ export class RenderSystem extends BaseSystem {
       const npc = this.ecs.getComponent(entity, Npc);
       const selected = this.ecs.getComponent(entity, SelectedNpc);
       const projectile = this.ecs.getComponent(entity, Projectile);
+      const parallax = this.ecs.getComponent(entity, ParallaxLayer);
 
       // Salta i proiettili - vengono renderizzati separatamente
       if (projectile) continue;
+
+      // Salta gli elementi parallax - vengono renderizzati dal ParallaxSystem
+      if (parallax) continue;
 
       if (transform) {
         // Converte le coordinate world in coordinate schermo usando la camera
