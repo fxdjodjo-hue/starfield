@@ -27,7 +27,7 @@ interface NpcState {
  */
 export class NpcBehaviorSystem extends BaseSystem {
   private lastBehaviorUpdate = 0;
-  private behaviorUpdateInterval = 8000; // Cambia comportamento ogni 8 secondi (tratte più lunghe)
+  private behaviorUpdateInterval = 60000; // Cambia comportamento ogni 60 secondi (tratte molto più lunghe)
   private lastAvoidanceUpdate = 0;
   private avoidanceUpdateInterval = 100; // Avoidance ogni 100ms (10 FPS) per performance
 
