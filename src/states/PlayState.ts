@@ -343,14 +343,19 @@ export class PlayState extends GameState {
         // Assicurati che il canvas abbia il focus per gli eventi tastiera
         this.context.canvas.focus();
 
-        // Su mouse down: prima seleziona NPC se presente, poi inizia movimento
-        // Converte coordinate schermo in mondo per la selezione usando la camera
+        // Su mouse down: prima prova a selezionare NPC
         const canvasSize = this.world.getCanvasSize();
         const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
-        npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
+        const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
+
+        // Se non ha selezionato un NPC, attiva il movimento del player
+        if (!npcSelected) {
+          playerControlSystem.handleMouseState(pressed, x, y);
+        }
+      } else {
+        // Su mouse up, ferma sempre il movimento del player
+        playerControlSystem.handleMouseState(pressed, x, y);
       }
-      // Passa sempre lo stato del mouse al controllo player (per movimento)
-      playerControlSystem.handleMouseState(pressed, x, y);
     });
 
     inputSystem.setMouseMoveWhilePressedCallback((x, y) => {
