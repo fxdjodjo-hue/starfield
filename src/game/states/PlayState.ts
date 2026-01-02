@@ -370,6 +370,9 @@ export class PlayState extends GameState {
           return; // Click gestito dalla minimappa, non fare altro
         }
 
+        // Se si clicca normalmente (non sulla minimappa), cancella destinazione minimappa
+        minimapSystem.clearDestination();
+
         // Prova a selezionare NPC
         const canvasSize = this.world.getCanvasSize();
         const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
