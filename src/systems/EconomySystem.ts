@@ -618,15 +618,18 @@ export class EconomySystem extends BaseSystem {
 
     if (!credits || !cosmos || !experience || !honor) return null;
 
-    return {
+    const result = {
       credits: credits.credits,
-      cosmos: cosmos.amount,
+      cosmos: cosmos.cosmos,
       level: experience.level,
       experience: experience.exp,
       expForNextLevel: experience.expForNextLevel - experience.getExpRequiredForLevel(experience.level - 1),
       honor: honor.honor,
       honorRank: honor.honorRank
     };
+
+    console.log(`DEBUG Economy Status: CR=${result.credits}, CO=${result.cosmos}, XP=${result.experience}/${result.expForNextLevel}, LV=${result.level}, HN=${result.honor}, RK=${result.honorRank}`);
+    return result;
   }
 
   update(deltaTime: number): void {

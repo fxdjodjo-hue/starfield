@@ -24,7 +24,8 @@ export class Honor extends Component {
     { name: 'Chief Captain', minHonor: 10 },
     { name: 'Captain', minHonor: 5 },
     { name: 'Basic Captain', minHonor: 1 },
-    { name: 'Chief Lieutenant', minHonor: 0 }  // Default per honor >= 0
+    { name: 'Chief Lieutenant', minHonor: 1 },  // Honor >= 1
+    { name: 'Recruit', minHonor: 0 }            // Honor >= 0 (default per nuovi giocatori)
   ];
 
   constructor(initialHonor: number = 0) {
