@@ -58,8 +58,11 @@ export class RankSystem extends BaseSystem {
 
     if (!experience || !honor) return 0;
 
-    // Formula: exp totale + (honor * 2) + (livello * 100)
-    return experience.totalExpEarned + (honor.honor * 2) + (experience.level * 100);
+    // Formula: exp totale + (honor * 2) + (livello * 10)
+    const points = experience.totalExpEarned + (honor.honor * 2) + (experience.level * 10);
+
+
+    return points;
   }
 
   /**
