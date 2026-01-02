@@ -24,6 +24,8 @@ interface NpcState {
 export class NpcBehaviorSystem extends BaseSystem {
   private lastBehaviorUpdate = 0;
   private behaviorUpdateInterval = 8000; // Cambia comportamento ogni 8 secondi (tratte più lunghe)
+  private lastAvoidanceUpdate = 0;
+  private avoidanceUpdateInterval = 100; // Avoidance ogni 100ms (10 FPS) per performance
 
   // Stato per movimenti fluidi
   private npcStates: Map<number, NpcState> = new Map();
@@ -34,6 +36,7 @@ export class NpcBehaviorSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     this.lastBehaviorUpdate += deltaTime;
+    this.lastAvoidanceUpdate += deltaTime;
 
     // Aggiorna comportamenti periodicamente
     if (this.lastBehaviorUpdate >= this.behaviorUpdateInterval) {
@@ -41,8 +44,11 @@ export class NpcBehaviorSystem extends BaseSystem {
       this.lastBehaviorUpdate = 0;
     }
 
-    // Applica avoidance tra NPC vicini
-    this.applyNpcAvoidance(deltaTime);
+    // Applica avoidance tra NPC vicini (meno frequentemente per performance)
+    if (this.lastAvoidanceUpdate >= this.avoidanceUpdateInterval) {
+      this.applyNpcAvoidance(this.lastAvoidanceUpdate);
+      this.lastAvoidanceUpdate = 0;
+    }
 
     // Esegui comportamenti correnti
     this.executeBehaviors(deltaTime);

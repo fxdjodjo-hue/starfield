@@ -341,7 +341,7 @@ export class PlayState extends GameState {
     playerControlSystem.setCamera(movementSystem.getCamera());
 
     // Crea alcuni NPC
-    this.createStreuner(ecs, 2); // Crea 2 Streuner che si muovono
+    this.createStreuner(ecs, 50); // Crea 50 Streuner che si muovono
 
     // Crea stelle distribuite su tutta la mappa
     this.createParallaxElements(ecs, 80); // Crea 80 stelle distribuite sulla mappa
@@ -405,9 +405,9 @@ export class PlayState extends GameState {
    * Crea Streuner (NPC che si muovono) nel mondo di gioco con spaziatura garantita
    */
   private createStreuner(ecs: any, count: number): void {
-    const minDistance = 150; // Distanza minima tra Streuner (150 pixel)
-    const baseRadius = 300; // Raggio base dal centro
-    const radiusVariation = 200; // Variazione del raggio (+/- 200 pixel)
+    const minDistance = 80; // Distanza minima tra Streuner (ridotta per 50 NPC)
+    const baseRadius = 400; // Raggio base dal centro (aumentato)
+    const radiusVariation = 400; // Variazione del raggio (+/- 400 pixel, aumentata)
     const positions: { x: number, y: number }[] = [];
 
     for (let i = 0; i < count; i++) {
