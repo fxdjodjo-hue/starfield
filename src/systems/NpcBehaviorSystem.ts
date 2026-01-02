@@ -144,7 +144,7 @@ export class NpcBehaviorSystem extends BaseSystem {
     // Aggiorna occasionalmente la direzione (ogni 8-12 secondi circa)
     if (Math.random() < 0.002) { // ~0.2% probabilità per frame
       state.patrolAngle = Math.random() * Math.PI * 2;
-      state.targetSpeed = 40 + Math.random() * 30; // 40-70 pixels/second
+      state.targetSpeed = 50; // Velocità fissa
     }
 
     this.updateSmoothVelocity(velocity, state.targetSpeed, state.patrolAngle, deltaTime, state);
@@ -157,7 +157,7 @@ export class NpcBehaviorSystem extends BaseSystem {
     // Cambia direzione gradualmente (ogni 1-3 secondi circa)
     if (Math.random() < 0.008) { // ~0.8% probabilità per frame
       state.targetAngle = Math.random() * Math.PI * 2;
-      state.targetSpeed = 25 + Math.random() * 35; // 25-60 pixels/second
+      state.targetSpeed = 50; // Velocità fissa
     }
 
     this.updateSmoothVelocity(velocity, state.targetSpeed, state.targetAngle, deltaTime, state);
@@ -187,8 +187,8 @@ export class NpcBehaviorSystem extends BaseSystem {
       state.circleCenterY = transform.y + (Math.random() - 0.5) * 200;
     }
 
-    const radius = 80 + Math.random() * 40; // Raggio variabile 80-120
-    const speed = 45 + Math.random() * 25; // Velocità variabile 45-70
+    const radius = 100; // Raggio fisso
+    const speed = 50; // Velocità fissa
 
     const dx = transform.x - state.circleCenterX;
     const dy = transform.y - state.circleCenterY;
@@ -245,7 +245,7 @@ export class NpcBehaviorSystem extends BaseSystem {
       this.npcStates.set(npcId, {
         targetAngle: Math.random() * Math.PI * 2,
         currentSpeed: 0,
-        targetSpeed: 30 + Math.random() * 40, // 30-70 pixels/second
+        targetSpeed: 50, // Velocità fissa di 50 pixels/second
         acceleration: 50, // pixels/second²
         patrolAngle: Math.random() * Math.PI * 2,
         circleCenterX: 0,
