@@ -30,8 +30,8 @@ export class Minimap {
   constructor(
     x: number = 0,
     y: number = 0,
-    width: number = 320,
-    height: number = 200,
+    width: number = 400,
+    height: number = 250,
     worldWidth: number = 21000,
     worldHeight: number = 13100
   ) {
