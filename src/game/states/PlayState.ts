@@ -350,8 +350,8 @@ export class PlayState extends GameState {
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
-    ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
-    ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
+    ecs.addSystem(minimapSystem);      // Minimappa
+    ecs.addSystem(damageTextSystem);   // Testi danno alla fine (più sopra di tutto)
     ecs.addSystem(this.economySystem); // Sistema economia
     ecs.addSystem(rankSystem); // Sistema rank
     ecs.addSystem(rewardSystem); // Sistema ricompense
