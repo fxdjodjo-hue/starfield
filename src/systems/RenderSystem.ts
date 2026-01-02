@@ -27,7 +27,11 @@ export class RenderSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
+    console.log('RenderSystem.render() called');
     const camera = this.movementSystem.getCamera();
+
+    // Renderizza stelle di sfondo semplici
+    this.renderBackgroundStars(ctx, camera);
 
     // Ottiene tutte le entità con Transform
     const entities = this.ecs.getEntitiesWithComponents(Transform);
@@ -270,6 +274,40 @@ export class RenderSystem extends BaseSystem {
 
       ctx.restore();
     }
+  }
+
+  /**
+   * Renderizza stelle di sfondo semplici (fallback per il parallax)
+   */
+  private renderBackgroundStars(ctx: CanvasRenderingContext2D, camera: any): void {
+    console.log('Rendering background stars...');
+    // Crea stelle fisse basate su coordinate mondo (non si muovono con la camera)
+    ctx.save();
+    ctx.fillStyle = 'white';
+
+    // Genera stelle basate su una seed deterministica per consistenza
+    let renderedStars = 0;
+    for (let i = 0; i < 100; i++) {
+      // Usa una funzione hash semplice per posizioni consistenti
+      const hash = (i * 73856093) % 1000000; // Numero primo per distribuzione
+      const x = ((hash % 1000) / 1000 - 0.5) * 40000; // Distribuite su +/- 20000
+      const y = (((hash / 1000) | 0) / 1000 - 0.5) * 25000; // Distribuite su +/- 12500
+
+      // Converti in coordinate schermo
+      const screenPos = camera.worldToScreen(x, y, ctx.canvas.width, ctx.canvas.height);
+
+      // Renderizza solo se visibile
+      if (screenPos.x >= -10 && screenPos.x <= ctx.canvas.width + 10 &&
+          screenPos.y >= -10 && screenPos.y <= ctx.canvas.height + 10) {
+        const size = 2 + (hash % 3); // Size 2-4 pixel
+        ctx.globalAlpha = 0.7 + (hash % 30) / 100; // Alpha 0.7-1.0
+        ctx.fillRect(screenPos.x - size/2, screenPos.y - size/2, size, size);
+        renderedStars++;
+      }
+    }
+
+    console.log(`Rendered ${renderedStars} background stars`);
+    ctx.restore();
   }
 
   /**
