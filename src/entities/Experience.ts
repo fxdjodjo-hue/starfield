@@ -71,14 +71,16 @@ export class Experience extends Component {
     if (amount <= 0) return false;
 
     this._totalExpEarned += amount;
-    this._exp += amount;
 
     // Controlla se dobbiamo salire di livello
     let leveledUp = false;
-    while (this._exp >= this._expForNextLevel - this.getExpRequiredForLevel(this._level - 1)) {
+    while (this._totalExpEarned >= this.getExpRequiredForLevel(this._level)) {
       this.levelUp();
       leveledUp = true;
     }
+
+    // Aggiorna l'exp nel livello corrente dopo eventuali level up
+    this._exp = this._totalExpEarned - this.getExpRequiredForLevel(this._level - 1);
 
     return leveledUp; // Ritorna true se è salito di livello
   }
@@ -88,9 +90,6 @@ export class Experience extends Component {
    */
   private levelUp(): void {
     this._level++;
-    // Ricompensa exp residua per il nuovo livello
-    const previousLevelExp = this.getExpRequiredForLevel(this._level - 1);
-    this._exp = this._totalExpEarned - previousLevelExp;
     this._expForNextLevel = this.getExpRequiredForLevel(this._level);
   }
 
