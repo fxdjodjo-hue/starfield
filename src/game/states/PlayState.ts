@@ -36,6 +36,7 @@ export class PlayState extends GameState {
   private playerEntity: any = null;
   private hudExpanded: boolean = false;
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
+  private economySystem: any = null;
   private rankingUpdateTimer: number = 0;
   private rankingUpdateInterval: number = 30000; // Aggiorna ranking ogni 30 secondi
 
@@ -156,7 +157,7 @@ export class PlayState extends GameState {
     }
 
     // Ottieni valori economici
-    const economyStatus = this.getEconomySystem()?.getPlayerEconomyStatus();
+    const economyStatus = this.economySystem?.getPlayerEconomyStatus();
     let economyText = '';
     if (economyStatus) {
       economyText = ` | CR:${economyStatus.credits} CO:${economyStatus.cosmos} XP:${economyStatus.experience}/${economyStatus.expForNextLevel} LV:${economyStatus.level} HN:${economyStatus.honor}`;
@@ -282,13 +283,6 @@ export class PlayState extends GameState {
     }
   }
 
-  /**
-   * Ottiene l'istanza dell'EconomySystem
-   */
-  private getEconomySystem(): any {
-    const systems = this.world.getECS().getSystems();
-    return systems.find((system: any) => system.constructor.name === 'EconomySystem');
-  }
 
   /**
    * Nasconde le info del giocatore
@@ -343,7 +337,7 @@ export class PlayState extends GameState {
     const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
-    const economySystem = new EconomySystem(ecs);
+    this.economySystem = new EconomySystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -356,7 +350,7 @@ export class PlayState extends GameState {
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
     ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
     ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
-    ecs.addSystem(economySystem);      // Sistema economia
+    ecs.addSystem(this.economySystem); // Sistema economia
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
@@ -383,27 +377,27 @@ export class PlayState extends GameState {
     });
 
     // Configura sistema economico
-    economySystem.setPlayerEntity(playerShip);
+    this.economySystem.setPlayerEntity(playerShip);
 
     // Configura callbacks per aggiornamenti ranking e HUD
-    economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
+    this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
       if (leveledUp) {
         // Aggiorna ranking quando sali di livello
-        setTimeout(() => economySystem.simulateRankingUpdate(), 100);
+        setTimeout(() => this.economySystem.simulateRankingUpdate(), 100);
       }
       // Aggiorna HUD con nuovi valori
       this.showPlayerInfo();
     });
 
-    economySystem.setCreditsChangedCallback((newAmount, change) => {
+    this.economySystem.setCreditsChangedCallback((newAmount, change) => {
       this.showPlayerInfo();
     });
 
-    economySystem.setCosmosChangedCallback((newAmount, change) => {
+    this.economySystem.setCosmosChangedCallback((newAmount, change) => {
       this.showPlayerInfo();
     });
 
-    economySystem.setHonorChangedCallback((newAmount, change, newRank) => {
+    this.economySystem.setHonorChangedCallback((newAmount, change, newRank) => {
       this.showPlayerInfo();
     });
 
