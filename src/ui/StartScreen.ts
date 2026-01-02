@@ -15,6 +15,7 @@ export class StartScreen {
   private playButton!: HTMLButtonElement;
   private titleElement!: HTMLDivElement;
   private versionElement!: HTMLDivElement;
+  private headerContainer!: HTMLDivElement;
   private container!: HTMLDivElement;
 
   constructor(context: GameContext) {
@@ -52,7 +53,7 @@ export class StartScreen {
     this.titleElement.style.cssText = `
       color: #00ff88;
       font-size: 48px;
-      margin-bottom: 10px;
+      margin: 0;
       text-shadow: 0 0 20px #00ff88;
       letter-spacing: 4px;
     `;
@@ -63,9 +64,17 @@ export class StartScreen {
     this.versionElement.style.cssText = `
       color: rgba(255, 255, 255, 0.7);
       font-size: 14px;
-      margin-bottom: 30px;
       font-family: monospace;
       letter-spacing: 1px;
+    `;
+
+    // Container header per titolo e versione
+    this.headerContainer = document.createElement('div');
+    this.headerContainer.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 30px;
     `;
 
     // Container form
@@ -146,8 +155,11 @@ export class StartScreen {
     formContainer.appendChild(this.nicknameInput);
     formContainer.appendChild(this.playButton);
 
-    this.container.appendChild(this.titleElement);
-    this.container.appendChild(this.versionElement);
+    // Assembla header (titolo + versione centrati insieme)
+    this.headerContainer.appendChild(this.titleElement);
+    this.headerContainer.appendChild(this.versionElement);
+
+    this.container.appendChild(this.headerContainer);
     this.container.appendChild(formContainer);
 
     // Aggiungi al DOM
