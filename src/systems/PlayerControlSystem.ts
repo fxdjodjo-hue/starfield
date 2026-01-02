@@ -1,15 +1,16 @@
-import { BaseSystem } from '../ecs/System.js';
-import { ECS } from '../ecs/ECS.js';
-import { Transform } from '../components/Transform.js';
-import { Velocity } from '../components/Velocity.js';
-import { SelectedNpc } from '../components/SelectedNpc.js';
-import { Destination } from '../components/Destination.js';
+import { BaseSystem } from '../ecs/System';
+import { ECS } from '../ecs/ECS';
+import { Transform } from '../components/Transform';
+import { Velocity } from '../components/Velocity';
+import { SelectedNpc } from '../components/SelectedNpc';
+import { Camera } from '../components/Camera';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo
  */
 export class PlayerControlSystem extends BaseSystem {
   private playerEntity: any = null;
+  private camera: Camera | null = null;
   private onMouseStateCallback?: (pressed: boolean, x: number, y: number) => void;
   private isMousePressed = false;
   private lastMouseX = 0;
@@ -31,6 +32,13 @@ export class PlayerControlSystem extends BaseSystem {
    */
   setMouseStateCallback(callback: (pressed: boolean, x: number, y: number) => void): void {
     this.onMouseStateCallback = callback;
+  }
+
+  /**
+   * Imposta la camera per la conversione coordinate
+   */
+  setCamera(camera: Camera): void {
+    this.camera = camera;
   }
 
   update(deltaTime: number): void {
@@ -76,16 +84,17 @@ export class PlayerControlSystem extends BaseSystem {
    * Muove il player verso la posizione del mouse
    */
   private movePlayerTowardsMouse(): void {
-    if (!this.playerEntity) return;
+    if (!this.playerEntity || !this.camera) return;
 
     const transform = this.ecs.getComponent(this.playerEntity, Transform);
     const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
 
     if (!transform || !velocity) return;
 
-    // Converti coordinate schermo del mouse in coordinate mondo
-    const worldMouseX = this.lastMouseX - window.innerWidth / 2;
-    const worldMouseY = this.lastMouseY - window.innerHeight / 2;
+    // Converti coordinate schermo del mouse in coordinate mondo usando la camera
+    const worldMousePos = this.camera.screenToWorld(this.lastMouseX, this.lastMouseY, window.innerWidth, window.innerHeight);
+    const worldMouseX = worldMousePos.x;
+    const worldMouseY = worldMousePos.y;
 
     const dx = worldMouseX - transform.x;
     const dy = worldMouseY - transform.y;

@@ -1,6 +1,6 @@
-import { GameState } from './GameState.js';
-import { GameContext } from '../core/GameContext.js';
-import { StartScreen } from '../ui/StartScreen.js';
+import { GameState } from './GameState';
+import { GameContext } from '../core/GameContext';
+import { StartScreen } from '../ui/StartScreen';
 
 /**
  * Stato della schermata iniziale
@@ -8,9 +8,11 @@ import { StartScreen } from '../ui/StartScreen.js';
  */
 export class StartState extends GameState {
   private startScreen: StartScreen;
+  private context: GameContext;
 
-  constructor(private context: GameContext) {
+  constructor(context: GameContext) {
     super();
+    this.context = context;
     this.startScreen = new StartScreen(context);
   }
 

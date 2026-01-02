@@ -1,18 +1,24 @@
-import { Component } from '../ecs/Component.js';
+import { Component } from '../ecs/Component';
 
 /**
  * Componente Damage - gestisce le capacità di attacco di un'entità
  * Include danno base, velocità di attacco e logica di combattimento
  */
 export class Damage extends Component {
+  public damage: number;
+  public attackRange: number;
+  public attackCooldown: number;
   private lastAttackTime: number = 0;
 
   constructor(
-    public damage: number,
-    public attackRange: number,
-    public attackCooldown: number // millisecondi tra attacchi
+    damage: number,
+    attackRange: number,
+    attackCooldown: number // millisecondi tra attacchi
   ) {
     super();
+    this.damage = damage;
+    this.attackRange = attackRange;
+    this.attackCooldown = attackCooldown;
   }
 
   /**

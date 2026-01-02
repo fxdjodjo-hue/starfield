@@ -1,4 +1,4 @@
-import { GameContext } from '../core/GameContext.js';
+import { GameContext } from '../core/GameContext';
 
 /**
  * Componente UI per la schermata iniziale
@@ -10,8 +10,10 @@ export class StartScreen {
   private playButton: HTMLButtonElement;
   private errorMessage: HTMLElement;
   private onPlayCallback?: (nickname: string) => void;
+  private context: GameContext;
 
-  constructor(private context: GameContext) {
+  constructor(context: GameContext) {
+    this.context = context;
     this.container = this.createUI();
     this.nicknameInput = this.container.querySelector('#nickname-input') as HTMLInputElement;
     this.playButton = this.container.querySelector('#play-button') as HTMLButtonElement;

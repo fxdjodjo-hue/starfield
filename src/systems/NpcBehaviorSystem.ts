@@ -1,8 +1,8 @@
-import { BaseSystem } from '../ecs/System.js';
-import { ECS } from '../ecs/ECS.js';
-import { Npc } from '../components/Npc.js';
-import { Transform } from '../components/Transform.js';
-import { Velocity } from '../components/Velocity.js';
+import { BaseSystem } from '../ecs/System';
+import { ECS } from '../ecs/ECS';
+import { Npc } from '../components/Npc';
+import { Transform } from '../components/Transform';
+import { Velocity } from '../components/Velocity';
 
 /**
  * Sistema di comportamento NPC - gestisce l'AI semplice degli NPC

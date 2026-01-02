@@ -1,15 +1,22 @@
-import { Component } from '../ecs/Component.js';
+import { Component } from '../ecs/Component';
 
 /**
  * Componente Camera - gestisce la vista del mondo
  */
 export class Camera extends Component {
+  public x: number;
+  public y: number;
+  public zoom: number;
+
   constructor(
-    public x: number = 0,
-    public y: number = 0,
-    public zoom: number = 1
+    x: number = 0,
+    y: number = 0,
+    zoom: number = 1
   ) {
     super();
+    this.x = x;
+    this.y = y;
+    this.zoom = zoom;
   }
 
   /**

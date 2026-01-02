@@ -5,7 +5,8 @@ import { Npc } from '../components/Npc';
 import { SelectedNpc } from '../components/SelectedNpc';
 import { Health } from '../components/Health';
 import { Damage } from '../components/Damage';
-import { Projectile } from '../components/Projectile.js';
+import { Projectile } from '../components/Projectile';
+import { Camera } from '../components/Camera';
 import { MovementSystem } from './MovementSystem';
 
 /**
@@ -34,6 +35,10 @@ export class RenderSystem extends BaseSystem {
       const transform = this.ecs.getComponent(entity, Transform);
       const npc = this.ecs.getComponent(entity, Npc);
       const selected = this.ecs.getComponent(entity, SelectedNpc);
+      const projectile = this.ecs.getComponent(entity, Projectile);
+
+      // Salta i proiettili - vengono renderizzati separatamente
+      if (projectile) continue;
 
       if (transform) {
         // Converte le coordinate world in coordinate schermo usando la camera
@@ -70,7 +75,7 @@ export class RenderSystem extends BaseSystem {
     }
 
     // Renderizza i proiettili
-    this.renderProjectiles(ctx);
+    this.renderProjectiles(ctx, camera);
   }
 
   /**
@@ -123,23 +128,40 @@ export class RenderSystem extends BaseSystem {
       ctx.stroke();
     }
 
-    // Quadrato per gli NPC (diversi dal triangolo del player)
-    const size = 12;
-    ctx.beginPath();
-    ctx.rect(-size/2, -size/2, size, size);
+    if (npc.npcType === 'triangle') {
+      // Triangolo rosso per NPC nemici
+      const size = 14;
+      ctx.beginPath();
+      ctx.moveTo(0, -size/2); // Punta superiore
+      ctx.lineTo(-size/2, size/2); // Angolo sinistro
+      ctx.lineTo(size/2, size/2); // Angolo destro
+      ctx.closePath();
 
-    // NPC: blu con bordo giallo
-    ctx.fillStyle = '#0088ff';
-    ctx.strokeStyle = '#ffff00';
-    ctx.lineWidth = 2;
-    ctx.fill();
-    ctx.stroke();
+      // NPC triangolo: rosso con bordo arancione
+      ctx.fillStyle = '#ff4444';
+      ctx.strokeStyle = '#ff8800';
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // Quadrato per gli NPC normali (tipo 'square' o default)
+      const size = 12;
+      ctx.beginPath();
+      ctx.rect(-size/2, -size/2, size, size);
 
-    // Aggiungi un punto al centro per identificare il tipo
-    ctx.beginPath();
-    ctx.arc(0, 0, 3, 0, Math.PI * 2);
-    ctx.fillStyle = '#ffffff';
-    ctx.fill();
+      // NPC: blu con bordo giallo
+      ctx.fillStyle = '#0088ff';
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+
+      // Aggiungi un punto al centro per identificare il tipo
+      ctx.beginPath();
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
 
     ctx.restore();
   }
@@ -198,31 +220,54 @@ export class RenderSystem extends BaseSystem {
   /**
    * Renderizza tutti i proiettili
    */
-  private renderProjectiles(ctx: CanvasRenderingContext2D): void {
+  private renderProjectiles(ctx: CanvasRenderingContext2D, camera: Camera): void {
     const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+    console.log(`🎨 RenderSystem: Rendering ${projectiles.length} projectiles`);
 
     for (const projectileEntity of projectiles) {
       const transform = this.ecs.getComponent(projectileEntity, Transform);
       const projectile = this.ecs.getComponent(projectileEntity, Projectile);
 
-      if (!transform || !projectile) continue;
+      if (!transform || !projectile) {
+        console.log(`❌ Missing components for projectile ${projectileEntity.id}`);
+        continue;
+      }
 
       // Converte coordinate mondo a schermo
-      const screenPos = this.worldToScreen(transform.x, transform.y);
+      const screenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
 
-      // Renderizza il proiettile come un piccolo cerchio giallo
+      console.log(`🎨 Projectile ${projectileEntity.id} at world (${transform.x.toFixed(0)}, ${transform.y.toFixed(0)}) -> screen (${screenPos.x.toFixed(0)}, ${screenPos.y.toFixed(0)})`);
+
+      // Renderizza il proiettile come laser rosso
       ctx.save();
-      ctx.fillStyle = '#ffff00'; // Giallo per i proiettili
-      ctx.beginPath();
-      ctx.arc(screenPos.x, screenPos.y, 3, 0, Math.PI * 2);
-      ctx.fill();
 
-      // Aggiungi un alone luminoso
-      ctx.shadowColor = '#ffff00';
-      ctx.shadowBlur = 5;
-      ctx.fill();
+      // Calcola la fine del laser (direzione del proiettile)
+      const laserLength = 15; // Lunghezza del laser
+      const endX = screenPos.x + projectile.directionX * laserLength;
+      const endY = screenPos.y + projectile.directionY * laserLength;
+
+      // Disegna il laser come linea rossa
+      ctx.strokeStyle = '#ff0000'; // Rosso per i laser
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+
+      // Aggiungi effetto luminoso
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 8;
+
+      ctx.beginPath();
+      ctx.moveTo(screenPos.x, screenPos.y);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+
+      // Aggiungi una linea più sottile al centro per effetto laser
+      ctx.strokeStyle = '#ffffff'; // Bianco al centro
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 0; // Rimuovi ombra per il centro
+      ctx.stroke();
 
       ctx.restore();
+      console.log(`✅ Projectile ${projectileEntity.id} rendered successfully`);
     }
   }
 }

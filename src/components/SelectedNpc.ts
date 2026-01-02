@@ -1,4 +1,4 @@
-import { Component } from '../ecs/Component.js';
+import { Component } from '../ecs/Component';
 
 /**
  * Componente SelectedNpc - indica che un NPC è selezionato

@@ -1,11 +1,11 @@
-import { BaseSystem } from '../ecs/System.js';
-import { ECS } from '../ecs/ECS.js';
-import { Health } from '../components/Health.js';
-import { Damage } from '../components/Damage.js';
-import { Transform } from '../components/Transform.js';
-import { SelectedNpc } from '../components/SelectedNpc.js';
-import { Projectile } from '../components/Projectile.js';
-import { Velocity } from '../components/Velocity.js';
+import { BaseSystem } from '../ecs/System';
+import { ECS } from '../ecs/ECS';
+import { Health } from '../components/Health';
+import { Damage } from '../components/Damage';
+import { Transform } from '../components/Transform';
+import { SelectedNpc } from '../components/SelectedNpc';
+import { Npc } from '../components/Npc';
+import { Projectile } from '../components/Projectile';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -21,21 +21,30 @@ export class CombatSystem extends BaseSystem {
   update(deltaTime: number): void {
     this.lastUpdateTime += deltaTime;
 
+    console.log(`=== COMBAT SYSTEM UPDATE ===`);
+    console.log(`Delta time: ${deltaTime}`);
+
+    // Rimuovi tutte le entità morte
+    this.removeDeadEntities();
+
     // Combattimento automatico per NPC selezionati
     this.processPlayerCombat();
 
-    // NPC attaccano automaticamente il player quando nel range
-    const attackers = this.ecs.getEntitiesWithComponents(Damage, SelectedNpc);
+    // NPC attaccano automaticamente il player quando nel range (tutti gli NPC, non solo selezionati)
+    const allNpcs = this.ecs.getEntitiesWithComponents(Npc, Damage, Transform);
+    console.log(`Found ${allNpcs.length} NPCs that can attack`);
 
-    for (const attackerEntity of attackers) {
-      this.processCombat(attackerEntity);
+    for (const attackerEntity of allNpcs) {
+      this.processNpcCombat(attackerEntity);
     }
+
+    console.log(`=== COMBAT SYSTEM UPDATE END ===`);
   }
 
   /**
-   * Elabora il combattimento per un'entità attaccante (NPC selezionati che attaccano il player)
+   * Elabora il combattimento per un NPC che attacca il player quando nel range
    */
-  private processCombat(attackerEntity: any): void {
+  private processNpcCombat(attackerEntity: any): void {
     const attackerTransform = this.ecs.getComponent(attackerEntity, Transform);
     const attackerDamage = this.ecs.getComponent(attackerEntity, Damage);
 
@@ -48,12 +57,18 @@ export class CombatSystem extends BaseSystem {
       return !this.ecs.hasComponent(entity, SelectedNpc);
     });
 
-    if (!playerEntity) return;
+    if (!playerEntity) {
+      console.log('No player entity found for NPC combat');
+      return;
+    }
 
     const targetTransform = this.ecs.getComponent(playerEntity, Transform);
     const targetHealth = this.ecs.getComponent(playerEntity, Health);
 
-    if (!targetTransform || !targetHealth) return;
+    if (!targetTransform || !targetHealth) {
+      console.log('Missing player components for combat');
+      return;
+    }
 
     // Verifica se il player è nel range di attacco dell'NPC
     const distance = Math.sqrt(
@@ -61,27 +76,40 @@ export class CombatSystem extends BaseSystem {
       Math.pow(attackerTransform.y - targetTransform.y, 2)
     );
 
+    console.log(`NPC ${attackerEntity.id} at (${attackerTransform.x.toFixed(0)}, ${attackerTransform.y.toFixed(0)}) checking combat with player at (${targetTransform.x.toFixed(0)}, ${targetTransform.y.toFixed(0)}), distance: ${distance.toFixed(0)}, range: ${attackerDamage.attackRange}`);
+
     if (attackerDamage.isInRange(
       attackerTransform.x, attackerTransform.y,
       targetTransform.x, targetTransform.y
     )) {
+      console.log(`Player is in range! Checking if NPC can attack...`);
       // Verifica se l'NPC può attaccare (cooldown)
       if (attackerDamage.canAttack(this.lastUpdateTime)) {
+        console.log(`NPC can attack! Performing attack...`);
         // Esegui l'attacco
-        this.performAttack(attackerEntity, attackerTransform, attackerDamage, targetTransform);
+        this.performAttack(attackerEntity, attackerTransform, attackerDamage, targetTransform, playerEntity);
         console.log(`NPC fired projectile at player! Distance: ${distance.toFixed(0)}, range: ${attackerDamage.attackRange}`);
+      } else {
+        console.log(`NPC attack on cooldown`);
       }
+    } else {
+      console.log(`Player out of range for NPC attack`);
     }
   }
 
   /**
    * Crea un proiettile dall'attaccante verso il target
    */
-  private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform): void {
+  private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any): void {
+    console.log(`=== PERFORM ATTACK STARTED ===`);
+    console.log(`Attacker: ${attackerEntity.id}, Target position: (${targetTransform.x.toFixed(0)}, ${targetTransform.y.toFixed(0)})`);
+
     // Calcola direzione del proiettile (verso il target)
     const dx = targetTransform.x - attackerTransform.x;
     const dy = targetTransform.y - attackerTransform.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
+
+    console.log(`Distance to target: ${distance.toFixed(0)}, damage: ${attackerDamage.damage}`);
 
     // Normalizza la direzione
     const directionX = dx / distance;
@@ -91,20 +119,26 @@ export class CombatSystem extends BaseSystem {
     const projectileX = attackerTransform.x + directionX * 25; // 25 pixel avanti (dimensione nave)
     const projectileY = attackerTransform.y + directionY * 25;
 
+    console.log(`Projectile spawn position: (${projectileX.toFixed(0)}, ${projectileY.toFixed(0)})`);
+
     // Crea l'entità proiettile
     const projectileEntity = this.ecs.createEntity();
+    console.log(`✅ Created projectile entity with ID: ${projectileEntity.id}`);
 
     // Aggiungi componenti al proiettile
     const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
-    const projectile = new Projectile(attackerDamage.damage, 600, directionX, directionY, attackerEntity.id);
+    const projectile = new Projectile(attackerDamage.damage, 400, directionX, directionY, attackerEntity.id, targetEntity.id, 3000);
 
-    this.ecs.addComponent(projectileEntity, projectileTransform);
-    this.ecs.addComponent(projectileEntity, projectile);
+    this.ecs.addComponent(projectileEntity, Transform, projectileTransform);
+    this.ecs.addComponent(projectileEntity, Projectile, projectile);
+
+    console.log(`✅ Added Transform and Projectile components to entity ${projectileEntity.id}`);
+    console.log(`Projectile details: damage=${projectile.damage}, speed=${projectile.speed}, lifetime=${projectile.lifetime}`);
 
     // Registra l'attacco per il cooldown
     attackerDamage.performAttack(this.lastUpdateTime);
 
-    console.log(`Projectile fired! From (${attackerTransform.x.toFixed(0)}, ${attackerTransform.y.toFixed(0)}) to (${targetTransform.x.toFixed(0)}, ${targetTransform.y.toFixed(0)})`);
+    console.log(`=== PERFORM ATTACK COMPLETED ===`);
   }
 
   /**
@@ -156,7 +190,7 @@ export class CombatSystem extends BaseSystem {
         this.faceTarget(playerTransform, npcTransform);
 
         // Il player spara un proiettile verso l'NPC
-        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform);
+        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
         console.log(`Player fired projectile at NPC!`);
 
         // Controlla se l'NPC è morto
@@ -168,6 +202,47 @@ export class CombatSystem extends BaseSystem {
         }
       }
     }
+  }
+
+  /**
+   * Forza un attacco immediato per testare i proiettili
+   */
+  forceAttack(): void {
+    console.log('=== FORCE ATTACK CALLED ===');
+
+    // Trova il primo NPC disponibile
+    const allNpcs = this.ecs.getEntitiesWithComponents(Npc, Damage, Transform);
+    if (allNpcs.length === 0) {
+      console.log('No NPCs found for force attack');
+      return;
+    }
+
+    const npcEntity = allNpcs[0];
+    console.log(`Forcing attack with NPC ${npcEntity.id}`);
+
+    // Trova il player
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
+    const playerEntity = playerEntities.find(entity => {
+      return !this.ecs.hasComponent(entity, SelectedNpc);
+    });
+
+    if (!playerEntity) {
+      console.log('No player found for force attack');
+      return;
+    }
+
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+    const npcDamage = this.ecs.getComponent(npcEntity, Damage);
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+
+    if (!npcTransform || !npcDamage || !playerTransform) {
+      console.log('Missing components for force attack');
+      return;
+    }
+
+    // Forza l'attacco ignorando range e cooldown
+    console.log(`Forcing attack from NPC at (${npcTransform.x.toFixed(0)}, ${npcTransform.y.toFixed(0)}) to player at (${playerTransform.x.toFixed(0)}, ${playerTransform.y.toFixed(0)})`);
+    this.performAttack(npcEntity, npcTransform, npcDamage, playerTransform, playerEntity);
   }
 
   /**
@@ -231,7 +306,7 @@ export class CombatSystem extends BaseSystem {
         this.faceTarget(playerTransform, npcTransform);
 
         // Il player spara un proiettile verso l'NPC
-        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform);
+        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
         console.log(`Player fired projectile at NPC!`);
 
         // Controlla se l'NPC è morto
@@ -248,6 +323,22 @@ export class CombatSystem extends BaseSystem {
       }
     } else {
       console.log('NPC is out of attack range');
+    }
+  }
+
+  /**
+   * Rimuove tutte le entità morte dal mondo
+   */
+  private removeDeadEntities(): void {
+    // Trova tutte le entità con componente Health
+    const entitiesWithHealth = this.ecs.getEntitiesWithComponents(Health);
+
+    for (const entity of entitiesWithHealth) {
+      const health = this.ecs.getComponent(entity, Health);
+      if (health && health.isDead()) {
+        console.log(`Entity ${entity.id} is dead, removing from world`);
+        this.ecs.removeEntity(entity);
+      }
     }
   }
 }

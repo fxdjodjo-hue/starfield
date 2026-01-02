@@ -1,15 +1,20 @@
-import { Component } from '../ecs/Component.js';
+import { Component } from '../ecs/Component';
 
 /**
  * Componente Health - gestisce la salute di un'entità
  * Include salute corrente, massima e logica di morte
  */
 export class Health extends Component {
+  public current: number;
+  public max: number;
+
   constructor(
-    public current: number,
-    public max: number
+    current: number,
+    max: number
   ) {
     super();
+    this.current = current;
+    this.max = max;
     // Assicuriamoci che la salute corrente non superi il massimo
     this.current = Math.min(current, max);
   }

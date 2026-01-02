@@ -1,9 +1,9 @@
-import { BaseSystem } from '../ecs/System.js';
-import { ECS } from '../ecs/ECS.js';
-import { Transform } from '../components/Transform.js';
-import { Velocity } from '../components/Velocity.js';
-import { Destination } from '../components/Destination.js';
-import { Camera } from '../components/Camera.js';
+import { BaseSystem } from '../ecs/System';
+import { ECS } from '../ecs/ECS';
+import { Transform } from '../components/Transform';
+import { Velocity } from '../components/Velocity';
+import { Camera } from '../components/Camera';
+import { Npc } from '../components/Npc';
 
 /**
  * Sistema di movimento che aggiorna le posizioni basandosi sulla velocity
@@ -26,11 +26,7 @@ export class MovementSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    // Per ora, centra la camera su (0,0) - il player dovrebbe rimanere al centro
-    // In futuro, seguiremo il player quando si muove
-    this.camera.centerOn(0, 0);
-
-    // Ottiene tutte le entità con Transform e Velocity
+    // Prima aggiorna le posizioni, poi centra la camera sul player
     const entities = this.ecs.getEntitiesWithComponents(Transform, Velocity);
 
     for (const entity of entities) {
@@ -39,6 +35,17 @@ export class MovementSystem extends BaseSystem {
 
       if (transform && velocity) {
         this.updatePosition(transform, velocity, deltaTime);
+      }
+    }
+
+    // Trova il player (entità con Transform e Velocity ma senza Npc)
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Velocity)
+      .filter(entity => !this.ecs.hasComponent(entity, Npc));
+
+    if (playerEntities.length > 0) {
+      const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+      if (playerTransform) {
+        this.camera.centerOn(playerTransform.x, playerTransform.y);
       }
     }
   }

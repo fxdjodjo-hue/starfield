@@ -4,14 +4,25 @@ import { Component } from '../ecs/Component';
  * Componente Transform - gestisce posizione, rotazione e scala
  */
 export class Transform extends Component {
+  public x: number;
+  public y: number;
+  public rotation: number;
+  public scaleX: number;
+  public scaleY: number;
+
   constructor(
-    public x: number = 0,
-    public y: number = 0,
-    public rotation: number = 0,
-    public scaleX: number = 1,
-    public scaleY: number = 1
+    x: number = 0,
+    y: number = 0,
+    rotation: number = 0,
+    scaleX: number = 1,
+    scaleY: number = 1
   ) {
     super();
+    this.x = x;
+    this.y = y;
+    this.rotation = rotation;
+    this.scaleX = scaleX;
+    this.scaleY = scaleY;
   }
 
   /**

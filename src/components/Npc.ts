@@ -1,15 +1,20 @@
-import { Component } from '../ecs/Component.js';
+import { Component } from '../ecs/Component';
 
 /**
  * Componente NPC - identifica un'entità come Non-Player Character
  * Gli NPC hanno comportamenti autonomi e possono interagire con il giocatore
  */
 export class Npc extends Component {
+  public npcType: string;
+  public behavior: string;
+
   constructor(
-    public npcType: string = 'generic',
-    public behavior: string = 'idle'
+    npcType: string = 'generic',
+    behavior: string = 'idle'
   ) {
     super();
+    this.npcType = npcType;
+    this.behavior = behavior;
   }
 
   /**

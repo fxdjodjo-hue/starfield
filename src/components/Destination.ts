@@ -1,15 +1,22 @@
-import { Component } from '../ecs/Component.js';
+import { Component } from '../ecs/Component';
 
 /**
  * Componente Destination - rappresenta il punto target per il movimento
  */
 export class Destination extends Component {
+  public x: number;
+  public y: number;
+  public speed: number;
+
   constructor(
-    public x: number,
-    public y: number,
-    public speed: number = 200 // pixels per second
+    x: number,
+    y: number,
+    speed: number = 200 // pixels per second
   ) {
     super();
+    this.x = x;
+    this.y = y;
+    this.speed = speed;
   }
 
   /**

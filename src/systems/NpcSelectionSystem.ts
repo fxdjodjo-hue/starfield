@@ -1,8 +1,8 @@
-import { BaseSystem } from '../ecs/System.js';
-import { ECS } from '../ecs/ECS.js';
-import { Npc } from '../components/Npc.js';
-import { Transform } from '../components/Transform.js';
-import { SelectedNpc } from '../components/SelectedNpc.js';
+import { BaseSystem } from '../ecs/System';
+import { ECS } from '../ecs/ECS';
+import { Npc } from '../components/Npc';
+import { Transform } from '../components/Transform';
+import { SelectedNpc } from '../components/SelectedNpc';
 
 /**
  * Sistema di selezione NPC - gestisce click su NPC e selezione

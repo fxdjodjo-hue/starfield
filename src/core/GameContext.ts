@@ -1,3 +1,5 @@
+import { GameState } from '../states/GameState';
+
 /**
  * Contesto globale del gioco - contiene dati condivisi tra stati
  * Centralizza configurazione e stato globale dell'applicazione

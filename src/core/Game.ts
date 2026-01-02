@@ -1,6 +1,6 @@
 import { GameLoop } from './GameLoop';
 import { GameContext } from './GameContext';
-import { GameState } from '../states/GameState.js';
+import { GameState } from '../states/GameState';
 import { StartState } from '../states/StartState';
 import { PlayState } from '../states/PlayState';
 

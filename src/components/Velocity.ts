@@ -4,12 +4,19 @@ import { Component } from '../ecs/Component';
  * Componente Velocity - gestisce velocità lineare e angolare
  */
 export class Velocity extends Component {
+  public x: number;
+  public y: number;
+  public angular: number;
+
   constructor(
-    public x: number = 0,
-    public y: number = 0,
-    public angular: number = 0
+    x: number = 0,
+    y: number = 0,
+    angular: number = 0
   ) {
     super();
+    this.x = x;
+    this.y = y;
+    this.angular = angular;
   }
 
   /**

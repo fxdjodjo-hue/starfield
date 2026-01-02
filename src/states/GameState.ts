@@ -1,4 +1,4 @@
-import { GameContext } from '../core/GameContext.js';
+import { GameContext } from '../core/GameContext';
 
 /**
  * Classe astratta base per tutti gli stati del gioco
@@ -31,10 +31,3 @@ export abstract class GameState {
   handleInput?(event: Event): void;
 }
 
-/**
- * Tipi di stato disponibili
- */
-export enum GameStateType {
-  START = 'start',
-  PLAY = 'play'
-}
