@@ -158,7 +158,7 @@ export class MinimapSystem extends System {
   }
 
   /**
-   * Renderizza il player come triangolo orientato
+   * Renderizza il player come quadrato blu
    */
   private renderPlayerTriangle(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
     const pos = this.minimap.worldToMinimap(worldX, worldY);
@@ -168,13 +168,10 @@ export class MinimapSystem extends System {
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 2;
 
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y - size); // Punta in alto
-    ctx.lineTo(pos.x - size * 0.7, pos.y + size * 0.7);
-    ctx.lineTo(pos.x + size * 0.7, pos.y + size * 0.7);
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    // Disegna un quadrato invece di un triangolo
+    const halfSize = size / 2;
+    ctx.fillRect(pos.x - halfSize, pos.y - halfSize, size, size);
+    ctx.strokeRect(pos.x - halfSize, pos.y - halfSize, size, size);
   }
 
   /**

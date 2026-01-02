@@ -44,8 +44,8 @@ export class Minimap {
     // Colori tema spaziale
     this.backgroundColor = 'rgba(0, 0, 0, 0.8)';
     this.borderColor = '#00ff88';
-    this.playerColor = '#00ff88';
-    this.npcColor = '#ff4444';
+    this.playerColor = '#0088ff'; // Blu per il player
+    this.npcColor = '#ff4444';   // Rosso per gli NPC
     this.selectedNpcColor = '#ffff00';
 
     // Dimensioni mondo
