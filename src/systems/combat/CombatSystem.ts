@@ -149,20 +149,19 @@ export class CombatSystem extends BaseSystem {
 
     // Usa la camera dal MovementSystem
     const camera = this.movementSystem.getCamera();
-      const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
+    const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
 
-      // Margine di sicurezza per considerare "fuori schermo"
-      const margin = 100;
-      const isOffScreen = npcScreenPos.x < -margin ||
-                         npcScreenPos.x > canvasSize.width + margin ||
-                         npcScreenPos.y < -margin ||
-                         npcScreenPos.y > canvasSize.height + margin;
+    // Margine di sicurezza per considerare "fuori schermo"
+    const margin = 100;
+    const isOffScreen = npcScreenPos.x < -margin ||
+                       npcScreenPos.x > canvasSize.width + margin ||
+                       npcScreenPos.y < -margin ||
+                       npcScreenPos.y > canvasSize.height + margin;
 
-      if (isOffScreen) {
-        // NPC uscito dalla visuale - deseleziona automaticamente
-        this.ecs.removeComponent(selectedNpc, SelectedNpc);
-        return; // Esci dalla funzione, non continuare con la logica di combattimento
-      }
+    if (isOffScreen) {
+      // NPC uscito dalla visuale - deseleziona automaticamente
+      this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      return; // Esci dalla funzione, non continuare con la logica di combattimento
     }
 
     if (playerDamage.isInRange(
