@@ -139,19 +139,29 @@ export class CombatSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
     if (!npcTransform) return;
 
-    // Controlla se il player è troppo lontano dall'NPC selezionato (distanza massima assoluta)
-    const distance = Math.sqrt(
-      Math.pow(playerTransform.x - npcTransform.x, 2) +
-      Math.pow(playerTransform.y - npcTransform.y, 2)
-    );
+    // Controlla se l'NPC selezionato è ancora visibile nella viewport
+    const canvasSize = (this.ecs as any).context?.canvas ?
+                      { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
+                      { width: window.innerWidth, height: window.innerHeight };
 
-    // Distanza massima assoluta per mantenere la selezione (500px)
-    const maxSelectionDistance = 500;
+    // Trova la camera nel sistema
+    const movementSystem = this.ecs.getSystem('MovementSystem') as any;
+    if (movementSystem) {
+      const camera = movementSystem.getCamera();
+      const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
 
-    if (distance > maxSelectionDistance) {
-      // Player troppo lontano - deseleziona automaticamente l'NPC
-      this.ecs.removeComponent(selectedNpc, SelectedNpc);
-      return; // Esci dalla funzione, non continuare con la logica di combattimento
+      // Margine di sicurezza per considerare "fuori schermo"
+      const margin = 100;
+      const isOffScreen = npcScreenPos.x < -margin ||
+                         npcScreenPos.x > canvasSize.width + margin ||
+                         npcScreenPos.y < -margin ||
+                         npcScreenPos.y > canvasSize.height + margin;
+
+      if (isOffScreen) {
+        // NPC uscito dalla visuale - deseleziona automaticamente
+        this.ecs.removeComponent(selectedNpc, SelectedNpc);
+        return; // Esci dalla funzione, non continuare con la logica di combattimento
+      }
     }
 
     if (playerDamage.isInRange(
