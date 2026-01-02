@@ -1,3 +1,5 @@
+import { CONFIG } from '../utils/config/Config';
+
 /**
  * Componente Minimap per gestire la minimappa quadrata
  * Mostra overview del mondo con entità rappresentate come pallini
@@ -30,16 +32,20 @@ export class Minimap {
   constructor(
     x: number = 0,
     y: number = 0,
-    width: number = 400,
-    height: number = 250,
+    width: number | null = null,
+    height: number | null = null,
     worldWidth: number = 21000,
     worldHeight: number = 13100
   ) {
+    // Usa dimensioni dal config se non specificate
+    const actualWidth = width !== null ? width : CONFIG.MINIMAP_WIDTH;
+    const actualHeight = height !== null ? height : CONFIG.MINIMAP_HEIGHT;
+
     // Posizione in basso a destra per default
-    this.x = x || window.innerWidth - width - 20;
-    this.y = y || window.innerHeight - height - 20;
-    this.width = width;
-    this.height = height;
+    this.x = x || window.innerWidth - actualWidth - 20;
+    this.y = y || window.innerHeight - actualHeight - 20;
+    this.width = actualWidth;
+    this.height = actualHeight;
 
     // Colori tema spaziale
     this.backgroundColor = 'rgba(0, 0, 0, 0.8)';

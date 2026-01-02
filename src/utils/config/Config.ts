@@ -28,6 +28,10 @@ export const CONFIG = {
   PROJECTILE_SPEED: 500,
   MAX_HEALTH: 100,
 
+  // Dimensioni minimappa
+  MINIMAP_WIDTH: 320,
+  MINIMAP_HEIGHT: 200,
+
   // Layer parallasse
   PARALLAX_LAYERS: 5,
   PARALLAX_SPEED_MULTIPLIER: 0.8,
