@@ -11,14 +11,16 @@ import { CombatSystem } from '/src/systems/combat/CombatSystem';
 import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
-import { CurrencySystem } from '/src/systems/CurrencySystem';
+import { EconomySystem } from '/src/systems/EconomySystem';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Health } from '/src/entities/combat/Health';
 import { Damage } from '/src/entities/combat/Damage';
-import { Currency } from '/src/entities/Currency';
+import { Credits, Cosmos } from '/src/entities/Currency';
+import { Experience } from '/src/entities/Experience';
+import { Honor } from '/src/entities/Honor';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
 import { CONFIG } from '/src/utils/config/Config';
 
@@ -317,7 +319,7 @@ export class PlayState extends GameState {
     const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
-    const currencySystem = new CurrencySystem(ecs);
+    const economySystem = new EconomySystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -330,7 +332,7 @@ export class PlayState extends GameState {
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
     ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
     ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
-    ecs.addSystem(currencySystem);     // Sistema valuta
+    ecs.addSystem(economySystem);      // Sistema economia
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
@@ -356,11 +358,11 @@ export class PlayState extends GameState {
       minimapSystem.clearDestination();
     });
 
-    // Configura sistema valuta
-    currencySystem.setPlayerEntity(playerShip);
-    currencySystem.createCurrencyDisplay();
-    currencySystem.showCurrencyDisplay();
-    currencySystem.updateCurrencyDisplay();
+    // Configura sistema economico
+    economySystem.setPlayerEntity(playerShip);
+    economySystem.createEconomyDisplays();
+    economySystem.showEconomyDisplays();
+    economySystem.updateEconomyDisplays();
 
     // Crea alcuni NPC
     this.createStreuner(ecs, 50); // Crea 50 Streuner che si muovono
@@ -428,13 +430,19 @@ export class PlayState extends GameState {
     const velocity = new Velocity(0, 0, 0);
     const health = new Health(100, 100);
     const damage = new Damage(25, 300, 1000); // Cooldown aumentato a 1000ms (1 secondo)
-    const currency = new Currency(100); // Inizia con 100 Cosmos
+    const credits = new Credits(1000); // Inizia con 1000 Credits
+    const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
+    const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
+    const honor = new Honor(0); // Inizia con 0 Honor Points
 
     ecs.addComponent(ship, Transform, transform);
     ecs.addComponent(ship, Velocity, velocity);
     ecs.addComponent(ship, Health, health);
     ecs.addComponent(ship, Damage, damage);
-    ecs.addComponent(ship, Currency, currency);
+    ecs.addComponent(ship, Credits, credits);
+    ecs.addComponent(ship, Cosmos, cosmos);
+    ecs.addComponent(ship, Experience, experience);
+    ecs.addComponent(ship, Honor, honor);
 
     return ship;
   }
