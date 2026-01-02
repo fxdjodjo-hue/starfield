@@ -45,7 +45,7 @@ export class DamageTextSystem extends BaseSystem {
       if (!damageText) continue;
 
       // Trova la posizione dell'entità target
-      const targetEntity = this.ecs.getEntityById(damageText.targetEntityId);
+      const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
       if (!targetEntity) continue;
 
       const targetTransform = this.ecs.getComponent(targetEntity, Transform);
