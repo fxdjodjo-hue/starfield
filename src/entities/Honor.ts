@@ -6,40 +6,13 @@ import { Component } from '/src/infrastructure/ecs/Component';
  */
 export class Honor extends Component {
   private _honor: number;
-  private _honorRank: string;
   private _isAdministrator: boolean = false;
   private _isOutlaw: boolean = false;
-
-  // Ranghi militari completi basati su punti honor
-  private static readonly MILITARY_RANKS = [
-    { name: 'Chief General', minHonor: 50000 },
-    { name: 'General', minHonor: 25000 },
-    { name: 'Basic General', minHonor: 15000 },
-    { name: 'Chief Colonel', minHonor: 10000 },
-    { name: 'Colonel', minHonor: 7500 },
-    { name: 'Basic Colonel', minHonor: 5000 },
-    { name: 'Chief Major', minHonor: 3500 },
-    { name: 'Major', minHonor: 2500 },
-    { name: 'Basic Major', minHonor: 1500 },
-    { name: 'Chief Captain', minHonor: 1000 },
-    { name: 'Captain', minHonor: 750 },
-    { name: 'Basic Captain', minHonor: 500 },
-    { name: 'Chief Lieutenant', minHonor: 350 },
-    { name: 'Lieutenant', minHonor: 250 },
-    { name: 'Basic Lieutenant', minHonor: 150 },
-    { name: 'Chief Sergeant', minHonor: 100 },
-    { name: 'Sergeant', minHonor: 75 },
-    { name: 'Basic Sergeant', minHonor: 50 },
-    { name: 'Chief Space Pilot', minHonor: 25 },
-    { name: 'Space Pilot', minHonor: 10 },
-    { name: 'Basic Space Pilot', minHonor: 5 },
-    { name: 'Recruit', minHonor: 0 }  // Honor >= 0 (default per nuovi giocatori)
-  ];
 
   constructor(initialHonor: number = 0) {
     super();
     this._honor = initialHonor; // Può essere negativo per Outlaw
-    this._honorRank = this.calculateRank();
+    this.updateOutlawStatus();
   }
 
   /**
@@ -49,12 +22,6 @@ export class Honor extends Component {
     return this._honor;
   }
 
-  /**
-   * Ottiene il rango attuale basato sul ranking
-   */
-  get honorRank(): string {
-    return this._honorRank;
-  }
 
 
   /**
@@ -77,7 +44,6 @@ export class Honor extends Component {
    */
   setAdministrator(isAdmin: boolean): void {
     this._isAdministrator = isAdmin;
-    this._honorRank = this.calculateRank(); // Ricalcola il rango
   }
 
   /**
@@ -85,7 +51,6 @@ export class Honor extends Component {
    */
   updateOutlawStatus(): void {
     this._isOutlaw = this._honor <= -500;
-    this._honorRank = this.calculateRank(); // Ricalcola il rango
   }
 
   /**
@@ -106,45 +71,6 @@ export class Honor extends Component {
     this.updateOutlawStatus();
   }
 
-  /**
-   * Calcola il rango attuale basato sulla posizione nel ranking
-   */
-  private calculateRank(): string {
-    // Ranghi speciali hanno priorità
-    if (this._isAdministrator) {
-      return 'Administrator';
-    }
 
-    if (this._isOutlaw) {
-      return 'Outlaw';
-    }
 
-    // Trova il rango appropriato basato sui punti honor
-    for (const rank of Honor.MILITARY_RANKS) {
-      if (this._honor >= rank.minHonor) {
-        return rank.name;
-      }
-    }
-
-    // Default: Recruit per honor negativo o molto basso
-    return 'Recruit';
-  }
-
-  /**
-   * Ottiene il prossimo rango disponibile
-   */
-  getNextRank(): string | null {
-    const currentRankIndex = Honor.MILITARY_RANKS.findIndex(rank => rank.name === this._honorRank);
-    if (currentRankIndex === -1 || currentRankIndex === Honor.MILITARY_RANKS.length - 1) {
-      return null; // Nessun rango successivo
-    }
-    return Honor.MILITARY_RANKS[currentRankIndex + 1].name;
-  }
-
-  /**
-   * Ottiene tutti i ranghi militari disponibili
-   */
-  static getAllRanks(): Array<{name: string, minHonor: number}> {
-    return [...Honor.MILITARY_RANKS];
-  }
 }

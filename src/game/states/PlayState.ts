@@ -12,6 +12,7 @@ import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
+import { RankSystem } from '/src/systems/RankSystem';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
@@ -333,6 +334,7 @@ export class PlayState extends GameState {
     const damageTextSystem = new DamageTextSystem(ecs);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
     this.economySystem = new EconomySystem(ecs);
+    const rankSystem = new RankSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -346,6 +348,7 @@ export class PlayState extends GameState {
     ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
     ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
     ecs.addSystem(this.economySystem); // Sistema economia
+    ecs.addSystem(rankSystem); // Sistema rank
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
@@ -371,8 +374,10 @@ export class PlayState extends GameState {
       minimapSystem.clearDestination();
     });
 
-    // Configura sistema economico
+    // Configura sistema economico e rank
     this.economySystem.setPlayerEntity(playerShip);
+    this.economySystem.setRankSystem(rankSystem);
+    rankSystem.setPlayerEntity(playerShip);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {

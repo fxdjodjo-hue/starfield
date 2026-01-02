@@ -10,11 +10,13 @@ import { Honor } from '/src/entities/Honor';
  */
 export class EconomySystem extends BaseSystem {
   private playerEntity: any = null;
+  private rankSystem: any = null;
 
   private onCreditsChanged?: (newAmount: number, change: number) => void;
   private onCosmosChanged?: (newAmount: number, change: number) => void;
   private onExperienceChanged?: (newAmount: number, change: number, leveledUp: boolean) => void;
   private onHonorChanged?: (newAmount: number, change: number, newRank?: string) => void;
+
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -25,6 +27,13 @@ export class EconomySystem extends BaseSystem {
    */
   setPlayerEntity(entity: any): void {
     this.playerEntity = entity;
+  }
+
+  /**
+   * Imposta il riferimento al RankSystem
+   */
+  setRankSystem(rankSystem: any): void {
+    this.rankSystem = rankSystem;
   }
 
   /**
@@ -625,7 +634,7 @@ export class EconomySystem extends BaseSystem {
       experience: experience.exp,
       expForNextLevel: experience.expForNextLevel - experience.getExpRequiredForLevel(experience.level - 1),
       honor: honor.honor,
-      honorRank: honor.honorRank
+      honorRank: this.rankSystem?.calculateCurrentRank() || 'Recruit'
     };
 
     console.log(`DEBUG Economy Status: CR=${result.credits}, CO=${result.cosmos}, XP=${result.experience}/${result.expForNextLevel}, LV=${result.level}, HN=${result.honor}, RK=${result.honorRank}`);
