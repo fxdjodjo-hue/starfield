@@ -81,6 +81,22 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
+   * Muove il player direttamente a una posizione specifica nel mondo
+   * Usato per click-to-move dalla minimappa
+   */
+  movePlayerTo(worldX: number, worldY: number): void {
+    if (!this.playerEntity || !this.camera) return;
+
+    // Converti coordinate mondo in coordinate schermo
+    const screenPos = this.camera.worldToScreen(worldX, worldY, window.innerWidth, window.innerHeight);
+
+    // Simula un click del mouse in quella posizione
+    this.lastMouseX = screenPos.x;
+    this.lastMouseY = screenPos.y;
+    this.isMousePressed = true;
+  }
+
+  /**
    * Muove il player verso la posizione del mouse
    */
   private movePlayerTowardsMouse(): void {

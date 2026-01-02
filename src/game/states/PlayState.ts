@@ -10,6 +10,7 @@ import { NpcSelectionSystem } from '/src/systems/ai/NpcSelectionSystem';
 import { CombatSystem } from '/src/systems/combat/CombatSystem';
 import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
+import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
@@ -313,6 +314,7 @@ export class PlayState extends GameState {
     const combatSystem = new CombatSystem(ecs);
     const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
+    const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -324,6 +326,7 @@ export class PlayState extends GameState {
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
     ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
+    ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
@@ -337,6 +340,13 @@ export class PlayState extends GameState {
     // Passa la camera al sistema di controllo player
     playerControlSystem.setCamera(movementSystem.getCamera());
 
+    // Configura minimappa
+    minimapSystem.setCamera(movementSystem.getCamera());
+    minimapSystem.setMoveToCallback((worldX, worldY) => {
+      // Quando si clicca sulla minimappa, muovi il player alla posizione
+      playerControlSystem.movePlayerTo(worldX, worldY);
+    });
+
     // Crea alcuni NPC
     this.createStreuner(ecs, 50); // Crea 50 Streuner che si muovono
 
@@ -348,6 +358,12 @@ export class PlayState extends GameState {
       if (pressed) {
         // Assicurati che il canvas abbia il focus per gli eventi tastiera
         this.context.canvas.focus();
+
+        // Prima controlla se il click è sulla minimappa
+        const minimapHandled = minimapSystem.handleClick(x, y);
+        if (minimapHandled) {
+          return; // Click gestito dalla minimappa, non fare altro
+        }
 
         // Prova a selezionare NPC
         const canvasSize = this.world.getCanvasSize();
