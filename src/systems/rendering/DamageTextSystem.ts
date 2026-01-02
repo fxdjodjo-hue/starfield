@@ -78,6 +78,9 @@ export class DamageTextSystem extends BaseSystem {
    */
   render(ctx: CanvasRenderingContext2D): void {
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
+    if (damageTextEntities.length > 0) {
+      console.log(`[DamageTextSystem] Rendering ${damageTextEntities.length} damage texts`);
+    }
 
     // Se non abbiamo il canvas, non renderizzare
     if (!ctx.canvas) return;
@@ -116,7 +119,7 @@ export class DamageTextSystem extends BaseSystem {
         damageText.lastKnownWorldY = worldY;
       } else {
         // Entità morta - usa l'ultima posizione conosciuta e continua l'animazione
-        // I testi continuano fino alla scadenza naturale anche senza entità target
+        console.log(`[DamageTextSystem] Entity ${damageText.targetEntityId} dead, using last known position (${damageText.lastKnownWorldX}, ${damageText.lastKnownWorldY})`);
         worldX = damageText.lastKnownWorldX;
         worldY = damageText.lastKnownWorldY + (damageText.currentOffsetY - damageText.initialOffsetY);
       }
@@ -151,6 +154,7 @@ export class DamageTextSystem extends BaseSystem {
 
       // Disegna il testo alla posizione calcolata
       ctx.fillText(damageText.value.toString(), screenPos.x, screenPos.y);
+      console.log(`[DamageTextSystem] Drew damage text "${damageText.value}" at screen (${screenPos.x.toFixed(1)}, ${screenPos.y.toFixed(1)})`);
 
       // Ripristina il contesto
       ctx.restore();
