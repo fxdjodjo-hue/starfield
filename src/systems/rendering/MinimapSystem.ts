@@ -116,12 +116,13 @@ export class MinimapSystem extends System {
   private renderEntities(ctx: CanvasRenderingContext2D): void {
     // Renderizza NPC
     const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+
     npcEntities.forEach(entityId => {
       const transform = this.ecs.getComponent(entityId, Transform);
       if (transform) {
-        const isSelected = this.ecs.getComponent(entityId, SelectedNpc) !== null;
-        // Debug: forza sempre colore rosso per verificare
-        const color = this.minimap.npcColor; // Forza sempre rosso per debug
+        const isSelected = selectedNpcs.includes(entityId);
+        const color = isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor;
         this.renderEntityDot(ctx, transform.x, transform.y, color);
       }
     });
