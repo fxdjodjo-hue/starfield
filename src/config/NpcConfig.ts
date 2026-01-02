@@ -30,8 +30,8 @@ export interface NpcDefinition {
  * Definizioni di tutti gli NPC del gioco
  */
 export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
-  'Streuner': {
-    type: 'Streuner',
+  'Scouter': {
+    type: 'Scouter',
     defaultBehavior: 'wander',
     stats: {
       health: 40,

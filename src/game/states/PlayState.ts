@@ -405,7 +405,7 @@ export class PlayState extends GameState {
     });
 
     // Crea alcuni NPC
-    this.createStreuner(ecs, 50); // Crea 50 Streuner che si muovono
+    this.createScouter(ecs, 50); // Crea 50 Scouter che si muovono
 
     // Crea stelle distribuite su tutta la mappa
     // Stelle create direttamente nel RenderSystem
@@ -491,10 +491,10 @@ export class PlayState extends GameState {
 
 
   /**
-   * Crea Streuner distribuiti uniformemente su tutta la mappa
+   * Crea Scouter distribuiti uniformemente su tutta la mappa
    */
-  private createStreuner(ecs: any, count: number): void {
-    const minDistance = 100; // Distanza minima tra Streuner
+  private createScouter(ecs: any, count: number): void {
+    const minDistance = 100; // Distanza minima tra Scouter
     const minDistanceFromPlayer = 200; // Distanza minima dal player (centro)
     const worldWidth = CONFIG.WORLD_WIDTH;
     const worldHeight = CONFIG.WORLD_HEIGHT;
@@ -536,7 +536,7 @@ export class PlayState extends GameState {
           continue;
         }
 
-        // Verifica che non sia troppo vicino ad altri Streuner
+        // Verifica che non sia troppo vicino ad altri Scouter
         validPosition = positions.every(pos => {
           const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
           return distance >= minDistance;
@@ -561,14 +561,14 @@ export class PlayState extends GameState {
       positions.push({ x, y });
 
       const streuner = ecs.createEntity();
-      const npcDef = getNpcDefinition('Streuner');
+      const npcDef = getNpcDefinition('Scouter');
 
       if (!npcDef) {
-        console.error('NPC definition not found for Streuner');
+        console.error('NPC definition not found for Scouter');
         continue;
       }
 
-      // Aggiungi componenti allo Streuner usando la configurazione
+      // Aggiungi componenti allo Scouter usando la configurazione
       ecs.addComponent(streuner, Transform, new Transform(x, y, 0));
       ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0));
       ecs.addComponent(streuner, Health, new Health(npcDef.stats.health, npcDef.stats.health));

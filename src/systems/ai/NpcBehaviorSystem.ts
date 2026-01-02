@@ -91,9 +91,9 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Aggiorna il comportamento di un singolo NPC
    */
   private updateNpcBehavior(npc: Npc, entityId: number): void {
-    // Solo gli Streuner cambiano comportamento periodicamente
-    if (npc.npcType === 'Streuner') {
-      // Comportamenti più fluidi per gli Streuner
+    // Solo gli Scouter cambiano comportamento periodicamente
+    if (npc.npcType === 'Scouter') {
+      // Comportamenti più fluidi per gli Scouter
       // cruise: mantiene direzione molto a lungo (tratte lunghissime)
       // patrol: mantiene direzione più a lungo
       // wander: cambia direzione gradualmente
@@ -306,20 +306,20 @@ export class NpcBehaviorSystem extends BaseSystem {
       const velocityA = this.ecs.getComponent(entityA, Velocity);
       const npcA = this.ecs.getComponent(entityA, Npc);
 
-      if (!transformA || !velocityA || npcA?.npcType !== 'Streuner') continue;
+      if (!transformA || !velocityA || npcA?.npcType !== 'Scouter') continue;
 
       let avoidanceForceX = 0;
       let avoidanceForceY = 0;
       let nearbyCount = 0;
 
-      // Controlla tutti gli altri NPC Streuner
+      // Controlla tutti gli altri NPC Scouter
       for (const entityB of npcs) {
         if (entityA.id === entityB.id) continue; // Non controllare se stesso
 
         const transformB = this.ecs.getComponent(entityB, Transform);
         const npcB = this.ecs.getComponent(entityB, Npc);
 
-        if (!transformB || npcB?.npcType !== 'Streuner') continue;
+        if (!transformB || npcB?.npcType !== 'Scouter') continue;
 
         const dx = transformA.x - transformB.x;
         const dy = transformA.y - transformB.y;
