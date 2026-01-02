@@ -14,6 +14,8 @@ export class DamageText extends Component {
   public color: string;
   public lastKnownWorldX: number; // Ultima posizione X conosciuta (per testi orfani)
   public lastKnownWorldY: number; // Ultima posizione Y conosciuta (per testi orfani)
+  public entityBaseX: number; // Posizione X base dell'entità al momento della morte
+  public entityBaseY: number; // Posizione Y base dell'entità al momento della morte
 
   constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 1000) {
     super();
@@ -39,6 +41,8 @@ export class DamageText extends Component {
     this.color = color || '#ffffff';
     this.lastKnownWorldX = 0;
     this.lastKnownWorldY = 0;
+    this.entityBaseX = 0;
+    this.entityBaseY = 0;
   }
 
   getAlpha(): number {
