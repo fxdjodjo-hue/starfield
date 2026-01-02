@@ -198,9 +198,14 @@ export class ProjectileSystem extends BaseSystem {
       const playerEntity = this.ecs.getPlayerEntity();
       const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
       const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
+
+      // Se abbiamo applicato danno shield, sposta leggermente più in alto i danni HP
+      const hadShieldDamage = targetShield && targetShield.current < targetShield.max && damage > targetShield.current;
+      const hpOffsetY = hadShieldDamage ? -45 : -30; // HP più in alto se dopo shield damage
+
       // Aggiungi leggera variazione casuale per evitare sovrapposizione completa
       const randomOffsetX = (Math.random() - 0.5) * 20; // ±10px
-      this.createDamageText(damageToHp, targetEntity.id, randomOffsetX, -30, textColor);
+      this.createDamageText(damageToHp, targetEntity.id, randomOffsetX, hpOffsetY, textColor);
     }
   }
 
