@@ -108,17 +108,8 @@ export class NpcBehaviorSystem extends BaseSystem {
         // NPC danneggiato insegue il player per vendetta
         npc.setBehavior('pursuit');
       } else {
-        // Comportamenti disponibili quando non è danneggiato
-        let behaviors: string[];
-
-        if (isAttackingPlayer) {
-          // Quando attacca il player: può usare circle per movimenti evasivi
-          behaviors = ['cruise', 'patrol', 'circle'];
-        } else {
-          // Quando non attacca: solo cruise e patrol per movimenti normali
-          behaviors = ['cruise', 'patrol'];
-        }
-
+        // Comportamenti normali quando non è danneggiato né con poca salute
+        const behaviors = ['cruise', 'patrol'];
         const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         npc.setBehavior(randomBehavior);
       }
