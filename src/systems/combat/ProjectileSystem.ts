@@ -7,7 +7,7 @@ import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { DamageTaken } from '/src/entities/combat/DamageTaken';
-import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
+import { DamageText } from '/src/entities/combat/DamageText';
 import { MovementSystem } from '/src/systems/physics/MovementSystem';
 
 /**
@@ -15,12 +15,10 @@ import { MovementSystem } from '/src/systems/physics/MovementSystem';
  */
 export class ProjectileSystem extends BaseSystem {
   private movementSystem: MovementSystem;
-  private damageTextSystem: DamageTextSystem;
 
-  constructor(ecs: ECS, movementSystem: MovementSystem, damageTextSystem: DamageTextSystem) {
+  constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
-    this.damageTextSystem = damageTextSystem;
   }
 
   update(deltaTime: number): void {
@@ -224,10 +222,7 @@ export class ProjectileSystem extends BaseSystem {
       damageToHp = damage - shieldDamage;
 
       // Crea testo di danno per lo shield (colore blu)
-      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      if (targetTransform) {
-        this.createShieldDamageText(shieldDamage, targetTransform);
-      }
+      this.createShieldDamageText(shieldDamage, targetEntity);
     }
 
     // Poi applica il danno rimanente all'HP
@@ -235,36 +230,45 @@ export class ProjectileSystem extends BaseSystem {
       targetHealth.takeDamage(damageToHp);
 
       // Crea testo di danno per l'HP (colore rosso/bianco)
-      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      if (targetTransform) {
-          const playerEntity = this.ecs.getPlayerEntity();
-          const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
-        const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
-        this.createDamageText(damageToHp, targetTransform.x, targetTransform.y - 30, textColor);
-      }
+      const playerEntity = this.ecs.getPlayerEntity();
+      const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
+      const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
+
+      // Se abbiamo applicato danno shield, sposta i danni HP più in basso (shield appare sopra)
+      const hadShieldDamage = targetShield && targetShield.current < targetShield.max && damage > targetShield.current;
+      const hpOffsetY = hadShieldDamage ? -15 : -30; // HP più in basso se dopo shield damage (shield a -30, HP a -15)
+
+      // Aggiungi leggera variazione casuale per evitare sovrapposizione completa
+      const randomOffsetX = (Math.random() - 0.5) * 20; // ±10px
+      this.createDamageText(damageToHp, targetEntity.id, randomOffsetX, hpOffsetY, textColor);
     }
   }
 
   /**
    * Crea testo di danno per lo shield
    */
-  private createShieldDamageText(value: number, targetTransform: Transform): void {
-    // Converti coordinate mondo in coordinate schermo
-    const canvasSize = (this.ecs as any).context?.canvas ?
-                      { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
-                      { width: window.innerWidth, height: window.innerHeight };
+  private createShieldDamageText(value: number, targetEntity: any): void {
+    // Trova l'entità player per determinare se il danno è al player
+    const playerEntity = this.ecs.getPlayerEntity();
+    const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
+    const textColor = '#4444ff'; // Blu per danno shield
 
-    const camera = this.movementSystem.getCamera();
-    const screenPos = camera.worldToScreen(targetTransform.x, targetTransform.y - 15, canvasSize.width, canvasSize.height);
+    // Aggiungi variazione casuale X anche per lo shield (diversa da HP per evitare allineamento)
+    const randomOffsetX = (Math.random() - 0.5) * 25; // ±12.5px (leggermente diversa da HP)
 
-    // Crea testo blu per danno allo shield
-    this.damageTextSystem.createDamageText(value, screenPos.x, screenPos.y, '#4444ff');
+    // Crea testo di danno per lo shield (parte da -30, appare sopra l'HP quando presente)
+    this.createDamageText(value, targetEntity.id, randomOffsetX, -30, textColor);
   }
 
   /**
    * Crea un testo di danno
    */
-  private createDamageText(value: number, x: number, y: number, color: string): void {
-    this.damageTextSystem.createDamageText(value, x, y, color);
+  private createDamageText(value: number, targetEntityId: number, offsetX: number, offsetY: number, color: string): void {
+    if (value <= 0 || targetEntityId < 0) return;
+
+    const damageTextEntity = this.ecs.createEntity();
+    const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
+    this.ecs.addComponent(damageTextEntity, DamageText, damageText);
   }
+
 }

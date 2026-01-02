@@ -1,19 +1,40 @@
 import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
 import { DamageText } from '/src/entities/combat/DamageText';
+import { Transform } from '/src/entities/spatial/Transform';
 
 /**
- * Sistema per gestire e renderizzare testi di danno fluttuanti
- * Mostra numeri di danno sopra le entità colpite con animazione
+ * Rendering testi di danno
  */
 export class DamageTextSystem extends BaseSystem {
+  private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, movementSystem?: any) {
     super(ecs);
+    // Usa il movementSystem passato o cercalo
+    this.movementSystem = movementSystem || this.findMovementSystem();
   }
 
   /**
-   * Aggiorna i testi di danno (posizione, lifetime)
+   * Trova il sistema movimento per accesso alla camera
+   */
+  private findMovementSystem(): any {
+    // Cerca nei sistemi registrati
+    if (this.ecs && (this.ecs as any).systems) {
+      return (this.ecs as any).systems.find((system: any) => system.getCamera);
+    }
+    return null;
+  }
+
+  /**
+   * Rimuove un testo di danno quando scade naturalmente
+   */
+  private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
+    this.ecs.removeEntity(damageTextEntity);
+  }
+
+  /**
+   * Aggiorna i testi di danno (lifetime e movimento)
    */
   update(deltaTime: number): void {
     const deltaTimeSeconds = deltaTime / 1000; // Converti in secondi
@@ -21,19 +42,23 @@ export class DamageTextSystem extends BaseSystem {
     // Trova tutte le entità con DamageText
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
+
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
-      // Aggiorna posizione (movimento verso l'alto)
-      damageText.y += damageText.velocityY * deltaTimeSeconds;
+      // Muovi il testo verso l'alto nel tempo (con limite massimo)
+      const moveSpeed = -40; // Pixel al secondo verso l'alto (ridotto per durata 1s)
+      const maxOffset = damageText.initialOffsetY - 100; // Non andare oltre 100px sopra l'entità
+      damageText.currentOffsetY = Math.max(maxOffset, damageText.currentOffsetY + moveSpeed * deltaTimeSeconds);
 
       // Aggiorna lifetime
       damageText.lifetime -= deltaTime;
 
+
       // Rimuovi testi scaduti
       if (damageText.isExpired()) {
-        this.ecs.removeEntity(entity);
+        this.cleanupDamageText(damageText.targetEntityId, entity);
       }
     }
   }
@@ -42,44 +67,61 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
+    // Riprova a trovare il movement system se necessario
+    if (!this.movementSystem) {
+      this.movementSystem = this.findMovementSystem();
+    }
+
+    if (!ctx.canvas || !this.movementSystem) {
+      return; // Silenziosamente senza log per evitare spam
+    }
+
+    const camera = this.movementSystem.getCamera();
+    if (!camera) return;
+
+    const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
-      const alpha = damageText.getAlpha();
+      let worldX: number;
+      let worldY: number;
 
-      // Salva il contesto
+      const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
+      if (targetEntity) {
+        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+        if (!targetTransform) continue;
+
+        worldX = targetTransform.x + damageText.initialOffsetX;
+        worldY = targetTransform.y + damageText.currentOffsetY;
+
+        // Salva l'ultima posizione valida
+        damageText.lastWorldX = worldX;
+        damageText.lastWorldY = worldY;
+      } else {
+        // Usa l'ultima posizione conosciuta se entità non esiste più
+        worldX = damageText.lastWorldX;
+        worldY = damageText.lastWorldY;
+      }
+
+      const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
+
       ctx.save();
-
-      // Imposta stile del testo
-      ctx.globalAlpha = alpha;
+      ctx.globalAlpha = damageText.getAlpha();
       ctx.fillStyle = damageText.color;
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-
-      // Aggiungi ombra per leggibilità
       ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
       ctx.shadowBlur = 4;
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      // Disegna il testo
-      ctx.fillText(damageText.value.toString(), damageText.x, damageText.y);
-
-      // Ripristina il contesto
+      ctx.fillText(damageText.value.toString(), screenPos.x, screenPos.y);
       ctx.restore();
     }
   }
 
-  /**
-   * Crea un nuovo testo di danno
-   */
-  createDamageText(value: number, x: number, y: number, color: string = '#ffffff'): void {
-    const damageTextEntity = this.ecs.createEntity();
-    const damageText = new DamageText(value, x, y, color);
-    this.ecs.addComponent(damageTextEntity, DamageText, damageText);
-  }
 }

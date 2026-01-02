@@ -334,8 +334,8 @@ export class PlayState extends GameState {
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const combatSystem = new CombatSystem(ecs, movementSystem);
-    const damageTextSystem = new DamageTextSystem(ecs);
-    const projectileSystem = new ProjectileSystem(ecs, movementSystem, damageTextSystem);
+    const damageTextSystem = new DamageTextSystem(ecs, movementSystem);
+    const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
     this.economySystem = new EconomySystem(ecs);
     const rankSystem = new RankSystem(ecs);
@@ -350,8 +350,8 @@ export class PlayState extends GameState {
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
-    ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
-    ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
+    ecs.addSystem(minimapSystem);      // Minimappa
+    ecs.addSystem(damageTextSystem);   // Testi danno alla fine (più sopra di tutto)
     ecs.addSystem(this.economySystem); // Sistema economia
     ecs.addSystem(rankSystem); // Sistema rank
     ecs.addSystem(rewardSystem); // Sistema ricompense
