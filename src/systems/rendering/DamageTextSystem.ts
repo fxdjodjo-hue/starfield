@@ -39,7 +39,6 @@ export class DamageTextSystem extends BaseSystem {
    */
   render(ctx: CanvasRenderingContext2D): void {
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
-    console.log(`[DamageTextSystem] Found ${damageTextEntities.length} damage text entities`);
 
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
@@ -48,20 +47,17 @@ export class DamageTextSystem extends BaseSystem {
       // Trova la posizione dell'entità target
       const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
       if (!targetEntity) {
-        console.log(`[DamageTextSystem] Target entity ${damageText.targetEntityId} not found for damage ${damageText.value}`);
+        // Rimuovi il testo di danno se l'entità target non esiste più
+        this.ecs.removeEntity(entity);
         continue;
       }
 
       const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      if (!targetTransform) {
-        console.log(`[DamageTextSystem] No Transform component on entity ${damageText.targetEntityId}`);
-        continue;
-      }
+      if (!targetTransform) continue;
 
       // Calcola posizione sopra l'entità con offset
       const screenX = targetTransform.x + damageText.offsetX;
       const screenY = targetTransform.y + damageText.offsetY;
-      console.log(`[DamageTextSystem] Rendering damage ${damageText.value} at (${screenX}, ${screenY}) for entity ${damageText.targetEntityId}`);
 
       const alpha = damageText.getAlpha();
 
