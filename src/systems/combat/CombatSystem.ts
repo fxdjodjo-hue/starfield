@@ -8,6 +8,7 @@ import { Transform } from '/src/entities/spatial/Transform';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Npc } from '/src/entities/ai/Npc';
 import { Projectile } from '/src/entities/combat/Projectile';
+import { MovementSystem } from '../physics/MovementSystem';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -15,9 +16,11 @@ import { Projectile } from '/src/entities/combat/Projectile';
  */
 export class CombatSystem extends BaseSystem {
   private lastUpdateTime: number = Date.now();
+  private movementSystem: MovementSystem;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
+    this.movementSystem = movementSystem;
   }
 
   update(deltaTime: number): void {
@@ -144,10 +147,8 @@ export class CombatSystem extends BaseSystem {
                       { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
                       { width: window.innerWidth, height: window.innerHeight };
 
-    // Trova la camera nel sistema
-    const movementSystem = this.ecs.getSystem('MovementSystem') as any;
-    if (movementSystem) {
-      const camera = movementSystem.getCamera();
+    // Usa la camera dal MovementSystem
+    const camera = this.movementSystem.getCamera();
       const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
 
       // Margine di sicurezza per considerare "fuori schermo"
