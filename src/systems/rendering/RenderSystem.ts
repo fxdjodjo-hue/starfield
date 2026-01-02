@@ -1,6 +1,7 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
 import { Npc } from '../../entities/ai/Npc';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Health } from '../../entities/combat/Health';
@@ -55,7 +56,6 @@ export class RenderSystem extends BaseSystem {
 
         if (npc) {
           // Renderizza come NPC
-          console.log(`Rendering NPC: ${npc.npcType} at ${screenPos.x}, ${screenPos.y}`);
           this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined);
 
           // Mostra range di attacco se selezionato
@@ -176,6 +176,9 @@ export class RenderSystem extends BaseSystem {
       // Renderizza il nickname sotto l'NPC
       this.renderNpcNickname(ctx, npc, 0, 20);
     }
+
+    // Renderizza linee di debug per direzione e comportamento
+    this.renderNpcDebugLines(ctx, npc, transform, screenX, screenY);
 
     ctx.restore();
   }
@@ -361,8 +364,6 @@ export class RenderSystem extends BaseSystem {
    * Renderizza il tipo dell'NPC sotto di esso
    */
   private renderNpcNickname(ctx: CanvasRenderingContext2D, npc: Npc, offsetX: number, offsetY: number): void {
-    console.log(`Drawing NPC type: ${npc.npcType} at offset ${offsetX}, ${offsetY}`);
-
     ctx.save();
 
     // Stile del testo
@@ -382,6 +383,132 @@ export class RenderSystem extends BaseSystem {
 
     // Disegna il testo bianco
     ctx.fillText(npc.npcType, offsetX, offsetY);
+
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza linee di debug per direzione e comportamento degli NPC
+   */
+  private renderNpcDebugLines(ctx: CanvasRenderingContext2D, npc: Npc, transform: Transform, screenX: number, screenY: number): void {
+    // Trova l'entità NPC corrispondente per ottenere velocity e altri dati
+    const entities = this.ecs.getEntitiesWithComponents(Npc, Transform);
+    const npcEntity = entities.find(entity => {
+      const entityTransform = this.ecs.getComponent(entity, Transform);
+      return entityTransform && entityTransform.x === transform.x && entityTransform.y === transform.y;
+    });
+
+    if (!npcEntity) return;
+
+    const velocity = this.ecs.getComponent(npcEntity, Velocity);
+    if (!velocity) return;
+
+    ctx.save();
+
+    // Trasla alle coordinate schermo dell'NPC
+    ctx.translate(screenX, screenY);
+
+    // Linea di direzione movimento (velocità corrente)
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+    if (speed > 0) {
+      const directionX = velocity.x / speed;
+      const directionY = velocity.y / speed;
+
+      // Colore basato sul comportamento
+      let lineColor = '#ffffff'; // Bianco di default
+      let lineLength = 30; // Lunghezza della linea
+
+      switch (npc.behavior) {
+        case 'cruise':
+          lineColor = '#00ff00'; // Verde per cruise
+          break;
+        case 'patrol':
+          lineColor = '#ffff00'; // Giallo per patrol
+          break;
+        case 'circle':
+          lineColor = '#ff8800'; // Arancione per circle
+          lineLength = 20; // Più corta per circle
+          break;
+        case 'pursuit':
+          lineColor = '#ff0000'; // Rosso per pursuit
+          lineLength = 50; // Più lunga per pursuit
+          break;
+      }
+
+      // Disegna linea di direzione
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(directionX * lineLength, directionY * lineLength);
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Punta della freccia
+      const arrowSize = 5;
+      ctx.beginPath();
+      ctx.moveTo(directionX * lineLength, directionY * lineLength);
+      ctx.lineTo(
+        directionX * lineLength - directionX * arrowSize + directionY * arrowSize,
+        directionY * lineLength - directionY * arrowSize - directionX * arrowSize
+      );
+      ctx.lineTo(
+        directionX * lineLength - directionX * arrowSize - directionY * arrowSize,
+        directionY * lineLength - directionY * arrowSize + directionX * arrowSize
+      );
+      ctx.closePath();
+      ctx.fillStyle = lineColor;
+      ctx.fill();
+    }
+
+    // Testo del comportamento
+    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = '#ffffff';
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    // Sfondo semitrasparente per il testo
+    const text = npc.behavior.toUpperCase();
+    const textMetrics = ctx.measureText(text);
+    const textWidth = textMetrics.width;
+    const textHeight = 12;
+
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(-textWidth/2 - 2, -35 - textHeight, textWidth + 4, textHeight + 2);
+
+    // Testo del comportamento
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.strokeText(text, 0, -35);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(text, 0, -35);
+
+    // Linea verso il player se in pursuit
+    if (npc.behavior === 'pursuit') {
+      const playerEntity = this.ecs.getPlayerEntity();
+      if (playerEntity) {
+        const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+        if (playerTransform) {
+          // Converti coordinate mondo in coordinate schermo relative all'NPC
+          const camera = this.movementSystem.getCamera();
+          const playerScreenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, ctx.canvas.width, ctx.canvas.height);
+          const relativeX = playerScreenPos.x - screenX;
+          const relativeY = playerScreenPos.y - screenY;
+
+          // Linea tratteggiata verso il player
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(relativeX, relativeY);
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+          ctx.setLineDash([]); // Ripristina linee continue
+        }
+      }
+    }
 
     ctx.restore();
   }
