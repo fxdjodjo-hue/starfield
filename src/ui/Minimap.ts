@@ -67,13 +67,20 @@ export class Minimap {
    * Converte coordinate mondo in coordinate minimappa
    */
   worldToMinimap(worldX: number, worldY: number): { x: number, y: number } {
-    // Centra il mondo nella minimappa
-    const offsetX = (this.width - this.worldWidth * this.scale) / 2;
-    const offsetY = (this.height - this.worldHeight * this.scale) / 2;
+    // Il mondo è centrato su (0,0), quindi trasliamo le coordinate per adattarle
+    // Alle coordinate mondo aggiungiamo worldWidth/2 e worldHeight/2 per renderle positive
+    const translatedX = worldX + this.worldWidth / 2;
+    const translatedY = worldY + this.worldHeight / 2;
+
+    // Centra il mondo scalato nella minimappa
+    const scaledWorldWidth = this.worldWidth * this.scale;
+    const scaledWorldHeight = this.worldHeight * this.scale;
+    const offsetX = (this.width - scaledWorldWidth) / 2;
+    const offsetY = (this.height - scaledWorldHeight) / 2;
 
     return {
-      x: this.x + offsetX + worldX * this.scale,
-      y: this.y + offsetY + worldY * this.scale
+      x: this.x + offsetX + translatedX * this.scale,
+      y: this.y + offsetY + translatedY * this.scale
     };
   }
 
@@ -81,13 +88,20 @@ export class Minimap {
    * Converte coordinate minimappa in coordinate mondo
    */
   minimapToWorld(minimapX: number, minimapY: number): { x: number, y: number } {
-    // Centra il mondo nella minimappa
-    const offsetX = (this.width - this.worldWidth * this.scale) / 2;
-    const offsetY = (this.height - this.worldHeight * this.scale) / 2;
+    // Centra il mondo scalato nella minimappa
+    const scaledWorldWidth = this.worldWidth * this.scale;
+    const scaledWorldHeight = this.worldHeight * this.scale;
+    const offsetX = (this.width - scaledWorldWidth) / 2;
+    const offsetY = (this.height - scaledWorldHeight) / 2;
 
+    // Converti alle coordinate mondo scalate
+    const translatedX = (minimapX - this.x - offsetX) / this.scale;
+    const translatedY = (minimapY - this.y - offsetY) / this.scale;
+
+    // Sottrai worldWidth/2 e worldHeight/2 per tornare alle coordinate mondo centrate su (0,0)
     return {
-      x: (minimapX - this.x - offsetX) / this.scale,
-      y: (minimapY - this.y - offsetY) / this.scale
+      x: translatedX - this.worldWidth / 2,
+      y: translatedY - this.worldHeight / 2
     };
   }
 
