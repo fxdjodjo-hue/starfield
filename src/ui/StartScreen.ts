@@ -81,6 +81,7 @@ export class StartScreen {
       flex-direction: column;
       align-items: center;
       justify-content: center;
+      margin-top: 80px;
       margin-bottom: 30px;
       width: 100%;
     `;

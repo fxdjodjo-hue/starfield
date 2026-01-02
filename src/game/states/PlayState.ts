@@ -15,6 +15,7 @@ import { LogSystem } from '/src/systems/rendering/LogSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
+import { BoundsSystem } from '/src/systems/BoundsSystem';
 import { PlayerHUD } from '/src/ui/PlayerHUD';
 import type { PlayerHUDData } from '/src/ui/PlayerHUD';
 import { Transform } from '/src/entities/spatial/Transform';
@@ -450,6 +451,7 @@ export class PlayState extends GameState {
     this.economySystem = new EconomySystem(ecs);
     const rankSystem = new RankSystem(ecs);
     const rewardSystem = new RewardSystem(ecs);
+    const boundsSystem = new BoundsSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -460,6 +462,7 @@ export class PlayState extends GameState {
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
+    ecs.addSystem(boundsSystem);       // Sistema bounds (linee rosse)
     ecs.addSystem(minimapSystem);      // Minimappa
     ecs.addSystem(this.logSystem);     // Sistema log (messaggi centrati in alto)
     ecs.addSystem(damageTextSystem);   // Testi danno alla fine (più sopra di tutto)
@@ -499,6 +502,9 @@ export class PlayState extends GameState {
     // Configura sistema di log
     combatSystem.setLogSystem(this.logSystem!);
     rewardSystem.setLogSystem(this.logSystem!);
+
+    // Configura sistema bounds
+    boundsSystem.setPlayerEntity(playerShip);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
