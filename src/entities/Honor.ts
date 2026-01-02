@@ -150,15 +150,21 @@ export class Honor extends Component {
     // Calcola la proporzione (posizione / totale giocatori)
     const proportion = this._rankingPosition / this._totalPlayers;
 
+    // DEBUG: mostra i valori di calcolo
+    console.log(`DEBUG Rank calc: position=${this._rankingPosition}, totalPlayers=${this._totalPlayers}, proportion=${proportion.toFixed(3)}`);
+
     // Trova il rango appropriato basato sulla proporzione
     for (const rank of Honor.MILITARY_RANKS) {
       if (proportion <= rank.maxProportion) {
+        console.log(`DEBUG Rank assigned: ${rank.name} (proportion ${proportion.toFixed(3)} <= ${rank.maxProportion})`);
         return rank.name;
       }
     }
 
     // Default: ultimo rango disponibile
-    return Honor.MILITARY_RANKS[Honor.MILITARY_RANKS.length - 1].name;
+    const defaultRank = Honor.MILITARY_RANKS[Honor.MILITARY_RANKS.length - 1].name;
+    console.log(`DEBUG Rank assigned: ${defaultRank} (default)`);
+    return defaultRank;
   }
 
   /**

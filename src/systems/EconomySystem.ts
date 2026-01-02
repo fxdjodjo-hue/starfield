@@ -654,9 +654,15 @@ export class EconomySystem extends BaseSystem {
     // Simula numero totale giocatori online (50-200)
     const totalPlayers = 50 + Math.floor(Math.random() * 150);
 
+    // DEBUG: mostra i valori calcolati
+    console.log(`DEBUG Ranking: baseRankPoints=${baseRankPoints}, simulated=${Math.floor(simulatedRankPoints)}, totalPlayers=${totalPlayers}`);
+
     // Calcola posizione approssimativa basata sui rank points
-    // Più alti i rank points, più alta la posizione
-    const position = Math.max(1, Math.floor(totalPlayers * (1 - simulatedRankPoints / (simulatedRankPoints + 10000))));
+    // Più alti i rank points, più BASSA la posizione (1 = migliore)
+    const normalizedScore = simulatedRankPoints / (simulatedRankPoints + 10000);
+    const position = Math.max(1, Math.floor(totalPlayers * (1 - normalizedScore)));
+
+    console.log(`DEBUG Position calc: normalizedScore=${normalizedScore.toFixed(3)}, position=${position}/${totalPlayers}`);
 
     // Aggiorna il ranking del giocatore
     this.updatePlayerRanking(position, totalPlayers);
