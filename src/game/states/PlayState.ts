@@ -155,14 +155,21 @@ export class PlayState extends GameState {
       }
     }
 
-    // HUD minimal: solo nickname e HP
-    this.playerInfoElement.textContent = `Pilot: ${this.context.playerNickname}${hpText}`;
+    // Ottieni valori economici
+    const economyStatus = this.getEconomySystem()?.getPlayerEconomyStatus();
+    let economyText = '';
+    if (economyStatus) {
+      economyText = ` | CR:${economyStatus.credits} CO:${economyStatus.cosmos} XP:${economyStatus.experience}/${economyStatus.expForNextLevel} LV:${economyStatus.level} HN:${economyStatus.honor}`;
+    }
+
+    // HUD con tutte le informazioni
+    this.playerInfoElement.textContent = `Pilot: ${this.context.playerNickname}${hpText}${economyText}`;
     if (!document.body.contains(this.playerInfoElement)) {
       document.body.appendChild(this.playerInfoElement);
     }
     this.playerInfoElement.style.display = 'block';
 
-    // HUD espanso: informazioni aggiuntive
+    // HUD espanso: informazioni aggiuntive (se necessario in futuro)
     if (this.hudExpanded) {
       this.showExpandedHud();
     } else {
@@ -276,6 +283,14 @@ export class PlayState extends GameState {
   }
 
   /**
+   * Ottiene l'istanza dell'EconomySystem
+   */
+  private getEconomySystem(): any {
+    const systems = this.world.getECS().getSystems();
+    return systems.find((system: any) => system.constructor.name === 'EconomySystem');
+  }
+
+  /**
    * Nasconde le info del giocatore
    */
   private hidePlayerInfo(): void {
@@ -369,16 +384,27 @@ export class PlayState extends GameState {
 
     // Configura sistema economico
     economySystem.setPlayerEntity(playerShip);
-    economySystem.createEconomyDisplays();
-    economySystem.showEconomyDisplays();
-    economySystem.updateEconomyDisplays();
 
-    // Configura callbacks per aggiornamenti ranking
+    // Configura callbacks per aggiornamenti ranking e HUD
     economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
       if (leveledUp) {
         // Aggiorna ranking quando sali di livello
         setTimeout(() => economySystem.simulateRankingUpdate(), 100);
       }
+      // Aggiorna HUD con nuovi valori
+      this.showPlayerInfo();
+    });
+
+    economySystem.setCreditsChangedCallback((newAmount, change) => {
+      this.showPlayerInfo();
+    });
+
+    economySystem.setCosmosChangedCallback((newAmount, change) => {
+      this.showPlayerInfo();
+    });
+
+    economySystem.setHonorChangedCallback((newAmount, change, newRank) => {
+      this.showPlayerInfo();
     });
 
     // Crea alcuni NPC

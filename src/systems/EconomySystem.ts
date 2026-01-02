@@ -10,10 +10,6 @@ import { Honor } from '/src/entities/Honor';
  */
 export class EconomySystem extends BaseSystem {
   private playerEntity: any = null;
-  private creditsDisplayElement: HTMLElement | null = null;
-  private cosmosDisplayElement: HTMLElement | null = null;
-  private experienceDisplayElement: HTMLElement | null = null;
-  private honorDisplayElement: HTMLElement | null = null;
 
   private onCreditsChanged?: (newAmount: number, change: number) => void;
   private onCosmosChanged?: (newAmount: number, change: number) => void;
@@ -51,13 +47,17 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Crea gli elementi UI per mostrare tutte le risorse economiche
+   * I valori economici sono ora integrati nell'HUD del giocatore
    */
   createEconomyDisplays(): void {
-    this.createCreditsDisplay();
-    this.createCosmosDisplay();
-    this.createExperienceDisplay();
-    this.createHonorDisplay();
+    // Non crea più pannelli separati - i valori sono nell'HUD del PlayState
+  }
+
+  /**
+   * Rimuove tutti i display economici (non usato)
+   */
+  removeEconomyDisplays(): void {
+    // Non rimuove più nulla - i valori sono nell'HUD del PlayState
   }
 
   /**
@@ -284,13 +284,10 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Mostra tutti gli elementi UI economici
+   * I valori economici sono ora nell'HUD del giocatore
    */
   showEconomyDisplays(): void {
-    this.showCreditsDisplay();
-    this.showCosmosDisplay();
-    this.showExperienceDisplay();
-    this.showHonorDisplay();
+    // Non mostra più pannelli separati - i valori sono nell'HUD del PlayState
   }
 
   private showCreditsDisplay(): void {
@@ -359,18 +356,15 @@ export class EconomySystem extends BaseSystem {
    * Aggiorna tutti gli elementi UI economici
    */
   updateEconomyDisplays(): void {
-    this.updateCreditsDisplay();
-    this.updateCosmosDisplay();
-    this.updateExperienceDisplay();
-    this.updateHonorDisplay();
+    // I valori economici sono ora aggiornati dall'HUD del PlayState
   }
 
   private updateCreditsDisplay(): void {
-    if (!this.creditsDisplayElement) return;
+    if (!this.economyPanelElement) return;
 
     const credits = this.getPlayerCredits();
     if (credits) {
-      const amountElement = this.creditsDisplayElement.querySelector('#credits-amount');
+      const amountElement = this.economyPanelElement.querySelector('#credits-amount');
       if (amountElement) {
         amountElement.textContent = credits.formatForDisplay();
       }
@@ -378,24 +372,24 @@ export class EconomySystem extends BaseSystem {
   }
 
   private updateCosmosDisplay(): void {
-    if (!this.cosmosDisplayElement) return;
+    if (!this.economyPanelElement) return;
 
     const cosmos = this.getPlayerCosmos();
     if (cosmos) {
-      const amountElement = this.cosmosDisplayElement.querySelector('#cosmos-amount');
+      const amountElement = this.economyPanelElement.querySelector('#cosmos-amount');
       if (amountElement) {
-        amountElement.textContent = cosmos.formatForDisplay();
+        amountElement.textContent = cosmos.amount.toString();
       }
     }
   }
 
   private updateExperienceDisplay(): void {
-    if (!this.experienceDisplayElement) return;
+    if (!this.economyPanelElement) return;
 
     const experience = this.getPlayerExperience();
     if (experience) {
-      const levelElement = this.experienceDisplayElement.querySelector('#experience-level');
-      const amountElement = this.experienceDisplayElement.querySelector('#experience-amount');
+      const levelElement = this.economyPanelElement.querySelector('#experience-level');
+      const amountElement = this.economyPanelElement.querySelector('#experience-amount');
 
       if (levelElement) {
         levelElement.textContent = experience.level.toString();
@@ -456,7 +450,6 @@ export class EconomySystem extends BaseSystem {
 
     if (added > 0) {
       console.log(`Credits: +${added} (${reason}) - Total: ${credits.credits}`);
-      this.updateCreditsDisplay();
       this.onCreditsChanged?.(credits.credits, added);
     }
 
@@ -475,7 +468,6 @@ export class EconomySystem extends BaseSystem {
 
     if (removed > 0) {
       console.log(`Credits: -${removed} (${reason}) - Total: ${credits.credits}`);
-      this.updateCreditsDisplay();
       this.onCreditsChanged?.(credits.credits, -removed);
     }
 
@@ -504,7 +496,6 @@ export class EconomySystem extends BaseSystem {
 
     if (added > 0) {
       console.log(`Cosmos: +${added} (${reason}) - Total: ${cosmos.cosmos}`);
-      this.updateCosmosDisplay();
       this.onCosmosChanged?.(cosmos.cosmos, added);
     }
 
@@ -523,7 +514,6 @@ export class EconomySystem extends BaseSystem {
 
     if (removed > 0) {
       console.log(`Cosmos: -${removed} (${reason}) - Total: ${cosmos.cosmos}`);
-      this.updateCosmosDisplay();
       this.onCosmosChanged?.(cosmos.cosmos, -removed);
     }
 
@@ -556,7 +546,6 @@ export class EconomySystem extends BaseSystem {
       console.log(`🎉 LEVEL UP! ${oldLevel} → ${experience.level}`);
     }
 
-    this.updateExperienceDisplay();
     this.onExperienceChanged?.(experience.totalExpEarned, amount, leveledUp);
 
     return leveledUp;
@@ -588,7 +577,6 @@ export class EconomySystem extends BaseSystem {
       console.log(`🏆 RANK CHANGE! ${oldRank} → ${newRank}`);
     }
 
-    this.updateHonorDisplay();
     this.onHonorChanged?.(honor.honor, 0, newRank || undefined);
 
     return newRank;
@@ -602,7 +590,6 @@ export class EconomySystem extends BaseSystem {
     if (honor) {
       honor.setAdministrator(isAdmin);
       console.log(`Administrator status: ${isAdmin}`);
-      this.updateHonorDisplay();
     }
   }
 
@@ -614,7 +601,6 @@ export class EconomySystem extends BaseSystem {
     if (honor) {
       honor.addHonor(amount);
       console.log(`Local Honor: +${amount} (${reason}) - Total: ${honor.honor}`);
-      this.updateHonorDisplay();
     }
   }
 
@@ -626,7 +612,6 @@ export class EconomySystem extends BaseSystem {
     if (honor) {
       honor.removeHonor(amount);
       console.log(`Local Honor: -${amount} (${reason}) - Total: ${honor.honor}`);
-      this.updateHonorDisplay();
     }
   }
 
