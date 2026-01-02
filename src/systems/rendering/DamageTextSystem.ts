@@ -94,16 +94,17 @@ export class DamageTextSystem extends BaseSystem {
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
         if (!targetTransform) continue;
 
+        // Salva la posizione base dell'entità (senza offset di movimento)
+        damageText.entityBaseX = targetTransform.x;
+        damageText.entityBaseY = targetTransform.y;
+
+        // Calcola posizione del testo con movimento
         worldX = targetTransform.x + damageText.initialOffsetX;
         worldY = targetTransform.y + damageText.currentOffsetY;
-
-        // Salva l'ultima posizione valida
-        damageText.lastWorldX = worldX;
-        damageText.lastWorldY = worldY;
       } else {
-        // Usa l'ultima posizione conosciuta se entità non esiste più
-        worldX = damageText.lastWorldX;
-        worldY = damageText.lastWorldY;
+        // Entità morta - usa posizione base + offset fisso (non si muove più)
+        worldX = damageText.entityBaseX + damageText.initialOffsetX;
+        worldY = damageText.entityBaseY + damageText.initialOffsetY;
       }
 
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
