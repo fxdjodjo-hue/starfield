@@ -140,8 +140,8 @@ export class MinimapSystem extends System {
     ctx.fillStyle = this.minimap.backgroundColor;
     ctx.fillRect(this.minimap.x, this.minimap.y, this.minimap.width, this.minimap.height);
 
-    // Bordo blu
-    ctx.strokeStyle = '#0088ff'; // Blu invece di verde
+    // Bordo blu meno acceso
+    ctx.strokeStyle = '#0066cc'; // Blu meno acceso
     ctx.lineWidth = 2;
     ctx.strokeRect(this.minimap.x, this.minimap.y, this.minimap.width, this.minimap.height);
 
@@ -157,20 +157,20 @@ export class MinimapSystem extends System {
     ctx.lineTo(centerX, centerY + 5);
     ctx.stroke();
 
-    // Testo "MINIMAP" in alto
-    ctx.fillStyle = '#0088ff';
+    // Testo "MINIMAP" sopra i bordi
+    ctx.fillStyle = '#0066cc'; // Blu meno acceso
     ctx.font = 'bold 12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText('MINIMAP', this.minimap.x + this.minimap.width / 2, this.minimap.y + 16);
+    ctx.fillText('MINIMAP', this.minimap.x + this.minimap.width / 2, this.minimap.y - 8);
 
-    // Coordinate del player in basso
+    // Coordinate del player a destra della minimappa
     if (this.camera) {
       const playerX = Math.round(this.camera.x);
       const playerY = Math.round(this.camera.y);
       ctx.fillStyle = '#00ff88';
       ctx.font = '10px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${playerX}, ${playerY}`, this.minimap.x + this.minimap.width / 2, this.minimap.y + this.minimap.height - 8);
+      ctx.textAlign = 'left';
+      ctx.fillText(`${playerX}, ${playerY}`, this.minimap.x + this.minimap.width + 10, this.minimap.y + this.minimap.height / 2 + 3);
     }
 
     // Ripristina stato del contesto
@@ -242,7 +242,7 @@ export class MinimapSystem extends System {
     ctx.save();
 
     // Imposta stile linea continua
-    ctx.strokeStyle = '#0088ff'; // Blu come il bordo della minimappa
+    ctx.strokeStyle = '#0066cc'; // Blu meno acceso come il bordo della minimappa
     ctx.lineWidth = 1;
     ctx.setLineDash([]); // Linea continua (rimuovi tratteggio)
 
@@ -253,7 +253,7 @@ export class MinimapSystem extends System {
     ctx.stroke();
 
     // Disegna un cerchio alla destinazione
-    ctx.fillStyle = '#0088ff';
+    ctx.fillStyle = '#0066cc';
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.beginPath();
