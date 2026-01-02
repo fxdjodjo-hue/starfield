@@ -235,11 +235,17 @@ export class ProjectileSystem extends BaseSystem {
     if (targetEntityId < 0) return; // ID entità non valido
     if (!color || typeof color !== 'string') color = '#ffffff'; // Colore di default
 
-    // Controlla quanti testi sono già attivi per questa entità (usando cache per performance)
-    const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
+    // Controlla se l'entità esiste ancora
+    const targetEntity = this.ecs.getEntity(targetEntityId);
 
-    // Se c'è già un testo attivo (max 1), non crearne altri per evitare sovrapposizioni
-    if (activeCount >= 1) {
+    // Se l'entità è morta, non creare nuovi testi (il testo di morte rimane attivo)
+    if (!targetEntity) {
+      return;
+    }
+
+    // Per entità vive, permetti fino a 3 testi attivi
+    const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
+    if (activeCount >= 3) {
       return; // Salta la creazione per mantenere pulizia visiva
     }
 
