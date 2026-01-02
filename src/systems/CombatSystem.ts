@@ -12,14 +12,14 @@ import { Projectile } from '../components/Projectile';
  * Gestisce attacchi, danni e logica di combattimento
  */
 export class CombatSystem extends BaseSystem {
-  private lastUpdateTime: number = 0;
+  private lastUpdateTime: number = Date.now();
 
   constructor(ecs: ECS) {
     super(ecs);
   }
 
   update(deltaTime: number): void {
-    this.lastUpdateTime += deltaTime;
+    this.lastUpdateTime = Date.now();
 
     // Rimuovi tutte le entità morte
     this.removeDeadEntities();
