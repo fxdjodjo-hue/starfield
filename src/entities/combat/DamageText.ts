@@ -16,14 +16,26 @@ export class DamageText extends Component {
 
   constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 2000) {
     super();
-    this.value = value;
+
+    // Validazione input
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(`Invalid damage value: ${value}`);
+    }
+    if (!Number.isFinite(targetEntityId) || targetEntityId < 0) {
+      throw new Error(`Invalid target entity ID: ${targetEntityId}`);
+    }
+    if (!Number.isFinite(lifetime) || lifetime <= 0) {
+      lifetime = 2000; // Default fallback
+    }
+
+    this.value = Math.floor(value); // Assicuriamoci che sia intero
     this.targetEntityId = targetEntityId;
-    this.initialOffsetX = offsetX;
-    this.initialOffsetY = offsetY;
-    this.currentOffsetY = offsetY; // Inizia dalla posizione iniziale
+    this.initialOffsetX = Number.isFinite(offsetX) ? offsetX : 0;
+    this.initialOffsetY = Number.isFinite(offsetY) ? offsetY : -30;
+    this.currentOffsetY = this.initialOffsetY; // Inizia dalla posizione iniziale
     this.lifetime = lifetime;
     this.maxLifetime = lifetime;
-    this.color = color;
+    this.color = color || '#ffffff';
   }
 
   /**

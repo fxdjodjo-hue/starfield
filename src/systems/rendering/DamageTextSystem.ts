@@ -10,9 +10,39 @@ import { Transform } from '/src/entities/spatial/Transform';
  */
 export class DamageTextSystem extends BaseSystem {
   private maxTextsPerEntity: number = 3; // Massimo 3 testi di danno per entità
+  private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
 
   constructor(ecs: ECS) {
     super(ecs);
+    // Trova e cache del movement system per accesso alla camera
+    this.movementSystem = this.findMovementSystem();
+  }
+
+  /**
+   * Trova il sistema movimento per accesso alla camera
+   */
+  private findMovementSystem(): any {
+    // Cerca nei sistemi registrati
+    if (this.ecs && (this.ecs as any).systems) {
+      return (this.ecs as any).systems.find((system: any) => system.getCamera);
+    }
+    return null;
+  }
+
+  /**
+   * Rimuove un testo di danno e aggiorna i contatori
+   */
+  private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
+    // Trova il ProjectileSystem per aggiornare i contatori
+    const projectileSystem = (this.ecs as any).systems?.find((system: any) =>
+      system.constructor.name === 'ProjectileSystem'
+    );
+
+    if (projectileSystem && projectileSystem.decrementDamageTextCount) {
+      projectileSystem.decrementDamageTextCount(targetEntityId);
+    }
+
+    this.ecs.removeEntity(damageTextEntity);
   }
 
   /**
@@ -28,16 +58,17 @@ export class DamageTextSystem extends BaseSystem {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
-      // Muovi il testo verso l'alto nel tempo
+      // Muovi il testo verso l'alto nel tempo (con limite massimo)
       const moveSpeed = -60; // Pixel al secondo verso l'alto
-      damageText.currentOffsetY += moveSpeed * deltaTimeSeconds;
+      const maxOffset = damageText.initialOffsetY - 100; // Non andare oltre 100px sopra l'entità
+      damageText.currentOffsetY = Math.max(maxOffset, damageText.currentOffsetY + moveSpeed * deltaTimeSeconds);
 
       // Aggiorna lifetime
       damageText.lifetime -= deltaTime;
 
       // Rimuovi testi scaduti
       if (damageText.isExpired()) {
-        this.ecs.removeEntity(entity);
+        this.cleanupDamageText(damageText.targetEntityId, entity);
       }
     }
   }
@@ -48,6 +79,20 @@ export class DamageTextSystem extends BaseSystem {
   render(ctx: CanvasRenderingContext2D): void {
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
+    // Se non abbiamo il canvas, non renderizzare
+    if (!ctx.canvas) return;
+
+    const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
+
+    // Se non abbiamo la camera, non renderizzare
+    if (!this.movementSystem) {
+      this.movementSystem = this.findMovementSystem(); // Riprova a trovarla
+      if (!this.movementSystem) return;
+    }
+
+    const camera = this.movementSystem.getCamera();
+    if (!camera) return;
+
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
@@ -56,7 +101,7 @@ export class DamageTextSystem extends BaseSystem {
       const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
       if (!targetEntity) {
         // Rimuovi il testo di danno se l'entità target non esiste più
-        this.ecs.removeEntity(entity);
+        this.cleanupDamageText(damageText.targetEntityId, entity);
         continue;
       }
 
@@ -67,12 +112,15 @@ export class DamageTextSystem extends BaseSystem {
       const worldX = targetTransform.x + damageText.initialOffsetX;
       const worldY = targetTransform.y + damageText.currentOffsetY;
 
-      // Converti coordinate mondo in coordinate schermo usando la camera
-      const camera = (this.ecs as any).systems?.find((s: any) => s.getCamera)?.getCamera();
-      if (!camera) continue;
-
-      const canvasSize = ctx.canvas ? { width: ctx.canvas.width, height: ctx.canvas.height } : { width: 800, height: 600 };
+      // Converti coordinate mondo in coordinate schermo
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
+
+      // Controlla se le coordinate sono valide e visibili (con margine)
+      const margin = 50;
+      if (screenPos.x < -margin || screenPos.x > canvasSize.width + margin ||
+          screenPos.y < -margin || screenPos.y > canvasSize.height + margin) {
+        continue; // Salta testi fuori dallo schermo per performance
+      }
 
       const alpha = damageText.getAlpha();
 

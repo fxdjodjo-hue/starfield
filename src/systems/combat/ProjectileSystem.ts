@@ -15,6 +15,7 @@ import { MovementSystem } from '/src/systems/physics/MovementSystem';
  */
 export class ProjectileSystem extends BaseSystem {
   private movementSystem: MovementSystem;
+  private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
 
   constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
@@ -226,20 +227,40 @@ export class ProjectileSystem extends BaseSystem {
    * Crea un testo di danno
    */
   private createDamageText(value: number, targetEntityId: number, offsetX: number, offsetY: number, color: string): void {
-    // Conta quanti testi di danno sono già attivi per questa entità
-    const existingTexts = this.ecs.getEntitiesWithComponents(DamageText)
-      .filter(entity => {
-        const damageText = this.ecs.getComponent(entity, DamageText);
-        return damageText && damageText.targetEntityId === targetEntityId;
-      });
+    // Validazione input
+    if (value <= 0 || !Number.isFinite(value)) return; // Non creare testi per danni <= 0 o invalidi
+    if (targetEntityId < 0) return; // ID entità non valido
+    if (!color || typeof color !== 'string') color = '#ffffff'; // Colore di default
+
+    // Controlla quanti testi sono già attivi per questa entità (usando cache per performance)
+    const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
 
     // Se ci sono già troppi testi (max 3), non crearne altri per evitare sovrapposizioni
-    if (existingTexts.length >= 3) {
+    if (activeCount >= 3) {
       return; // Salta la creazione per mantenere pulizia visiva
     }
 
-    const damageTextEntity = this.ecs.createEntity();
-    const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
-    this.ecs.addComponent(damageTextEntity, DamageText, damageText);
+    try {
+      const damageTextEntity = this.ecs.createEntity();
+      const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
+      this.ecs.addComponent(damageTextEntity, DamageText, damageText);
+
+      // Aggiorna il contatore nella cache
+      this.activeDamageTexts.set(targetEntityId, activeCount + 1);
+    } catch (error) {
+      console.warn('[DamageText] Failed to create damage text:', error);
+    }
+  }
+
+  /**
+   * Decrementa il contatore di testi attivi per un'entità (chiamato dal DamageTextSystem)
+   */
+  decrementDamageTextCount(targetEntityId: number): void {
+    const currentCount = this.activeDamageTexts.get(targetEntityId) || 0;
+    if (currentCount > 0) {
+      this.activeDamageTexts.set(targetEntityId, currentCount - 1);
+    } else {
+      this.activeDamageTexts.delete(targetEntityId);
+    }
   }
 }
