@@ -185,7 +185,7 @@ export class RenderSystem extends BaseSystem {
   private renderHealthAndShieldBars(ctx: CanvasRenderingContext2D, x: number, y: number, health: Health | null, shield: Shield | null): void {
     const barWidth = 40;
     const barHeight = 6;
-    let barY = y - 45; // Posiziona più in alto sopra l'entità
+    let barY = y - 60; // Posiziona ancora più in alto sopra l'entità
 
     // Renderizza prima lo shield (se presente), poi la salute sotto
     if (shield) {
