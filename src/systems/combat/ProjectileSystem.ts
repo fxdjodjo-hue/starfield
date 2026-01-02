@@ -19,7 +19,6 @@ export class ProjectileSystem extends BaseSystem {
   constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
-    this.damageTextSystem = damageTextSystem;
   }
 
   update(deltaTime: number): void {
