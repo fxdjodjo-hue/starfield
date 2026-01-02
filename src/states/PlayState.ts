@@ -12,6 +12,7 @@ import { ProjectileSystem } from '../systems/ProjectileSystem';
 import { Transform } from '../components/Transform';
 import { Velocity } from '../components/Velocity';
 import { Npc } from '../components/Npc';
+import { SelectedNpc } from '../components/SelectedNpc';
 import { Health } from '../components/Health';
 import { Damage } from '../components/Damage';
 
