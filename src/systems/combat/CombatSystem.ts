@@ -10,6 +10,7 @@ import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Npc } from '/src/entities/ai/Npc';
 import { Projectile } from '/src/entities/combat/Projectile';
 import { MovementSystem } from '../physics/MovementSystem';
+import { LogSystem } from '../rendering/LogSystem';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -18,7 +19,10 @@ import { MovementSystem } from '../physics/MovementSystem';
 export class CombatSystem extends BaseSystem {
   private lastUpdateTime: number = Date.now();
   private movementSystem: MovementSystem;
+  private logSystem: LogSystem | null = null;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
+  private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
+  private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
 
   constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
@@ -179,7 +183,14 @@ export class CombatSystem extends BaseSystem {
   private processPlayerCombat(): void {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    if (selectedNpcs.length === 0) return;
+    if (selectedNpcs.length === 0) {
+      // Reset dei flag quando non c'è nessun NPC selezionato
+      this.attackStartedLogged = false;
+      if (this.currentAttackTarget !== null) {
+        this.endAttackLogging();
+      }
+      return;
+    }
 
     const selectedNpc = selectedNpcs[0];
 
@@ -217,6 +228,19 @@ export class CombatSystem extends BaseSystem {
     if (isOffScreen) {
       // NPC uscito dalla visuale - deseleziona automaticamente
       this.ecs.removeComponent(selectedNpc, SelectedNpc);
+
+      // Se stavamo attaccando questo NPC, logga attacco fallito
+      if (this.currentAttackTarget === selectedNpc.id && this.logSystem) {
+        const npc = this.ecs.getComponent(selectedNpc, Npc);
+        if (npc) {
+          this.logSystem.logAttackFailed(npc.npcType);
+        }
+      }
+
+      // Reset dei flag
+      this.currentAttackTarget = null;
+      this.attackStartedLogged = false;
+
       return; // Esci dalla funzione, non continuare con la logica di combattimento
     }
 
@@ -224,12 +248,24 @@ export class CombatSystem extends BaseSystem {
       playerTransform.x, playerTransform.y,
       npcTransform.x, npcTransform.y
     )) {
+      // Inizia logging attacco se non è stato ancora loggato per questo combattimento
+      if (!this.attackStartedLogged) {
+        this.startAttackLogging(selectedNpc);
+        this.attackStartedLogged = true;
+      }
+
       if (playerDamage.canAttack(this.lastUpdateTime)) {
         // Ruota il player verso l'NPC prima di attaccare
         this.faceTarget(playerTransform, npcTransform);
 
         // Il player spara un proiettile verso l'NPC
         this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
+      }
+    } else {
+      // Fuori range - se stavamo attaccando questo NPC, l'attacco è finito
+      if (this.currentAttackTarget === selectedNpc.id) {
+        this.endAttackLogging();
+        this.attackStartedLogged = false; // Reset per permettere nuovi attacchi
       }
     }
     // Nota: L'attacco finisce quando il player si allontana troppo (500px)
@@ -297,5 +333,43 @@ export class CombatSystem extends BaseSystem {
         this.ecs.removeEntity(entity);
       }
     }
+  }
+
+  /**
+   * Imposta il riferimento al LogSystem per logging degli attacchi
+   */
+  setLogSystem(logSystem: LogSystem): void {
+    this.logSystem = logSystem;
+  }
+
+  /**
+   * Inizia il logging di un attacco contro un NPC
+   */
+  private startAttackLogging(targetEntity: any): void {
+    if (!this.logSystem) return;
+
+    const npc = this.ecs.getComponent(targetEntity, Npc);
+    if (npc) {
+      this.logSystem.logAttackStart(npc.npcType);
+      this.currentAttackTarget = targetEntity.id;
+    }
+  }
+
+  /**
+   * Termina il logging di un attacco
+   */
+  private endAttackLogging(): void {
+    if (!this.logSystem || this.currentAttackTarget === null) return;
+
+    // Trova il nome dell'NPC che stavamo attaccando
+    const targetEntity = this.ecs.getEntity(this.currentAttackTarget);
+    if (targetEntity) {
+      const npc = this.ecs.getComponent(targetEntity, Npc);
+      if (npc) {
+        this.logSystem.logAttackEnd(npc.npcType);
+      }
+    }
+
+    this.currentAttackTarget = null;
   }
 }

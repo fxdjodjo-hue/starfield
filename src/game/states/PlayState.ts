@@ -11,6 +11,7 @@ import { CombatSystem } from '/src/systems/combat/CombatSystem';
 import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
+import { LogSystem } from '/src/systems/rendering/LogSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
@@ -42,6 +43,7 @@ export class PlayState extends GameState {
   private hudExpanded: boolean = false;
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
   private economySystem: any = null;
+  private logSystem: LogSystem | null = null;
 
   constructor(context: GameContext) {
     super();
@@ -335,8 +337,9 @@ export class PlayState extends GameState {
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const combatSystem = new CombatSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs, movementSystem);
-    const projectileSystem = new ProjectileSystem(ecs, movementSystem);
+    const projectileSystem = new ProjectileSystem(ecs);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
+    this.logSystem = new LogSystem(ecs);
     this.economySystem = new EconomySystem(ecs);
     const rankSystem = new RankSystem(ecs);
     const rewardSystem = new RewardSystem(ecs);
@@ -351,6 +354,7 @@ export class PlayState extends GameState {
     ecs.addSystem(movementSystem);     // Poi movimento
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
     ecs.addSystem(minimapSystem);      // Minimappa
+    ecs.addSystem(this.logSystem);     // Sistema log (messaggi centrati in alto)
     ecs.addSystem(damageTextSystem);   // Testi danno alla fine (più sopra di tutto)
     ecs.addSystem(this.economySystem); // Sistema economia
     ecs.addSystem(rankSystem); // Sistema rank
@@ -384,6 +388,10 @@ export class PlayState extends GameState {
     rankSystem.setPlayerEntity(playerShip);
     rewardSystem.setEconomySystem(this.economySystem);
     rewardSystem.setPlayerEntity(playerShip); // Per aggiornare statistiche player
+
+    // Configura sistema di log
+    combatSystem.setLogSystem(this.logSystem!);
+    rewardSystem.setLogSystem(this.logSystem!);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
@@ -450,6 +458,11 @@ export class PlayState extends GameState {
     });
 
     // Combattimento ora automatico - non serve più la barra spaziatrice
+
+    // Mostra messaggio di benvenuto
+    if (this.logSystem) {
+      this.logSystem.logWelcome('Commander');
+    }
   }
 
 

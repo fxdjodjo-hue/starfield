@@ -4,6 +4,7 @@ import { Health } from '../entities/combat/Health';
 import { Npc } from '../entities/ai/Npc';
 import { PlayerStats } from '../entities/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
+import { LogSystem } from './rendering/LogSystem';
 
 /**
  * Sistema Reward - gestisce l'assegnazione di ricompense quando gli NPC vengono sconfitti
@@ -12,6 +13,7 @@ import { getNpcDefinition } from '../config/NpcConfig';
 export class RewardSystem extends BaseSystem {
   private economySystem: any = null;
   private playerEntity: any = null;
+  private logSystem: LogSystem | null = null;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -29,6 +31,13 @@ export class RewardSystem extends BaseSystem {
    */
   setPlayerEntity(playerEntity: any): void {
     this.playerEntity = playerEntity;
+  }
+
+  /**
+   * Imposta il riferimento al LogSystem per logging delle ricompense
+   */
+  setLogSystem(logSystem: LogSystem): void {
+    this.logSystem = logSystem;
   }
 
   update(deltaTime: number): void {
@@ -81,6 +90,21 @@ export class RewardSystem extends BaseSystem {
 
     if (npcDef.rewards.honor > 0) {
       this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
+    }
+
+    // Log delle ricompense guadagnate
+    if (this.logSystem) {
+      this.logSystem.logReward(
+        npcDef.rewards.credits,
+        npcDef.rewards.cosmos,
+        npcDef.rewards.experience,
+        npcDef.rewards.honor
+      );
+    }
+
+    // Log dell'NPC ucciso
+    if (this.logSystem) {
+      this.logSystem.logNpcKilled(npc.npcType);
     }
 
     // Rimuovi immediatamente l'entità NPC morta (i testi di danno continuano autonomamente)
