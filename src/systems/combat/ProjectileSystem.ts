@@ -226,6 +226,18 @@ export class ProjectileSystem extends BaseSystem {
    * Crea un testo di danno
    */
   private createDamageText(value: number, targetEntityId: number, offsetX: number, offsetY: number, color: string): void {
+    // Conta quanti testi di danno sono già attivi per questa entità
+    const existingTexts = this.ecs.getEntitiesWithComponents(DamageText)
+      .filter(entity => {
+        const damageText = this.ecs.getComponent(entity, DamageText);
+        return damageText && damageText.targetEntityId === targetEntityId;
+      });
+
+    // Se ci sono già troppi testi (max 3), non crearne altri per evitare sovrapposizioni
+    if (existingTexts.length >= 3) {
+      return; // Salta la creazione per mantenere pulizia visiva
+    }
+
     const damageTextEntity = this.ecs.createEntity();
     const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
     this.ecs.addComponent(damageTextEntity, DamageText, damageText);

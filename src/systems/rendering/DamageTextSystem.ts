@@ -6,8 +6,10 @@ import { Transform } from '/src/entities/spatial/Transform';
 /**
  * Sistema per gestire e renderizzare testi di danno fissi sopra le entità
  * Mostra numeri di danno che seguono le entità colpite durante il movimento
+ * Limita il numero di testi attivi per entità per evitare sovrapposizioni
  */
 export class DamageTextSystem extends BaseSystem {
+  private maxTextsPerEntity: number = 3; // Massimo 3 testi di danno per entità
 
   constructor(ecs: ECS) {
     super(ecs);
