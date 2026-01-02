@@ -55,6 +55,9 @@ export class BoundsSystem extends BaseSystem {
         health.takeDamage(this.DAMAGE_AMOUNT);
         this.lastDamageTime = currentTime;
 
+        // Mostra il numero di danno come testo fluttuante
+        this.notifyCombatSystemOfDamage(this.playerEntity, this.DAMAGE_AMOUNT);
+
         console.log(`⚠️ Player fuori bounds! Danno: -${this.DAMAGE_AMOUNT} HP`);
       }
     }
@@ -73,6 +76,21 @@ export class BoundsSystem extends BaseSystem {
            x > this.BOUNDS_RIGHT ||
            y < this.BOUNDS_TOP ||
            y > this.BOUNDS_BOTTOM;
+  }
+
+  /**
+   * Notifica il CombatSystem per mostrare i numeri di danno
+   */
+  private notifyCombatSystemOfDamage(targetEntity: any, damage: number): void {
+    // Cerca il CombatSystem nell'ECS
+    const combatSystem = (this.ecs as any).systems?.find((system: any) =>
+      system.constructor.name === 'CombatSystem'
+    );
+
+    if (combatSystem && combatSystem.createDamageText) {
+      // Il danno dei bounds è sempre danno HP (non shield)
+      combatSystem.createDamageText(targetEntity, damage, false);
+    }
   }
 
   /**
