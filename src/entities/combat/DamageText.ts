@@ -16,7 +16,7 @@ export class DamageText extends Component {
   public lastKnownWorldX: number; // Ultima posizione X conosciuta (per testi orfani)
   public lastKnownWorldY: number; // Ultima posizione Y conosciuta (per testi orfani)
 
-  constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 2000) {
+  constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 1000) {
     super();
 
     // Validazione input
@@ -27,7 +27,7 @@ export class DamageText extends Component {
       throw new Error(`Invalid target entity ID: ${targetEntityId}`);
     }
     if (!Number.isFinite(lifetime) || lifetime <= 0) {
-      lifetime = 2000; // Default fallback
+      lifetime = 1000; // Default fallback
     }
 
     this.value = Math.floor(value); // Assicuriamoci che sia intero
@@ -47,7 +47,7 @@ export class DamageText extends Component {
    */
   getAlpha(): number {
     const progress = this.lifetime / this.maxLifetime;
-    // Fade out negli ultimi 500ms
+    // Fade out negli ultimi 250ms (0.25 * 1000ms)
     if (progress < 0.25) {
       return progress / 0.25;
     }
