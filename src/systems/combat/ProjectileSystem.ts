@@ -7,7 +7,7 @@ import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { DamageTaken } from '/src/entities/combat/DamageTaken';
-import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
+import { DamageText } from '/src/entities/combat/DamageText';
 import { MovementSystem } from '/src/systems/physics/MovementSystem';
 
 /**
@@ -15,9 +15,8 @@ import { MovementSystem } from '/src/systems/physics/MovementSystem';
  */
 export class ProjectileSystem extends BaseSystem {
   private movementSystem: MovementSystem;
-  private damageTextSystem: DamageTextSystem;
 
-  constructor(ecs: ECS, movementSystem: MovementSystem, damageTextSystem: DamageTextSystem) {
+  constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
     this.damageTextSystem = damageTextSystem;
@@ -200,15 +199,12 @@ export class ProjectileSystem extends BaseSystem {
       targetHealth.takeDamage(damageToHp);
 
       // Crea testo di danno per l'HP (colore rosso/bianco)
-      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      if (targetTransform) {
-          const playerEntity = this.ecs.getPlayerEntity();
-          const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
-        const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
-        // Aggiungi leggera variazione casuale per evitare sovrapposizione completa
-        const randomOffset = (Math.random() - 0.5) * 20; // ±10px
-        this.createDamageText(damageToHp, targetTransform.x + randomOffset, targetTransform.y - 30, textColor);
-      }
+      const playerEntity = this.ecs.getPlayerEntity();
+      const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
+      const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
+      // Aggiungi leggera variazione casuale per evitare sovrapposizione completa
+      const randomOffsetX = (Math.random() - 0.5) * 20; // ±10px
+      this.createDamageText(damageToHp, targetEntity.id, randomOffsetX, -30, textColor);
     }
   }
 
@@ -225,13 +221,15 @@ export class ProjectileSystem extends BaseSystem {
     const screenPos = camera.worldToScreen(targetTransform.x, targetTransform.y - 15, canvasSize.width, canvasSize.height);
 
     // Crea testo blu per danno allo shield
-    this.damageTextSystem.createDamageText(value, screenPos.x, screenPos.y, '#4444ff');
+    this.createDamageText(value, this.ecs.getPlayerEntity()?.id || 0, 0, -30, '#4444ff');
   }
 
   /**
    * Crea un testo di danno
    */
-  private createDamageText(value: number, x: number, y: number, color: string): void {
-    this.damageTextSystem.createDamageText(value, x, y, color);
+  private createDamageText(value: number, targetEntityId: number, offsetX: number, offsetY: number, color: string): void {
+    const damageTextEntity = this.ecs.createEntity();
+    const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
+    this.ecs.addComponent(damageTextEntity, DamageText, damageText);
   }
 }

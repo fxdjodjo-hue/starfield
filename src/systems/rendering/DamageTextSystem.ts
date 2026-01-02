@@ -1,10 +1,11 @@
 import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
 import { DamageText } from '/src/entities/combat/DamageText';
+import { Transform } from '/src/entities/spatial/Transform';
 
 /**
- * Sistema per gestire e renderizzare testi di danno fissi
- * Mostra numeri di danno fissi sopra le entità colpite
+ * Sistema per gestire e renderizzare testi di danno fissi sopra le entità
+ * Mostra numeri di danno che seguono le entità colpite durante il movimento
  */
 export class DamageTextSystem extends BaseSystem {
 
@@ -13,7 +14,7 @@ export class DamageTextSystem extends BaseSystem {
   }
 
   /**
-   * Aggiorna i testi di danno (solo lifetime, posizioni fisse)
+   * Aggiorna i testi di danno (solo lifetime)
    */
   update(deltaTime: number): void {
     // Trova tutte le entità con DamageText
@@ -23,8 +24,7 @@ export class DamageTextSystem extends BaseSystem {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
-      // Testi fissi sopra l'entità - non muovere la posizione Y
-      // Solo aggiorna lifetime
+      // Solo aggiorna lifetime - posizione calcolata dinamicamente nel render
       damageText.lifetime -= deltaTime;
 
       // Rimuovi testi scaduti
@@ -44,6 +44,17 @@ export class DamageTextSystem extends BaseSystem {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
+      // Trova la posizione dell'entità target
+      const targetEntity = this.ecs.getEntityById(damageText.targetEntityId);
+      if (!targetEntity) continue;
+
+      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+      if (!targetTransform) continue;
+
+      // Calcola posizione sopra l'entità con offset
+      const screenX = targetTransform.x + damageText.offsetX;
+      const screenY = targetTransform.y + damageText.offsetY;
+
       const alpha = damageText.getAlpha();
 
       // Salva il contesto
@@ -62,20 +73,12 @@ export class DamageTextSystem extends BaseSystem {
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      // Disegna il testo
-      ctx.fillText(damageText.value.toString(), damageText.x, damageText.y);
+      // Disegna il testo alla posizione calcolata
+      ctx.fillText(damageText.value.toString(), screenX, screenY);
 
       // Ripristina il contesto
       ctx.restore();
     }
   }
 
-  /**
-   * Crea un nuovo testo di danno
-   */
-  createDamageText(value: number, x: number, y: number, color: string = '#ffffff'): void {
-    const damageTextEntity = this.ecs.createEntity();
-    const damageText = new DamageText(value, x, y, color);
-    this.ecs.addComponent(damageTextEntity, DamageText, damageText);
-  }
 }

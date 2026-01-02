@@ -335,7 +335,7 @@ export class PlayState extends GameState {
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const combatSystem = new CombatSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
-    const projectileSystem = new ProjectileSystem(ecs, movementSystem, damageTextSystem);
+    const projectileSystem = new ProjectileSystem(ecs, movementSystem);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
     this.economySystem = new EconomySystem(ecs);
     const rankSystem = new RankSystem(ecs);
