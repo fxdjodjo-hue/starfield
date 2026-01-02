@@ -189,10 +189,7 @@ export class ProjectileSystem extends BaseSystem {
       damageToHp = damage - shieldDamage;
 
       // Crea testo di danno per lo shield (colore blu)
-      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      if (targetTransform) {
-        this.createShieldDamageText(shieldDamage, targetTransform);
-      }
+      this.createShieldDamageText(shieldDamage, targetEntity);
     }
 
     // Poi applica il danno rimanente all'HP
@@ -213,17 +210,15 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Crea testo di danno per lo shield
    */
-  private createShieldDamageText(value: number, targetTransform: Transform): void {
-    // Converti coordinate mondo in coordinate schermo
-    const canvasSize = (this.ecs as any).context?.canvas ?
-                      { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
-                      { width: window.innerWidth, height: window.innerHeight };
+  private createShieldDamageText(value: number, targetEntity: any): void {
+    // Trova l'entità player per determinare se il danno è al player
+    const playerEntity = this.ecs.getPlayerEntity();
+    const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
+    const textColor = '#4444ff'; // Blu per danno shield
 
-    const camera = this.movementSystem.getCamera();
-    const screenPos = camera.worldToScreen(targetTransform.x, targetTransform.y - 15, canvasSize.width, canvasSize.height);
-
-    // Crea testo blu per danno allo shield
-    this.createDamageText(value, this.ecs.getPlayerEntity()?.id || 0, 0, -30, '#4444ff');
+    console.log(`[DamageText] Creating shield damage text: ${value} for entity ${targetEntity.id} (player damage: ${isPlayerDamage})`);
+    // Crea testo di danno per lo shield
+    this.createDamageText(value, targetEntity.id, 0, -45, textColor); // Offset Y diverso per distinguere da HP
   }
 
   /**
