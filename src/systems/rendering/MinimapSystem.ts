@@ -136,42 +136,65 @@ export class MinimapSystem extends System {
     // Salva stato del contesto
     ctx.save();
 
-    // Sfondo
-    ctx.fillStyle = this.minimap.backgroundColor;
-    ctx.fillRect(this.minimap.x, this.minimap.y, this.minimap.width, this.minimap.height);
+    const x = this.minimap.x;
+    const y = this.minimap.y;
+    const w = this.minimap.width;
+    const h = this.minimap.height;
 
-    // Bordo blu meno acceso
-    ctx.strokeStyle = '#0066cc'; // Blu meno acceso
+    // Sfondo con gradiente elegante
+    const bgGradient = ctx.createLinearGradient(x, y, x, y + h);
+    bgGradient.addColorStop(0, 'rgba(0, 10, 20, 0.9)');
+    bgGradient.addColorStop(0.5, 'rgba(0, 20, 40, 0.85)');
+    bgGradient.addColorStop(1, 'rgba(0, 5, 15, 0.9)');
+    ctx.fillStyle = bgGradient;
+    ctx.fillRect(x, y, w, h);
+
+    // Bordo con glow effect
+    ctx.shadowColor = '#0066cc';
+    ctx.shadowBlur = 8;
+    ctx.strokeStyle = '#0066cc';
     ctx.lineWidth = 2;
-    ctx.strokeRect(this.minimap.x, this.minimap.y, this.minimap.width, this.minimap.height);
+    ctx.strokeRect(x, y, w, h);
 
-    // Indicatore centro mondo (opzionale)
-    const centerX = this.minimap.x + this.minimap.width / 2;
-    const centerY = this.minimap.y + this.minimap.height / 2;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+    // Bordo interno sottile
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(0, 102, 204, 0.5)';
     ctx.lineWidth = 1;
+    ctx.strokeRect(x + 2, y + 2, w - 4, h - 4);
+
+    // Indicatore centro mondo con glow
+    const centerX = x + w / 2;
+    const centerY = y + h / 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
+    ctx.shadowBlur = 3;
     ctx.beginPath();
-    ctx.moveTo(centerX - 5, centerY);
-    ctx.lineTo(centerX + 5, centerY);
-    ctx.moveTo(centerX, centerY - 5);
-    ctx.lineTo(centerX, centerY + 5);
+    ctx.moveTo(centerX - 6, centerY);
+    ctx.lineTo(centerX + 6, centerY);
+    ctx.moveTo(centerX, centerY - 6);
+    ctx.lineTo(centerX, centerY + 6);
     ctx.stroke();
 
-    // Testo "MINIMAP" sopra i bordi
-    ctx.fillStyle = '#ffffff'; // Bianco invece di blu
+    // Testo "MINIMAP" con shadow
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 1;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
-    const minimapTextX = this.minimap.x + this.minimap.width / 2;
-    ctx.fillText('MINIMAP', minimapTextX, this.minimap.y - 8);
+    const minimapTextX = x + w / 2;
+    ctx.fillText('MINIMAP', minimapTextX, y - 8);
 
-    // Coordinate del player poco a destra del testo MINIMAP
+    // Coordinate del player con shadow
     if (this.camera) {
       const playerX = Math.round(this.camera.x);
       const playerY = Math.round(this.camera.y);
-      ctx.fillStyle = '#ffffff'; // Bianco anche per le coordinate
+      ctx.fillStyle = '#ffffff';
       ctx.font = '12px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(`${playerX}, ${playerY}`, minimapTextX + 70, this.minimap.y - 6);
+      ctx.fillText(`${playerX}, ${playerY}`, minimapTextX + 70, y - 6);
     }
 
     // Ripristina stato del contesto
@@ -221,15 +244,27 @@ export class MinimapSystem extends System {
   private renderEntityDot(ctx: CanvasRenderingContext2D, worldX: number, worldY: number, color: string): void {
     const pos = this.minimap.worldToMinimap(worldX, worldY);
 
+    // Salva stato
+    ctx.save();
+
+    // Glow effect per gli NPC
+    ctx.shadowColor = color;
+    ctx.shadowBlur = 4;
+
+    // Cerchio principale
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(pos.x, pos.y, this.minimap.entityDotSize, 0, Math.PI * 2);
     ctx.fill();
 
-    // Bordino bianco per migliore visibilità
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    // Bordino bianco con glow ridotto
+    ctx.shadowBlur = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 1;
     ctx.stroke();
+
+    // Ripristina stato
+    ctx.restore();
   }
 
   /**
@@ -242,10 +277,13 @@ export class MinimapSystem extends System {
     // Salva lo stato del contesto
     ctx.save();
 
-    // Imposta stile linea continua
-    ctx.strokeStyle = '#0066cc'; // Blu meno acceso come il bordo della minimappa
-    ctx.lineWidth = 1;
-    ctx.setLineDash([]); // Linea continua (rimuovi tratteggio)
+    // Linea con glow effect
+    ctx.shadowColor = '#0066cc';
+    ctx.shadowBlur = 4;
+    ctx.strokeStyle = '#0066cc';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.setLineDash([]); // Linea continua
 
     // Disegna la linea
     ctx.beginPath();
@@ -253,34 +291,58 @@ export class MinimapSystem extends System {
     ctx.lineTo(destPos.x, destPos.y);
     ctx.stroke();
 
-    // Disegna un cerchio alla destinazione
+    // Cerchio alla destinazione con glow
+    ctx.shadowColor = '#0066cc';
+    ctx.shadowBlur = 6;
     ctx.fillStyle = '#0066cc';
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.arc(destPos.x, destPos.y, 4, 0, Math.PI * 2);
+    ctx.arc(destPos.x, destPos.y, 5, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    // Centro del cerchio bianco
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(destPos.x, destPos.y, 2, 0, Math.PI * 2);
+    ctx.fill();
 
     // Ripristina lo stato del contesto
     ctx.restore();
   }
 
   /**
-   * Renderizza il player come quadrato blu
+   * Renderizza il player come quadrato blu elegante
    */
   private renderPlayerTriangle(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
     const pos = this.minimap.worldToMinimap(worldX, worldY);
-    const size = 6;
+    const size = 7;
 
+    // Salva stato
+    ctx.save();
+
+    // Glow effect per il player
+    ctx.shadowColor = this.minimap.playerColor;
+    ctx.shadowBlur = 8;
+
+    // Quadrato principale
     ctx.fillStyle = this.minimap.playerColor;
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 2;
 
-    // Disegna un quadrato invece di un triangolo
     const halfSize = size / 2;
     ctx.fillRect(pos.x - halfSize, pos.y - halfSize, size, size);
     ctx.strokeRect(pos.x - halfSize, pos.y - halfSize, size, size);
+
+    // Centro bianco per maggiore visibilità
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(pos.x - 1, pos.y - 1, 2, 2);
+
+    // Ripristina stato
+    ctx.restore();
   }
 
   /**
