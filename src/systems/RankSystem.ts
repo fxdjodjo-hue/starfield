@@ -58,8 +58,9 @@ export class RankSystem extends BaseSystem {
 
     if (!experience || !honor) return 0;
 
-    // Formula: exp totale + (honor * 2) + (livello * 10)
-    const points = experience.totalExpEarned + (honor.honor * 2) + (experience.level * 10);
+    // Formula bilanciata: exp totale + (honor * 1) + (livello * 2)
+    // Honor conta meno, level conta meno per progressione più graduale
+    const points = experience.totalExpEarned + (honor.honor * 1) + (experience.level * 2);
 
 
     return points;
