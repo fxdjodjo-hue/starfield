@@ -81,19 +81,32 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Muove il player direttamente a una posizione specifica nel mondo
+   * Teletrasporta il player direttamente a una posizione specifica nel mondo
    * Usato per click-to-move dalla minimappa
    */
   movePlayerTo(worldX: number, worldY: number): void {
-    if (!this.playerEntity || !this.camera) return;
+    if (!this.playerEntity) return;
 
-    // Converti coordinate mondo in coordinate schermo
-    const screenPos = this.camera.worldToScreen(worldX, worldY, window.innerWidth, window.innerHeight);
+    console.log(`PlayerControlSystem: movePlayerTo world(${worldX.toFixed(0)}, ${worldY.toFixed(0)})`);
 
-    // Simula un click del mouse in quella posizione
-    this.lastMouseX = screenPos.x;
-    this.lastMouseY = screenPos.y;
-    this.isMousePressed = true;
+    // Ottieni il componente Transform del player
+    const transform = this.ecs.getComponent(this.playerEntity, Transform);
+    if (!transform) return;
+
+    // Teletrasporta direttamente il player alla posizione
+    transform.x = worldX;
+    transform.y = worldY;
+
+    // Ferma qualsiasi movimento in corso
+    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
+    if (velocity) {
+      velocity.stop();
+    }
+
+    // Reset stato mouse per evitare movimenti indesiderati
+    this.isMousePressed = false;
+
+    console.log(`PlayerControlSystem: player teleported to (${worldX.toFixed(0)}, ${worldY.toFixed(0)})`);
   }
 
   /**
@@ -136,6 +149,7 @@ export class PlayerControlSystem extends BaseSystem {
     } else {
       // Vicino al mouse, ferma il movimento
       velocity.stop();
+      this.isMousePressed = false; // Reset mouse pressed state
     }
   }
 
