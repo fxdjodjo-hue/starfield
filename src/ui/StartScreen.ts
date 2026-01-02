@@ -1,296 +1,207 @@
-import { GameContext } from '../core/GameContext';
+import type { GameContext } from '/src/infrastructure/engine/GameContext';
 
 /**
- * Componente UI per la schermata iniziale
- * Gestisce HTML, validazione input e interazioni utente
+ * Schermata iniziale del gioco Starfield
+ * Gestisce input nickname e avvio partita
  */
 export class StartScreen {
-  private container: HTMLElement;
+  private context: GameContext;
+  private canvas: HTMLCanvasElement;
+  private onPlayCallback?: (nickname: string) => void;
+
+  // Elementi DOM
   private nicknameInput: HTMLInputElement;
   private playButton: HTMLButtonElement;
-  private errorMessage: HTMLElement;
-  private onPlayCallback?: (nickname: string) => void;
-  private context: GameContext;
+  private titleElement: HTMLDivElement;
+  private container: HTMLDivElement;
 
   constructor(context: GameContext) {
     this.context = context;
-    this.container = this.createUI();
-    this.nicknameInput = this.container.querySelector('#nickname-input') as HTMLInputElement;
-    this.playButton = this.container.querySelector('#play-button') as HTMLButtonElement;
-    this.errorMessage = this.container.querySelector('#error-message') as HTMLElement;
+    this.canvas = context.canvas;
 
-    this.setupEventListeners();
-    this.updateUI();
+    // Crea elementi DOM
+    this.createUI();
   }
 
   /**
-   * Crea l'HTML della schermata iniziale
+   * Crea l'interfaccia utente DOM
    */
-  private createUI(): HTMLElement {
-    const container = document.createElement('div');
-    container.id = 'start-screen';
-    container.innerHTML = `
-      <div class="start-screen-overlay">
-        <div class="start-screen-content">
-          <h1 class="game-title">Starfield</h1>
-
-          <div class="nickname-section">
-            <label for="nickname-input" class="input-label">Enter your nickname:</label>
-            <input
-              type="text"
-              id="nickname-input"
-              class="nickname-input"
-              placeholder="Your space pilot name"
-              maxlength="16"
-              autocomplete="off"
-            />
-            <div id="error-message" class="error-message"></div>
-          </div>
-
-          <button id="play-button" class="play-button" disabled>
-            Start Mission
-          </button>
-
-          <div class="game-info">
-            <p>Navigate with mouse • Explore the cosmos • Ready for multiplayer</p>
-          </div>
-        </div>
-      </div>
+  private createUI(): void {
+    // Container principale
+    this.container = document.createElement('div');
+    this.container.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #000011 0%, #001122 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: Arial, sans-serif;
+      z-index: 1000;
     `;
 
-    // Aggiungi gli stili CSS
-    this.addStyles();
-
-    return container;
-  }
-
-  /**
-   * Aggiunge gli stili CSS per la start screen
-   */
-  private addStyles(): void {
-    const style = document.createElement('style');
-    style.textContent = `
-      #start-screen {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 1000;
-        font-family: 'Arial', sans-serif;
-      }
-
-      .start-screen-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .start-screen-content {
-        background: rgba(0, 0, 0, 0.8);
-        border: 2px solid #00ff88;
-        border-radius: 15px;
-        padding: 40px;
-        max-width: 500px;
-        width: 90%;
-        text-align: center;
-        box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
-      }
-
-      .game-title {
-        color: #00ff88;
-        font-size: 3em;
-        margin: 0 0 10px 0;
-        text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
-        font-weight: bold;
-      }
-
-
-      .nickname-section {
-        margin-bottom: 30px;
-      }
-
-      .input-label {
-        display: block;
-        color: #ffffff;
-        margin-bottom: 10px;
-        font-size: 1.1em;
-      }
-
-      .nickname-input {
-        width: 100%;
-        padding: 12px;
-        font-size: 1.1em;
-        border: 2px solid #333;
-        border-radius: 8px;
-        background: rgba(255, 255, 255, 0.1);
-        color: #ffffff;
-        outline: none;
-        transition: border-color 0.3s ease;
-      }
-
-      .nickname-input:focus {
-        border-color: #00ff88;
-        box-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
-      }
-
-      .nickname-input::placeholder {
-        color: rgba(255, 255, 255, 0.5);
-      }
-
-      .error-message {
-        color: #ff6b6b;
-        font-size: 0.9em;
-        margin-top: 8px;
-        min-height: 20px;
-      }
-
-      .play-button {
-        background: linear-gradient(135deg, #00ff88, #00ccaa);
-        color: #000;
-        border: none;
-        padding: 15px 40px;
-        font-size: 1.2em;
-        font-weight: bold;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
-      }
-
-      .play-button:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0, 255, 136, 0.5);
-      }
-
-      .play-button:disabled {
-        background: #555;
-        cursor: not-allowed;
-        box-shadow: none;
-        transform: none;
-      }
-
-      .game-info {
-        margin-top: 30px;
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 0.9em;
-      }
+    // Titolo
+    this.titleElement = document.createElement('h1');
+    this.titleElement.textContent = 'STARFIELD';
+    this.titleElement.style.cssText = `
+      color: #00ff88;
+      font-size: 48px;
+      margin-bottom: 40px;
+      text-shadow: 0 0 20px #00ff88;
+      letter-spacing: 4px;
     `;
-    document.head.appendChild(style);
-  }
 
-  /**
-   * Imposta gli event listeners per input e pulsante
-   */
-  private setupEventListeners(): void {
-    // Validazione in tempo reale dell'input
-    this.nicknameInput.addEventListener('input', () => {
-      this.updateUI();
-    });
+    // Container form
+    const formContainer = document.createElement('div');
+    formContainer.style.cssText = `
+      background: rgba(0, 255, 136, 0.1);
+      padding: 30px;
+      border-radius: 10px;
+      border: 2px solid #00ff88;
+      box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+      min-width: 300px;
+    `;
 
-    // Gestione invio con Enter
-    this.nicknameInput.addEventListener('keypress', (event) => {
-      if (event.key === 'Enter' && !this.playButton.disabled) {
+    // Label nickname
+    const label = document.createElement('label');
+    label.textContent = 'Inserisci il tuo nickname:';
+    label.style.cssText = `
+      color: #ffffff;
+      display: block;
+      margin-bottom: 10px;
+      font-size: 16px;
+    `;
+
+    // Input nickname
+    this.nicknameInput = document.createElement('input');
+    this.nicknameInput.type = 'text';
+    this.nicknameInput.placeholder = 'Il tuo nickname...';
+    this.nicknameInput.maxLength = 20;
+    this.nicknameInput.style.cssText = `
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 20px;
+      border: 2px solid #0088ff;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, 0.5);
+      color: #ffffff;
+      font-size: 16px;
+      box-sizing: border-box;
+    `;
+
+    // Pulsante play
+    this.playButton = document.createElement('button');
+    this.playButton.textContent = 'INIZIA AVVENTURA';
+    this.playButton.style.cssText = `
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(45deg, #00ff88, #0088ff);
+      border: none;
+      border-radius: 5px;
+      color: #000011;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    `;
+
+    // Eventi
+    this.playButton.addEventListener('click', () => this.handlePlay());
+    this.nicknameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
         this.handlePlay();
       }
     });
 
-    // Click sul pulsante Play
-    this.playButton.addEventListener('click', () => {
-      this.handlePlay();
+    // Hover effect
+    this.playButton.addEventListener('mouseenter', () => {
+      this.playButton.style.transform = 'scale(1.05)';
+      this.playButton.style.boxShadow = '0 0 20px rgba(0, 255, 136, 0.5)';
     });
+
+    this.playButton.addEventListener('mouseleave', () => {
+      this.playButton.style.transform = 'scale(1)';
+      this.playButton.style.boxShadow = 'none';
+    });
+
+    // Assembla elementi
+    formContainer.appendChild(label);
+    formContainer.appendChild(this.nicknameInput);
+    formContainer.appendChild(this.playButton);
+
+    this.container.appendChild(this.titleElement);
+    this.container.appendChild(formContainer);
+
+    // Aggiungi al DOM
+    document.body.appendChild(this.container);
   }
 
   /**
-   * Gestisce il click sul pulsante Play
+   * Gestisce il click sul pulsante play
    */
   private handlePlay(): void {
     const nickname = this.nicknameInput.value.trim();
-    try {
-      this.context.setPlayerNickname(nickname);
-      this.onPlayCallback?.(nickname);
-    } catch (error) {
-      this.showError('Nickname non valido');
+
+    if (nickname.length === 0) {
+      // Mostra errore
+      this.nicknameInput.style.borderColor = '#ff4444';
+      this.nicknameInput.placeholder = 'Inserisci un nickname!';
+      setTimeout(() => {
+        this.nicknameInput.style.borderColor = '#0088ff';
+        this.nicknameInput.placeholder = 'Il tuo nickname...';
+      }, 2000);
+      return;
     }
+
+    // Salva nickname nel context
+    this.context.playerNickname = nickname;
+
+    // Chiama callback
+    this.onPlayCallback?.(nickname);
   }
 
   /**
-   * Aggiorna l'aspetto della UI basato sulla validazione
-   */
-  private updateUI(): void {
-    const nickname = this.nicknameInput.value.trim();
-    const isValid = this.context.validateNickname(nickname);
-
-    // Abilita/disabilita il pulsante
-    this.playButton.disabled = !isValid;
-
-    // Mostra/nascondi errori
-    if (nickname.length > 0 && !isValid) {
-      if (nickname.length < 3) {
-        this.showError('Il nickname deve essere di almeno 3 caratteri');
-      } else if (nickname.length > 16) {
-        this.showError('Il nickname non può superare i 16 caratteri');
-      } else {
-        this.showError('Il nickname può contenere solo lettere e numeri');
-      }
-    } else {
-      this.hideError();
-    }
-  }
-
-  /**
-   * Mostra un messaggio di errore
-   */
-  private showError(message: string): void {
-    this.errorMessage.textContent = message;
-    this.errorMessage.style.display = 'block';
-  }
-
-  /**
-   * Nasconde il messaggio di errore
-   */
-  private hideError(): void {
-    this.errorMessage.textContent = '';
-    this.errorMessage.style.display = 'none';
-  }
-
-  /**
-   * Imposta il callback per quando l'utente clicca Play
+   * Imposta il callback per quando si preme play
    */
   setOnPlayCallback(callback: (nickname: string) => void): void {
     this.onPlayCallback = callback;
   }
 
   /**
-   * Mostra la start screen
-   */
-  show(): void {
-    if (!document.body.contains(this.container)) {
-      document.body.appendChild(this.container);
-    }
-    this.nicknameInput.focus();
-  }
-
-  /**
-   * Nasconde la start screen
+   * Nasconde l'interfaccia utente (senza rimuoverla dal DOM)
    */
   hide(): void {
-    if (document.body.contains(this.container)) {
-      document.body.removeChild(this.container);
+    if (this.container) {
+      this.container.style.display = 'none';
     }
   }
 
   /**
-   * Distrugge la start screen e rimuove tutti gli event listeners
+   * Mostra l'interfaccia utente
+   */
+  show(): void {
+    if (this.container) {
+      this.container.style.display = 'flex';
+    }
+  }
+
+  /**
+   * Rimuove l'interfaccia dal DOM
    */
   destroy(): void {
-    this.hide();
-    // Gli event listeners verranno automaticamente rimossi quando l'elemento viene rimosso dal DOM
+    if (this.container && this.container.parentNode) {
+      this.container.parentNode.removeChild(this.container);
+    }
+  }
+
+  /**
+   * Restituisce il nickname corrente
+   */
+  getNickname(): string {
+    return this.nicknameInput.value;
   }
 }

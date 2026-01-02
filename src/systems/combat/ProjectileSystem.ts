@@ -1,0 +1,193 @@
+import { System as BaseSystem } from '/src/infrastructure/ecs/System';
+import { ECS } from '/src/infrastructure/ecs/ECS';
+import { Transform } from '/src/entities/spatial/Transform';
+import { Projectile } from '/src/entities/combat/Projectile';
+import { Health } from '/src/entities/combat/Health';
+import { Damage } from '/src/entities/combat/Damage';
+import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
+import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
+import { MovementSystem } from '/src/systems/physics/MovementSystem';
+
+/**
+ * Sistema per gestire i proiettili: movimento, collisione e rimozione
+ */
+export class ProjectileSystem extends BaseSystem {
+  private movementSystem: MovementSystem;
+
+  constructor(ecs: ECS, movementSystem: MovementSystem) {
+    super(ecs);
+    this.movementSystem = movementSystem;
+  }
+
+  update(deltaTime: number): void {
+    const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+
+    // Converti deltaTime da millisecondi a secondi
+    const deltaTimeSeconds = deltaTime / 1000;
+
+    for (const projectileEntity of projectiles) {
+      const transform = this.ecs.getComponent(projectileEntity, Transform);
+      const projectile = this.ecs.getComponent(projectileEntity, Projectile);
+
+      if (!transform || !projectile) continue;
+
+      // Controlla se il bersaglio è ancora vivo
+      const allTargets = this.ecs.getEntitiesWithComponents(Health);
+      const targetExists = allTargets.some(entity => entity.id === projectile.targetId);
+
+      if (targetExists) {
+        const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
+        if (targetEntity) {
+          const targetHealth = this.ecs.getComponent(targetEntity, Health);
+          if (targetHealth && targetHealth.isDead()) {
+            this.ecs.removeEntity(projectileEntity);
+            continue;
+          }
+        }
+      } else {
+        // Il bersaglio non esiste più (rimosso dal gioco)
+        this.ecs.removeEntity(projectileEntity);
+        continue;
+      }
+
+      // Per i proiettili homing (NPC verso player, o player verso NPC), aggiorna direzione verso il bersaglio
+      if (this.shouldBeHoming(projectileEntity)) {
+        this.updateHomingDirection(transform, projectile);
+      }
+
+      // Aggiorna posizione del proiettile
+      transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
+      transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
+
+      // Riduci il tempo di vita
+      projectile.lifetime -= deltaTime;
+
+      // Controlla collisioni con bersagli
+      this.checkCollisions(projectileEntity, transform, projectile);
+
+      // Rimuovi proiettili scaduti
+      if (projectile.lifetime <= 0) {
+        this.ecs.removeEntity(projectileEntity);
+      }
+    }
+  }
+
+  /**
+   * Verifica se un proiettile dovrebbe essere homing (seguire il bersaglio)
+   */
+  private shouldBeHoming(projectileEntity: any): boolean {
+    const projectile = this.ecs.getComponent(projectileEntity, Projectile);
+    if (!projectile) return false;
+
+    // Trova il player (entità con Transform, Health, Damage ma senza SelectedNpc)
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage)
+      .filter(entity => !this.ecs.hasComponent(entity, SelectedNpc));
+
+    if (playerEntities.length === 0) return false;
+
+    const playerEntity = playerEntities[0];
+
+    // I proiettili homing sono:
+    // 1. Quelli sparati DA NPC verso il player
+    // 2. Quelli sparati DAL player verso NPC selezionati
+    const isNpcProjectile = projectile.ownerId !== playerEntity.id;
+    const isPlayerProjectileToNpc = projectile.ownerId === playerEntity.id && projectile.targetId !== playerEntity.id;
+
+    return isNpcProjectile || isPlayerProjectileToNpc;
+  }
+
+  /**
+   * Aggiorna la direzione di un proiettile homing verso il bersaglio corrente
+   */
+  private updateHomingDirection(projectileTransform: Transform, projectile: Projectile): void {
+    // Trova il bersaglio tra tutte le entità con Health
+    const allTargets = this.ecs.getEntitiesWithComponents(Health);
+    const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
+
+    if (!targetEntity) return;
+
+    const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+    if (!targetTransform) return;
+
+    // Calcola la nuova direzione verso il bersaglio
+    const dx = targetTransform.x - projectileTransform.x;
+    const dy = targetTransform.y - projectileTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0) {
+      // Normalizza la direzione
+      projectile.directionX = dx / distance;
+      projectile.directionY = dy / distance;
+    }
+  }
+
+  /**
+   * Controlla collisioni tra proiettile e possibili bersagli
+   */
+  private checkCollisions(projectileEntity: any, projectileTransform: Transform, projectile: Projectile): void {
+    // Trova tutte le entità con Health (possibili bersagli)
+    const targets = this.ecs.getEntitiesWithComponents(Transform, Health);
+
+    for (const targetEntity of targets) {
+      // Non colpire il proprietario del proiettile
+      if (targetEntity.id === projectile.ownerId) continue;
+
+      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+      const targetHealth = this.ecs.getComponent(targetEntity, Health);
+
+      if (!targetTransform || !targetHealth) continue;
+
+      // Calcola distanza tra proiettile e bersaglio
+      const distance = Math.sqrt(
+        Math.pow(projectileTransform.x - targetTransform.x, 2) +
+        Math.pow(projectileTransform.y - targetTransform.y, 2)
+      );
+
+      // Se la distanza è minore di una soglia (hitbox), colpisce
+      const hitDistance = 15; // Raggio di collisione
+      if (distance < hitDistance) {
+        // Applica danno
+        const damageDealt = projectile.damage;
+        targetHealth.current -= damageDealt;
+
+        // Crea testo di danno
+        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+        if (targetTransform) {
+          // Converti coordinate mondo in coordinate schermo
+          const canvasSize = (this.ecs as any).context?.canvas ?
+                            { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
+                            { width: window.innerWidth, height: window.innerHeight };
+
+          const camera = this.movementSystem.getCamera();
+          const screenPos = camera.worldToScreen(targetTransform.x, targetTransform.y - 30, canvasSize.width, canvasSize.height);
+
+          // Determina il colore del testo (rosso per danno al player, bianco per NPC)
+          const isPlayerDamage = this.ecs.hasComponent(targetEntity, Damage) &&
+                                !this.ecs.hasComponent(targetEntity, SelectedNpc);
+          const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
+
+          // Crea testo nelle coordinate schermo
+          this.createDamageText(damageDealt, screenPos.x, screenPos.y, textColor);
+        }
+
+        // Rimuovi il proiettile dopo l'impatto
+        this.ecs.removeEntity(projectileEntity);
+        return; // Un proiettile colpisce solo un bersaglio
+      }
+    }
+  }
+
+  /**
+   * Crea un testo di danno
+   */
+  private createDamageText(value: number, x: number, y: number, color: string): void {
+    // Trova il DamageTextSystem nell'ECS
+    const systems = (this.ecs as any).systems;
+    for (const system of systems) {
+      if (system instanceof DamageTextSystem) {
+        system.createDamageText(value, x, y, color);
+        break;
+      }
+    }
+  }
+}
