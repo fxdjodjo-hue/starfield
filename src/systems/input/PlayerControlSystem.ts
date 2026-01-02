@@ -15,6 +15,8 @@ export class PlayerControlSystem extends BaseSystem {
   private isMousePressed = false;
   private lastMouseX = 0;
   private lastMouseY = 0;
+  private minimapTargetX: number | null = null;
+  private minimapTargetY: number | null = null;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -44,11 +46,13 @@ export class PlayerControlSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
 
-    // Se il mouse è premuto, muovi il player verso la posizione del mouse
-    if (this.isMousePressed) {
+    // Priorità: movimento minimappa > movimento mouse > fermo
+    if (this.minimapTargetX !== null && this.minimapTargetY !== null) {
+      this.movePlayerTowardsMinimapTarget();
+    } else if (this.isMousePressed) {
       this.movePlayerTowardsMouse();
     } else {
-      // Quando il mouse non è premuto, ferma il player
+      // Quando non c'è movimento richiesto, ferma il player
       this.stopPlayerMovement();
     }
 
@@ -61,6 +65,12 @@ export class PlayerControlSystem extends BaseSystem {
    */
   handleMouseState(pressed: boolean, x: number, y: number): void {
     if (!this.playerEntity) return;
+
+    // Se si clicca con il mouse normale, cancella il target della minimappa
+    if (pressed) {
+      this.minimapTargetX = null;
+      this.minimapTargetY = null;
+    }
 
     this.isMousePressed = pressed;
     if (pressed) {
@@ -81,32 +91,53 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Teletrasporta il player direttamente a una posizione specifica nel mondo
+   * Imposta una destinazione per il movimento del player
    * Usato per click-to-move dalla minimappa
    */
   movePlayerTo(worldX: number, worldY: number): void {
     if (!this.playerEntity) return;
 
-    console.log(`PlayerControlSystem: movePlayerTo world(${worldX.toFixed(0)}, ${worldY.toFixed(0)})`);
+    // Salva la destinazione mondo per il movimento dalla minimappa
+    this.minimapTargetX = worldX;
+    this.minimapTargetY = worldY;
 
-    // Ottieni il componente Transform del player
-    const transform = this.ecs.getComponent(this.playerEntity, Transform);
-    if (!transform) return;
-
-    // Teletrasporta direttamente il player alla posizione
-    transform.x = worldX;
-    transform.y = worldY;
-
-    // Ferma qualsiasi movimento in corso
-    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
-    if (velocity) {
-      velocity.stop();
-    }
-
-    // Reset stato mouse per evitare movimenti indesiderati
+    // Disabilita il movimento normale con mouse
     this.isMousePressed = false;
+  }
 
-    console.log(`PlayerControlSystem: player teleported to (${worldX.toFixed(0)}, ${worldY.toFixed(0)})`);
+  /**
+   * Muove il player verso la destinazione della minimappa
+   */
+  private movePlayerTowardsMinimapTarget(): void {
+    if (!this.playerEntity || this.minimapTargetX === null || this.minimapTargetY === null) return;
+
+    const transform = this.ecs.getComponent(this.playerEntity, Transform);
+    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
+
+    if (!transform || !velocity) return;
+
+    const dx = this.minimapTargetX - transform.x;
+    const dy = this.minimapTargetY - transform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 50) { // Se siamo abbastanza lontani (soglia più alta per minimappa)
+      // Normalizza la direzione
+      const dirX = dx / distance;
+      const dirY = dy / distance;
+
+      // Imposta velocity verso la destinazione
+      const speed = 400; // Velocità più alta per movimenti dalla minimappa
+      velocity.setVelocity(dirX * speed, dirY * speed);
+
+      // Ruota verso la direzione del movimento (sempre, dato che è navigazione)
+      const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
+      transform.rotation = angle;
+    } else {
+      // Vicino alla destinazione, ferma il movimento e reset target
+      velocity.stop();
+      this.minimapTargetX = null;
+      this.minimapTargetY = null;
+    }
   }
 
   /**
