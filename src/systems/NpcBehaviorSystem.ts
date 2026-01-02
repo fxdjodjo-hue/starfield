@@ -23,7 +23,7 @@ interface NpcState {
  */
 export class NpcBehaviorSystem extends BaseSystem {
   private lastBehaviorUpdate = 0;
-  private behaviorUpdateInterval = 4000; // Cambia comportamento ogni 4 secondi (più fluido)
+  private behaviorUpdateInterval = 8000; // Cambia comportamento ogni 8 secondi (tratte più lunghe)
 
   // Stato per movimenti fluidi
   private npcStates: Map<number, NpcState> = new Map();
@@ -83,10 +83,11 @@ export class NpcBehaviorSystem extends BaseSystem {
     // Solo gli Streuner si muovono, gli altri rimangono fermi
     if (npc.npcType === 'Streuner') {
       // Comportamenti più fluidi per gli Streuner
+      // cruise: mantiene direzione molto a lungo (tratte lunghissime)
       // patrol: mantiene direzione più a lungo
-      // wander: cambia direzione frequentemente
+      // wander: cambia direzione gradualmente
       // circle: movimento circolare fluido
-      const behaviors = ['patrol', 'wander', 'circle'];
+      const behaviors = ['cruise', 'patrol', 'wander', 'circle'];
       const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
       npc.setBehavior(randomBehavior);
 
@@ -123,6 +124,9 @@ export class NpcBehaviorSystem extends BaseSystem {
       case 'circle':
         this.executeSmoothCircleBehavior(transform, velocity, deltaTime, state);
         break;
+      case 'cruise':
+        this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+        break;
       default:
         this.executeIdleBehavior(velocity);
     }
@@ -141,8 +145,8 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento patrol - mantiene una direzione più a lungo per movimenti fluidi
    */
   private executePatrolBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
-    // Aggiorna occasionalmente la direzione (ogni 8-12 secondi circa)
-    if (Math.random() < 0.002) { // ~0.2% probabilità per frame
+    // Aggiorna occasionalmente la direzione (ogni 15-25 secondi circa)
+    if (Math.random() < 0.0005) { // ~0.05% probabilità per frame (molto più rara)
       state.patrolAngle = Math.random() * Math.PI * 2;
       state.targetSpeed = 50; // Velocità fissa
     }
@@ -154,8 +158,8 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Comportamento wander fluido - cambia direzione gradualmente
    */
   private executeSmoothWanderBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
-    // Cambia direzione gradualmente (ogni 1-3 secondi circa)
-    if (Math.random() < 0.008) { // ~0.8% probabilità per frame
+    // Cambia direzione gradualmente (ogni 5-10 secondi circa)
+    if (Math.random() < 0.001) { // ~0.1% probabilità per frame (molto più rara)
       state.targetAngle = Math.random() * Math.PI * 2;
       state.targetSpeed = 50; // Velocità fissa
     }
@@ -175,6 +179,19 @@ export class NpcBehaviorSystem extends BaseSystem {
       Math.cos(angle) * speed,
       Math.sin(angle) * speed
     );
+  }
+
+  /**
+   * Comportamento cruise - mantiene direzione fissa per tratte molto lunghe
+   */
+  private executeCruiseBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Cambia direzione molto raramente (ogni 30-60 secondi circa)
+    if (Math.random() < 0.0002) { // ~0.02% probabilità per frame (estremamente rara)
+      state.targetAngle = Math.random() * Math.PI * 2;
+      state.targetSpeed = 50; // Velocità fissa
+    }
+
+    this.updateSmoothVelocity(velocity, state.targetSpeed, state.targetAngle, deltaTime, state);
   }
 
   /**
