@@ -583,6 +583,17 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
+   * Aggiunge punti onore (per ricompense NPC)
+   */
+  addHonor(amount: number, reason: string = 'unknown'): void {
+    const honor = this.getPlayerHonor();
+    if (honor) {
+      honor.addHonor(amount);
+      console.log(`Honor: +${amount} (${reason}) - Total: ${honor.honor}`);
+    }
+  }
+
+  /**
    * Aggiunge punti onore locali (per achievements)
    */
   addLocalHonor(amount: number, reason: string = 'achievement'): void {
