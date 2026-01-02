@@ -1,11 +1,14 @@
 import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Health } from '/src/entities/combat/Health';
+import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
+import { DamageTaken } from '/src/entities/combat/DamageTaken';
 import { Transform } from '/src/entities/spatial/Transform';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Npc } from '/src/entities/ai/Npc';
 import { Projectile } from '/src/entities/combat/Projectile';
+import { MovementSystem } from '../physics/MovementSystem';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -13,9 +16,11 @@ import { Projectile } from '/src/entities/combat/Projectile';
  */
 export class CombatSystem extends BaseSystem {
   private lastUpdateTime: number = Date.now();
+  private movementSystem: MovementSystem;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
+    this.movementSystem = movementSystem;
   }
 
   update(deltaTime: number): void {
@@ -44,12 +49,15 @@ export class CombatSystem extends BaseSystem {
 
     if (!attackerTransform || !attackerDamage) return;
 
+    // Verifica se l'NPC è stato danneggiato recentemente (solo NPC danneggiati attaccano)
+    const damageTaken = this.ecs.getComponent(attackerEntity, DamageTaken);
+    if (!damageTaken || !damageTaken.wasDamagedRecently(Date.now(), 10000)) {
+      // L'NPC non è stato danneggiato negli ultimi 10 secondi, non attacca
+      return;
+    }
+
     // Trova il player come target
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
-    // Il player è l'entità con Damage ma senza SelectedNpc
-    const playerEntity = playerEntities.find(entity => {
-      return !this.ecs.hasComponent(entity, SelectedNpc);
-    });
+    const playerEntity = this.ecs.getPlayerEntity();
 
     if (!playerEntity) return;
 
@@ -120,10 +128,7 @@ export class CombatSystem extends BaseSystem {
     const selectedNpc = selectedNpcs[0];
 
     // Trova il player
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
-    const playerEntity = playerEntities.find(entity => {
-      return !this.ecs.hasComponent(entity, SelectedNpc);
-    });
+    const playerEntity = this.ecs.getPlayerEntity();
 
     if (!playerEntity) return;
 
@@ -137,6 +142,28 @@ export class CombatSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
     if (!npcTransform) return;
 
+    // Controlla se l'NPC selezionato è ancora visibile nella viewport
+    const canvasSize = (this.ecs as any).context?.canvas ?
+                      { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
+                      { width: window.innerWidth, height: window.innerHeight };
+
+    // Usa la camera dal MovementSystem
+    const camera = this.movementSystem.getCamera();
+    const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
+
+    // Margine di sicurezza per considerare "fuori schermo"
+    const margin = 100;
+    const isOffScreen = npcScreenPos.x < -margin ||
+                       npcScreenPos.x > canvasSize.width + margin ||
+                       npcScreenPos.y < -margin ||
+                       npcScreenPos.y > canvasSize.height + margin;
+
+    if (isOffScreen) {
+      // NPC uscito dalla visuale - deseleziona automaticamente
+      this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      return; // Esci dalla funzione, non continuare con la logica di combattimento
+    }
+
     if (playerDamage.isInRange(
       playerTransform.x, playerTransform.y,
       npcTransform.x, npcTransform.y
@@ -149,6 +176,8 @@ export class CombatSystem extends BaseSystem {
         this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
       }
     }
+    // Nota: L'attacco finisce quando il player si allontana troppo (500px)
+    // ma la selezione rimane attiva finché non superi questa distanza massima
   }
 
 
@@ -203,7 +232,12 @@ export class CombatSystem extends BaseSystem {
 
     for (const entity of entitiesWithHealth) {
       const health = this.ecs.getComponent(entity, Health);
-      if (health && health.isDead()) {
+      const shield = this.ecs.getComponent(entity, Shield);
+
+      // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
+      const isDead = health && health.isDead() && (!shield || !shield.isActive());
+
+      if (isDead) {
         this.ecs.removeEntity(entity);
       }
     }

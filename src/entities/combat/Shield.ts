@@ -1,34 +1,41 @@
 import { ResourceComponent } from './ResourceComponent';
 
 /**
- * Componente Health - gestisce la salute di un'entità
- * Include salute corrente, massima e logica di morte
+ * Componente Shield - gestisce lo scudo di un'entità
+ * Gli shield assorbono danni prima che colpiscano la salute
  */
-export class Health extends ResourceComponent {
+export class Shield extends ResourceComponent {
   constructor(current: number, max: number) {
     super(current, max);
   }
 
   /**
-   * Verifica se l'entità è morta
+   * Ricarica lo scudo dell'entità (override per logica specifica)
    */
-  isDead(): boolean {
-    return this.isEmpty();
+  recharge(amount: number): void {
+    this.heal(amount);
   }
 
   /**
-   * Ottiene la percentuale di salute rimanente (0-1)
+   * Verifica se lo scudo è attivo
+   */
+  isActive(): boolean {
+    return !this.isEmpty();
+  }
+
+  /**
+   * Ottiene la percentuale di scudo rimanente (0-1)
    * Alias per compatibilità
    */
-  getHealthPercentage(): number {
+  getShieldPercentage(): number {
     return this.getPercentage();
   }
 
   /**
-   * Imposta nuovi valori di salute
+   * Imposta nuovi valori di scudo
    * Alias per compatibilità
    */
-  setHealth(current: number, max?: number): void {
+  setShield(current: number, max?: number): void {
     this.setResource(current, max);
   }
 

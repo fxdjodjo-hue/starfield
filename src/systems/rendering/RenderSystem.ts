@@ -1,14 +1,15 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Npc } from '/src/entities/ai/Npc';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
-import { Health } from '/src/entities/combat/Health';
-import { Damage } from '/src/entities/combat/Damage';
-import { Projectile } from '/src/entities/combat/Projectile';
-import { Camera } from '/src/entities/spatial/Camera';
-import { MovementSystem } from '/src/systems/physics/MovementSystem';
-import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Transform } from '../../entities/spatial/Transform';
+import { Npc } from '../../entities/ai/Npc';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
+import { Projectile } from '../../entities/combat/Projectile';
+import { Camera } from '../../entities/spatial/Camera';
+import { MovementSystem } from '../physics/MovementSystem';
+import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -74,10 +75,11 @@ export class RenderSystem extends BaseSystem {
           }
         }
 
-        // Renderizza la barra della salute se l'entità ha Health
+        // Renderizza le barre salute/shield se l'entità ha componenti
         const health = this.ecs.getComponent(entity, Health);
-        if (health) {
-          this.renderHealthBar(ctx, screenPos.x, screenPos.y, health);
+        const shield = this.ecs.getComponent(entity, Shield);
+        if (health || shield) {
+          this.renderHealthAndShieldBars(ctx, screenPos.x, screenPos.y, health, shield);
         }
       }
     }
@@ -170,42 +172,66 @@ export class RenderSystem extends BaseSystem {
       ctx.fillStyle = '#ffffff';
       ctx.fill();
 
-      // Renderizza il nickname sopra l'NPC
-      this.renderNpcNickname(ctx, npc, 0, -20);
+      // Renderizza il nickname sotto l'NPC
+      this.renderNpcNickname(ctx, npc, 0, 20);
     }
 
     ctx.restore();
   }
 
   /**
-   * Renderizza una barra della salute sopra l'entità
+   * Renderizza le barre salute e shield sopra l'entità
    */
-  private renderHealthBar(ctx: CanvasRenderingContext2D, x: number, y: number, health: Health): void {
+  private renderHealthAndShieldBars(ctx: CanvasRenderingContext2D, x: number, y: number, health: Health | null, shield: Shield | null): void {
     const barWidth = 40;
     const barHeight = 6;
-    const barY = y - 35; // Posiziona sopra l'entità
+    let barY = y - 35; // Posiziona sopra l'entità
 
-    // Sfondo barra (rosso scuro)
-    ctx.fillStyle = '#330000';
-    ctx.fillRect(x - barWidth/2, barY, barWidth, barHeight);
+    // Renderizza prima lo shield (se presente), poi la salute sotto
+    if (shield) {
+      // Barra shield (blu)
+      const shieldPercent = shield.getShieldPercentage();
 
-    // Barra salute (verde per buona salute, giallo per media, rosso per bassa)
-    const healthPercent = health.getHealthPercentage();
-    let healthColor = '#00ff00'; // Verde
+      // Sfondo barra shield (blu scuro)
+      ctx.fillStyle = '#001133';
+      ctx.fillRect(x - barWidth/2, barY, barWidth, barHeight);
 
-    if (healthPercent < 0.3) {
-      healthColor = '#ff0000'; // Rosso
-    } else if (healthPercent < 0.6) {
-      healthColor = '#ffff00'; // Giallo
+      // Barra shield
+      ctx.fillStyle = '#4444ff';
+      ctx.fillRect(x - barWidth/2, barY, barWidth * shield.getPercentage(), barHeight);
+
+      // Bordino bianco
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - barWidth/2, barY, barWidth, barHeight);
+
+      barY += barHeight + 2; // Sposta giù la barra salute
     }
 
-    ctx.fillStyle = healthColor;
-    ctx.fillRect(x - barWidth/2, barY, barWidth * healthPercent, barHeight);
+    // Renderizza la barra salute se presente
+    if (health) {
+      // Sfondo barra salute (rosso scuro)
+      ctx.fillStyle = '#330000';
+      ctx.fillRect(x - barWidth/2, barY, barWidth, barHeight);
 
-    // Bordino bianco
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x - barWidth/2, barY, barWidth, barHeight);
+      // Barra salute (verde per buona salute, giallo per media, rosso per bassa)
+      const healthPercent = health.getPercentage();
+      let healthColor = '#00ff00'; // Verde
+
+      if (healthPercent < 0.3) {
+        healthColor = '#ff0000'; // Rosso
+      } else if (healthPercent < 0.6) {
+        healthColor = '#ffff00'; // Giallo
+      }
+
+      ctx.fillStyle = healthColor;
+      ctx.fillRect(x - barWidth/2, barY, barWidth * healthPercent, barHeight);
+
+      // Bordino bianco
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - barWidth/2, barY, barWidth, barHeight);
+    }
   }
 
   /**
@@ -331,11 +357,9 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza il nickname dell'NPC sopra di esso
+   * Renderizza il tipo dell'NPC sotto di esso
    */
   private renderNpcNickname(ctx: CanvasRenderingContext2D, npc: Npc, offsetX: number, offsetY: number): void {
-    if (!npc.nickname) return;
-
     ctx.save();
 
     // Stile del testo
@@ -351,11 +375,12 @@ export class RenderSystem extends BaseSystem {
     ctx.shadowBlur = 4;
 
     // Disegna il contorno nero
-    ctx.strokeText(npc.nickname, offsetX, offsetY);
+    ctx.strokeText(npc.npcType, offsetX, offsetY);
 
     // Disegna il testo bianco
-    ctx.fillText(npc.nickname, offsetX, offsetY);
+    ctx.fillText(npc.npcType, offsetX, offsetY);
 
     ctx.restore();
   }
+
 }

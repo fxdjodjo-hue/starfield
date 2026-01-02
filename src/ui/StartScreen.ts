@@ -1,4 +1,4 @@
-import type { GameContext } from '/src/infrastructure/engine/GameContext';
+import type { GameContext } from '../infrastructure/engine/GameContext';
 
 /**
  * Schermata iniziale del gioco Starfield
@@ -10,10 +10,10 @@ export class StartScreen {
   private onPlayCallback?: (nickname: string) => void;
 
   // Elementi DOM
-  private nicknameInput: HTMLInputElement;
-  private playButton: HTMLButtonElement;
-  private titleElement: HTMLDivElement;
-  private container: HTMLDivElement;
+  private nicknameInput!: HTMLInputElement;
+  private playButton!: HTMLButtonElement;
+  private titleElement!: HTMLDivElement;
+  private container!: HTMLDivElement;
 
   constructor(context: GameContext) {
     this.context = context;

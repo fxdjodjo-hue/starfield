@@ -11,16 +11,23 @@ import { CombatSystem } from '/src/systems/combat/CombatSystem';
 import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
-import { CurrencySystem } from '/src/systems/CurrencySystem';
+import { EconomySystem } from '/src/systems/EconomySystem';
+import { RankSystem } from '/src/systems/RankSystem';
+import { RewardSystem } from '/src/systems/RewardSystem';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Health } from '/src/entities/combat/Health';
+import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
-import { Currency } from '/src/entities/Currency';
+import { Credits, Cosmos } from '/src/entities/Currency';
+import { Experience } from '/src/entities/Experience';
+import { Honor } from '/src/entities/Honor';
+import { PlayerStats } from '/src/entities/PlayerStats';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
 import { CONFIG } from '/src/utils/config/Config';
+import { getNpcDefinition } from '/src/config/NpcConfig';
 
 /**
  * Stato del gameplay attivo
@@ -34,6 +41,7 @@ export class PlayState extends GameState {
   private playerEntity: any = null;
   private hudExpanded: boolean = false;
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
+  private economySystem: any = null;
 
   constructor(context: GameContext) {
     super();
@@ -136,22 +144,33 @@ export class PlayState extends GameState {
    * Mostra le info del giocatore
    */
   private showPlayerInfo(): void {
-    let hpText = '';
+    let hpHtml = '';
     if (this.playerEntity) {
       const health = this.world.getECS().getComponent(this.playerEntity, Health);
       if (health) {
-        hpText = ` | HP: ${health.current}/${health.max}`;
+        hpHtml = ` <span style="color: #00ff88;">HP: </span><span style="color: #ffffff;">${health.current}/${health.max}</span>`;
       }
     }
 
-    // HUD minimal: solo nickname e HP
-    this.playerInfoElement.textContent = `Pilot: ${this.context.playerNickname}${hpText}`;
+    // Ottieni valori economici
+    const economyStatus = this.economySystem?.getPlayerEconomyStatus();
+    let economyHtml = '';
+    if (economyStatus) {
+      economyHtml = ` <span style="color: #00ff88;">CR:</span><span style="color: #ffffff;">${economyStatus.credits}</span> <span style="color: #00ff88;">CO:</span><span style="color: #ffffff;">${economyStatus.cosmos}</span> <span style="color: #00ff88;">XP:</span><span style="color: #ffffff;">${economyStatus.experience}/${economyStatus.expForNextLevel}</span> <span style="color: #00ff88;">LV:</span><span style="color: #ffffff;">${economyStatus.level}</span> <span style="color: #00ff88;">HN:</span><span style="color: #ffffff;">${economyStatus.honor}</span> <span style="color: #00ff88;">RK:</span><span style="color: #ffffff;">${economyStatus.honorRank}</span>`;
+    }
+
+    // HUD con colori diversi per etichette (verde) e valori (bianco)
+    this.playerInfoElement.innerHTML =
+      `<span style="color: #00ff88;">Pilot: </span><span style="color: #ffffff;">${this.context.playerNickname}</span>` +
+      hpHtml +
+      economyHtml;
+
     if (!document.body.contains(this.playerInfoElement)) {
       document.body.appendChild(this.playerInfoElement);
     }
     this.playerInfoElement.style.display = 'block';
 
-    // HUD espanso: informazioni aggiuntive
+    // HUD espanso: informazioni aggiuntive (se necessario in futuro)
     if (this.hudExpanded) {
       this.showExpandedHud();
     } else {
@@ -264,6 +283,7 @@ export class PlayState extends GameState {
     }
   }
 
+
   /**
    * Nasconde le info del giocatore
    */
@@ -313,11 +333,13 @@ export class PlayState extends GameState {
     const playerControlSystem = new PlayerControlSystem(ecs);
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
-    const combatSystem = new CombatSystem(ecs);
-    const projectileSystem = new ProjectileSystem(ecs, movementSystem);
+    const combatSystem = new CombatSystem(ecs, movementSystem);
     const damageTextSystem = new DamageTextSystem(ecs);
+    const projectileSystem = new ProjectileSystem(ecs, movementSystem, damageTextSystem);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
-    const currencySystem = new CurrencySystem(ecs);
+    this.economySystem = new EconomySystem(ecs);
+    const rankSystem = new RankSystem(ecs);
+    const rewardSystem = new RewardSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -330,13 +352,13 @@ export class PlayState extends GameState {
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
     ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
     ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
-    ecs.addSystem(currencySystem);     // Sistema valuta
+    ecs.addSystem(this.economySystem); // Sistema economia
+    ecs.addSystem(rankSystem); // Sistema rank
+    ecs.addSystem(rewardSystem); // Sistema ricompense
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
     this.playerEntity = playerShip;
-
-    console.log(`PlayState: Created playerShip with id: ${playerShip?.id}`);
 
     // Imposta il player nel sistema di controllo
     playerControlSystem.setPlayerEntity(playerShip);
@@ -356,14 +378,33 @@ export class PlayState extends GameState {
       minimapSystem.clearDestination();
     });
 
-    // Configura sistema valuta
-    currencySystem.setPlayerEntity(playerShip);
-    currencySystem.createCurrencyDisplay();
-    currencySystem.showCurrencyDisplay();
-    currencySystem.updateCurrencyDisplay();
+    // Configura sistema economico, rank e ricompense
+    this.economySystem.setPlayerEntity(playerShip);
+    this.economySystem.setRankSystem(rankSystem);
+    rankSystem.setPlayerEntity(playerShip);
+    rewardSystem.setEconomySystem(this.economySystem);
+    rewardSystem.setPlayerEntity(playerShip); // Per aggiornare statistiche player
+
+    // Configura callbacks per aggiornamenti HUD
+    this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
+      // Aggiorna HUD con nuovi valori
+      this.showPlayerInfo();
+    });
+
+    this.economySystem.setCreditsChangedCallback((newAmount, change) => {
+      this.showPlayerInfo();
+    });
+
+    this.economySystem.setCosmosChangedCallback((newAmount, change) => {
+      this.showPlayerInfo();
+    });
+
+    this.economySystem.setHonorChangedCallback((newAmount, change, newRank) => {
+      this.showPlayerInfo();
+    });
 
     // Crea alcuni NPC
-    this.createStreuner(ecs, 50); // Crea 50 Streuner che si muovono
+    this.createScouter(ecs, 50); // Crea 50 Scouter che si muovono
 
     // Crea stelle distribuite su tutta la mappa
     // Stelle create direttamente nel RenderSystem
@@ -426,25 +467,33 @@ export class PlayState extends GameState {
     // Aggiungi componenti alla nave player
     const transform = new Transform(worldCenterX, worldCenterY, 0);
     const velocity = new Velocity(0, 0, 0);
-    const health = new Health(100, 100);
-    const damage = new Damage(25, 300, 1000); // Cooldown aumentato a 1000ms (1 secondo)
-    const currency = new Currency(100); // Inizia con 100 Cosmos
+    const health = new Health(100000, 100000); // Vita aumentata a 100k
+    const damage = new Damage(500, 300, 1000); // Danno aumentato a 500
+            const credits = new Credits(1000); // Inizia con 1000 Credits
+            const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
+            const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
+            const honor = new Honor(0); // Inizia con 0 Honor Points (ranking verrà aggiornato dal server)
+            const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
 
     ecs.addComponent(ship, Transform, transform);
     ecs.addComponent(ship, Velocity, velocity);
     ecs.addComponent(ship, Health, health);
     ecs.addComponent(ship, Damage, damage);
-    ecs.addComponent(ship, Currency, currency);
+            ecs.addComponent(ship, Credits, credits);
+            ecs.addComponent(ship, Cosmos, cosmos);
+            ecs.addComponent(ship, Experience, experience);
+            ecs.addComponent(ship, Honor, honor);
+            ecs.addComponent(ship, PlayerStats, playerStats);
 
     return ship;
   }
 
 
   /**
-   * Crea Streuner distribuiti uniformemente su tutta la mappa
+   * Crea Scouter distribuiti uniformemente su tutta la mappa
    */
-  private createStreuner(ecs: any, count: number): void {
-    const minDistance = 100; // Distanza minima tra Streuner
+  private createScouter(ecs: any, count: number): void {
+    const minDistance = 100; // Distanza minima tra Scouter
     const minDistanceFromPlayer = 200; // Distanza minima dal player (centro)
     const worldWidth = CONFIG.WORLD_WIDTH;
     const worldHeight = CONFIG.WORLD_HEIGHT;
@@ -486,7 +535,7 @@ export class PlayState extends GameState {
           continue;
         }
 
-        // Verifica che non sia troppo vicino ad altri Streuner
+        // Verifica che non sia troppo vicino ad altri Scouter
         validPosition = positions.every(pos => {
           const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
           return distance >= minDistance;
@@ -511,13 +560,20 @@ export class PlayState extends GameState {
       positions.push({ x, y });
 
       const streuner = ecs.createEntity();
+      const npcDef = getNpcDefinition('Scouter');
 
-      // Aggiungi componenti allo Streuner
+      if (!npcDef) {
+        console.error('NPC definition not found for Scouter');
+        continue;
+      }
+
+      // Aggiungi componenti allo Scouter usando la configurazione
       ecs.addComponent(streuner, Transform, new Transform(x, y, 0));
-      ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0));
-      ecs.addComponent(streuner, Health, new Health(40, 40)); // 40 HP per gli Streuner
-      ecs.addComponent(streuner, Damage, new Damage(12, 220, 1200)); // 12 danno, 220 range, 1200ms cooldown
-      ecs.addComponent(streuner, Npc, new Npc('Streuner', 'wander', 'Streuner')); // Tipo Streuner con nickname
+      ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0)); // velocità angolare = 0
+      ecs.addComponent(streuner, Health, new Health(npcDef.stats.health, npcDef.stats.health));
+      ecs.addComponent(streuner, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
+      ecs.addComponent(streuner, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
+      ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
     }
   }
 
@@ -532,3 +588,4 @@ export class PlayState extends GameState {
     return this.world;
   }
 }
+
