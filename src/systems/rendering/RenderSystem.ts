@@ -172,8 +172,8 @@ export class RenderSystem extends BaseSystem {
       ctx.fillStyle = '#ffffff';
       ctx.fill();
 
-      // Renderizza il nickname sotto l'NPC
-      this.renderNpcNickname(ctx, npc, 0, 20);
+      // Renderizza il nickname sotto l'NPC (come il player)
+      this.renderNpcNickname(ctx, npc, 0, 45);
     }
 
     ctx.restore();
