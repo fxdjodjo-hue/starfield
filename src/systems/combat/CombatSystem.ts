@@ -115,8 +115,7 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
-   * Elabora il combattimento del player (ora solo per rotazione automatica)
-   * Il combattimento vero avviene solo quando il giocatore preme CTRL + click
+   * Elabora il combattimento automatico del player contro NPC selezionati
    */
   private processPlayerCombat(): void {
     // Trova l'NPC selezionato
@@ -127,41 +126,7 @@ export class CombatSystem extends BaseSystem {
 
     // Trova il player
     const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) return;
 
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    if (!playerTransform) return;
-
-    // Controlla se l'NPC selezionato è nel range per la rotazione automatica
-    const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
-    if (!npcTransform) return;
-
-    const playerDamage = this.ecs.getComponent(playerEntity, Damage);
-    if (!playerDamage) return;
-
-    // Se l'NPC selezionato è nel range, ruota il player verso di esso (solo rotazione, non attacco)
-    if (playerDamage.isInRange(
-      playerTransform.x, playerTransform.y,
-      npcTransform.x, npcTransform.y
-    )) {
-      this.faceTarget(playerTransform, npcTransform);
-    }
-    // Nota: Il combattimento vero avviene solo con CTRL + click, non automaticamente
-  }
-
-
-  /**
-   * Permette al player di attaccare un NPC selezionato (attivato con CTRL + click)
-   */
-  attackSelectedNpc(): void {
-    // Trova l'NPC selezionato
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    if (selectedNpcs.length === 0) return;
-
-    const selectedNpc = selectedNpcs[0];
-
-    // Trova il player
-    const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) return;
 
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
@@ -174,16 +139,64 @@ export class CombatSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
     if (!npcTransform) return;
 
-    // Solo attacca se nel range E può attaccare (cooldown)
     if (playerDamage.isInRange(
       playerTransform.x, playerTransform.y,
       npcTransform.x, npcTransform.y
-    ) && playerDamage.canAttack(this.lastUpdateTime)) {
-      // Ruota il player verso l'NPC prima di attaccare
-      this.faceTarget(playerTransform, npcTransform);
+    )) {
+      if (playerDamage.canAttack(this.lastUpdateTime)) {
+        // Ruota il player verso l'NPC prima di attaccare
+        this.faceTarget(playerTransform, npcTransform);
 
-      // Il player spara un proiettile verso l'NPC
-      this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
+        // Il player spara un proiettile verso l'NPC
+        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
+      }
+    } else {
+      // Player uscito dal range - deseleziona automaticamente l'NPC
+      // Il player deve riselezionare per continuare il combattimento
+      this.ecs.removeComponent(selectedNpc, SelectedNpc);
+    }
+  }
+
+
+  /**
+   * Permette al player di attaccare un NPC selezionato (per uso futuro)
+   */
+  attackSelectedNpc(): void {
+    // Trova l'NPC selezionato
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    if (selectedNpcs.length === 0) return;
+
+    const selectedNpc = selectedNpcs[0];
+
+    // Trova il player (entità senza SelectedNpc ma con Damage e Health)
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
+    const playerEntity = playerEntities.find(entity => {
+      return !this.ecs.hasComponent(entity, SelectedNpc);
+    });
+
+    if (!playerEntity) return;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const playerDamage = this.ecs.getComponent(playerEntity, Damage);
+    const npcHealth = this.ecs.getComponent(selectedNpc, Health);
+
+    if (!playerTransform || !playerDamage || !npcHealth) return;
+
+    // Controlla se il player è nel range di attacco
+    const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
+    if (!npcTransform) return;
+
+    if (playerDamage.isInRange(
+      playerTransform.x, playerTransform.y,
+      npcTransform.x, npcTransform.y
+    )) {
+      if (playerDamage.canAttack(this.lastUpdateTime)) {
+        // Ruota il player verso l'NPC prima di attaccare
+        this.faceTarget(playerTransform, npcTransform);
+
+        // Il player spara un proiettile verso l'NPC
+        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
+      }
     }
   }
 
