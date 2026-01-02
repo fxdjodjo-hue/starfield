@@ -152,15 +152,6 @@ export class NpcBehaviorSystem extends BaseSystem {
       }
     }
 
-    // Controlla se l'NPC sta combattendo (player nel raggio di attacco)
-    const isInCombat = this.isNpcInCombat(entity, transform);
-
-    // Se sta combattendo, forza comportamento circle
-    if (isInCombat && npc.npcType === 'Scouter') {
-      this.executeSmoothCircleBehavior(transform, velocity, deltaTime, state);
-      return; // Salta la logica normale dei comportamenti
-    }
-
     // Logica normale dei comportamenti
     switch (npc.behavior) {
       case 'idle':
@@ -182,30 +173,6 @@ export class NpcBehaviorSystem extends BaseSystem {
     }
   }
 
-  /**
-   * Verifica se un NPC sta combattendo con il player
-   */
-  private isNpcInCombat(entity: any, npcTransform: Transform): boolean {
-    const damage = this.ecs.getComponent(entity, Damage);
-    if (!damage) return false;
-
-    // Trova il player (entità senza componente Npc)
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
-      .filter(playerEntity => !this.ecs.hasComponent(playerEntity, Npc));
-
-    if (playerEntities.length === 0) return false;
-
-    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
-    if (!playerTransform) return false;
-
-    // Controlla se il player è nel raggio di attacco
-    const distance = Math.sqrt(
-      Math.pow(playerTransform.x - npcTransform.x, 2) +
-      Math.pow(playerTransform.y - npcTransform.y, 2)
-    );
-
-    return distance <= damage.range;
-  }
 
   /**
    * Comportamento idle - l'NPC sta fermo
