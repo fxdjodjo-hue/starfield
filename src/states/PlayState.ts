@@ -158,6 +158,8 @@ export class PlayState extends GameState {
   private showExpandedHud(): void {
     if (!this.expandedHudElement) {
       this.expandedHudElement = this.createExpandedHudElement();
+      // Aggiungi l'elemento al DOM quando viene creato
+      document.body.appendChild(this.expandedHudElement);
     }
 
     let infoText = '';
@@ -172,9 +174,7 @@ export class PlayState extends GameState {
       // Danno e cooldown
       const damage = this.world.getECS().getComponent(this.playerEntity, Damage);
       if (damage) {
-        const lastAttackTime = (damage as any).lastAttackTime || 0;
-        const currentTime = Date.now();
-        const cooldownRemaining = Math.max(0, (damage.attackCooldown - (currentTime - lastAttackTime)) / 1000);
+        const cooldownRemaining = damage.getCooldownRemaining(Date.now()) / 1000; // Converte in secondi
         infoText += `Damage: ${damage.damage}\n`;
         infoText += `Cooldown: ${cooldownRemaining.toFixed(1)}s\n`;
       }
