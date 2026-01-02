@@ -613,25 +613,25 @@ export class EconomySystem extends BaseSystem {
   // ===== METODI GENERALI =====
 
   /**
-   * Calcola il punteggio totale per il ranking globale
-   * Formula: Experience totale + (Honor * 100)
+   * Calcola i rank points totali per il ranking globale
+   * Formula: Experience totale + (Honor * 100) + (Livello * 500)
    */
-  calculatePlayerScore(): number {
+  calculatePlayerRankPoints(): number {
     const experience = this.getPlayerExperience();
     const honor = this.getPlayerHonor();
 
     if (!experience || !honor) return 0;
 
-    // Punteggio base: experience totale
-    let score = experience.totalExpEarned;
+    // Rank points base: experience totale
+    let rankPoints = experience.totalExpEarned;
 
     // Bonus/malus da onore (honor può essere negativo)
-    score += honor.honor * 100;
+    rankPoints += honor.honor * 100;
 
     // Bonus per livello raggiunto (per dare peso ai giocatori esperti)
-    score += experience.level * 500;
+    rankPoints += experience.level * 500;
 
-    return Math.max(0, score);
+    return Math.max(0, rankPoints);
   }
 
   /**
@@ -640,23 +640,23 @@ export class EconomySystem extends BaseSystem {
    */
   simulateRankingUpdate(): void {
     // Simula un ranking globale con posizioni che variano leggermente
-    const baseScore = this.calculatePlayerScore();
+    const baseRankPoints = this.calculatePlayerRankPoints();
 
     // Aggiungi variabilità casuale per simulare altri giocatori
     const randomFactor = (Math.random() - 0.5) * 0.2; // ±10%
-    const simulatedScore = baseScore * (1 + randomFactor);
+    const simulatedRankPoints = baseRankPoints * (1 + randomFactor);
 
     // Simula numero totale giocatori online (50-200)
     const totalPlayers = 50 + Math.floor(Math.random() * 150);
 
-    // Calcola posizione approssimativa basata sul punteggio
-    // Più alto il punteggio, più alta la posizione
-    const position = Math.max(1, Math.floor(totalPlayers * (1 - simulatedScore / (simulatedScore + 10000))));
+    // Calcola posizione approssimativa basata sui rank points
+    // Più alti i rank points, più alta la posizione
+    const position = Math.max(1, Math.floor(totalPlayers * (1 - simulatedRankPoints / (simulatedRankPoints + 10000))));
 
     // Aggiorna il ranking del giocatore
     this.updatePlayerRanking(position, totalPlayers);
 
-    console.log(`Ranking updated: Score ${Math.floor(simulatedScore)}, Position ${position}/${totalPlayers}`);
+    console.log(`Ranking updated: Rank Points ${Math.floor(simulatedRankPoints)}, Position ${position}/${totalPlayers}`);
   }
 
   /**
@@ -670,7 +670,7 @@ export class EconomySystem extends BaseSystem {
     expForNextLevel: number;
     honor: number;
     honorRank: string;
-    rankingScore: number;
+    rankingRankPoints: number;
     rankingPosition: number;
     totalPlayers: number;
   } | null {
@@ -689,7 +689,7 @@ export class EconomySystem extends BaseSystem {
       expForNextLevel: experience.expForNextLevel,
       honor: honor.honor,
       honorRank: honor.honorRank,
-      rankingScore: this.calculatePlayerScore(),
+      rankingRankPoints: this.calculatePlayerRankPoints(),
       rankingPosition: honor.rankingPosition,
       totalPlayers: honor.totalPlayers
     };
