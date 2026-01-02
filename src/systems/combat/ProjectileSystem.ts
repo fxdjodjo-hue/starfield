@@ -200,9 +200,9 @@ export class ProjectileSystem extends BaseSystem {
       const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
       const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
 
-      // Se abbiamo applicato danno shield, sposta leggermente più in alto i danni HP
+      // Se abbiamo applicato danno shield, sposta significativamente più in alto i danni HP
       const hadShieldDamage = targetShield && targetShield.current < targetShield.max && damage > targetShield.current;
-      const hpOffsetY = hadShieldDamage ? -45 : -30; // HP più in alto se dopo shield damage
+      const hpOffsetY = hadShieldDamage ? -60 : -30; // HP molto più in alto se dopo shield damage (30px di separazione)
 
       // Aggiungi leggera variazione casuale per evitare sovrapposizione completa
       const randomOffsetX = (Math.random() - 0.5) * 20; // ±10px
@@ -219,8 +219,11 @@ export class ProjectileSystem extends BaseSystem {
     const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
     const textColor = '#4444ff'; // Blu per danno shield
 
-    // Crea testo di danno per lo shield
-    this.createDamageText(value, targetEntity.id, 0, -30, textColor); // Stessa altezza iniziale dell'HP
+    // Aggiungi variazione casuale X anche per lo shield (diversa da HP per evitare allineamento)
+    const randomOffsetX = (Math.random() - 0.5) * 25; // ±12.5px (leggermente diversa da HP)
+
+    // Crea testo di danno per lo shield (parte da -30, HP da -60 quando c'è shield damage)
+    this.createDamageText(value, targetEntity.id, randomOffsetX, -30, textColor);
   }
 
   /**
