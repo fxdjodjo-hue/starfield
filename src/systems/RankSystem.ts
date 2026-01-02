@@ -2,6 +2,7 @@ import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Experience } from '/src/entities/Experience';
 import { Honor } from '/src/entities/Honor';
+import { PlayerStats } from '/src/entities/PlayerStats';
 
 /**
  * Sistema Rank - gestisce il calcolo dei gradi militari
@@ -55,13 +56,19 @@ export class RankSystem extends BaseSystem {
 
     const experience = this.ecs.getComponent(this.playerEntity, Experience);
     const honor = this.ecs.getComponent(this.playerEntity, Honor);
+    const playerStats = this.ecs.getComponent(this.playerEntity, PlayerStats);
 
-    if (!experience || !honor) return 0;
+    if (!experience || !honor || !playerStats) return 0;
 
-    // Formula bilanciata: exp totale + (honor * 1) + (livello * 2)
-    // Honor conta meno, level conta meno per progressione più graduale
-    const points = experience.totalExpEarned + (honor.honor * 1) + (experience.level * 2);
+    // Formula migliorata: exp totale + (honor * 1.5) + (livello * 30) + (kills / 10)
+    // - Exp: base principale (100% del valore)
+    // - Honor: bonus moderato per comportamento (×1.5)
+    // - Level: vantaggio veterani significativo (×30)
+    // - Kills: bonus efficienza minima (÷10)
+    const points = experience.totalExpEarned + (honor.honor * 1.5) + (experience.level * 30) + (playerStats.kills / 10);
 
+    // DEBUG: mostra calcolo dettagliato
+    console.log(`DEBUG Rank Points: exp=${experience.totalExpEarned}, honor=${honor.honor}, level=${experience.level}, kills=${playerStats.kills}, points=${points}`);
 
     return points;
   }

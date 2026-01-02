@@ -23,6 +23,7 @@ import { Damage } from '/src/entities/combat/Damage';
 import { Credits, Cosmos } from '/src/entities/Currency';
 import { Experience } from '/src/entities/Experience';
 import { Honor } from '/src/entities/Honor';
+import { PlayerStats } from '/src/entities/PlayerStats';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
 import { CONFIG } from '/src/utils/config/Config';
 import { getNpcDefinition } from '/src/config/NpcConfig';
@@ -383,6 +384,7 @@ export class PlayState extends GameState {
     this.economySystem.setRankSystem(rankSystem);
     rankSystem.setPlayerEntity(playerShip);
     rewardSystem.setEconomySystem(this.economySystem);
+    rewardSystem.setPlayerEntity(playerShip); // Per aggiornare statistiche player
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
@@ -468,19 +470,21 @@ export class PlayState extends GameState {
     const velocity = new Velocity(0, 0, 0);
     const health = new Health(100, 100);
     const damage = new Damage(25, 300, 1000); // Cooldown aumentato a 1000ms (1 secondo)
-    const credits = new Credits(1000); // Inizia con 1000 Credits
-    const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
-    const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
-    const honor = new Honor(0); // Inizia con 0 Honor Points (ranking verrà aggiornato dal server)
+            const credits = new Credits(1000); // Inizia con 1000 Credits
+            const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
+            const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
+            const honor = new Honor(0); // Inizia con 0 Honor Points (ranking verrà aggiornato dal server)
+            const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
 
     ecs.addComponent(ship, Transform, transform);
     ecs.addComponent(ship, Velocity, velocity);
     ecs.addComponent(ship, Health, health);
     ecs.addComponent(ship, Damage, damage);
-    ecs.addComponent(ship, Credits, credits);
-    ecs.addComponent(ship, Cosmos, cosmos);
-    ecs.addComponent(ship, Experience, experience);
-    ecs.addComponent(ship, Honor, honor);
+            ecs.addComponent(ship, Credits, credits);
+            ecs.addComponent(ship, Cosmos, cosmos);
+            ecs.addComponent(ship, Experience, experience);
+            ecs.addComponent(ship, Honor, honor);
+            ecs.addComponent(ship, PlayerStats, playerStats);
 
     return ship;
   }

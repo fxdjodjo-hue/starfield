@@ -2,6 +2,7 @@ import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Health } from '/src/entities/combat/Health';
 import { Npc } from '/src/entities/ai/Npc';
+import { PlayerStats } from '/src/entities/PlayerStats';
 import { getNpcDefinition } from '/src/config/NpcConfig';
 
 /**
@@ -10,6 +11,7 @@ import { getNpcDefinition } from '/src/config/NpcConfig';
  */
 export class RewardSystem extends BaseSystem {
   private economySystem: any = null;
+  private playerEntity: any = null;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -20,6 +22,13 @@ export class RewardSystem extends BaseSystem {
    */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
+  }
+
+  /**
+   * Imposta l'entità player per aggiornare le statistiche
+   */
+  setPlayerEntity(playerEntity: any): void {
+    this.playerEntity = playerEntity;
   }
 
   update(deltaTime: number): void {
@@ -51,6 +60,15 @@ export class RewardSystem extends BaseSystem {
     }
 
     console.log(`🎉 NPC defeated: ${npc.nickname} (${npc.npcType})`);
+
+    // Incrementa contatore kills del player
+    if (this.playerEntity) {
+      const playerStats = this.ecs.getComponent(this.playerEntity, PlayerStats);
+      if (playerStats) {
+        playerStats.addKill();
+        console.log(`⚔️ Kill counter: ${playerStats.kills}`);
+      }
+    }
 
     // Assegna ricompense economiche
     if (npcDef.rewards.credits > 0) {
