@@ -158,13 +158,18 @@ export class PlayState extends GameState {
 
     // Ottieni valori economici
     const economyStatus = this.economySystem?.getPlayerEconomyStatus();
-    let economyText = '';
+    let economyValues = '';
+    let separatorText = '';
+
     if (economyStatus) {
-      economyText = ` | CR:${economyStatus.credits} CO:${economyStatus.cosmos} XP:${economyStatus.experience}/${economyStatus.expForNextLevel} LV:${economyStatus.level} HN:${economyStatus.honor}`;
+      economyValues = `CR:${economyStatus.credits} CO:${economyStatus.cosmos} XP:${economyStatus.experience}/${economyStatus.expForNextLevel} LV:${economyStatus.level} HN:${economyStatus.honor}`;
+      separatorText = ' | ';
     }
 
-    // HUD con tutte le informazioni
-    this.playerInfoElement.textContent = `Pilot: ${this.context.playerNickname}${hpText}${economyText}`;
+    // HUD con separatori verdi e valori delle valute bianche
+    this.playerInfoElement.innerHTML =
+      `<span style="color: #00ff88;">Pilot: ${this.context.playerNickname}${hpText}</span>` +
+      (economyStatus ? `<span style="color: #00ff88;">${separatorText}</span><span style="color: #ffffff;">${economyValues}</span>` : '');
     if (!document.body.contains(this.playerInfoElement)) {
       document.body.appendChild(this.playerInfoElement);
     }
