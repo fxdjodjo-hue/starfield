@@ -409,9 +409,6 @@ export class PlayState extends GameState {
     // Crea stelle distribuite su tutta la mappa
     // Stelle create direttamente nel RenderSystem
 
-    // Salva riferimento al sistema di input per la callback
-    const inputSys = inputSystem;
-
     // Collega input al controllo player e selezione NPC
     inputSystem.setMouseStateCallback((pressed, x, y) => {
       if (pressed) {
@@ -427,22 +424,14 @@ export class PlayState extends GameState {
         // Se si clicca normalmente (non sulla minimappa), cancella destinazione minimappa
         minimapSystem.clearDestination();
 
-        // Controlla se CTRL è premuto per attaccare
-        const isCtrlPressed = inputSys.isCtrlPressed();
+        // Prova a selezionare NPC
+        const canvasSize = this.world.getCanvasSize();
+        const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
+        const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
 
-        if (isCtrlPressed) {
-          // CTRL + click: attacca l'NPC selezionato (se presente)
-          combatSystem.attackSelectedNpc();
-        } else {
-          // Click normale: seleziona NPC
-          const canvasSize = this.world.getCanvasSize();
-          const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
-          const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
-
-          // Se non ha selezionato un NPC, attiva il movimento del player normale
-          if (!npcSelected) {
-            playerControlSystem.handleMouseState(pressed, x, y);
-          }
+        // Se non ha selezionato un NPC, attiva il movimento del player normale
+        if (!npcSelected) {
+          playerControlSystem.handleMouseState(pressed, x, y);
         }
       } else {
         // Su mouse up, ferma il movimento dalla minimappa e del player
@@ -478,8 +467,8 @@ export class PlayState extends GameState {
     // Aggiungi componenti alla nave player
     const transform = new Transform(worldCenterX, worldCenterY, 0);
     const velocity = new Velocity(0, 0, 0);
-    const health = new Health(100, 100);
-    const damage = new Damage(25, 300, 1000); // Cooldown aumentato a 1000ms (1 secondo)
+    const health = new Health(100000, 100000); // Vita aumentata a 100k
+    const damage = new Damage(500, 300, 1000); // Danno aumentato a 500
             const credits = new Credits(1000); // Inizia con 1000 Credits
             const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
             const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
