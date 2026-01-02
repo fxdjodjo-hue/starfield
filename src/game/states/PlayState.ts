@@ -160,7 +160,7 @@ export class PlayState extends GameState {
     const economyStatus = this.economySystem?.getPlayerEconomyStatus();
     let economyHtml = '';
     if (economyStatus) {
-      economyHtml = ` <span style="color: #00ff88;">CR:</span><span style="color: #ffffff;">${economyStatus.credits}</span> <span style="color: #00ff88;">CO:</span><span style="color: #ffffff;">${economyStatus.cosmos}</span> <span style="color: #00ff88;">XP:</span><span style="color: #ffffff;">${economyStatus.experience}/${economyStatus.expForNextLevel}</span> <span style="color: #00ff88;">LV:</span><span style="color: #ffffff;">${economyStatus.level}</span> <span style="color: #00ff88;">HN:</span><span style="color: #ffffff;">${economyStatus.honor}</span>`;
+      economyHtml = ` <span style="color: #00ff88;">CR:</span><span style="color: #ffffff;">${economyStatus.credits}</span> <span style="color: #00ff88;">CO:</span><span style="color: #ffffff;">${economyStatus.cosmos}</span> <span style="color: #00ff88;">XP:</span><span style="color: #ffffff;">${economyStatus.experience}/${economyStatus.expForNextLevel}</span> <span style="color: #00ff88;">LV:</span><span style="color: #ffffff;">${economyStatus.level}</span> <span style="color: #00ff88;">HN:</span><span style="color: #ffffff;">${economyStatus.honor}</span> <span style="color: #00ff88;">RK:</span><span style="color: #ffffff;">${economyStatus.honorRank}</span>`;
     }
 
     // HUD con colori diversi per etichette (verde) e valori (bianco)
