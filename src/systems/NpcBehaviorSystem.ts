@@ -5,11 +5,28 @@ import { Transform } from '../components/Transform';
 import { Velocity } from '../components/Velocity';
 
 /**
+ * Stato interno per gestire movimenti fluidi degli NPC
+ */
+interface NpcState {
+  targetAngle: number; // Angolo target per movimenti fluidi
+  currentSpeed: number; // Velocità attuale
+  targetSpeed: number; // Velocità target
+  acceleration: number; // Accelerazione per transizioni fluide
+  patrolAngle: number; // Angolo per comportamento patrol
+  circleCenterX: number; // Centro del movimento circolare
+  circleCenterY: number;
+  lastUpdateTime: number; // Per timing delle transizioni
+}
+
+/**
  * Sistema di comportamento NPC - gestisce l'AI semplice degli NPC
  */
 export class NpcBehaviorSystem extends BaseSystem {
   private lastBehaviorUpdate = 0;
-  private behaviorUpdateInterval = 2000; // Cambia comportamento ogni 2 secondi
+  private behaviorUpdateInterval = 4000; // Cambia comportamento ogni 4 secondi (più fluido)
+
+  // Stato per movimenti fluidi
+  private npcStates: Map<number, NpcState> = new Map();
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -65,10 +82,16 @@ export class NpcBehaviorSystem extends BaseSystem {
   private updateNpcBehavior(npc: Npc): void {
     // Solo gli Streuner si muovono, gli altri rimangono fermi
     if (npc.npcType === 'Streuner') {
-      // Comportamenti casuali per gli Streuner
-      const behaviors = ['wander', 'circle'];
+      // Comportamenti più fluidi per gli Streuner
+      // patrol: mantiene direzione più a lungo
+      // wander: cambia direzione frequentemente
+      // circle: movimento circolare fluido
+      const behaviors = ['patrol', 'wander', 'circle'];
       const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
       npc.setBehavior(randomBehavior);
+
+      // Inizializza lo stato dell'NPC se necessario
+      this.initializeNpcState(npc);
     } else {
       // Gli altri NPC stanno fermi
       npc.setBehavior('idle');
@@ -79,15 +102,26 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Esegue il comportamento corrente di un NPC
    */
   private executeNpcBehavior(npc: Npc, transform: Transform, velocity: Velocity, deltaTime: number): void {
+    const npcId = npc.npcType === 'Streuner' ? 1 : 0;
+    const state = this.npcStates.get(npcId);
+
+    if (!state) {
+      this.executeIdleBehavior(velocity);
+      return;
+    }
+
     switch (npc.behavior) {
       case 'idle':
         this.executeIdleBehavior(velocity);
         break;
+      case 'patrol':
+        this.executePatrolBehavior(transform, velocity, deltaTime, state);
+        break;
       case 'wander':
-        this.executeWanderBehavior(transform, velocity);
+        this.executeSmoothWanderBehavior(transform, velocity, deltaTime, state);
         break;
       case 'circle':
-        this.executeCircleBehavior(transform, velocity);
+        this.executeSmoothCircleBehavior(transform, velocity, deltaTime, state);
         break;
       default:
         this.executeIdleBehavior(velocity);
@@ -104,7 +138,33 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   /**
-   * Comportamento wander - l'NPC si muove casualmente
+   * Comportamento patrol - mantiene una direzione più a lungo per movimenti fluidi
+   */
+  private executePatrolBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Aggiorna occasionalmente la direzione (ogni 8-12 secondi circa)
+    if (Math.random() < 0.002) { // ~0.2% probabilità per frame
+      state.patrolAngle = Math.random() * Math.PI * 2;
+      state.targetSpeed = 40 + Math.random() * 30; // 40-70 pixels/second
+    }
+
+    this.updateSmoothVelocity(velocity, state.targetSpeed, state.patrolAngle, deltaTime, state);
+  }
+
+  /**
+   * Comportamento wander fluido - cambia direzione gradualmente
+   */
+  private executeSmoothWanderBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Cambia direzione gradualmente (ogni 1-3 secondi circa)
+    if (Math.random() < 0.008) { // ~0.8% probabilità per frame
+      state.targetAngle = Math.random() * Math.PI * 2;
+      state.targetSpeed = 25 + Math.random() * 35; // 25-60 pixels/second
+    }
+
+    this.updateSmoothVelocity(velocity, state.targetSpeed, state.targetAngle, deltaTime, state);
+  }
+
+  /**
+   * Comportamento wander - l'NPC si muove casualmente (vecchio metodo, mantenuto per compatibilità)
    */
   private executeWanderBehavior(transform: Transform, velocity: Velocity): void {
     // Movimento casuale con velocità moderata
@@ -118,7 +178,35 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   /**
-   * Comportamento circle - l'NPC gira in cerchio
+   * Comportamento circle fluido - movimento circolare relativo alla posizione iniziale
+   */
+  private executeSmoothCircleBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Inizializza il centro del cerchio alla prima esecuzione
+    if (state.circleCenterX === 0 && state.circleCenterY === 0) {
+      state.circleCenterX = transform.x + (Math.random() - 0.5) * 200; // Centro casuale vicino all'NPC
+      state.circleCenterY = transform.y + (Math.random() - 0.5) * 200;
+    }
+
+    const radius = 80 + Math.random() * 40; // Raggio variabile 80-120
+    const speed = 45 + Math.random() * 25; // Velocità variabile 45-70
+
+    const dx = transform.x - state.circleCenterX;
+    const dy = transform.y - state.circleCenterY;
+
+    // Direzione tangente (perpendicolare al raggio)
+    const tangentX = -dy;
+    const tangentY = dx;
+
+    // Normalizza e applica velocità
+    const length = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
+    if (length > 0) {
+      const targetAngle = Math.atan2(tangentY, tangentX);
+      this.updateSmoothVelocity(velocity, speed, targetAngle, deltaTime, state);
+    }
+  }
+
+  /**
+   * Comportamento circle - l'NPC gira in cerchio (vecchio metodo, mantenuto per compatibilità)
    */
   private executeCircleBehavior(transform: Transform, velocity: Velocity): void {
     // Movimento circolare con velocità costante
@@ -144,5 +232,49 @@ export class NpcBehaviorSystem extends BaseSystem {
         (tangentY / length) * speed
       );
     }
+  }
+
+  /**
+   * Inizializza lo stato di un NPC per movimenti fluidi
+   */
+  private initializeNpcState(npc: Npc): void {
+    // Per ora usiamo un ID semplice basato sul tipo (potrebbe essere migliorato)
+    const npcId = npc.npcType === 'Streuner' ? 1 : 0;
+
+    if (!this.npcStates.has(npcId)) {
+      this.npcStates.set(npcId, {
+        targetAngle: Math.random() * Math.PI * 2,
+        currentSpeed: 0,
+        targetSpeed: 30 + Math.random() * 40, // 30-70 pixels/second
+        acceleration: 50, // pixels/second²
+        patrolAngle: Math.random() * Math.PI * 2,
+        circleCenterX: 0,
+        circleCenterY: 0,
+        lastUpdateTime: Date.now()
+      });
+    }
+  }
+
+  /**
+   * Aggiorna gradualmente la velocità per transizioni fluide
+   */
+  private updateSmoothVelocity(velocity: Velocity, targetSpeed: number, targetAngle: number, deltaTime: number, state: NpcState): void {
+    const dt = deltaTime / 1000; // Converti in secondi
+
+    // Aggiorna velocità con accelerazione
+    const speedDiff = targetSpeed - state.currentSpeed;
+    const accel = Math.sign(speedDiff) * state.acceleration * dt;
+
+    if (Math.abs(accel) < Math.abs(speedDiff)) {
+      state.currentSpeed += accel;
+    } else {
+      state.currentSpeed = targetSpeed;
+    }
+
+    // Applica velocità nella direzione target
+    velocity.setVelocity(
+      Math.cos(targetAngle) * state.currentSpeed,
+      Math.sin(targetAngle) * state.currentSpeed
+    );
   }
 }
