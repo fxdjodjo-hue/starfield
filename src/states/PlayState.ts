@@ -402,17 +402,43 @@ export class PlayState extends GameState {
 
 
   /**
-   * Crea Streuner (NPC che si muovono) nel mondo di gioco
+   * Crea Streuner (NPC che si muovono) nel mondo di gioco con spaziatura garantita
    */
   private createStreuner(ecs: any, count: number): void {
-    for (let i = 0; i < count; i++) {
-      const streuner = ecs.createEntity();
+    const minDistance = 150; // Distanza minima tra Streuner (150 pixel)
+    const baseRadius = 300; // Raggio base dal centro
+    const radiusVariation = 200; // Variazione del raggio (+/- 200 pixel)
+    const positions: { x: number, y: number }[] = [];
 
-      // Posizioni casuali attorno al player (vicino ai NPC normali)
-      const angle = (Math.PI * 2 * i) / count + Math.PI / 6; // Offset per distribuirli
-      const distance = 250 + Math.random() * 100; // Tra 250 e 350 pixel dal centro
-      const x = Math.cos(angle) * distance;
-      const y = Math.sin(angle) * distance;
+    for (let i = 0; i < count; i++) {
+      let attempts = 0;
+      let validPosition = false;
+      let x = 0, y = 0;
+
+      // Trova una posizione valida che non sia troppo vicina ad altri Streuner
+      while (!validPosition && attempts < 50) { // Max 50 tentativi per posizione
+        // Distribuisci equamente in cerchio con variazione casuale
+        const baseAngle = (Math.PI * 2 * i) / count;
+        const angleVariation = (Math.random() - 0.5) * Math.PI * 0.5; // +/- 45 gradi
+        const angle = baseAngle + angleVariation;
+
+        const radius = baseRadius + (Math.random() - 0.5) * radiusVariation;
+        x = Math.cos(angle) * radius;
+        y = Math.sin(angle) * radius;
+
+        // Verifica che non sia troppo vicino ad altri Streuner
+        validPosition = positions.every(pos => {
+          const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+          return distance >= minDistance;
+        });
+
+        attempts++;
+      }
+
+      // Se dopo 50 tentativi non trova posizione valida, usa comunque quella corrente
+      positions.push({ x, y });
+
+      const streuner = ecs.createEntity();
 
       // Aggiungi componenti allo Streuner
       ecs.addComponent(streuner, Transform, new Transform(x, y, 0));

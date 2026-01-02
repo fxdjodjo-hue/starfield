@@ -41,6 +41,9 @@ export class NpcBehaviorSystem extends BaseSystem {
       this.lastBehaviorUpdate = 0;
     }
 
+    // Applica avoidance tra NPC vicini
+    this.applyNpcAvoidance(deltaTime);
+
     // Esegui comportamenti correnti
     this.executeBehaviors(deltaTime);
   }
@@ -269,6 +272,66 @@ export class NpcBehaviorSystem extends BaseSystem {
         circleCenterY: 0,
         lastUpdateTime: Date.now()
       });
+    }
+  }
+
+  /**
+   * Applica avoidance tra NPC che sono troppo vicini
+   */
+  private applyNpcAvoidance(deltaTime: number): void {
+    const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform, Velocity);
+    const avoidanceRadius = 120; // Raggio entro cui applicare avoidance (120 pixel)
+    const avoidanceStrength = 80; // Forza di repulsione
+
+    for (const entityA of npcs) {
+      const transformA = this.ecs.getComponent(entityA, Transform);
+      const velocityA = this.ecs.getComponent(entityA, Velocity);
+      const npcA = this.ecs.getComponent(entityA, Npc);
+
+      if (!transformA || !velocityA || npcA?.npcType !== 'Streuner') continue;
+
+      let avoidanceForceX = 0;
+      let avoidanceForceY = 0;
+      let nearbyCount = 0;
+
+      // Controlla tutti gli altri NPC Streuner
+      for (const entityB of npcs) {
+        if (entityA.id === entityB.id) continue; // Non controllare se stesso
+
+        const transformB = this.ecs.getComponent(entityB, Transform);
+        const npcB = this.ecs.getComponent(entityB, Npc);
+
+        if (!transformB || npcB?.npcType !== 'Streuner') continue;
+
+        const dx = transformA.x - transformB.x;
+        const dy = transformA.y - transformB.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        // Se troppo vicino, applica forza di repulsione
+        if (distance < avoidanceRadius && distance > 0) {
+          // Forza inversamente proporzionale alla distanza (più vicini = più forte)
+          const force = avoidanceStrength * (1 - distance / avoidanceRadius);
+          avoidanceForceX += (dx / distance) * force;
+          avoidanceForceY += (dy / distance) * force;
+          nearbyCount++;
+        }
+      }
+
+      // Applica la forza di avoidance se ci sono NPC vicini
+      if (nearbyCount > 0) {
+        const dt = deltaTime / 1000;
+        // Aggiungi la forza di avoidance alla velocità corrente
+        velocityA.x += avoidanceForceX * dt;
+        velocityA.y += avoidanceForceY * dt;
+
+        // Limita la velocità massima per evitare comportamenti estremi
+        const maxSpeed = 80; // Velocità massima durante avoidance
+        const currentSpeed = Math.sqrt(velocityA.x * velocityA.x + velocityA.y * velocityA.y);
+        if (currentSpeed > maxSpeed) {
+          velocityA.x = (velocityA.x / currentSpeed) * maxSpeed;
+          velocityA.y = (velocityA.y / currentSpeed) * maxSpeed;
+        }
+      }
     }
   }
 
