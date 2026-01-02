@@ -1,8 +1,7 @@
 import { Component } from '/src/infrastructure/ecs/Component';
 
 /**
- * Componente per testi di danno fissi sopra le entità
- * Mostra numeri di danno fissi sopra le entità colpite, seguendole durante il movimento
+ * Testi di danno che seguono le entità colpite
  */
 export class DamageText extends Component {
   public value: number;
@@ -42,16 +41,9 @@ export class DamageText extends Component {
     this.lastKnownWorldY = 0;
   }
 
-  /**
-   * Calcola l'opacità basata sul tempo rimanente
-   */
   getAlpha(): number {
     const progress = this.lifetime / this.maxLifetime;
-    // Fade out negli ultimi 250ms (0.25 * 1000ms)
-    if (progress < 0.25) {
-      return progress / 0.25;
-    }
-    return 1.0;
+    return progress < 0.25 ? progress / 0.25 : 1.0;
   }
 
   /**

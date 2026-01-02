@@ -4,9 +4,7 @@ import { DamageText } from '/src/entities/combat/DamageText';
 import { Transform } from '/src/entities/spatial/Transform';
 
 /**
- * Sistema per gestire e renderizzare testi di danno fissi sopra le entità
- * Mostra numeri di danno che seguono le entità colpite durante il movimento
- * I testi continuano a esistere anche quando l'entità muore
+ * Rendering testi di danno
  */
 export class DamageTextSystem extends BaseSystem {
   private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
@@ -90,35 +88,21 @@ export class DamageTextSystem extends BaseSystem {
       let worldX: number;
       let worldY: number;
 
-      // Trova la posizione dell'entità target
       const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
       if (targetEntity) {
-        // Entità ancora viva - usa la sua posizione corrente
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
         if (!targetTransform) continue;
 
-        // Calcola posizione sopra l'entità con offset (X fisso, Y che si muove)
         worldX = targetTransform.x + damageText.initialOffsetX;
         worldY = targetTransform.y + damageText.currentOffsetY;
-
-        // Salva l'ultima posizione conosciuta
         damageText.lastKnownWorldX = worldX;
         damageText.lastKnownWorldY = worldY;
       } else {
-        // Entità morta - usa l'ultima posizione conosciuta e FERMati lì (non continuare l'animazione)
         worldX = damageText.lastKnownWorldX;
         worldY = damageText.lastKnownWorldY;
       }
 
-      // Converti coordinate mondo in coordinate schermo
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
-
-      // Controlla se le coordinate sono valide e visibili (con margine)
-      const margin = 50;
-      if (screenPos.x < -margin || screenPos.x > canvasSize.width + margin ||
-          screenPos.y < -margin || screenPos.y > canvasSize.height + margin) {
-        continue; // Salta testi fuori dallo schermo per performance
-      }
 
       const alpha = damageText.getAlpha();
 

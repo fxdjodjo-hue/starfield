@@ -229,19 +229,11 @@ export class ProjectileSystem extends BaseSystem {
    * Crea un testo di danno
    */
   private createDamageText(value: number, targetEntityId: number, offsetX: number, offsetY: number, color: string): void {
-    // Validazione input
-    if (value <= 0 || !Number.isFinite(value)) return; // Non creare testi per danni <= 0 o invalidi
-    if (targetEntityId < 0) return; // ID entità non valido
-    if (!color || typeof color !== 'string') color = '#ffffff'; // Colore di default
+    if (value <= 0 || targetEntityId < 0) return;
 
-    // Crea sempre il testo di danno - continuerà a esistere anche se l'entità muore
-    try {
-      const damageTextEntity = this.ecs.createEntity();
-      const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
-      this.ecs.addComponent(damageTextEntity, DamageText, damageText);
-    } catch (error) {
-      console.warn('[DamageText] Failed to create damage text:', error);
-    }
+    const damageTextEntity = this.ecs.createEntity();
+    const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
+    this.ecs.addComponent(damageTextEntity, DamageText, damageText);
   }
 
 }
