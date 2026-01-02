@@ -150,6 +150,10 @@ export class CombatSystem extends BaseSystem {
         // Il player spara un proiettile verso l'NPC
         this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
       }
+    } else {
+      // Player uscito dal range - deseleziona automaticamente l'NPC
+      // Il player deve riselezionare per continuare il combattimento
+      this.ecs.removeComponent(selectedNpc, SelectedNpc);
     }
   }
 
