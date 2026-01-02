@@ -158,8 +158,8 @@ export class MinimapSystem extends System {
     ctx.stroke();
 
     // Testo "MINIMAP" sopra i bordi
-    ctx.fillStyle = '#0066cc'; // Blu meno acceso
-    ctx.font = 'bold 12px Arial';
+    ctx.fillStyle = '#ffffff'; // Bianco invece di blu
+    ctx.font = 'bold 14px Arial';
     ctx.textAlign = 'center';
     const minimapTextX = this.minimap.x + this.minimap.width / 2;
     ctx.fillText('MINIMAP', minimapTextX, this.minimap.y - 8);
@@ -168,10 +168,10 @@ export class MinimapSystem extends System {
     if (this.camera) {
       const playerX = Math.round(this.camera.x);
       const playerY = Math.round(this.camera.y);
-      ctx.fillStyle = '#00ff88';
-      ctx.font = '10px monospace';
+      ctx.fillStyle = '#ffffff'; // Bianco anche per le coordinate
+      ctx.font = '12px monospace';
       ctx.textAlign = 'left';
-      ctx.fillText(`${playerX}, ${playerY}`, minimapTextX + 60, this.minimap.y - 8);
+      ctx.fillText(`${playerX}, ${playerY}`, minimapTextX + 70, this.minimap.y - 6);
     }
 
     // Ripristina stato del contesto
