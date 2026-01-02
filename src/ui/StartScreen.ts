@@ -1,4 +1,5 @@
 import type { GameContext } from '../infrastructure/engine/GameContext';
+import { getFormattedVersion } from '../utils/config/Version';
 
 /**
  * Schermata iniziale del gioco Starfield
@@ -13,6 +14,7 @@ export class StartScreen {
   private nicknameInput!: HTMLInputElement;
   private playButton!: HTMLButtonElement;
   private titleElement!: HTMLDivElement;
+  private versionElement!: HTMLDivElement;
   private container!: HTMLDivElement;
 
   constructor(context: GameContext) {
@@ -50,9 +52,20 @@ export class StartScreen {
     this.titleElement.style.cssText = `
       color: #00ff88;
       font-size: 48px;
-      margin-bottom: 40px;
+      margin-bottom: 10px;
       text-shadow: 0 0 20px #00ff88;
       letter-spacing: 4px;
+    `;
+
+    // Versione
+    this.versionElement = document.createElement('div');
+    this.versionElement.textContent = `Version ${getFormattedVersion()}`;
+    this.versionElement.style.cssText = `
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 14px;
+      margin-bottom: 30px;
+      font-family: monospace;
+      letter-spacing: 1px;
     `;
 
     // Container form
@@ -134,6 +147,7 @@ export class StartScreen {
     formContainer.appendChild(this.playButton);
 
     this.container.appendChild(this.titleElement);
+    this.container.appendChild(this.versionElement);
     this.container.appendChild(formContainer);
 
     // Aggiungi al DOM
