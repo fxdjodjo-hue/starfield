@@ -561,26 +561,6 @@ export class EconomySystem extends BaseSystem {
 
   // ===== GESTIONE HONOR =====
 
-  /**
-   * Aggiorna la posizione nel ranking globale del giocatore
-   */
-  updatePlayerRanking(position: number, totalPlayers: number): string | null {
-    const honor = this.getPlayerHonor();
-    if (!honor) return null;
-
-    const oldRank = honor.honorRank;
-    const newRank = honor.updateRankingPosition(position, totalPlayers);
-
-    console.log(`Ranking updated: Position ${honor.rankingPosition}/${honor.totalPlayers}, Rank: ${honor.honorRank}`);
-
-    if (newRank && newRank !== oldRank) {
-      console.log(`🏆 RANK CHANGE! ${oldRank} → ${newRank}`);
-    }
-
-    this.onHonorChanged?.(honor.honor, 0, newRank || undefined);
-
-    return newRank;
-  }
 
   /**
    * Imposta lo status di Administrator
@@ -617,58 +597,7 @@ export class EconomySystem extends BaseSystem {
 
   // ===== METODI GENERALI =====
 
-  /**
-   * Calcola i rank points totali per il ranking globale
-   * Formula: Experience totale + (Honor * 100) + (Livello * 500)
-   */
-  calculatePlayerRankPoints(): number {
-    const experience = this.getPlayerExperience();
-    const honor = this.getPlayerHonor();
 
-    if (!experience || !honor) return 0;
-
-    // Rank points base: experience totale
-    let rankPoints = experience.totalExpEarned;
-
-    // Bonus/malus da onore (honor può essere negativo)
-    rankPoints += honor.honor * 100;
-
-    // Bonus per livello raggiunto (per dare peso ai giocatori esperti)
-    rankPoints += experience.level * 500;
-
-    return Math.max(0, rankPoints);
-  }
-
-  /**
-   * Simula aggiornamento ranking globale (per testing single-player)
-   * In produzione questo verrebbe chiamato dal server con dati reali
-   */
-  simulateRankingUpdate(): void {
-    // Simula un ranking globale con posizioni che variano leggermente
-    const baseRankPoints = this.calculatePlayerRankPoints();
-
-    // Aggiungi variabilità casuale per simulare altri giocatori
-    const randomFactor = (Math.random() - 0.5) * 0.2; // ±10%
-    const simulatedRankPoints = baseRankPoints * (1 + randomFactor);
-
-    // Simula numero totale giocatori online (50-200)
-    const totalPlayers = 50 + Math.floor(Math.random() * 150);
-
-    // DEBUG: mostra i valori calcolati
-    console.log(`DEBUG Ranking: baseRankPoints=${baseRankPoints}, simulated=${Math.floor(simulatedRankPoints)}, totalPlayers=${totalPlayers}`);
-
-    // Calcola posizione approssimativa basata sui rank points
-    // Più alti i rank points, più BASSA la posizione (1 = migliore)
-    const normalizedScore = simulatedRankPoints / (simulatedRankPoints + 10000);
-    const position = Math.max(1, Math.floor(totalPlayers * (1 - normalizedScore)));
-
-    console.log(`DEBUG Position calc: normalizedScore=${normalizedScore.toFixed(3)}, position=${position}/${totalPlayers}`);
-
-    // Aggiorna il ranking del giocatore
-    this.updatePlayerRanking(position, totalPlayers);
-
-    console.log(`Ranking updated: Rank Points ${Math.floor(simulatedRankPoints)}, Position ${position}/${totalPlayers}`);
-  }
 
   /**
    * Ottiene lo stato economico completo del giocatore
@@ -681,9 +610,6 @@ export class EconomySystem extends BaseSystem {
     expForNextLevel: number;
     honor: number;
     honorRank: string;
-    rankingRankPoints: number;
-    rankingPosition: number;
-    totalPlayers: number;
   } | null {
     const credits = this.getPlayerCredits();
     const cosmos = this.getPlayerCosmos();
@@ -694,15 +620,12 @@ export class EconomySystem extends BaseSystem {
 
     return {
       credits: credits.credits,
-      cosmos: cosmos.cosmos,
+      cosmos: cosmos.amount,
       level: experience.level,
       experience: experience.exp,
-      expForNextLevel: experience.expForNextLevel,
+      expForNextLevel: experience.expForNextLevel - experience.getExpRequiredForLevel(experience.level - 1),
       honor: honor.honor,
-      honorRank: honor.honorRank,
-      rankingRankPoints: this.calculatePlayerRankPoints(),
-      rankingPosition: honor.rankingPosition,
-      totalPlayers: honor.totalPlayers
+      honorRank: honor.honorRank
     };
   }
 

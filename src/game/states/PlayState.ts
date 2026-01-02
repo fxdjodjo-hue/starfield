@@ -37,8 +37,6 @@ export class PlayState extends GameState {
   private hudExpanded: boolean = false;
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
   private economySystem: any = null;
-  private rankingUpdateTimer: number = 0;
-  private rankingUpdateInterval: number = 30000; // Aggiorna ranking ogni 30 secondi
 
   constructor(context: GameContext) {
     super();
@@ -81,13 +79,6 @@ export class PlayState extends GameState {
 
     // Aggiorna le informazioni del player (HP)
     this.showPlayerInfo();
-
-    // Aggiorna ranking periodicamente (simulazione per single-player)
-    this.rankingUpdateTimer += deltaTime;
-    if (this.rankingUpdateTimer >= this.rankingUpdateInterval) {
-      economySystem.simulateRankingUpdate();
-      this.rankingUpdateTimer = 0;
-    }
   }
 
   /**
@@ -383,12 +374,8 @@ export class PlayState extends GameState {
     // Configura sistema economico
     this.economySystem.setPlayerEntity(playerShip);
 
-    // Configura callbacks per aggiornamenti ranking e HUD
+    // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
-      if (leveledUp) {
-        // Aggiorna ranking quando sali di livello
-        setTimeout(() => this.economySystem.simulateRankingUpdate(), 100);
-      }
       // Aggiorna HUD con nuovi valori
       this.showPlayerInfo();
     });
