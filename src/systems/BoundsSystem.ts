@@ -3,6 +3,7 @@ import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Health } from '/src/entities/combat/Health';
 import { CONFIG } from '/src/utils/config/Config';
+import { MovementSystem } from '../physics/MovementSystem';
 
 /**
  * Sistema Bounds - Gestisce i limiti della mappa
@@ -20,11 +21,13 @@ export class BoundsSystem extends BaseSystem {
   private readonly DAMAGE_INTERVAL = 1000; // 1 secondo
   private readonly DAMAGE_AMOUNT = 10;
 
-  // Riferimento al player
+  // Riferimenti ai sistemi
   private playerEntity: any = null;
+  private movementSystem: MovementSystem;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
+    this.movementSystem = movementSystem;
   }
 
   /**
@@ -84,17 +87,15 @@ export class BoundsSystem extends BaseSystem {
     ctx.setLineDash([10, 5]); // Linea tratteggiata
     ctx.globalAlpha = 0.8;
 
-    // Calcola le coordinate schermo per i bounds
-    const camera = this.findCamera();
+    // Ottieni la camera dal movement system
+    const camera = this.movementSystem.getCamera();
     if (!camera) return;
 
-    const canvasSize = this.getCanvasSize();
-
     // Converti coordinate mondo in coordinate schermo
-    const topLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_TOP, canvasSize.width, canvasSize.height);
-    const topRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_TOP, canvasSize.width, canvasSize.height);
-    const bottomRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_BOTTOM, canvasSize.width, canvasSize.height);
-    const bottomLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_BOTTOM, canvasSize.width, canvasSize.height);
+    const topLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_TOP, ctx.canvas.width, ctx.canvas.height);
+    const topRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_TOP, ctx.canvas.width, ctx.canvas.height);
+    const bottomRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_BOTTOM, ctx.canvas.width, ctx.canvas.height);
+    const bottomLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_BOTTOM, ctx.canvas.width, ctx.canvas.height);
 
     // Disegna il rettangolo di confine
     ctx.beginPath();
@@ -108,26 +109,4 @@ export class BoundsSystem extends BaseSystem {
     ctx.restore();
   }
 
-  /**
-   * Trova il sistema camera per le conversioni coordinate
-   */
-  private findCamera(): any {
-    const ecs = this.ecs;
-    if (ecs && (ecs as any).systems) {
-      return (ecs as any).systems.find((system: any) => system.getCamera);
-    }
-    return null;
-  }
-
-  /**
-   * Ottiene le dimensioni del canvas
-   */
-  private getCanvasSize(): { width: number, height: number } {
-    const ecs = this.ecs;
-    if (ecs && (ecs as any).context && (ecs as any).context.canvas) {
-      const canvas = (ecs as any).context.canvas;
-      return { width: canvas.width, height: canvas.height };
-    }
-    return { width: window.innerWidth, height: window.innerHeight };
-  }
 }
