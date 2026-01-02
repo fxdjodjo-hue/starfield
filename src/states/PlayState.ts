@@ -324,9 +324,9 @@ export class PlayState extends GameState {
     ecs.addSystem(projectileSystem);   // Sistema proiettili
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
-    ecs.addSystem(parallaxSystem);     // Sistema parallax (sfondo)
     ecs.addSystem(renderSystem);       // Rendering principale
-    ecs.addSystem(damageTextSystem);   // Infine testi danno (sopra tutto)
+    ecs.addSystem(parallaxSystem);     // Sistema parallax (sopra tutto)
+    ecs.addSystem(damageTextSystem);   // Infine testi danno (più sopra)
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
