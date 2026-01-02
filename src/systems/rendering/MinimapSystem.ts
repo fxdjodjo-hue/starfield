@@ -17,6 +17,7 @@ export class MinimapSystem extends System {
   private onMoveToCallback: ((worldX: number, worldY: number) => void) | null = null;
   private destinationX: number | null = null;
   private destinationY: number | null = null;
+  private isMouseDownInMinimap: boolean = false;
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -49,26 +50,63 @@ export class MinimapSystem extends System {
   }
 
   /**
-   * Gestisce click sulla minimappa
+   * Gestisce mouse down sulla minimappa
    */
-  handleClick(screenX: number, screenY: number): boolean {
+  handleMouseDown(screenX: number, screenY: number): boolean {
     if (!this.minimap.enabled || !this.minimap.visible) return false;
 
     if (this.minimap.isPointInside(screenX, screenY)) {
-      const worldPos = this.minimap.minimapToWorld(screenX, screenY);
-
-      // Salva la destinazione per mostrare la linea
-      this.destinationX = worldPos.x;
-      this.destinationY = worldPos.y;
-
-      if (this.onMoveToCallback) {
-        this.onMoveToCallback(worldPos.x, worldPos.y);
-      }
-
-      return true; // Click gestito dalla minimappa
+      this.isMouseDownInMinimap = true;
+      this.updateDestination(screenX, screenY);
+      return true; // Mouse down gestito dalla minimappa
     }
 
-    return false; // Click non sulla minimappa
+    return false; // Mouse down non sulla minimappa
+  }
+
+  /**
+   * Gestisce mouse move mentre è premuto nella minimappa
+   */
+  handleMouseMove(screenX: number, screenY: number): boolean {
+    if (!this.isMouseDownInMinimap) return false;
+
+    if (this.minimap.isPointInside(screenX, screenY)) {
+      this.updateDestination(screenX, screenY);
+      return true; // Mouse move gestito dalla minimappa
+    } else {
+      // Se il mouse esce dalla minimappa mentre è premuto, ferma il movimento
+      this.handleMouseUp();
+      return false;
+    }
+  }
+
+  /**
+   * Gestisce mouse up (ferma il movimento dalla minimappa)
+   */
+  handleMouseUp(): void {
+    this.isMouseDownInMinimap = false;
+  }
+
+  /**
+   * Aggiorna la destinazione e avvia il movimento
+   */
+  private updateDestination(screenX: number, screenY: number): void {
+    const worldPos = this.minimap.minimapToWorld(screenX, screenY);
+
+    // Salva la destinazione per mostrare la linea
+    this.destinationX = worldPos.x;
+    this.destinationY = worldPos.y;
+
+    if (this.onMoveToCallback) {
+      this.onMoveToCallback(worldPos.x, worldPos.y);
+    }
+  }
+
+  /**
+   * Metodo deprecato - mantenuto per compatibilità
+   */
+  handleClick(screenX: number, screenY: number): boolean {
+    return this.handleMouseDown(screenX, screenY);
   }
 
   /**

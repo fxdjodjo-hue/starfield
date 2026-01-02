@@ -364,10 +364,10 @@ export class PlayState extends GameState {
         // Assicurati che il canvas abbia il focus per gli eventi tastiera
         this.context.canvas.focus();
 
-        // Prima controlla se il click è sulla minimappa
-        const minimapHandled = minimapSystem.handleClick(x, y);
+        // Prima controlla se il mouse down è sulla minimappa
+        const minimapHandled = minimapSystem.handleMouseDown(x, y);
         if (minimapHandled) {
-          return; // Click gestito dalla minimappa, non fare altro
+          return; // Mouse down gestito dalla minimappa, non fare altro
         }
 
         // Se si clicca normalmente (non sulla minimappa), cancella destinazione minimappa
@@ -383,13 +383,19 @@ export class PlayState extends GameState {
           playerControlSystem.handleMouseState(pressed, x, y);
         }
       } else {
-        // Su mouse up, ferma il movimento del player
+        // Su mouse up, ferma il movimento dalla minimappa e del player
+        minimapSystem.handleMouseUp();
         playerControlSystem.handleMouseState(pressed, x, y);
       }
     });
 
     inputSystem.setMouseMoveWhilePressedCallback((x, y) => {
-      playerControlSystem.handleMouseMoveWhilePressed(x, y);
+      // Prima controlla se il mouse move è nella minimappa
+      const minimapHandled = minimapSystem.handleMouseMove(x, y);
+      if (!minimapHandled) {
+        // Se non è nella minimappa, gestisci il movimento normale del player
+        playerControlSystem.handleMouseMoveWhilePressed(x, y);
+      }
     });
 
     // Combattimento ora automatico - non serve più la barra spaziatrice
