@@ -425,7 +425,7 @@ export class PlayState extends GameState {
         minimapSystem.clearDestination();
 
         // Controlla se CTRL è premuto per attaccare
-        const isCtrlPressed = this.context.keysPressed.has('ControlLeft') || this.context.keysPressed.has('ControlRight');
+        const isCtrlPressed = inputSystem.isCtrlPressed();
 
         if (isCtrlPressed) {
           // CTRL + click: attacca l'NPC selezionato (se presente)
