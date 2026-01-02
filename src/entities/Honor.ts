@@ -10,22 +10,30 @@ export class Honor extends Component {
   private _isAdministrator: boolean = false;
   private _isOutlaw: boolean = false;
 
-  // Ranghi militari basati su punti honor (semplificato)
+  // Ranghi militari completi basati su punti honor
   private static readonly MILITARY_RANKS = [
-    { name: 'Chief General', minHonor: 10000 },
-    { name: 'General', minHonor: 5000 },
-    { name: 'Basic General', minHonor: 2500 },
-    { name: 'Chief Colonel', minHonor: 1000 },
-    { name: 'Colonel', minHonor: 500 },
-    { name: 'Basic Colonel', minHonor: 250 },
-    { name: 'Chief Major', minHonor: 100 },
-    { name: 'Major', minHonor: 50 },
-    { name: 'Basic Major', minHonor: 25 },
-    { name: 'Chief Captain', minHonor: 10 },
-    { name: 'Captain', minHonor: 5 },
-    { name: 'Basic Captain', minHonor: 1 },
-    { name: 'Chief Lieutenant', minHonor: 1 },  // Honor >= 1
-    { name: 'Recruit', minHonor: 0 }            // Honor >= 0 (default per nuovi giocatori)
+    { name: 'Chief General', minHonor: 50000 },
+    { name: 'General', minHonor: 25000 },
+    { name: 'Basic General', minHonor: 15000 },
+    { name: 'Chief Colonel', minHonor: 10000 },
+    { name: 'Colonel', minHonor: 7500 },
+    { name: 'Basic Colonel', minHonor: 5000 },
+    { name: 'Chief Major', minHonor: 3500 },
+    { name: 'Major', minHonor: 2500 },
+    { name: 'Basic Major', minHonor: 1500 },
+    { name: 'Chief Captain', minHonor: 1000 },
+    { name: 'Captain', minHonor: 750 },
+    { name: 'Basic Captain', minHonor: 500 },
+    { name: 'Chief Lieutenant', minHonor: 350 },
+    { name: 'Lieutenant', minHonor: 250 },
+    { name: 'Basic Lieutenant', minHonor: 150 },
+    { name: 'Chief Sergeant', minHonor: 100 },
+    { name: 'Sergeant', minHonor: 75 },
+    { name: 'Basic Sergeant', minHonor: 50 },
+    { name: 'Chief Space Pilot', minHonor: 25 },
+    { name: 'Space Pilot', minHonor: 10 },
+    { name: 'Basic Space Pilot', minHonor: 5 },
+    { name: 'Recruit', minHonor: 0 }  // Honor >= 0 (default per nuovi giocatori)
   ];
 
   constructor(initialHonor: number = 0) {
