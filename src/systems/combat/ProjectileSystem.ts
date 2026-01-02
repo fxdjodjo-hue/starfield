@@ -238,8 +238,8 @@ export class ProjectileSystem extends BaseSystem {
     // Controlla quanti testi sono già attivi per questa entità (usando cache per performance)
     const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
 
-    // Se ci sono già troppi testi (max 3), non crearne altri per evitare sovrapposizioni
-    if (activeCount >= 3) {
+    // Se c'è già un testo attivo (max 1), non crearne altri per evitare sovrapposizioni
+    if (activeCount >= 1) {
       return; // Salta la creazione per mantenere pulizia visiva
     }
 

@@ -9,7 +9,7 @@ import { Transform } from '/src/entities/spatial/Transform';
  * Limita il numero di testi attivi per entità per evitare sovrapposizioni
  */
 export class DamageTextSystem extends BaseSystem {
-  private maxTextsPerEntity: number = 3; // Massimo 3 testi di danno per entità
+  private maxTextsPerEntity: number = 1; // Massimo 1 testo di danno per entità
   private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
 
   constructor(ecs: ECS) {
