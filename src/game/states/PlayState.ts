@@ -409,6 +409,9 @@ export class PlayState extends GameState {
     // Crea stelle distribuite su tutta la mappa
     // Stelle create direttamente nel RenderSystem
 
+    // Salva riferimento al sistema di input per la callback
+    const inputSys = inputSystem;
+
     // Collega input al controllo player e selezione NPC
     inputSystem.setMouseStateCallback((pressed, x, y) => {
       if (pressed) {
@@ -425,7 +428,7 @@ export class PlayState extends GameState {
         minimapSystem.clearDestination();
 
         // Controlla se CTRL è premuto per attaccare
-        const isCtrlPressed = inputSystem.isCtrlPressed();
+        const isCtrlPressed = inputSys.isCtrlPressed();
 
         if (isCtrlPressed) {
           // CTRL + click: attacca l'NPC selezionato (se presente)
