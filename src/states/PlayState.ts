@@ -22,8 +22,11 @@ import { Damage } from '../components/Damage';
 export class PlayState extends GameState {
   private world: World;
   private playerInfoElement: HTMLElement;
+  private expandedHudElement: HTMLElement | null = null;
   private context: GameContext;
   private playerEntity: any = null;
+  private hudExpanded: boolean = false;
+  private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
 
   constructor(context: GameContext) {
     super();
@@ -44,6 +47,9 @@ export class PlayState extends GameState {
 
     // Mostra info del giocatore
     this.showPlayerInfo();
+
+    // Setup HUD toggle listener
+    this.setupHudToggle();
 
     try {
       // Inizializza il mondo e crea il giocatore
@@ -85,6 +91,12 @@ export class PlayState extends GameState {
    * Termina il gameplay
    */
   exit(): void {
+    // Rimuovi listener HUD toggle
+    if (this.hudToggleListener) {
+      document.removeEventListener('keydown', this.hudToggleListener);
+      this.hudToggleListener = null;
+    }
+
     this.hidePlayerInfo();
     this.showMainTitle();
     // Qui potremmo salvare lo stato di gioco, cleanup, etc.
@@ -125,11 +137,119 @@ export class PlayState extends GameState {
       }
     }
 
+    // HUD minimal: solo nickname e HP
     this.playerInfoElement.textContent = `Pilot: ${this.context.playerNickname}${hpText}`;
     if (!document.body.contains(this.playerInfoElement)) {
       document.body.appendChild(this.playerInfoElement);
     }
     this.playerInfoElement.style.display = 'block';
+
+    // HUD espanso: informazioni aggiuntive
+    if (this.hudExpanded) {
+      this.showExpandedHud();
+    } else {
+      this.hideExpandedHud();
+    }
+  }
+
+  /**
+   * Mostra HUD espanso con informazioni aggiuntive
+   */
+  private showExpandedHud(): void {
+    if (!this.expandedHudElement) {
+      this.expandedHudElement = this.createExpandedHudElement();
+    }
+
+    let infoText = '';
+
+    // Posizione del player
+    if (this.playerEntity) {
+      const transform = this.world.getECS().getComponent(this.playerEntity, Transform);
+      if (transform) {
+        infoText += `Pos: (${Math.round(transform.x)}, ${Math.round(transform.y)})\n`;
+      }
+
+      // Danno e cooldown
+      const damage = this.world.getECS().getComponent(this.playerEntity, Damage);
+      if (damage) {
+        const lastAttackTime = (damage as any).lastAttackTime || 0;
+        const currentTime = Date.now();
+        const cooldownRemaining = Math.max(0, (damage.attackCooldown - (currentTime - lastAttackTime)) / 1000);
+        infoText += `Damage: ${damage.damage}\n`;
+        infoText += `Cooldown: ${cooldownRemaining.toFixed(1)}s\n`;
+      }
+    }
+
+    // Conteggio nemici
+    const npcEntities = this.world.getECS().getEntitiesWithComponents(Npc);
+    infoText += `Enemies: ${npcEntities.length}`;
+
+    this.expandedHudElement.textContent = infoText;
+    this.expandedHudElement.style.display = 'block';
+  }
+
+  /**
+   * Nasconde HUD espanso
+   */
+  private hideExpandedHud(): void {
+    if (this.expandedHudElement) {
+      this.expandedHudElement.style.display = 'none';
+    }
+  }
+
+  /**
+   * Crea elemento HUD espanso
+   */
+  private createExpandedHudElement(): HTMLElement {
+    const element = document.createElement('div');
+    element.id = 'expanded-hud';
+    element.style.cssText = `
+      position: fixed;
+      top: 60px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.8);
+      color: #00ff88;
+      padding: 10px 15px;
+      border-radius: 8px;
+      border: 1px solid #00ff88;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      line-height: 1.4;
+      z-index: 100;
+      display: none;
+      white-space: pre-line;
+    `;
+    return element;
+  }
+
+  /**
+   * Setup listener per toggle HUD
+   */
+  private setupHudToggle(): void {
+    this.hudToggleListener = (event: KeyboardEvent) => {
+      if (event.key === 'h' || event.key === 'H') {
+        this.toggleHud();
+      }
+    };
+
+    document.addEventListener('keydown', this.hudToggleListener);
+  }
+
+  /**
+   * Toggle tra HUD minimal ed espanso
+   */
+  private toggleHud(): void {
+    this.hudExpanded = !this.hudExpanded;
+    this.showPlayerInfo();
+
+    // Aggiorna stile elemento base per indicare lo stato
+    if (this.hudExpanded) {
+      this.playerInfoElement.style.borderColor = '#ffff00'; // Giallo quando espanso
+      this.playerInfoElement.style.color = '#ffff00';
+    } else {
+      this.playerInfoElement.style.borderColor = '#00ff88'; // Verde quando minimal
+      this.playerInfoElement.style.color = '#00ff88';
+    }
   }
 
   /**
@@ -139,6 +259,12 @@ export class PlayState extends GameState {
     this.playerInfoElement.style.display = 'none';
     if (document.body.contains(this.playerInfoElement)) {
       document.body.removeChild(this.playerInfoElement);
+    }
+
+    // Nasconde anche HUD espanso
+    this.hideExpandedHud();
+    if (this.expandedHudElement && document.body.contains(this.expandedHudElement)) {
+      document.body.removeChild(this.expandedHudElement);
     }
   }
 
