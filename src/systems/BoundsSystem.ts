@@ -9,14 +9,11 @@ import { CONFIG } from '/src/utils/config/Config';
  * Renderizza linee di confine rosse e applica danno ai giocatori fuori bounds
  */
 export class BoundsSystem extends BaseSystem {
-  // Margine di sicurezza dai bordi assoluti
-  private readonly BOUNDS_MARGIN = 100;
-
-  // Dimensioni effettive dei bounds (leggermente più piccoli del mondo)
-  private readonly BOUNDS_LEFT = -CONFIG.WORLD_WIDTH / 2 + this.BOUNDS_MARGIN;
-  private readonly BOUNDS_RIGHT = CONFIG.WORLD_WIDTH / 2 - this.BOUNDS_MARGIN;
-  private readonly BOUNDS_TOP = -CONFIG.WORLD_HEIGHT / 2 + this.BOUNDS_MARGIN;
-  private readonly BOUNDS_BOTTOM = CONFIG.WORLD_HEIGHT / 2 - this.BOUNDS_MARGIN;
+  // Bounds esattamente delle dimensioni della mappa
+  private readonly BOUNDS_LEFT = -CONFIG.WORLD_WIDTH / 2;
+  private readonly BOUNDS_RIGHT = CONFIG.WORLD_WIDTH / 2;
+  private readonly BOUNDS_TOP = -CONFIG.WORLD_HEIGHT / 2;
+  private readonly BOUNDS_BOTTOM = CONFIG.WORLD_HEIGHT / 2;
 
   // Timer per il danno periodico
   private lastDamageTime = 0;
@@ -76,7 +73,7 @@ export class BoundsSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza le linee di confine rosse
+   * Renderizza le linee di confine rosse (esattamente ai bordi della mappa)
    */
   private renderBounds(ctx: CanvasRenderingContext2D): void {
     ctx.save();
