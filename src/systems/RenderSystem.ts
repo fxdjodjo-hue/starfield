@@ -277,36 +277,57 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza stelle di sfondo semplici (fallback per il parallax)
+   * Renderizza stelle di sfondo che coprono tutta la mappa
    */
   private renderBackgroundStars(ctx: CanvasRenderingContext2D, camera: any): void {
-    console.log('Rendering background stars...');
-    // Crea stelle fisse basate su coordinate mondo (non si muovono con la camera)
+    // Crea stelle distribuite uniformemente su tutta la mappa
     ctx.save();
     ctx.fillStyle = 'white';
 
-    // Genera stelle basate su una seed deterministica per consistenza
+    // Usa le dimensioni della mappa dal config
+    const worldWidth = 21000;  // CONFIG.WORLD_WIDTH
+    const worldHeight = 13100; // CONFIG.WORLD_HEIGHT
+
+    // Aumenta il numero di stelle per copertura completa (300 stelle)
     let renderedStars = 0;
-    for (let i = 0; i < 100; i++) {
-      // Usa una funzione hash semplice per posizioni consistenti
-      const hash = (i * 73856093) % 1000000; // Numero primo per distribuzione
-      const x = ((hash % 1000) / 1000 - 0.5) * 40000; // Distribuite su +/- 20000
-      const y = (((hash / 1000) | 0) / 1000 - 0.5) * 25000; // Distribuite su +/- 12500
+    const totalStars = 300;
+
+    for (let i = 0; i < totalStars; i++) {
+      // Distribuisci uniformemente su tutta la mappa usando una griglia
+      const gridCols = Math.ceil(Math.sqrt(totalStars));
+      const gridRows = Math.ceil(totalStars / gridCols);
+
+      const gridX = i % gridCols;
+      const gridY = Math.floor(i / gridCols);
+
+      // Calcola posizione base nella griglia
+      const cellWidth = worldWidth / gridCols;
+      const cellHeight = worldHeight / gridRows;
+
+      const baseX = gridX * cellWidth - worldWidth / 2;
+      const baseY = gridY * cellHeight - worldHeight / 2;
+
+      // Aggiungi variazione casuale entro la cella (usa hash per consistenza)
+      const hash = (i * 73856093) % 1000000;
+      const variationX = ((hash % 100) / 100 - 0.5) * cellWidth * 0.9;
+      const variationY = (((hash / 100) % 100) / 100 - 0.5) * cellHeight * 0.9;
+
+      const x = baseX + variationX;
+      const y = baseY + variationY;
 
       // Converti in coordinate schermo
       const screenPos = camera.worldToScreen(x, y, ctx.canvas.width, ctx.canvas.height);
 
-      // Renderizza solo se visibile
-      if (screenPos.x >= -10 && screenPos.x <= ctx.canvas.width + 10 &&
-          screenPos.y >= -10 && screenPos.y <= ctx.canvas.height + 10) {
-        const size = 2 + (hash % 3); // Size 2-4 pixel
-        ctx.globalAlpha = 0.7 + (hash % 30) / 100; // Alpha 0.7-1.0
+      // Renderizza solo se visibile (con margine più ampio per transizioni fluide)
+      if (screenPos.x >= -50 && screenPos.x <= ctx.canvas.width + 50 &&
+          screenPos.y >= -50 && screenPos.y <= ctx.canvas.height + 50) {
+        const size = 1 + (hash % 3); // Size 1-3 pixel (più piccole per densità)
+        ctx.globalAlpha = 0.5 + (hash % 50) / 100; // Alpha 0.5-1.0 per profondità
         ctx.fillRect(screenPos.x - size/2, screenPos.y - size/2, size, size);
         renderedStars++;
       }
     }
 
-    console.log(`Rendered ${renderedStars} background stars`);
     ctx.restore();
   }
 
