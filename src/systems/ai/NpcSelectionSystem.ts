@@ -43,7 +43,7 @@ export class NpcSelectionSystem extends BaseSystem {
   }
 
   /**
-   * Trova l'NPC più vicino alla posizione mondo (se entro 350px)
+   * Trova l'NPC più vicino alla posizione mondo (se entro 30px - dimensione cerchio selezione)
    */
   private findNpcAtWorldPosition(worldX: number, worldY: number): any | null {
     console.log(`[DEBUG] Checking NPC selection at world coordinates: (${worldX.toFixed(1)}, ${worldY.toFixed(1)})`);
@@ -52,7 +52,7 @@ export class NpcSelectionSystem extends BaseSystem {
     console.log(`[DEBUG] Found ${npcs.length} NPCs to check`);
 
     let closestNpc: any = null;
-    let closestDistance = 350; // Distanza massima per il click (350px nel mondo)
+    let closestDistance = 30; // Distanza massima per il click (30px - dimensione cerchio selezione)
 
     for (const npcEntity of npcs) {
       const transform = this.ecs.getComponent(npcEntity, Transform);
