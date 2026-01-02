@@ -90,14 +90,21 @@ export class DamageTextSystem extends BaseSystem {
       let worldY: number;
 
       const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
-      if (!targetEntity) continue; // Se entità non esiste, testo sparisce
+      if (targetEntity) {
+        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+        if (!targetTransform) continue;
 
-      const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-      if (!targetTransform) continue;
+        worldX = targetTransform.x + damageText.initialOffsetX;
+        worldY = targetTransform.y + damageText.currentOffsetY;
 
-      // Calcola posizione del testo (sempre relativo all'entità viva)
-      worldX = targetTransform.x + damageText.initialOffsetX;
-      worldY = targetTransform.y + damageText.currentOffsetY;
+        // Salva l'ultima posizione valida
+        damageText.lastWorldX = worldX;
+        damageText.lastWorldY = worldY;
+      } else {
+        // Usa l'ultima posizione conosciuta se entità non esiste più
+        worldX = damageText.lastWorldX;
+        worldY = damageText.lastWorldY;
+      }
 
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
 
