@@ -85,8 +85,9 @@ export class EconomySystem extends BaseSystem {
     `;
 
     const iconSpan = document.createElement('span');
-    iconSpan.textContent = '💰';
+    iconSpan.textContent = 'CR';
     iconSpan.style.marginRight = '6px';
+    iconSpan.style.fontWeight = 'bold';
 
     const textSpan = document.createElement('span');
     textSpan.id = 'credits-amount';
@@ -122,8 +123,9 @@ export class EconomySystem extends BaseSystem {
     `;
 
     const iconSpan = document.createElement('span');
-    iconSpan.textContent = '⚫';
+    iconSpan.textContent = 'CO';
     iconSpan.style.marginRight = '6px';
+    iconSpan.style.fontWeight = 'bold';
 
     const textSpan = document.createElement('span');
     textSpan.id = 'cosmos-amount';
@@ -135,45 +137,73 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Crea l'elemento UI per l'Experience
+   * Crea gli elementi UI per Experience e Level separatamente
    */
   private createExperienceDisplay(): void {
     this.removeExperienceDisplay();
 
+    // Container per entrambi i display
     this.experienceDisplayElement = document.createElement('div');
     this.experienceDisplayElement.id = 'experience-display';
     this.experienceDisplayElement.style.cssText = `
       position: fixed;
       top: 120px;
       left: 20px;
-      background: rgba(0, 10, 30, 0.9);
-      color: #ffff00;
-      padding: 6px 10px;
-      border-radius: 6px;
-      border: 1px solid #ffff00;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      font-weight: bold;
       z-index: 100;
       display: none;
     `;
 
-    const iconSpan = document.createElement('span');
-    iconSpan.textContent = '⭐';
-    iconSpan.style.marginRight = '6px';
+    // Display Experience
+    const expDisplay = document.createElement('div');
+    expDisplay.style.cssText = `
+      background: rgba(0, 10, 30, 0.9);
+      color: #ffff00;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #ffff00;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      font-weight: bold;
+      margin-bottom: 2px;
+    `;
 
-    const levelSpan = document.createElement('span');
-    levelSpan.id = 'experience-level';
-    levelSpan.textContent = 'Lv.1';
+    const expIconSpan = document.createElement('span');
+    expIconSpan.textContent = 'XP';
+    expIconSpan.style.marginRight = '4px';
 
-    const expSpan = document.createElement('span');
-    expSpan.id = 'experience-amount';
-    expSpan.textContent = ' 0/100';
-    expSpan.style.marginLeft = '8px';
+    const expAmountSpan = document.createElement('span');
+    expAmountSpan.id = 'experience-amount';
+    expAmountSpan.textContent = '0/100';
 
-    this.experienceDisplayElement.appendChild(iconSpan);
-    this.experienceDisplayElement.appendChild(levelSpan);
-    this.experienceDisplayElement.appendChild(expSpan);
+    expDisplay.appendChild(expIconSpan);
+    expDisplay.appendChild(expAmountSpan);
+
+    // Display Level
+    const levelDisplay = document.createElement('div');
+    levelDisplay.style.cssText = `
+      background: rgba(0, 10, 30, 0.9);
+      color: #ffaa00;
+      padding: 4px 8px;
+      border-radius: 4px;
+      border: 1px solid #ffaa00;
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      font-weight: bold;
+    `;
+
+    const levelIconSpan = document.createElement('span');
+    levelIconSpan.textContent = 'LV';
+    levelIconSpan.style.marginRight = '4px';
+
+    const levelAmountSpan = document.createElement('span');
+    levelAmountSpan.id = 'experience-level';
+    levelAmountSpan.textContent = '1';
+
+    levelDisplay.appendChild(levelIconSpan);
+    levelDisplay.appendChild(levelAmountSpan);
+
+    this.experienceDisplayElement.appendChild(expDisplay);
+    this.experienceDisplayElement.appendChild(levelDisplay);
     document.body.appendChild(this.experienceDisplayElement);
   }
 
@@ -187,7 +217,7 @@ export class EconomySystem extends BaseSystem {
     this.honorDisplayElement.id = 'honor-display';
     this.honorDisplayElement.style.cssText = `
       position: fixed;
-      top: 150px;
+      top: 180px;
       left: 20px;
       background: rgba(0, 10, 30, 0.9);
       color: #ff8800;
@@ -202,8 +232,9 @@ export class EconomySystem extends BaseSystem {
     `;
 
     const iconSpan = document.createElement('span');
-    iconSpan.textContent = '🏆';
+    iconSpan.textContent = 'RK';
     iconSpan.style.marginRight = '6px';
+    iconSpan.style.fontWeight = 'bold';
 
     const textSpan = document.createElement('span');
     textSpan.id = 'honor-amount';
@@ -374,10 +405,10 @@ export class EconomySystem extends BaseSystem {
       const amountElement = this.experienceDisplayElement.querySelector('#experience-amount');
 
       if (levelElement) {
-        levelElement.textContent = `Lv.${experience.level}`;
+        levelElement.textContent = experience.level.toString();
       }
       if (amountElement) {
-        amountElement.textContent = ` ${experience.formatForDisplay()}`;
+        amountElement.textContent = experience.formatForDisplay();
       }
     }
   }
