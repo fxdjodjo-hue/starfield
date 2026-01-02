@@ -12,8 +12,6 @@ export class DamageText extends Component {
   public lifetime: number;
   public maxLifetime: number;
   public color: string;
-  public entityBaseX: number; // Posizione base dell'entità quando era viva
-  public entityBaseY: number;
 
   constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 1000) {
     super();
@@ -37,8 +35,6 @@ export class DamageText extends Component {
     this.lifetime = lifetime;
     this.maxLifetime = lifetime;
     this.color = color || '#ffffff';
-    this.entityBaseX = 0;
-    this.entityBaseY = 0;
   }
 
   getAlpha(): number {
