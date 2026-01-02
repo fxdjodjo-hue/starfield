@@ -63,13 +63,16 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Aggiorna il comportamento di un singolo NPC
    */
   private updateNpcBehavior(npc: Npc): void {
-    // Per ora, tutti gli NPC stanno fermi
-    npc.setBehavior('idle');
-
-    // In futuro, possiamo riattivare comportamenti casuali:
-    // const behaviors = ['idle', 'wander', 'circle'];
-    // const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
-    // npc.setBehavior(randomBehavior);
+    // Solo gli Streuner si muovono, gli altri rimangono fermi
+    if (npc.npcType === 'Streuner') {
+      // Comportamenti casuali per gli Streuner
+      const behaviors = ['wander', 'circle'];
+      const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+      npc.setBehavior(randomBehavior);
+    } else {
+      // Gli altri NPC stanno fermi
+      npc.setBehavior('idle');
+    }
   }
 
   /**

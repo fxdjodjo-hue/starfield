@@ -341,8 +341,9 @@ export class PlayState extends GameState {
     playerControlSystem.setCamera(movementSystem.getCamera());
 
     // Crea alcuni NPC
-    this.createNpcs(ecs, 3); // Crea 3 NPC quadrati
-    this.createTriangles(ecs, 2); // Crea 2 triangoli nemici
+    this.createNpcs(ecs, 2); // Crea 2 NPC normali
+    this.createStreuner(ecs, 2); // Crea 2 Streuner che si muovono
+    this.createTriangles(ecs, 1); // Crea 1 triangolo nemico
 
     // Crea stelle distribuite su tutta la mappa
     this.createParallaxElements(ecs, 80); // Crea 80 stelle distribuite sulla mappa
@@ -447,6 +448,27 @@ export class PlayState extends GameState {
     }
   }
 
+  /**
+   * Crea Streuner (NPC che si muovono) nel mondo di gioco
+   */
+  private createStreuner(ecs: any, count: number): void {
+    for (let i = 0; i < count; i++) {
+      const streuner = ecs.createEntity();
+
+      // Posizioni casuali attorno al player (vicino ai NPC normali)
+      const angle = (Math.PI * 2 * i) / count + Math.PI / 6; // Offset per distribuirli
+      const distance = 250 + Math.random() * 100; // Tra 250 e 350 pixel dal centro
+      const x = Math.cos(angle) * distance;
+      const y = Math.sin(angle) * distance;
+
+      // Aggiungi componenti allo Streuner
+      ecs.addComponent(streuner, Transform, new Transform(x, y, 0));
+      ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0));
+      ecs.addComponent(streuner, Health, new Health(40, 40)); // 40 HP per gli Streuner
+      ecs.addComponent(streuner, Damage, new Damage(12, 220, 1200)); // 12 danno, 220 range, 1200ms cooldown
+      ecs.addComponent(streuner, Npc, new Npc('Streuner', 'wander')); // Tipo Streuner con movimento iniziale
+    }
+  }
 
   /**
    * Crea elementi parallax per lo sfondo
