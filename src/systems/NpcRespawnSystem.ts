@@ -7,6 +7,7 @@ import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { Npc } from '/src/entities/ai/Npc';
 import { CONFIG } from '/src/utils/config/Config';
+import { getNpcDefinition } from '/src/config/NpcConfig';
 
 /**
  * Sistema Respawn NPC - Gestisce la rigenerazione degli NPC morti
@@ -146,9 +147,6 @@ export class NpcRespawnSystem extends BaseSystem {
    * Crea un NPC in una posizione specifica
    */
   private createNpcAtPosition(npcType: string, x: number, y: number): void {
-    // Import dinamico per evitare dipendenze circolari
-    const { getNpcDefinition } = require('/src/config/NpcConfig');
-
     const npcDef = getNpcDefinition(npcType);
     if (!npcDef) {
       console.error(`No NPC definition found for type: ${npcType}`);
