@@ -13,6 +13,7 @@ import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
+import { RewardSystem } from '/src/systems/RewardSystem';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
@@ -24,6 +25,7 @@ import { Experience } from '/src/entities/Experience';
 import { Honor } from '/src/entities/Honor';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
 import { CONFIG } from '/src/utils/config/Config';
+import { getNpcDefinition } from '/src/config/NpcConfig';
 
 /**
  * Stato del gameplay attivo
@@ -335,6 +337,7 @@ export class PlayState extends GameState {
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
     this.economySystem = new EconomySystem(ecs);
     const rankSystem = new RankSystem(ecs);
+    const rewardSystem = new RewardSystem(ecs);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
@@ -349,6 +352,7 @@ export class PlayState extends GameState {
     ecs.addSystem(minimapSystem);      // Minimappa (ultima per renderizzare sopra tutto)
     ecs.addSystem(this.economySystem); // Sistema economia
     ecs.addSystem(rankSystem); // Sistema rank
+    ecs.addSystem(rewardSystem); // Sistema ricompense
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs);
@@ -374,10 +378,11 @@ export class PlayState extends GameState {
       minimapSystem.clearDestination();
     });
 
-    // Configura sistema economico e rank
+    // Configura sistema economico, rank e ricompense
     this.economySystem.setPlayerEntity(playerShip);
     this.economySystem.setRankSystem(rankSystem);
     rankSystem.setPlayerEntity(playerShip);
+    rewardSystem.setEconomySystem(this.economySystem);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
@@ -552,13 +557,19 @@ export class PlayState extends GameState {
       positions.push({ x, y });
 
       const streuner = ecs.createEntity();
+      const npcDef = getNpcDefinition('Streuner');
 
-      // Aggiungi componenti allo Streuner
+      if (!npcDef) {
+        console.error('NPC definition not found for Streuner');
+        continue;
+      }
+
+      // Aggiungi componenti allo Streuner usando la configurazione
       ecs.addComponent(streuner, Transform, new Transform(x, y, 0));
       ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0));
-      ecs.addComponent(streuner, Health, new Health(40, 40)); // 40 HP per gli Streuner
-      ecs.addComponent(streuner, Damage, new Damage(12, 220, 1200)); // 12 danno, 220 range, 1200ms cooldown
-      ecs.addComponent(streuner, Npc, new Npc('Streuner', 'wander', 'Streuner')); // Tipo Streuner con nickname
+      ecs.addComponent(streuner, Health, new Health(npcDef.stats.health, npcDef.stats.health));
+      ecs.addComponent(streuner, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
+      ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior, npcDef.type));
     }
   }
 
@@ -573,3 +584,4 @@ export class PlayState extends GameState {
     return this.world;
   }
 }
+
