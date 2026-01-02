@@ -16,8 +16,8 @@ export class BoundsSystem extends BaseSystem {
   private readonly BOUNDS_TOP = -CONFIG.WORLD_HEIGHT / 2;
   private readonly BOUNDS_BOTTOM = CONFIG.WORLD_HEIGHT / 2;
 
-  // Timer per il danno periodico
-  private lastDamageTime = 0;
+  // Timer accumulatore per il danno periodico
+  private damageTimer = 0;
   private readonly DAMAGE_INTERVAL = 1000; // 1 secondo
   private readonly DAMAGE_AMOUNT = 10;
 
@@ -40,7 +40,6 @@ export class BoundsSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
 
-    const currentTime = Date.now();
     const transform = this.ecs.getComponent(this.playerEntity, Transform);
     const health = this.ecs.getComponent(this.playerEntity, Health);
 
@@ -50,16 +49,22 @@ export class BoundsSystem extends BaseSystem {
     const isOutOfBounds = this.isOutOfBounds(transform.x, transform.y);
 
     if (isOutOfBounds) {
-      // Applica danno periodico se è passato abbastanza tempo
-      if (currentTime - this.lastDamageTime >= this.DAMAGE_INTERVAL) {
+      // Accumula tempo quando fuori bounds
+      this.damageTimer += deltaTime;
+
+      // Applica danno periodico quando accumulato abbastanza tempo
+      if (this.damageTimer >= this.DAMAGE_INTERVAL) {
         health.takeDamage(this.DAMAGE_AMOUNT);
-        this.lastDamageTime = currentTime;
+        this.damageTimer = 0; // Reset del timer
 
         // Mostra il numero di danno come testo fluttuante
         this.notifyCombatSystemOfDamage(this.playerEntity, this.DAMAGE_AMOUNT);
 
         console.log(`⚠️ Player fuori bounds! Danno: -${this.DAMAGE_AMOUNT} HP`);
       }
+    } else {
+      // Reset del timer quando torna dentro i bounds
+      this.damageTimer = 0;
     }
   }
 
