@@ -35,14 +35,11 @@ export class NpcSelectionSystem extends BaseSystem {
 
     if (clickedNpc) {
       this.selectNpc(clickedNpc);
+      this.onNpcClick?.(clickedNpc);
       return true; // Ha selezionato un NPC
     }
 
     return false; // Non ha selezionato nulla
-      this.onNpcClick?.(clickedNpc);
-    }
-    // Nota: Non deselezionare automaticamente se non si clicca su un NPC
-    // La selezione rimane attiva fino a quando non si clicca su un altro NPC
   }
 
   /**
