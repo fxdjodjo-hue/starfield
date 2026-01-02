@@ -180,15 +180,24 @@ export class MinimapSystem extends System {
     // Salva lo stato del contesto
     ctx.save();
 
-    // Imposta stile linea tratteggiata
+    // Imposta stile linea continua
     ctx.strokeStyle = '#00ff88'; // Verde come il bordo della minimappa
     ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]); // Linea tratteggiata
+    ctx.setLineDash([]); // Linea continua (rimuovi tratteggio)
 
     // Disegna la linea
     ctx.beginPath();
     ctx.moveTo(playerPos.x, playerPos.y);
     ctx.lineTo(destPos.x, destPos.y);
+    ctx.stroke();
+
+    // Disegna un cerchio alla destinazione
+    ctx.fillStyle = '#00ff88';
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(destPos.x, destPos.y, 6, 0, Math.PI * 2);
+    ctx.fill();
     ctx.stroke();
 
     // Ripristina lo stato del contesto
