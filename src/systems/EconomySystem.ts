@@ -208,7 +208,7 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Crea l'elemento UI per l'Honor
+   * Crea l'elemento UI per i Rank Points e il Rango
    */
   private createHonorDisplay(): void {
     this.removeHonorDisplay();
@@ -237,7 +237,7 @@ export class EconomySystem extends BaseSystem {
     iconSpan.style.fontWeight = 'bold';
 
     const textSpan = document.createElement('span');
-    textSpan.id = 'honor-amount';
+    textSpan.id = 'rank-points-amount';
     textSpan.textContent = '0';
 
     const rankSpan = document.createElement('span');
@@ -417,12 +417,13 @@ export class EconomySystem extends BaseSystem {
     if (!this.honorDisplayElement) return;
 
     const honor = this.getPlayerHonor();
-    if (honor) {
-      const amountElement = this.honorDisplayElement.querySelector('#honor-amount');
+    const rankPoints = this.calculatePlayerRankPoints();
+    if (honor && rankPoints !== undefined) {
+      const amountElement = this.honorDisplayElement.querySelector('#rank-points-amount');
       const rankElement = this.honorDisplayElement.querySelector('#honor-rank');
 
       if (amountElement) {
-        amountElement.textContent = honor.formatForDisplay(); // Mostra posizione/totale
+        amountElement.textContent = rankPoints.toLocaleString(); // Mostra rank points
       }
       if (rankElement) {
         rankElement.textContent = ` ${honor.honorRank}`;
