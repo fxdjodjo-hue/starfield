@@ -341,9 +341,7 @@ export class PlayState extends GameState {
     playerControlSystem.setCamera(movementSystem.getCamera());
 
     // Crea alcuni NPC
-    this.createNpcs(ecs, 2); // Crea 2 NPC normali
     this.createStreuner(ecs, 2); // Crea 2 Streuner che si muovono
-    this.createTriangles(ecs, 1); // Crea 1 triangolo nemico
 
     // Crea stelle distribuite su tutta la mappa
     this.createParallaxElements(ecs, 80); // Crea 80 stelle distribuite sulla mappa
@@ -402,51 +400,6 @@ export class PlayState extends GameState {
     return ship;
   }
 
-  /**
-   * Crea NPC nel mondo di gioco
-   */
-  private createNpcs(ecs: any, count: number): void {
-    for (let i = 0; i < count; i++) {
-      const npc = ecs.createEntity();
-
-      // Posizioni casuali attorno al player
-      const angle = (Math.PI * 2 * i) / count;
-      const distance = 200 + Math.random() * 100; // Tra 200 e 300 pixel dal centro
-      const x = Math.cos(angle) * distance;
-      const y = Math.sin(angle) * distance;
-
-      // Aggiungi componenti all'NPC
-      ecs.addComponent(npc, Transform, new Transform(x, y, 0));
-      ecs.addComponent(npc, Velocity, new Velocity(0, 0, 0));
-      ecs.addComponent(npc, Health, new Health(50, 50)); // 50 HP per gli NPC
-      ecs.addComponent(npc, Damage, new Damage(10, 200, 1000)); // 10 danno, 200 range, 1000ms cooldown - aumentato range
-      ecs.addComponent(npc, Npc, new Npc('patrol', 'idle'));
-
-    }
-  }
-
-  /**
-   * Crea triangoli nemici nel mondo di gioco
-   */
-  private createTriangles(ecs: any, count: number): void {
-    for (let i = 0; i < count; i++) {
-      const triangle = ecs.createEntity();
-
-      // Posizioni casuali attorno al player (più lontani per i triangoli)
-      const angle = (Math.PI * 2 * i) / count + Math.PI / 4; // Offset per non sovrapporsi con NPC
-      const distance = 300 + Math.random() * 150; // Tra 300 e 450 pixel dal centro
-      const x = Math.cos(angle) * distance;
-      const y = Math.sin(angle) * distance;
-
-      // Aggiungi componenti al triangolo
-      ecs.addComponent(triangle, Transform, new Transform(x, y, 0));
-      ecs.addComponent(triangle, Velocity, new Velocity(0, 0, 0));
-      ecs.addComponent(triangle, Health, new Health(30, 30)); // 30 HP per i triangoli (più fragili)
-      ecs.addComponent(triangle, Damage, new Damage(15, 180, 800)); // 15 danno, 180 range, 800ms cooldown
-      ecs.addComponent(triangle, Npc, new Npc('triangle', 'idle')); // Tipo triangolo
-
-    }
-  }
 
   /**
    * Crea Streuner (NPC che si muovono) nel mondo di gioco
