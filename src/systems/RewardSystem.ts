@@ -83,13 +83,7 @@ export class RewardSystem extends BaseSystem {
       this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
     }
 
-    // Rimuovi l'entità NPC dopo un breve delay per permettere ai testi di danno di essere visibili
-    // Questo dà tempo ai damage text di completare la loro animazione
-    setTimeout(() => {
-      // Verifica che l'entità esista ancora prima di rimuoverla
-      if (this.ecs.getEntity(npcEntity.id)) {
-        this.ecs.removeEntity(npcEntity);
-      }
-    }, 1000); // 1 secondo di delay per mostrare i testi di danno
+    // Rimuovi immediatamente l'entità NPC morta (i testi di danno continuano autonomamente)
+    this.ecs.removeEntity(npcEntity);
   }
 }
