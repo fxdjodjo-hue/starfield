@@ -127,11 +127,11 @@ export class ParallaxSystem extends BaseSystem {
    * Renderizza un punto luminoso per l'elemento parallax
    */
   private renderParallaxPoint(ctx: CanvasRenderingContext2D, parallax: ParallaxLayer): void {
-    // Stelle più piccole e luminose (stelle vere sono punti luminosi)
-    const size = 1 + parallax.speedX * 2; // Da 1 a 3 pixel basato sulla velocità
+    // Stelle più grandi e luminose (stelle vere sono punti luminosi)
+    const size = 2 + parallax.speedX * 3; // Da 2 a 5 pixel basato sulla velocità
 
     // Stelle lontane (velocità bassa) sono più tenui
-    const alpha = Math.max(0.4, parallax.speedX * 2.5); // Da 0.4 a 0.65
+    const alpha = Math.max(0.6, parallax.speedX * 3); // Da 0.6 a 0.9
 
     ctx.globalCompositeOperation = 'lighter';
     ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
