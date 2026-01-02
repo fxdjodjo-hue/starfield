@@ -9,10 +9,10 @@ import { Transform } from '/src/entities/spatial/Transform';
 export class DamageTextSystem extends BaseSystem {
   private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, movementSystem?: any) {
     super(ecs);
-    // Trova e cache del movement system per accesso alla camera
-    this.movementSystem = this.findMovementSystem();
+    // Usa il movementSystem passato o cercalo
+    this.movementSystem = movementSystem || this.findMovementSystem();
   }
 
   /**
@@ -42,9 +42,6 @@ export class DamageTextSystem extends BaseSystem {
     // Trova tutte le entità con DamageText
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
-    if (damageTextEntities.length > 0) {
-      console.log(`[DamageTextSystem] Updating ${damageTextEntities.length} damage texts`);
-    }
 
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
@@ -58,11 +55,9 @@ export class DamageTextSystem extends BaseSystem {
       // Aggiorna lifetime
       damageText.lifetime -= deltaTime;
 
-      console.log(`[DamageText] Updated text ${damageText.value} - lifetime: ${damageText.lifetime}, offsetY: ${damageText.currentOffsetY}`);
 
       // Rimuovi testi scaduti
       if (damageText.isExpired()) {
-        console.log(`[DamageText] Removing expired text ${damageText.value}`);
         this.cleanupDamageText(damageText.targetEntityId, entity);
       }
     }
@@ -72,21 +67,19 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
+    // Riprova a trovare il movement system se necessario
+    if (!this.movementSystem) {
+      this.movementSystem = this.findMovementSystem();
+    }
+
     if (!ctx.canvas || !this.movementSystem) {
-      console.log('[DamageTextSystem] Missing canvas or movement system');
-      return;
+      return; // Silenziosamente senza log per evitare spam
     }
 
     const camera = this.movementSystem.getCamera();
-    if (!camera) {
-      console.log('[DamageTextSystem] No camera available');
-      return;
-    }
+    if (!camera) return;
 
     const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
-    const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
-
-    console.log(`[DamageTextSystem] Rendering ${damageTextEntities.length} damage texts`);
 
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
