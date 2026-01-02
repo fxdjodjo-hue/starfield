@@ -205,7 +205,9 @@ export class ProjectileSystem extends BaseSystem {
           const playerEntity = this.ecs.getPlayerEntity();
           const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
         const textColor = isPlayerDamage ? '#ff4444' : '#ffffff';
-        this.createDamageText(damageToHp, targetTransform.x, targetTransform.y - 30, textColor);
+        // Aggiungi leggera variazione casuale per evitare sovrapposizione completa
+        const randomOffset = (Math.random() - 0.5) * 20; // ±10px
+        this.createDamageText(damageToHp, targetTransform.x + randomOffset, targetTransform.y - 30, textColor);
       }
     }
   }

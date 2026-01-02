@@ -3,8 +3,8 @@ import { ECS } from '/src/infrastructure/ecs/ECS';
 import { DamageText } from '/src/entities/combat/DamageText';
 
 /**
- * Sistema per gestire e renderizzare testi di danno fluttuanti
- * Mostra numeri di danno sopra le entità colpite con animazione
+ * Sistema per gestire e renderizzare testi di danno fissi
+ * Mostra numeri di danno fissi sopra le entità colpite
  */
 export class DamageTextSystem extends BaseSystem {
 
@@ -13,11 +13,9 @@ export class DamageTextSystem extends BaseSystem {
   }
 
   /**
-   * Aggiorna i testi di danno (posizione, lifetime)
+   * Aggiorna i testi di danno (solo lifetime, posizioni fisse)
    */
   update(deltaTime: number): void {
-    const deltaTimeSeconds = deltaTime / 1000; // Converti in secondi
-
     // Trova tutte le entità con DamageText
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
@@ -25,10 +23,8 @@ export class DamageTextSystem extends BaseSystem {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
-      // Aggiorna posizione (movimento verso l'alto)
-      damageText.y += damageText.velocityY * deltaTimeSeconds;
-
-      // Aggiorna lifetime
+      // Testi fissi sopra l'entità - non muovere la posizione Y
+      // Solo aggiorna lifetime
       damageText.lifetime -= deltaTime;
 
       // Rimuovi testi scaduti
