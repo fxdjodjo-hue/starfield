@@ -36,6 +36,8 @@ export class PlayState extends GameState {
   private playerEntity: any = null;
   private hudExpanded: boolean = false;
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
+  private rankingUpdateTimer: number = 0;
+  private rankingUpdateInterval: number = 30000; // Aggiorna ranking ogni 30 secondi
 
   constructor(context: GameContext) {
     super();
@@ -78,6 +80,13 @@ export class PlayState extends GameState {
 
     // Aggiorna le informazioni del player (HP)
     this.showPlayerInfo();
+
+    // Aggiorna ranking periodicamente (simulazione per single-player)
+    this.rankingUpdateTimer += deltaTime;
+    if (this.rankingUpdateTimer >= this.rankingUpdateInterval) {
+      economySystem.simulateRankingUpdate();
+      this.rankingUpdateTimer = 0;
+    }
   }
 
   /**
@@ -364,6 +373,14 @@ export class PlayState extends GameState {
     economySystem.showEconomyDisplays();
     economySystem.updateEconomyDisplays();
 
+    // Configura callbacks per aggiornamenti ranking
+    economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
+      if (leveledUp) {
+        // Aggiorna ranking quando sali di livello
+        setTimeout(() => economySystem.simulateRankingUpdate(), 100);
+      }
+    });
+
     // Crea alcuni NPC
     this.createStreuner(ecs, 50); // Crea 50 Streuner che si muovono
 
@@ -433,7 +450,7 @@ export class PlayState extends GameState {
     const credits = new Credits(1000); // Inizia con 1000 Credits
     const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
     const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
-    const honor = new Honor(0); // Inizia con 0 Honor Points
+    const honor = new Honor(0); // Inizia con 0 Honor Points (ranking verrà aggiornato dal server)
 
     ecs.addComponent(ship, Transform, transform);
     ecs.addComponent(ship, Velocity, velocity);

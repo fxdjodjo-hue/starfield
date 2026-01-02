@@ -391,7 +391,7 @@ export class EconomySystem extends BaseSystem {
       const rankElement = this.honorDisplayElement.querySelector('#honor-rank');
 
       if (amountElement) {
-        amountElement.textContent = honor.formatForDisplay();
+        amountElement.textContent = honor.formatForDisplay(); // Mostra posizione/totale
       }
       if (rankElement) {
         rankElement.textContent = ` ${honor.honorRank}`;
@@ -553,46 +553,111 @@ export class EconomySystem extends BaseSystem {
   // ===== GESTIONE HONOR =====
 
   /**
-   * Aggiunge Honor Points al giocatore
+   * Aggiorna la posizione nel ranking globale del giocatore
    */
-  addHonor(amount: number, reason: string = 'unknown'): string | null {
+  updatePlayerRanking(position: number, totalPlayers: number): string | null {
     const honor = this.getPlayerHonor();
     if (!honor) return null;
 
     const oldRank = honor.honorRank;
-    const newRank = honor.addHonor(amount);
+    const newRank = honor.updateRankingPosition(position, totalPlayers);
 
-    console.log(`Honor: +${amount} (${reason}) - Rank: ${honor.honorRank}, Total: ${honor.honor}`);
+    console.log(`Ranking updated: Position ${honor.rankingPosition}/${honor.totalPlayers}, Rank: ${honor.honorRank}`);
 
     if (newRank && newRank !== oldRank) {
-      console.log(`🏆 RANK UP! ${oldRank} → ${newRank}`);
+      console.log(`🏆 RANK CHANGE! ${oldRank} → ${newRank}`);
     }
 
     this.updateHonorDisplay();
-    this.onHonorChanged?.(honor.honor, amount, newRank || undefined);
+    this.onHonorChanged?.(honor.honor, 0, newRank || undefined);
 
     return newRank;
   }
 
   /**
-   * Rimuove Honor Points dal giocatore
+   * Imposta lo status di Administrator
    */
-  removeHonor(amount: number, reason: string = 'unknown'): string | null {
+  setPlayerAdministrator(isAdmin: boolean): void {
     const honor = this.getPlayerHonor();
-    if (!honor) return null;
+    if (honor) {
+      honor.setAdministrator(isAdmin);
+      console.log(`Administrator status: ${isAdmin}`);
+      this.updateHonorDisplay();
+    }
+  }
 
-    const oldRank = honor.honorRank;
-    const newRank = honor.removeHonor(amount);
+  /**
+   * Aggiunge punti onore locali (per achievements)
+   */
+  addLocalHonor(amount: number, reason: string = 'achievement'): void {
+    const honor = this.getPlayerHonor();
+    if (honor) {
+      honor.addHonor(amount);
+      console.log(`Local Honor: +${amount} (${reason}) - Total: ${honor.honor}`);
+      this.updateHonorDisplay();
+    }
+  }
 
-    console.log(`Honor: -${amount} (${reason}) - Rank: ${honor.honorRank}, Total: ${honor.honor}`);
-
-    this.updateHonorDisplay();
-    this.onHonorChanged?.(honor.honor, -amount, newRank || undefined);
-
-    return newRank;
+  /**
+   * Rimuove punti onore locali (per penalità)
+   */
+  removeLocalHonor(amount: number, reason: string = 'penalty'): void {
+    const honor = this.getPlayerHonor();
+    if (honor) {
+      honor.removeHonor(amount);
+      console.log(`Local Honor: -${amount} (${reason}) - Total: ${honor.honor}`);
+      this.updateHonorDisplay();
+    }
   }
 
   // ===== METODI GENERALI =====
+
+  /**
+   * Calcola il punteggio totale per il ranking globale
+   * Formula: Experience totale + (Honor * 100)
+   */
+  calculatePlayerScore(): number {
+    const experience = this.getPlayerExperience();
+    const honor = this.getPlayerHonor();
+
+    if (!experience || !honor) return 0;
+
+    // Punteggio base: experience totale
+    let score = experience.totalExpEarned;
+
+    // Bonus/malus da onore (honor può essere negativo)
+    score += honor.honor * 100;
+
+    // Bonus per livello raggiunto (per dare peso ai giocatori esperti)
+    score += experience.level * 500;
+
+    return Math.max(0, score);
+  }
+
+  /**
+   * Simula aggiornamento ranking globale (per testing single-player)
+   * In produzione questo verrebbe chiamato dal server con dati reali
+   */
+  simulateRankingUpdate(): void {
+    // Simula un ranking globale con posizioni che variano leggermente
+    const baseScore = this.calculatePlayerScore();
+
+    // Aggiungi variabilità casuale per simulare altri giocatori
+    const randomFactor = (Math.random() - 0.5) * 0.2; // ±10%
+    const simulatedScore = baseScore * (1 + randomFactor);
+
+    // Simula numero totale giocatori online (50-200)
+    const totalPlayers = 50 + Math.floor(Math.random() * 150);
+
+    // Calcola posizione approssimativa basata sul punteggio
+    // Più alto il punteggio, più alta la posizione
+    const position = Math.max(1, Math.floor(totalPlayers * (1 - simulatedScore / (simulatedScore + 10000))));
+
+    // Aggiorna il ranking del giocatore
+    this.updatePlayerRanking(position, totalPlayers);
+
+    console.log(`Ranking updated: Score ${Math.floor(simulatedScore)}, Position ${position}/${totalPlayers}`);
+  }
 
   /**
    * Ottiene lo stato economico completo del giocatore
@@ -605,6 +670,9 @@ export class EconomySystem extends BaseSystem {
     expForNextLevel: number;
     honor: number;
     honorRank: string;
+    rankingScore: number;
+    rankingPosition: number;
+    totalPlayers: number;
   } | null {
     const credits = this.getPlayerCredits();
     const cosmos = this.getPlayerCosmos();
@@ -620,7 +688,10 @@ export class EconomySystem extends BaseSystem {
       experience: experience.exp,
       expForNextLevel: experience.expForNextLevel,
       honor: honor.honor,
-      honorRank: honor.honorRank
+      honorRank: honor.honorRank,
+      rankingScore: this.calculatePlayerScore(),
+      rankingPosition: honor.rankingPosition,
+      totalPlayers: honor.totalPlayers
     };
   }
 

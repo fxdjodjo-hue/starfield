@@ -1,29 +1,47 @@
 import { Component } from '/src/infrastructure/ecs/Component';
 
 /**
- * Componente Honor - gestisce i punti onore del giocatore
- * L'onore rappresenta la reputazione e può sbloccare contenuti speciali
+ * Componente Honor - gestisce i punti onore e ranking competitivo del giocatore
+ * L'onore determina il grado militare basato sulla posizione relativa nel ranking globale
  */
 export class Honor extends Component {
   private _honor: number;
   private _honorRank: string;
-  private _maxHonor: number;
+  private _rankingPosition: number = 0; // Posizione nel ranking globale (1 = primo)
+  private _totalPlayers: number = 1; // Totale giocatori attivi
 
-  // Ranghi di onore basati sui punti
-  private static readonly HONOR_RANKS = [
-    { name: 'Recruit', minHonor: 0 },
-    { name: 'Scout', minHonor: 100 },
-    { name: 'Guardian', minHonor: 500 },
-    { name: 'Warrior', minHonor: 1000 },
-    { name: 'Champion', minHonor: 2000 },
-    { name: 'Legend', minHonor: 5000 },
-    { name: 'Myth', minHonor: 10000 }
+  // Ranghi militari basati su proporzione di giocatori (online competitivo)
+  private static readonly MILITARY_RANKS = [
+    { name: 'Chief General', maxProportion: 0.01 },      // Top 1% - 1 player per compagnia
+    { name: 'General', maxProportion: 0.02 },            // Top 2%
+    { name: 'Basic General', maxProportion: 0.03 },      // Top 3%
+    { name: 'Chief Colonel', maxProportion: 0.05 },      // Top 5%
+    { name: 'Colonel', maxProportion: 0.20 },            // Top 20%
+    { name: 'Basic Colonel', maxProportion: 0.25 },      // Top 25%
+    { name: 'Chief Major', maxProportion: 0.265 },       // Top 26.5%
+    { name: 'Major', maxProportion: 0.285 },             // Top 28.5%
+    { name: 'Basic Major', maxProportion: 0.31 },        // Top 31%
+    { name: 'Chief Captain', maxProportion: 0.34 },      // Top 34%
+    { name: 'Captain', maxProportion: 0.375 },           // Top 37.5%
+    { name: 'Basic Captain', maxProportion: 0.415 },     // Top 41.5%
+    { name: 'Chief Lieutenant', maxProportion: 0.46 },   // Top 46%
+    { name: 'Lieutenant', maxProportion: 0.51 },         // Top 51%
+    { name: 'Basic Lieutenant', maxProportion: 0.57 },   // Top 57%
+    { name: 'Chief Sergeant', maxProportion: 0.64 },     // Top 64%
+    { name: 'Sergeant', maxProportion: 0.72 },           // Top 72%
+    { name: 'Basic Sergeant', maxProportion: 0.81 },     // Top 81%
+    { name: 'Chief Space Pilot', maxProportion: 0.91 },  // Top 91%
+    { name: 'Space Pilot', maxProportion: 1.0 },         // Top 100%
+    { name: 'Basic Space Pilot', maxProportion: 1.0 }    // Top 100%
   ];
 
-  constructor(initialHonor: number = 0, maxHonor: number = 99999) {
+  // Ranghi speciali (non basati su proporzione)
+  private _isAdministrator: boolean = false;
+  private _isOutlaw: boolean = false;
+
+  constructor(initialHonor: number = 0) {
     super();
-    this._honor = Math.max(0, initialHonor);
-    this._maxHonor = maxHonor;
+    this._honor = initialHonor; // Può essere negativo per Outlaw
     this._honorRank = this.calculateRank();
   }
 
@@ -35,27 +53,47 @@ export class Honor extends Component {
   }
 
   /**
-   * Ottiene il rango attuale
+   * Ottiene il rango attuale basato sul ranking
    */
   get honorRank(): string {
     return this._honorRank;
   }
 
   /**
-   * Ottiene l'onore massimo
+   * Ottiene la posizione nel ranking globale
    */
-  get maxHonor(): number {
-    return this._maxHonor;
+  get rankingPosition(): number {
+    return this._rankingPosition;
   }
 
   /**
-   * Aggiunge punti onore (con controllo overflow)
+   * Ottiene il totale dei giocatori attivi
    */
-  addHonor(amount: number): string | null {
-    if (amount <= 0) return null;
+  get totalPlayers(): number {
+    return this._totalPlayers;
+  }
 
+  /**
+   * Verifica se il giocatore è un Administrator
+   */
+  get isAdministrator(): boolean {
+    return this._isAdministrator;
+  }
+
+  /**
+   * Verifica se il giocatore è un Outlaw
+   */
+  get isOutlaw(): boolean {
+    return this._isOutlaw;
+  }
+
+  /**
+   * Aggiorna la posizione nel ranking globale
+   */
+  updateRankingPosition(position: number, totalPlayers: number): string | null {
     const oldRank = this._honorRank;
-    this._honor = Math.min(this._maxHonor, this._honor + amount);
+    this._rankingPosition = Math.max(1, position);
+    this._totalPlayers = Math.max(1, totalPlayers);
     this._honorRank = this.calculateRank();
 
     // Ritorna il nuovo rango se è cambiato, altrimenti null
@@ -63,69 +101,96 @@ export class Honor extends Component {
   }
 
   /**
-   * Rimuove punti onore (con controllo underflow)
+   * Imposta lo status di Administrator
    */
-  removeHonor(amount: number): string | null {
-    if (amount <= 0) return null;
-
-    const oldRank = this._honorRank;
-    this._honor = Math.max(0, this._honor - amount);
-    this._honorRank = this.calculateRank();
-
-    // Ritorna il nuovo rango se è cambiato (declassamento), altrimenti null
-    return this._honorRank !== oldRank ? this._honorRank : null;
+  setAdministrator(isAdmin: boolean): void {
+    this._isAdministrator = isAdmin;
+    this._honorRank = this.calculateRank(); // Ricalcola il rango
   }
 
   /**
-   * Calcola il rango attuale basato sui punti onore
+   * Aggiorna lo status di Outlaw basato sui punti onore
+   */
+  updateOutlawStatus(): void {
+    this._isOutlaw = this._honor <= -500;
+    this._honorRank = this.calculateRank(); // Ricalcola il rango
+  }
+
+  /**
+   * Aggiunge punti onore (per achievements locali)
+   */
+  addHonor(amount: number): void {
+    if (amount <= 0) return;
+    this._honor += amount;
+    this.updateOutlawStatus();
+  }
+
+  /**
+   * Rimuove punti onore (per penalità)
+   */
+  removeHonor(amount: number): void {
+    if (amount <= 0) return;
+    this._honor -= amount;
+    this.updateOutlawStatus();
+  }
+
+  /**
+   * Calcola il rango attuale basato sulla posizione nel ranking
    */
   private calculateRank(): string {
-    for (let i = Honor.HONOR_RANKS.length - 1; i >= 0; i--) {
-      if (this._honor >= Honor.HONOR_RANKS[i].minHonor) {
-        return Honor.HONOR_RANKS[i].name;
+    // Ranghi speciali hanno priorità
+    if (this._isAdministrator) {
+      return 'Administrator';
+    }
+
+    if (this._isOutlaw) {
+      return 'Outlaw';
+    }
+
+    // Calcola la proporzione (posizione / totale giocatori)
+    const proportion = this._rankingPosition / this._totalPlayers;
+
+    // Trova il rango appropriato basato sulla proporzione
+    for (const rank of Honor.MILITARY_RANKS) {
+      if (proportion <= rank.maxProportion) {
+        return rank.name;
       }
     }
-    return Honor.HONOR_RANKS[0].name; // Default: Recruit
+
+    // Default: ultimo rango disponibile
+    return Honor.MILITARY_RANKS[Honor.MILITARY_RANKS.length - 1].name;
   }
 
   /**
-   * Ottiene il progresso verso il prossimo rango (0-100)
+   * Ottiene la posizione percentuale nel ranking globale (0-100)
    */
-  getRankProgress(): number {
-    const currentRankIndex = Honor.HONOR_RANKS.findIndex(rank => rank.name === this._honorRank);
-    if (currentRankIndex === -1 || currentRankIndex === Honor.HONOR_RANKS.length - 1) {
-      return 100; // Massimo rango raggiunto
-    }
-
-    const currentRankMin = Honor.HONOR_RANKS[currentRankIndex].minHonor;
-    const nextRankMin = Honor.HONOR_RANKS[currentRankIndex + 1].minHonor;
-    const progress = (this._honor - currentRankMin) / (nextRankMin - currentRankMin);
-
-    return Math.min(100, Math.max(0, progress * 100));
+  getRankingPercentage(): number {
+    if (this._totalPlayers <= 1) return 100;
+    return ((this._totalPlayers - this._rankingPosition + 1) / this._totalPlayers) * 100;
   }
 
   /**
    * Ottiene il prossimo rango disponibile
    */
   getNextRank(): string | null {
-    const currentRankIndex = Honor.HONOR_RANKS.findIndex(rank => rank.name === this._honorRank);
-    if (currentRankIndex === -1 || currentRankIndex === Honor.HONOR_RANKS.length - 1) {
+    const currentRankIndex = Honor.MILITARY_RANKS.findIndex(rank => rank.name === this._honorRank);
+    if (currentRankIndex === -1 || currentRankIndex === Honor.MILITARY_RANKS.length - 1) {
       return null; // Nessun rango successivo
     }
-    return Honor.HONOR_RANKS[currentRankIndex + 1].name;
+    return Honor.MILITARY_RANKS[currentRankIndex + 1].name;
   }
 
   /**
-   * Formatta l'onore per display
+   * Formatta l'onore e ranking per display
    */
   formatForDisplay(): string {
-    return this._honor.toLocaleString();
+    return `${this._rankingPosition}/${this._totalPlayers}`;
   }
 
   /**
-   * Ottiene tutti i ranghi disponibili
+   * Ottiene tutti i ranghi militari disponibili
    */
-  static getAllRanks(): Array<{name: string, minHonor: number}> {
-    return [...Honor.HONOR_RANKS];
+  static getAllRanks(): Array<{name: string, maxProportion: number}> {
+    return [...Honor.MILITARY_RANKS];
   }
 }
