@@ -119,12 +119,12 @@ export class RenderSystem extends BaseSystem {
     ctx.rotate(transform.rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
 
-    // Cerchio rosso di selezione (se selezionato)
+    // Cerchio sottile di selezione (se selezionato)
     if (isSelected) {
       ctx.beginPath();
-      ctx.arc(0, 0, 25, 0, Math.PI * 2); // Cerchio di raggio 25px attorno all'NPC
+      ctx.arc(0, 0, 15, 0, Math.PI * 2); // Cerchio di raggio 15px attorno all'NPC
       ctx.strokeStyle = '#ff0000';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
 
