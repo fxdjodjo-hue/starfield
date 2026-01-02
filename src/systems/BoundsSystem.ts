@@ -3,7 +3,7 @@ import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Health } from '/src/entities/combat/Health';
 import { CONFIG } from '/src/utils/config/Config';
-import { MovementSystem } from '../physics/MovementSystem';
+import { MovementSystem } from './physics/MovementSystem';
 
 /**
  * Sistema Bounds - Gestisce i limiti della mappa
