@@ -93,8 +93,8 @@ export class BoundsSystem extends BaseSystem {
     );
 
     if (combatSystem && combatSystem.createDamageText) {
-      // Il danno dei bounds è sempre danno HP (non shield)
-      combatSystem.createDamageText(targetEntity, damage, false);
+      // Il danno dei bounds è sempre danno HP e permette più testi simultanei
+      combatSystem.createDamageText(targetEntity, damage, false, true);
     }
   }
 

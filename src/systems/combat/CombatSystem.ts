@@ -114,14 +114,15 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
-  createDamageText(targetEntity: any, damage: number, isShieldDamage: boolean = false): void {
+  createDamageText(targetEntity: any, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false): void {
     if (damage <= 0) return;
 
     const targetEntityId = targetEntity.id;
 
     // Controlla quanti testi sono già attivi per questa entità
     const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
-    if (activeCount >= 3) return; // Limite di 3 testi per entità
+    const maxTexts = isBoundsDamage ? 5 : 3; // Permetti più testi per danno bounds
+    if (activeCount >= maxTexts) return;
 
     // Determina il colore e offset del testo
     const playerEntity = this.ecs.getPlayerEntity();
