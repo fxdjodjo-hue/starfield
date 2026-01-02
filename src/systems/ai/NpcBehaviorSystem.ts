@@ -5,6 +5,7 @@ import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Damage } from '/src/entities/combat/Damage';
 import { DamageTaken } from '/src/entities/combat/DamageTaken';
+import { Health } from '/src/entities/combat/Health';
 import { CONFIG } from '/src/utils/config/Config';
 
 /**
@@ -95,13 +96,16 @@ export class NpcBehaviorSystem extends BaseSystem {
   private updateNpcBehavior(npc: Npc, entityId: number): void {
     // Solo gli Scouter cambiano comportamento periodicamente
     if (npc.npcType === 'Scouter') {
-      // Controlla se l'NPC è stato danneggiato recentemente (comportamento di difesa)
-      const isDamaged = this.isNpcUnderAttack(entityId);
-      // Controlla se l'NPC ha attaccato recentemente (comportamento offensivo)
-      const isAttackingPlayer = this.isNpcAttackingPlayer(entityId);
+      // Controlla priorità comportamenti (ordine di importanza)
+      const isLowHealth = this.isNpcLowHealth(entityId); // Priorità massima
+      const isDamaged = this.isNpcUnderAttack(entityId);  // Priorità media
 
-      // Logica prioritaria: se danneggiato, insegue il player
-      if (isDamaged) {
+      // Logica prioritaria basata su stato NPC
+      if (isLowHealth) {
+        // NPC con poca salute fugge dal player
+        npc.setBehavior('flee');
+      } else if (isDamaged) {
+        // NPC danneggiato insegue il player per vendetta
         npc.setBehavior('pursuit');
       } else {
         // Comportamenti disponibili quando non è danneggiato
@@ -142,6 +146,22 @@ export class NpcBehaviorSystem extends BaseSystem {
 
     // Controlla se è stato danneggiato negli ultimi 5 secondi
     return damageTaken.wasDamagedRecently(Date.now(), 5000); // 5000ms = 5 secondi
+  }
+
+  /**
+   * Verifica se un NPC ha salute bassa (< 30% della salute massima)
+   */
+  private isNpcLowHealth(entityId: number): boolean {
+    const entities = this.ecs.getEntitiesWithComponents(Health);
+    const entity = entities.find(e => e.id === entityId);
+
+    if (!entity) return false;
+
+    const health = this.ecs.getComponent(entity, Health);
+    if (!health) return false;
+
+    // Considera bassa salute se sotto il 30% della vita massima
+    return health.getPercentage() < 0.3; // 30%
   }
 
   /**
@@ -187,6 +207,9 @@ export class NpcBehaviorSystem extends BaseSystem {
         break;
       case 'pursuit':
         this.executePursuitBehavior(transform, velocity, deltaTime, state);
+        break;
+      case 'flee':
+        this.executeFleeBehavior(transform, velocity, deltaTime, state);
         break;
       default:
         this.executeIdleBehavior(velocity);
@@ -312,6 +335,49 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   /**
+   * Comportamento flee - l'NPC con poca salute fugge dal player
+   */
+  private executeFleeBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
+    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante la fuga
+    velocity.setAngularVelocity(0);
+
+    // Trova il player
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
+      .filter(playerEntity => !this.ecs.hasComponent(playerEntity, Npc));
+
+    if (playerEntities.length === 0) {
+      // Se non trova il player, torna a cruise
+      this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+      return;
+    }
+
+    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+    if (!playerTransform) {
+      this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+      return;
+    }
+
+    // Calcola direzione LONTANO dal player (opposto a pursuit)
+    const dx = transform.x - playerTransform.x; // Invertito rispetto a pursuit
+    const dy = transform.y - playerTransform.y; // Invertito rispetto a pursuit
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0) {
+      // Normalizza la direzione (allontanamento dal player)
+      const directionX = dx / distance;
+      const directionY = dy / distance;
+
+      // Calcola angolo target
+      const targetAngle = Math.atan2(directionY, directionX);
+
+      // Usa velocità elevata per la fuga (più veloce del normale per scappare)
+      const fleeSpeed = 90; // Ancora più veloce di pursuit per simulare panico
+
+      this.updateSmoothVelocity(velocity, fleeSpeed, targetAngle, deltaTime, state);
+    }
+  }
+
+  /**
    * Comportamento circle - l'NPC gira in cerchio (vecchio metodo, mantenuto per compatibilità)
    */
   private executeCircleBehavior(transform: Transform, velocity: Velocity): void {
@@ -367,7 +433,6 @@ export class NpcBehaviorSystem extends BaseSystem {
    */
   private initializeNpcState(npc: Npc): void {
     // Questo metodo è mantenuto per compatibilità ma non dovrebbe essere usato
-    console.warn('initializeNpcState is deprecated, use initializeNpcStateForEntity');
   }
 
   /**
