@@ -74,7 +74,7 @@ export class Experience extends Component {
 
     // Controlla se dobbiamo salire di livello
     let leveledUp = false;
-    while (this._totalExpEarned >= this.getExpRequiredForLevel(this._level)) {
+    while (this._totalExpEarned >= this.getExpRequiredForLevel(this._level + 1)) {
       this.levelUp();
       leveledUp = true;
     }
