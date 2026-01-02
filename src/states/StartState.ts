@@ -20,8 +20,6 @@ export class StartState extends GameState {
    * Attiva la start screen
    */
   enter(context: GameContext): void {
-    console.log('Entering StartState');
-
     // Mostra la start screen
     this.startScreen.show();
 
@@ -59,7 +57,6 @@ export class StartState extends GameState {
    * Disattiva la start screen
    */
   exit(): void {
-    console.log('Exiting StartState');
     this.startScreen.hide();
   }
 
@@ -67,7 +64,7 @@ export class StartState extends GameState {
    * Metodo di debug per testare il callback (rimuovi dopo)
    */
   testCallback(nickname: string): void {
-    console.log(`Player ${nickname} ready to start!`);
+    // Player is ready to start
   }
 
   /**

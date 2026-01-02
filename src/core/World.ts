@@ -52,8 +52,6 @@ export class World {
     // Aggiorna anche il CSS per sicurezza
     this.canvas.style.width = width + 'px';
     this.canvas.style.height = height + 'px';
-
-    console.log(`Canvas resized to: ${width}x${height}`);
   }
 
   /**

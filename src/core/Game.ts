@@ -28,11 +28,8 @@ export class Game {
    * Inizializza il gioco e imposta lo stato iniziale
    */
   async init(): Promise<void> {
-    console.log('Game initialized');
-
     // Imposta il callback per il passaggio a PlayState
     this.startState.getStartScreen().setOnPlayCallback((nickname) => {
-      console.log(`Starting game for player: ${nickname}`);
       this.changeState(this.playState);
     });
 
@@ -44,8 +41,6 @@ export class Game {
    * Avvia il game loop
    */
   start(): void {
-    console.log('Game loop started');
-
     this.gameLoop.start(
       // Update callback
       (deltaTime: number) => {
@@ -62,7 +57,6 @@ export class Game {
    * Ferma il gioco
    */
   stop(): void {
-    console.log('Game stopped');
     this.gameLoop.stop();
 
     // Esci dallo stato corrente

@@ -2,8 +2,6 @@ import { Entity, EntityIdGenerator } from './Entity';
 import { Component } from './Component';
 import { System } from './System';
 
-console.log('ECS module loaded, EntityIdGenerator:', typeof EntityIdGenerator);
-
 /**
  * Entity Component System principale
  * Gestisce entità, componenti e sistemi
@@ -17,9 +15,7 @@ export class ECS {
    * Crea una nuova entità
    */
   createEntity(): Entity {
-    console.log('ECS.createEntity called, EntityIdGenerator:', typeof EntityIdGenerator);
     const entity = EntityIdGenerator.createId();
-    console.log('Created entity:', entity);
     this.entities.add(entity.id);
     return entity;
   }
@@ -95,7 +91,6 @@ export class ECS {
    */
   getEntitiesWithComponents(...componentTypes: (new (...args: any[]) => Component)[]): Entity[] {
     const entities: Entity[] = [];
-    console.log(`ECS: Querying entities with ${componentTypes.length} component types`);
 
     for (const entityId of this.entities) {
       const entity = new Entity(entityId);
@@ -104,12 +99,10 @@ export class ECS {
       );
 
       if (hasAllComponents) {
-        console.log(`ECS: Found entity ${entityId} with all required components`);
         entities.push(entity);
       }
     }
 
-    console.log(`ECS: Total entities found: ${entities.length}`);
     return entities;
   }
 

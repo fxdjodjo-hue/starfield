@@ -38,9 +38,6 @@ export class PlayState extends GameState {
    * Avvia il gameplay
    */
   async enter(context: GameContext): Promise<void> {
-    console.log('Entering PlayState');
-    console.log(`Player nickname: ${context.playerNickname}`);
-
     // Nasconde il titolo principale
     this.hideMainTitle();
 
@@ -50,8 +47,6 @@ export class PlayState extends GameState {
     try {
       // Inizializza il mondo e crea il giocatore
       await this.initializeGame();
-
-      console.log('Game initialized successfully');
     } catch (error) {
       console.error('Failed to initialize game:', error);
       throw error;
@@ -86,7 +81,6 @@ export class PlayState extends GameState {
    * Termina il gameplay
    */
   exit(): void {
-    console.log('Exiting PlayState');
     this.hidePlayerInfo();
     this.showMainTitle();
     // Qui potremmo salvare lo stato di gioco, cleanup, etc.
@@ -200,7 +194,6 @@ export class PlayState extends GameState {
       if (pressed) {
         // Assicurati che il canvas abbia il focus per gli eventi tastiera
         this.context.canvas.focus();
-        console.log('Canvas focused for keyboard input');
 
         // Su mouse down: prima seleziona NPC se presente, poi inizia movimento
         // Converte coordinate schermo in mondo per la selezione usando la camera
@@ -224,9 +217,7 @@ export class PlayState extends GameState {
    * Crea la nave player controllabile
    */
   private createPlayerShip(ecs: any): any {
-    console.log('PlayState: Creating player ship...');
     const ship = ecs.createEntity();
-    console.log(`PlayState: Created entity with ID: ${ship.id}`);
 
     // Spawna il player al centro del mondo (0,0)
     // La camera è centrata su (0,0), quindi apparirà al centro dello schermo
@@ -244,9 +235,6 @@ export class PlayState extends GameState {
     ecs.addComponent(ship, Health, health);
     ecs.addComponent(ship, Damage, damage);
 
-    console.log(`PlayState: Added Transform component to player: x=${transform.x}, y=${transform.y}`);
-    console.log(`PlayState: Added Velocity component to player: x=${velocity.x}, y=${velocity.y}`);
-    console.log(`PlayState: Player ship creation completed`);
     return ship;
   }
 
@@ -270,10 +258,7 @@ export class PlayState extends GameState {
       ecs.addComponent(npc, Damage, new Damage(10, 200, 1000)); // 10 danno, 200 range, 1000ms cooldown - aumentato range
       ecs.addComponent(npc, Npc, new Npc('patrol', 'idle'));
 
-      console.log(`Created NPC ${i + 1} at position: (${x.toFixed(0)}, ${y.toFixed(0)})`);
     }
-
-    console.log(`Created ${count} NPCs`);
   }
 
   /**
@@ -296,10 +281,7 @@ export class PlayState extends GameState {
       ecs.addComponent(triangle, Damage, new Damage(15, 180, 800)); // 15 danno, 180 range, 800ms cooldown
       ecs.addComponent(triangle, Npc, new Npc('triangle', 'idle')); // Tipo triangolo
 
-      console.log(`Created Triangle ${i + 1} at position: (${x.toFixed(0)}, ${y.toFixed(0)})`);
     }
-
-    console.log(`Created ${count} Triangles`);
   }
 
   /**
