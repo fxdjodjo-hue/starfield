@@ -45,6 +45,8 @@ export class StartScreen {
       justify-content: center;
       font-family: Arial, sans-serif;
       z-index: 1000;
+      padding: 20px;
+      box-sizing: border-box;
     `;
 
     // Titolo
@@ -92,6 +94,11 @@ export class StartScreen {
       border: 2px solid #00ff88;
       box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
       min-width: 300px;
+      max-width: 400px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     `;
 
     // Label nickname
@@ -102,6 +109,8 @@ export class StartScreen {
       display: block;
       margin-bottom: 10px;
       font-size: 16px;
+      text-align: center;
+      width: 100%;
     `;
 
     // Input nickname
