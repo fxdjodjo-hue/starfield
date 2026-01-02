@@ -133,12 +133,15 @@ export class MinimapSystem extends System {
    * Renderizza lo sfondo della minimappa
    */
   private renderMinimapBackground(ctx: CanvasRenderingContext2D): void {
+    // Salva stato del contesto
+    ctx.save();
+
     // Sfondo
     ctx.fillStyle = this.minimap.backgroundColor;
     ctx.fillRect(this.minimap.x, this.minimap.y, this.minimap.width, this.minimap.height);
 
-    // Bordo
-    ctx.strokeStyle = this.minimap.borderColor;
+    // Bordo blu
+    ctx.strokeStyle = '#0088ff'; // Blu invece di verde
     ctx.lineWidth = 2;
     ctx.strokeRect(this.minimap.x, this.minimap.y, this.minimap.width, this.minimap.height);
 
@@ -153,6 +156,25 @@ export class MinimapSystem extends System {
     ctx.moveTo(centerX, centerY - 5);
     ctx.lineTo(centerX, centerY + 5);
     ctx.stroke();
+
+    // Testo "MINIMAP" in alto
+    ctx.fillStyle = '#0088ff';
+    ctx.font = 'bold 12px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('MINIMAP', this.minimap.x + this.minimap.width / 2, this.minimap.y + 16);
+
+    // Coordinate del player in basso
+    if (this.camera) {
+      const playerX = Math.round(this.camera.x);
+      const playerY = Math.round(this.camera.y);
+      ctx.fillStyle = '#00ff88';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${playerX}, ${playerY}`, this.minimap.x + this.minimap.width / 2, this.minimap.y + this.minimap.height - 8);
+    }
+
+    // Ripristina stato del contesto
+    ctx.restore();
   }
 
   /**
@@ -220,7 +242,7 @@ export class MinimapSystem extends System {
     ctx.save();
 
     // Imposta stile linea continua
-    ctx.strokeStyle = '#00ff88'; // Verde come il bordo della minimappa
+    ctx.strokeStyle = '#0088ff'; // Blu come il bordo della minimappa
     ctx.lineWidth = 1;
     ctx.setLineDash([]); // Linea continua (rimuovi tratteggio)
 
@@ -231,7 +253,7 @@ export class MinimapSystem extends System {
     ctx.stroke();
 
     // Disegna un cerchio alla destinazione
-    ctx.fillStyle = '#00ff88';
+    ctx.fillStyle = '#0088ff';
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 1;
     ctx.beginPath();
