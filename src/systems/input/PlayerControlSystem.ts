@@ -4,6 +4,7 @@ import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Camera } from '/src/entities/spatial/Camera';
+import { CONFIG } from '/src/utils/config/Config';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo
@@ -125,9 +126,8 @@ export class PlayerControlSystem extends BaseSystem {
       const dirX = dx / distance;
       const dirY = dy / distance;
 
-      // Imposta velocity verso la destinazione
-      const speed = 400; // Velocità più alta per movimenti dalla minimappa
-      velocity.setVelocity(dirX * speed, dirY * speed);
+      // Imposta velocity verso la destinazione (stessa velocità del player)
+      velocity.setVelocity(dirX * CONFIG.PLAYER_SPEED, dirY * CONFIG.PLAYER_SPEED);
 
       // Ruota verso la direzione del movimento (sempre, dato che è navigazione)
       const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
@@ -166,8 +166,7 @@ export class PlayerControlSystem extends BaseSystem {
       const dirY = dy / distance;
 
       // Imposta velocity verso il mouse
-      const speed = 200; // pixels per second
-      velocity.setVelocity(dirX * speed, dirY * speed);
+      velocity.setVelocity(dirX * CONFIG.PLAYER_SPEED, dirY * CONFIG.PLAYER_SPEED);
 
       // NON ruotare verso il mouse se c'è un NPC selezionato
       // La rotazione verso l'NPC ha priorità e viene gestita in faceSelectedNpc()
