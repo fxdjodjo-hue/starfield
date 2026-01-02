@@ -1,5 +1,7 @@
 import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
+import { Experience } from '/src/entities/Experience';
+import { Honor } from '/src/entities/Honor';
 
 /**
  * Sistema Rank - gestisce il calcolo dei gradi militari
@@ -51,8 +53,8 @@ export class RankSystem extends BaseSystem {
   calculateRankingPoints(): number {
     if (!this.playerEntity) return 0;
 
-    const experience = this.ecs.getComponent(this.playerEntity, require('/src/entities/Experience').Experience);
-    const honor = this.ecs.getComponent(this.playerEntity, require('/src/entities/Honor').Honor);
+    const experience = this.ecs.getComponent(this.playerEntity, Experience);
+    const honor = this.ecs.getComponent(this.playerEntity, Honor);
 
     if (!experience || !honor) return 0;
 
@@ -66,7 +68,7 @@ export class RankSystem extends BaseSystem {
   calculateCurrentRank(): string {
     if (!this.playerEntity) return 'Recruit';
 
-    const honor = this.ecs.getComponent(this.playerEntity, require('/src/entities/Honor').Honor);
+    const honor = this.ecs.getComponent(this.playerEntity, Honor);
 
     // Ranghi speciali hanno priorità
     if (honor?.isAdministrator) {
