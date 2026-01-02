@@ -129,14 +129,7 @@ export class RenderSystem extends BaseSystem {
     ctx.rotate(transform.rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
 
-    // Cerchio rosso di selezione (se selezionato)
-    if (isSelected) {
-      ctx.beginPath();
-      ctx.arc(0, 0, 25, 0, Math.PI * 2); // Cerchio di raggio 25px attorno all'NPC
-      ctx.strokeStyle = '#ff0000';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-    }
+    // Cerchio di selezione rimosso - selezione ora invisibile
 
     if (npc.npcType === 'triangle') {
       // Triangolo rosso per NPC nemici
