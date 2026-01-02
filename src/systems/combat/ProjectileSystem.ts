@@ -231,6 +231,7 @@ export class ProjectileSystem extends BaseSystem {
   private createDamageText(value: number, targetEntityId: number, offsetX: number, offsetY: number, color: string): void {
     if (value <= 0 || targetEntityId < 0) return;
 
+    console.log(`[DamageText] Creating damage text: ${value} for entity ${targetEntityId}`);
     const damageTextEntity = this.ecs.createEntity();
     const damageText = new DamageText(value, targetEntityId, offsetX, offsetY, color);
     this.ecs.addComponent(damageTextEntity, DamageText, damageText);

@@ -42,6 +42,10 @@ export class DamageTextSystem extends BaseSystem {
     // Trova tutte le entità con DamageText
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
+    if (damageTextEntities.length > 0) {
+      console.log(`[DamageTextSystem] Updating ${damageTextEntities.length} damage texts`);
+    }
+
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
@@ -54,8 +58,11 @@ export class DamageTextSystem extends BaseSystem {
       // Aggiorna lifetime
       damageText.lifetime -= deltaTime;
 
+      console.log(`[DamageText] Updated text ${damageText.value} - lifetime: ${damageText.lifetime}, offsetY: ${damageText.currentOffsetY}`);
+
       // Rimuovi testi scaduti
       if (damageText.isExpired()) {
+        console.log(`[DamageText] Removing expired text ${damageText.value}`);
         this.cleanupDamageText(damageText.targetEntityId, entity);
       }
     }
@@ -65,14 +72,23 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
-    if (!ctx.canvas || !this.movementSystem) return;
+    if (!ctx.canvas || !this.movementSystem) {
+      console.log('[DamageTextSystem] Missing canvas or movement system');
+      return;
+    }
 
     const camera = this.movementSystem.getCamera();
-    if (!camera) return;
+    if (!camera) {
+      console.log('[DamageTextSystem] No camera available');
+      return;
+    }
 
     const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
+    const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
-    for (const entity of this.ecs.getEntitiesWithComponents(DamageText)) {
+    console.log(`[DamageTextSystem] Rendering ${damageTextEntities.length} damage texts`);
+
+    for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) continue;
 
