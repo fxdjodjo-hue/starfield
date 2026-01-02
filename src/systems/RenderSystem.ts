@@ -288,9 +288,9 @@ export class RenderSystem extends BaseSystem {
     const worldWidth = 21000;  // CONFIG.WORLD_WIDTH
     const worldHeight = 13100; // CONFIG.WORLD_HEIGHT
 
-    // Aumenta il numero di stelle per copertura completa (300 stelle)
+    // Aumenta il numero di stelle per densità massima (600 stelle)
     let renderedStars = 0;
-    const totalStars = 300;
+    const totalStars = 600;
 
     for (let i = 0; i < totalStars; i++) {
       // Distribuisci uniformemente su tutta la mappa usando una griglia
@@ -321,7 +321,7 @@ export class RenderSystem extends BaseSystem {
       // Renderizza solo se visibile (con margine più ampio per transizioni fluide)
       if (screenPos.x >= -50 && screenPos.x <= ctx.canvas.width + 50 &&
           screenPos.y >= -50 && screenPos.y <= ctx.canvas.height + 50) {
-        const size = 1 + (hash % 3); // Size 1-3 pixel (più piccole per densità)
+        const size = 1 + (hash % 2); // Size 1-2 pixel (ancora più piccole per alta densità)
         ctx.globalAlpha = 0.5 + (hash % 50) / 100; // Alpha 0.5-1.0 per profondità
         ctx.fillRect(screenPos.x - size/2, screenPos.y - size/2, size, size);
         renderedStars++;
