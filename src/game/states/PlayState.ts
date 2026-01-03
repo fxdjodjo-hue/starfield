@@ -6,7 +6,6 @@ import { QuestManager } from '../../systems/QuestManager';
 import { QuestSystem } from '../../systems/QuestSystem';
 import { GameInitializationSystem } from '../../systems/GameInitializationSystem';
 import { UiSystem } from '../../systems/UiSystem';
-import { PlayerStatusDisplaySystem } from '../../systems/PlayerStatusDisplaySystem';
 import { Transform } from '../../entities/spatial/Transform';
 
 /**
@@ -34,15 +33,11 @@ export class PlayState extends GameState {
     // Inizializza sistemi UI e Quest per operazioni immediate
     this.questManager = new QuestManager();
     this.questSystem = new QuestSystem(this.world.getECS(), this.questManager);
-
-    // Crea PlayerStatusDisplaySystem prima dell'UiSystem
-    const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.world.getECS());
-
-    // UiSystem ora riceve anche il PlayerStatusDisplaySystem
-    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, playerStatusDisplaySystem);
+    // UiSystem riceverà l'EconomySystem dopo l'inizializzazione
+    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem);
 
     // Crea sistema di inizializzazione
-    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem, playerStatusDisplaySystem);
+    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem);
   }
 
   /**
@@ -62,9 +57,6 @@ export class PlayState extends GameState {
 
     // Inizializza il sistema UI dopo che tutti i sistemi sono stati creati
     this.uiSystem.initialize();
-
-    // Imposta l'entità player nei pannelli UI dopo la loro creazione
-    this.uiSystem.setPlayerEntityInPanels(this.gameInitSystem.getPlayerEntity());
 
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();

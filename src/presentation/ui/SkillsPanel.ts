@@ -1,9 +1,9 @@
 import { BasePanel } from './UIManager';
 import type { PanelConfig } from './PanelConfig';
 import { ECS } from '../../infrastructure/ecs/ECS';
-import { PlayerStatusDisplaySystem } from '../../systems/PlayerStatusDisplaySystem';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
 import { Experience } from '../../entities/Experience';
-import { getPlayerDefinition } from '../../config/PlayerConfig';
 
 /**
  * SkillsPanel - Pannello per visualizzare statistiche giocatore e gestire abilità
@@ -11,21 +11,11 @@ import { getPlayerDefinition } from '../../config/PlayerConfig';
 export class SkillsPanel extends BasePanel {
   private ecs: ECS;
   private statsContainer: HTMLElement | null = null;
-  private updateInterval: number | null = null;
   private isVisible: boolean = false;
-  private playerStatusDisplaySystem: PlayerStatusDisplaySystem;
 
-  constructor(config: PanelConfig, ecs: ECS, playerStatusDisplaySystem: PlayerStatusDisplaySystem) {
+  constructor(config: PanelConfig, ecs: ECS) {
     super(config);
     this.ecs = ecs;
-    this.playerStatusDisplaySystem = playerStatusDisplaySystem;
-  }
-
-  /**
-   * Imposta l'entità player da monitorare
-   */
-  setPlayerEntity(entity: any): void {
-    this.playerEntity = entity;
   }
 
   /**
@@ -164,8 +154,6 @@ export class SkillsPanel extends BasePanel {
 
     content.appendChild(this.statsContainer);
 
-    // Le statistiche verranno aggiornate quando il pannello diventa visibile (onShow)
-
     return content;
   }
 
@@ -241,9 +229,7 @@ export class SkillsPanel extends BasePanel {
 
       const value = document.createElement('div');
       value.textContent = stat.value;
-      const dataStat = stat.label.toLowerCase().replace(' ', '-');
-      value.setAttribute('data-stat', dataStat);
-      value.className = 'stat-value';
+      value.className = `stat-value stat-${stat.label.toLowerCase().replace(' ', '-')}`;
       value.style.cssText = `
         font-size: 13px;
         color: rgba(255, 255, 255, 0.9);
@@ -329,64 +315,52 @@ export class SkillsPanel extends BasePanel {
   private updatePlayerStats(): void {
     if (!this.statsContainer) return;
 
-    // Usa gli stessi valori del PlayerStatusDisplaySystem per garantire sincronizzazione
-    const health = this.playerStatusDisplaySystem.getPlayerHealth();
-    const shield = this.playerStatusDisplaySystem.getPlayerShield();
+    const playerEntity = this.ecs.getPlayerEntity();
+    if (!playerEntity) return;
 
-    // Per experience e velocità usa ancora l'ECS dato che non sono nel PlayerStatusDisplaySystem
-    const experience = this.playerEntity ? this.ecs.getComponent(this.playerEntity, Experience) : null;
-    const playerDef = getPlayerDefinition();
-
+    // Ottieni componenti del giocatore
+    const health = this.ecs.getComponent(playerEntity, Health);
+    const shield = this.ecs.getComponent(playerEntity, Shield);
+    const experience = this.ecs.getComponent(playerEntity, Experience);
 
     // Aggiorna statistiche combattimento
     if (health) {
-      const healthElements = this.statsContainer.querySelectorAll('[data-stat="hp"]');
-      healthElements.forEach((el: HTMLElement) => {
-        el.textContent = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
-      });
+      const healthValue = this.statsContainer.querySelector('.stat-hp') as HTMLElement;
+      if (healthValue) {
+        healthValue.textContent = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
+      }
     }
 
     if (shield) {
-      const shieldElements = this.statsContainer.querySelectorAll('[data-stat="shield"]');
-      shieldElements.forEach((el: HTMLElement) => {
-        el.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
-      });
+      const shieldValue = this.statsContainer.querySelector('.stat-shield') as HTMLElement;
+      if (shieldValue) {
+        shieldValue.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
+      }
     }
 
-    // Usa la velocità del player dal config
-    const speedElements = this.statsContainer.querySelectorAll('[data-stat="speed"]');
-    speedElements.forEach((el: HTMLElement) => {
-      const playerDef = getPlayerDefinition();
-      el.textContent = `${playerDef.stats.speed} u/s`;
-    });
+    // Speed rimane hardcoded per ora (300)
+    const speedValue = this.statsContainer.querySelector('.stat-speed') as HTMLElement;
+    if (speedValue) {
+      speedValue.textContent = '300 u/s';
+    }
 
     // Aggiorna statistiche progressione
     if (experience) {
-      const levelElements = this.statsContainer.querySelectorAll('[data-stat="livello"]');
-      levelElements.forEach((el: HTMLElement) => {
-        el.textContent = experience.level.toString();
-      });
+      const levelValue = this.statsContainer.querySelector('.stat-livello') as HTMLElement;
+      if (levelValue) {
+        levelValue.textContent = experience.level.toString();
+      }
 
-      const expElements = this.statsContainer.querySelectorAll('[data-stat="esperienza"]');
-      expElements.forEach((el: HTMLElement) => {
-        el.textContent = `${experience.exp.toLocaleString()}/${experience.expForNextLevel.toLocaleString()}`;
-      });
+      const expValue = this.statsContainer.querySelector('.stat-esperienza') as HTMLElement;
+      if (expValue) {
+        expValue.textContent = `${experience.exp.toLocaleString()}/${experience.expForNextLevel.toLocaleString()}`;
+      }
     }
 
     // Punti abilità (placeholder - per ora 0)
-    const skillElements = this.statsContainer.querySelectorAll('[data-stat="punti-abilità"]');
-    skillElements.forEach((el: HTMLElement) => {
-      el.textContent = '0';
-    });
-  }
-
-  /**
-   * Metodo update chiamato dal sistema ECS ogni frame
-   */
-  update(deltaTime: number): void {
-    // Aggiorna solo se il pannello è visibile
-    if (this.isVisible) {
-      this.updatePlayerStats();
+    const skillPointsValue = this.statsContainer.querySelector('.stat-punti-abilità') as HTMLElement;
+    if (skillPointsValue) {
+      skillPointsValue.textContent = '0';
     }
   }
 
@@ -395,7 +369,6 @@ export class SkillsPanel extends BasePanel {
    */
   protected onShow(): void {
     this.isVisible = true;
-    // Aggiorna le statistiche quando il pannello diventa visibile
     this.updatePlayerStats();
   }
 
@@ -404,5 +377,15 @@ export class SkillsPanel extends BasePanel {
    */
   protected onHide(): void {
     this.isVisible = false;
+  }
+
+  /**
+   * Metodo update chiamato dal sistema ECS ogni frame quando il pannello è visibile
+   */
+  update(deltaTime: number): void {
+    // Aggiorna le statistiche solo se il pannello è visibile
+    if (this.isVisible && this.statsContainer) {
+      this.updatePlayerStats();
+    }
   }
 }

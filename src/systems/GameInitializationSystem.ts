@@ -52,17 +52,15 @@ export class GameInitializationSystem extends System {
   private questManager: QuestManager;
   private questSystem: QuestSystem;
   private uiSystem: UiSystem;
-  private playerStatusDisplaySystem: PlayerStatusDisplaySystem;
   private movementSystem: MovementSystem;
 
-  constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem, playerStatusDisplaySystem: PlayerStatusDisplaySystem) {
+  constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
     super(ecs);
     this.world = world;
     this.context = context;
     this.questManager = questManager;
     this.questSystem = questSystem;
     this.uiSystem = uiSystem;
-    this.playerStatusDisplaySystem = playerStatusDisplaySystem;
     // L'economySystem verrà creato in createSystems()
     this.economySystem = null;
   }
@@ -80,9 +78,9 @@ export class GameInitializationSystem extends System {
     // Configura le interazioni tra sistemi
     this.configureSystemInteractions(systems);
 
-    // Crea le entità di gioco e salva il player entity
-    this.playerEntity = await this.createGameEntities(systems);
-    return this.playerEntity;
+    // Crea le entità di gioco e restituisci il player entity
+    const playerEntity = await this.createGameEntities(systems);
+    return playerEntity;
   }
 
   /**
@@ -269,8 +267,7 @@ export class GameInitializationSystem extends System {
   private setPlayerEntityInSystems(playerEntity: any, systems: any): void {
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
-      boundsSystem, respawnSystem, questTrackingSystem, playerStatusDisplaySystem,
-      uiSystem
+      boundsSystem, respawnSystem, questTrackingSystem, playerStatusDisplaySystem
     } = systems;
 
     playerControlSystem.setPlayerEntity(playerEntity);
@@ -281,8 +278,6 @@ export class GameInitializationSystem extends System {
     respawnSystem.setPlayerEntity(playerEntity);
     questTrackingSystem.setPlayerEntity(playerEntity);
     playerStatusDisplaySystem.setPlayerEntity(playerEntity);
-
-    // L'entità player per i pannelli UI viene impostata dal PlayState dopo l'inizializzazione dell'UI
   }
 
   /**
@@ -457,13 +452,6 @@ export class GameInitializationSystem extends System {
       economySystem: this.economySystem,
       movementSystem: this.movementSystem
     };
-  }
-
-  /**
-   * Restituisce l'entità player creata
-   */
-  getPlayerEntity(): any {
-    return this.playerEntity;
   }
 
   update(deltaTime: number): void {

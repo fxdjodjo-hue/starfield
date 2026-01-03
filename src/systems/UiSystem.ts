@@ -7,7 +7,6 @@ import { QuestPanel } from '../presentation/ui/QuestPanel';
 import { SkillsPanel } from '../presentation/ui/SkillsPanel';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
 import { QuestSystem } from './QuestSystem';
-import { PlayerStatusDisplaySystem } from './PlayerStatusDisplaySystem';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -17,19 +16,17 @@ export class UiSystem extends System {
   private uiManager: UIManager;
   private playerHUD: PlayerHUD;
   private questSystem: QuestSystem;
-  private playerStatusDisplaySystem: PlayerStatusDisplaySystem;
   private economySystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
   private ecs: ECS;
 
-  constructor(ecs: ECS, questSystem: QuestSystem, playerStatusDisplaySystem: PlayerStatusDisplaySystem) {
+  constructor(ecs: ECS, questSystem: QuestSystem) {
     super(ecs);
     this.ecs = ecs;
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
     this.questSystem = questSystem;
-    this.playerStatusDisplaySystem = playerStatusDisplaySystem;
   }
 
   /**
@@ -48,16 +45,6 @@ export class UiSystem extends System {
   }
 
   /**
-   * Imposta l'entità player nei pannelli che ne hanno bisogno
-   */
-  setPlayerEntityInPanels(playerEntity: any): void {
-    const skillsPanel = this.uiManager.getPanel('skills-panel');
-    if (skillsPanel && typeof skillsPanel.setPlayerEntity === 'function') {
-      skillsPanel.setPlayerEntity(playerEntity);
-    }
-  }
-
-  /**
    * Inizializza i pannelli UI
    */
   private initializePanels(): void {
@@ -73,7 +60,7 @@ export class UiSystem extends System {
 
     // Crea e registra il pannello delle skills
     const skillsConfig = getPanelConfig('skills');
-    const skillsPanel = new SkillsPanel(skillsConfig, this.ecs, this.playerStatusDisplaySystem);
+    const skillsPanel = new SkillsPanel(skillsConfig, this.ecs);
     this.uiManager.registerPanel(skillsPanel);
 
     // Collega il pannello quest al sistema quest
@@ -302,16 +289,21 @@ export class UiSystem extends System {
   }
 
   update(deltaTime: number): void {
-    console.log('UiSystem: update called');
-    // Aggiorna pannello skills se visibile
-    const skillsPanel = this.uiManager.getPanel('skills-panel') as any;
-    console.log('UiSystem: skills panel exists:', !!skillsPanel);
-    if (skillsPanel && skillsPanel.update) {
-      console.log('UiSystem: calling skillsPanel.update()');
+    // Aggiorna i pannelli che richiedono aggiornamenti periodici
+    this.updatePanels(deltaTime);
+  }
+
+  /**
+   * Aggiorna i pannelli che supportano aggiornamenti real-time
+   */
+  private updatePanels(deltaTime: number): void {
+    // Aggiorna pannello Skills se visibile
+    const skillsPanel = this.uiManager.getPanel('skills-panel');
+    if (skillsPanel && typeof skillsPanel.update === 'function') {
       skillsPanel.update(deltaTime);
     }
 
-    // Altri aggiornamenti periodici dell'UI se necessari
+    // Altri pannelli possono essere aggiunti qui se necessario
   }
 
   /**
