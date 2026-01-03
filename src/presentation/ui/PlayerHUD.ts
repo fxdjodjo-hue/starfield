@@ -47,7 +47,6 @@ export class PlayerHUD {
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       z-index: 1000;
-      transition: all 0.3s ease;
     `;
 
     // Struttura HTML pulita

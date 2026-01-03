@@ -82,14 +82,12 @@ export class PlayerStatsPanel extends BasePanel {
       closeButton.style.background = 'rgba(239, 68, 68, 1)';
       closeButton.style.borderColor = 'rgba(239, 68, 68, 0.8)';
       closeButton.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
-      closeButton.style.transform = 'translateY(-1px)';
     });
 
     closeButton.addEventListener('mouseleave', () => {
       closeButton.style.background = 'rgba(239, 68, 68, 0.9)';
       closeButton.style.borderColor = 'rgba(239, 68, 68, 0.5)';
       closeButton.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
-      closeButton.style.transform = 'translateY(0)';
     });
 
     closeButton.addEventListener('click', () => {
@@ -189,13 +187,11 @@ export class PlayerStatsPanel extends BasePanel {
 
     // Hover effect
     card.addEventListener('mouseenter', () => {
-      card.style.transform = 'translateY(-2px)';
       card.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
       card.style.borderColor = accentColor;
     });
 
     card.addEventListener('mouseleave', () => {
-      card.style.transform = 'translateY(0)';
       card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
       card.style.borderColor = 'rgba(148, 163, 184, 0.2)';
     });

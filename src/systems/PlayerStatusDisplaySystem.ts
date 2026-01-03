@@ -53,7 +53,6 @@ export class PlayerStatusDisplaySystem extends System {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       z-index: 1000;
       pointer-events: none;
-      transition: all 0.3s ease;
     `;
 
     document.body.appendChild(this.statusElement);

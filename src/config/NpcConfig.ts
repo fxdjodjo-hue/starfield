@@ -37,7 +37,7 @@ export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
     stats: {
       health: 800,
       shield: 560,
-      damage: 50,
+      damage: 500,
       range: 220,
       cooldown: 1200, // 1.2 secondi
       speed: 200

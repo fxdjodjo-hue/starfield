@@ -134,14 +134,12 @@ export class QuestPanel extends BasePanel {
       closeButton.style.background = 'rgba(239, 68, 68, 1)';
       closeButton.style.borderColor = 'rgba(239, 68, 68, 0.8)';
       closeButton.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
-      closeButton.style.transform = 'translateY(-1px)';
     });
 
     closeButton.addEventListener('mouseleave', () => {
       closeButton.style.background = 'rgba(239, 68, 68, 0.9)';
       closeButton.style.borderColor = 'rgba(239, 68, 68, 0.5)';
       closeButton.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
-      closeButton.style.transform = 'translateY(0)';
     });
 
     closeButton.addEventListener('click', () => {
@@ -282,13 +280,11 @@ export class QuestPanel extends BasePanel {
     `;
 
     card.addEventListener('mouseenter', () => {
-      card.style.transform = 'translateY(-2px)';
       card.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
       card.style.borderColor = this.getQuestColor(quest.type);
     });
 
     card.addEventListener('mouseleave', () => {
-      card.style.transform = 'translateY(0)';
       card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
       card.style.borderColor = 'rgba(148, 163, 184, 0.2)';
     });
@@ -383,12 +379,10 @@ export class QuestPanel extends BasePanel {
 
       abandonButton.addEventListener('mouseenter', () => {
         abandonButton.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
-        abandonButton.style.transform = 'translateY(-1px)';
       });
 
       abandonButton.addEventListener('mouseleave', () => {
         abandonButton.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
-        abandonButton.style.transform = 'translateY(0)';
       });
 
       abandonButton.addEventListener('click', (e) => {
@@ -424,12 +418,10 @@ export class QuestPanel extends BasePanel {
 
       acceptButton.addEventListener('mouseenter', () => {
         acceptButton.style.background = 'linear-gradient(135deg, #059669, #047857)';
-        acceptButton.style.transform = 'translateY(-1px)';
       });
 
       acceptButton.addEventListener('mouseleave', () => {
         acceptButton.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-        acceptButton.style.transform = 'translateY(0)';
       });
 
       acceptButton.addEventListener('click', (e) => {
