@@ -21,6 +21,9 @@ import { BoundsSystem } from '/src/systems/BoundsSystem';
 import { NpcRespawnSystem } from '/src/systems/NpcRespawnSystem';
 import { PlayerHUD } from '/src/ui/PlayerHUD';
 import type { PlayerHUDData } from '/src/ui/PlayerHUD';
+import { UIManager } from '/src/ui/UIManager';
+import { PlayerStatsPanel } from '/src/ui/PlayerStatsPanel';
+import type { PanelData } from '/src/ui/UIManager';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
@@ -44,6 +47,8 @@ import { getNpcDefinition } from '/src/config/NpcConfig';
 export class PlayState extends GameState {
   private world: World;
   private playerHUD: PlayerHUD;
+  private uiManager: UIManager;
+  private startTime: number = Date.now();
   private expandedHudElement: HTMLElement | null = null;
   private context: GameContext;
   private playerEntity: any = null;
@@ -61,6 +66,7 @@ export class PlayState extends GameState {
 
     // Crea l'HUD del giocatore (separazione presentazione/logica)
     this.playerHUD = new PlayerHUD();
+    this.uiManager = new UIManager();
   }
 
   /**
@@ -86,6 +92,55 @@ export class PlayState extends GameState {
 
     // Setup HUD toggle listener
     this.setupHudToggle();
+
+    // Inizializza il sistema UI
+    this.initializeUI();
+  }
+
+  /**
+   * Inizializza il sistema UI con pannelli e icone
+   */
+  private initializeUI(): void {
+    // Crea e registra il pannello delle statistiche del giocatore
+    const statsPanel = new PlayerStatsPanel();
+    this.uiManager.registerPanel(statsPanel, {
+      id: 'player-stats',
+      icon: '📊',
+      title: 'Statistiche Giocatore',
+      position: 'top-right',
+      size: { width: 320, height: 400 }
+    });
+
+    console.log('UI System initialized with player stats panel');
+  }
+
+  /**
+   * Aggiorna i pannelli UI con dati aggiornati
+   */
+  private updateUIPanels(): void {
+    const playerEntity = this.world.getECS().getPlayerEntity();
+    if (!playerEntity) return;
+
+    const health = this.world.getECS().getComponent(playerEntity, Health);
+    const experience = this.world.getECS().getComponent(playerEntity, Experience);
+    const credits = this.world.getECS().getComponent(playerEntity, Currency);
+    const honor = this.world.getECS().getComponent(playerEntity, Honor);
+
+    // Raccogli i dati per il pannello delle statistiche
+    const statsData: PanelData = {
+      level: experience?.level || 1,
+      experience: experience?.amount || 0,
+      experienceForNext: experience?.getExpRequiredForLevel(experience?.level || 1) || 1000,
+      credits: credits?.amount || 0,
+      honor: honor?.amount || 0,
+      kills: 0, // TODO: Implementare contatore uccisioni
+      playtime: Math.floor((Date.now() - this.startTime) / 60000) // minuti
+    };
+
+    // Aggiorna i pannelli UI
+    this.uiManager.updatePanels({
+      'player-stats': statsData
+    });
   }
 
   /**
@@ -100,6 +155,9 @@ export class PlayState extends GameState {
 
     // Aggiorna posizione del nickname
     this.updatePlayerNicknamePosition();
+
+    // Aggiorna i pannelli UI
+    this.updateUIPanels();
   }
 
   /**
@@ -289,8 +347,15 @@ export class PlayState extends GameState {
     this.hudExpanded = !this.hudExpanded;
     this.showPlayerInfo();
 
+    // Gestisci anche la visibilità delle UI
+    if (this.hudExpanded) {
+      this.uiManager.showUI();
+    } else {
+      this.uiManager.hideUI();
+    }
+
     // Nota: Lo styling dell'HUD è ora gestito da PlayerHUD
-    // Il toggle riguarda solo l'HUD espanso, non l'HUD principale
+    // Il toggle riguarda HUD espanso e UI
   }
 
 
