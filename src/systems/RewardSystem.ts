@@ -1,6 +1,7 @@
 import { System as BaseSystem } from '../infrastructure/ecs/System';
 import { ECS } from '../infrastructure/ecs/ECS';
 import { Health } from '../entities/combat/Health';
+import { Explosion } from '../entities/combat/Explosion';
 import { Npc } from '../entities/ai/Npc';
 import { PlayerStats } from '../entities/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
@@ -52,10 +53,11 @@ export class RewardSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.economySystem) return;
 
-    // Trova tutti gli NPC morti che non sono ancora stati processati
+    // Trova tutti gli NPC morti che non sono ancora stati processati e non hanno esplosione
     const deadNpcs = this.ecs.getEntitiesWithComponents(Npc, Health).filter((entity: any) => {
       const health = this.ecs.getComponent(entity, Health);
-      return health && health.isDead();
+      const hasExplosion = this.ecs.hasComponent(entity, Explosion);
+      return health && health.isDead() && !hasExplosion;
     });
 
     // Assegna ricompense per ogni NPC morto

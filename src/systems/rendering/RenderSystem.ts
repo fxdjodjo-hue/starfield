@@ -6,6 +6,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
+import { Explosion } from '../../entities/combat/Explosion';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Camera } from '../../entities/spatial/Camera';
 import { MovementSystem } from '../physics/MovementSystem';
@@ -45,6 +46,7 @@ export class RenderSystem extends BaseSystem {
       const projectile = this.ecs.getComponent(entity, Projectile);
       const parallax = this.ecs.getComponent(entity, ParallaxLayer);
       const sprite = this.ecs.getComponent(entity, Sprite);
+      const explosion = this.ecs.getComponent(entity, Explosion);
 
       // Salta i proiettili - vengono renderizzati separatamente
       if (projectile) continue;
@@ -56,7 +58,11 @@ export class RenderSystem extends BaseSystem {
         // Converte le coordinate world in coordinate schermo usando la camera
         const screenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
 
-        if (npc) {
+        // Controlla se è un'esplosione
+        if (explosion) {
+          console.log(`Rendering explosion at (${screenPos.x}, ${screenPos.y}), frame ${explosion.currentFrame}/${explosion.frames.length}`);
+          this.renderExplosion(ctx, transform, explosion, screenPos.x, screenPos.y);
+        } else if (npc) {
           // Renderizza come NPC
           const entitySprite = this.ecs.getComponent(entity, Sprite);
           const entityVelocity = this.ecs.getComponent(entity, Velocity);
@@ -419,6 +425,37 @@ export class RenderSystem extends BaseSystem {
     ctx.fillText(npc.npcType, offsetX, offsetY);
 
     ctx.restore();
+  }
+
+  /**
+   * Renderizza un effetto esplosione
+   */
+  private renderExplosion(ctx: CanvasRenderingContext2D, transform: Transform, explosion: Explosion, screenX: number, screenY: number): void {
+    const currentFrame = explosion.getCurrentFrame();
+
+    if (currentFrame && currentFrame.complete && currentFrame.naturalWidth > 0) {
+      ctx.save();
+
+      console.log(`Drawing explosion frame ${explosion.currentFrame} at (${screenX}, ${screenY})`);
+
+      // Centra l'esplosione rispetto alla posizione dell'entità - dimensioni più grandi
+      const explosionWidth = currentFrame.width * 0.8; // Scala l'esplosione al 80%
+      const explosionHeight = currentFrame.height * 0.8;
+
+      console.log(`Explosion size: ${explosionWidth}x${explosionHeight}`);
+
+      ctx.drawImage(
+        currentFrame,
+        screenX - explosionWidth / 2,
+        screenY - explosionHeight / 2,
+        explosionWidth,
+        explosionHeight
+      );
+
+      ctx.restore();
+    } else {
+      console.warn('Explosion frame not ready or invalid');
+    }
   }
 
 }

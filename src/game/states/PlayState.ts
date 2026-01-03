@@ -8,6 +8,7 @@ import { PlayerControlSystem } from '/src/systems/input/PlayerControlSystem';
 import { NpcBehaviorSystem } from '/src/systems/ai/NpcBehaviorSystem';
 import { NpcSelectionSystem } from '/src/systems/ai/NpcSelectionSystem';
 import { CombatSystem } from '/src/systems/combat/CombatSystem';
+import { ExplosionSystem } from '/src/systems/combat/ExplosionSystem';
 import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
@@ -459,7 +460,8 @@ export class PlayState extends GameState {
     const playerControlSystem = new PlayerControlSystem(ecs);
     const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
-    const combatSystem = new CombatSystem(ecs, movementSystem);
+    const combatSystem = new CombatSystem(ecs, movementSystem, this.context);
+    const explosionSystem = new ExplosionSystem(ecs);
     const damageTextSystem = new DamageTextSystem(ecs, movementSystem);
     const projectileSystem = new ProjectileSystem(ecs);
     const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
@@ -475,6 +477,7 @@ export class PlayState extends GameState {
     ecs.addSystem(npcSelectionSystem); // Selezione NPC
     ecs.addSystem(playerControlSystem); // Poi controllo player
     ecs.addSystem(combatSystem);       // Sistema combattimento
+    ecs.addSystem(explosionSystem);    // Sistema esplosioni
     ecs.addSystem(projectileSystem);   // Sistema proiettili
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento

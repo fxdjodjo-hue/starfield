@@ -5,12 +5,15 @@ import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { DamageTaken } from '/src/entities/combat/DamageTaken';
 import { DamageText } from '/src/entities/combat/DamageText';
+import { Explosion } from '/src/entities/combat/Explosion';
 import { Transform } from '/src/entities/spatial/Transform';
 import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
 import { Npc } from '/src/entities/ai/Npc';
 import { Projectile } from '/src/entities/combat/Projectile';
+import { Sprite } from '/src/entities/Sprite';
 import { MovementSystem } from '../physics/MovementSystem';
 import { LogSystem } from '../rendering/LogSystem';
+import { GameContext } from '/src/infrastructure/engine/GameContext';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -20,13 +23,16 @@ export class CombatSystem extends BaseSystem {
   private lastUpdateTime: number = Date.now();
   private movementSystem: MovementSystem;
   private logSystem: LogSystem | null = null;
+  private gameContext: GameContext;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
+  private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
 
-  constructor(ecs: ECS, movementSystem: MovementSystem) {
+  constructor(ecs: ECS, movementSystem: MovementSystem, gameContext: GameContext) {
     super(ecs);
     this.movementSystem = movementSystem;
+    this.gameContext = gameContext;
   }
 
   update(deltaTime: number): void {
@@ -166,7 +172,7 @@ export class CombatSystem extends BaseSystem {
     // Per ora semplificato - controlla se ha uno shield attivo con danni recenti
     // In futuro potrebbe usare un timestamp più sofisticato
     const shield = this.ecs.getComponent(targetEntity, Shield);
-    return shield && shield.isActive() && shield.current < shield.max;
+    return shield && shield.isActive() === true && shield.current < shield.max;
   }
 
   /**
@@ -320,7 +326,7 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
-   * Rimuove tutte le entità morte dal mondo
+   * Rimuove tutte le entità morte dal mondo (ora crea esplosione invece di rimuovere immediatamente)
    */
   private removeDeadEntities(): void {
     // Trova tutte le entità con componente Health
@@ -329,14 +335,74 @@ export class CombatSystem extends BaseSystem {
     for (const entity of entitiesWithHealth) {
       const health = this.ecs.getComponent(entity, Health);
       const shield = this.ecs.getComponent(entity, Shield);
+      const npc = this.ecs.getComponent(entity, Npc);
 
       // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
       const isDead = health && health.isDead() && (!shield || !shield.isActive());
 
-      if (isDead) {
-        this.ecs.removeEntity(entity);
+      if (isDead && !this.ecs.hasComponent(entity, Explosion)) {
+        console.log(`Creating explosion for dead entity ${entity.id}`);
+        // Crea l'effetto esplosione invece di rimuovere immediatamente
+        this.createExplosion(entity);
       }
     }
+  }
+
+  /**
+   * Crea un effetto esplosione per un'entità morta
+   */
+  private async createExplosion(entity: any): Promise<void> {
+    try {
+      // Carica i frame dell'esplosione se non già caricati
+      if (!this.explosionFrames) {
+        this.explosionFrames = await this.loadExplosionFrames();
+      }
+
+      // Rimuovi componenti non necessari per l'esplosione
+      this.ecs.removeComponent(entity, Health);
+      this.ecs.removeComponent(entity, Shield);
+      this.ecs.removeComponent(entity, Damage);
+      this.ecs.removeComponent(entity, DamageTaken);
+      this.ecs.removeComponent(entity, SelectedNpc);
+      this.ecs.removeComponent(entity, Npc);
+
+      // Aggiungi il componente esplosione
+      const explosion = new Explosion(this.explosionFrames, 80); // 80ms per frame
+      this.ecs.addComponent(entity, Explosion, explosion);
+      console.log(`Explosion created for entity ${entity.id} with ${this.explosionFrames.length} frames`);
+
+    } catch (error) {
+      console.error('Errore nel creare l\'esplosione:', error);
+      // Fallback: rimuovi l'entità se fallisce il caricamento
+      this.ecs.removeEntity(entity);
+    }
+  }
+
+  /**
+   * Carica tutti i frame dell'animazione dell'esplosione
+   */
+  private async loadExplosionFrames(): Promise<HTMLImageElement[]> {
+    const frames: HTMLImageElement[] = [];
+    const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
+
+    console.log('Loading explosion frames...');
+
+    // Carica i 10 frame dell'esplosione
+    for (let i = 1; i <= 10; i++) {
+      const framePath = `${basePath}${i}.png`;
+      console.log(`Loading frame ${i}: ${framePath}`);
+      try {
+        const frame = await this.gameContext.assetManager.loadImage(framePath);
+        console.log(`Frame ${i} loaded: ${frame.width}x${frame.height}`);
+        frames.push(frame);
+      } catch (error) {
+        console.error(`Failed to load frame ${i}:`, error);
+        throw error;
+      }
+    }
+
+    console.log(`Successfully loaded ${frames.length} explosion frames`);
+    return frames;
   }
 
   /**
