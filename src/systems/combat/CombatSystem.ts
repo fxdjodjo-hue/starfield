@@ -431,4 +431,19 @@ export class CombatSystem extends BaseSystem {
 
     this.currentAttackTarget = null;
   }
+
+  /**
+   * Decrementa il contatore dei testi di danno attivi per un'entità
+   * Chiamato dal DamageTextSystem quando un testo scade
+   */
+  public decrementDamageTextCount(targetEntityId: number): void {
+    const currentCount = this.activeDamageTexts.get(targetEntityId) || 0;
+    if (currentCount > 0) {
+      this.activeDamageTexts.set(targetEntityId, currentCount - 1);
+      // Rimuovi la chiave se il contatore arriva a 0
+      if (currentCount - 1 === 0) {
+        this.activeDamageTexts.delete(targetEntityId);
+      }
+    }
+  }
 }

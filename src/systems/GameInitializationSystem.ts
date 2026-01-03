@@ -102,7 +102,7 @@ export class GameInitializationSystem extends System {
     const npcSelectionSystem = new NpcSelectionSystem(this.ecs);
     const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context);
     const explosionSystem = new ExplosionSystem(this.ecs);
-    const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem);
+    const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
     const projectileSystem = new ProjectileSystem(this.ecs);
     const minimapSystem = new MinimapSystem(this.ecs, this.context.canvas);
     const logSystem = new LogSystem(this.ecs);

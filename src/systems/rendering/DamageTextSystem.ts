@@ -8,11 +8,14 @@ import { Transform } from '../../entities/spatial/Transform';
  */
 export class DamageTextSystem extends BaseSystem {
   private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
+  private combatSystem: any = null; // Riferimento al CombatSystem per gestire i contatori dei testi
 
-  constructor(ecs: ECS, movementSystem?: any) {
+  constructor(ecs: ECS, movementSystem?: any, combatSystem?: any) {
     super(ecs);
     // Usa il movementSystem passato o cercalo
     this.movementSystem = movementSystem || this.findMovementSystem();
+    // Salva il riferimento al CombatSystem
+    this.combatSystem = combatSystem;
   }
 
   /**
@@ -31,6 +34,10 @@ export class DamageTextSystem extends BaseSystem {
    */
   private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
     this.ecs.removeEntity(damageTextEntity);
+    // Decrementa il contatore dei testi attivi nel CombatSystem
+    if (this.combatSystem && this.combatSystem.decrementDamageTextCount) {
+      this.combatSystem.decrementDamageTextCount(targetEntityId);
+    }
   }
 
   /**
