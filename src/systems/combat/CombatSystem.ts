@@ -36,6 +36,7 @@ export class CombatSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
+    console.log('CombatSystem update called');
     this.lastUpdateTime = Date.now();
 
     // Rimuovi tutte le entità morte
@@ -331,11 +332,14 @@ export class CombatSystem extends BaseSystem {
   private removeDeadEntities(): void {
     // Trova tutte le entità con componente Health
     const entitiesWithHealth = this.ecs.getEntitiesWithComponents(Health);
+    console.log(`Found ${entitiesWithHealth.length} entities with Health component`);
 
     for (const entity of entitiesWithHealth) {
       const health = this.ecs.getComponent(entity, Health);
       const shield = this.ecs.getComponent(entity, Shield);
       const npc = this.ecs.getComponent(entity, Npc);
+
+      console.log(`Entity ${entity.id}: HP=${health?.currentValue}/${health?.maxValue}, isDead=${health?.isDead()}, hasShield=${!!shield}, shieldActive=${shield?.isActive()}`);
 
       // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
       const isDead = health && health.isDead() && (!shield || !shield.isActive());

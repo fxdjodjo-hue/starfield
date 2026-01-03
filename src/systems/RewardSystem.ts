@@ -7,6 +7,12 @@ import { PlayerStats } from '../entities/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
 import { LogSystem } from './rendering/LogSystem';
 import { NpcRespawnSystem } from './NpcRespawnSystem';
+import { Component } from '../infrastructure/ecs/Component';
+
+/**
+ * Componente per marcare NPC già processati per le ricompense
+ */
+class RewardProcessed extends Component {}
 
 /**
  * Sistema Reward - gestisce l'assegnazione di ricompense quando gli NPC vengono sconfitti
@@ -53,11 +59,11 @@ export class RewardSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.economySystem) return;
 
-    // Trova tutti gli NPC morti che non sono ancora stati processati e non hanno esplosione
+    // Trova tutti gli NPC morti che non sono ancora stati processati per le ricompense
     const deadNpcs = this.ecs.getEntitiesWithComponents(Npc, Health).filter((entity: any) => {
       const health = this.ecs.getComponent(entity, Health);
-      const hasExplosion = this.ecs.hasComponent(entity, Explosion);
-      return health && health.isDead() && !hasExplosion;
+      const alreadyProcessed = this.ecs.hasComponent(entity, RewardProcessed);
+      return health && health.isDead() && !alreadyProcessed;
     });
 
     // Assegna ricompense per ogni NPC morto
@@ -124,7 +130,7 @@ export class RewardSystem extends BaseSystem {
       this.respawnSystem.scheduleRespawn(npc.npcType, Date.now());
     }
 
-    // Rimuovi immediatamente l'entità NPC morta (i testi di danno continuano autonomamente)
-    this.ecs.removeEntity(npcEntity);
+    // Marca l'NPC come processato per le ricompense (verrà rimosso dall'ExplosionSystem)
+    this.ecs.addComponent(npcEntity, RewardProcessed, new RewardProcessed());
   }
 }

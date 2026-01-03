@@ -489,8 +489,8 @@ export class PlayState extends GameState {
     ecs.addSystem(damageTextSystem);   // Testi danno alla fine (più sopra di tutto)
     ecs.addSystem(this.economySystem); // Sistema economia
     ecs.addSystem(rankSystem); // Sistema rank
-    ecs.addSystem(rewardSystem); // Sistema ricompense
     ecs.addSystem(respawnSystem); // Sistema respawn NPC
+    ecs.addSystem(rewardSystem); // Sistema ricompense (dopo respawn per evitare conflitti)
 
     // Crea la nave player
     const playerShip = this.createPlayerShip(ecs, shipSprite);
