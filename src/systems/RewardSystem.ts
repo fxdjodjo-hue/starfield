@@ -113,14 +113,6 @@ export class RewardSystem extends BaseSystem {
       this.economySystem.addCosmos(npcDef.rewards.cosmos, `defeated ${npc.npcType}`);
     }
 
-    // Notifica il sistema quest per aggiornare il progresso
-    if (this.questTrackingSystem && this.playerEntity) {
-      const activeQuest = this.ecs.getComponent(this.playerEntity, ActiveQuest);
-      if (activeQuest) {
-        this.questTrackingSystem.onNpcKilled(npc.npcType, activeQuest);
-      }
-    }
-
     if (npcDef.rewards.experience > 0) {
       this.economySystem.addExperience(npcDef.rewards.experience, `defeated ${npc.npcType}`);
     }
@@ -129,7 +121,7 @@ export class RewardSystem extends BaseSystem {
       this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
     }
 
-    // Crea un singolo messaggio che combina kill e ricompense
+    // Crea il messaggio dell'NPC sconfitto PRIMA di notificare il quest system
     if (this.logSystem) {
       let killMessage = `💀 ${npc.npcType} sconfitto!`;
 
@@ -145,6 +137,14 @@ export class RewardSystem extends BaseSystem {
       }
 
       this.logSystem.addLogMessage(killMessage, LogType.NPC_KILLED, 4000);
+    }
+
+    // Notifica il sistema quest per aggiornare il progresso (DOPO il messaggio NPC)
+    if (this.questTrackingSystem && this.playerEntity) {
+      const activeQuest = this.ecs.getComponent(this.playerEntity, ActiveQuest);
+      if (activeQuest) {
+        this.questTrackingSystem.onNpcKilled(npc.npcType, activeQuest);
+      }
     }
 
     // Pianifica il respawn dell'NPC morto
