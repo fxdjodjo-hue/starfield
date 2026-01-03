@@ -109,17 +109,21 @@ export abstract class BasePanel {
     if (this.isVisible) return;
 
     this.isVisible = true;
-    this.container.style.opacity = '1';
-    this.container.style.transform = 'scale(1)';
-    this.container.style.pointerEvents = 'auto';
 
-    // Ricalcola posizione centrale (responsive)
-    this.updatePosition();
-
-    // Assicura che sia nel DOM
+    // Assicura che sia nel DOM PRIMA di applicare gli stili
     if (!document.body.contains(this.container)) {
       document.body.appendChild(this.container);
     }
+
+    // Ricalcola posizione centrale (responsive) - PRIMA degli stili di animazione
+    this.updatePosition();
+
+    // Piccola pausa per permettere al browser di applicare la posizione
+    setTimeout(() => {
+      this.container.style.opacity = '1';
+      this.container.style.transform = 'scale(1)';
+      this.container.style.pointerEvents = 'auto';
+    }, 10);
 
     // Assicura che sia nel DOM
     if (!document.body.contains(this.container)) {
