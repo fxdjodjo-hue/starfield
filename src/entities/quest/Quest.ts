@@ -36,6 +36,16 @@ export class Quest {
   }
 
   /**
+   * Resetta il progresso della quest (per riaccettarla dopo abbandono)
+   */
+  resetProgress(): void {
+    this.isCompleted = false;
+    this.objectives.forEach(objective => {
+      objective.current = 0;
+    });
+  }
+
+  /**
    * Aggiorna un obiettivo specifico
    */
   updateObjective(objectiveId: string, amount: number = 1): boolean {

@@ -147,6 +147,11 @@ export class PlayState extends GameState {
       const { questId } = event.detail;
       this.handleQuestAcceptance(questId);
     });
+
+    document.addEventListener('questAbandon', (event: any) => {
+      const { questId } = event.detail;
+      this.handleQuestAbandon(questId);
+    });
   }
 
   /**
@@ -165,6 +170,23 @@ export class PlayState extends GameState {
         // Aggiorna immediatamente l'UI
         this.updateUIPanels();
       }
+    }
+  }
+
+  /**
+   * Gestisce l'abbandono di una quest attiva
+   */
+  private handleQuestAbandon(questId: string): void {
+    if (!this.questManager || !this.playerEntity) return;
+
+    const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
+    if (!activeQuest) return;
+
+    const abandoned = this.questManager.abandonQuest(questId, activeQuest);
+    if (abandoned) {
+      console.log(`👋 Quest "${questId}" abbandonata dal giocatore!`);
+      // Aggiorna immediatamente l'UI
+      this.updateUIPanels();
     }
   }
 

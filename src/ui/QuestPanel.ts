@@ -333,7 +333,48 @@ export class QuestPanel extends BasePanel {
     card.appendChild(questDescription);
 
     // Aggiungi pulsanti di azione basati sul tipo di sezione
-    if (sectionType === 'available') {
+    if (sectionType === 'active') {
+      const actionContainer = document.createElement('div');
+      actionContainer.style.cssText = `
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 8px;
+      `;
+
+      const abandonButton = document.createElement('button');
+      abandonButton.textContent = 'Abbandona Quest';
+      abandonButton.style.cssText = `
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        z-index: 10;
+      `;
+
+      abandonButton.addEventListener('mouseenter', () => {
+        abandonButton.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+        abandonButton.style.transform = 'translateY(-1px)';
+      });
+
+      abandonButton.addEventListener('mouseleave', () => {
+        abandonButton.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        abandonButton.style.transform = 'translateY(0)';
+      });
+
+      abandonButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.onQuestAbandon(quest.id);
+      });
+
+      actionContainer.appendChild(abandonButton);
+      card.appendChild(actionContainer);
+    } else if (sectionType === 'available') {
       const actionContainer = document.createElement('div');
       actionContainer.style.cssText = `
         display: flex;
@@ -523,6 +564,12 @@ export class QuestPanel extends BasePanel {
   private onQuestAccept(questId: string): void {
     // Trigger custom event per notificare il PlayState
     const event = new CustomEvent('questAccept', { detail: { questId } });
+    document.dispatchEvent(event);
+  }
+
+  private onQuestAbandon(questId: string): void {
+    // Trigger custom event per notificare il PlayState
+    const event = new CustomEvent('questAbandon', { detail: { questId } });
     document.dispatchEvent(event);
   }
 }

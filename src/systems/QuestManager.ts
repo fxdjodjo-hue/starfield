@@ -74,6 +74,25 @@ export class QuestManager {
   }
 
   /**
+   * Abbandona una quest attiva
+   */
+  abandonQuest(questId: string, activeQuestComponent: ActiveQuest): boolean {
+    const quest = activeQuestComponent.getQuest(questId);
+    if (!quest) return false;
+
+    // Rimuovi dalla lista attiva
+    activeQuestComponent.removeQuest(questId);
+
+    // Resetta il progresso della quest per poterla riaccettare in futuro
+    quest.resetProgress();
+
+    // Rimetti tra le quest disponibili
+    this.availableQuests.push(quest);
+
+    return true;
+  }
+
+  /**
    * Aggiorna il progresso di una quest (per obiettivi di tipo kill)
    */
   updateQuestProgress(questId: string, objectiveId: string, activeQuestComponent: ActiveQuest): boolean {
