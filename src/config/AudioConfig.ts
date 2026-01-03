@@ -8,7 +8,7 @@ export type AudioConfig = {
 
 export const AUDIO_CONFIG: AudioConfig = {
   masterVolume: 1.0,
-  musicVolume: 0.1,
+  musicVolume: 0.05,
   effectsVolume: 0.8,
   uiVolume: 0.9,
   enabled: true

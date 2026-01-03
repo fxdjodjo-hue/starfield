@@ -65,7 +65,7 @@ export class PlayerControlSystem extends BaseSystem {
       // Avvia il suono con volume 0 per evitare pop iniziale
       this.audioSystem.playSound('engine', 0, true);
       // Fade in graduale
-      this.audioSystem.fadeInSound('engine', 800, 0.3); // 800ms fade in, volume target 0.3
+      this.audioSystem.fadeInSound('engine', 800, 0.15); // 800ms fade in, volume target 0.15
       this.isEnginePlaying = true;
     }
   }

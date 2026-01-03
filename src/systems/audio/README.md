@@ -64,7 +64,7 @@ this.audioSystem.setEffectsVolume(1.0);
 ### Fade Effects
 ```typescript
 // Fade in graduale (800ms) fino al volume target
-this.audioSystem.fadeInSound('engine', 800, 0.3);
+this.audioSystem.fadeInSound('engine', 800, 0.15);
 
 // Fade out graduale (500ms) con promessa di completamento
 await this.audioSystem.fadeOutSound('engine', 500);
