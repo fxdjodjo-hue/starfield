@@ -315,7 +315,11 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   private updatePlayerStats(): void {
-    if (!this.statsContainer) return;
+    console.log('SkillsPanel: updatePlayerStats() called');
+    if (!this.statsContainer) {
+      console.log('SkillsPanel: statsContainer is null');
+      return;
+    }
 
     const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) {
@@ -382,7 +386,9 @@ export class SkillsPanel extends BasePanel {
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   update(deltaTime: number): void {
+    console.log('SkillsPanel: update() called, isVisible:', this.isVisible, 'has statsContainer:', !!this.statsContainer);
     if (this.isVisible && this.statsContainer) {
+      console.log('SkillsPanel: Calling updatePlayerStats()');
       this.updatePlayerStats();
     }
   }
@@ -391,6 +397,7 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
+    console.log('SkillsPanel: onShow() called - setting visible to true');
     this.isVisible = true;
     this.updatePlayerStats();
   }
@@ -399,6 +406,7 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene nascosto
    */
   protected onHide(): void {
+    console.log('SkillsPanel: onHide() called - setting visible to false');
     this.isVisible = false;
   }
 }
