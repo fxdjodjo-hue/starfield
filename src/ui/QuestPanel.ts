@@ -1,5 +1,6 @@
 import { BasePanel } from './UIManager';
-import type { PanelConfig, PanelData } from './UIManager';
+import type { PanelConfig } from './PanelConfig';
+import type { PanelData } from './UIManager';
 
 /**
  * Dati per il pannello delle quest
@@ -428,7 +429,17 @@ export class QuestPanel extends BasePanel {
    * Callback chiamato quando il pannello viene mostrato
    */
   protected onShow(): void {
-    // Potrebbe servire per aggiornare dati in tempo reale o animazioni
+    // Accetta automaticamente la quest disponibile quando si apre il pannello
+    this.autoAcceptAvailableQuests();
+  }
+
+  /**
+   * Accetta automaticamente le quest disponibili
+   */
+  private autoAcceptAvailableQuests(): void {
+    // Nota: Questa logica dovrebbe essere gestita dal PlayState o da un sistema centrale
+    // Per ora, questa è solo una struttura placeholder
+    // La logica reale sarà implementata quando il pannello avrà accesso al QuestManager
   }
 
   /**

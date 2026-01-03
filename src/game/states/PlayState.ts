@@ -17,6 +17,8 @@ import { ParallaxSystem } from '/src/systems/rendering/ParallaxSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
+import { QuestManager } from '/src/systems/QuestManager';
+import { QuestTrackingSystem } from '/src/systems/QuestTrackingSystem';
 import { BoundsSystem } from '/src/systems/BoundsSystem';
 import { NpcRespawnSystem } from '/src/systems/NpcRespawnSystem';
 import { PlayerHUD } from '/src/ui/PlayerHUD';
@@ -38,6 +40,7 @@ import { Experience } from '/src/entities/Experience';
 import { Sprite } from '/src/entities/Sprite';
 import { Honor } from '/src/entities/Honor';
 import { PlayerStats } from '/src/entities/PlayerStats';
+import { ActiveQuest } from '/src/entities/quest/ActiveQuest';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
 import { CONFIG } from '/src/utils/config/Config';
 import { getNpcDefinition } from '/src/config/NpcConfig';
@@ -58,6 +61,8 @@ export class PlayState extends GameState {
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
   private economySystem: any = null;
   private logSystem: LogSystem | null = null;
+  private questManager: QuestManager | null = null;
+  private questTrackingSystem: QuestTrackingSystem | null = null;
   private playerNicknameElement: HTMLElement | null = null;
 
   constructor(context: GameContext) {
@@ -127,6 +132,7 @@ export class PlayState extends GameState {
     const experience = this.world.getECS().getComponent(playerEntity, Experience);
     const credits = this.world.getECS().getComponent(playerEntity, Credits);
     const honor = this.world.getECS().getComponent(playerEntity, Honor);
+    const activeQuest = this.world.getECS().getComponent(playerEntity, ActiveQuest);
 
     // Raccogli i dati per il pannello delle statistiche
     const statsData: PanelData = {
@@ -139,59 +145,11 @@ export class PlayState extends GameState {
       playtime: Math.floor((Date.now() - this.startTime) / 60000) // minuti
     };
 
-    // Dati di esempio per le quest (saranno sostituiti dal vero sistema quest)
-    const questData = {
-      activeQuests: [
-        {
-          id: 'kill-scouters',
-          title: 'Caccia ai Ricognitori',
-          description: 'Elimina 5 Scouter nemici per proteggere la tua nave.',
-          type: 'kill' as const,
-          objectives: [{ id: 'kill-objective', description: 'Uccidi Scouter', current: 2, target: 5, type: 'kill' }],
-          rewards: [{ type: 'credits' as const, amount: 500 }, { type: 'experience' as const, amount: 250 }],
-          progress: 40,
-          isCompleted: false,
-          isActive: true
-        },
-        {
-          id: 'survive-5min',
-          title: 'Sopravvivenza',
-          description: 'Rimani in vita per 5 minuti consecutivi.',
-          type: 'survival' as const,
-          objectives: [{ id: 'time-objective', description: 'Sopravvivi', current: 180, target: 300, type: 'time' }],
-          rewards: [{ type: 'experience' as const, amount: 150 }],
-          progress: 60,
-          isCompleted: false,
-          isActive: true,
-          timeRemaining: 120
-        }
-      ],
-      completedQuests: [
-        {
-          id: 'first-kill',
-          title: 'Primo Contatto',
-          description: 'Uccidi il tuo primo nemico spaziale.',
-          type: 'achievement' as const,
-          objectives: [{ id: 'first-kill-obj', description: 'Primo nemico sconfitto', current: 1, target: 1, type: 'kill' }],
-          rewards: [{ type: 'experience' as const, amount: 50 }],
-          progress: 100,
-          isCompleted: true,
-          isActive: false
-        }
-      ],
-      availableQuests: [
-        {
-          id: 'collect-resources',
-          title: 'Raccoglitore di Risorse',
-          description: 'Raccogli 1000 crediti totali.',
-          type: 'collection' as const,
-          objectives: [{ id: 'credits-objective', description: 'Raccogli crediti', current: 450, target: 1000, type: 'credits' }],
-          rewards: [{ type: 'experience' as const, amount: 300 }],
-          progress: 45,
-          isCompleted: false,
-          isActive: false
-        }
-      ]
+    // Dati reali delle quest dal sistema quest
+    const questData = this.questManager ? this.questManager.getQuestData(activeQuest || new ActiveQuest()) : {
+      activeQuests: [],
+      completedQuests: [],
+      availableQuests: []
     };
 
     // Aggiorna i pannelli UI
@@ -595,6 +553,10 @@ export class PlayState extends GameState {
     const boundsSystem = new BoundsSystem(ecs, movementSystem);
     const respawnSystem = new NpcRespawnSystem(ecs, this.context);
 
+    // Sistemi Quest
+    this.questManager = new QuestManager();
+    this.questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
+
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo
     ecs.addSystem(npcSelectionSystem); // Selezione NPC
@@ -657,6 +619,9 @@ export class PlayState extends GameState {
     // Configura sistema respawn NPC
     respawnSystem.setPlayerEntity(playerShip);
     rewardSystem.setRespawnSystem(respawnSystem);
+
+    // Configura sistema quest
+    rewardSystem.setQuestTrackingSystem(this.questTrackingSystem!);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
@@ -753,6 +718,7 @@ export class PlayState extends GameState {
             const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
             const honor = new Honor(0); // Inizia con 0 Honor Points (ranking verrà aggiornato dal server)
             const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
+            const activeQuest = new ActiveQuest(); // Sistema quest
 
     ecs.addComponent(ship, Transform, transform);
     ecs.addComponent(ship, Velocity, velocity);
@@ -763,6 +729,7 @@ export class PlayState extends GameState {
             ecs.addComponent(ship, Experience, experience);
             ecs.addComponent(ship, Honor, honor);
             ecs.addComponent(ship, PlayerStats, playerStats);
+            ecs.addComponent(ship, ActiveQuest, activeQuest);
     ecs.addComponent(ship, Sprite, sprite);
 
     return ship;

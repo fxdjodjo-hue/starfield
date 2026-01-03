@@ -7,6 +7,7 @@ import { PlayerStats } from '../entities/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
 import { LogSystem } from './rendering/LogSystem';
 import { NpcRespawnSystem } from './NpcRespawnSystem';
+import { QuestTrackingSystem } from './QuestTrackingSystem';
 import { Component } from '../infrastructure/ecs/Component';
 
 /**
@@ -23,6 +24,7 @@ export class RewardSystem extends BaseSystem {
   private playerEntity: any = null;
   private logSystem: LogSystem | null = null;
   private respawnSystem: NpcRespawnSystem | null = null;
+  private questTrackingSystem: QuestTrackingSystem | null = null;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -54,6 +56,13 @@ export class RewardSystem extends BaseSystem {
    */
   setRespawnSystem(respawnSystem: NpcRespawnSystem): void {
     this.respawnSystem = respawnSystem;
+  }
+
+  /**
+   * Imposta il riferimento al QuestTrackingSystem per aggiornare le quest
+   */
+  setQuestTrackingSystem(questTrackingSystem: QuestTrackingSystem): void {
+    this.questTrackingSystem = questTrackingSystem;
   }
 
   update(deltaTime: number): void {
@@ -100,6 +109,14 @@ export class RewardSystem extends BaseSystem {
 
     if (npcDef.rewards.cosmos > 0) {
       this.economySystem.addCosmos(npcDef.rewards.cosmos, `defeated ${npc.npcType}`);
+    }
+
+    // Notifica il sistema quest per aggiornare il progresso
+    if (this.questTrackingSystem && this.playerEntity) {
+      const activeQuest = this.ecs.getComponent(this.playerEntity, require('../entities/quest/ActiveQuest').ActiveQuest);
+      if (activeQuest) {
+        this.questTrackingSystem.onNpcKilled(npc.npcType, activeQuest);
+      }
     }
 
     if (npcDef.rewards.experience > 0) {

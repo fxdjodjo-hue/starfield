@@ -4,13 +4,7 @@
  * Architettura modulare e future-proof per aggiungere nuove UI
  */
 
-export interface PanelConfig {
-  id: string;
-  icon: string; // Unicode icon or CSS class
-  title: string;
-  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'bottom-left' | 'bottom-right';
-  size: { width: number; height: number };
-}
+import type { PanelConfig } from './PanelConfig';
 
 export interface PanelData {
   [key: string]: any; // Flexible data structure for different panels

@@ -4,7 +4,13 @@
  * Questo assicura consistenza e facilita la manutenzione
  */
 
-import { PanelConfig } from './UIManager';
+export interface PanelConfig {
+  id: string;
+  icon: string; // Unicode icon or CSS class
+  title: string;
+  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'bottom-left' | 'bottom-right';
+  size: { width: number; height: number };
+}
 
 export const PANEL_CONFIGS = {
   stats: {
