@@ -5,7 +5,7 @@
 
 export interface PlayerStats {
   health: number;
-  shield?: number; // Opzionale, player potrebbe non avere scudi
+  shield?: number; 
   damage: number;
   range: number;
   cooldown: number;
@@ -32,7 +32,7 @@ export interface PlayerDefinition {
 export const PLAYER_DEFINITION: PlayerDefinition = {
   stats: {
     health: 100000,
-    // shield: 0, // Commentato - player senza scudi
+    shield: 50000, // Scudi protettivi per il giocatore
     damage: 500,
     range: 300,
     cooldown: 1000,
