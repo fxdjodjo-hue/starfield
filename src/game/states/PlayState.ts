@@ -59,7 +59,7 @@ export class PlayState extends GameState {
     this.uiSystem.initialize();
 
     // Imposta l'entità player nei pannelli UI dopo la loro creazione
-    this.uiSystem.setPlayerEntityInPanels(this.gameInitializationSystem.getPlayerEntity());
+    this.uiSystem.setPlayerEntityInPanels(this.gameInitSystem.getPlayerEntity());
 
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
