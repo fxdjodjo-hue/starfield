@@ -42,19 +42,6 @@ export class LogSystem extends BaseSystem {
   render(ctx: CanvasRenderingContext2D): void {
     const logMessages = this.ecs.getEntitiesWithComponents(LogMessage);
 
-    // Debug: mostra quanti messaggi vengono renderizzati
-    if (logMessages.length > 0) {
-      console.log(`📋 Rendering ${logMessages.length} log messages`);
-      logMessages.forEach(entity => {
-        const msg = this.ecs.getComponent(entity, LogMessage);
-        if (msg) {
-          console.log(`  - "${msg.text}" (${msg.type})`);
-        }
-      });
-    }
-
-    console.log(`🎨 LogSystem render called with ctx: ${!!ctx}, canvas size: ${ctx.canvas.width}x${ctx.canvas.height}`);
-
     // Ordina per timestamp (più recenti in basso)
     const sortedMessages = logMessages
       .map(entity => this.ecs.getComponent(entity, LogMessage))
@@ -97,7 +84,6 @@ export class LogSystem extends BaseSystem {
     ctx.shadowOffsetY = 1;
 
     // Disegna il testo centrato
-    console.log(`✏️ Drawing text: "${message.text}" at (${canvasWidth / 2}, ${y})`);
     ctx.fillText(message.text, canvasWidth / 2, y);
 
     // Ripristina contesto
