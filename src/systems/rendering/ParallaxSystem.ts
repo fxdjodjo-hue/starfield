@@ -2,6 +2,7 @@ import { System as BaseSystem } from '/src/infrastructure/ecs/System';
 import { ECS } from '/src/infrastructure/ecs/ECS';
 import { Transform } from '/src/entities/spatial/Transform';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
+import { Sprite } from '/src/entities/Sprite';
 import { MovementSystem } from '/src/systems/physics/MovementSystem';
 
 /**
@@ -54,21 +55,27 @@ export class ParallaxSystem extends BaseSystem {
     for (const entity of parallaxEntities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const parallax = this.ecs.getComponent(entity, ParallaxLayer);
+      const sprite = this.ecs.getComponent(entity, Sprite);
 
       if (transform && parallax) {
-        // Controllo preliminare: salta stelle troppo lontane dalla camera
-        const distanceFromCamera = Math.sqrt(
-          Math.pow(transform.x - camera.x, 2) +
-          Math.pow(transform.y - camera.y, 2)
-        );
+        // Per gli sprite (sfondi), non applicare il controllo di distanza
+        if (sprite) {
+          this.renderParallaxElement(ctx, transform, parallax, camera, sprite);
+        } else {
+          // Controllo preliminare per stelle: salta stelle troppo lontane dalla camera
+          const distanceFromCamera = Math.sqrt(
+            Math.pow(transform.x - camera.x, 2) +
+            Math.pow(transform.y - camera.y, 2)
+          );
 
-        // Salta stelle oltre 8000 pixel dalla camera (fuori dal campo visivo)
-        // Aumentato per la mappa enorme 21000x13100
-        if (distanceFromCamera > 8000) {
-          continue;
+          // Salta stelle oltre 8000 pixel dalla camera (fuori dal campo visivo)
+          // Aumentato per la mappa enorme 21000x13100
+          if (distanceFromCamera > 8000) {
+            continue;
+          }
+
+          this.renderParallaxElement(ctx, transform, parallax, camera);
         }
-
-        this.renderParallaxElement(ctx, transform, parallax, camera);
       }
     }
   }
@@ -92,7 +99,7 @@ export class ParallaxSystem extends BaseSystem {
   /**
    * Renderizza un singolo elemento parallax
    */
-  private renderParallaxElement(ctx: CanvasRenderingContext2D, transform: Transform, parallax: ParallaxLayer, camera: any): void {
+  private renderParallaxElement(ctx: CanvasRenderingContext2D, transform: Transform, parallax: ParallaxLayer, camera: any, sprite?: Sprite): void {
     ctx.save();
 
     // Calcola la posizione effettiva considerando l'offset parallax
@@ -117,8 +124,16 @@ export class ParallaxSystem extends BaseSystem {
     ctx.rotate(transform.rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
 
-    // Renderizza come punto luminoso (placeholder per elementi parallax)
-    this.renderParallaxPoint(ctx, parallax);
+    // Renderizza sprite se disponibile, altrimenti punto luminoso
+    if (sprite && sprite.isLoaded()) {
+      // Renderizza l'immagine sprite
+      const spriteX = -sprite.width / 2 + sprite.offsetX;
+      const spriteY = -sprite.height / 2 + sprite.offsetY;
+      ctx.drawImage(sprite.image, spriteX, spriteY, sprite.width, sprite.height);
+    } else {
+      // Renderizza come punto luminoso (stelle)
+      this.renderParallaxPoint(ctx, parallax);
+    }
 
     ctx.restore();
   }

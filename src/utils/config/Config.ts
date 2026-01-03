@@ -14,7 +14,7 @@ export const CONFIG = {
   MAX_DELTA_TIME: 1000 / 30, // Limite massimo per evitare spirale della morte
 
   // Colori e temi visuali
-  BACKGROUND_COLOR: '#000011',
+  BACKGROUND_COLOR: '#000000',
   STAR_COLORS: ['#ffffff', '#ffe4b5', '#87ceeb', '#ffa500'],
 
   // Debug flags
