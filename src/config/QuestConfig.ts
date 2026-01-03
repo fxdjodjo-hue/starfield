@@ -143,7 +143,9 @@ export class QuestObjectiveFactory {
       type: config.type,
       description: config.description,
       target: config.target,
-      current: 0
+      current: 0,
+      targetName: config.targetName,
+      targetType: config.targetType
     };
   }
 }

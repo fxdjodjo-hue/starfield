@@ -57,11 +57,11 @@ export class QuestTrackingSystem implements QuestEventHandler {
    * Gestisce un evento di quest in modo modulare
    * Questo è il metodo principale per il tracking scalabile
    */
-  handleEvent(event: QuestEvent, activeQuests: any[]): void {
+  handleEvent(event: QuestEvent, activeQuestComponent: ActiveQuest): void {
     console.log(`📡 Quest Event: ${event.type} - ${event.targetId} (${event.targetType}) x${event.amount || 1}`);
 
     // Trova tutte le quest attive che potrebbero essere interessate da questo evento
-    activeQuests.forEach(quest => {
+    activeQuestComponent.quests.forEach(quest => {
       const questConfig = QuestRegistry.get(quest.id);
       if (!questConfig) {
         console.warn(`⚠️ Quest config not found for ${quest.id}`);
@@ -71,10 +71,10 @@ export class QuestTrackingSystem implements QuestEventHandler {
       // Controlla ogni obiettivo della quest
       quest.objectives.forEach(objective => {
         if (this.shouldUpdateObjective(objective, event)) {
-          const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, { quests: activeQuests });
+          const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
 
           if (questCompleted) {
-            this.handleQuestCompletion(quest);
+            this.handleQuestCompletion(quest, activeQuestComponent);
           }
         }
       });
@@ -116,7 +116,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
   /**
    * Gestisce il completamento di una quest
    */
-  private handleQuestCompletion(quest: any): void {
+  private handleQuestCompletion(quest: any, activeQuestComponent: ActiveQuest): void {
     console.log(`🎯 Quest completed: ${quest.title}`);
 
     // Mostra messaggio di completamento quest nel log
@@ -125,7 +125,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
     }
 
     // Completa la quest e ottieni le ricompense
-    const rewards = this.questManager.completeQuest(quest.id, { quests: [quest] });
+    const rewards = this.questManager.completeQuest(quest.id, activeQuestComponent);
     if (rewards) {
       this.applyQuestRewards(rewards);
     }
@@ -196,7 +196,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
 
     const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
     if (activeQuest) {
-      this.handleEvent(event, activeQuest.quests);
+      this.handleEvent(event, activeQuest);
     }
   }
 
@@ -215,7 +215,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
       amount: 1
     };
 
-    this.handleEvent(event, activeQuestComponent.quests);
+    this.handleEvent(event, activeQuestComponent);
   }
 
   /**

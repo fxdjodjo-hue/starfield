@@ -36,6 +36,8 @@ export interface QuestObjective {
   current: number;
   target: number;
   type: string;
+  targetName?: string;
+  targetType?: string;
 }
 
 /**
