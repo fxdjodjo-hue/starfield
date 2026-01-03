@@ -392,26 +392,22 @@ export class SkillsPanel extends BasePanel {
     upgradeButton.style.cssText = `
       display: flex;
       align-items: center;
-      gap: 4px;
-      padding: 6px 10px;
+      justify-content: center;
+      padding: 6px 12px;
       background: ${color}20;
       border: 1px solid ${color}40;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: ${color};
       cursor: pointer;
       transition: all 0.2s ease;
+      min-width: 70px;
     `;
 
-    const upgradeIcon = document.createElement('span');
-    upgradeIcon.textContent = '⬆️';
-    upgradeIcon.style.cssText = 'font-size: 10px;';
-
     const upgradeText = document.createElement('span');
-    upgradeText.textContent = '+1%';
+    upgradeText.textContent = 'UPGRADE';
 
-    upgradeButton.appendChild(upgradeIcon);
     upgradeButton.appendChild(upgradeText);
 
     // Click sul bottone di upgrade
