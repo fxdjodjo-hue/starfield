@@ -290,13 +290,13 @@ export class UiSystem extends System {
 
   update(deltaTime: number): void {
     // Aggiorna i pannelli che richiedono aggiornamenti periodici
-    this.updatePanels(deltaTime);
+    this.updateRealtimePanels(deltaTime);
   }
 
   /**
    * Aggiorna i pannelli che supportano aggiornamenti real-time
    */
-  private updatePanels(deltaTime: number): void {
+  private updateRealtimePanels(deltaTime: number): void {
     // Aggiorna pannello Skills se ha il metodo update
     const skillsPanel = this.uiManager.getPanel('skills-panel');
     if (skillsPanel && typeof skillsPanel.update === 'function') {

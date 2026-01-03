@@ -10,13 +10,10 @@ import { Experience } from '../../entities/Experience';
  */
 export class SkillsPanel extends BasePanel {
   private ecs: ECS;
-  private statsContainer: HTMLElement | null = null;
 
   constructor(config: PanelConfig, ecs: ECS) {
     super(config);
     this.ecs = ecs;
-    // Forza la creazione del contenuto per permettere gli aggiornamenti
-    this.createPanelContent();
   }
 
   /**
@@ -122,8 +119,8 @@ export class SkillsPanel extends BasePanel {
     content.appendChild(header);
 
     // Contenitore principale per le statistiche
-    this.statsContainer = document.createElement('div');
-    this.statsContainer.style.cssText = `
+    const statsContainer = document.createElement('div');
+    statsContainer.style.cssText = `
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -149,11 +146,11 @@ export class SkillsPanel extends BasePanel {
     // Sezione placeholder per abilità future
     const skillsSection = this.createSkillsSection();
 
-    this.statsContainer.appendChild(combatStatsSection);
-    this.statsContainer.appendChild(progressionStatsSection);
-    this.statsContainer.appendChild(skillsSection);
+    statsContainer.appendChild(combatStatsSection);
+    statsContainer.appendChild(progressionStatsSection);
+    statsContainer.appendChild(skillsSection);
 
-    content.appendChild(this.statsContainer);
+    content.appendChild(statsContainer);
 
     return content;
   }
@@ -314,7 +311,7 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   private updatePlayerStats(): void {
-    if (!this.statsContainer) return;
+    if (!this.container) return;
 
     const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) return;
@@ -326,40 +323,40 @@ export class SkillsPanel extends BasePanel {
 
     // Aggiorna statistiche combattimento
     if (health) {
-      const healthValue = this.statsContainer.querySelector('.stat-hp') as HTMLElement;
+      const healthValue = this.container.querySelector('.stat-hp') as HTMLElement;
       if (healthValue) {
         healthValue.textContent = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
       }
     }
 
     if (shield) {
-      const shieldValue = this.statsContainer.querySelector('.stat-shield') as HTMLElement;
+      const shieldValue = this.container.querySelector('.stat-shield') as HTMLElement;
       if (shieldValue) {
         shieldValue.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
       }
     }
 
     // Speed rimane hardcoded per ora (300)
-    const speedValue = this.statsContainer.querySelector('.stat-speed') as HTMLElement;
+    const speedValue = this.container.querySelector('.stat-speed') as HTMLElement;
     if (speedValue) {
       speedValue.textContent = '300 u/s';
     }
 
     // Aggiorna statistiche progressione
     if (experience) {
-      const levelValue = this.statsContainer.querySelector('.stat-livello') as HTMLElement;
+      const levelValue = this.container.querySelector('.stat-livello') as HTMLElement;
       if (levelValue) {
         levelValue.textContent = experience.level.toString();
       }
 
-      const expValue = this.statsContainer.querySelector('.stat-esperienza') as HTMLElement;
+      const expValue = this.container.querySelector('.stat-esperienza') as HTMLElement;
       if (expValue) {
         expValue.textContent = `${experience.exp.toLocaleString()}/${experience.expForNextLevel.toLocaleString()}`;
       }
     }
 
     // Punti abilità (placeholder - per ora 0)
-    const skillPointsValue = this.statsContainer.querySelector('.stat-punti-abilità') as HTMLElement;
+    const skillPointsValue = this.container.querySelector('.stat-punti-abilità') as HTMLElement;
     if (skillPointsValue) {
       skillPointsValue.textContent = '0';
     }
@@ -384,7 +381,7 @@ export class SkillsPanel extends BasePanel {
    */
   update(deltaTime: number): void {
     // Aggiorna le statistiche sempre se il container esiste
-    if (this.statsContainer) {
+    if (this.container) {
       this.updatePlayerStats();
     }
   }
