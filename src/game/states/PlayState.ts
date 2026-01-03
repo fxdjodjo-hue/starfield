@@ -23,6 +23,7 @@ import { PlayerHUD } from '/src/ui/PlayerHUD';
 import type { PlayerHUDData } from '/src/ui/PlayerHUD';
 import { UIManager } from '/src/ui/UIManager';
 import { PlayerStatsPanel } from '/src/ui/PlayerStatsPanel';
+import { QuestPanel } from '/src/ui/QuestPanel';
 import type { PanelData } from '/src/ui/UIManager';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
@@ -114,7 +115,19 @@ export class PlayState extends GameState {
     const statsPanel = new PlayerStatsPanel(statsConfig);
     this.uiManager.registerPanel(statsPanel);
 
-    console.log('UI System initialized with player stats panel');
+    // Crea e registra il pannello delle quest
+    const questConfig = {
+      id: 'quest-panel',
+      icon: '📋',
+      title: 'Missioni & Quest',
+      position: 'bottom-left' as const,
+      size: { width: 400, height: 600 }
+    };
+
+    const questPanel = new QuestPanel(questConfig);
+    this.uiManager.registerPanel(questPanel);
+
+    console.log('UI System initialized with player stats and quest panels');
   }
 
   /**
@@ -140,9 +153,65 @@ export class PlayState extends GameState {
       playtime: Math.floor((Date.now() - this.startTime) / 60000) // minuti
     };
 
+    // Dati di esempio per le quest (saranno sostituiti dal vero sistema quest)
+    const questData = {
+      activeQuests: [
+        {
+          id: 'kill-scouters',
+          title: 'Caccia ai Ricognitori',
+          description: 'Elimina 5 Scouter nemici per proteggere la tua nave.',
+          type: 'kill' as const,
+          objectives: [{ id: 'kill-objective', description: 'Uccidi Scouter', current: 2, target: 5, type: 'kill' }],
+          rewards: [{ type: 'credits' as const, amount: 500 }, { type: 'experience' as const, amount: 250 }],
+          progress: 40,
+          isCompleted: false,
+          isActive: true
+        },
+        {
+          id: 'survive-5min',
+          title: 'Sopravvivenza',
+          description: 'Rimani in vita per 5 minuti consecutivi.',
+          type: 'survival' as const,
+          objectives: [{ id: 'time-objective', description: 'Sopravvivi', current: 180, target: 300, type: 'time' }],
+          rewards: [{ type: 'experience' as const, amount: 150 }],
+          progress: 60,
+          isCompleted: false,
+          isActive: true,
+          timeRemaining: 120
+        }
+      ],
+      completedQuests: [
+        {
+          id: 'first-kill',
+          title: 'Primo Contatto',
+          description: 'Uccidi il tuo primo nemico spaziale.',
+          type: 'achievement' as const,
+          objectives: [{ id: 'first-kill-obj', description: 'Primo nemico sconfitto', current: 1, target: 1, type: 'kill' }],
+          rewards: [{ type: 'experience' as const, amount: 50 }],
+          progress: 100,
+          isCompleted: true,
+          isActive: false
+        }
+      ],
+      availableQuests: [
+        {
+          id: 'collect-resources',
+          title: 'Raccoglitore di Risorse',
+          description: 'Raccogli 1000 crediti totali.',
+          type: 'collection' as const,
+          objectives: [{ id: 'credits-objective', description: 'Raccogli crediti', current: 450, target: 1000, type: 'credits' }],
+          rewards: [{ type: 'experience' as const, amount: 300 }],
+          progress: 45,
+          isCompleted: false,
+          isActive: false
+        }
+      ]
+    };
+
     // Aggiorna i pannelli UI
     this.uiManager.updatePanels({
-      'player-stats': statsData
+      'player-stats': statsData,
+      'quest-panel': questData
     });
   }
 
