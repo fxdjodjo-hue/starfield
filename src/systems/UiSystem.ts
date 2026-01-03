@@ -56,7 +56,7 @@ export class UiSystem extends System {
     const questPanel = new QuestPanel(questConfig);
     this.uiManager.registerPanel(questPanel);
 
-    // Crea e registra il pannello delle abilità
+    // Crea e registra il pannello delle skills
     const skillsConfig = getPanelConfig('skills');
     const skillsPanel = new SkillsPanel(skillsConfig);
     this.uiManager.registerPanel(skillsPanel);
