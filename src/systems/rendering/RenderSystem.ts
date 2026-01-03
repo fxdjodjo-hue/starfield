@@ -210,10 +210,8 @@ export class RenderSystem extends BaseSystem {
       }
     }
 
-    // Renderizza il nickname sotto l'NPC solo per NPC senza sprite
-    if (!sprite || !sprite.isLoaded()) {
-      this.renderNpcNickname(ctx, npc, 0, 45);
-    }
+    // Renderizza sempre il nickname sotto l'NPC (utile per identificare il tipo)
+    this.renderNpcNickname(ctx, npc, 0, 45);
 
     ctx.restore();
   }
