@@ -73,8 +73,11 @@ export abstract class BasePanel {
    * Restituisce gli stili di posizione basati sulla configurazione
    */
   private getPositionStyles(): string {
-    // Pannelli sempre centrati al centro dello schermo per massima usabilità
-    return `top: 50%; left: 50%; transform: translate(-50%, -50%);`;
+    // Calcola la posizione centrale basandosi sulle dimensioni del pannello
+    const centerX = window.innerWidth / 2 - this.config.size.width / 2;
+    const centerY = window.innerHeight / 2 - this.config.size.height / 2;
+
+    return `top: ${centerY}px; left: ${centerX}px;`;
   }
 
   /**
@@ -104,6 +107,12 @@ export abstract class BasePanel {
     this.container.style.opacity = '1';
     this.container.style.transform = 'scale(1)';
     this.container.style.pointerEvents = 'auto';
+
+    // Ricalcola posizione centrale in caso di resize finestra
+    const centerX = window.innerWidth / 2 - this.config.size.width / 2;
+    const centerY = window.innerHeight / 2 - this.config.size.height / 2;
+    this.container.style.left = `${centerX}px`;
+    this.container.style.top = `${centerY}px`;
 
     // Assicura che sia nel DOM
     if (!document.body.contains(this.container)) {
