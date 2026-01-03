@@ -52,20 +52,23 @@ export class LogSystem extends BaseSystem {
     const visibleMessages = sortedMessages.slice(-this.maxMessages);
 
     // Renderizza ogni messaggio
-    visibleMessages.forEach((message, index) => {
-      this.renderLogMessage(ctx, message!, index, visibleMessages.length);
+    let currentY = this.topMargin;
+    visibleMessages.forEach((message) => {
+      const lineCount = message!.text.split('\n').length;
+      this.renderLogMessage(ctx, message!, currentY);
+      const messageHeight = lineCount * 20 + this.messageSpacing; // 20px per riga + spacing
+      currentY += messageHeight;
     });
   }
 
   /**
    * Renderizza un singolo messaggio di log
    */
-  private renderLogMessage(ctx: CanvasRenderingContext2D, message: LogMessage, index: number, totalMessages: number): void {
+  private renderLogMessage(ctx: CanvasRenderingContext2D, message: LogMessage, startY: number): void {
     const canvasWidth = ctx.canvas.width;
     const alpha = message.getAlpha();
 
-    // Calcola posizione Y (dal basso verso l'alto per i messaggi più recenti)
-    const y = this.topMargin + (totalMessages - 1 - index) * (25 + this.messageSpacing);
+    // Usa la posizione Y fornita come base
 
     // Salva contesto per applicare alpha
     ctx.save();
@@ -83,8 +86,14 @@ export class LogSystem extends BaseSystem {
     ctx.shadowOffsetX = 1;
     ctx.shadowOffsetY = 1;
 
-    // Disegna il testo centrato
-    ctx.fillText(message.text, canvasWidth / 2, y);
+    // Splitta il messaggio su nuove righe e renderizza ogni riga
+    const lines = message.text.split('\n');
+    const lineHeight = 20; // Altezza di ogni riga
+
+    lines.forEach((line, lineIndex) => {
+      const y = baseY + (lineIndex * lineHeight);
+      ctx.fillText(line, canvasWidth / 2, y);
+    });
 
     // Ripristina contesto
     ctx.restore();
