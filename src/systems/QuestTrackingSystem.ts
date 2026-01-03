@@ -55,9 +55,14 @@ export class QuestTrackingSystem {
             const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
 
             if (questCompleted) {
+              console.log(`🎯 Quest completed: ${quest.title}`);
+
               // Mostra messaggio di completamento quest nel log
               if (this.logSystem) {
+                console.log(`📝 Creating quest completion message for log system`);
                 this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD);
+              } else {
+                console.log(`❌ LogSystem not available for quest message`);
               }
 
               // Completa la quest e ottieni le ricompense
@@ -120,7 +125,10 @@ export class QuestTrackingSystem {
 
     // Mostra le ricompense nel log del sistema
     if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
+      console.log(`🎁 Creating reward message: ${totalCredits}c, ${totalCosmos}cos, ${totalExperience}xp, ${totalHonor}h`);
       this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor);
+    } else {
+      console.log(`❌ Cannot create reward message - LogSystem: ${!!this.logSystem}, Rewards: ${totalCredits + totalCosmos + totalExperience + totalHonor > 0}`);
     }
   }
 }
