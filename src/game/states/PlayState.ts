@@ -163,13 +163,17 @@ export class PlayState extends GameState {
     const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
     if (!activeQuest) return;
 
-    if (this.questManager.isQuestAvailable(questId)) {
+    if (this.questManager.isQuestAvailable(questId) && this.questManager.canAcceptQuest(questId)) {
       const accepted = this.questManager.acceptQuest(questId, activeQuest);
       if (accepted) {
         console.log(`🎉 Quest "${questId}" accettata dal giocatore!`);
         // Aggiorna immediatamente l'UI
         this.updateUIPanels();
+      } else {
+        console.warn(`❌ Impossibile accettare la quest "${questId}" - prerequisiti non soddisfatti`);
       }
+    } else {
+      console.warn(`❌ Quest "${questId}" non disponibile o prerequisiti non soddisfatti`);
     }
   }
 

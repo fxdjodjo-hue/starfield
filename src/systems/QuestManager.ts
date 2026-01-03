@@ -28,15 +28,18 @@ export class QuestManager {
     // Inizializza le quest di default dal registry
     initializeDefaultQuests();
 
-    // Carica tutte le quest dal registry e creale come istanze
+    // Carica tutte le quest dal registry e creane istanze solo per quelle disponibili
     const allQuestConfigs = QuestRegistry.getAll();
 
     for (const config of allQuestConfigs) {
-      const quest = this.createQuestFromConfig(config);
-      this.availableQuests.push(quest);
+      // Solo quest senza prerequisiti sono disponibili inizialmente
+      if (!config.prerequisites || config.prerequisites.length === 0) {
+        const quest = this.createQuestFromConfig(config);
+        this.availableQuests.push(quest);
+      }
     }
 
-    console.log(`📋 Initialized ${this.availableQuests.length} quests from registry`);
+    console.log(`📋 Initialized ${this.availableQuests.length} quests from registry (only those without prerequisites)`);
   }
 
   /**
@@ -71,6 +74,12 @@ export class QuestManager {
     const quest = this.availableQuests.find(q => q.id === questId);
     if (!quest) return false;
 
+    // Verifica i prerequisiti prima di accettare
+    if (!this.canAcceptQuest(questId)) {
+      console.warn(`⚠️ Cannot accept quest "${questId}" - prerequisites not met`);
+      return false;
+    }
+
     // Rimuovi dalla lista disponibile e aggiungi alle attive
     this.availableQuests = this.availableQuests.filter(q => q.id !== questId);
     activeQuestComponent.addQuest(quest);
@@ -88,6 +97,9 @@ export class QuestManager {
     // Rimuovi dalla lista attiva e aggiungi alle completate
     activeQuestComponent.removeQuest(questId);
     this.completedQuests.push(quest);
+
+    // Aggiorna la disponibilità delle quest (potrebbero essere diventate disponibili nuovi quest)
+    this.updateQuestAvailability();
 
     // Restituisci le ricompense
     return quest.rewards;
@@ -152,6 +164,49 @@ export class QuestManager {
    */
   isQuestAvailable(questId: string): boolean {
     return this.availableQuests.some(q => q.id === questId);
+  }
+
+  /**
+   * Verifica se una quest può essere accettata (controlla prerequisiti)
+   */
+  canAcceptQuest(questId: string): boolean {
+    const config = QuestRegistry.get(questId);
+    if (!config) return false;
+
+    // Controlla se tutti i prerequisiti sono stati completati
+    if (config.prerequisites && config.prerequisites.length > 0) {
+      const completedIds = this.completedQuests.map(q => q.id);
+      return config.prerequisites.every(prereqId => completedIds.includes(prereqId));
+    }
+
+    return true;
+  }
+
+  /**
+   * Aggiorna la disponibilità delle quest dopo il completamento di una quest
+   */
+  updateQuestAvailability(): void {
+    const allQuestConfigs = QuestRegistry.getAll();
+    const completedIds = this.completedQuests.map(q => q.id);
+
+    for (const config of allQuestConfigs) {
+      // Salta quest già disponibili o completate
+      if (this.availableQuests.some(q => q.id === config.id) ||
+          this.completedQuests.some(q => q.id === config.id)) {
+        continue;
+      }
+
+      // Verifica se tutti i prerequisiti sono soddisfatti
+      const hasPrerequisites = config.prerequisites &&
+                              config.prerequisites.length > 0 &&
+                              config.prerequisites.every(prereqId => completedIds.includes(prereqId));
+
+      if (hasPrerequisites) {
+        const quest = this.createQuestFromConfig(config);
+        this.availableQuests.push(quest);
+        console.log(`🔓 Quest "${quest.title}" ora disponibile!`);
+      }
+    }
   }
 
   /**
