@@ -55,15 +55,36 @@ export class QuestTrackingSystem {
             const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
 
             if (questCompleted) {
-              // Mostra messaggio di completamento quest nel log
-              if (this.logSystem) {
-                this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD, 5000); // Durata più lunga per quest
-              }
-
               // Completa la quest e ottieni le ricompense
               const rewards = this.questManager.completeQuest(quest.id, activeQuestComponent);
+
+              // Crea un singolo messaggio che combina completamento e ricompense
+              if (this.logSystem) {
+                let questMessage = `🎉 Quest "${quest.title}" completata!`;
+
+                if (rewards) {
+                  const totalCredits = rewards.reduce((sum, r) => r.type === 'credits' ? sum + r.amount : sum, 0);
+                  const totalCosmos = rewards.reduce((sum, r) => r.type === 'cosmos' ? sum + r.amount : sum, 0);
+                  const totalExperience = rewards.reduce((sum, r) => r.type === 'experience' ? sum + r.amount : sum, 0);
+                  const totalHonor = rewards.reduce((sum, r) => r.type === 'honor' ? sum + r.amount : sum, 0);
+
+                  const rewardParts: string[] = [];
+                  if (totalCredits > 0) rewardParts.push(`${totalCredits} crediti`);
+                  if (totalCosmos > 0) rewardParts.push(`${totalCosmos} cosmos`);
+                  if (totalExperience > 0) rewardParts.push(`${totalExperience} XP`);
+                  if (totalHonor > 0) rewardParts.push(`${totalHonor} onore`);
+
+                  if (rewardParts.length > 0) {
+                    questMessage += `\n🎁 Ricompense: ${rewardParts.join(', ')}`;
+                  }
+                }
+
+                this.logSystem.addLogMessage(questMessage, LogType.REWARD, 6000); // Messaggio singolo più duraturo
+              }
+
+              // Applica comunque le ricompense al sistema economico (senza creare messaggio separato)
               if (rewards) {
-                this.applyQuestRewards(rewards);
+                this.applyQuestRewards(rewards, false); // Passa false per non creare messaggio duplicato
               }
             }
           }
@@ -75,7 +96,7 @@ export class QuestTrackingSystem {
   /**
    * Applica le ricompense della quest completata
    */
-  private applyQuestRewards(rewards: any[]): void {
+  private applyQuestRewards(rewards: any[], createMessage: boolean = true): void {
     if (!this.economySystem) {
       console.warn('EconomySystem not set in QuestTrackingSystem');
       return;
@@ -118,9 +139,9 @@ export class QuestTrackingSystem {
       }
     });
 
-    // Mostra le ricompense nel log del sistema
-    if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
-      this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000); // Durata più lunga per ricompense quest
+    // Mostra le ricompense nel log del sistema (solo se richiesto)
+    if (createMessage && this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
+      this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000);
     }
   }
 }

@@ -128,19 +128,22 @@ export class RewardSystem extends BaseSystem {
       this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
     }
 
-    // Log delle ricompense guadagnate
+    // Crea un singolo messaggio che combina kill e ricompense
     if (this.logSystem) {
-      this.logSystem.logReward(
-        npcDef.rewards.credits,
-        npcDef.rewards.cosmos,
-        npcDef.rewards.experience,
-        npcDef.rewards.honor
-      );
-    }
+      let killMessage = `💀 ${npc.npcType} sconfitto!`;
 
-    // Log dell'NPC ucciso
-    if (this.logSystem) {
-      this.logSystem.logNpcKilled(npc.npcType);
+      // Aggiungi ricompense se presenti
+      const rewardParts: string[] = [];
+      if (npcDef.rewards.credits > 0) rewardParts.push(`${npcDef.rewards.credits} crediti`);
+      if (npcDef.rewards.cosmos > 0) rewardParts.push(`${npcDef.rewards.cosmos} cosmos`);
+      if (npcDef.rewards.experience > 0) rewardParts.push(`${npcDef.rewards.experience} XP`);
+      if (npcDef.rewards.honor > 0) rewardParts.push(`${npcDef.rewards.honor} onore`);
+
+      if (rewardParts.length > 0) {
+        killMessage += `\n🎁 Ricompense: ${rewardParts.join(', ')}`;
+      }
+
+      this.logSystem.addLogMessage(killMessage, LogType.NPC_KILLED, 4000);
     }
 
     // Pianifica il respawn dell'NPC morto
