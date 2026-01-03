@@ -11,6 +11,7 @@ import { Experience } from '../../entities/Experience';
 export class SkillsPanel extends BasePanel {
   private ecs: ECS;
   private statsContainer: HTMLElement | null = null;
+  private updateInterval: number | null = null;
 
   constructor(config: PanelConfig, ecs: ECS) {
     super(config);
@@ -368,12 +369,20 @@ export class SkillsPanel extends BasePanel {
    */
   protected onShow(): void {
     this.updatePlayerStats();
+    // Aggiorna le statistiche ogni secondo mentre il pannello è aperto
+    this.updateInterval = window.setInterval(() => {
+      this.updatePlayerStats();
+    }, 1000);
   }
 
   /**
    * Callback quando il pannello viene nascosto
    */
   protected onHide(): void {
-    // Placeholder per logica futura
+    // Ferma l'aggiornamento periodico
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+      this.updateInterval = null;
+    }
   }
 }
