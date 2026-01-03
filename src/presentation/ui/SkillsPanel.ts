@@ -155,8 +155,7 @@ export class SkillsPanel extends BasePanel {
 
     content.appendChild(this.statsContainer);
 
-    // Aggiorna le statistiche dopo che il DOM è stato creato
-    this.updatePlayerStats();
+    // Le statistiche verranno aggiornate quando il pannello diventa visibile (onShow)
 
     return content;
   }
@@ -320,9 +319,15 @@ export class SkillsPanel extends BasePanel {
   private updatePlayerStats(): void {
     if (!this.statsContainer) return;
 
+    // Controlla se l'ECS ha il metodo getPlayerEntity
+    if (!this.ecs || typeof this.ecs.getPlayerEntity !== 'function') {
+      console.warn('SkillsPanel: ECS not ready or missing getPlayerEntity method');
+      return;
+    }
+
     const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) {
-      console.log('SkillsPanel: No player entity found');
+      console.log('SkillsPanel: No player entity found yet');
       return;
     }
 
@@ -387,6 +392,8 @@ export class SkillsPanel extends BasePanel {
    */
   protected onShow(): void {
     this.isVisible = true;
+    // Aggiorna le statistiche quando il pannello diventa visibile
+    this.updatePlayerStats();
   }
 
   /**
