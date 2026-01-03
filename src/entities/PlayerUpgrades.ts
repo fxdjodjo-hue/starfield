@@ -96,4 +96,26 @@ export class PlayerUpgrades extends Component {
     this._shieldUpgrades = Math.max(0, shield);
     this._speedUpgrades = Math.max(0, speed);
   }
+
+  /**
+   * Serializza i dati per la sincronizzazione di rete (multiplayer)
+   */
+  toNetworkData(): object {
+    return {
+      hpUpgrades: this._hpUpgrades,
+      shieldUpgrades: this._shieldUpgrades,
+      speedUpgrades: this._speedUpgrades
+    };
+  }
+
+  /**
+   * Deserializza i dati dalla rete (multiplayer)
+   */
+  fromNetworkData(data: any): void {
+    if (data && typeof data === 'object') {
+      this._hpUpgrades = Math.max(0, data.hpUpgrades || 0);
+      this._shieldUpgrades = Math.max(0, data.shieldUpgrades || 0);
+      this._speedUpgrades = Math.max(0, data.speedUpgrades || 0);
+    }
+  }
 }

@@ -63,4 +63,24 @@ export class SkillPoints extends Component {
       }
     }
   }
+
+  /**
+   * Serializza i dati per la sincronizzazione di rete (multiplayer)
+   */
+  toNetworkData(): object {
+    return {
+      current: this._current,
+      totalEarned: this._totalEarned
+    };
+  }
+
+  /**
+   * Deserializza i dati dalla rete (multiplayer)
+   */
+  fromNetworkData(data: any): void {
+    if (data && typeof data === 'object') {
+      this._current = Math.max(0, data.current || 0);
+      this._totalEarned = Math.max(0, data.totalEarned || 0);
+    }
+  }
 }
