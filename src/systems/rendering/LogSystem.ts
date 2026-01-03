@@ -68,7 +68,7 @@ export class LogSystem extends BaseSystem {
     const canvasWidth = ctx.canvas.width;
     const alpha = message.getAlpha();
 
-    // Usa la posizione Y fornita come base
+    // Usa la posizione Y fornita come punto di partenza per le righe
 
     // Salva contesto per applicare alpha
     ctx.save();
@@ -91,7 +91,7 @@ export class LogSystem extends BaseSystem {
     const lineHeight = 20; // Altezza di ogni riga
 
     lines.forEach((line, lineIndex) => {
-      const y = baseY + (lineIndex * lineHeight);
+      const y = startY + (lineIndex * lineHeight);
       ctx.fillText(line, canvasWidth / 2, y);
     });
 
