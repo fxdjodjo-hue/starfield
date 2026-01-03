@@ -78,9 +78,9 @@ export class GameInitializationSystem extends System {
     // Configura le interazioni tra sistemi
     this.configureSystemInteractions(systems);
 
-    // Crea le entità di gioco e restituisci il player entity
-    const playerEntity = await this.createGameEntities(systems);
-    return playerEntity;
+    // Crea le entità di gioco e salva il player entity
+    this.playerEntity = await this.createGameEntities(systems);
+    return this.playerEntity;
   }
 
   /**
