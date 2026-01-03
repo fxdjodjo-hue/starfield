@@ -38,20 +38,44 @@ export class ProjectileSystem extends BaseSystem {
 
       if (!transform || !projectile) continue;
 
-      // Controlla se il bersaglio è ancora vivo (ha HP o shield attivo)
-      const allTargets = this.ecs.getEntitiesWithComponents(Health);
-      const targetExists = allTargets.some(entity => entity.id === projectile.targetId);
+      // Controlla se il PROPRIETARIO del proiettile è ancora vivo
+      const allOwners = this.ecs.getEntitiesWithComponents(Health);
+      const ownerExists = allOwners.some(entity => entity.id === projectile.ownerId);
+
+      if (ownerExists) {
+        const ownerEntity = allOwners.find(entity => entity.id === projectile.ownerId);
+        if (ownerEntity) {
+          const ownerHealth = this.ecs.getComponent(ownerEntity, Health);
+          const ownerShield = this.ecs.getComponent(ownerEntity, Shield);
+
+          // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
+          const isOwnerDead = ownerHealth && ownerHealth.isDead() && (!ownerShield || !ownerShield.isActive());
+
+          if (isOwnerDead) {
+            // Il proprietario è morto, rimuovi il proiettile
+            this.returnProjectileToPool(projectileEntity);
+            continue;
+          }
+        }
+      } else {
+        // Il proprietario non esiste più, rimuovi il proiettile
+        this.returnProjectileToPool(projectileEntity);
+        continue;
+      }
+
+      // Controlla se il bersaglio è ancora vivo
+      const targetExists = allOwners.some(entity => entity.id === projectile.targetId);
 
       if (targetExists) {
-        const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
+        const targetEntity = allOwners.find(entity => entity.id === projectile.targetId);
         if (targetEntity) {
           const targetHealth = this.ecs.getComponent(targetEntity, Health);
           const targetShield = this.ecs.getComponent(targetEntity, Shield);
 
           // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
-          const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
+          const isTargetDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
 
-          if (isDead) {
+          if (isTargetDead) {
             this.returnProjectileToPool(projectileEntity);
             continue;
           }
