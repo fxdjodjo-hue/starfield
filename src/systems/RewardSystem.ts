@@ -116,8 +116,13 @@ export class RewardSystem extends BaseSystem {
     if (this.questTrackingSystem && this.playerEntity) {
       const activeQuest = this.ecs.getComponent(this.playerEntity, ActiveQuest);
       if (activeQuest) {
+        console.log(`🎯 RewardSystem: Notifying quest system about killed NPC: ${npc.npcType}`);
         this.questTrackingSystem.onNpcKilled(npc.npcType, activeQuest);
+      } else {
+        console.log(`❌ RewardSystem: No ActiveQuest component found on player`);
       }
+    } else {
+      console.log(`❌ RewardSystem: QuestTrackingSystem not available or no player entity`);
     }
 
     if (npcDef.rewards.experience > 0) {
