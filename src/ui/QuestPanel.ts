@@ -438,11 +438,24 @@ export class QuestPanel extends BasePanel {
   }
 
   /**
+   * Determina il tipo di sezione dal containerId
+   */
+  private getSectionTypeFromContainerId(containerId: string): 'active' | 'completed' | 'available' {
+    if (containerId === 'active-quests') return 'active';
+    if (containerId === 'completed-quests') return 'completed';
+    if (containerId === 'available-quests') return 'available';
+    return 'active'; // Default fallback
+  }
+
+  /**
    * Aggiorna una lista specifica di quest
    */
   private updateQuestList(containerId: string, quests: Quest[]): void {
     const container = this.container.querySelector(`#${containerId}`) as HTMLElement;
     if (!container) return;
+
+    // Determina il tipo di sezione
+    const sectionType = this.getSectionTypeFromContainerId(containerId);
 
     // Svuota il container
     container.innerHTML = '';
@@ -458,13 +471,13 @@ export class QuestPanel extends BasePanel {
         font-size: 14px;
       `;
       container.appendChild(emptyMessage);
-      } else {
-        // Aggiungi ogni quest come card
-        quests.forEach(quest => {
-          const questCard = this.createQuestCard(quest, sectionType);
-          container.appendChild(questCard);
-        });
-      }
+    } else {
+      // Aggiungi ogni quest come card
+      quests.forEach(quest => {
+        const questCard = this.createQuestCard(quest, sectionType);
+        container.appendChild(questCard);
+      });
+    }
   }
 
   /**
