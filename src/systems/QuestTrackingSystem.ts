@@ -26,15 +26,9 @@ export class QuestTrackingSystem {
    * Aggiorna le quest che richiedono uccisioni
    */
   onNpcKilled(npcType: string, activeQuestComponent: ActiveQuest): void {
-    console.log(`🎯 QuestTrackingSystem: NPC killed: ${npcType}`);
-    console.log(`📊 QuestTrackingSystem: Active quests: ${activeQuestComponent.quests.length}`);
-
     // Per ora gestiamo solo gli scouter - controlliamo sia minuscolo che maiuscolo
     if (npcType.toLowerCase() === 'scouter') {
-      console.log(`✅ QuestTrackingSystem: Scouter killed, updating kill quests`);
       this.updateKillQuests('scouter', activeQuestComponent);
-    } else {
-      console.log(`❌ QuestTrackingSystem: NPC type ${npcType} not handled (only 'scouter' supported)`);
     }
   }
 
@@ -42,22 +36,13 @@ export class QuestTrackingSystem {
    * Aggiorna le quest che richiedono uccisioni di un certo tipo
    */
   private updateKillQuests(npcType: string, activeQuestComponent: ActiveQuest): void {
-    console.log(`🔍 QuestTrackingSystem: Looking for kill quests that match ${npcType}`);
-
     // Trova tutte le quest attive che richiedono uccisioni di questo tipo
     activeQuestComponent.quests.forEach(quest => {
-      console.log(`📋 QuestTrackingSystem: Checking quest "${quest.title}" (type: ${quest.type})`);
       if (quest.type === 'kill') {
-        console.log(`🎯 QuestTrackingSystem: Found kill quest "${quest.title}"`);
-
         // Cerca obiettivi che richiedono uccisioni di questo tipo
         quest.objectives.forEach(objective => {
-          console.log(`🎯 QuestTrackingSystem: Checking objective "${objective.description}" (type: ${objective.type})`);
           if (objective.type === 'kill' && objective.description.toLowerCase().includes(npcType.toLowerCase())) {
-            console.log(`✅ QuestTrackingSystem: Objective matches! Updating progress for "${objective.description}"`);
-
             const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
-            console.log(`📊 QuestTrackingSystem: Quest completed: ${questCompleted}`);
 
             if (questCompleted) {
               console.log(`🎉 Quest "${quest.title}" completata!`);
@@ -65,14 +50,9 @@ export class QuestTrackingSystem {
               // Completa la quest e ottieni le ricompense
               const rewards = this.questManager.completeQuest(quest.id, activeQuestComponent);
               if (rewards) {
-                console.log(`🎁 Quest rewards:`, rewards);
                 this.applyQuestRewards(rewards);
               }
-            } else {
-              console.log(`⏳ Quest "${quest.title}" progress updated but not completed yet`);
             }
-          } else {
-            console.log(`❌ QuestTrackingSystem: Objective "${objective.description}" doesn't match`);
           }
         });
       }
