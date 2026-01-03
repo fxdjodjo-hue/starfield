@@ -375,10 +375,16 @@ export class SkillsPanel extends BasePanel {
       }
     }
 
-    // Speed rimane hardcoded per ora (300)
-    const speedValue = this.container.querySelector('.stat-speed') as HTMLElement;
-    if (speedValue) {
-      speedValue.textContent = '300 u/s';
+    // Calcola velocità con bonus dagli upgrade
+    if (playerUpgrades) {
+      const playerDef = getPlayerDefinition();
+      const speedBonus = playerUpgrades.getSpeedBonus();
+      const calculatedSpeed = Math.floor(playerDef.stats.speed * speedBonus);
+
+      const speedValue = this.container.querySelector('.stat-speed') as HTMLElement;
+      if (speedValue) {
+        speedValue.textContent = `${calculatedSpeed} u/s`;
+      }
     }
 
     // Aggiorna statistiche progressione

@@ -297,14 +297,22 @@ export class GameInitializationSystem extends System {
     const transform = new Transform(worldCenterX, worldCenterY, 0);
     const velocity = new Velocity(0, 0, 0);
 
-    // Applica bonus dagli upgrade alle statistiche base
+    // Crea prima tutti i componenti
+    const credits = new Credits(playerDef.startingResources.credits);
+    const cosmos = new Cosmos(playerDef.startingResources.cosmos);
+    const experience = new Experience(playerDef.startingResources.experience, playerDef.startingResources.level);
+    const honor = new Honor(playerDef.startingResources.honor);
+    const skillPoints = new SkillPoints(playerDef.startingResources.skillPoints, playerDef.startingResources.skillPoints);
+    const playerUpgrades = new PlayerUpgrades();
+
+    // Ora calcola i bonus dagli upgrade
     const hpBonus = playerUpgrades.getHPBonus();
     const shieldBonus = playerUpgrades.getShieldBonus();
     const speedBonus = playerUpgrades.getSpeedBonus();
 
+    // Applica bonus alle statistiche base
     const baseHealth = Math.floor(playerDef.stats.health * hpBonus);
     const baseShield = playerDef.stats.shield ? Math.floor(playerDef.stats.shield * shieldBonus) : undefined;
-    const baseSpeed = Math.floor(playerDef.stats.speed * speedBonus);
 
     const health = new Health(baseHealth, baseHealth);
     const damage = new Damage(playerDef.stats.damage, playerDef.stats.range, playerDef.stats.cooldown);
@@ -314,13 +322,6 @@ export class GameInitializationSystem extends System {
     if (baseShield && baseShield > 0) {
       shield = new Shield(baseShield, baseShield);
     }
-
-    const credits = new Credits(playerDef.startingResources.credits);
-    const cosmos = new Cosmos(playerDef.startingResources.cosmos);
-    const experience = new Experience(playerDef.startingResources.experience, playerDef.startingResources.level);
-    const honor = new Honor(playerDef.startingResources.honor);
-    const skillPoints = new SkillPoints(playerDef.startingResources.skillPoints, playerDef.startingResources.skillPoints);
-    const playerUpgrades = new PlayerUpgrades();
     const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
     const activeQuest = new ActiveQuest(); // Sistema quest
     const shipSprite = new Sprite(sprite, sprite.width * 0.2, sprite.height * 0.2);
