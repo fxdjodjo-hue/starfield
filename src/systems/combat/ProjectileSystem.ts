@@ -147,6 +147,7 @@ export class ProjectileSystem extends BaseSystem {
       if (distance < hitDistance) {
         // Applica danno (prima shield, poi HP)
         const damageDealt = projectile.damage;
+        console.log('ProjectileSystem: Applying damage', damageDealt, 'to entity', targetEntity.id, 'from projectile', projectileEntity.id);
         this.applyDamage(targetEntity, damageDealt);
 
         // Notifica il CombatSystem per creare i testi danno
@@ -199,6 +200,8 @@ export class ProjectileSystem extends BaseSystem {
     const targetShield = this.ecs.getComponent(targetEntity, Shield);
     const targetHealth = this.ecs.getComponent(targetEntity, Health);
 
+    console.log('ProjectileSystem applyDamage: target', targetEntity.id, 'damage', damage, 'hasHealth:', !!targetHealth, 'hasShield:', !!targetShield);
+
     if (!targetHealth) return;
 
 
@@ -215,12 +218,14 @@ export class ProjectileSystem extends BaseSystem {
     // Prima applica danno allo shield se presente e attivo
     if (targetShield && targetShield.isActive()) {
       const shieldDamage = Math.min(damage, targetShield.current);
+      console.log('ProjectileSystem: Applying', shieldDamage, 'shield damage to entity', targetEntity.id);
       targetShield.takeDamage(shieldDamage);
       damageToHp = damage - shieldDamage;
     }
 
     // Poi applica il danno rimanente all'HP
     if (damageToHp > 0) {
+      console.log('ProjectileSystem: Applying', damageToHp, 'HP damage to entity', targetEntity.id);
       targetHealth.takeDamage(damageToHp);
     }
   }

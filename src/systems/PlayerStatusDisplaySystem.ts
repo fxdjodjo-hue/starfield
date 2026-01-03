@@ -19,6 +19,7 @@ export class PlayerStatusDisplaySystem extends System {
    * Imposta l'entità player da monitorare
    */
   setPlayerEntity(entity: any): void {
+    console.log('PlayerStatusDisplay: setPlayerEntity called with entity:', entity?.id);
     this.playerEntity = entity;
     this.createStatusDisplay();
   }
@@ -59,10 +60,19 @@ export class PlayerStatusDisplaySystem extends System {
    * Aggiorna il display con i valori attuali di HP e Shield
    */
   private updateDisplay(): void {
-    if (!this.statusElement || !this.playerEntity) return;
+    if (!this.statusElement || !this.playerEntity) {
+      console.log('PlayerStatusDisplay: No statusElement or playerEntity');
+      return;
+    }
 
     const health = this.ecs.getComponent(this.playerEntity, Health);
     const shield = this.ecs.getComponent(this.playerEntity, Shield);
+
+    console.log('PlayerStatusDisplay update:', {
+      playerEntity: this.playerEntity?.id,
+      health: health ? { current: health.current, max: health.max } : null,
+      shield: shield ? { current: shield.current, max: shield.max } : null
+    });
 
     let statusText = '';
 
