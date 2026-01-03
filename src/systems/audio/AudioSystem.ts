@@ -1,6 +1,7 @@
 import { System } from '../../infrastructure/ecs/System';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-import { AudioConfig } from '../../config/AudioConfig';
+import type { AudioConfig } from '../../config/AudioConfig';
+import { AUDIO_ASSETS } from '../../config/AudioConfig';
 
 // Re-export AudioConfig for backward compatibility
 export type { AudioConfig };
@@ -74,9 +75,18 @@ export default class AudioSystem extends System {
     if (!this.config.enabled) return;
 
     try {
-      const audio = new Audio(`/assets/audio/${key}`);
+      // Cerca il path nell'AUDIO_ASSETS
+      const assetPath = this.getAssetPath(key, 'effects');
+      if (!assetPath) {
+        console.warn(`Audio system: Asset '${key}' not found in AUDIO_ASSETS.effects`);
+        return;
+      }
+
+      const audio = new Audio(`/assets/audio/${assetPath}`);
       audio.volume = this.config.masterVolume * volume;
-      audio.play();
+      audio.play().catch(error => {
+        console.warn(`Audio system: Failed to play sound '${key}':`, error);
+      });
       this.sounds.set(key, audio);
 
       // Rimuovi dalla mappa quando finisce
@@ -89,7 +99,11 @@ export default class AudioSystem extends System {
   }
 
   playMusic(key: string, volume: number = this.config.musicVolume): void {
-    if (!this.config.enabled) return;
+    console.log(`AudioSystem: Attempting to play music '${key}'`);
+    if (!this.config.enabled) {
+      console.log('AudioSystem: Audio disabled, skipping playback');
+      return;
+    }
 
     try {
       // Ferma musica precedente se presente
@@ -98,10 +112,23 @@ export default class AudioSystem extends System {
         this.musicInstance.currentTime = 0;
       }
 
-      this.musicInstance = new Audio(`/assets/audio/${key}`);
+      // Cerca il path nell'AUDIO_ASSETS
+      const assetPath = this.getAssetPath(key, 'music');
+      if (!assetPath) {
+        console.warn(`Audio system: Asset '${key}' not found in AUDIO_ASSETS.music`);
+        return;
+      }
+
+      console.log(`AudioSystem: Loading audio from '/assets/audio/${assetPath}'`);
+      this.musicInstance = new Audio(`/assets/audio/${assetPath}`);
       this.musicInstance.volume = this.config.masterVolume * volume;
       this.musicInstance.loop = true;
-      this.musicInstance.play();
+
+      this.musicInstance.play().then(() => {
+        console.log(`AudioSystem: Successfully playing music '${key}'`);
+      }).catch(error => {
+        console.warn(`Audio system: Failed to play music '${key}':`, error);
+      });
     } catch (error) {
       console.warn(`Audio system: Failed to play music '${key}':`, error);
     }
@@ -197,5 +224,13 @@ export default class AudioSystem extends System {
 
   private applyConfigChanges(): void {
     this.updateAllVolumes();
+  }
+
+  private getAssetPath(key: string, category: keyof typeof AUDIO_ASSETS): string | null {
+    const categoryAssets = AUDIO_ASSETS[category];
+    if (categoryAssets && typeof categoryAssets === 'object' && key in categoryAssets) {
+      return categoryAssets[key as keyof typeof categoryAssets] as string;
+    }
+    return null;
   }
 }
