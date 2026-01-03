@@ -42,11 +42,6 @@ export class LogSystem extends BaseSystem {
   render(ctx: CanvasRenderingContext2D): void {
     const logMessages = this.ecs.getEntitiesWithComponents(LogMessage);
 
-    // Debug: mostra numero di messaggi
-    if (logMessages.length > 0) {
-      console.log(`📋 LogSystem: Rendering ${logMessages.length} log messages`);
-    }
-
     // Ordina per timestamp (più recenti in basso)
     const sortedMessages = logMessages
       .map(entity => this.ecs.getComponent(entity, LogMessage))
@@ -100,11 +95,9 @@ export class LogSystem extends BaseSystem {
    * Aggiunge un nuovo messaggio di log
    */
   addLogMessage(text: string, type: LogType = LogType.INFO, duration: number = 3000): void {
-    console.log(`📝 LogSystem: Adding log message: "${text}" (type: ${type})`);
     const logEntity = this.ecs.createEntity();
     const logMessage = new LogMessage(text, type, duration);
     this.ecs.addComponent(logEntity, LogMessage, logMessage);
-    console.log(`✅ LogSystem: Log message entity created with ID: ${logEntity}`);
   }
 
   /**

@@ -35,7 +35,7 @@ export class QuestManager {
       ],
       [
         {
-          type: 'credits',
+          type: 'cosmos',
           amount: 100
         }
       ]
