@@ -4,6 +4,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Experience } from '../../entities/Experience';
+import { getPlayerDefinition } from '../../config/PlayerConfig';
 
 /**
  * SkillsPanel - Pannello per visualizzare statistiche giocatore e gestire abilità
@@ -351,10 +352,11 @@ export class SkillsPanel extends BasePanel {
       });
     }
 
-    // Speed rimane hardcoded per ora (300)
+    // Usa la velocità del player dal config
     const speedElements = this.statsContainer.querySelectorAll('[data-stat="speed"]');
     speedElements.forEach((el: HTMLElement) => {
-      el.textContent = '300 u/s';
+      const playerDef = getPlayerDefinition();
+      el.textContent = `${playerDef.stats.speed} u/s`;
     });
 
     // Aggiorna statistiche progressione
@@ -381,7 +383,8 @@ export class SkillsPanel extends BasePanel {
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   update(deltaTime: number): void {
-    if (this.isVisible && this.statsContainer) {
+    // Aggiorna solo se il pannello è visibile e il container è nel DOM
+    if (this.isVisible && this.statsContainer && this.statsContainer.parentElement) {
       this.updatePlayerStats();
     }
   }
