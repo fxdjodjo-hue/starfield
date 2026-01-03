@@ -55,14 +55,20 @@ export class QuestTrackingSystem {
             const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
 
             if (questCompleted) {
+              console.log(`🎯 QuestTrackingSystem: Quest "${quest.title}" completed, showing in log system`);
+
               // Mostra messaggio di completamento quest nel log
               if (this.logSystem) {
+                console.log(`📝 QuestTrackingSystem: LogSystem available, adding quest completion message`);
                 this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD);
+              } else {
+                console.log(`❌ QuestTrackingSystem: LogSystem not available for quest completion message`);
               }
 
               // Completa la quest e ottieni le ricompense
               const rewards = this.questManager.completeQuest(quest.id, activeQuestComponent);
               if (rewards) {
+                console.log(`🎁 QuestTrackingSystem: Quest rewards:`, rewards);
                 this.applyQuestRewards(rewards);
               }
             }
@@ -76,6 +82,8 @@ export class QuestTrackingSystem {
    * Applica le ricompense della quest completata
    */
   private applyQuestRewards(rewards: any[]): void {
+    console.log(`🎁 QuestTrackingSystem: Applying quest rewards:`, rewards);
+
     if (!this.economySystem) {
       console.warn('EconomySystem not set in QuestTrackingSystem');
       return;
@@ -118,9 +126,14 @@ export class QuestTrackingSystem {
       }
     });
 
+    console.log(`💰 QuestTrackingSystem: Reward totals - Credits: ${totalCredits}, Cosmos: ${totalCosmos}, XP: ${totalExperience}, Honor: ${totalHonor}`);
+
     // Mostra le ricompense nel log del sistema
     if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
+      console.log(`📝 QuestTrackingSystem: Calling logSystem.logReward`);
       this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor);
+    } else {
+      console.log(`❌ QuestTrackingSystem: LogSystem not available or no rewards to log`);
     }
   }
 }
