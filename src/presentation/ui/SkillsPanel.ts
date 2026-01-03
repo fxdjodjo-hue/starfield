@@ -24,13 +24,7 @@ export class SkillsPanel extends BasePanel {
    * Imposta l'entità player da monitorare
    */
   setPlayerEntity(entity: any): void {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SkillsPanel.ts:22',message:'SkillsPanel setPlayerEntity called',data:{entityId:entity?.id,entityExists:!!entity},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-a',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     this.playerEntity = entity;
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SkillsPanel.ts:26',message:'SkillsPanel playerEntity set',data:{playerEntityId:this.playerEntity?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-a',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
   }
 
   /**
@@ -339,18 +333,10 @@ export class SkillsPanel extends BasePanel {
     const shield = this.ecs.getComponent(this.playerEntity, Shield);
     const experience = this.ecs.getComponent(this.playerEntity, Experience);
 
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SkillsPanel.ts:338',message:'SkillsPanel reading components',data:{healthCurrent:health?.current,healthMax:health?.max,shieldCurrent:shield?.current,shieldMax:shield?.max,experienceLevel:experience?.level},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-c',hypothesisId:'C'})}).catch(()=>{});
-    // #endregion
-    console.log('SkillsPanel: Updating stats - Health:', health?.current, '/', health?.max, 'Shield:', shield?.current, '/', shield?.max);
-
 
     // Aggiorna statistiche combattimento
     if (health) {
       const healthElements = this.statsContainer.querySelectorAll('[data-stat="hp"]');
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SkillsPanel.ts:342',message:'SkillsPanel updating HP elements',data:{healthElementsFound:healthElements.length,newValue:`${health.current.toLocaleString()}/${health.max.toLocaleString()}`},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-d',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       healthElements.forEach((el: HTMLElement) => {
         el.textContent = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
       });
@@ -358,9 +344,6 @@ export class SkillsPanel extends BasePanel {
 
     if (shield) {
       const shieldElements = this.statsContainer.querySelectorAll('[data-stat="shield"]');
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SkillsPanel.ts:350',message:'SkillsPanel updating Shield elements',data:{shieldElementsFound:shieldElements.length,newValue:`${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-d',hypothesisId:'D'})}).catch(()=>{});
-      // #endregion
       shieldElements.forEach((el: HTMLElement) => {
         el.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
       });
@@ -397,14 +380,8 @@ export class SkillsPanel extends BasePanel {
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   update(deltaTime: number): void {
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SkillsPanel.ts:390',message:'SkillsPanel update called',data:{isVisible:this.isVisible,hasStatsContainer:!!this.statsContainer,hasParentElement:!!(this.statsContainer && this.statsContainer.parentElement),deltaTime},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-b',hypothesisId:'B'})}).catch(()=>{});
-    // #endregion
     // Aggiorna solo se il pannello è visibile e il container è nel DOM
     if (this.isVisible && this.statsContainer && this.statsContainer.parentElement) {
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'SkillsPanel.ts:394',message:'SkillsPanel calling updatePlayerStats',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-b',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
       this.updatePlayerStats();
     }
   }
