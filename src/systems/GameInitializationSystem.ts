@@ -263,7 +263,7 @@ export class GameInitializationSystem extends System {
   private setPlayerEntityInSystems(playerEntity: any, systems: any): void {
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
-      boundsSystem, respawnSystem, questTrackingSystem
+      boundsSystem, respawnSystem, questTrackingSystem, uiSystem
     } = systems;
 
     playerControlSystem.setPlayerEntity(playerEntity);
@@ -273,6 +273,7 @@ export class GameInitializationSystem extends System {
     boundsSystem.setPlayerEntity(playerEntity);
     respawnSystem.setPlayerEntity(playerEntity);
     questTrackingSystem.setPlayerEntity(playerEntity);
+    uiSystem.setPlayerEntity(playerEntity);
   }
 
   /**
