@@ -3,7 +3,6 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Health } from '../../entities/combat/Health';
-import { ProjectilePool } from './ProjectilePool';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
@@ -13,17 +12,9 @@ import { DamageTaken } from '../../entities/combat/DamageTaken';
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
  */
 export class ProjectileSystem extends BaseSystem {
-  private returnProjectileCallback?: (projectileEntity: any) => void;
 
   constructor(ecs: ECS) {
     super(ecs);
-  }
-
-  /**
-   * Imposta il callback per restituire proiettili al pool
-   */
-  setProjectileReturnCallback(callback: (projectileEntity: any) => void): void {
-    this.returnProjectileCallback = callback;
   }
 
   update(deltaTime: number): void {
@@ -38,51 +29,27 @@ export class ProjectileSystem extends BaseSystem {
 
       if (!transform || !projectile) continue;
 
-      // Controlla se il PROPRIETARIO del proiettile è ancora vivo
-      const allOwners = this.ecs.getEntitiesWithComponents(Health);
-      const ownerExists = allOwners.some(entity => entity.id === projectile.ownerId);
-
-      if (ownerExists) {
-        const ownerEntity = allOwners.find(entity => entity.id === projectile.ownerId);
-        if (ownerEntity) {
-          const ownerHealth = this.ecs.getComponent(ownerEntity, Health);
-          const ownerShield = this.ecs.getComponent(ownerEntity, Shield);
-
-          // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
-          const isOwnerDead = ownerHealth && ownerHealth.isDead() && (!ownerShield || !ownerShield.isActive());
-
-          if (isOwnerDead) {
-            // Il proprietario è morto, rimuovi il proiettile
-            this.returnProjectileToPool(projectileEntity);
-            continue;
-          }
-        }
-      } else {
-        // Il proprietario non esiste più, rimuovi il proiettile
-        this.returnProjectileToPool(projectileEntity);
-        continue;
-      }
-
-      // Controlla se il bersaglio è ancora vivo
-      const targetExists = allOwners.some(entity => entity.id === projectile.targetId);
+      // Controlla se il bersaglio è ancora vivo (ha HP o shield attivo)
+      const allTargets = this.ecs.getEntitiesWithComponents(Health);
+      const targetExists = allTargets.some(entity => entity.id === projectile.targetId);
 
       if (targetExists) {
-        const targetEntity = allOwners.find(entity => entity.id === projectile.targetId);
+        const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
         if (targetEntity) {
           const targetHealth = this.ecs.getComponent(targetEntity, Health);
           const targetShield = this.ecs.getComponent(targetEntity, Shield);
 
           // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
-          const isTargetDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
+          const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
 
-          if (isTargetDead) {
-            this.returnProjectileToPool(projectileEntity);
+          if (isDead) {
+            this.ecs.removeEntity(projectileEntity);
             continue;
           }
         }
       } else {
         // Il bersaglio non esiste più (rimosso dal gioco)
-        this.returnProjectileToPool(projectileEntity);
+        this.ecs.removeEntity(projectileEntity);
         continue;
       }
 
@@ -101,9 +68,9 @@ export class ProjectileSystem extends BaseSystem {
       // Controlla collisioni con bersagli
       this.checkCollisions(projectileEntity, transform, projectile);
 
-      // Restituisci proiettili scaduti al pool
+      // Rimuovi proiettili scaduti
       if (projectile.lifetime <= 0) {
-        this.returnProjectileToPool(projectileEntity);
+        this.ecs.removeEntity(projectileEntity);
       }
     }
   }
@@ -186,8 +153,8 @@ export class ProjectileSystem extends BaseSystem {
         this.notifyCombatSystemOfDamage(targetEntity, damageDealt);
 
 
-        // Restituisci il proiettile al pool dopo l'impatto
-        this.returnProjectileToPool(projectileEntity);
+        // Rimuovi il proiettile dopo l'impatto
+        this.ecs.removeEntity(projectileEntity);
         return; // Un proiettile colpisce solo un bersaglio
       }
     }
@@ -255,18 +222,6 @@ export class ProjectileSystem extends BaseSystem {
     // Poi applica il danno rimanente all'HP
     if (damageToHp > 0) {
       targetHealth.takeDamage(damageToHp);
-    }
-  }
-
-  /**
-   * Restituisce un proiettile al pool per il riuso
-   */
-  private returnProjectileToPool(projectileEntity: any): void {
-    if (this.returnProjectileCallback) {
-      this.returnProjectileCallback(projectileEntity);
-    } else {
-      // Fallback: rimuovi l'entità se non c'è il callback
-      this.ecs.removeEntity(projectileEntity);
     }
   }
 

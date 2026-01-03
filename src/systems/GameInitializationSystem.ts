@@ -116,11 +116,6 @@ export class GameInitializationSystem extends System {
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
 
-    // Collega il callback per il pooling dei proiettili
-    projectileSystem.setProjectileReturnCallback((projectileEntity) => {
-      combatSystem.returnProjectileToPool(projectileEntity);
-    });
-
     return {
       movementSystem: this.movementSystem,
       parallaxSystem,
