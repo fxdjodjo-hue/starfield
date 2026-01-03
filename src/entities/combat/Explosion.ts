@@ -2,29 +2,47 @@ import { Component } from '/src/infrastructure/ecs/Component';
 
 /**
  * Componente esplosione - gestisce l'animazione dell'esplosione quando un'entità muore
- * Supporta sia animazioni a frame multipli che immagini singole
+ * Supporta animazioni a frame multipli, immagini singole e spritesheet
  */
 export class Explosion extends Component {
-  public frames: HTMLImageElement[];
+  public spriteSheet: HTMLImageElement | null; // spritesheet singolo
+  public frames: HTMLImageElement[]; // per compatibilità con animazioni multiple
   public currentFrame: number;
   public frameTime: number;
-  public frameDuration: number; // millisecondi per frame (o durata totale per immagine singola)
+  public frameDuration: number; // millisecondi per frame
   public isFinished: boolean;
-  public isSingleImage: boolean; // true se è una singola immagine, false per animazione
+  public totalFrames: number; // numero totale di frame nello spritesheet
+  public frameWidth: number; // larghezza di ogni frame nello spritesheet
+  public frameHeight: number; // altezza di ogni frame nello spritesheet
+  public framesPerRow: number; // quanti frame per riga nello spritesheet
 
-  constructor(frames: HTMLImageElement[], frameDuration: number = 1000, isSingleImage: boolean = false) {
+  constructor(
+    spriteSheet: HTMLImageElement,
+    totalFrames: number = 8,
+    frameDuration: number = 80,
+    framesPerRow: number = 8
+  ) {
     super();
-    this.frames = frames;
+    this.spriteSheet = spriteSheet;
+    this.frames = []; // non usato per spritesheet
     this.currentFrame = 0;
     this.frameTime = 0;
     this.frameDuration = frameDuration;
     this.isFinished = false;
-    this.isSingleImage = isSingleImage;
+    this.totalFrames = totalFrames;
+    this.framesPerRow = framesPerRow;
 
-    // Per immagini singole, finisce automaticamente dopo la durata
-    if (isSingleImage) {
-      this.isFinished = false; // inizia non finito, finisce dopo frameDuration
-    }
+    // Calcola dimensioni frame dallo spritesheet
+    this.frameWidth = spriteSheet.width / framesPerRow;
+    this.frameHeight = spriteSheet.height / Math.ceil(totalFrames / framesPerRow);
+  }
+
+  // Costruttore alternativo per retrocompatibilità con animazioni multiple
+  static fromFrames(frames: HTMLImageElement[], frameDuration: number = 100): Explosion {
+    const explosion = new Explosion(frames[0], frames.length, frameDuration, frames.length);
+    explosion.frames = frames;
+    explosion.spriteSheet = null;
+    return explosion;
   }
 
   /**
@@ -35,33 +53,56 @@ export class Explosion extends Component {
 
     this.frameTime += deltaTime;
 
-    if (this.isSingleImage) {
-      // Per immagini singole, aspetta la durata totale poi finisce
-      if (this.frameTime >= this.frameDuration) {
-        this.isFinished = true;
-      }
-    } else {
-      // Per animazioni multi-frame, passa al frame successivo
-      if (this.frameTime >= this.frameDuration) {
-        this.currentFrame++;
-        this.frameTime = 0;
+    // Passa al frame successivo se è passato abbastanza tempo
+    if (this.frameTime >= this.frameDuration) {
+      this.currentFrame++;
+      this.frameTime = 0;
 
-        // Controlla se l'animazione è finita
-        if (this.currentFrame >= this.frames.length) {
-          this.isFinished = true;
-        }
+      // Controlla se l'animazione è finita
+      if (this.currentFrame >= this.totalFrames) {
+        this.isFinished = true;
       }
     }
   }
 
   /**
-   * Ottiene il frame corrente dell'animazione
+   * Ottiene l'immagine dello spritesheet (per spritesheet)
    */
-  getCurrentFrame(): HTMLImageElement | null {
-    if (this.isFinished && !this.isSingleImage) {
+  getSpriteSheet(): HTMLImageElement | null {
+    return this.spriteSheet;
+  }
+
+  /**
+   * Ottiene le coordinate del frame corrente nello spritesheet
+   */
+  getCurrentFrameRect(): { x: number, y: number, width: number, height: number } | null {
+    if (this.isFinished || !this.spriteSheet) {
       return null;
     }
-    return this.frames[Math.min(this.currentFrame, this.frames.length - 1)];
+
+    const frame = Math.min(this.currentFrame, this.totalFrames - 1);
+    const row = Math.floor(frame / this.framesPerRow);
+    const col = frame % this.framesPerRow;
+
+    return {
+      x: col * this.frameWidth,
+      y: row * this.frameHeight,
+      width: this.frameWidth,
+      height: this.frameHeight
+    };
+  }
+
+  /**
+   * Ottiene il frame corrente (per retrocompatibilità con animazioni multiple)
+   */
+  getCurrentFrame(): HTMLImageElement | null {
+    if (this.spriteSheet) {
+      return this.spriteSheet; // per spritesheet, restituisce l'immagine completa
+    }
+    if (this.currentFrame >= this.frames.length) {
+      return null;
+    }
+    return this.frames[this.currentFrame];
   }
 
   /**

@@ -430,21 +430,20 @@ export class RenderSystem extends BaseSystem {
    * Renderizza un effetto esplosione
    */
   private renderExplosion(ctx: CanvasRenderingContext2D, transform: Transform, explosion: Explosion, screenX: number, screenY: number): void {
-    const currentFrame = explosion.getCurrentFrame();
+    const spriteSheet = explosion.getSpriteSheet();
+    const frameRect = explosion.getCurrentFrameRect();
 
-    if (currentFrame && currentFrame.complete && currentFrame.naturalWidth > 0) {
+    if (spriteSheet && frameRect && spriteSheet.complete && spriteSheet.naturalWidth > 0) {
       ctx.save();
 
       // Centra l'esplosione rispetto alla posizione dell'entità
-      const explosionWidth = currentFrame.width * 1.0; // Scala al 100% per immagine realistica
-      const explosionHeight = currentFrame.height * 1.0;
+      const explosionWidth = frameRect.width * 1.2; // Scala al 120% per effetto più visibile
+      const explosionHeight = frameRect.height * 1.2;
 
       ctx.drawImage(
-        currentFrame,
-        screenX - explosionWidth / 2,
-        screenY - explosionHeight / 2,
-        explosionWidth,
-        explosionHeight
+        spriteSheet,
+        frameRect.x, frameRect.y, frameRect.width, frameRect.height, // source rect
+        screenX - explosionWidth / 2, screenY - explosionHeight / 2, explosionWidth, explosionHeight // dest rect
       );
 
       ctx.restore();
