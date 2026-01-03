@@ -154,9 +154,11 @@ export class GameInitializationSystem extends System {
       playerStatusDisplaySystem,
       playerSystem: this.playerSystem,
       audioSystem: this.audioSystem,
-      console.log('GameInitializationSystem: Returning audioSystem:', !!this.audioSystem);
       assets: { shipImage, mapBackgroundImage, scouterImage }
     };
+
+    console.log('GameInitializationSystem: Returning audioSystem:', !!this.audioSystem);
+    return result;
   }
 
   /**
