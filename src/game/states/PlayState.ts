@@ -101,15 +101,18 @@ export class PlayState extends GameState {
    * Inizializza il sistema UI con pannelli e icone
    */
   private initializeUI(): void {
-    // Crea e registra il pannello delle statistiche del giocatore
-    const statsPanel = new PlayerStatsPanel();
-    this.uiManager.registerPanel(statsPanel, {
+    // Configurazione singola fonte di verità per il pannello statistiche
+    const statsConfig = {
       id: 'player-stats',
       icon: '📊',
       title: 'Statistiche Giocatore',
-      position: 'center-left',
-      size: { width: 320, height: 400 }
-    });
+      position: 'center-left' as const,
+      size: { width: 1300, height: 750 }
+    };
+
+    // Crea il pannello con la configurazione e registralo
+    const statsPanel = new PlayerStatsPanel(statsConfig);
+    this.uiManager.registerPanel(statsPanel);
 
     console.log('UI System initialized with player stats panel');
   }

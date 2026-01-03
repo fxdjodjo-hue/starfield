@@ -29,15 +29,7 @@ export class PlayerStatsPanel extends BasePanel {
     playtime: 0
   };
 
-  constructor() {
-    const config: PanelConfig = {
-      id: 'player-stats',
-      icon: '📊',
-      title: 'Statistiche Giocatore',
-      position: 'top-right',
-      size: { width: 320, height: 400 }
-    };
-
+  constructor(config: PanelConfig) {
     super(config);
   }
 
@@ -48,55 +40,119 @@ export class PlayerStatsPanel extends BasePanel {
     const content = document.createElement('div');
     content.className = 'player-stats-content';
     content.style.cssText = `
-      padding: 20px;
+      padding: 24px;
       height: 100%;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 20px;
+      position: relative;
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+      border-radius: 16px;
+      overflow-y: auto;
     `;
 
-    // Header
+
+    // Pulsante di chiusura "X" nell'angolo superiore destro
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '❌';
+    closeButton.style.cssText = `
+      position: absolute !important;
+      top: 10px !important;
+      right: 10px !important;
+      background: red !important;
+      border: 3px solid white !important;
+      color: white !important;
+      font-size: 24px !important;
+      font-weight: bold !important;
+      cursor: pointer !important;
+      padding: 10px 14px !important;
+      border-radius: 12px !important;
+      width: 50px !important;
+      height: 50px !important;
+      display: block !important;
+      z-index: 9999 !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8) !important;
+    `;
+
+    closeButton.addEventListener('mouseenter', () => {
+      closeButton.style.background = 'rgba(239, 68, 68, 1)';
+      closeButton.style.transform = 'scale(1.1)';
+      closeButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+    });
+
+    closeButton.addEventListener('mouseleave', () => {
+      closeButton.style.background = 'rgba(239, 68, 68, 0.9)';
+      closeButton.style.transform = 'scale(1)';
+      closeButton.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+    });
+
+    closeButton.addEventListener('click', () => {
+      this.hide();
+    });
+
+    content.appendChild(closeButton);
+
+    // Header moderno con gradiente
     const header = document.createElement('div');
     header.style.cssText = `
       text-align: center;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.3);
-      padding-bottom: 12px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 16px;
       margin-bottom: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
     `;
 
-    const title = document.createElement('h3');
-    title.textContent = '📊 Statistiche';
+    const title = document.createElement('h2');
+    title.textContent = '📊 Statistiche Giocatore';
     title.style.cssText = `
       margin: 0;
-      color: rgba(148, 163, 184, 0.9);
-      font-size: 18px;
-      font-weight: 600;
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 22px;
+      font-weight: 700;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      background: linear-gradient(135deg, #60a5fa, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    `;
+
+    const subtitle = document.createElement('p');
+    subtitle.textContent = 'Monitora il tuo progresso e statistiche';
+    subtitle.style.cssText = `
+      margin: 4px 0 0 0;
+      color: rgba(148, 163, 184, 0.7);
+      font-size: 12px;
+      font-weight: 400;
     `;
 
     header.appendChild(title);
+    header.appendChild(subtitle);
     content.appendChild(header);
 
-    // Stats container
+    console.log('Close button created and added to header');
+    console.log('Header children:', header.children.length);
+    console.log('Close button element:', closeButton);
+
+    // Stats container con griglia moderna
     const statsContainer = document.createElement('div');
     statsContainer.className = 'stats-container';
     statsContainer.style.cssText = `
       flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
     `;
 
-    // Livello ed esperienza
-    const levelSection = this.createStatSection('🏆 Livello', 'level-display');
-    const expSection = this.createStatSection('⭐ Esperienza', 'exp-display');
-
-    // Risorse
-    const creditsSection = this.createStatSection('💰 Crediti', 'credits-display');
-    const honorSection = this.createStatSection('⚔️ Onore', 'honor-display');
-
-    // Statistiche di gioco
-    const killsSection = this.createStatSection('💀 Uccisioni', 'kills-display');
-    const timeSection = this.createStatSection('⏱️ Tempo di gioco', 'time-display');
+    // Sezioni statistiche con design moderno
+    const levelSection = this.createModernStatCard('🏆', 'Livello', 'level-display', '#fbbf24');
+    const expSection = this.createModernStatCard('⭐', 'Esperienza', 'exp-display', '#10b981');
+    const creditsSection = this.createModernStatCard('💰', 'Crediti', 'credits-display', '#f59e0b');
+    const honorSection = this.createModernStatCard('⚔️', 'Onore', 'honor-display', '#ef4444');
+    const killsSection = this.createModernStatCard('💀', 'Uccisioni', 'kills-display', '#8b5cf6');
+    const timeSection = this.createModernStatCard('⏱️', 'Tempo Gioco', 'time-display', '#06b6d4');
 
     statsContainer.appendChild(levelSection);
     statsContainer.appendChild(expSection);
@@ -107,82 +163,85 @@ export class PlayerStatsPanel extends BasePanel {
 
     content.appendChild(statsContainer);
 
-    // Footer con pulsante di chiusura
-    const footer = document.createElement('div');
-    footer.style.cssText = `
-      border-top: 1px solid rgba(148, 163, 184, 0.3);
-      padding-top: 12px;
-      text-align: center;
-    `;
-
-    const closeButton = document.createElement('button');
-    closeButton.textContent = 'Chiudi';
-    closeButton.style.cssText = `
-      background: rgba(239, 68, 68, 0.8);
-      border: none;
-      border-radius: 6px;
-      color: white;
-      padding: 8px 16px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: all 0.2s ease;
-    `;
-
-    closeButton.addEventListener('mouseenter', () => {
-      closeButton.style.background = 'rgba(239, 68, 68, 1)';
-    });
-
-    closeButton.addEventListener('mouseleave', () => {
-      closeButton.style.background = 'rgba(239, 68, 68, 0.8)';
-    });
-
-    closeButton.addEventListener('click', () => {
-      this.hide();
-    });
-
-    footer.appendChild(closeButton);
-    content.appendChild(footer);
-
     return content;
   }
 
   /**
-   * Crea una sezione per una statistica
+   * Crea una card moderna per una statistica
    */
-  private createStatSection(label: string, elementId: string): HTMLElement {
-    const section = document.createElement('div');
-    section.className = 'stat-section';
-    section.style.cssText = `
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 12px;
-      background: rgba(148, 163, 184, 0.1);
-      border-radius: 8px;
+  private createModernStatCard(icon: string, label: string, elementId: string, accentColor: string): HTMLElement {
+    const card = document.createElement('div');
+    card.className = 'stat-card';
+    card.style.cssText = `
+      background: rgba(30, 41, 59, 0.8);
       border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      border-left: 4px solid ${accentColor};
+    `;
+
+    // Hover effect
+    card.addEventListener('mouseenter', () => {
+      card.style.transform = 'translateY(-2px)';
+      card.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
+      card.style.borderColor = accentColor;
+    });
+
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = 'translateY(0)';
+      card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+      card.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+    });
+
+    // Header con icona
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+    `;
+
+    const iconElement = document.createElement('span');
+    iconElement.textContent = icon;
+    iconElement.style.cssText = `
+      font-size: 18px;
+      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     `;
 
     const labelElement = document.createElement('span');
     labelElement.textContent = label;
     labelElement.style.cssText = `
       color: rgba(148, 163, 184, 0.8);
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     `;
 
-    const valueElement = document.createElement('span');
+    header.appendChild(iconElement);
+    header.appendChild(labelElement);
+
+    // Valore
+    const valueElement = document.createElement('div');
     valueElement.id = elementId;
     valueElement.style.cssText = `
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 14px;
-      font-weight: 600;
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 18px;
+      font-weight: 700;
       font-variant-numeric: tabular-nums;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     `;
 
-    section.appendChild(labelElement);
-    section.appendChild(valueElement);
+    card.appendChild(header);
+    card.appendChild(valueElement);
 
-    return section;
+    return card;
   }
 
   /**
@@ -206,14 +265,24 @@ export class PlayerStatsPanel extends BasePanel {
     // Livello
     const levelElement = this.container.querySelector('#level-display') as HTMLElement;
     if (levelElement) {
-      levelElement.textContent = this.statsData.level.toString();
+      levelElement.textContent = `${this.statsData.level}`;
     }
 
-    // Esperienza
+    // Esperienza con progress bar
     const expElement = this.container.querySelector('#exp-display') as HTMLElement;
     if (expElement) {
       const expPercent = Math.round((this.statsData.experience / this.statsData.experienceForNext) * 100);
-      expElement.textContent = `${this.statsData.experience.toLocaleString()}/${this.statsData.experienceForNext.toLocaleString()} (${expPercent}%)`;
+      expElement.innerHTML = `
+        <div style="margin-bottom: 6px; font-size: 14px;">
+          ${this.statsData.experience.toLocaleString()}/${this.statsData.experienceForNext.toLocaleString()}
+        </div>
+        <div style="width: 100%; height: 6px; background: rgba(148, 163, 184, 0.2); border-radius: 3px; overflow: hidden;">
+          <div style="width: ${expPercent}%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 3px; transition: width 0.5s ease;"></div>
+        </div>
+        <div style="margin-top: 4px; font-size: 11px; color: rgba(148, 163, 184, 0.6);">
+          ${expPercent}% al prossimo livello
+        </div>
+      `;
     }
 
     // Crediti

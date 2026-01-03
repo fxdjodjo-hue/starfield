@@ -30,6 +30,7 @@ export abstract class BasePanel {
     this.config = config;
     this.container = this.createPanelContainer();
     this.content = this.createPanelContent();
+    this.container.appendChild(this.content); // AGGIUNGI IL CONTENT AL CONTAINER!
     this.setupEventListeners();
   }
 
@@ -108,11 +109,13 @@ export abstract class BasePanel {
     this.container.style.transform = 'scale(1)';
     this.container.style.pointerEvents = 'auto';
 
-    // Ricalcola posizione centrale in caso di resize finestra
-    const centerX = window.innerWidth / 2 - this.config.size.width / 2;
-    const centerY = window.innerHeight / 2 - this.config.size.height / 2;
-    this.container.style.left = `${centerX}px`;
-    this.container.style.top = `${centerY}px`;
+    // Ricalcola posizione centrale (responsive)
+    this.updatePosition();
+
+    // Assicura che sia nel DOM
+    if (!document.body.contains(this.container)) {
+      document.body.appendChild(this.container);
+    }
 
     // Assicura che sia nel DOM
     if (!document.body.contains(this.container)) {
@@ -174,6 +177,26 @@ export abstract class BasePanel {
   }
 
   /**
+   * Restituisce la configurazione del pannello
+   */
+  getConfig(): PanelConfig {
+    return this.config;
+  }
+
+  /**
+   * Aggiorna la posizione del pannello (usato per il responsive design)
+   */
+  updatePosition(): void {
+    if (!this.isVisible) return;
+
+    const centerX = window.innerWidth / 2 - this.config.size.width / 2;
+    const centerY = window.innerHeight / 2 - this.config.size.height / 2;
+
+    this.container.style.left = `${centerX}px`;
+    this.container.style.top = `${centerY}px`;
+  }
+
+  /**
    * Distrugge il pannello e rimuove gli elementi dal DOM
    */
   destroy(): void {
@@ -189,11 +212,13 @@ export abstract class BasePanel {
 export class FloatingIcon {
   private element: HTMLElement;
   private panel: BasePanel;
+  private config: PanelConfig;
   private isHovered: boolean = false;
 
-  constructor(panel: BasePanel, config: PanelConfig) {
+  constructor(panel: BasePanel) {
     this.panel = panel;
-    this.element = this.createIconElement(config);
+    this.config = panel.getConfig();
+    this.element = this.createIconElement(this.config);
     this.setupEventListeners();
   }
 
@@ -339,12 +364,35 @@ export class UIManager {
   private panels: Map<string, BasePanel> = new Map();
   private icons: Map<string, FloatingIcon> = new Map();
   private isVisible: boolean = true;
+  private resizeHandler: (() => void) | null = null;
+
+  constructor() {
+    this.setupResizeHandler();
+  }
+
+  /**
+   * Imposta l'event handler per il resize della finestra
+   */
+  private setupResizeHandler(): void {
+    this.resizeHandler = () => {
+      // Ricalcola la posizione di tutti i pannelli visibili quando la finestra viene ridimensionata
+      this.panels.forEach(panel => {
+        if (panel.isPanelVisible()) {
+          panel.updatePosition();
+        }
+      });
+    };
+
+    window.addEventListener('resize', this.resizeHandler);
+  }
 
   /**
    * Registra un nuovo pannello con la sua icona
    */
-  registerPanel(panel: BasePanel, config: PanelConfig): void {
-    const icon = new FloatingIcon(panel, config);
+  registerPanel(panel: BasePanel): void {
+    // La configurazione è già nel pannello stesso (single source of truth)
+    const config = panel.getConfig();
+    const icon = new FloatingIcon(panel);
 
     this.panels.set(config.id, panel);
     this.icons.set(config.id, icon);
@@ -432,6 +480,12 @@ export class UIManager {
    * Distrugge tutti i pannelli e icone
    */
   destroy(): void {
+    // Rimuovi l'event listener per il resize
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+      this.resizeHandler = null;
+    }
+
     this.panels.forEach(panel => panel.destroy());
     this.icons.forEach(icon => icon.destroy());
     this.panels.clear();
