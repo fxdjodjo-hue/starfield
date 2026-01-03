@@ -3,14 +3,29 @@ import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { QuestManager } from './QuestManager';
 import { LogSystem } from './rendering/LogSystem';
 import { LogType } from '../entities/ui/LogMessage';
+import {
+  QuestEvent,
+  QuestEventType,
+  QuestRegistry,
+  ObjectiveType,
+  RewardType,
+  type QuestEventHandler
+} from '../config/QuestConfig';
 
 /**
- * QuestTrackingSystem - Sistema che traccia gli eventi di gioco per aggiornare le quest
- * Monitora uccisioni, raccolte e altri eventi che influenzano il progresso delle quest
+ * QuestTrackingSystem - Sistema modulare per tracciare eventi di gioco e aggiornare quest
+ *
+ * Caratteristiche principali:
+ * - Event-driven architecture per massima scalabilità
+ * - Supporto per molteplici tipi di eventi (kill, collect, explore, interact)
+ * - Configurazione esterna tramite QuestRegistry
+ * - Facile estensione per nuovi tipi di quest
+ * - Single source of truth per la logica di tracking
  */
-export class QuestTrackingSystem {
+export class QuestTrackingSystem implements QuestEventHandler {
   private economySystem: any = null;
   private logSystem: LogSystem | null = null;
+  private playerEntity: any = null;
 
   constructor(
     private world: World,
@@ -32,71 +47,94 @@ export class QuestTrackingSystem {
   }
 
   /**
-   * Chiamato quando un NPC viene ucciso
-   * Aggiorna le quest che richiedono uccisioni
+   * Imposta il riferimento all'entità player
    */
-  onNpcKilled(npcType: string, activeQuestComponent: ActiveQuest): void {
-    // Per ora gestiamo solo gli scouter - controlliamo sia minuscolo che maiuscolo
-    if (npcType.toLowerCase() === 'scouter') {
-      this.updateKillQuests('scouter', activeQuestComponent);
+  setPlayerEntity(playerEntity: any): void {
+    this.playerEntity = playerEntity;
+  }
+
+  /**
+   * Gestisce un evento di quest in modo modulare
+   * Questo è il metodo principale per il tracking scalabile
+   */
+  handleEvent(event: QuestEvent, activeQuests: any[]): void {
+    console.log(`📡 Quest Event: ${event.type} - ${event.targetId} (${event.targetType}) x${event.amount || 1}`);
+
+    // Trova tutte le quest attive che potrebbero essere interessate da questo evento
+    activeQuests.forEach(quest => {
+      const questConfig = QuestRegistry.get(quest.id);
+      if (!questConfig) {
+        console.warn(`⚠️ Quest config not found for ${quest.id}`);
+        return;
+      }
+
+      // Controlla ogni obiettivo della quest
+      quest.objectives.forEach(objective => {
+        if (this.shouldUpdateObjective(objective, event)) {
+          const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, { quests: activeQuests });
+
+          if (questCompleted) {
+            this.handleQuestCompletion(quest);
+          }
+        }
+      });
+    });
+  }
+
+  /**
+   * Determina se un obiettivo dovrebbe essere aggiornato per un dato evento
+   * Questa logica è completamente configurabile tramite QuestRegistry
+   */
+  private shouldUpdateObjective(objective: any, event: QuestEvent): boolean {
+    const amount = event.amount || 1;
+
+    switch (objective.type) {
+      case ObjectiveType.KILL:
+        return event.type === QuestEventType.NPC_KILLED &&
+               event.targetType?.toLowerCase() === objective.targetType?.toLowerCase() &&
+               amount > 0;
+
+      case ObjectiveType.COLLECT:
+        return event.type === QuestEventType.ITEM_COLLECTED &&
+               event.targetId === objective.targetName &&
+               amount > 0;
+
+      case ObjectiveType.EXPLORE:
+        return event.type === QuestEventType.LOCATION_VISITED &&
+               event.targetId === objective.targetName;
+
+      case ObjectiveType.INTERACT:
+        return event.type === QuestEventType.INTERACTION_COMPLETED &&
+               event.targetId === objective.targetName;
+
+      default:
+        console.warn(`⚠️ Unknown objective type: ${objective.type}`);
+        return false;
     }
   }
 
   /**
-   * Aggiorna le quest che richiedono uccisioni di un certo tipo
+   * Gestisce il completamento di una quest
    */
-  private updateKillQuests(npcType: string, activeQuestComponent: ActiveQuest): void {
-    // Trova tutte le quest attive che richiedono uccisioni di questo tipo
-    activeQuestComponent.quests.forEach(quest => {
-      if (quest.type === 'kill') {
-        // Cerca obiettivi che richiedono uccisioni di questo tipo
-        quest.objectives.forEach(objective => {
-          if (objective.type === 'kill' && objective.description.toLowerCase().includes(npcType.toLowerCase())) {
-            const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
+  private handleQuestCompletion(quest: any): void {
+    console.log(`🎯 Quest completed: ${quest.title}`);
 
-            if (questCompleted) {
-              // Completa la quest e ottieni le ricompense
-              const rewards = this.questManager.completeQuest(quest.id, activeQuestComponent);
+    // Mostra messaggio di completamento quest nel log
+    if (this.logSystem) {
+      this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD, 5000);
+    }
 
-              // Crea un singolo messaggio che combina completamento e ricompense
-              if (this.logSystem) {
-                let questMessage = `🎉 Quest "${quest.title}" completata!`;
-
-                if (rewards) {
-                  const totalCredits = rewards.reduce((sum, r) => r.type === 'credits' ? sum + r.amount : sum, 0);
-                  const totalCosmos = rewards.reduce((sum, r) => r.type === 'cosmos' ? sum + r.amount : sum, 0);
-                  const totalExperience = rewards.reduce((sum, r) => r.type === 'experience' ? sum + r.amount : sum, 0);
-                  const totalHonor = rewards.reduce((sum, r) => r.type === 'honor' ? sum + r.amount : sum, 0);
-
-                  const rewardParts: string[] = [];
-                  if (totalCredits > 0) rewardParts.push(`${totalCredits} crediti`);
-                  if (totalCosmos > 0) rewardParts.push(`${totalCosmos} cosmos`);
-                  if (totalExperience > 0) rewardParts.push(`${totalExperience} XP`);
-                  if (totalHonor > 0) rewardParts.push(`${totalHonor} onore`);
-
-                  if (rewardParts.length > 0) {
-                    questMessage += `\n🎁 Ricompense: ${rewardParts.join(', ')}`;
-                  }
-                }
-
-                this.logSystem.addLogMessage(questMessage, LogType.REWARD, 6000); // Messaggio singolo più duraturo
-              }
-
-              // Applica comunque le ricompense al sistema economico (senza creare messaggio separato)
-              if (rewards) {
-                this.applyQuestRewards(rewards, false); // Passa false per non creare messaggio duplicato
-              }
-            }
-          }
-        });
-      }
-    });
+    // Completa la quest e ottieni le ricompense
+    const rewards = this.questManager.completeQuest(quest.id, { quests: [quest] });
+    if (rewards) {
+      this.applyQuestRewards(rewards);
+    }
   }
 
   /**
    * Applica le ricompense della quest completata
    */
-  private applyQuestRewards(rewards: any[], createMessage: boolean = true): void {
+  private applyQuestRewards(rewards: any[]): void {
     if (!this.economySystem) {
       console.warn('EconomySystem not set in QuestTrackingSystem');
       return;
@@ -109,39 +147,107 @@ export class QuestTrackingSystem {
 
     rewards.forEach(reward => {
       switch (reward.type) {
-        case 'credits':
-          if (reward.amount) {
-            totalCredits += reward.amount;
-            this.economySystem.addCredits(reward.amount, 'quest reward');
-          }
+        case RewardType.CREDITS:
+          totalCredits += reward.amount;
+          this.economySystem.addCredits(reward.amount, 'quest reward');
           break;
 
-        case 'cosmos':
-          if (reward.amount) {
-            totalCosmos += reward.amount;
-            this.economySystem.addCosmos(reward.amount, 'quest reward');
-          }
+        case RewardType.COSMOS:
+          totalCosmos += reward.amount;
+          this.economySystem.addCosmos(reward.amount, 'quest reward');
           break;
 
-        case 'experience':
-          if (reward.amount) {
-            totalExperience += reward.amount;
-            // TODO: Integrare con il sistema esperienza quando disponibile
-          }
+        case RewardType.EXPERIENCE:
+          totalExperience += reward.amount;
+          // TODO: Integrare con il sistema esperienza quando disponibile
           break;
 
-        case 'honor':
-          if (reward.amount) {
-            totalHonor += reward.amount;
-            // TODO: Integrare con il sistema onore quando disponibile
-          }
+        case RewardType.HONOR:
+          totalHonor += reward.amount;
+          // TODO: Integrare con il sistema onore quando disponibile
           break;
+
+        case RewardType.ITEM:
+          // TODO: Implementare sistema inventario per ricompense item
+          console.log(`🎒 Item reward: ${reward.itemId} (not implemented yet)`);
+          break;
+
+        default:
+          console.warn(`⚠️ Unknown reward type: ${reward.type}`);
       }
     });
 
-    // Mostra le ricompense nel log del sistema (solo se richiesto)
-    if (createMessage && this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
+    // Mostra le ricompense nel log del sistema
+    if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
+      console.log(`🎁 Creating reward message: ${totalCredits}c, ${totalCosmos}cos, ${totalExperience}xp, ${totalHonor}h`);
       this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000);
     }
+  }
+
+  /**
+   * Innesca un evento di quest manualmente (per test o eventi speciali)
+   * Metodo pubblico per triggerare eventi programmaticamente
+   */
+  triggerEvent(event: QuestEvent): void {
+    if (!this.playerEntity) {
+      console.warn('⚠️ Player entity not set in QuestTrackingSystem');
+      return;
+    }
+
+    const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
+    if (activeQuest) {
+      this.handleEvent(event, activeQuest.quests);
+    }
+  }
+
+  /**
+   * Metodo legacy per retrocompatibilità - sarà rimosso in futuro
+   * @deprecated Usa triggerEvent() con QuestEvent invece
+   */
+  onNpcKilled(npcType: string, activeQuestComponent: ActiveQuest): void {
+    console.warn('⚠️ onNpcKilled is deprecated. Use triggerEvent with QuestEvent instead.');
+
+    // Converte la chiamata legacy in un evento moderno
+    const event: QuestEvent = {
+      type: QuestEventType.NPC_KILLED,
+      targetId: npcType,
+      targetType: npcType.toLowerCase(),
+      amount: 1
+    };
+
+    this.handleEvent(event, activeQuestComponent.quests);
+  }
+
+  /**
+   * Valida che una quest sia ancora valida (non scaduta, prerequisiti soddisfatti, ecc.)
+   */
+  validateQuest(questId: string, playerLevel: number, completedQuestIds: string[]): boolean {
+    const config = QuestRegistry.get(questId);
+    if (!config) return false;
+
+    // Controllo livello
+    if (config.levelRequirement && playerLevel < config.levelRequirement) {
+      return false;
+    }
+
+    // Controllo prerequisiti
+    if (!QuestRegistry.hasPrerequisites(config, completedQuestIds)) {
+      return false;
+    }
+
+    // Altri controlli futuri (tempo, stato del mondo, ecc.)
+    return true;
+  }
+
+  /**
+   * Ottiene suggerimenti per quest disponibili per il giocatore
+   */
+  getQuestSuggestions(playerLevel: number, completedQuestIds: string[]): string[] {
+    const availableQuests = QuestRegistry.getAvailableForLevel(playerLevel)
+      .filter(config => QuestRegistry.hasPrerequisites(config, completedQuestIds))
+      .filter(config => !completedQuestIds.includes(config.id))
+      .map(config => config.id);
+
+    return availableQuests.slice(0, 3); // Limita a 3 suggerimenti
   }
 }

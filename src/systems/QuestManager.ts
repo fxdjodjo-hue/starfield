@@ -1,6 +1,13 @@
 import { Quest } from '../entities/quest/Quest';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import type { QuestObjective, QuestReward, QuestData } from '../ui/QuestPanel';
+import {
+  QuestRegistry,
+  QuestObjectiveFactory,
+  QuestRewardFactory,
+  initializeDefaultQuests,
+  type QuestConfig
+} from '../config/QuestConfig';
 
 /**
  * QuestManager - Sistema di gestione delle quest
@@ -18,30 +25,43 @@ export class QuestManager {
    * Inizializza le quest disponibili nel gioco
    */
   private initializeQuests(): void {
-    // Quest: Uccidi 1 Scouter
-    const killScouterQuest = new Quest(
-      'kill_scouter_1',
-      'Caccia allo Scouter',
-      'Elimina 1 scouter nemico per proteggere il territorio.',
-      'kill',
-      [
-        {
-          id: 'kill_scouter',
-          description: 'Uccidi 1 Scouter',
-          current: 0,
-          target: 1,
-          type: 'kill'
-        }
-      ],
-      [
-        {
-          type: 'cosmos',
-          amount: 100
-        }
-      ]
+    // Inizializza le quest di default dal registry
+    initializeDefaultQuests();
+
+    // Carica tutte le quest dal registry e creale come istanze
+    const allQuestConfigs = QuestRegistry.getAll();
+
+    for (const config of allQuestConfigs) {
+      const quest = this.createQuestFromConfig(config);
+      this.availableQuests.push(quest);
+    }
+
+    console.log(`📋 Initialized ${this.availableQuests.length} quests from registry`);
+  }
+
+  /**
+   * Crea un'istanza Quest da una configurazione
+   */
+  private createQuestFromConfig(config: QuestConfig): Quest {
+    // Crea obiettivi dalla configurazione
+    const objectives = config.objectives.map(objConfig =>
+      QuestObjectiveFactory.create(objConfig)
     );
 
-    this.availableQuests.push(killScouterQuest);
+    // Crea ricompense dalla configurazione
+    const rewards = config.rewards.map(rewardConfig =>
+      QuestRewardFactory.create(rewardConfig)
+    );
+
+    // Crea e restituisci la quest
+    return new Quest(
+      config.id,
+      config.title,
+      config.description,
+      config.type,
+      objectives,
+      rewards
+    );
   }
 
   /**

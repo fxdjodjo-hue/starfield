@@ -8,6 +8,7 @@ import { getNpcDefinition } from '../config/NpcConfig';
 import { LogSystem } from './rendering/LogSystem';
 import { LogType } from '../entities/ui/LogMessage';
 import { NpcRespawnSystem } from './NpcRespawnSystem';
+import { QuestEventType } from '../config/QuestConfig';
 import { QuestTrackingSystem } from './QuestTrackingSystem';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { Component } from '../infrastructure/ecs/Component';
@@ -139,12 +140,16 @@ export class RewardSystem extends BaseSystem {
       this.logSystem.addLogMessage(killMessage, LogType.NPC_KILLED, 4000);
     }
 
-    // Notifica il sistema quest per aggiornare il progresso (DOPO il messaggio NPC)
-    if (this.questTrackingSystem && this.playerEntity) {
-      const activeQuest = this.ecs.getComponent(this.playerEntity, ActiveQuest);
-      if (activeQuest) {
-        this.questTrackingSystem.onNpcKilled(npc.npcType, activeQuest);
-      }
+    // Notifica il sistema quest per aggiornare il progresso tramite eventi
+    if (this.questTrackingSystem) {
+      const event = {
+        type: QuestEventType.NPC_KILLED,
+        targetId: npc.npcType,
+        targetType: npc.npcType.toLowerCase(),
+        amount: 1
+      };
+
+      this.questTrackingSystem.triggerEvent(event);
     }
 
     // Pianifica il respawn dell'NPC morto
