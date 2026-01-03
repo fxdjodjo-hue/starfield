@@ -1,4 +1,4 @@
-import { GameState } from './GameState';
+﻿import { GameState } from './GameState';
 import { GameContext } from '/src/infrastructure/engine/GameContext';
 import { World } from '/src/infrastructure/engine/World';
 import { MovementSystem } from '/src/systems/physics/MovementSystem';
@@ -17,213 +17,238 @@ import { ParallaxSystem } from '/src/systems/rendering/ParallaxSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
+import { QuestManager } from '/src/systems/QuestManager';
 import { QuestTrackingSystem } from '/src/systems/QuestTrackingSystem';
+import { QuestSystem } from '/src/systems/QuestSystem';
+import { GameInitializationSystem } from '/src/systems/GameInitializationSystem';
 import { BoundsSystem } from '/src/systems/BoundsSystem';
 import { NpcRespawnSystem } from '/src/systems/NpcRespawnSystem';
-import { PlayerSystem } from '/src/systems/PlayerSystem';
-import { QuestSystem } from '/src/systems/QuestSystem';
+import { PlayerHUD } from '/src/presentation/ui/PlayerHUD';
+import type { PlayerHUDData } from '/src/presentation/ui/PlayerHUD';
 import { UiSystem } from '/src/systems/UiSystem';
-import { NpcSystem } from '/src/systems/NpcSystem';
-import { QuestManager } from '/src/systems/QuestManager';
+import { Transform } from '/src/entities/spatial/Transform';
+import { Velocity } from '/src/entities/spatial/Velocity';
+import { Npc } from '/src/entities/ai/Npc';
+import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
+import { Health } from '/src/entities/combat/Health';
+import { Shield } from '/src/entities/combat/Shield';
+import { Damage } from '/src/entities/combat/Damage';
+import { Credits, Cosmos } from '/src/entities/Currency';
+import { Experience } from '/src/entities/Experience';
+import { Sprite } from '/src/entities/Sprite';
+import { Honor } from '/src/entities/Honor';
+import { PlayerStats } from '/src/entities/PlayerStats';
+import { ActiveQuest } from '/src/entities/quest/ActiveQuest';
+import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
+import { CONFIG } from '/src/utils/config/Config';
+import { getNpcDefinition } from '/src/config/NpcConfig';
 
 /**
- * Stato del gameplay attivo - Pura orchestrazione
- * Coordina sistemi senza contenere logica di business
- * Segue Dependency Inversion: delega tutto ai Systems Layer
+ * Stato del gameplay attivo
+ * Gestisce il mondo di gioco, ECS e tutti i sistemi di gameplay
  */
 export class PlayState extends GameState {
   private world: World;
-  private context: GameContext;
-
-  // Sistemi dedicati (Plugin Architecture)
-  private playerSystem: PlayerSystem;
-  private questSystem: QuestSystem;
   private uiSystem: UiSystem;
-  private npcSystem: NpcSystem;
-  private movementSystem: MovementSystem;
-  private renderSystem: RenderSystem;
-  private inputSystem: InputSystem;
-  private playerControlSystem: PlayerControlSystem;
-  private npcBehaviorSystem: NpcBehaviorSystem;
-  private npcSelectionSystem: NpcSelectionSystem;
-  private combatSystem: CombatSystem;
-  private explosionSystem: ExplosionSystem;
-  private projectileSystem: ProjectileSystem;
-  private damageTextSystem: DamageTextSystem;
-  private minimapSystem: MinimapSystem;
-  private logSystem: LogSystem;
-  private parallaxSystem: ParallaxSystem;
-  private economySystem: EconomySystem;
-  private rankSystem: RankSystem;
-  private rewardSystem: RewardSystem;
-  private questTrackingSystem: QuestTrackingSystem;
-  private boundsSystem: BoundsSystem;
-  private npcRespawnSystem: NpcRespawnSystem;
+  private gameInitSystem: GameInitializationSystem;
+  private startTime: number = Date.now();
+  private context: GameContext;
+  private playerEntity: any = null;
+  private economySystem: any = null;
+  private logSystem: LogSystem | null = null;
+  private questSystem: QuestSystem | null = null;
+  private questTrackingSystem: QuestTrackingSystem | null = null;
+  private questManager: QuestManager | null = null;
+  private movementSystem: MovementSystem | null = null;
+  private playerNicknameElement: HTMLElement | null = null;
+  private nicknameCreated: boolean = false;
 
   constructor(context: GameContext) {
     super();
     this.context = context;
+    // Crea il mondo di gioco
     this.world = new World(context.canvas);
-    this.initializeSystems();
+
+    // Inizializza sistemi UI e Quest per operazioni immediate
+    this.questManager = new QuestManager();
+    this.questSystem = new QuestSystem(this.world.getECS(), this.questManager);
+    // UiSystem riceverà l'EconomySystem dopo l'inizializzazione
+    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem);
+
+    // Crea sistema di inizializzazione
+    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem);
   }
 
   /**
-   * Inizializza sistemi - Plugin Architecture
-   */
-  private initializeSystems(): void {
-    const ecs = this.world.getECS();
-    const questManager = new QuestManager();
-
-    // Inizializza tutti i sistemi
-    this.questSystem = new QuestSystem(ecs, questManager);
-    this.uiSystem = new UiSystem(ecs, this.questSystem);
-    this.playerSystem = new PlayerSystem(ecs);
-    this.npcSystem = new NpcSystem(ecs);
-    this.movementSystem = new MovementSystem(ecs, this.world.getCamera());
-    this.renderSystem = new RenderSystem(ecs, this.movementSystem);
-    this.inputSystem = new InputSystem();
-    this.playerControlSystem = new PlayerControlSystem(ecs, this.inputSystem);
-    this.npcBehaviorSystem = new NpcBehaviorSystem(ecs);
-    this.npcSelectionSystem = new NpcSelectionSystem(ecs, this.inputSystem);
-    this.combatSystem = new CombatSystem(ecs);
-    this.explosionSystem = new ExplosionSystem(ecs);
-    this.projectileSystem = new ProjectileSystem(ecs);
-    this.damageTextSystem = new DamageTextSystem(ecs);
-    this.minimapSystem = new MinimapSystem(ecs, this.world.getCamera());
-    this.logSystem = new LogSystem(ecs);
-    this.parallaxSystem = new ParallaxSystem(ecs);
-    this.economySystem = new EconomySystem(ecs);
-    this.rankSystem = new RankSystem(ecs);
-    this.rewardSystem = new RewardSystem(ecs);
-    this.questTrackingSystem = new QuestTrackingSystem(ecs, questManager);
-    this.boundsSystem = new BoundsSystem(ecs, this.world.getCamera());
-    this.npcRespawnSystem = new NpcRespawnSystem(ecs);
-
-    this.registerSystems();
-  }
-
-  /**
-   * Registra sistemi nel mondo
-   */
-  private registerSystems(): void {
-    const systems = [
-      this.movementSystem, this.renderSystem, this.inputSystem, this.playerControlSystem,
-      this.npcBehaviorSystem, this.npcSelectionSystem, this.combatSystem, this.explosionSystem,
-      this.projectileSystem, this.damageTextSystem, this.minimapSystem, this.logSystem,
-      this.parallaxSystem, this.economySystem, this.rankSystem, this.rewardSystem,
-      this.questSystem, this.questTrackingSystem, this.boundsSystem, this.npcRespawnSystem,
-      this.uiSystem, this.playerSystem, this.npcSystem
-    ];
-    systems.forEach(system => this.world.registerSystem(system));
-  }
-
-  /**
-   * Avvia gameplay - Pura orchestrazione
+   * Avvia il gameplay
    */
   async enter(context: GameContext): Promise<void> {
+    // Nasconde il titolo principale
     this.uiSystem.hideMainTitle();
-    await this.initializeGame();
+
+    try {
+      // Inizializza il mondo e crea il giocatore PRIMA di mostrare l'HUD
+      await this.initializeGame();
+    } catch (error) {
+      console.error('Failed to initialize game:', error);
+      throw error;
+    }
+
+    // Inizializza il sistema UI dopo che tutti i sistemi sono stati creati
     this.uiSystem.initialize();
-  }
 
-  /**
-   * Inizializza mondo e entità
-   */
-  private async initializeGame(): Promise<void> {
-    await this.loadAndCreateEntities();
-    this.configureSystemIntegrations();
-  }
+    // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
+    this.uiSystem.showPlayerInfo();
 
-  /**
-   * Carica risorse e crea entità
-   */
-  private async loadAndCreateEntities(): Promise<void> {
-    const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
-    const shipSprite = new Sprite(shipImage, shipImage.width * 0.2, shipImage.height * 0.2);
+    // Il nickname verrà creato al primo update quando tutti i sistemi sono pronti
 
-    this.playerSystem.createPlayer(0, 0);
+    // HUD toggle gestito da UiSystem
 
-    const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
-    const scouterSprite = new Sprite(scouterImage, scouterImage.width * 0.15, scouterImage.height * 0.15);
-    this.npcSystem.createScouters(50, scouterSprite);
-  }
-
-  /**
-   * Configura integrazioni sistemi
-   */
-  private configureSystemIntegrations(): void {
-    const playerEntity = this.playerSystem.getPlayerEntity();
-
-    (this.playerControlSystem as any).setPlayerEntity(playerEntity);
-    (this.playerControlSystem as any).setCamera(this.movementSystem.getCamera());
-
-    (this.minimapSystem as any).setCamera(this.movementSystem.getCamera());
-    (this.minimapSystem as any).setMoveToCallback((x: number, y: number) =>
-      (this.playerControlSystem as any).movePlayerTo(x, y));
-
-    (this.economySystem as any).setPlayerEntity(playerEntity);
-    (this.rankSystem as any).setPlayerEntity(playerEntity);
-    (this.rewardSystem as any).setPlayerEntity(playerEntity);
-    (this.boundsSystem as any).setPlayerEntity(playerEntity);
-    (this.npcRespawnSystem as any).setPlayerEntity(playerEntity);
-
-    this.setupEconomyCallbacks();
-  }
-
-  /**
-   * Setup callbacks economici
-   */
-  private setupEconomyCallbacks(): void {
-    (this.economySystem as any).setExperienceChangedCallback(() => this.uiSystem.updatePanels());
-    (this.economySystem as any).setCreditsChangedCallback(() => this.uiSystem.updatePanels());
-    (this.economySystem as any).setHonorChangedCallback(() => this.uiSystem.updatePanels());
+    // I listener per i pannelli sono ora gestiti da UiSystem e QuestSystem
   }
 
 
+
+
   /**
-   * Aggiorna gioco - Delega ai sistemi
+   * Aggiorna il gameplay
    */
   update(deltaTime: number): void {
+    // Aggiorna il mondo di gioco
     this.world.update(deltaTime);
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    if (playerEntity) {
-      this.updatePlayerNicknamePosition();
+
+    // Aggiorna le informazioni del player (HP)
+    this.uiSystem.showPlayerInfo();
+
+    // Aggiorna posizione del nickname
+    this.updateNicknamePosition();
+  }
+
+  /**
+   * Renderizza il gioco
+   */
+  render(ctx: CanvasRenderingContext2D): void {
+    // Renderizza il mondo di gioco
+    this.world.render();
+  }
+
+  /**
+   * Gestisce input di gioco
+   */
+  handleInput(event: Event): void {
+    // Gli input sono gestiti dai sistemi ECS (InputSystem)
+    // Questo metodo Ã¨ disponibile per input speciali se necessario
+  }
+
+  /**
+   * Termina il gameplay
+   */
+  exit(): void {
+    // Cleanup completo dell'HUD
+    this.uiSystem.destroy();
+
+    // Rimuovi elemento nickname (delegato all'UiSystem)
+
+    this.uiSystem.showMainTitle();
+    // Qui potremmo salvare lo stato di gioco, cleanup, etc.
+  }
+
+  /**
+   * Crea l'elemento HTML per mostrare le info del giocatore
+   */
+
+  /**
+   * Mostra le info del giocatore
+   */
+
+
+
+
+
+
+
+
+  /**
+   * Crea l'elemento nickname delegando all'UiSystem
+   */
+  private createPlayerNicknameElement(): void {
+    const nickname = this.context.playerNickname || 'Commander';
+    const rank = this.getPlayerRank();
+    this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
+  }
+
+
+  /**
+   * Ottiene il rank corrente del player
+   */
+  private getPlayerRank(): string {
+    if (!this.economySystem) return 'Recruit';
+
+    // Ottieni il componente Honor del player per il rank
+    const honor = this.economySystem.getPlayerHonor?.();
+    if (honor && typeof honor.getRank === 'function') {
+      return honor.getRank();
+    }
+
+    return 'Recruit';
+  }
+
+
+
+  /**
+   * Inizializza il mondo di gioco e crea entitÃ 
+   */
+  private async initializeGame(): Promise<void> {
+    // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
+    this.playerEntity = await this.gameInitSystem.initialize();
+
+    // Ottieni riferimenti ai sistemi creati
+    const systems = this.gameInitSystem.getSystems();
+    this.questSystem = systems.questSystem;
+    this.uiSystem = systems.uiSystem;
+    this.questManager = systems.questManager;
+    this.movementSystem = systems.movementSystem;
+
+    // Collega l'EconomySystem all'UiSystem
+    if (systems.economySystem) {
+      this.uiSystem.setEconomySystem(systems.economySystem);
     }
   }
 
   /**
-   * Renderizza gioco
+   * Aggiorna la posizione del nickname delegando all'UiSystem
    */
-  render(ctx: CanvasRenderingContext2D): void {
-    this.world.render(ctx);
-  }
+  private updateNicknamePosition(): void {
+    if (!this.playerEntity) return;
 
-  /**
-   * Esce dal gameplay
-   */
-  exit(): void {
-    this.uiSystem.destroy();
-  }
-
-  /**
-   * Aggiorna posizione nickname
-   */
-  private updatePlayerNicknamePosition(): void {
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    if (!playerEntity) return;
-
-    const transform = this.world.getECS().getComponent(playerEntity, Transform);
+    // Ottieni le coordinate del player
+    const transform = this.world.getECS().getComponent(this.playerEntity, Transform);
     if (!transform) return;
 
-    this.uiSystem.updatePlayerNicknamePosition(
-      transform.x, transform.y,
-      this.movementSystem.getCamera(),
-      this.world.getCanvasSize()
-    );
+    // Usa il MovementSystem referenziato
+    if (!this.movementSystem) return;
+
+    // Crea il nickname se non è ancora stato creato (solo una volta)
+    if (!this.nicknameCreated) {
+      console.log('DEBUG: Creating nickname element now that systems are ready');
+      const nickname = this.context.playerNickname || 'Commander';
+      const rank = this.getPlayerRank();
+      this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
+      this.nicknameCreated = true; // Flag per evitare ricreazione
+    }
+
+    const camera = this.movementSystem.getCamera();
+    const canvasSize = this.world.getCanvasSize();
+
+    console.log(`DEBUG: Player position: (${transform.x}, ${transform.y}), Camera: (${camera.x}, ${camera.y})`);
+
+    // Delega all'UiSystem
+    this.uiSystem.updatePlayerNicknamePosition(transform.x, transform.y, camera, canvasSize);
   }
 
+
   /**
-   * Accesso al mondo per debug
+   * Restituisce il mondo di gioco per accesso esterno
    */
   getWorld(): World {
     return this.world;

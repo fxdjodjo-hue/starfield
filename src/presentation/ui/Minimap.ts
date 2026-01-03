@@ -1,4 +1,4 @@
-import { CONFIG } from '../utils/config/Config';
+import { CONFIG } from '../../utils/config/Config';
 
 /**
  * Componente Minimap per gestire la minimappa quadrata

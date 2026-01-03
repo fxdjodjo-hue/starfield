@@ -1,5 +1,5 @@
-import type { GameContext } from '../infrastructure/engine/GameContext';
-import { getFormattedVersion } from '../utils/config/Version';
+import type { GameContext } from '../../infrastructure/engine/GameContext';
+import { getFormattedVersion } from '../../utils/config/Version';
 
 /**
  * Schermata iniziale del gioco Starfield

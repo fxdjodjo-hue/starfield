@@ -2,7 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
-import { Minimap } from '../../ui/Minimap';
+import { Minimap } from '../../presentation/ui/Minimap';
 import { Camera } from '../../entities/spatial/Camera';
 import { CONFIG } from '../../utils/config/Config';
 

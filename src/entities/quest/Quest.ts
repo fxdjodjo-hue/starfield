@@ -1,4 +1,4 @@
-import type { QuestObjective, QuestReward } from '../../ui/QuestPanel';
+import type { QuestObjective, QuestReward } from '../../presentation/ui/QuestPanel';
 
 /**
  * Componente Quest - Rappresenta una singola quest nel sistema ECS

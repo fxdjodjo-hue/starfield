@@ -1,6 +1,6 @@
 import { Quest } from '../entities/quest/Quest';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
-import type { QuestObjective, QuestReward, QuestData } from '../ui/QuestPanel';
+import type { QuestObjective, QuestReward, QuestData } from '../presentation/ui/QuestPanel';
 import {
   QuestRegistry,
   QuestObjectiveFactory,

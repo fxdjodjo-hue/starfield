@@ -2,7 +2,7 @@ import { System } from '../infrastructure/ecs/System';
 import { ECS } from '../infrastructure/ecs/ECS';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { QuestManager } from './QuestManager';
-import { QuestPanel } from '../ui/QuestPanel';
+import { QuestPanel } from '../presentation/ui/QuestPanel';
 
 /**
  * Sistema di orchestrazione per la gestione delle quest
@@ -33,6 +33,11 @@ export class QuestSystem extends System {
       const { questId } = event.detail;
       this.handleQuestAbandon(questId);
     });
+
+    // Listener per richieste di aggiornamento dati dal pannello quest
+    document.addEventListener('requestQuestDataUpdate', () => {
+      this.notifyQuestPanelUpdate();
+    });
   }
 
   /**
@@ -41,10 +46,11 @@ export class QuestSystem extends System {
   private handleQuestAcceptance(questId: string): void {
     // Trova l'entità player con ActiveQuest
     const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
-    if (entities.size === 0) return;
+    if (entities.length === 0) return;
 
-    const playerEntity = entities.values().next().value;
+    const playerEntity = entities[0];
     const activeQuest = this.ecs.getComponent(playerEntity, ActiveQuest);
+    if (!activeQuest) return;
 
     if (this.questManager.isQuestAvailable(questId) && this.questManager.canAcceptQuest(questId)) {
       const accepted = this.questManager.acceptQuest(questId, activeQuest);
@@ -65,10 +71,11 @@ export class QuestSystem extends System {
   private handleQuestAbandon(questId: string): void {
     // Trova l'entità player con ActiveQuest
     const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
-    if (entities.size === 0) return;
+    if (entities.length === 0) return;
 
-    const playerEntity = entities.values().next().value;
+    const playerEntity = entities[0];
     const activeQuest = this.ecs.getComponent(playerEntity, ActiveQuest);
+    if (!activeQuest) return;
 
     const abandoned = this.questManager.abandonQuest(questId, activeQuest);
     if (abandoned) {
@@ -93,14 +100,16 @@ export class QuestSystem extends System {
     if (this.questPanel) {
       // Trova l'entità player
       const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
-      if (entities.size > 0) {
-        const playerEntity = entities.values().next().value;
+      if (entities.length > 0) {
+        const playerEntity = entities[0];
         const activeQuest = this.ecs.getComponent(playerEntity, ActiveQuest);
-        const questData = this.questManager.getQuestData(activeQuest);
+        if (activeQuest) {
+          const questData = this.questManager.getQuestData(activeQuest);
 
-        // Trigger update event per il pannello
-        const event = new CustomEvent('questDataUpdate', { detail: questData });
-        document.dispatchEvent(event);
+          // Trigger update event per il pannello
+          const event = new CustomEvent('questDataUpdate', { detail: questData });
+          document.dispatchEvent(event);
+        }
       }
     }
   }
@@ -110,10 +119,11 @@ export class QuestSystem extends System {
    */
   getQuestUIData(): any {
     const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
-    if (entities.size === 0) return null;
+    if (entities.length === 0) return null;
 
-    const playerEntity = entities.values().next().value;
+    const playerEntity = entities[0];
     const activeQuest = this.ecs.getComponent(playerEntity, ActiveQuest);
+    if (!activeQuest) return null;
     return this.questManager.getQuestData(activeQuest);
   }
 
@@ -125,11 +135,8 @@ export class QuestSystem extends System {
   }
 
   update(deltaTime: number): void {
-    // Aggiorna il tracking delle quest attive
-    const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
-    for (const entity of entities) {
-      const activeQuest = this.ecs.getComponent(entity, ActiveQuest);
-      this.questManager.updateQuestProgress(activeQuest);
-    }
+    // Il QuestSystem non gestisce aggiornamenti di progresso delle quest
+    // Quello è responsabilità del QuestTrackingSystem che risponde agli eventi di gioco
+    // Questo sistema gestisce solo l'interfaccia utente e accettazione/rifiuto quest
   }
 }

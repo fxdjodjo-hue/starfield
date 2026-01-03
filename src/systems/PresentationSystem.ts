@@ -1,5 +1,3 @@
-import { System } from '../infrastructure/ecs/System';
-import { ECS } from '../infrastructure/ecs/ECS';
 import { UIManager } from '../presentation/ui/UIManager';
 import { PlayerHUD } from '../presentation/ui/PlayerHUD';
 import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
@@ -8,10 +6,11 @@ import { getPanelConfig } from '../presentation/ui/PanelConfig';
 import { QuestSystem } from './QuestSystem';
 
 /**
- * Sistema di orchestrazione per la gestione dell'interfaccia utente
- * Coordina UIManager, HUD e pannelli UI
+ * PresentationSystem - Sistema di presentazione per l'interfaccia utente
+ * Gestisce UIManager, HUD e pannelli UI indipendentemente dall'ECS
+ * Segue il principio di Dependency Inversion
  */
-export class UiSystem extends System {
+export class PresentationSystem {
   private uiManager: UIManager;
   private playerHUD: PlayerHUD;
   private questSystem: QuestSystem;
@@ -19,8 +18,7 @@ export class UiSystem extends System {
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
 
-  constructor(ecs: ECS, questSystem: QuestSystem) {
-    super(ecs);
+  constructor(questSystem: QuestSystem) {
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
     this.questSystem = questSystem;
@@ -167,7 +165,7 @@ export class UiSystem extends System {
     if (this.playerNicknameElement) return;
 
     this.playerNicknameElement = document.createElement('div');
-    this.playerNicknameElement.id = 'player-nickname-uisystem';
+    this.playerNicknameElement.id = 'player-nickname';
     this.playerNicknameElement.style.cssText = `
       position: fixed;
       color: rgba(255, 255, 255, 0.9);
@@ -180,12 +178,10 @@ export class UiSystem extends System {
       text-align: center;
       line-height: 1.4;
       white-space: nowrap;
-      border-radius: 5px;
     `;
 
     this.updatePlayerNicknameContent(nickname);
     document.body.appendChild(this.playerNicknameElement);
-
   }
 
   /**
@@ -214,16 +210,15 @@ export class UiSystem extends System {
     // Forza la visibilità e ricalcola dimensioni
     this.playerNicknameElement.style.display = 'block';
 
-    // Posiziona il nickname centrato orizzontalmente sotto la nave (10px sotto per essere visibile)
+    // Posiziona il nickname centrato orizzontalmente sotto la nave (45px sotto)
     const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
-    const nicknameY = screenPos.y + 60; // Sotto la nave
+    const nicknameY = screenPos.y + 45;
 
     this.playerNicknameElement.style.left = `${nicknameX}px`;
     this.playerNicknameElement.style.top = `${nicknameY}px`;
-    this.playerNicknameElement.style.transform = 'none';
-    this.playerNicknameElement.style.display = 'block';
 
-
+    // Debug: log delle coordinate se necessario
+    // console.log(`Nickname pos: screen(${screenPos.x}, ${screenPos.y}) -> DOM(${nicknameX}, ${nicknameY})`);
   }
 
   /**
@@ -281,10 +276,6 @@ export class UiSystem extends System {
     return this.playerHUD;
   }
 
-  update(deltaTime: number): void {
-    // Aggiornamenti periodici dell'UI se necessari
-    // Per ora delega agli altri sistemi
-  }
 
   /**
    * Cleanup delle risorse UI
