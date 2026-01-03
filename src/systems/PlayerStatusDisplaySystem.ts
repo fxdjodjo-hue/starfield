@@ -39,14 +39,14 @@ export class PlayerStatusDisplaySystem extends System {
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      align-items: center;
-      gap: 24px;
+      align-items: stretch;
+      gap: 32px;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 25px;
-      padding: 12px 24px;
+      padding: 16px 24px;
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -74,13 +74,13 @@ export class PlayerStatusDisplaySystem extends System {
 
     // Aggiungi sezione HP se presente
     if (health) {
-      const healthSection = this.createStatSection('❤️', 'HP', health.current, health.max, '#10b981');
+      const healthSection = this.createStatSection('HP', health.current, health.max, '#10b981');
       this.statusElement.appendChild(healthSection);
     }
 
     // Aggiungi sezione Shield se presente
     if (shield) {
-      const shieldSection = this.createStatSection('🛡️', 'Shield', shield.current, shield.max, '#3b82f6');
+      const shieldSection = this.createStatSection('SHD', shield.current, shield.max, '#3b82f6');
       this.statusElement.appendChild(shieldSection);
     }
 
@@ -91,32 +91,26 @@ export class PlayerStatusDisplaySystem extends System {
   }
 
   /**
-   * Crea una sezione per una statistica con icona, barra e valori
+   * Crea una sezione per una statistica con barra e valori
    */
-  private createStatSection(icon: string, label: string, current: number, max: number, color: string): HTMLElement {
+  private createStatSection(label: string, current: number, max: number, color: string): HTMLElement {
     const section = document.createElement('div');
     section.style.cssText = `
       display: flex;
-      align-items: center;
-      gap: 12px;
-      min-width: 140px;
-    `;
-
-    // Icona
-    const iconElement = document.createElement('span');
-    iconElement.textContent = icon;
-    iconElement.style.cssText = `
-      font-size: 20px;
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-    `;
-
-    // Contenitore valori
-    const valuesContainer = document.createElement('div');
-    valuesContainer.style.cssText = `
-      display: flex;
       flex-direction: column;
-      gap: 4px;
-      flex: 1;
+      gap: 8px;
+      min-width: 120px;
+      align-items: center;
+    `;
+
+    // Contenitore header con label e valori
+    const headerContainer = document.createElement('div');
+    headerContainer.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      gap: 12px;
     `;
 
     // Label
@@ -125,7 +119,7 @@ export class PlayerStatusDisplaySystem extends System {
     labelElement.style.cssText = `
       font-size: 11px;
       font-weight: 600;
-      color: rgba(255, 255, 255, 0.7);
+      color: rgba(255, 255, 255, 0.8);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -136,7 +130,7 @@ export class PlayerStatusDisplaySystem extends System {
     const percent = Math.round((current / max) * 100);
     valuesElement.textContent = `${current.toLocaleString()}/${max.toLocaleString()}`;
     valuesElement.style.cssText = `
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 700;
       color: rgba(255, 255, 255, 0.95);
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -147,30 +141,30 @@ export class PlayerStatusDisplaySystem extends System {
     const progressBar = document.createElement('div');
     progressBar.style.cssText = `
       width: 100%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.2);
-      border-radius: 2px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
       overflow: hidden;
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     `;
 
     const progressFill = document.createElement('div');
     progressFill.style.cssText = `
       width: ${percent}%;
       height: 100%;
-      background: linear-gradient(90deg, ${color}, ${this.adjustColor(color, 20)});
+      background: linear-gradient(90deg, ${color}, ${this.adjustColor(color, 30)});
       border-radius: 2px;
-      transition: width 0.3s ease;
-      box-shadow: 0 0 6px ${color}40;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 8px ${color}60;
     `;
 
     progressBar.appendChild(progressFill);
-    valuesContainer.appendChild(labelElement);
-    valuesContainer.appendChild(valuesElement);
-    valuesContainer.appendChild(progressBar);
+    headerContainer.appendChild(labelElement);
+    headerContainer.appendChild(valuesElement);
 
-    section.appendChild(iconElement);
-    section.appendChild(valuesContainer);
+    section.appendChild(headerContainer);
+    section.appendChild(progressBar);
 
     return section;
   }
