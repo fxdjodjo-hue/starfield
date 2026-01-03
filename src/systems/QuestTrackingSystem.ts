@@ -4,7 +4,7 @@ import { QuestManager } from './QuestManager';
 import { LogSystem } from './rendering/LogSystem';
 import { LogType } from '../entities/ui/LogMessage';
 import {
-  QuestEvent,
+  type QuestEvent,
   QuestEventType,
   QuestRegistry,
   ObjectiveType,

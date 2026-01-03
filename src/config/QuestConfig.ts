@@ -209,25 +209,4 @@ export function initializeDefaultQuests(): void {
     repeatable: false
   });
 
-  // Template per quest future - uccisione Frigate
-  QuestRegistry.register({
-    id: 'kill_frigate_1',
-    title: 'Caccia alla Frigate',
-    description: 'Le Frigate sono navi più potenti. Affrontane una per dimostrare la tua abilità.',
-    type: 'kill',
-    objectives: [{
-      id: 'kill_frigate_obj',
-      type: ObjectiveType.KILL,
-      description: 'Uccidi 1 Frigate',
-      target: 1,
-      targetType: 'frigate'
-    }],
-    rewards: [
-      { type: RewardType.CREDITS, amount: 1000 },
-      { type: RewardType.COSMOS, amount: 300 },
-      { type: RewardType.EXPERIENCE, amount: 250 }
-    ],
-    levelRequirement: 5,
-    repeatable: false
-  });
 }
