@@ -211,4 +211,4 @@ this.merchant = new MerchantNpc(200, 300);
 - **Documentation**: README per ogni cartella, JSDoc
 - **Naming**: Convenzioni coerenti (PascalCase classi, camelCase metodi)
 
-Questa architettura garantisce un progetto **maintainibile, estensibile e scalabile** per lo sviluppo di giochi complessi con Phaser.
+Questa architettura garantisce un progetto **maintainibile, estensibile e scalabile** per lo sviluppo di giochi complessi.

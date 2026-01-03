@@ -6,6 +6,7 @@ import { Npc } from '../entities/ai/Npc';
 import { PlayerStats } from '../entities/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
 import { LogSystem } from './rendering/LogSystem';
+import { LogType } from '../entities/ui/LogMessage';
 import { NpcRespawnSystem } from './NpcRespawnSystem';
 import { QuestTrackingSystem } from './QuestTrackingSystem';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
