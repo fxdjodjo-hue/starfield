@@ -137,6 +137,7 @@ export class RewardSystem extends BaseSystem {
         killMessage += `\n🎁 Ricompense: ${rewardParts.join(', ')}`;
       }
 
+      console.log(`💀 Creating NPC kill message: ${killMessage}`);
       this.logSystem.addLogMessage(killMessage, LogType.NPC_KILLED, 4000);
     }
 
@@ -149,7 +150,10 @@ export class RewardSystem extends BaseSystem {
         amount: 1
       };
 
+      console.log(`🚀 Triggering quest event:`, event);
       this.questTrackingSystem.triggerEvent(event);
+    } else {
+      console.log(`❌ QuestTrackingSystem not available`);
     }
 
     // Pianifica il respawn dell'NPC morto

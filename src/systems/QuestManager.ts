@@ -116,10 +116,18 @@ export class QuestManager {
    * Aggiorna il progresso di una quest (per obiettivi di tipo kill)
    */
   updateQuestProgress(questId: string, objectiveId: string, activeQuestComponent: ActiveQuest): boolean {
-    const quest = activeQuestComponent.getQuest(questId);
-    if (!quest) return false;
+    console.log(`📈 Updating quest progress: ${questId}, objective: ${objectiveId}`);
 
+    const quest = activeQuestComponent.getQuest(questId);
+    if (!quest) {
+      console.log(`❌ Quest ${questId} not found in active quests`);
+      return false;
+    }
+
+    console.log(`✅ Found quest ${questId}, updating objective ${objectiveId}`);
     const questCompleted = quest.updateObjective(objectiveId);
+    console.log(`📊 Quest completed: ${questCompleted}`);
+
     return questCompleted;
   }
 
