@@ -383,8 +383,8 @@ export class SkillsPanel extends BasePanel {
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   update(deltaTime: number): void {
-    // Aggiorna solo se il pannello è visibile e il container è nel DOM
-    if (this.isVisible && this.statsContainer && this.statsContainer.parentElement) {
+    // Aggiorna solo se il pannello è visibile
+    if (this.isVisible) {
       console.log('SkillsPanel: Updating visible panel');
       this.updatePlayerStats();
     }
