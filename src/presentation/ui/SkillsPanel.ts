@@ -476,12 +476,10 @@ export class SkillsPanel extends BasePanel {
       letter-spacing: 0.5px;
     `;
 
-    // Upgrade HP
-    const hpUpgrade = this.createUpgradeButton('❤️ HP +1%', 'upgrade-hp', '#10b981', () => this.upgradeStat('hp'));
-    // Upgrade Shield
-    const shieldUpgrade = this.createUpgradeButton('🛡️ Shield +1%', 'upgrade-shield', '#3b82f6', () => this.upgradeStat('shield'));
-    // Upgrade Speed
-    const speedUpgrade = this.createUpgradeButton('💨 Speed +1%', 'upgrade-speed', '#f59e0b', () => this.upgradeStat('speed'));
+    // Crea i tre pulsanti di upgrade con statistiche integrate
+    const hpUpgrade = this.createStatUpgradeButton('HP', '❤️', '#10b981', 'hp');
+    const shieldUpgrade = this.createStatUpgradeButton('Shield', '🛡️', '#3b82f6', 'shield');
+    const speedUpgrade = this.createStatUpgradeButton('Speed', '💨', '#f59e0b', 'speed');
 
     section.appendChild(sectionTitle);
     section.appendChild(hpUpgrade);
