@@ -38,119 +38,9 @@ export interface Skill {
  */
 export class SkillsPanel extends BasePanel {
   private skillsData: SkillsData;
-    availablePoints: 5,
-    totalPoints: 15,
-    categories: {
-      combat: {
-        name: 'Combattimento',
-        description: 'Abilità offensive e difensive',
-        skills: [
-          {
-            id: 'damage',
-            name: 'Potenza di Fuoco',
-            description: 'Aumenta il danno inflitto ai nemici',
-            currentLevel: 3,
-            maxLevel: 10,
-            cost: 2,
-            icon: '💥'
-          },
-          {
-            id: 'shield',
-            name: 'Capacità Scudo',
-            description: 'Migliora la resistenza degli scudi',
-            currentLevel: 2,
-            maxLevel: 8,
-            cost: 3,
-            icon: '🛡️'
-          },
-          {
-            id: 'health',
-            name: 'Vitalità',
-            description: 'Aumenta la salute massima',
-            currentLevel: 4,
-            maxLevel: 12,
-            cost: 2,
-            icon: '❤️'
-          }
-        ]
-      },
-      exploration: {
-        name: 'Esplorazione',
-        description: 'Navigazione e scoperta',
-        skills: [
-          {
-            id: 'scanning',
-            name: 'Scansione Avanzata',
-            description: 'Rileva risorse e nemici a distanza maggiore',
-            currentLevel: 1,
-            maxLevel: 6,
-            cost: 4,
-            icon: '📡'
-          },
-          {
-            id: 'navigation',
-            name: 'Navigazione Stellare',
-            description: 'Migliora la velocità e l\'efficienza del viaggio',
-            currentLevel: 2,
-            maxLevel: 8,
-            cost: 3,
-            icon: '🧭'
-          }
-        ]
-      },
-      social: {
-        name: 'Sociale',
-        description: 'Interazioni e diplomazia',
-        skills: [
-          {
-            id: 'negotiation',
-            name: 'Negoziazione',
-            description: 'Migliora i prezzi di acquisto e vendita',
-            currentLevel: 1,
-            maxLevel: 5,
-            cost: 5,
-            icon: '💬'
-          },
-          {
-            id: 'intimidation',
-            name: 'Intimidazione',
-            description: 'Riduce le probabilità di essere attaccati',
-            currentLevel: 0,
-            maxLevel: 4,
-            cost: 6,
-            icon: '😠'
-          }
-        ]
-      },
-      technical: {
-        name: 'Tecnico',
-        description: 'Riparazione e ottimizzazione',
-        skills: [
-          {
-            id: 'repair',
-            name: 'Riparazione Rapida',
-            description: 'Riduce il tempo necessario per le riparazioni',
-            currentLevel: 2,
-            maxLevel: 7,
-            cost: 3,
-            icon: '🔧'
-          },
-          {
-            id: 'efficiency',
-            name: 'Efficienza Energetica',
-            description: 'Riduce il consumo di energia dei sistemi',
-            currentLevel: 1,
-            maxLevel: 6,
-            cost: 4,
-            icon: '⚡'
-          }
-        ]
-      }
-    }
-  };
 
   constructor(config: PanelConfig) {
-    // Inizializza i dati prima di chiamare super() per evitare errori
+    // Inizializza i dati PRIMA di chiamare super() per evitare errori
     this.skillsData = {
       availablePoints: 5,
       totalPoints: 15,
@@ -286,7 +176,7 @@ export class SkillsPanel extends BasePanel {
 
     // Pulsante di chiusura
     const closeButton = document.createElement('button');
-    closeButton.textContent = '✕';
+    closeButton.textContent = 'X';
     closeButton.style.cssText = `
       position: absolute;
       top: 16px;
@@ -356,7 +246,7 @@ export class SkillsPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = '💎 Sistema Abilità';
+    title.textContent = 'Sistema Abilità';
     title.style.cssText = `
       margin: 0 0 8px 0;
       color: rgba(255, 255, 255, 0.95);
