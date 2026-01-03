@@ -11,7 +11,6 @@ import { Camera } from '../../entities/spatial/Camera';
 import { MovementSystem } from '../physics/MovementSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
-import { MapBackground } from '../../entities/MapBackground';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -31,9 +30,6 @@ export class RenderSystem extends BaseSystem {
 
   render(ctx: CanvasRenderingContext2D): void {
     const camera = this.movementSystem.getCamera();
-
-    // Renderizza il background della mappa prima di tutto
-    this.renderMapBackground(ctx, camera);
 
     // Renderizza stelle di sfondo semplici
     this.renderBackgroundStars(ctx, camera);
@@ -365,38 +361,6 @@ export class RenderSystem extends BaseSystem {
         renderedStars++;
       }
     }
-
-    ctx.restore();
-  }
-
-  /**
-   * Renderizza il background della mappa
-   */
-  private renderMapBackground(ctx: CanvasRenderingContext2D, camera: Camera): void {
-    // Trova l'entità con MapBackground
-    const backgroundEntities = this.ecs.getEntitiesWithComponents(MapBackground);
-    if (backgroundEntities.length === 0) return;
-
-    const backgroundEntity = backgroundEntities[0];
-    const mapBackground = this.ecs.getComponent(backgroundEntity, MapBackground);
-
-    if (!mapBackground || !mapBackground.isLoaded()) return;
-
-    ctx.save();
-
-    // Dimensioni della mappa dal config
-    const worldWidth = 21000;
-    const worldHeight = 13100;
-
-    // Calcola la posizione dell'angolo superiore sinistro della mappa in coordinate mondo
-    const worldTopLeftX = -worldWidth / 2;
-    const worldTopLeftY = -worldHeight / 2;
-
-    // Converti in coordinate schermo
-    const screenTopLeft = camera.worldToScreen(worldTopLeftX, worldTopLeftY, ctx.canvas.width, ctx.canvas.height);
-
-    // Renderizza l'immagine scalata per coprire tutta la mappa
-    ctx.drawImage(mapBackground.image, screenTopLeft.x, screenTopLeft.y, worldWidth, worldHeight);
 
     ctx.restore();
   }

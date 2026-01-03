@@ -12,6 +12,7 @@ import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
 import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
 import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
 import { LogSystem } from '/src/systems/rendering/LogSystem';
+import { ParallaxSystem } from '/src/systems/rendering/ParallaxSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
@@ -32,7 +33,6 @@ import { Sprite } from '/src/entities/Sprite';
 import { Honor } from '/src/entities/Honor';
 import { PlayerStats } from '/src/entities/PlayerStats';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
-import { MapBackground } from '/src/entities/MapBackground';
 import { CONFIG } from '/src/utils/config/Config';
 import { getNpcDefinition } from '/src/config/NpcConfig';
 
@@ -441,14 +441,15 @@ export class PlayState extends GameState {
     const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
     const shipSprite = new Sprite(shipImage, shipImage.width * 0.2, shipImage.height * 0.2);
 
-    // Load map background
+    // Load map background sprite
     const mapBackgroundImage = await this.context.assetManager.loadImage('/assets/maps/maps1/1/bg.jpg');
-    const mapBackground = new MapBackground(mapBackgroundImage);
+    const mapBackgroundSprite = new Sprite(mapBackgroundImage, mapBackgroundImage.width, mapBackgroundImage.height);
 
     const ecs = this.world.getECS();
 
     // Crea sistemi
     const movementSystem = new MovementSystem(ecs);
+    const parallaxSystem = new ParallaxSystem(ecs, movementSystem);
     const renderSystem = new RenderSystem(ecs, movementSystem);
     const inputSystem = new InputSystem(ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(ecs);
@@ -473,6 +474,7 @@ export class PlayState extends GameState {
     ecs.addSystem(projectileSystem);   // Sistema proiettili
     ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
     ecs.addSystem(movementSystem);     // Poi movimento
+    ecs.addSystem(parallaxSystem);     // Sistema parallax (sfondo)
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
     ecs.addSystem(boundsSystem);       // Sistema bounds (linee rosse)
     ecs.addSystem(minimapSystem);      // Minimappa
@@ -726,13 +728,20 @@ export class PlayState extends GameState {
   }
 
   /**
-   * Crea l'entità background della mappa
+   * Crea l'entità background della mappa come elemento parallax
    */
-  private createMapBackground(ecs: any, mapBackground: MapBackground): any {
+  private createMapBackground(ecs: any, backgroundSprite: Sprite): any {
     const backgroundEntity = ecs.createEntity();
 
-    // Aggiungi il componente MapBackground
-    ecs.addComponent(backgroundEntity, MapBackground, mapBackground);
+    // Posiziona l'immagine al centro del mondo (0,0)
+    const transform = new Transform(0, 0, 0);
+    // Velocità parallax molto bassa (0.05 = si muove molto lentamente per effetto profondità)
+    const parallaxLayer = new ParallaxLayer(0.05, 0.05, 0, 0, -1); // zIndex negativo per essere dietro tutto
+
+    // Aggiungi componenti
+    ecs.addComponent(backgroundEntity, Transform, transform);
+    ecs.addComponent(backgroundEntity, Sprite, backgroundSprite);
+    ecs.addComponent(backgroundEntity, ParallaxLayer, parallaxLayer);
 
     return backgroundEntity;
   }
