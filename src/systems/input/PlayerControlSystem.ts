@@ -5,6 +5,8 @@ import { Velocity } from '../../entities/spatial/Velocity';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Camera } from '../../entities/spatial/Camera';
+import { PlayerUpgrades } from '../../entities/PlayerUpgrades';
+import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { CONFIG } from '../../utils/config/Config';
 
 /**
@@ -47,14 +49,21 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Ottiene la velocità del player dalla configurazione
-   * Nota: attualmente hardcoded, ma pronto per future implementazioni
-   * che ottengano la velocità dal componente del player
+   * Ottiene la velocità del player calcolata con bonus dagli upgrade
    */
   private getPlayerSpeed(): number {
-    // TODO: Implementare lettura velocità dal componente player
-    // Per ora usa valore fisso che corrisponde alla configurazione
-    return 300; // Valore che corrisponde alla configurazione del player
+    if (!this.playerEntity) return 300;
+
+    const playerDef = getPlayerDefinition();
+    const playerUpgrades = this.ecs.getComponent(this.playerEntity, PlayerUpgrades);
+
+    if (playerUpgrades) {
+      const speedBonus = playerUpgrades.getSpeedBonus();
+      return Math.floor(playerDef.stats.speed * speedBonus);
+    }
+
+    // Fallback se non ci sono upgrade
+    return playerDef.stats.speed;
   }
 
   /**
