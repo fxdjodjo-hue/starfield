@@ -55,7 +55,7 @@ export class ChatPanel {
       -ms-user-select: none;
     `;
 
-    // Header con titolo
+    // Header con titolo e pulsante chiusura
     const header = document.createElement('div');
     header.className = 'chat-header';
     header.style.cssText = `
@@ -65,8 +65,13 @@ export class ChatPanel {
       border-radius: 12px 12px 0 0;
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 8px;
     `;
+
+    // Container sinistro con titolo
+    const titleContainer = document.createElement('div');
+    titleContainer.style.cssText = `display: flex; align-items: center; gap: 8px;`;
 
     const title = document.createElement('span');
     title.textContent = '💬 Chat';
@@ -77,7 +82,52 @@ export class ChatPanel {
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     `;
 
-    header.appendChild(title);
+    titleContainer.appendChild(title);
+
+    // Pulsante chiusura nell'angolino destro (stile glass)
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '-';
+    closeButton.className = 'chat-close-button';
+    closeButton.style.cssText = `
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: rgba(148, 163, 184, 0.8);
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0;
+      border-radius: 6px;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      line-height: 1;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    `;
+
+    closeButton.addEventListener('mouseenter', () => {
+      closeButton.style.background = 'rgba(148, 163, 184, 0.9)';
+      closeButton.style.borderColor = 'rgba(148, 163, 184, 0.5)';
+      closeButton.style.color = 'rgba(15, 23, 42, 0.9)';
+      closeButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+    });
+
+    closeButton.addEventListener('mouseleave', () => {
+      closeButton.style.background = 'rgba(15, 23, 42, 0.8)';
+      closeButton.style.borderColor = 'rgba(148, 163, 184, 0.3)';
+      closeButton.style.color = 'rgba(148, 163, 184, 0.8)';
+      closeButton.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+    });
+
+    closeButton.addEventListener('click', () => {
+      this.hideWithAnimation();
+    });
+
+    header.appendChild(titleContainer);
+    header.appendChild(closeButton);
 
     // Container dei messaggi
     this.messagesContainer = document.createElement('div');
@@ -221,13 +271,9 @@ export class ChatPanel {
       }
     });
 
-    // Listener globale per ESC che chiude la chat quando è aperta
+    // Listener globale per ESC e "-" che chiude la chat quando è aperta
     document.addEventListener('keydown', (e) => {
-      // Non intercettare se l'input della chat ha il focus
-      if (document.activeElement === this.inputElement) {
-        return;
-      }
-      if (e.key === 'Escape' && this.isVisible) {
+      if ((e.key === 'Escape' || e.key === '-') && this.isVisible) {
         e.preventDefault();
         this.hideWithAnimation();
       }
@@ -300,9 +346,14 @@ export class ChatPanel {
    */
   private sendMessage(): void {
     const message = this.inputElement.value.trim();
-    if (!message) return;
 
-    // Aggiungi il messaggio alla chat
+    if (!message) {
+      // Input vuoto: chiudi la chat invece di inviare
+      this.hideWithAnimation();
+      return;
+    }
+
+    // Input con testo: invia il messaggio
     this.addMessage({
       id: Date.now().toString(),
       sender: 'Tu',
@@ -310,9 +361,6 @@ export class ChatPanel {
       timestamp: new Date(),
       type: 'user'
     });
-
-    // TODO: Riattivare in futuro - Crea testo fluttuante sopra il giocatore
-    // this.createChatTextAbovePlayer(message);
 
     // Svuota l'input
     this.inputElement.value = '';
