@@ -6,8 +6,6 @@ import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
 import { QuestPanel } from '../presentation/ui/QuestPanel';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
 import { QuestSystem } from './QuestSystem';
-import { Health } from '../entities/combat/Health';
-import { Shield } from '../entities/combat/Shield';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -18,7 +16,6 @@ export class UiSystem extends System {
   private playerHUD: PlayerHUD;
   private questSystem: QuestSystem;
   private economySystem: any = null;
-  private playerEntity: any = null;
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
 
@@ -34,32 +31,6 @@ export class UiSystem extends System {
    */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
-  }
-
-  /**
-   * Imposta il riferimento al player entity
-   */
-  setPlayerEntity(playerEntity: any): void {
-    this.playerEntity = playerEntity;
-  }
-
-  /**
-   * Recupera i dati di combattimento del player (HP e Shield)
-   */
-  private getPlayerCombatData(): { health: number; maxHealth: number; shield: number; maxShield: number } | null {
-    if (!this.playerEntity) return null;
-
-    const health = this.ecs.getComponent(this.playerEntity, Health);
-    const shield = this.ecs.getComponent(this.playerEntity, Shield);
-
-    if (!health) return null;
-
-    return {
-      health: health.current,
-      maxHealth: health.max,
-      shield: shield ? shield.current : 0,
-      maxShield: shield ? shield.max : 0
-    };
   }
 
   /**
@@ -110,9 +81,8 @@ export class UiSystem extends System {
   showPlayerInfo(): void {
     // Ottieni i dati economici dal sistema
     const economyData = this.economySystem?.getPlayerEconomyStatus();
-    const combatData = this.getPlayerCombatData();
 
-    if (economyData && combatData) {
+    if (economyData) {
       // Prepara i dati per l'HUD
       const hudData = {
         level: economyData.level,
@@ -120,11 +90,7 @@ export class UiSystem extends System {
         cosmos: economyData.cosmos,
         experience: economyData.experience,
         expForNextLevel: economyData.expForNextLevel,
-        honor: economyData.honor,
-        health: combatData.health,
-        maxHealth: combatData.maxHealth,
-        shield: combatData.shield,
-        maxShield: combatData.maxShield
+        honor: economyData.honor
       };
 
       // Aggiorna e mostra l'HUD
@@ -138,11 +104,7 @@ export class UiSystem extends System {
         cosmos: 0,
         experience: 0,
         expForNextLevel: 100,
-        honor: 0,
-        health: 0,
-        maxHealth: 0,
-        shield: 0,
-        maxShield: 0
+        honor: 0
       };
       this.playerHUD.updateData(defaultData);
       this.playerHUD.show();

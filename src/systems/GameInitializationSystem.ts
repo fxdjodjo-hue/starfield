@@ -22,6 +22,7 @@ import { QuestSystem } from './QuestSystem';
 import { QuestTrackingSystem } from './QuestTrackingSystem';
 import { QuestManager } from './QuestManager';
 import { UiSystem } from './UiSystem';
+import { PlayerStatusDisplaySystem } from './PlayerStatusDisplaySystem';
 import { GameContext } from '../infrastructure/engine/GameContext';
 import { ParallaxSystem } from './rendering/ParallaxSystem';
 import { Sprite } from '../entities/Sprite';
@@ -111,6 +112,7 @@ export class GameInitializationSystem extends System {
     const boundsSystem = new BoundsSystem(this.ecs, this.movementSystem);
     const respawnSystem = new NpcRespawnSystem(this.ecs, this.context);
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
+    const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
 
     return {
       movementSystem: this.movementSystem,
@@ -134,6 +136,7 @@ export class GameInitializationSystem extends System {
       questTrackingSystem,
       questSystem: this.questSystem,
       uiSystem: this.uiSystem,
+      playerStatusDisplaySystem,
       assets: { shipImage, mapBackgroundImage, scouterImage }
     };
   }
@@ -146,7 +149,7 @@ export class GameInitializationSystem extends System {
             explosionSystem, projectileSystem, npcBehaviorSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, logSystem, economySystem, rankSystem,
-            respawnSystem, rewardSystem, questSystem, uiSystem } = systems;
+            respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem } = systems;
 
     // Ordine importante per l'esecuzione
     this.ecs.addSystem(inputSystem);
@@ -169,6 +172,7 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(rewardSystem);
     this.ecs.addSystem(questSystem);
     this.ecs.addSystem(uiSystem);
+    this.ecs.addSystem(playerStatusDisplaySystem);
   }
 
   /**
@@ -263,7 +267,7 @@ export class GameInitializationSystem extends System {
   private setPlayerEntityInSystems(playerEntity: any, systems: any): void {
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
-      boundsSystem, respawnSystem, questTrackingSystem, uiSystem
+      boundsSystem, respawnSystem, questTrackingSystem, playerStatusDisplaySystem
     } = systems;
 
     playerControlSystem.setPlayerEntity(playerEntity);
@@ -273,7 +277,7 @@ export class GameInitializationSystem extends System {
     boundsSystem.setPlayerEntity(playerEntity);
     respawnSystem.setPlayerEntity(playerEntity);
     questTrackingSystem.setPlayerEntity(playerEntity);
-    uiSystem.setPlayerEntity(playerEntity);
+    playerStatusDisplaySystem.setPlayerEntity(playerEntity);
   }
 
   /**

@@ -9,10 +9,6 @@ export interface PlayerHUDData {
   experience: number;
   expForNextLevel: number;
   honor: number;
-  health: number;
-  maxHealth: number;
-  shield: number;
-  maxShield: number;
 }
 
 /**
@@ -59,17 +55,6 @@ export class PlayerHUD {
       <div class="level-indicator">
         <div class="level-circle">
           <span class="level-number">1</span>
-        </div>
-      </div>
-
-      <div class="health-shield-section">
-        <div class="health-display">
-          <div class="health-label">HP</div>
-          <div class="health-value">0/0</div>
-        </div>
-        <div class="shield-display">
-          <div class="shield-label">SHIELD</div>
-          <div class="shield-value">0/0</div>
         </div>
       </div>
 
@@ -126,50 +111,6 @@ export class PlayerHUD {
       .level-indicator {
         display: flex;
         align-items: center;
-      }
-
-      /* Sezione HP e Shield */
-      .health-shield-section {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        margin-left: 15px;
-        padding: 8px 12px;
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      }
-
-      .health-display, .shield-display {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2px;
-      }
-
-      .health-label, .shield-label {
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 8px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-      }
-
-      .health-value, .shield-value {
-        color: rgba(255, 255, 255, 0.95);
-        font-size: 10px;
-        font-weight: 700;
-        font-variant-numeric: tabular-nums;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-      }
-
-      .health-value {
-        color: #10b981; /* Verde per HP */
-      }
-
-      .shield-value {
-        color: #3b82f6; /* Blu per Shield */
       }
 
       .level-circle {
@@ -261,9 +202,6 @@ export class PlayerHUD {
           font-size: 15px;
         }
 
-        .health-shield-section {
-          margin-left: 12px;
-        }
 
         .stats-row {
           gap: 20px;
@@ -276,10 +214,6 @@ export class PlayerHUD {
       }
 
       @media (max-width: 1200px) {
-        .health-shield-section {
-          margin-left: 10px;
-        }
-
         .stats-row {
           gap: 16px;
         }
@@ -290,10 +224,6 @@ export class PlayerHUD {
       }
 
       @media (max-width: 1000px) {
-        .health-shield-section {
-          margin-left: 8px;
-        }
-
         .stats-row {
           gap: 12px;
         }
@@ -336,18 +266,6 @@ export class PlayerHUD {
     const levelElement = this.container.querySelector('.level-number') as HTMLElement;
     if (levelElement) {
       levelElement.textContent = data.level.toString();
-    }
-
-    // Aggiorna HP
-    const healthElement = this.container.querySelector('.health-value') as HTMLElement;
-    if (healthElement) {
-      healthElement.textContent = `${this.formatNumber(data.health)}/${this.formatNumber(data.maxHealth)}`;
-    }
-
-    // Aggiorna Shield
-    const shieldElement = this.container.querySelector('.shield-value') as HTMLElement;
-    if (shieldElement) {
-      shieldElement.textContent = `${this.formatNumber(data.shield)}/${this.formatNumber(data.maxShield)}`;
     }
 
     // Aggiorna risorse - usa gli indici di posizione dato che non abbiamo data-stat
