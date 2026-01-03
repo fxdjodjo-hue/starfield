@@ -422,22 +422,22 @@ export class EconomySystem extends BaseSystem {
    */
   getPlayerCredits(): Credits | null {
     if (!this.playerEntity) return null;
-    return this.ecs.getComponent(this.playerEntity, Credits);
+    return this.ecs.getComponent(this.playerEntity, Credits) || null;
   }
 
   getPlayerCosmos(): Cosmos | null {
     if (!this.playerEntity) return null;
-    return this.ecs.getComponent(this.playerEntity, Cosmos);
+    return this.ecs.getComponent(this.playerEntity, Cosmos) || null;
   }
 
   getPlayerExperience(): Experience | null {
     if (!this.playerEntity) return null;
-    return this.ecs.getComponent(this.playerEntity, Experience);
+    return this.ecs.getComponent(this.playerEntity, Experience) || null;
   }
 
   getPlayerHonor(): Honor | null {
     if (!this.playerEntity) return null;
-    return this.ecs.getComponent(this.playerEntity, Honor);
+    return this.ecs.getComponent(this.playerEntity, Honor) || null;
   }
 
   // ===== GESTIONE CREDITS =====
@@ -642,7 +642,7 @@ export class EconomySystem extends BaseSystem {
       cosmos: cosmos.cosmos,
       level: experience.level,
       experience: experience.exp,
-      expForNextLevel: experience.expForNextLevel - experience.getExpRequiredForLevel(experience.level - 1),
+      expForNextLevel: experience.expForCurrentLevel,
       honor: honor.honor,
       honorRank: this.rankSystem?.calculateCurrentRank() || 'Recruit'
     };

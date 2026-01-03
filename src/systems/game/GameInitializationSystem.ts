@@ -55,7 +55,8 @@ export class GameInitializationSystem extends System {
   private questManager: QuestManager;
   private questSystem: QuestSystem;
   private uiSystem: UiSystem;
-  private movementSystem: MovementSystem;
+  private movementSystem!: MovementSystem;
+  private economySystem: any;
 
   constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
     super(ecs);
@@ -209,7 +210,7 @@ export class GameInitializationSystem extends System {
     questTrackingSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
 
     // Configura callbacks per minimappa
-    minimapSystem.setMoveToCallback((worldX, worldY) => {
+    minimapSystem.setMoveToCallback((worldX: number, worldY: number) => {
       playerControlSystem.movePlayerTo(worldX, worldY);
     });
 
@@ -218,7 +219,7 @@ export class GameInitializationSystem extends System {
     });
 
     // Configura input handlers
-    inputSystem.setMouseStateCallback((pressed, x, y) => {
+    inputSystem.setMouseStateCallback((pressed: boolean, x: number, y: number) => {
       if (pressed) {
         this.context.canvas.focus();
 
@@ -240,7 +241,7 @@ export class GameInitializationSystem extends System {
       }
     });
 
-    inputSystem.setMouseMoveWhilePressedCallback((x, y) => {
+    inputSystem.setMouseMoveWhilePressedCallback((x: number, y: number) => {
       const minimapHandled = minimapSystem.handleMouseMove(x, y);
       if (!minimapHandled) {
         playerControlSystem.handleMouseMoveWhilePressed(x, y);
