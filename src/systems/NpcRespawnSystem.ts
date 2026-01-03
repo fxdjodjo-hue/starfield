@@ -178,7 +178,6 @@ export class NpcRespawnSystem extends BaseSystem {
       this.ecs.addComponent(npcEntity, Sprite, sprite); // AGGIUNGI LO SPRITE MANCANTE!
       this.ecs.addComponent(npcEntity, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
 
-      console.log(`Respawned ${npcType} at (${x.toFixed(0)}, ${y.toFixed(0)}) with sprite`);
     } catch (error) {
       console.error(`Failed to respawn ${npcType}:`, error);
     }

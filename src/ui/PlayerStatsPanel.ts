@@ -136,10 +136,6 @@ export class PlayerStatsPanel extends BasePanel {
     header.appendChild(subtitle);
     content.appendChild(header);
 
-    console.log('Close button created and added to header');
-    console.log('Header children:', header.children.length);
-    console.log('Close button element:', closeButton);
-
     // Stats container con griglia moderna
     const statsContainer = document.createElement('div');
     statsContainer.className = 'stats-container';
@@ -320,16 +316,17 @@ export class PlayerStatsPanel extends BasePanel {
   /**
    * Callback quando il pannello viene mostrato
    */
+  /**
+   * Callback chiamato quando il pannello viene mostrato
+   */
   protected onShow(): void {
-    console.log('PlayerStatsPanel: Panel opened');
     // Potrebbe servire per aggiornare dati in tempo reale o animazioni
   }
 
   /**
-   * Callback quando il pannello viene nascosto
+   * Callback chiamato quando il pannello viene nascosto
    */
   protected onHide(): void {
-    console.log('PlayerStatsPanel: Panel closed');
     // Potrebbe servire per salvare stato o cleanup
   }
 }
