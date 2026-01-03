@@ -383,21 +383,20 @@ export class RenderSystem extends BaseSystem {
     if (!mapBackground || !mapBackground.isLoaded()) return;
 
     ctx.save();
-    ctx.globalAlpha = mapBackground.opacity;
 
-    // Calcola la posizione del background per coprire tutta l'area visibile della camera
-    // Il background deve essere centrato sul mondo e seguire la camera
-    const worldCenterX = 0; // Centro del mondo
-    const worldCenterY = 0;
+    // Dimensioni della mappa dal config
+    const worldWidth = 21000;
+    const worldHeight = 13100;
 
-    // Converti il centro del mondo in coordinate schermo
-    const screenCenter = camera.worldToScreen(worldCenterX, worldCenterY, ctx.canvas.width, ctx.canvas.height);
+    // Calcola la posizione dell'angolo superiore sinistro della mappa in coordinate mondo
+    const worldTopLeftX = -worldWidth / 2;
+    const worldTopLeftY = -worldHeight / 2;
 
-    // Disegna l'immagine centrata sul centro dello schermo
-    const imageX = screenCenter.x - mapBackground.width / 2;
-    const imageY = screenCenter.y - mapBackground.height / 2;
+    // Converti in coordinate schermo
+    const screenTopLeft = camera.worldToScreen(worldTopLeftX, worldTopLeftY, ctx.canvas.width, ctx.canvas.height);
 
-    ctx.drawImage(mapBackground.image, imageX, imageY, mapBackground.width, mapBackground.height);
+    // Renderizza l'immagine scalata per coprire tutta la mappa
+    ctx.drawImage(mapBackground.image, screenTopLeft.x, screenTopLeft.y, worldWidth, worldHeight);
 
     ctx.restore();
   }

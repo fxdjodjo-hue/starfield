@@ -6,13 +6,11 @@ export class MapBackground {
   public image: HTMLImageElement;
   public width: number;
   public height: number;
-  public opacity: number;
 
-  constructor(image: HTMLImageElement, opacity: number = 0.3) {
+  constructor(image: HTMLImageElement) {
     this.image = image;
     this.width = image.width;
     this.height = image.height;
-    this.opacity = opacity;
   }
 
   /**

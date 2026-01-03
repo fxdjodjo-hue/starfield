@@ -443,7 +443,7 @@ export class PlayState extends GameState {
 
     // Load map background
     const mapBackgroundImage = await this.context.assetManager.loadImage('/assets/maps/maps1/1/bg.jpg');
-    const mapBackground = new MapBackground(mapBackgroundImage, 0.3); // 30% opacity
+    const mapBackground = new MapBackground(mapBackgroundImage);
 
     const ecs = this.world.getECS();
 
