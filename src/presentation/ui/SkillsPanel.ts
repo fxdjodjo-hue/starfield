@@ -349,7 +349,13 @@ export class SkillsPanel extends BasePanel {
       button.style.boxShadow = 'none';
     });
 
-    button.addEventListener('click', () => this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed'));
+    // Click sul pulsante principale mostra spiegazione
+    button.addEventListener('click', (e) => {
+      // Se il click è sul bottone di upgrade, non mostrare la spiegazione
+      if (!(e.target as HTMLElement).closest('.upgrade-button')) {
+        this.showStatExplanation(statName, upgradeType);
+      }
+    });
 
     // Parte sinistra: icona + nome statistica
     const leftSide = document.createElement('div');
@@ -381,6 +387,7 @@ export class SkillsPanel extends BasePanel {
     `;
 
     const upgradeButton = document.createElement('div');
+    upgradeButton.className = 'upgrade-button';
     upgradeButton.style.cssText = `
       display: flex;
       align-items: center;
@@ -405,6 +412,12 @@ export class SkillsPanel extends BasePanel {
 
     upgradeButton.appendChild(upgradeIcon);
     upgradeButton.appendChild(upgradeText);
+
+    // Click sul bottone di upgrade
+    upgradeButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed');
+    });
 
     // Effetto hover sul pulsante interno
     upgradeButton.addEventListener('mouseenter', (e) => {
@@ -590,6 +603,27 @@ export class SkillsPanel extends BasePanel {
     }
 
     // Speed viene aggiornata automaticamente dal PlayerControlSystem
+  }
+
+  /**
+   * Mostra una spiegazione della statistica selezionata
+   */
+  private showStatExplanation(statName: string, statType: string): void {
+    let explanation = '';
+
+    switch (statType) {
+      case 'hp':
+        explanation = '💚 PUNTI VITA (HP)\n\n• Rappresentano la salute della tua nave\n• Quando arrivano a 0, la nave viene distrutta\n• Gli upgrade aumentano la resistenza ai danni\n• Più HP = più possibilità di sopravvivenza';
+        break;
+      case 'shield':
+        explanation = '🛡️ SCUDO ENERGETICO\n\n• Protegge la nave dai danni prima degli HP\n• Si ricarica automaticamente nel tempo\n• Gli upgrade aumentano la capacità massima\n• Più scudi = migliore protezione iniziale';
+        break;
+      case 'speed':
+        explanation = '💨 VELOCITÀ DI MOVIMENTO\n\n• Determina quanto velocemente si muove la nave\n• Influenza la manovrabilità in combattimento\n• Gli upgrade migliorano l\'accelerazione\n• Più velocità = migliore controllo in battaglia';
+        break;
+    }
+
+    alert(explanation);
   }
 
   /**
