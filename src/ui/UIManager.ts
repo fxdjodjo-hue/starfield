@@ -8,7 +8,7 @@ export interface PanelConfig {
   id: string;
   icon: string; // Unicode icon or CSS class
   title: string;
-  position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  position: 'top-left' | 'top-right' | 'center-left' | 'bottom-left' | 'bottom-right';
   size: { width: number; height: number };
 }
 
@@ -73,20 +73,23 @@ export abstract class BasePanel {
    * Restituisce gli stili di posizione basati sulla configurazione
    */
   private getPositionStyles(): string {
-    const margin = 80; // Distanza dal bordo
+    const margin = 20; // Distanza dal bordo per icone
+    const panelMargin = 80; // Distanza dal bordo per pannelli
     const iconSize = 48; // Dimensione icona
 
     switch (this.config.position) {
       case 'top-left':
-        return `top: ${margin + iconSize + 10}px; left: ${margin}px;`;
+        return `top: ${panelMargin}px; left: ${panelMargin + iconSize + 10}px;`;
       case 'top-right':
-        return `top: ${margin + iconSize + 10}px; right: ${margin}px;`;
+        return `top: ${panelMargin}px; right: ${panelMargin}px;`;
+      case 'center-left':
+        return `top: 50%; left: ${panelMargin + iconSize + 10}px; transform: translateY(-50%);`;
       case 'bottom-left':
-        return `bottom: ${margin}px; left: ${margin}px;`;
+        return `bottom: ${panelMargin}px; left: ${panelMargin + iconSize + 10}px;`;
       case 'bottom-right':
-        return `bottom: ${margin}px; right: ${margin}px;`;
+        return `bottom: ${panelMargin}px; right: ${panelMargin}px;`;
       default:
-        return `top: ${margin + iconSize + 10}px; right: ${margin}px;`;
+        return `top: 50%; left: ${panelMargin + iconSize + 10}px; transform: translateY(-50%);`;
     }
   }
 
@@ -248,12 +251,14 @@ export class FloatingIcon {
         return `top: ${margin}px; left: ${margin}px;`;
       case 'top-right':
         return `top: ${margin}px; right: ${margin}px;`;
+      case 'center-left':
+        return `top: 50%; left: ${margin}px; transform: translateY(-50%);`;
       case 'bottom-left':
         return `bottom: ${margin}px; left: ${margin}px;`;
       case 'bottom-right':
         return `bottom: ${margin}px; right: ${margin}px;`;
       default:
-        return `top: ${margin}px; right: ${margin}px;`;
+        return `top: 50%; left: ${margin}px; transform: translateY(-50%);`; // Default al centro sinistro
     }
   }
 

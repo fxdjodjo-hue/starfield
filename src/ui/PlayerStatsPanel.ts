@@ -1,4 +1,5 @@
-import { BasePanel, PanelConfig, PanelData } from './UIManager';
+import { BasePanel } from './UIManager';
+import type { PanelConfig, PanelData } from './UIManager';
 
 /**
  * Dati per il pannello delle statistiche del giocatore

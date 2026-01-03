@@ -107,7 +107,7 @@ export class PlayState extends GameState {
       id: 'player-stats',
       icon: '📊',
       title: 'Statistiche Giocatore',
-      position: 'top-right',
+      position: 'center-left',
       size: { width: 320, height: 400 }
     });
 
@@ -123,7 +123,7 @@ export class PlayState extends GameState {
 
     const health = this.world.getECS().getComponent(playerEntity, Health);
     const experience = this.world.getECS().getComponent(playerEntity, Experience);
-    const credits = this.world.getECS().getComponent(playerEntity, Currency);
+    const credits = this.world.getECS().getComponent(playerEntity, Credits);
     const honor = this.world.getECS().getComponent(playerEntity, Honor);
 
     // Raccogli i dati per il pannello delle statistiche
@@ -131,7 +131,7 @@ export class PlayState extends GameState {
       level: experience?.level || 1,
       experience: experience?.amount || 0,
       experienceForNext: experience?.getExpRequiredForLevel(experience?.level || 1) || 1000,
-      credits: credits?.amount || 0,
+      credits: credits?.credits || 0,
       honor: honor?.amount || 0,
       kills: 0, // TODO: Implementare contatore uccisioni
       playtime: Math.floor((Date.now() - this.startTime) / 60000) // minuti
