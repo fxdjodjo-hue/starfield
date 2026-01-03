@@ -615,6 +615,13 @@ export class SkillsPanel extends BasePanel {
       shield.current = Math.floor(newMaxShield * currentShieldPercent);
     }
 
+    // Aggiorna Damage
+    const damage = this.ecs.getComponent(playerEntity, Damage);
+    if (damage) {
+      const newDamage = Math.floor(playerDef.stats.damage * playerUpgrades.getDamageBonus());
+      damage.damage = newDamage;
+    }
+
     // Speed viene aggiornata automaticamente dal PlayerControlSystem
   }
 
