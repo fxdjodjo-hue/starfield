@@ -54,36 +54,41 @@ export class PlayerStatsPanel extends BasePanel {
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
     const closeButton = document.createElement('button');
-    closeButton.textContent = '❌';
+    closeButton.textContent = '✕';
     closeButton.style.cssText = `
-      position: absolute !important;
-      top: 10px !important;
-      right: 10px !important;
-      background: red !important;
-      border: 3px solid white !important;
-      color: white !important;
-      font-size: 24px !important;
-      font-weight: bold !important;
-      cursor: pointer !important;
-      padding: 10px 14px !important;
-      border-radius: 12px !important;
-      width: 50px !important;
-      height: 50px !important;
-      display: block !important;
-      z-index: 9999 !important;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.8) !important;
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(239, 68, 68, 0.9);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 8px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+      transition: all 0.2s ease;
     `;
 
     closeButton.addEventListener('mouseenter', () => {
       closeButton.style.background = 'rgba(239, 68, 68, 1)';
-      closeButton.style.transform = 'scale(1.1)';
-      closeButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+      closeButton.style.borderColor = 'rgba(239, 68, 68, 0.8)';
+      closeButton.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+      closeButton.style.transform = 'translateY(-1px)';
     });
 
     closeButton.addEventListener('mouseleave', () => {
       closeButton.style.background = 'rgba(239, 68, 68, 0.9)';
-      closeButton.style.transform = 'scale(1)';
-      closeButton.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+      closeButton.style.borderColor = 'rgba(239, 68, 68, 0.5)';
+      closeButton.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+      closeButton.style.transform = 'translateY(0)';
     });
 
     closeButton.addEventListener('click', () => {
