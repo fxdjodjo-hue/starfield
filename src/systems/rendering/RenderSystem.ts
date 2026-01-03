@@ -11,6 +11,7 @@ import { Camera } from '../../entities/spatial/Camera';
 import { MovementSystem } from '../physics/MovementSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
+import { MapBackground } from '../../entities/MapBackground';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -30,6 +31,9 @@ export class RenderSystem extends BaseSystem {
 
   render(ctx: CanvasRenderingContext2D): void {
     const camera = this.movementSystem.getCamera();
+
+    // Renderizza il background della mappa prima di tutto
+    this.renderMapBackground(ctx, camera);
 
     // Renderizza stelle di sfondo semplici
     this.renderBackgroundStars(ctx, camera);
@@ -361,6 +365,39 @@ export class RenderSystem extends BaseSystem {
         renderedStars++;
       }
     }
+
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza il background della mappa
+   */
+  private renderMapBackground(ctx: CanvasRenderingContext2D, camera: Camera): void {
+    // Trova l'entità con MapBackground
+    const backgroundEntities = this.ecs.getEntitiesWithComponents(MapBackground);
+    if (backgroundEntities.length === 0) return;
+
+    const backgroundEntity = backgroundEntities[0];
+    const mapBackground = this.ecs.getComponent(backgroundEntity, MapBackground);
+
+    if (!mapBackground || !mapBackground.isLoaded()) return;
+
+    ctx.save();
+    ctx.globalAlpha = mapBackground.opacity;
+
+    // Calcola la posizione del background per coprire tutta l'area visibile della camera
+    // Il background deve essere centrato sul mondo e seguire la camera
+    const worldCenterX = 0; // Centro del mondo
+    const worldCenterY = 0;
+
+    // Converti il centro del mondo in coordinate schermo
+    const screenCenter = camera.worldToScreen(worldCenterX, worldCenterY, ctx.canvas.width, ctx.canvas.height);
+
+    // Disegna l'immagine centrata sul centro dello schermo
+    const imageX = screenCenter.x - mapBackground.width / 2;
+    const imageY = screenCenter.y - mapBackground.height / 2;
+
+    ctx.drawImage(mapBackground.image, imageX, imageY, mapBackground.width, mapBackground.height);
 
     ctx.restore();
   }

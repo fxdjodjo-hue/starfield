@@ -32,6 +32,7 @@ import { Sprite } from '/src/entities/Sprite';
 import { Honor } from '/src/entities/Honor';
 import { PlayerStats } from '/src/entities/PlayerStats';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
+import { MapBackground } from '/src/entities/MapBackground';
 import { CONFIG } from '/src/utils/config/Config';
 import { getNpcDefinition } from '/src/config/NpcConfig';
 
@@ -440,6 +441,10 @@ export class PlayState extends GameState {
     const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
     const shipSprite = new Sprite(shipImage, shipImage.width * 0.2, shipImage.height * 0.2);
 
+    // Load map background
+    const mapBackgroundImage = await this.context.assetManager.loadImage('/assets/maps/maps1/1/bg.jpg');
+    const mapBackground = new MapBackground(mapBackgroundImage, 0.3); // 30% opacity
+
     const ecs = this.world.getECS();
 
     // Crea sistemi
@@ -484,6 +489,9 @@ export class PlayState extends GameState {
 
     // Imposta il player nel sistema di controllo
     playerControlSystem.setPlayerEntity(playerShip);
+
+    // Crea l'entità background della mappa
+    this.createMapBackground(ecs, mapBackground);
 
     // Passa la camera al sistema di controllo player
     playerControlSystem.setCamera(movementSystem.getCamera());
@@ -715,6 +723,18 @@ export class PlayState extends GameState {
       ecs.addComponent(streuner, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
       ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
     }
+  }
+
+  /**
+   * Crea l'entità background della mappa
+   */
+  private createMapBackground(ecs: any, mapBackground: MapBackground): any {
+    const backgroundEntity = ecs.createEntity();
+
+    // Aggiungi il componente MapBackground
+    ecs.addComponent(backgroundEntity, MapBackground, mapBackground);
+
+    return backgroundEntity;
   }
 
   /**
