@@ -171,17 +171,13 @@ export class SkillsPanel extends BasePanel {
       padding: 8px 0;
     `;
 
-    // Sezione Statistiche Combattimento
-    const combatStatsSection = this.createStatsSection('⚔️ Statistiche Combattimento', [
-      { label: 'HP', icon: '❤️', value: '100,000/100,000', color: '#10b981', upgradeKey: 'hp' },
-      { label: 'Shield', icon: '🛡️', value: '50,000/50,000', color: '#3b82f6', upgradeKey: 'shield' },
-      { label: 'Speed', icon: '💨', value: '300 u/s', color: '#f59e0b', upgradeKey: 'speed' }
-    ]);
+    // Sezione Upgrade con statistiche integrate
+    const upgradeSection = this.createUpgradeSection();
 
     // Sezione placeholder per abilità future
     const skillsSection = this.createSkillsSection();
 
-    statsContainer.appendChild(combatStatsSection);
+    statsContainer.appendChild(upgradeSection);
     statsContainer.appendChild(skillsSection);
 
     content.appendChild(statsContainer);
@@ -283,7 +279,181 @@ export class SkillsPanel extends BasePanel {
   }
 
   /**
-   * Crea la sezione degli upgrade delle statistiche
+   * Crea la sezione degli upgrade con statistiche integrate
+   */
+  private createUpgradeSection(): HTMLElement {
+    const section = document.createElement('div');
+    section.style.cssText = `
+      background: rgba(30, 41, 59, 0.8);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    `;
+
+    const sectionTitle = document.createElement('h3');
+    sectionTitle.textContent = '⚔️ Statistiche & Upgrade';
+    sectionTitle.style.cssText = `
+      margin: 0 0 16px 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 16px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    `;
+
+    section.appendChild(sectionTitle);
+
+    // Crea i tre pulsanti di upgrade con statistiche integrate
+    const hpUpgrade = this.createStatUpgradeButton('HP', '❤️', '#10b981', 'hp');
+    const shieldUpgrade = this.createStatUpgradeButton('Shield', '🛡️', '#3b82f6', 'shield');
+    const speedUpgrade = this.createStatUpgradeButton('Speed', '💨', '#f59e0b', 'speed');
+
+    section.appendChild(hpUpgrade);
+    section.appendChild(shieldUpgrade);
+    section.appendChild(speedUpgrade);
+
+    return section;
+  }
+
+  /**
+   * Crea un pulsante di upgrade con statistica integrata
+   */
+  private createStatUpgradeButton(statName: string, icon: string, color: string, upgradeType: string): HTMLElement {
+    const button = document.createElement('button');
+    button.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid ${color}40;
+      border-radius: 10px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    `;
+
+    button.addEventListener('mouseenter', () => {
+      button.style.background = `rgba(15, 23, 42, 0.8)`;
+      button.style.borderColor = color;
+      button.style.transform = 'translateY(-2px)';
+      button.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2)`;
+    });
+
+    button.addEventListener('mouseleave', () => {
+      button.style.background = `rgba(15, 23, 42, 0.6)`;
+      button.style.borderColor = `${color}40`;
+      button.style.transform = 'translateY(0)';
+      button.style.boxShadow = 'none';
+    });
+
+    button.addEventListener('click', () => this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed'));
+
+    // Parte sinistra: icona + nome statistica
+    const leftSide = document.createElement('div');
+    leftSide.style.cssText = 'display: flex; align-items: center; gap: 10px; flex: 1;';
+
+    const statIcon = document.createElement('span');
+    statIcon.textContent = icon;
+    statIcon.style.cssText = `font-size: 18px; color: ${color};`;
+
+    const statLabel = document.createElement('span');
+    statLabel.textContent = statName;
+    statLabel.style.cssText = 'font-weight: 600; color: rgba(255, 255, 255, 0.9);';
+
+    leftSide.appendChild(statIcon);
+    leftSide.appendChild(statLabel);
+
+    // Parte destra: valore corrente + pulsante upgrade
+    const rightSide = document.createElement('div');
+    rightSide.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+
+    const currentValue = document.createElement('span');
+    currentValue.className = `stat-current-${upgradeType}`;
+    currentValue.textContent = this.getInitialStatValue(upgradeType);
+    currentValue.style.cssText = `
+      font-size: 13px;
+      color: rgba(148, 163, 184, 0.8);
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    `;
+
+    const upgradeButton = document.createElement('div');
+    upgradeButton.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 10px;
+      background: ${color}20;
+      border: 1px solid ${color}40;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: ${color};
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+
+    const upgradeIcon = document.createElement('span');
+    upgradeIcon.textContent = '⬆️';
+    upgradeIcon.style.cssText = 'font-size: 10px;';
+
+    const upgradeText = document.createElement('span');
+    upgradeText.textContent = '+1%';
+
+    upgradeButton.appendChild(upgradeIcon);
+    upgradeButton.appendChild(upgradeText);
+
+    // Effetto hover sul pulsante interno
+    upgradeButton.addEventListener('mouseenter', (e) => {
+      e.stopPropagation();
+      upgradeButton.style.background = color;
+      upgradeButton.style.color = 'white';
+      upgradeButton.style.transform = 'scale(1.05)';
+    });
+
+    upgradeButton.addEventListener('mouseleave', (e) => {
+      e.stopPropagation();
+      upgradeButton.style.background = `${color}20`;
+      upgradeButton.style.color = color;
+      upgradeButton.style.transform = 'scale(1)';
+    });
+
+    rightSide.appendChild(currentValue);
+    rightSide.appendChild(upgradeButton);
+
+    button.appendChild(leftSide);
+    button.appendChild(rightSide);
+
+    return button;
+  }
+
+  /**
+   * Ottiene il valore iniziale di una statistica
+   */
+  private getInitialStatValue(statType: string): string {
+    const playerDef = getPlayerDefinition();
+
+    switch (statType) {
+      case 'hp':
+        return `${playerDef.stats.health.toLocaleString()}`;
+      case 'shield':
+        return playerDef.stats.shield ? `${playerDef.stats.shield.toLocaleString()}` : '0';
+      case 'speed':
+        return `${playerDef.stats.speed} u/s`;
+      default:
+        return '0';
+    }
+  }
+
+  /**
+   * Crea la sezione delle abilità (placeholder per ora)
    */
   private createSkillsSection(): HTMLElement {
     const section = document.createElement('div');
@@ -321,59 +491,6 @@ export class SkillsPanel extends BasePanel {
     return section;
   }
 
-  /**
-   * Crea un pulsante per l'upgrade di una statistica
-   */
-  private createUpgradeButton(label: string, upgradeType: string, color: string, onClick: () => void): HTMLElement {
-    const button = document.createElement('button');
-    button.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      width: 100%;
-      padding: 12px 16px;
-      margin-bottom: 8px;
-      background: rgba(15, 23, 42, 0.6);
-      border: 1px solid ${color}40;
-      border-radius: 8px;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    `;
-
-    button.addEventListener('mouseenter', () => {
-      button.style.background = `rgba(15, 23, 42, 0.8)`;
-      button.style.borderColor = color;
-      button.style.transform = 'translateY(-1px)';
-    });
-
-    button.addEventListener('mouseleave', () => {
-      button.style.background = `rgba(15, 23, 42, 0.6)`;
-      button.style.borderColor = `${color}40`;
-      button.style.transform = 'translateY(0)';
-    });
-
-    button.addEventListener('click', onClick);
-
-    const labelSpan = document.createElement('span');
-    labelSpan.textContent = label;
-    labelSpan.style.cssText = `flex: 1;`;
-
-    const costSpan = document.createElement('span');
-    costSpan.textContent = '1 SP';
-    costSpan.style.cssText = `
-      color: ${color};
-      font-weight: 600;
-      font-size: 12px;
-    `;
-
-    button.appendChild(labelSpan);
-    button.appendChild(costSpan);
-
-    return button;
-  }
 
   /**
    * Aggiorna le statistiche dal giocatore
@@ -390,28 +507,28 @@ export class SkillsPanel extends BasePanel {
     const skillPoints = this.ecs.getComponent(playerEntity, SkillPoints);
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
 
-    // Aggiorna statistiche combattimento
+    // Aggiorna statistiche nelle card di upgrade
     if (health) {
-      const healthValue = this.container.querySelector('.stat-hp') as HTMLElement;
-      if (healthValue) {
-        healthValue.textContent = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
+      const hpValue = this.container.querySelector('.stat-current-hp') as HTMLElement;
+      if (hpValue) {
+        hpValue.textContent = `${health.current.toLocaleString()}`;
       }
     }
 
     if (shield) {
-      const shieldValue = this.container.querySelector('.stat-shield') as HTMLElement;
+      const shieldValue = this.container.querySelector('.stat-current-shield') as HTMLElement;
       if (shieldValue) {
-        shieldValue.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
+        shieldValue.textContent = `${shield.current.toLocaleString()}`;
       }
     }
 
-    // Calcola velocità con bonus dagli upgrade
+    // Aggiorna velocità con bonus dagli upgrade
     if (playerUpgrades) {
       const playerDef = getPlayerDefinition();
       const speedBonus = playerUpgrades.getSpeedBonus();
       const calculatedSpeed = Math.floor(playerDef.stats.speed * speedBonus);
 
-      const speedValue = this.container.querySelector('.stat-speed') as HTMLElement;
+      const speedValue = this.container.querySelector('.stat-current-speed') as HTMLElement;
       if (speedValue) {
         speedValue.textContent = `${calculatedSpeed} u/s`;
       }
