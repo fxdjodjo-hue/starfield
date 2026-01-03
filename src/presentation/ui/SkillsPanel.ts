@@ -21,6 +21,13 @@ export class SkillsPanel extends BasePanel {
   }
 
   /**
+   * Imposta l'entità player da monitorare
+   */
+  setPlayerEntity(entity: any): void {
+    this.playerEntity = entity;
+  }
+
+  /**
    * Crea il contenuto del pannello skills
    */
   protected createPanelContent(): HTMLElement {
@@ -319,17 +326,7 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   private updatePlayerStats(): void {
-    if (!this.statsContainer) return;
-
-    // Controlla se l'ECS ha il metodo getPlayerEntity
-    if (!this.ecs || typeof this.ecs.getPlayerEntity !== 'function') {
-      return;
-    }
-
-    const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) {
-      return;
-    }
+    if (!this.statsContainer || !this.playerEntity) return;
 
     // Ottieni componenti del giocatore
     const health = this.ecs.getComponent(playerEntity, Health);

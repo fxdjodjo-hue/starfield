@@ -267,7 +267,8 @@ export class GameInitializationSystem extends System {
   private setPlayerEntityInSystems(playerEntity: any, systems: any): void {
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
-      boundsSystem, respawnSystem, questTrackingSystem, playerStatusDisplaySystem
+      boundsSystem, respawnSystem, questTrackingSystem, playerStatusDisplaySystem,
+      uiSystem
     } = systems;
 
     playerControlSystem.setPlayerEntity(playerEntity);
@@ -278,6 +279,12 @@ export class GameInitializationSystem extends System {
     respawnSystem.setPlayerEntity(playerEntity);
     questTrackingSystem.setPlayerEntity(playerEntity);
     playerStatusDisplaySystem.setPlayerEntity(playerEntity);
+
+    // Imposta l'entità player anche nel pannello Skills
+    const skillsPanel = uiSystem.uiManager.getPanel('skills-panel');
+    if (skillsPanel && typeof skillsPanel.setPlayerEntity === 'function') {
+      skillsPanel.setPlayerEntity(playerEntity);
+    }
   }
 
   /**
