@@ -445,6 +445,10 @@ export class PlayState extends GameState {
     const mapBackgroundImage = await this.context.assetManager.loadImage('/assets/maps/maps1/1/bg.jpg');
     const mapBackgroundSprite = new Sprite(mapBackgroundImage, mapBackgroundImage.width, mapBackgroundImage.height);
 
+    // Load NPC sprites
+    const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
+    const scouterSprite = new Sprite(scouterImage, scouterImage.width * 0.15, scouterImage.height * 0.15); // Ridimensionato al 15%
+
     const ecs = this.world.getECS();
 
     // Crea sistemi
@@ -548,7 +552,7 @@ export class PlayState extends GameState {
     });
 
     // Crea alcuni NPC
-    this.createScouter(ecs, 50); // Crea 50 Scouter che si muovono
+    this.createScouter(ecs, 50, scouterSprite); // Crea 50 Scouter che si muovono
 
     // Crea stelle distribuite su tutta la mappa
     // Stelle create direttamente nel RenderSystem
@@ -642,7 +646,7 @@ export class PlayState extends GameState {
   /**
    * Crea Scouter distribuiti uniformemente su tutta la mappa
    */
-  private createScouter(ecs: any, count: number): void {
+  private createScouter(ecs: any, count: number, sprite?: Sprite): void {
     const minDistance = 100; // Distanza minima tra Scouter
     const minDistanceFromPlayer = 200; // Distanza minima dal player (centro)
     const worldWidth = CONFIG.WORLD_WIDTH;
@@ -724,6 +728,11 @@ export class PlayState extends GameState {
       ecs.addComponent(streuner, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
       ecs.addComponent(streuner, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
       ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
+
+      // Aggiungi sprite se fornito
+      if (sprite) {
+        ecs.addComponent(streuner, Sprite, sprite);
+      }
     }
   }
 

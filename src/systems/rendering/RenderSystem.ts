@@ -57,7 +57,8 @@ export class RenderSystem extends BaseSystem {
 
         if (npc) {
           // Renderizza come NPC
-          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined);
+          const entitySprite = this.ecs.getComponent(entity, Sprite);
+          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite);
 
           // Mostra range di attacco se selezionato
           if (selected !== undefined) {
@@ -130,7 +131,7 @@ export class RenderSystem extends BaseSystem {
   /**
    * Renderizza un NPC
    */
-  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false): void {
+  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false, sprite?: Sprite): void {
     ctx.save();
 
     // Applica trasformazioni usando le coordinate schermo
@@ -147,41 +148,52 @@ export class RenderSystem extends BaseSystem {
       ctx.stroke();
     }
 
-    if (npc.npcType === 'triangle') {
-      // Triangolo rosso per NPC nemici
-      const size = 10;
-      ctx.beginPath();
-      ctx.moveTo(0, -size/2); // Punta superiore
-      ctx.lineTo(-size/2, size/2); // Angolo sinistro
-      ctx.lineTo(size/2, size/2); // Angolo destro
-      ctx.closePath();
-
-      // NPC triangolo: rosso con bordo arancione
-      ctx.fillStyle = '#ff4444';
-      ctx.strokeStyle = '#ff8800';
-      ctx.lineWidth = 2;
-      ctx.fill();
-      ctx.stroke();
+    // Se l'NPC ha uno sprite, renderizza quello invece della forma geometrica
+    if (sprite && sprite.isLoaded()) {
+      // Renderizza lo sprite dell'NPC
+      const spriteX = -sprite.width / 2 + sprite.offsetX;
+      const spriteY = -sprite.height / 2 + sprite.offsetY;
+      ctx.drawImage(sprite.image, spriteX, spriteY, sprite.width, sprite.height);
     } else {
-      // Quadrato per gli NPC normali (tipo 'square' o default)
-      const size = 8;
-      ctx.beginPath();
-      ctx.rect(-size/2, -size/2, size, size);
+      // Fallback: renderizza forme geometriche
+      if (npc.npcType === 'triangle') {
+        // Triangolo rosso per NPC nemici
+        const size = 10;
+        ctx.beginPath();
+        ctx.moveTo(0, -size/2); // Punta superiore
+        ctx.lineTo(-size/2, size/2); // Angolo sinistro
+        ctx.lineTo(size/2, size/2); // Angolo destro
+        ctx.closePath();
 
-      // NPC: blu con bordo giallo
-      ctx.fillStyle = '#0088ff';
-      ctx.strokeStyle = '#ffff00';
-      ctx.lineWidth = 2;
-      ctx.fill();
-      ctx.stroke();
+        // NPC triangolo: rosso con bordo arancione
+        ctx.fillStyle = '#ff4444';
+        ctx.strokeStyle = '#ff8800';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Quadrato per gli NPC normali (tipo 'square' o default)
+        const size = 8;
+        ctx.beginPath();
+        ctx.rect(-size/2, -size/2, size, size);
 
-      // Aggiungi un punto al centro per identificare il tipo
-      ctx.beginPath();
-      ctx.arc(0, 0, 3, 0, Math.PI * 2);
-      ctx.fillStyle = '#ffffff';
-      ctx.fill();
+        // NPC: blu con bordo giallo
+        ctx.fillStyle = '#0088ff';
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
 
-      // Renderizza il nickname sotto l'NPC (come il player)
+        // Aggiungi un punto al centro per identificare il tipo
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+      }
+    }
+
+    // Renderizza il nickname sotto l'NPC solo per NPC senza sprite
+    if (!sprite || !sprite.isLoaded()) {
       this.renderNpcNickname(ctx, npc, 0, 45);
     }
 
