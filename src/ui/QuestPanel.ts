@@ -508,10 +508,10 @@ export class QuestPanel extends BasePanel {
    * Gestisce l'accettazione di una quest
    */
   private onQuestAccept(questId: string): void {
-    // Questo metodo sarà sovrascritto dal PlayState per gestire l'accettazione
-    console.log(`Quest acceptance requested: ${questId}`);
+    console.log(`🎯 QuestPanel: Player clicked accept for quest: ${questId}`);
     // Trigger custom event per notificare il PlayState
     const event = new CustomEvent('questAccept', { detail: { questId } });
     document.dispatchEvent(event);
+    console.log(`📤 QuestPanel: Dispatched questAccept event with questId: ${questId}`);
   }
 }

@@ -145,6 +145,7 @@ export class PlayState extends GameState {
     // Listener per l'accettazione manuale delle quest
     document.addEventListener('questAccept', (event: any) => {
       const { questId } = event.detail;
+      console.log(`📨 PlayState: Received questAccept event for questId: ${questId}`);
       this.handleQuestAcceptance(questId);
     });
   }
@@ -153,18 +154,35 @@ export class PlayState extends GameState {
    * Gestisce l'accettazione manuale di una quest
    */
   private handleQuestAcceptance(questId: string): void {
-    if (!this.questManager || !this.playerEntity) return;
+    console.log(`🎯 PlayState: handleQuestAcceptance called with questId: ${questId}`);
+
+    if (!this.questManager || !this.playerEntity) {
+      console.log(`❌ PlayState: Missing questManager or playerEntity`);
+      return;
+    }
 
     const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
-    if (!activeQuest) return;
+    if (!activeQuest) {
+      console.log(`❌ PlayState: No ActiveQuest component found on player`);
+      return;
+    }
 
+    console.log(`✅ PlayState: Found ActiveQuest component, checking if quest ${questId} is available...`);
     if (this.questManager.isQuestAvailable(questId)) {
+      console.log(`✅ PlayState: Quest ${questId} is available, accepting...`);
       const accepted = this.questManager.acceptQuest(questId, activeQuest);
+      console.log(`📊 PlayState: Quest acceptance result: ${accepted}`);
+
       if (accepted) {
-        console.log(`Quest "${questId}" accettata dal giocatore!`);
+        console.log(`🎉 Quest "${questId}" accettata dal giocatore!`);
         // Aggiorna immediatamente l'UI
         this.updateUIPanels();
+      } else {
+        console.log(`❌ PlayState: Failed to accept quest ${questId}`);
       }
+    } else {
+      console.log(`❌ PlayState: Quest ${questId} is not available`);
+      console.log(`📋 PlayState: Available quests:`, this.questManager.getQuestData(activeQuest).availableQuests.map(q => q.id));
     }
   }
 
