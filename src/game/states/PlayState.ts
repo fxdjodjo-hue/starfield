@@ -115,13 +115,13 @@ export class PlayState extends GameState {
     const statsPanel = new PlayerStatsPanel(statsConfig);
     this.uiManager.registerPanel(statsPanel);
 
-    // Crea e registra il pannello delle quest
+    // Crea e registra il pannello delle quest (stesse dimensioni del pannello stats)
     const questConfig = {
       id: 'quest-panel',
       icon: '📋',
       title: 'Missioni & Quest',
       position: 'bottom-left' as const,
-      size: { width: 400, height: 600 }
+      size: { width: 1300, height: 750 }
     };
 
     const questPanel = new QuestPanel(questConfig);
