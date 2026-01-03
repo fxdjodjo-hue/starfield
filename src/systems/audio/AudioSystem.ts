@@ -1,13 +1,6 @@
 import { System } from '../../infrastructure/ecs/System';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-
-export interface AudioConfig {
-  masterVolume: number;
-  musicVolume: number;
-  effectsVolume: number;
-  uiVolume: number;
-  enabled: boolean;
-}
+import { AudioConfig } from '../../config/AudioConfig';
 
 export interface SoundAsset {
   key: string;
