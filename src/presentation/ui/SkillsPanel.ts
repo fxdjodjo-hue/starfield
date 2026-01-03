@@ -5,8 +5,8 @@ import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
-import { SkillPoints } from '../../entities/SkillPoints';
-import { PlayerUpgrades } from '../../entities/PlayerUpgrades';
+import { SkillPoints } from '../../entities/currency/SkillPoints';
+import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 
 /**
  * SkillsPanel - Pannello per visualizzare statistiche giocatore e gestire abilità

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PlayerStats } from '../../../entities/PlayerStats';
+import { PlayerStats } from '../../../entities/player/PlayerStats';
 
 describe('PlayerStats', () => {
   it('should create instance', () => {

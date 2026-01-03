@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest';
 import { PlayerStatsPanel } from '../../../presentation/ui/PlayerStatsPanel';
+import { PANEL_CONFIGS } from '../../../presentation/ui/PanelConfig';
 
 describe('PlayerStatsPanel', () => {
   it('should create instance', () => {
-    // TODO: Add constructor parameters
-    const instance = new PlayerStatsPanel();
+    const instance = new PlayerStatsPanel(PANEL_CONFIGS.stats);
     expect(instance).toBeDefined();
   });
 
   it('should have createPanelContent method', () => {
-    const instance = new PlayerStatsPanel();
+    const instance = new PlayerStatsPanel(PANEL_CONFIGS.stats);
     expect(typeof instance.createPanelContent).toBe('function');
   });
 

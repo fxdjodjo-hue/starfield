@@ -1,4 +1,4 @@
-import { Component } from '../infrastructure/ecs/Component';
+import { Component } from '../../infrastructure/ecs/Component';
 
 /**
  * Componente PlayerStats - traccia statistiche del giocatore

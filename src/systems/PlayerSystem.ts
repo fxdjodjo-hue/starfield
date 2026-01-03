@@ -5,10 +5,10 @@ import { Velocity } from '../entities/spatial/Velocity';
 import { Sprite } from '../entities/Sprite';
 import { Health } from '../entities/combat/Health';
 import { Shield } from '../entities/combat/Shield';
-import { Credits, Cosmos } from '../entities/Currency';
-import { Experience } from '../entities/Experience';
-import { Honor } from '../entities/Honor';
-import { PlayerStats } from '../entities/PlayerStats';
+import { Credits, Cosmos } from '../entities/currency/Currency';
+import { Experience } from '../entities/currency/Experience';
+import { Honor } from '../entities/currency/Honor';
+import { PlayerStats } from '../entities/player/PlayerStats';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { CONFIG } from '../utils/config/Config';
 

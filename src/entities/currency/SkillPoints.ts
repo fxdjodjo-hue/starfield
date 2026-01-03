@@ -1,4 +1,4 @@
-import { Component } from '../infrastructure/ecs/Component';
+import { Component } from '../../infrastructure/ecs/Component';
 
 /**
  * Componente SkillPoints - gestisce i punti abilità del giocatore

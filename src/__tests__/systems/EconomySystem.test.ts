@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { EconomySystem } from '../../../systems/EconomySystem';
+import { EconomySystem } from '../../../systems/economy/EconomySystem';
 
 describe('EconomySystem', () => {
   it('should create instance', () => {

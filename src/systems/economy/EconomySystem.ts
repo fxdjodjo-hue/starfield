@@ -1,9 +1,9 @@
 import { System as BaseSystem } from '../infrastructure/ecs/System';
 import { ECS } from '../infrastructure/ecs/ECS';
-import { Credits, Cosmos } from '../entities/Currency';
-import { Experience } from '../entities/Experience';
-import { Honor } from '../entities/Honor';
-import { SkillPoints } from '../entities/SkillPoints';
+import { Credits, Cosmos } from '../entities/currency/Currency';
+import { Experience } from '../entities/currency/Experience';
+import { Honor } from '../entities/currency/Honor';
+import { SkillPoints } from '../entities/currency/SkillPoints';
 
 /**
  * Sistema Economy - gestisce l'economia completa del giocatore

@@ -5,7 +5,7 @@ import { Velocity } from '../../entities/spatial/Velocity';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Camera } from '../../entities/spatial/Camera';
-import { PlayerUpgrades } from '../../entities/PlayerUpgrades';
+import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { CONFIG } from '../../utils/config/Config';
 

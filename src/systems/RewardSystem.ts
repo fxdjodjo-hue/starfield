@@ -3,7 +3,7 @@ import { ECS } from '../infrastructure/ecs/ECS';
 import { Health } from '../entities/combat/Health';
 import { Explosion } from '../entities/combat/Explosion';
 import { Npc } from '../entities/ai/Npc';
-import { PlayerStats } from '../entities/PlayerStats';
+import { PlayerStats } from '../entities/player/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
 import { LogSystem } from './rendering/LogSystem';
 import { LogType } from '../presentation/ui/LogMessage';

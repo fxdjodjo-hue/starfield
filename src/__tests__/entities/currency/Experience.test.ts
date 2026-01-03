@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { Experience } from '../../../entities/Experience';
+import { Experience } from '../../../entities/currency/Experience';
 
 describe('Experience', () => {
   it('should create instance', () => {
