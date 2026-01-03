@@ -6,6 +6,7 @@ import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
 import { QuestPanel } from '../presentation/ui/QuestPanel';
 import { SkillsPanel } from '../presentation/ui/SkillsPanel';
 import { ChatPanel } from '../presentation/ui/ChatPanel';
+import { ChatManager } from './ChatManager';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
 import { QuestSystem } from './QuestSystem';
 
@@ -17,6 +18,7 @@ export class UiSystem extends System {
   private uiManager: UIManager;
   private playerHUD: PlayerHUD;
   private chatPanel: ChatPanel;
+  private chatManager: ChatManager;
   private questSystem: QuestSystem;
   private economySystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
@@ -31,6 +33,7 @@ export class UiSystem extends System {
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
     this.chatPanel = new ChatPanel(this.ecs, this.context);
+    this.chatManager = new ChatManager(this.chatPanel, this.context);
     this.questSystem = questSystem;
   }
 
@@ -324,6 +327,45 @@ export class UiSystem extends System {
    */
   addSystemMessage(message: string): void {
     this.chatPanel.addSystemMessage(message);
+  }
+
+  /**
+   * Metodi per il supporto multiplayer della chat
+   */
+
+  /**
+   * Abilita/disabilita la modalità multiplayer
+   */
+  setChatMultiplayerMode(enabled: boolean, playerId?: string): void {
+    this.chatManager.setMultiplayerMode(enabled, playerId);
+  }
+
+  /**
+   * Registra un callback per i messaggi inviati (per invio alla rete)
+   */
+  onChatMessageSent(callback: (message: any) => void): void {
+    this.chatManager.onMessageSent(callback);
+  }
+
+  /**
+   * Riceve un messaggio dalla rete (multiplayer)
+   */
+  receiveChatMessage(message: any): void {
+    this.chatManager.receiveNetworkMessage(message);
+  }
+
+  /**
+   * Simula un messaggio dalla rete (per testing)
+   */
+  simulateChatMessage(content: string, senderName?: string): void {
+    this.chatManager.simulateNetworkMessage(content, senderName);
+  }
+
+  /**
+   * Ottiene lo stato della chat
+   */
+  getChatStatus(): any {
+    return this.chatManager.getStatus();
   }
 
   /**
