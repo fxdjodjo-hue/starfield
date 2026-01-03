@@ -45,6 +45,19 @@ export class UiSystem extends System {
   }
 
   /**
+   * Imposta l'entità player nei pannelli che ne hanno bisogno
+   */
+  setPlayerEntityInPanels(playerEntity: any): void {
+    const skillsPanel = this.uiManager.getPanel('skills-panel');
+    if (skillsPanel && typeof skillsPanel.setPlayerEntity === 'function') {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UiSystem.ts:47',message:'UiSystem setting player entity in Skills panel',data:{playerEntityId:playerEntity?.id,skillsPanelExists:!!skillsPanel},timestamp:Date.now(),sessionId:'debug-session',runId:'post-fix',hypothesisId:'timing-fix'})}).catch(()=>{});
+      // #endregion
+      skillsPanel.setPlayerEntity(playerEntity);
+    }
+  }
+
+  /**
    * Inizializza i pannelli UI
    */
   private initializePanels(): void {
