@@ -20,10 +20,17 @@ import { Velocity } from '../../entities/spatial/Velocity';
  */
 export class RenderSystem extends BaseSystem {
   private movementSystem: MovementSystem;
+  private scouterProjectileImage: HTMLImageElement | null = null;
 
   constructor(ecs: ECS, movementSystem: MovementSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
+    this.loadScouterProjectileImage();
+  }
+
+  private loadScouterProjectileImage(): void {
+    this.scouterProjectileImage = new Image();
+    this.scouterProjectileImage.src = 'assets/npc_ships/scouter/npc_scouter_projectile.png';
   }
 
   update(deltaTime: number): void {
@@ -312,22 +319,54 @@ export class RenderSystem extends BaseSystem {
       // Converte coordinate mondo a schermo
       const screenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
 
-      // Renderizza il proiettile come laser rosso
+      // Controlla se il proiettile appartiene a un NPC (scouter)
+      const ownerEntity = this.ecs.getEntity(projectile.ownerId);
+      const isNpcProjectile = ownerEntity && this.ecs.getComponent(ownerEntity, Npc);
+
       ctx.save();
 
-      // Calcola la fine del laser (direzione del proiettile)
-      const laserLength = 15; // Lunghezza del laser
-      const endX = screenPos.x + projectile.directionX * laserLength;
-      const endY = screenPos.y + projectile.directionY * laserLength;
+      if (isNpcProjectile && this.scouterProjectileImage && this.scouterProjectileImage.complete) {
+        // Renderizza proiettile scouter come immagine
+        const imageSize = 8; // Dimensione del proiettile
+        ctx.drawImage(
+          this.scouterProjectileImage,
+          screenPos.x - imageSize / 2,
+          screenPos.y - imageSize / 2,
+          imageSize,
+          imageSize
+        );
 
-      // Disegna il laser come linea rossa
-      ctx.strokeStyle = '#ff0000'; // Rosso per i laser
-      ctx.lineWidth = 3;
-      ctx.lineCap = 'round';
+        // Aggiungi effetto luminoso verde
+        ctx.shadowColor = '#00ff00';
+        ctx.shadowBlur = 6;
 
-      // Aggiungi effetto luminoso
-      ctx.shadowColor = '#ff0000';
-      ctx.shadowBlur = 8;
+        // Ridiseegna per l'effetto glow
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(
+          this.scouterProjectileImage,
+          screenPos.x - imageSize / 2,
+          screenPos.y - imageSize / 2,
+          imageSize,
+          imageSize
+        );
+
+        ctx.restore();
+      } else {
+        // Renderizza proiettile player come laser rosso
+
+        // Calcola la fine del laser (direzione del proiettile)
+        const laserLength = 15; // Lunghezza del laser
+        const endX = screenPos.x + projectile.directionX * laserLength;
+        const endY = screenPos.y + projectile.directionY * laserLength;
+
+        // Disegna il laser come linea rossa
+        ctx.strokeStyle = '#ff0000'; // Rosso per i laser
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+
+        // Aggiungi effetto luminoso
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 8;
 
       ctx.beginPath();
       ctx.moveTo(screenPos.x, screenPos.y);
@@ -341,6 +380,7 @@ export class RenderSystem extends BaseSystem {
       ctx.stroke();
 
       ctx.restore();
+      }
     }
   }
 
