@@ -353,19 +353,10 @@ export class ChatPanel {
       return;
     }
 
-    // Input con testo: invia il messaggio
-    this.addMessage({
-      id: Date.now().toString(),
-      sender: 'Tu',
-      content: message,
-      timestamp: new Date(),
-      type: 'user'
-    });
-
     // Svuota l'input
     this.inputElement.value = '';
 
-    // Trigger event per altri sistemi
+    // Trigger event per ChatManager (che gestisce tutto)
     const event = new CustomEvent('chatMessage', {
       detail: { message, sender: 'player' }
     });
