@@ -102,7 +102,9 @@ export class GameInitializationSystem extends System {
     const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
 
     // Crea sistemi
+    console.log('GameInitializationSystem: Creating AudioSystem');
     this.audioSystem = new AudioSystem(AUDIO_CONFIG);
+    console.log('GameInitializationSystem: AudioSystem created:', !!this.audioSystem);
     this.movementSystem = new MovementSystem(this.ecs);
     const parallaxSystem = new ParallaxSystem(this.ecs, this.movementSystem);
     const renderSystem = new RenderSystem(this.ecs, this.movementSystem);
@@ -152,6 +154,7 @@ export class GameInitializationSystem extends System {
       playerStatusDisplaySystem,
       playerSystem: this.playerSystem,
       audioSystem: this.audioSystem,
+      console.log('GameInitializationSystem: Returning audioSystem:', !!this.audioSystem);
       assets: { shipImage, mapBackgroundImage, scouterImage }
     };
   }
