@@ -59,34 +59,23 @@ export class QuestTrackingSystem implements QuestEventHandler {
    */
   handleEvent(event: QuestEvent, activeQuests: any[]): void {
     console.log(`📡 Quest Event: ${event.type} - ${event.targetId} (${event.targetType}) x${event.amount || 1}`);
-    console.log(`📋 Active quests: ${activeQuests.length}`, activeQuests.map(q => q.id));
 
     // Trova tutte le quest attive che potrebbero essere interessate da questo evento
     activeQuests.forEach(quest => {
-      console.log(`🔍 Checking quest: ${quest.id}`);
       const questConfig = QuestRegistry.get(quest.id);
       if (!questConfig) {
         console.warn(`⚠️ Quest config not found for ${quest.id}`);
         return;
       }
 
-      console.log(`✅ Found config for ${quest.id}, checking objectives...`);
-
       // Controlla ogni obiettivo della quest
       quest.objectives.forEach(objective => {
-        console.log(`🎯 Checking objective: ${objective.id} (${objective.type}) - current: ${objective.current}/${objective.target}`);
         if (this.shouldUpdateObjective(objective, event)) {
-          console.log(`✅ Objective matches event, updating progress...`);
           const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, { quests: activeQuests });
 
           if (questCompleted) {
-            console.log(`🎉 Quest ${quest.id} completed!`);
             this.handleQuestCompletion(quest);
-          } else {
-            console.log(`📈 Quest ${quest.id} progress updated but not completed`);
           }
-        } else {
-          console.log(`❌ Objective ${objective.id} does not match event`);
         }
       });
     });
@@ -99,40 +88,24 @@ export class QuestTrackingSystem implements QuestEventHandler {
   private shouldUpdateObjective(objective: any, event: QuestEvent): boolean {
     const amount = event.amount || 1;
 
-    console.log(`🔍 Checking objective match:`, {
-      objectiveType: objective.type,
-      objectiveTargetType: objective.targetType,
-      eventType: event.type,
-      eventTargetType: event.targetType,
-      amount: amount
-    });
-
     switch (objective.type) {
       case ObjectiveType.KILL:
-        const killMatch = event.type === QuestEventType.NPC_KILLED &&
+        return event.type === QuestEventType.NPC_KILLED &&
                event.targetType?.toLowerCase() === objective.targetType?.toLowerCase() &&
                amount > 0;
-        console.log(`💀 KILL check: ${killMatch} (event: ${event.targetType?.toLowerCase()} vs objective: ${objective.targetType?.toLowerCase()})`);
-        return killMatch;
 
       case ObjectiveType.COLLECT:
-        const collectMatch = event.type === QuestEventType.ITEM_COLLECTED &&
+        return event.type === QuestEventType.ITEM_COLLECTED &&
                event.targetId === objective.targetName &&
                amount > 0;
-        console.log(`📦 COLLECT check: ${collectMatch}`);
-        return collectMatch;
 
       case ObjectiveType.EXPLORE:
-        const exploreMatch = event.type === QuestEventType.LOCATION_VISITED &&
+        return event.type === QuestEventType.LOCATION_VISITED &&
                event.targetId === objective.targetName;
-        console.log(`🗺️ EXPLORE check: ${exploreMatch}`);
-        return exploreMatch;
 
       case ObjectiveType.INTERACT:
-        const interactMatch = event.type === QuestEventType.INTERACTION_COMPLETED &&
+        return event.type === QuestEventType.INTERACTION_COMPLETED &&
                event.targetId === objective.targetName;
-        console.log(`🤝 INTERACT check: ${interactMatch}`);
-        return interactMatch;
 
       default:
         console.warn(`⚠️ Unknown objective type: ${objective.type}`);

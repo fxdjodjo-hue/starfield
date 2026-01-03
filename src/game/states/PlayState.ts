@@ -677,6 +677,7 @@ export class PlayState extends GameState {
     rankSystem.setPlayerEntity(playerShip);
     rewardSystem.setEconomySystem(this.economySystem);
     rewardSystem.setPlayerEntity(playerShip); // Per aggiornare statistiche player
+    rewardSystem.setQuestTrackingSystem(this.questTrackingSystem!);
 
     // Configura sistema di log
     combatSystem.setLogSystem(this.logSystem!);
