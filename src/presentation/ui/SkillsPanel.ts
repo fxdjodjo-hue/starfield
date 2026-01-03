@@ -1,8 +1,7 @@
 import { BasePanel } from './UIManager';
 import type { PanelConfig } from './PanelConfig';
 import { ECS } from '../../infrastructure/ecs/ECS';
-import { Health } from '../../entities/combat/Health';
-import { Shield } from '../../entities/combat/Shield';
+import { PlayerStatusDisplaySystem } from '../../systems/PlayerStatusDisplaySystem';
 import { Experience } from '../../entities/Experience';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 
@@ -14,10 +13,12 @@ export class SkillsPanel extends BasePanel {
   private statsContainer: HTMLElement | null = null;
   private updateInterval: number | null = null;
   private isVisible: boolean = false;
+  private playerStatusDisplaySystem: PlayerStatusDisplaySystem;
 
-  constructor(config: PanelConfig, ecs: ECS) {
+  constructor(config: PanelConfig, ecs: ECS, playerStatusDisplaySystem: PlayerStatusDisplaySystem) {
     super(config);
     this.ecs = ecs;
+    this.playerStatusDisplaySystem = playerStatusDisplaySystem;
   }
 
   /**
@@ -326,12 +327,15 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   private updatePlayerStats(): void {
-    if (!this.statsContainer || !this.playerEntity) return;
+    if (!this.statsContainer) return;
 
-    // Ottieni componenti del giocatore
-    const health = this.ecs.getComponent(this.playerEntity, Health);
-    const shield = this.ecs.getComponent(this.playerEntity, Shield);
-    const experience = this.ecs.getComponent(this.playerEntity, Experience);
+    // Usa gli stessi valori del PlayerStatusDisplaySystem per garantire sincronizzazione
+    const health = this.playerStatusDisplaySystem.getPlayerHealth();
+    const shield = this.playerStatusDisplaySystem.getPlayerShield();
+
+    // Per experience e velocità usa ancora l'ECS dato che non sono nel PlayerStatusDisplaySystem
+    const experience = this.playerEntity ? this.ecs.getComponent(this.playerEntity, Experience) : null;
+    const playerDef = getPlayerDefinition();
 
 
     // Aggiorna statistiche combattimento
@@ -344,11 +348,8 @@ export class SkillsPanel extends BasePanel {
 
     if (shield) {
       const shieldElements = this.statsContainer.querySelectorAll('[data-stat="shield"]');
-      console.log('SkillsPanel: Updating shield - elements found:', shieldElements.length, 'current value:', shield.current, 'max:', shield.max);
       shieldElements.forEach((el: HTMLElement) => {
-        const newValue = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
-        console.log('SkillsPanel: Setting shield element text to:', newValue);
-        el.textContent = newValue;
+        el.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
       });
     }
 
@@ -385,7 +386,6 @@ export class SkillsPanel extends BasePanel {
   update(deltaTime: number): void {
     // Aggiorna solo se il pannello è visibile
     if (this.isVisible) {
-      console.log('SkillsPanel: Updating visible panel');
       this.updatePlayerStats();
     }
   }

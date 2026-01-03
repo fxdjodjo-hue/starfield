@@ -52,15 +52,17 @@ export class GameInitializationSystem extends System {
   private questManager: QuestManager;
   private questSystem: QuestSystem;
   private uiSystem: UiSystem;
+  private playerStatusDisplaySystem: PlayerStatusDisplaySystem;
   private movementSystem: MovementSystem;
 
-  constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
+  constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem, playerStatusDisplaySystem: PlayerStatusDisplaySystem) {
     super(ecs);
     this.world = world;
     this.context = context;
     this.questManager = questManager;
     this.questSystem = questSystem;
     this.uiSystem = uiSystem;
+    this.playerStatusDisplaySystem = playerStatusDisplaySystem;
     // L'economySystem verrà creato in createSystems()
     this.economySystem = null;
   }

@@ -190,6 +190,24 @@ export class PlayerStatusDisplaySystem extends System {
   }
 
   /**
+   * Restituisce i valori attuali di HP del player
+   */
+  getPlayerHealth(): { current: number; max: number } | null {
+    if (!this.playerEntity) return null;
+    const health = this.ecs.getComponent(this.playerEntity, Health);
+    return health ? { current: health.current, max: health.max } : null;
+  }
+
+  /**
+   * Restituisce i valori attuali di Shield del player
+   */
+  getPlayerShield(): { current: number; max: number } | null {
+    if (!this.playerEntity) return null;
+    const shield = this.ecs.getComponent(this.playerEntity, Shield);
+    return shield ? { current: shield.current, max: shield.max } : null;
+  }
+
+  /**
    * Rimuove il display quando il sistema viene distrutto
    */
   destroy(): void {

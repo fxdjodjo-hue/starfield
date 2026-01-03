@@ -7,6 +7,7 @@ import { QuestPanel } from '../presentation/ui/QuestPanel';
 import { SkillsPanel } from '../presentation/ui/SkillsPanel';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
 import { QuestSystem } from './QuestSystem';
+import { PlayerStatusDisplaySystem } from './PlayerStatusDisplaySystem';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -16,17 +17,19 @@ export class UiSystem extends System {
   private uiManager: UIManager;
   private playerHUD: PlayerHUD;
   private questSystem: QuestSystem;
+  private playerStatusDisplaySystem: PlayerStatusDisplaySystem;
   private economySystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
   private ecs: ECS;
 
-  constructor(ecs: ECS, questSystem: QuestSystem) {
+  constructor(ecs: ECS, questSystem: QuestSystem, playerStatusDisplaySystem: PlayerStatusDisplaySystem) {
     super(ecs);
     this.ecs = ecs;
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
     this.questSystem = questSystem;
+    this.playerStatusDisplaySystem = playerStatusDisplaySystem;
   }
 
   /**
@@ -70,7 +73,7 @@ export class UiSystem extends System {
 
     // Crea e registra il pannello delle skills
     const skillsConfig = getPanelConfig('skills');
-    const skillsPanel = new SkillsPanel(skillsConfig, this.ecs);
+    const skillsPanel = new SkillsPanel(skillsConfig, this.ecs, this.playerStatusDisplaySystem);
     this.uiManager.registerPanel(skillsPanel);
 
     // Collega il pannello quest al sistema quest

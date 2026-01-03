@@ -33,11 +33,15 @@ export class PlayState extends GameState {
     // Inizializza sistemi UI e Quest per operazioni immediate
     this.questManager = new QuestManager();
     this.questSystem = new QuestSystem(this.world.getECS(), this.questManager);
-    // UiSystem riceverà l'EconomySystem dopo l'inizializzazione
-    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem);
+
+    // Crea PlayerStatusDisplaySystem prima dell'UiSystem
+    const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.world.getECS());
+
+    // UiSystem ora riceve anche il PlayerStatusDisplaySystem
+    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, playerStatusDisplaySystem);
 
     // Crea sistema di inizializzazione
-    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem);
+    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem, playerStatusDisplaySystem);
   }
 
   /**
