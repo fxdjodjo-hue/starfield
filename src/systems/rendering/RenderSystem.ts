@@ -405,21 +405,8 @@ export class RenderSystem extends BaseSystem {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
-    // Colori distintivi per tipo NPC (con trasparenza come il player)
-    let textColor = 'rgba(255, 255, 255, 0.9)'; // Default bianco
-
-    switch (npc.npcType) {
-      case 'Scouter':
-        textColor = 'rgba(0, 255, 136, 0.9)'; // Verde acceso
-        break;
-      case 'triangle':
-        textColor = 'rgba(255, 68, 68, 0.9)'; // Rosso
-        break;
-      case 'square':
-      default:
-        textColor = 'rgba(0, 136, 255, 0.9)'; // Blu
-        break;
-    }
+    // Colore rosso uniforme per tutti gli NPC
+    const textColor = 'rgba(255, 68, 68, 0.9)'; // Rosso con trasparenza
 
     // Testo con ombra elegante come il player
     ctx.fillStyle = textColor;
