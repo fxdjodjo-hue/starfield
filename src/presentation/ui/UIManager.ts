@@ -50,9 +50,7 @@ export abstract class BasePanel {
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
       z-index: 2000;
       opacity: 0;
-      transform: scale(0.95);
       pointer-events: none;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
@@ -115,7 +113,6 @@ export abstract class BasePanel {
     // Piccola pausa per permettere al browser di applicare la posizione
     setTimeout(() => {
       this.container.style.opacity = '1';
-      this.container.style.transform = 'scale(1)';
       this.container.style.pointerEvents = 'auto';
     }, 10);
 
@@ -135,7 +132,6 @@ export abstract class BasePanel {
 
     this.isVisible = false;
     this.container.style.opacity = '0';
-    this.container.style.transform = 'scale(0.95)';
     this.container.style.pointerEvents = 'none';
 
     this.onHide();
@@ -316,17 +312,14 @@ export class FloatingIcon {
       this.element.style.background = 'rgba(59, 130, 246, 0.9)';
       this.element.style.color = 'rgba(255, 255, 255, 0.9)';
       this.element.style.borderColor = 'rgba(59, 130, 246, 0.5)';
-      this.element.style.transform = 'scale(1.05)';
     } else if (this.isHovered) {
       this.element.style.background = 'rgba(148, 163, 184, 0.9)';
       this.element.style.color = 'rgba(15, 23, 42, 0.9)';
       this.element.style.borderColor = 'rgba(148, 163, 184, 0.5)';
-      this.element.style.transform = 'scale(1.05)';
     } else {
       this.element.style.background = 'rgba(15, 23, 42, 0.9)';
       this.element.style.color = 'rgba(148, 163, 184, 0.8)';
       this.element.style.borderColor = 'rgba(148, 163, 184, 0.3)';
-      this.element.style.transform = 'scale(1)';
     }
   }
 

@@ -157,12 +157,10 @@ export class StartScreen {
 
     // Hover effect
     this.playButton.addEventListener('mouseenter', () => {
-      this.playButton.style.transform = 'scale(1.05)';
       this.playButton.style.boxShadow = '0 0 20px rgba(0, 255, 136, 0.5)';
     });
 
     this.playButton.addEventListener('mouseleave', () => {
-      this.playButton.style.transform = 'scale(1)';
       this.playButton.style.boxShadow = 'none';
     });
 
