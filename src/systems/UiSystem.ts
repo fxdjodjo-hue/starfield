@@ -48,8 +48,11 @@ export class UiSystem extends System {
    * Imposta l'entità player nei pannelli che ne hanno bisogno
    */
   setPlayerEntityInPanels(playerEntity: any): void {
+    console.log('UiSystem: setPlayerEntityInPanels called with entity:', playerEntity?.id);
     const skillsPanel = this.uiManager.getPanel('skills-panel');
+    console.log('UiSystem: skills panel found:', !!skillsPanel, 'has setPlayerEntity method:', !!(skillsPanel && typeof skillsPanel.setPlayerEntity === 'function'));
     if (skillsPanel && typeof skillsPanel.setPlayerEntity === 'function') {
+      console.log('UiSystem: calling skillsPanel.setPlayerEntity()');
       skillsPanel.setPlayerEntity(playerEntity);
     }
   }
@@ -301,7 +304,9 @@ export class UiSystem extends System {
   update(deltaTime: number): void {
     // Aggiorna pannello skills se visibile
     const skillsPanel = this.uiManager.getPanel('skills-panel') as any;
+    console.log('UiSystem: checking skills panel - exists:', !!skillsPanel, 'has update method:', !!(skillsPanel && skillsPanel.update));
     if (skillsPanel && skillsPanel.update) {
+      console.log('UiSystem: calling skillsPanel.update()');
       skillsPanel.update(deltaTime);
     }
 
