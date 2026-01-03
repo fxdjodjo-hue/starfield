@@ -22,13 +22,15 @@ export class UiSystem extends System {
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
   private ecs: ECS;
+  private context: any = null;
 
-  constructor(ecs: ECS, questSystem: QuestSystem) {
+  constructor(ecs: ECS, questSystem: QuestSystem, context?: any) {
     super(ecs);
     this.ecs = ecs;
+    this.context = context;
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
-    this.chatPanel = new ChatPanel(this.ecs);
+    this.chatPanel = new ChatPanel(this.ecs, this.context);
     this.questSystem = questSystem;
   }
 

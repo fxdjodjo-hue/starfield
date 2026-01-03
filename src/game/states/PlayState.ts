@@ -34,7 +34,7 @@ export class PlayState extends GameState {
     this.questManager = new QuestManager();
     this.questSystem = new QuestSystem(this.world.getECS(), this.questManager);
     // UiSystem riceverà l'EconomySystem dopo l'inizializzazione
-    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem);
+    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, this.context);
 
     // Crea sistema di inizializzazione
     this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem);

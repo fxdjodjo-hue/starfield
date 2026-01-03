@@ -14,9 +14,11 @@ export class ChatPanel {
   private messages: ChatMessage[] = [];
   private maxMessages: number = 50;
   private ecs: ECS | null = null;
+  private context: any = null;
 
-  constructor(ecs?: ECS) {
+  constructor(ecs?: ECS, context?: any) {
     this.ecs = ecs || null;
+    this.context = context || null;
     this.createPanel();
     this.setupEventListeners();
   }
@@ -309,8 +311,8 @@ export class ChatPanel {
       type: 'user'
     });
 
-    // Crea testo fluttuante sopra il giocatore
-    this.createChatTextAbovePlayer(message);
+    // TODO: Riattivare in futuro - Crea testo fluttuante sopra il giocatore
+    // this.createChatTextAbovePlayer(message);
 
     // Svuota l'input
     this.inputElement.value = '';
@@ -363,58 +365,41 @@ export class ChatPanel {
   }
 
   /**
-   * Crea un elemento per un messaggio
+   * Crea un elemento per un messaggio (solo testo semplice)
    */
   private createMessageElement(message: ChatMessage): HTMLElement {
     const messageDiv = document.createElement('div');
-    messageDiv.className = `chat-message chat-message-${message.type}`;
+    messageDiv.className = 'chat-message';
     messageDiv.style.cssText = `
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      background: ${message.type === 'system' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(51, 65, 85, 0.6)'};
-      border: 1px solid ${message.type === 'system' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(148, 163, 184, 0.1)'};
-      max-width: 80%;
-      word-wrap: break-word;
-      align-self: flex-start;
-    `;
-
-    // Header del messaggio
-    const header = document.createElement('div');
-    header.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      font-weight: 600;
-      color: ${message.type === 'system' ? '#3b82f6' : 'rgba(148, 163, 184, 0.8)'};
-    `;
-
-    const sender = document.createElement('span');
-    sender.textContent = message.sender;
-    sender.style.color = message.type === 'system' ? '#3b82f6' : '#10b981';
-
-    const timestamp = document.createElement('span');
-    timestamp.textContent = this.formatTime(message.timestamp);
-    timestamp.style.fontSize = '10px';
-    timestamp.style.opacity = '0.7';
-
-    header.appendChild(sender);
-    header.appendChild(timestamp);
-
-    // Contenuto del messaggio
-    const content = document.createElement('div');
-    content.textContent = message.content;
-    content.style.cssText = `
+      margin-bottom: 2px;
+      padding: 1px 0;
       color: rgba(255, 255, 255, 0.9);
       font-size: 14px;
-      line-height: 1.4;
+      line-height: 1.2;
+      word-wrap: break-word;
     `;
 
-    messageDiv.appendChild(header);
-    messageDiv.appendChild(content);
+    // Nome del giocatore (solo per messaggi utente)
+    if (message.type === 'user') {
+      const playerName = this.context?.playerNickname || 'Player';
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = `${playerName}: `;
+      nameSpan.style.cssText = `
+        color: #10b981;
+        font-weight: 600;
+      `;
+      messageDiv.appendChild(nameSpan);
+    }
+
+    // Testo del messaggio
+    const textSpan = document.createElement('span');
+    textSpan.textContent = message.content;
+    textSpan.style.cssText = `
+      word-wrap: break-word;
+      color: ${message.type === 'system' ? '#3b82f6' : 'rgba(255, 255, 255, 0.9)'};
+    `;
+
+    messageDiv.appendChild(textSpan);
 
     return messageDiv;
   }
