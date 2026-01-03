@@ -12,6 +12,7 @@ import { PlayerUpgrades } from '../../entities/PlayerUpgrades';
  */
 export class SkillsPanel extends BasePanel {
   private ecs: ECS;
+  private tooltipElement: HTMLElement | null = null;
 
   constructor(config: PanelConfig, ecs: ECS) {
     super(config);
@@ -353,7 +354,7 @@ export class SkillsPanel extends BasePanel {
     button.addEventListener('click', (e) => {
       // Se il click è sul bottone di upgrade, non mostrare la spiegazione
       if (!(e.target as HTMLElement).closest('.upgrade-button')) {
-        this.showStatExplanation(statName, upgradeType);
+        this.showStatExplanation(statName, upgradeType, button);
       }
     });
 
@@ -525,6 +526,8 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene nascosto
    */
   protected onHide(): void {
+    // Chiude eventuali tooltip aperti
+    this.hideTooltip();
     // Le statistiche continuano ad aggiornarsi anche quando il pannello è chiuso
   }
 
@@ -608,22 +611,123 @@ export class SkillsPanel extends BasePanel {
   /**
    * Mostra una spiegazione della statistica selezionata
    */
-  private showStatExplanation(statName: string, statType: string): void {
-    let explanation = '';
+  private showStatExplanation(statName: string, statType: string, buttonElement: HTMLElement): void {
+    // Nasconde tooltip esistente se presente
+    this.hideTooltip();
+
+    let title = '';
+    let description = '';
 
     switch (statType) {
       case 'hp':
-        explanation = '💚 PUNTI VITA (HP)\n\n• Rappresentano la salute della tua nave\n• Quando arrivano a 0, la nave viene distrutta\n• Gli upgrade aumentano la resistenza ai danni\n• Più HP = più possibilità di sopravvivenza';
+        title = '💚 PUNTI VITA (HP)';
+        description = 'Rappresentano la salute della tua nave. Quando arrivano a 0, la nave viene distrutta. Gli upgrade aumentano la resistenza ai danni. Più HP = più possibilità di sopravvivenza.';
         break;
       case 'shield':
-        explanation = '🛡️ SCUDO ENERGETICO\n\n• Protegge la nave dai danni prima degli HP\n• Si ricarica automaticamente nel tempo\n• Gli upgrade aumentano la capacità massima\n• Più scudi = migliore protezione iniziale';
+        title = '🛡️ SCUDO ENERGETICO';
+        description = 'Protegge la nave dai danni prima degli HP. Si ricarica automaticamente nel tempo. Gli upgrade aumentano la capacità massima. Più scudi = migliore protezione iniziale.';
         break;
       case 'speed':
-        explanation = '💨 VELOCITÀ DI MOVIMENTO\n\n• Determina quanto velocemente si muove la nave\n• Influenza la manovrabilità in combattimento\n• Gli upgrade migliorano l\'accelerazione\n• Più velocità = migliore controllo in battaglia';
+        title = '💨 VELOCITÀ DI MOVIMENTO';
+        description = 'Determina quanto velocemente si muove la nave. Influenza la manovrabilità in combattimento. Gli upgrade migliorano l\'accelerazione. Più velocità = migliore controllo in battaglia.';
         break;
     }
 
-    alert(explanation);
+    // Crea il tooltip
+    this.tooltipElement = document.createElement('div');
+    this.tooltipElement.className = 'stat-tooltip';
+    this.tooltipElement.style.cssText = `
+      position: absolute;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+      max-width: 300px;
+      font-size: 14px;
+      line-height: 1.5;
+      pointer-events: auto;
+    `;
+
+    // Contenuto del tooltip
+    this.tooltipElement.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+        <h4 style="margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 16px; font-weight: 600;">
+          ${title}
+        </h4>
+        <button class="tooltip-close" style="
+          background: none;
+          border: none;
+          color: rgba(148, 163, 184, 0.7);
+          cursor: pointer;
+          font-size: 18px;
+          padding: 0;
+          line-height: 1;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">×</button>
+      </div>
+      <p style="margin: 0; color: rgba(148, 163, 184, 0.8);">
+        ${description}
+      </p>
+    `;
+
+    // Posiziona il tooltip vicino al pulsante
+    const buttonRect = buttonElement.getBoundingClientRect();
+    const panelRect = this.container!.getBoundingClientRect();
+
+    // Posiziona sopra il pulsante se c'è spazio, altrimenti sotto
+    const spaceAbove = buttonRect.top - panelRect.top;
+    const tooltipHeight = 120; // Altezza approssimativa
+
+    if (spaceAbove > tooltipHeight) {
+      // Posiziona sopra
+      this.tooltipElement.style.top = `${buttonRect.top - panelRect.top - tooltipHeight - 10}px`;
+    } else {
+      // Posiziona sotto
+      this.tooltipElement.style.top = `${buttonRect.bottom - panelRect.top + 10}px`;
+    }
+
+    this.tooltipElement.style.left = `${buttonRect.left - panelRect.left}px`;
+
+    // Aggiunge il tooltip al container
+    this.container!.appendChild(this.tooltipElement);
+
+    // Event listener per chiudere
+    const closeButton = this.tooltipElement.querySelector('.tooltip-close') as HTMLElement;
+    closeButton.addEventListener('click', () => this.hideTooltip());
+
+    // Chiudi automaticamente dopo 8 secondi
+    setTimeout(() => this.hideTooltip(), 8000);
+
+    // Chiudi quando si clicca fuori
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (!this.tooltipElement!.contains(e.target as Node) && !buttonElement.contains(e.target as Node)) {
+        this.hideTooltip();
+        document.removeEventListener('click', handleOutsideClick);
+      }
+    };
+
+    // Aspetta un po' prima di aggiungere l'event listener per evitare che si chiuda immediatamente
+    setTimeout(() => {
+      document.addEventListener('click', handleOutsideClick);
+    }, 10);
+  }
+
+  /**
+   * Nasconde il tooltip se presente
+   */
+  private hideTooltip(): void {
+    if (this.tooltipElement) {
+      this.tooltipElement.remove();
+      this.tooltipElement = null;
+    }
   }
 
   /**
