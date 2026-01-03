@@ -124,7 +124,7 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Verifica se un NPC è stato danneggiato recentemente (negli ultimi 3 secondi)
    */
   /**
-   * Verifica se un NPC è stato danneggiato recentemente (negli ultimi 5 secondi)
+   * Verifica se un NPC è stato danneggiato recentemente (negli ultimi 10 secondi)
    */
   private isNpcDamagedRecently(entityId: number): boolean {
     const entities = this.ecs.getEntitiesWithComponents(DamageTaken);
@@ -135,8 +135,8 @@ export class NpcBehaviorSystem extends BaseSystem {
     const damageTaken = this.ecs.getComponent(entity, DamageTaken);
     if (!damageTaken) return false;
 
-    // Controlla se è stato danneggiato negli ultimi 5 secondi
-    return damageTaken.wasDamagedRecently(Date.now(), 5000); // 5000ms = 5 secondi
+    // Controlla se è stato danneggiato negli ultimi 10 secondi (aumentato da 5)
+    return damageTaken.wasDamagedRecently(Date.now(), 10000); // 10000ms = 10 secondi
   }
 
   /**
