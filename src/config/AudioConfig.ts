@@ -18,14 +18,14 @@ export const AUDIO_CONFIG: AudioConfig = {
 export const AUDIO_ASSETS = {
   // Effetti sonori
   effects: {
-    laser: 'effects/laser.wav',
+    laser: 'effects/laser/laser_red.wav',
     explosion: 'effects/explosion.wav',
     hit: 'effects/hit.wav',
     shieldHit: 'effects/shield_hit.wav',
     collect: 'effects/collect.wav',
     upgrade: 'effects/upgrade.wav',
     damage: 'effects/damage.wav',
-    engine: 'effects/enginesoundeffect.mp3'
+    engine: 'effects/engine/enginesoundeffect.mp3'
   },
 
   // Musica

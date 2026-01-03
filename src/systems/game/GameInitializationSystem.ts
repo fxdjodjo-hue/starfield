@@ -211,6 +211,12 @@ export class GameInitializationSystem extends System {
     playerControlSystem.setCamera(this.movementSystem.getCamera());
     playerControlSystem.setAudioSystem(this.audioSystem);
     minimapSystem.setCamera(this.movementSystem.getCamera());
+
+    // Collega AudioSystem ai sistemi di combattimento
+    const combatSystem = systems.combatSystem;
+    if (combatSystem && typeof combatSystem.setAudioSystem === 'function') {
+      combatSystem.setAudioSystem(this.audioSystem);
+    }
     economySystem.setRankSystem(rankSystem);
     rankSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
     rewardSystem.setEconomySystem(economySystem);

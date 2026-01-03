@@ -27,6 +27,7 @@ export class CombatSystem extends BaseSystem {
   private logSystem: LogSystem | null = null;
   private gameContext: GameContext;
   private playerSystem: PlayerSystem;
+  private audioSystem: any = null;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
@@ -37,6 +38,13 @@ export class CombatSystem extends BaseSystem {
     this.movementSystem = movementSystem;
     this.gameContext = gameContext;
     this.playerSystem = playerSystem;
+  }
+
+  /**
+   * Imposta il sistema audio per i suoni di combattimento
+   */
+  setAudioSystem(audioSystem: any): void {
+    this.audioSystem = audioSystem;
   }
 
   update(deltaTime: number): void {
@@ -109,6 +117,11 @@ export class CombatSystem extends BaseSystem {
     const isPlayer = attackerEntity === this.playerSystem.getPlayerEntity();
 
     if (isPlayer) {
+      // Riproduci suono laser quando il player spara
+      if (this.audioSystem) {
+        this.audioSystem.playSound('laser', 0.4); // Volume moderato per il laser
+      }
+
       // Player: crea due laser laterali
       this.createDualLasers(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     } else {
