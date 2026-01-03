@@ -125,7 +125,6 @@ export class CombatSystem extends BaseSystem {
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
   createDamageText(targetEntity: any, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false): void {
-    console.log('CombatSystem: createDamageText called for entity', targetEntity.id, 'damage:', damage, 'isShield:', isShieldDamage);
     if (damage <= 0) return;
 
     const targetEntityId = targetEntity.id;
