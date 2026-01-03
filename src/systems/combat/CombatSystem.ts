@@ -12,6 +12,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Npc } from '../../entities/ai/Npc';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Sprite } from '../../entities/Sprite';
+import { ProjectilePool } from './ProjectilePool';
 import { MovementSystem } from '../physics/MovementSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
@@ -29,11 +30,13 @@ export class CombatSystem extends BaseSystem {
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
+  private projectilePool: ProjectilePool;
 
   constructor(ecs: ECS, movementSystem: MovementSystem, gameContext: GameContext) {
     super(ecs);
     this.movementSystem = movementSystem;
     this.gameContext = gameContext;
+    this.projectilePool = new ProjectilePool(ecs, 100); // Pool iniziale di 100 proiettili
   }
 
   update(deltaTime: number): void {
@@ -106,16 +109,26 @@ export class CombatSystem extends BaseSystem {
     const projectileX = attackerTransform.x + directionX * 25; // 25 pixel avanti (dimensione nave)
     const projectileY = attackerTransform.y + directionY * 25;
 
-    // Crea l'entità proiettile
-    const projectileEntity = this.ecs.createEntity();
+    // Ottieni un proiettile dal pool invece di crearne uno nuovo
+    const projectileEntity = this.projectilePool.getProjectile(
+      attackerDamage.damage,
+      400, // speed
+      directionX,
+      directionY,
+      attackerEntity.id,
+      targetEntity.id,
+      3000 // lifetime
+    );
 
-    // Aggiungi componenti al proiettile
-    const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
-    const projectile = new Projectile(attackerDamage.damage, 400, directionX, directionY, attackerEntity.id, targetEntity.id, 3000);
-
-
-    this.ecs.addComponent(projectileEntity, Transform, projectileTransform);
-    this.ecs.addComponent(projectileEntity, Projectile, projectile);
+    // Imposta la posizione iniziale del proiettile
+    const projectileTransform = this.ecs.getComponent(projectileEntity, Transform);
+    if (projectileTransform) {
+      projectileTransform.x = projectileX;
+      projectileTransform.y = projectileY;
+      projectileTransform.rotation = 0;
+      projectileTransform.scaleX = 1;
+      projectileTransform.scaleY = 1;
+    }
 
     // Registra l'attacco per il cooldown
     attackerDamage.performAttack(this.lastUpdateTime);
@@ -445,5 +458,12 @@ export class CombatSystem extends BaseSystem {
         this.activeDamageTexts.delete(targetEntityId);
       }
     }
+  }
+
+  /**
+   * Restituisce un proiettile al pool per il riuso
+   */
+  returnProjectileToPool(projectileEntity: any): void {
+    this.projectilePool.returnProjectile(projectileEntity);
   }
 }

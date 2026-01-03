@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Health } from '../../entities/combat/Health';
+import { ProjectilePool } from './ProjectilePool';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
@@ -12,9 +13,17 @@ import { DamageTaken } from '../../entities/combat/DamageTaken';
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
  */
 export class ProjectileSystem extends BaseSystem {
+  private returnProjectileCallback?: (projectileEntity: any) => void;
 
   constructor(ecs: ECS) {
     super(ecs);
+  }
+
+  /**
+   * Imposta il callback per restituire proiettili al pool
+   */
+  setProjectileReturnCallback(callback: (projectileEntity: any) => void): void {
+    this.returnProjectileCallback = callback;
   }
 
   update(deltaTime: number): void {
@@ -43,13 +52,13 @@ export class ProjectileSystem extends BaseSystem {
           const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
 
           if (isDead) {
-            this.ecs.removeEntity(projectileEntity);
+            this.returnProjectileToPool(projectileEntity);
             continue;
           }
         }
       } else {
         // Il bersaglio non esiste più (rimosso dal gioco)
-        this.ecs.removeEntity(projectileEntity);
+        this.returnProjectileToPool(projectileEntity);
         continue;
       }
 
@@ -68,9 +77,9 @@ export class ProjectileSystem extends BaseSystem {
       // Controlla collisioni con bersagli
       this.checkCollisions(projectileEntity, transform, projectile);
 
-      // Rimuovi proiettili scaduti
+      // Restituisci proiettili scaduti al pool
       if (projectile.lifetime <= 0) {
-        this.ecs.removeEntity(projectileEntity);
+        this.returnProjectileToPool(projectileEntity);
       }
     }
   }
@@ -153,8 +162,8 @@ export class ProjectileSystem extends BaseSystem {
         this.notifyCombatSystemOfDamage(targetEntity, damageDealt);
 
 
-        // Rimuovi il proiettile dopo l'impatto
-        this.ecs.removeEntity(projectileEntity);
+        // Restituisci il proiettile al pool dopo l'impatto
+        this.returnProjectileToPool(projectileEntity);
         return; // Un proiettile colpisce solo un bersaglio
       }
     }
@@ -222,6 +231,18 @@ export class ProjectileSystem extends BaseSystem {
     // Poi applica il danno rimanente all'HP
     if (damageToHp > 0) {
       targetHealth.takeDamage(damageToHp);
+    }
+  }
+
+  /**
+   * Restituisce un proiettile al pool per il riuso
+   */
+  private returnProjectileToPool(projectileEntity: any): void {
+    if (this.returnProjectileCallback) {
+      this.returnProjectileCallback(projectileEntity);
+    } else {
+      // Fallback: rimuovi l'entità se non c'è il callback
+      this.ecs.removeEntity(projectileEntity);
     }
   }
 

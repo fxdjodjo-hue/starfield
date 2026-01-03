@@ -327,7 +327,7 @@ export class RenderSystem extends BaseSystem {
 
       if (isNpcProjectile && this.scouterProjectileImage && this.scouterProjectileImage.complete) {
         // Renderizza proiettile scouter come immagine
-        const imageSize = 16; // Dimensione del proiettile (ingrandito)
+        const imageSize = 36; // Dimensione del proiettile (ingrandito)
         ctx.drawImage(
           this.scouterProjectileImage,
           screenPos.x - imageSize / 2,
