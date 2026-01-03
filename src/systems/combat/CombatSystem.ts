@@ -366,8 +366,8 @@ export class CombatSystem extends BaseSystem {
       this.ecs.removeComponent(entity, Npc);
       this.ecs.removeComponent(entity, Velocity); // Rimuovi velocità così l'esplosione rimane ferma
 
-      // Aggiungi il componente esplosione
-      const explosion = new Explosion(this.explosionFrames, 80); // 80ms per frame
+      // Aggiungi il componente esplosione (singola immagine per 1 secondo)
+      const explosion = new Explosion(this.explosionFrames, 1000, true); // 1000ms durata, isSingleImage=true
       this.ecs.addComponent(entity, Explosion, explosion);
 
     } catch (error) {
@@ -381,17 +381,9 @@ export class CombatSystem extends BaseSystem {
    * Carica tutti i frame dell'animazione dell'esplosione
    */
   private async loadExplosionFrames(): Promise<HTMLImageElement[]> {
-    const frames: HTMLImageElement[] = [];
-    const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
-
-    // Carica i 10 frame dell'esplosione
-    for (let i = 1; i <= 10; i++) {
-      const framePath = `${basePath}${i}.png`;
-      const frame = await this.gameContext.assetManager.loadImage(framePath);
-      frames.push(frame);
-    }
-
-    return frames;
+    // Carica la singola immagine di esplosione realistica
+    const explosionImage = await this.gameContext.assetManager.loadImage('/assets/explosions/explosions_npc/realistic_explosion.png');
+    return [explosionImage]; // Ritorna un array con una sola immagine
   }
 
   /**

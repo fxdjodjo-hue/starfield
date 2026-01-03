@@ -435,9 +435,9 @@ export class RenderSystem extends BaseSystem {
     if (currentFrame && currentFrame.complete && currentFrame.naturalWidth > 0) {
       ctx.save();
 
-      // Centra l'esplosione rispetto alla posizione dell'entità - dimensioni più grandi
-      const explosionWidth = currentFrame.width * 0.8; // Scala l'esplosione al 80%
-      const explosionHeight = currentFrame.height * 0.8;
+      // Centra l'esplosione rispetto alla posizione dell'entità
+      const explosionWidth = currentFrame.width * 1.0; // Scala al 100% per immagine realistica
+      const explosionHeight = currentFrame.height * 1.0;
 
       ctx.drawImage(
         currentFrame,

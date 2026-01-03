@@ -2,22 +2,29 @@ import { Component } from '/src/infrastructure/ecs/Component';
 
 /**
  * Componente esplosione - gestisce l'animazione dell'esplosione quando un'entità muore
- * L'esplosione è composta da più frame che vengono mostrati in sequenza
+ * Supporta sia animazioni a frame multipli che immagini singole
  */
 export class Explosion extends Component {
   public frames: HTMLImageElement[];
   public currentFrame: number;
   public frameTime: number;
-  public frameDuration: number; // millisecondi per frame
+  public frameDuration: number; // millisecondi per frame (o durata totale per immagine singola)
   public isFinished: boolean;
+  public isSingleImage: boolean; // true se è una singola immagine, false per animazione
 
-  constructor(frames: HTMLImageElement[], frameDuration: number = 100) {
+  constructor(frames: HTMLImageElement[], frameDuration: number = 1000, isSingleImage: boolean = false) {
     super();
     this.frames = frames;
     this.currentFrame = 0;
     this.frameTime = 0;
     this.frameDuration = frameDuration;
     this.isFinished = false;
+    this.isSingleImage = isSingleImage;
+
+    // Per immagini singole, finisce automaticamente dopo la durata
+    if (isSingleImage) {
+      this.isFinished = false; // inizia non finito, finisce dopo frameDuration
+    }
   }
 
   /**
@@ -28,14 +35,21 @@ export class Explosion extends Component {
 
     this.frameTime += deltaTime;
 
-    // Passa al frame successivo se è passato abbastanza tempo
-    if (this.frameTime >= this.frameDuration) {
-      this.currentFrame++;
-      this.frameTime = 0;
-
-      // Controlla se l'animazione è finita
-      if (this.currentFrame >= this.frames.length) {
+    if (this.isSingleImage) {
+      // Per immagini singole, aspetta la durata totale poi finisce
+      if (this.frameTime >= this.frameDuration) {
         this.isFinished = true;
+      }
+    } else {
+      // Per animazioni multi-frame, passa al frame successivo
+      if (this.frameTime >= this.frameDuration) {
+        this.currentFrame++;
+        this.frameTime = 0;
+
+        // Controlla se l'animazione è finita
+        if (this.currentFrame >= this.frames.length) {
+          this.isFinished = true;
+        }
       }
     }
   }
@@ -44,10 +58,10 @@ export class Explosion extends Component {
    * Ottiene il frame corrente dell'animazione
    */
   getCurrentFrame(): HTMLImageElement | null {
-    if (this.currentFrame >= this.frames.length) {
+    if (this.isFinished && !this.isSingleImage) {
       return null;
     }
-    return this.frames[this.currentFrame];
+    return this.frames[Math.min(this.currentFrame, this.frames.length - 1)];
   }
 
   /**
