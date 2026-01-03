@@ -128,7 +128,7 @@ export class PlayState extends GameState {
    * Configura il listener per l'apertura del pannello quest
    */
   private setupQuestPanelListener(): void {
-    // Intercetta quando il pannello quest viene aperto per accettare automaticamente le quest
+    // Intercetta quando il pannello quest viene aperto per aggiornare i dati
     const questPanel = this.uiManager.getPanel('quest-panel') as QuestPanel;
     if (questPanel) {
       // Sovrascrivi il metodo show del pannello per aggiungere logica personalizzata
@@ -137,33 +137,33 @@ export class PlayState extends GameState {
         // Prima mostra il pannello
         originalShow();
 
-        // Poi accetta automaticamente le quest disponibili
-        this.autoAcceptAvailableQuests();
-
-        // Aggiorna l'UI per riflettere le nuove quest accettate
+        // Aggiorna l'UI con i dati attuali delle quest
         setTimeout(() => this.updateUIPanels(), 100);
       };
     }
+
+    // Listener per l'accettazione manuale delle quest
+    document.addEventListener('questAccept', (event: any) => {
+      const { questId } = event.detail;
+      this.handleQuestAcceptance(questId);
+    });
   }
 
   /**
-   * Accetta automaticamente tutte le quest disponibili
+   * Gestisce l'accettazione manuale di una quest
    */
-  private autoAcceptAvailableQuests(): void {
+  private handleQuestAcceptance(questId: string): void {
     if (!this.questManager || !this.playerEntity) return;
 
     const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
     if (!activeQuest) return;
 
-    // Trova le quest disponibili
-    const availableQuestIds = ['kill_scouter_1']; // Per ora hardcoded, poi dinamico
-
-    for (const questId of availableQuestIds) {
-      if (this.questManager.isQuestAvailable(questId)) {
-        const accepted = this.questManager.acceptQuest(questId, activeQuest);
-        if (accepted) {
-          console.log(`Quest "${questId}" accettata automaticamente!`);
-        }
+    if (this.questManager.isQuestAvailable(questId)) {
+      const accepted = this.questManager.acceptQuest(questId, activeQuest);
+      if (accepted) {
+        console.log(`Quest "${questId}" accettata dal giocatore!`);
+        // Aggiorna immediatamente l'UI
+        this.updateUIPanels();
       }
     }
   }

@@ -166,9 +166,9 @@ export class QuestPanel extends BasePanel {
     `;
 
     // Sezione quest attive (inizialmente vuote, verranno popolate da update())
-    const activeSection = this.createQuestSection('🎯 Quest Attive', 'active-quests', []);
-    const completedSection = this.createQuestSection('✅ Quest Completate', 'completed-quests', []);
-    const availableSection = this.createQuestSection('📋 Quest Disponibili', 'available-quests', []);
+    const activeSection = this.createQuestSection('🎯 Quest Attive', 'active-quests', [], 'active');
+    const completedSection = this.createQuestSection('✅ Quest Completate', 'completed-quests', [], 'completed');
+    const availableSection = this.createQuestSection('📋 Quest Disponibili', 'available-quests', [], 'available');
 
     questContainer.appendChild(activeSection);
     questContainer.appendChild(completedSection);
@@ -182,7 +182,7 @@ export class QuestPanel extends BasePanel {
   /**
    * Crea una sezione per un tipo di quest
    */
-  private createQuestSection(title: string, containerId: string, quests: Quest[]): HTMLElement {
+  private createQuestSection(title: string, containerId: string, quests: Quest[], sectionType: 'active' | 'completed' | 'available' = 'active'): HTMLElement {
     const section = document.createElement('div');
     section.className = 'quest-section';
     section.style.cssText = `
@@ -242,7 +242,7 @@ export class QuestPanel extends BasePanel {
   /**
    * Crea una card per una singola quest
    */
-  private createQuestCard(quest: Quest): HTMLElement {
+  private createQuestCard(quest: Quest, sectionType: 'active' | 'completed' | 'available' = 'active'): HTMLElement {
     const card = document.createElement('div');
     card.className = 'quest-card';
     card.style.cssText = `
@@ -332,6 +332,48 @@ export class QuestPanel extends BasePanel {
     card.appendChild(questHeader);
     card.appendChild(questDescription);
 
+    // Aggiungi pulsanti di azione basati sul tipo di sezione
+    if (sectionType === 'available') {
+      const actionContainer = document.createElement('div');
+      actionContainer.style.cssText = `
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 8px;
+      `;
+
+      const acceptButton = document.createElement('button');
+      acceptButton.textContent = 'Accetta Quest';
+      acceptButton.style.cssText = `
+        background: linear-gradient(135deg, #10b981, #059669);
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      `;
+
+      acceptButton.addEventListener('mouseenter', () => {
+        acceptButton.style.background = 'linear-gradient(135deg, #059669, #047857)';
+        acceptButton.style.transform = 'translateY(-1px)';
+      });
+
+      acceptButton.addEventListener('mouseleave', () => {
+        acceptButton.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+        acceptButton.style.transform = 'translateY(0)';
+      });
+
+      acceptButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.onQuestAccept(quest.id);
+      });
+
+      actionContainer.appendChild(acceptButton);
+      card.appendChild(actionContainer);
+    }
+
     return card;
   }
 
@@ -416,13 +458,13 @@ export class QuestPanel extends BasePanel {
         font-size: 14px;
       `;
       container.appendChild(emptyMessage);
-    } else {
-      // Aggiungi ogni quest come card
-      quests.forEach(quest => {
-        const questCard = this.createQuestCard(quest);
-        container.appendChild(questCard);
-      });
-    }
+      } else {
+        // Aggiungi ogni quest come card
+        quests.forEach(quest => {
+          const questCard = this.createQuestCard(quest, sectionType);
+          container.appendChild(questCard);
+        });
+      }
   }
 
   /**
@@ -447,5 +489,16 @@ export class QuestPanel extends BasePanel {
    */
   protected onHide(): void {
     // Potrebbe servire per salvare stato o cleanup
+  }
+
+  /**
+   * Gestisce l'accettazione di una quest
+   */
+  private onQuestAccept(questId: string): void {
+    // Questo metodo sarà sovrascritto dal PlayState per gestire l'accettazione
+    console.log(`Quest acceptance requested: ${questId}`);
+    // Trigger custom event per notificare il PlayState
+    const event = new CustomEvent('questAccept', { detail: { questId } });
+    document.dispatchEvent(event);
   }
 }
