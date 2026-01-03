@@ -291,7 +291,13 @@ export class UiSystem extends System {
   update(deltaTime: number): void {
     // Aggiorna pannello skills se visibile
     const skillsPanel = this.uiManager.getPanel('skills-panel') as any;
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UiSystem.ts:295',message:'UiSystem checking Skills panel',data:{skillsPanelExists:!!skillsPanel,hasUpdateMethod:!!(skillsPanel && skillsPanel.update)},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-b',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     if (skillsPanel && skillsPanel.update) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'UiSystem.ts:299',message:'UiSystem calling Skills panel update',data:{deltaTime},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-b',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       skillsPanel.update(deltaTime);
     }
 

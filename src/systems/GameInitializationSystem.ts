@@ -282,8 +282,14 @@ export class GameInitializationSystem extends System {
 
     // Imposta l'entità player anche nel pannello Skills
     const skillsPanel = uiSystem.uiManager.getPanel('skills-panel');
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameInitializationSystem.ts:285',message:'Setting player entity on Skills panel',data:{skillsPanelExists:!!skillsPanel,hasSetPlayerEntity:!!(skillsPanel && typeof skillsPanel.setPlayerEntity === 'function')},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-a',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (skillsPanel && typeof skillsPanel.setPlayerEntity === 'function') {
       skillsPanel.setPlayerEntity(playerEntity);
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/4d17be79-430d-4253-98a7-4f0ae1646278',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'GameInitializationSystem.ts:289',message:'Skills panel setPlayerEntity called successfully',data:{playerEntityId:playerEntity?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'hypothesis-a',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
     }
   }
 
