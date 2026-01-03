@@ -308,7 +308,7 @@ export class GameInitializationSystem extends System {
     const cosmos = new Cosmos(playerDef.startingResources.cosmos);
     const experience = new Experience(playerDef.startingResources.experience, playerDef.startingResources.level);
     const honor = new Honor(playerDef.startingResources.honor);
-    const skillPoints = new SkillPoints(playerDef.startingResources.skillPoints);
+    const skillPoints = new SkillPoints(playerDef.startingResources.skillPoints, playerDef.startingResources.skillPoints);
     const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
     const activeQuest = new ActiveQuest(); // Sistema quest
     const shipSprite = new Sprite(sprite, sprite.width * 0.2, sprite.height * 0.2);

@@ -45,7 +45,7 @@ export const PLAYER_DEFINITION: PlayerDefinition = {
     level: 1,
     experience: 0,
     honor: 0,
-    skillPoints: 0
+    skillPoints: 10
   },
   description: 'La nave controllata dal giocatore'
 };
