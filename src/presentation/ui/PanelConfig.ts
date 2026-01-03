@@ -27,6 +27,14 @@ export const PANEL_CONFIGS = {
     title: 'Missioni & Quest',
     position: 'center-left-below' as const,
     size: { width: 1300, height: 750 }
+  },
+
+  skills: {
+    id: 'skills-panel',
+    icon: '💎',
+    title: 'Punti Abilità',
+    position: 'top-right' as const,
+    size: { width: 1200, height: 700 }
   }
 } as const;
 

@@ -4,6 +4,7 @@ import { UIManager } from '../presentation/ui/UIManager';
 import { PlayerHUD } from '../presentation/ui/PlayerHUD';
 import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
 import { QuestPanel } from '../presentation/ui/QuestPanel';
+import { SkillsPanel } from '../presentation/ui/SkillsPanel';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
 import { QuestSystem } from './QuestSystem';
 
@@ -54,6 +55,11 @@ export class UiSystem extends System {
     const questConfig = getPanelConfig('quest');
     const questPanel = new QuestPanel(questConfig);
     this.uiManager.registerPanel(questPanel);
+
+    // Crea e registra il pannello delle abilità
+    const skillsConfig = getPanelConfig('skills');
+    const skillsPanel = new SkillsPanel(skillsConfig);
+    this.uiManager.registerPanel(skillsPanel);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);

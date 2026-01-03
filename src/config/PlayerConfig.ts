@@ -32,7 +32,7 @@ export interface PlayerDefinition {
 export const PLAYER_DEFINITION: PlayerDefinition = {
   stats: {
     health: 100000,
-    shield: 50000, // Scudi protettivi per il giocatore
+    shield: 50000, 
     damage: 500,
     range: 300,
     cooldown: 1000,
