@@ -52,16 +52,13 @@ export interface QuestReward {
  * Implementa l'interfaccia BasePanel per l'integrazione nel sistema UI
  */
 export class QuestPanel extends BasePanel {
-  private questData: QuestData;
+  private questData: QuestData = {
+    activeQuests: [],
+    completedQuests: [],
+    availableQuests: []
+  };
 
   constructor(config: PanelConfig) {
-    // Inizializza i dati prima di chiamare super() per evitare errori
-    this.questData = {
-      activeQuests: [],
-      completedQuests: [],
-      availableQuests: []
-    };
-
     super(config);
   }
 
@@ -167,10 +164,10 @@ export class QuestPanel extends BasePanel {
       gap: 16px;
     `;
 
-    // Sezione quest attive
-    const activeSection = this.createQuestSection('🎯 Quest Attive', 'active-quests', this.questData.activeQuests);
-    const completedSection = this.createQuestSection('✅ Quest Completate', 'completed-quests', this.questData.completedQuests);
-    const availableSection = this.createQuestSection('📋 Quest Disponibili', 'available-quests', this.questData.availableQuests);
+    // Sezione quest attive (inizialmente vuote, verranno popolate da update())
+    const activeSection = this.createQuestSection('🎯 Quest Attive', 'active-quests', []);
+    const completedSection = this.createQuestSection('✅ Quest Completate', 'completed-quests', []);
+    const availableSection = this.createQuestSection('📋 Quest Disponibili', 'available-quests', []);
 
     questContainer.appendChild(activeSection);
     questContainer.appendChild(completedSection);
