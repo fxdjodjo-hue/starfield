@@ -1,4 +1,5 @@
-import { BasePanel, PanelConfig, PanelData } from './UIManager';
+import { BasePanel } from './UIManager';
+import type { PanelConfig, PanelData } from './UIManager';
 
 /**
  * Dati per il pannello delle quest
@@ -51,13 +52,16 @@ export interface QuestReward {
  * Implementa l'interfaccia BasePanel per l'integrazione nel sistema UI
  */
 export class QuestPanel extends BasePanel {
-  private questData: QuestData = {
-    activeQuests: [],
-    completedQuests: [],
-    availableQuests: []
-  };
+  private questData: QuestData;
 
   constructor(config: PanelConfig) {
+    // Inizializza i dati prima di chiamare super() per evitare errori
+    this.questData = {
+      activeQuests: [],
+      completedQuests: [],
+      availableQuests: []
+    };
+
     super(config);
   }
 
