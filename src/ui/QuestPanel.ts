@@ -243,7 +243,6 @@ export class QuestPanel extends BasePanel {
    * Crea una card per una singola quest
    */
   private createQuestCard(quest: Quest, sectionType: 'active' | 'completed' | 'available' = 'active'): HTMLElement {
-    console.log(`📄 QuestPanel: Creating quest card for "${quest.title}" in section: ${sectionType}`);
     const card = document.createElement('div');
     card.className = 'quest-card';
     card.style.cssText = `
@@ -354,6 +353,8 @@ export class QuestPanel extends BasePanel {
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
+        position: relative;
+        z-index: 10;
       `;
 
       acceptButton.addEventListener('mouseenter', () => {
@@ -368,11 +369,9 @@ export class QuestPanel extends BasePanel {
 
       acceptButton.addEventListener('click', (e) => {
         e.stopPropagation();
-        console.log(`🖱️ QuestPanel: Accept button clicked for quest: ${quest.id}`);
         this.onQuestAccept(quest.id);
       });
 
-      console.log(`🎨 QuestPanel: Created accept button for quest: ${quest.id}`);
       actionContainer.appendChild(acceptButton);
       card.appendChild(actionContainer);
     }
@@ -419,6 +418,17 @@ export class QuestPanel extends BasePanel {
     const questData = data as QuestData;
     if (!questData) return;
 
+    // Controlla se i dati sono effettivamente cambiati per evitare ri-rendering inutili
+    const hasChanged =
+      this.questData.activeQuests.length !== questData.activeQuests.length ||
+      this.questData.completedQuests.length !== questData.completedQuests.length ||
+      this.questData.availableQuests.length !== questData.availableQuests.length ||
+      JSON.stringify(this.questData.activeQuests) !== JSON.stringify(questData.activeQuests) ||
+      JSON.stringify(this.questData.completedQuests) !== JSON.stringify(questData.completedQuests) ||
+      JSON.stringify(this.questData.availableQuests) !== JSON.stringify(questData.availableQuests);
+
+    if (!hasChanged) return;
+
     // Aggiorna i dati interni
     Object.assign(this.questData, questData);
 
@@ -437,7 +447,6 @@ export class QuestPanel extends BasePanel {
     this.updateQuestList('completed-quests', this.questData.completedQuests);
 
     // Aggiorna quest disponibili
-    console.log(`🔄 QuestPanel: Updating available quests list with ${this.questData.availableQuests.length} quests`);
     this.updateQuestList('available-quests', this.questData.availableQuests);
   }
 
@@ -512,10 +521,8 @@ export class QuestPanel extends BasePanel {
    * Gestisce l'accettazione di una quest
    */
   private onQuestAccept(questId: string): void {
-    console.log(`🎯 QuestPanel: Player clicked accept for quest: ${questId}`);
     // Trigger custom event per notificare il PlayState
     const event = new CustomEvent('questAccept', { detail: { questId } });
     document.dispatchEvent(event);
-    console.log(`📤 QuestPanel: Dispatched questAccept event with questId: ${questId}`);
   }
 }
