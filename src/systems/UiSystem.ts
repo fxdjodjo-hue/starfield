@@ -60,8 +60,11 @@ export class UiSystem extends System {
 
     // Crea e registra il pannello delle skills
     const skillsConfig = getPanelConfig('skills');
+    console.log('UiSystem: creating skills panel with config:', skillsConfig);
     const skillsPanel = new SkillsPanel(skillsConfig, this.ecs);
+    console.log('UiSystem: skills panel created, has update method:', typeof skillsPanel.update === 'function');
     this.uiManager.registerPanel(skillsPanel);
+    console.log('UiSystem: skills panel registered');
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
@@ -299,7 +302,9 @@ export class UiSystem extends System {
   private updatePanels(deltaTime: number): void {
     // Aggiorna pannello Skills se visibile
     const skillsPanel = this.uiManager.getPanel('skills-panel');
+    console.log('UiSystem: skillsPanel found:', !!skillsPanel, 'has update method:', skillsPanel && typeof skillsPanel.update === 'function');
     if (skillsPanel && typeof skillsPanel.update === 'function') {
+      console.log('UiSystem: calling skillsPanel.update()');
       skillsPanel.update(deltaTime);
     }
 
