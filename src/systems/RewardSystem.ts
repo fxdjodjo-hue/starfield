@@ -8,6 +8,7 @@ import { getNpcDefinition } from '../config/NpcConfig';
 import { LogSystem } from './rendering/LogSystem';
 import { NpcRespawnSystem } from './NpcRespawnSystem';
 import { QuestTrackingSystem } from './QuestTrackingSystem';
+import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { Component } from '../infrastructure/ecs/Component';
 
 /**
@@ -113,7 +114,7 @@ export class RewardSystem extends BaseSystem {
 
     // Notifica il sistema quest per aggiornare il progresso
     if (this.questTrackingSystem && this.playerEntity) {
-      const activeQuest = this.ecs.getComponent(this.playerEntity, require('../entities/quest/ActiveQuest').ActiveQuest);
+      const activeQuest = this.ecs.getComponent(this.playerEntity, ActiveQuest);
       if (activeQuest) {
         this.questTrackingSystem.onNpcKilled(npc.npcType, activeQuest);
       }

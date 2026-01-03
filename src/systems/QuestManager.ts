@@ -88,10 +88,23 @@ export class QuestManager {
    * Ottiene i dati per l'UI del pannello quest
    */
   getQuestData(activeQuestComponent: ActiveQuest): QuestData {
+    // Converte le istanze della classe Quest nel formato interfaccia per l'UI
+    const convertQuestToInterface = (quest: Quest) => ({
+      id: quest.id,
+      title: quest.title,
+      description: quest.description,
+      type: quest.type,
+      objectives: quest.objectives,
+      rewards: quest.rewards,
+      progress: quest.getProgress(),
+      isCompleted: quest.isCompleted,
+      isActive: quest.isActive
+    });
+
     return {
-      activeQuests: activeQuestComponent.getActiveQuests(),
-      completedQuests: this.completedQuests,
-      availableQuests: this.availableQuests
+      activeQuests: activeQuestComponent.getActiveQuests().map(convertQuestToInterface),
+      completedQuests: this.completedQuests.map(convertQuestToInterface),
+      availableQuests: this.availableQuests.map(convertQuestToInterface)
     };
   }
 
