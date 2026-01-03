@@ -17,922 +17,215 @@ import { ParallaxSystem } from '/src/systems/rendering/ParallaxSystem';
 import { EconomySystem } from '/src/systems/EconomySystem';
 import { RankSystem } from '/src/systems/RankSystem';
 import { RewardSystem } from '/src/systems/RewardSystem';
-import { QuestManager } from '/src/systems/QuestManager';
 import { QuestTrackingSystem } from '/src/systems/QuestTrackingSystem';
 import { BoundsSystem } from '/src/systems/BoundsSystem';
 import { NpcRespawnSystem } from '/src/systems/NpcRespawnSystem';
-import { PlayerHUD } from '/src/ui/PlayerHUD';
-import type { PlayerHUDData } from '/src/ui/PlayerHUD';
-import { UIManager } from '/src/ui/UIManager';
-import { PlayerStatsPanel } from '/src/ui/PlayerStatsPanel';
-import { QuestPanel } from '/src/ui/QuestPanel';
-import type { PanelData } from '/src/ui/UIManager';
-import { getPanelConfig } from '/src/ui/PanelConfig';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Velocity } from '/src/entities/spatial/Velocity';
-import { Npc } from '/src/entities/ai/Npc';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
-import { Health } from '/src/entities/combat/Health';
-import { Shield } from '/src/entities/combat/Shield';
-import { Damage } from '/src/entities/combat/Damage';
-import { Credits, Cosmos } from '/src/entities/Currency';
-import { Experience } from '/src/entities/Experience';
-import { Sprite } from '/src/entities/Sprite';
-import { Honor } from '/src/entities/Honor';
-import { PlayerStats } from '/src/entities/PlayerStats';
-import { ActiveQuest } from '/src/entities/quest/ActiveQuest';
-import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
-import { CONFIG } from '/src/utils/config/Config';
-import { getNpcDefinition } from '/src/config/NpcConfig';
+import { PlayerSystem } from '/src/systems/PlayerSystem';
+import { QuestSystem } from '/src/systems/QuestSystem';
+import { UiSystem } from '/src/systems/UiSystem';
+import { NpcSystem } from '/src/systems/NpcSystem';
+import { QuestManager } from '/src/systems/QuestManager';
 
 /**
- * Stato del gameplay attivo
- * Gestisce il mondo di gioco, ECS e tutti i sistemi di gameplay
+ * Stato del gameplay attivo - Pura orchestrazione
+ * Coordina sistemi senza contenere logica di business
+ * Segue Dependency Inversion: delega tutto ai Systems Layer
  */
 export class PlayState extends GameState {
   private world: World;
-  private playerHUD: PlayerHUD;
-  private uiManager: UIManager;
-  private startTime: number = Date.now();
-  private expandedHudElement: HTMLElement | null = null;
   private context: GameContext;
-  private playerEntity: any = null;
-  private hudExpanded: boolean = false;
-  private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
-  private economySystem: any = null;
-  private logSystem: LogSystem | null = null;
-  private questManager: QuestManager | null = null;
-  private questTrackingSystem: QuestTrackingSystem | null = null;
-  private playerNicknameElement: HTMLElement | null = null;
+
+  // Sistemi dedicati (Plugin Architecture)
+  private playerSystem: PlayerSystem;
+  private questSystem: QuestSystem;
+  private uiSystem: UiSystem;
+  private npcSystem: NpcSystem;
+  private movementSystem: MovementSystem;
+  private renderSystem: RenderSystem;
+  private inputSystem: InputSystem;
+  private playerControlSystem: PlayerControlSystem;
+  private npcBehaviorSystem: NpcBehaviorSystem;
+  private npcSelectionSystem: NpcSelectionSystem;
+  private combatSystem: CombatSystem;
+  private explosionSystem: ExplosionSystem;
+  private projectileSystem: ProjectileSystem;
+  private damageTextSystem: DamageTextSystem;
+  private minimapSystem: MinimapSystem;
+  private logSystem: LogSystem;
+  private parallaxSystem: ParallaxSystem;
+  private economySystem: EconomySystem;
+  private rankSystem: RankSystem;
+  private rewardSystem: RewardSystem;
+  private questTrackingSystem: QuestTrackingSystem;
+  private boundsSystem: BoundsSystem;
+  private npcRespawnSystem: NpcRespawnSystem;
 
   constructor(context: GameContext) {
     super();
     this.context = context;
-    // Crea il mondo di gioco
     this.world = new World(context.canvas);
-
-    // Crea l'HUD del giocatore (separazione presentazione/logica)
-    this.playerHUD = new PlayerHUD();
-    this.uiManager = new UIManager();
+    this.initializeSystems();
   }
 
   /**
-   * Avvia il gameplay
+   * Inizializza sistemi - Plugin Architecture
+   */
+  private initializeSystems(): void {
+    const ecs = this.world.getECS();
+    const questManager = new QuestManager();
+
+    // Inizializza tutti i sistemi
+    this.questSystem = new QuestSystem(ecs, questManager);
+    this.uiSystem = new UiSystem(ecs, this.questSystem);
+    this.playerSystem = new PlayerSystem(ecs);
+    this.npcSystem = new NpcSystem(ecs);
+    this.movementSystem = new MovementSystem(ecs, this.world.getCamera());
+    this.renderSystem = new RenderSystem(ecs, this.movementSystem);
+    this.inputSystem = new InputSystem();
+    this.playerControlSystem = new PlayerControlSystem(ecs, this.inputSystem);
+    this.npcBehaviorSystem = new NpcBehaviorSystem(ecs);
+    this.npcSelectionSystem = new NpcSelectionSystem(ecs, this.inputSystem);
+    this.combatSystem = new CombatSystem(ecs);
+    this.explosionSystem = new ExplosionSystem(ecs);
+    this.projectileSystem = new ProjectileSystem(ecs);
+    this.damageTextSystem = new DamageTextSystem(ecs);
+    this.minimapSystem = new MinimapSystem(ecs, this.world.getCamera());
+    this.logSystem = new LogSystem(ecs);
+    this.parallaxSystem = new ParallaxSystem(ecs);
+    this.economySystem = new EconomySystem(ecs);
+    this.rankSystem = new RankSystem(ecs);
+    this.rewardSystem = new RewardSystem(ecs);
+    this.questTrackingSystem = new QuestTrackingSystem(ecs, questManager);
+    this.boundsSystem = new BoundsSystem(ecs, this.world.getCamera());
+    this.npcRespawnSystem = new NpcRespawnSystem(ecs);
+
+    this.registerSystems();
+  }
+
+  /**
+   * Registra sistemi nel mondo
+   */
+  private registerSystems(): void {
+    const systems = [
+      this.movementSystem, this.renderSystem, this.inputSystem, this.playerControlSystem,
+      this.npcBehaviorSystem, this.npcSelectionSystem, this.combatSystem, this.explosionSystem,
+      this.projectileSystem, this.damageTextSystem, this.minimapSystem, this.logSystem,
+      this.parallaxSystem, this.economySystem, this.rankSystem, this.rewardSystem,
+      this.questSystem, this.questTrackingSystem, this.boundsSystem, this.npcRespawnSystem,
+      this.uiSystem, this.playerSystem, this.npcSystem
+    ];
+    systems.forEach(system => this.world.registerSystem(system));
+  }
+
+  /**
+   * Avvia gameplay - Pura orchestrazione
    */
   async enter(context: GameContext): Promise<void> {
-    // Nasconde il titolo principale
-    this.hideMainTitle();
-
-    try {
-      // Inizializza il mondo e crea il giocatore PRIMA di mostrare l'HUD
-      await this.initializeGame();
-    } catch (error) {
-      console.error('Failed to initialize game:', error);
-      throw error;
-    }
-
-    // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
-    this.showPlayerInfo();
-
-    // Crea elemento nickname sotto la nave
-    this.createPlayerNicknameElement();
-
-    // Setup HUD toggle listener
-    this.setupHudToggle();
-
-    // Inizializza il sistema UI
-    this.initializeUI();
-
-    // Configura listener per l'apertura del pannello quest
-    this.setupQuestPanelListener();
+    this.uiSystem.hideMainTitle();
+    await this.initializeGame();
+    this.uiSystem.initialize();
   }
 
   /**
-   * Inizializza il sistema UI con pannelli e icone
-   */
-  private initializeUI(): void {
-    // Crea e registra il pannello delle statistiche giocatore
-    const statsConfig = getPanelConfig('stats');
-    const statsPanel = new PlayerStatsPanel(statsConfig);
-    this.uiManager.registerPanel(statsPanel);
-
-    // Crea e registra il pannello delle quest
-    const questConfig = getPanelConfig('quest');
-    const questPanel = new QuestPanel(questConfig);
-    this.uiManager.registerPanel(questPanel);
-
-    console.log('UI System initialized with player stats and quest panels');
-  }
-
-  /**
-   * Configura il listener per l'apertura del pannello quest
-   */
-  private setupQuestPanelListener(): void {
-    // Intercetta quando il pannello quest viene aperto per aggiornare i dati
-    const questPanel = this.uiManager.getPanel('quest-panel') as QuestPanel;
-    if (questPanel) {
-      // Sovrascrivi il metodo show del pannello per aggiungere logica personalizzata
-      const originalShow = questPanel.show.bind(questPanel);
-      questPanel.show = () => {
-        // Prima mostra il pannello
-        originalShow();
-
-        // Aggiorna l'UI con i dati attuali delle quest
-        setTimeout(() => this.updateUIPanels(), 100);
-      };
-    }
-
-    // Listener per l'accettazione manuale delle quest
-    document.addEventListener('questAccept', (event: any) => {
-      const { questId } = event.detail;
-      this.handleQuestAcceptance(questId);
-    });
-
-    document.addEventListener('questAbandon', (event: any) => {
-      const { questId } = event.detail;
-      this.handleQuestAbandon(questId);
-    });
-  }
-
-  /**
-   * Gestisce l'accettazione manuale di una quest
-   */
-  private handleQuestAcceptance(questId: string): void {
-    if (!this.questManager || !this.playerEntity) return;
-
-    const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
-    if (!activeQuest) return;
-
-    if (this.questManager.isQuestAvailable(questId) && this.questManager.canAcceptQuest(questId)) {
-      const accepted = this.questManager.acceptQuest(questId, activeQuest);
-      if (accepted) {
-        console.log(`🎉 Quest "${questId}" accettata dal giocatore!`);
-        // Aggiorna immediatamente l'UI
-        this.updateUIPanels();
-      } else {
-        console.warn(`❌ Impossibile accettare la quest "${questId}" - prerequisiti non soddisfatti`);
-      }
-    } else {
-      console.warn(`❌ Quest "${questId}" non disponibile o prerequisiti non soddisfatti`);
-    }
-  }
-
-  /**
-   * Gestisce l'abbandono di una quest attiva
-   */
-  private handleQuestAbandon(questId: string): void {
-    if (!this.questManager || !this.playerEntity) return;
-
-    const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
-    if (!activeQuest) return;
-
-    const abandoned = this.questManager.abandonQuest(questId, activeQuest);
-    if (abandoned) {
-      console.log(`👋 Quest "${questId}" abbandonata dal giocatore!`);
-      // Aggiorna immediatamente l'UI
-      this.updateUIPanels();
-    }
-  }
-
-  /**
-   * Aggiorna i pannelli UI con dati aggiornati
-   */
-  private updateUIPanels(): void {
-    const playerEntity = this.world.getECS().getPlayerEntity();
-    if (!playerEntity) return;
-
-    const health = this.world.getECS().getComponent(playerEntity, Health);
-    const experience = this.world.getECS().getComponent(playerEntity, Experience);
-    const credits = this.world.getECS().getComponent(playerEntity, Credits);
-    const honor = this.world.getECS().getComponent(playerEntity, Honor);
-    const activeQuest = this.world.getECS().getComponent(playerEntity, ActiveQuest);
-
-    // Raccogli i dati per il pannello delle statistiche
-    const statsData: PanelData = {
-      level: experience?.level || 1,
-      experience: experience?.amount || 0,
-      experienceForNext: experience?.getExpRequiredForLevel(experience?.level || 1) || 1000,
-      credits: credits?.credits || 0,
-      honor: honor?.amount || 0,
-      kills: 0, // TODO: Implementare contatore uccisioni
-      playtime: Math.floor((Date.now() - this.startTime) / 60000) // minuti
-    };
-
-    // Dati reali delle quest dal sistema quest
-    const questData = this.questManager ? this.questManager.getQuestData(activeQuest || new ActiveQuest()) : {
-      activeQuests: [],
-      completedQuests: [],
-      availableQuests: []
-    };
-
-    // Aggiorna i pannelli UI
-    this.uiManager.updatePanels({
-      'player-stats': statsData,
-      'quest-panel': questData
-    });
-  }
-
-  /**
-   * Aggiorna il gameplay
-   */
-  update(deltaTime: number): void {
-    // Aggiorna il mondo di gioco
-    this.world.update(deltaTime);
-
-    // Aggiorna le informazioni del player (HP)
-    this.showPlayerInfo();
-
-    // Aggiorna posizione del nickname
-    this.updatePlayerNicknamePosition();
-
-    // Aggiorna i pannelli UI
-    this.updateUIPanels();
-  }
-
-  /**
-   * Renderizza il gioco
-   */
-  render(ctx: CanvasRenderingContext2D): void {
-    // Renderizza il mondo di gioco
-    this.world.render();
-  }
-
-  /**
-   * Gestisce input di gioco
-   */
-  handleInput(event: Event): void {
-    // Gli input sono gestiti dai sistemi ECS (InputSystem)
-    // Questo metodo è disponibile per input speciali se necessario
-  }
-
-  /**
-   * Termina il gameplay
-   */
-  exit(): void {
-    // Rimuovi listener HUD toggle
-    if (this.hudToggleListener) {
-      document.removeEventListener('keydown', this.hudToggleListener);
-      this.hudToggleListener = null;
-    }
-
-    // Cleanup completo dell'HUD
-    this.playerHUD.destroy();
-    this.hidePlayerInfo();
-
-    // Rimuovi elemento nickname
-    this.removePlayerNicknameElement();
-
-    this.showMainTitle();
-    // Qui potremmo salvare lo stato di gioco, cleanup, etc.
-  }
-
-  /**
-   * Crea l'elemento HTML per mostrare le info del giocatore
-   */
-  /**
-   * Raccoglie i dati del giocatore per l'HUD
-   * Separazione netta: logica di business fornisce dati, UI presenta
-   */
-  private collectPlayerHUDData(): PlayerHUDData {
-    // Dati di default
-    const hudData: PlayerHUDData = {
-      level: 1,
-      credits: 0,
-      cosmos: 0,
-      experience: 0,
-      expForNextLevel: 100,
-      honor: 0
-    };
-
-    // Aggiorna dati economici se disponibili
-    const economyStatus = this.economySystem?.getPlayerEconomyStatus();
-    if (economyStatus) {
-      hudData.level = economyStatus.level;
-      hudData.credits = economyStatus.credits;
-      hudData.cosmos = economyStatus.cosmos;
-      hudData.experience = economyStatus.experience;
-      hudData.expForNextLevel = economyStatus.expForNextLevel;
-      hudData.honor = economyStatus.honor;
-    }
-
-    return hudData;
-  }
-
-  /**
-   * Mostra le info del giocatore
-   */
-  /**
-   * Mostra l'HUD del giocatore
-   * Architettura pulita: PlayState fornisce dati, PlayerHUD presenta
-   */
-  private showPlayerInfo(): void {
-    // Raccogli dati dalla logica di business
-    const hudData = this.collectPlayerHUDData();
-
-    // Passa dati alla presentazione (separazione responsabilità)
-    this.playerHUD.updateData(hudData);
-    this.playerHUD.show();
-
-    // HUD espanso: informazioni aggiuntive (se necessario in futuro)
-    if (this.hudExpanded) {
-      this.showExpandedHud();
-    } else {
-      this.hideExpandedHud();
-    }
-  }
-
-  /**
-   * Mostra HUD espanso con informazioni aggiuntive
-   */
-  private showExpandedHud(): void {
-    if (!this.expandedHudElement) {
-      this.expandedHudElement = this.createExpandedHudElement();
-      // Aggiungi l'elemento al DOM quando viene creato
-      document.body.appendChild(this.expandedHudElement);
-    }
-
-    let infoText = '';
-
-    // Posizione del player
-    if (this.playerEntity) {
-      const transform = this.world.getECS().getComponent(this.playerEntity, Transform);
-      if (transform) {
-        infoText += `Pos: (${Math.round(transform.x)}, ${Math.round(transform.y)})\n`;
-      }
-
-      // Danno e cooldown
-      const damage = this.world.getECS().getComponent(this.playerEntity, Damage);
-      if (damage) {
-        const cooldownRemaining = damage.getCooldownRemaining(Date.now()) / 1000; // Converte in secondi
-        const canAttack = damage.canAttack(Date.now());
-        infoText += `Damage: ${damage.damage}\n`;
-        infoText += `Status: ${canAttack ? 'Ready' : cooldownRemaining.toFixed(1) + 's'}\n`;
-      }
-    }
-
-    // Conteggio nemici e selezione
-    const npcEntities = this.world.getECS().getEntitiesWithComponents(Npc);
-    const selectedNpcs = this.world.getECS().getEntitiesWithComponents(SelectedNpc);
-    infoText += `Enemies: ${npcEntities.length}`;
-    if (selectedNpcs.length > 0) {
-      infoText += ` (1 selected)`;
-    }
-
-    this.expandedHudElement.textContent = infoText;
-    this.expandedHudElement.style.display = 'block';
-  }
-
-  /**
-   * Nasconde HUD espanso
-   */
-  private hideExpandedHud(): void {
-    if (this.expandedHudElement) {
-      this.expandedHudElement.style.display = 'none';
-    }
-  }
-
-  /**
-   * Crea elemento HUD espanso
-   */
-  private createExpandedHudElement(): HTMLElement {
-    const element = document.createElement('div');
-    element.id = 'expanded-hud';
-    element.style.cssText = `
-      position: fixed;
-      top: 60px;
-      left: 20px;
-      background: rgba(0, 0, 0, 0.8);
-      color: #00ff88;
-      padding: 10px 15px;
-      border-radius: 8px;
-      border: 1px solid #00ff88;
-      font-family: 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.4;
-      z-index: 100;
-      display: none;
-      white-space: pre-line;
-    `;
-    return element;
-  }
-
-  /**
-   * Setup listener per toggle HUD
-   */
-  private setupHudToggle(): void {
-    this.hudToggleListener = (event: KeyboardEvent) => {
-      if (event.key === 'h' || event.key === 'H') {
-        this.toggleHud();
-      }
-    };
-
-    document.addEventListener('keydown', this.hudToggleListener);
-  }
-
-  /**
-   * Toggle tra HUD minimal ed espanso
-   */
-  private toggleHud(): void {
-    this.hudExpanded = !this.hudExpanded;
-    this.showPlayerInfo();
-
-    // Gestisci anche la visibilità delle UI
-    if (this.hudExpanded) {
-      this.uiManager.showUI();
-    } else {
-      this.uiManager.hideUI();
-    }
-
-    // Nota: Lo styling dell'HUD è ora gestito da PlayerHUD
-    // Il toggle riguarda HUD espanso e UI
-  }
-
-
-  /**
-   * Nasconde l'HUD del giocatore
-   */
-  private hidePlayerInfo(): void {
-    // Usa PlayerHUD per nascondere (separazione responsabilità)
-    this.playerHUD.hide();
-
-    // Nasconde anche HUD espanso
-    this.hideExpandedHud();
-    if (this.expandedHudElement && document.body.contains(this.expandedHudElement)) {
-      document.body.removeChild(this.expandedHudElement);
-    }
-  }
-
-  /**
-   * Nasconde il titolo principale
-   */
-  private hideMainTitle(): void {
-    const titleElement = document.querySelector('h1');
-    if (titleElement) {
-      titleElement.style.display = 'none';
-    }
-  }
-
-  /**
-   * Mostra il titolo principale
-   */
-  private showMainTitle(): void {
-    const titleElement = document.querySelector('h1');
-    if (titleElement) {
-      titleElement.style.display = 'block';
-    }
-  }
-
-  /**
-   * Crea l'elemento DOM per mostrare il nickname sotto la nave del player
-   */
-  private createPlayerNicknameElement(): void {
-    this.playerNicknameElement = document.createElement('div');
-    this.playerNicknameElement.id = 'player-nickname';
-    this.playerNicknameElement.style.cssText = `
-      position: fixed;
-      color: rgba(255, 255, 255, 0.9);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      font-weight: 500;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-      pointer-events: none;
-      user-select: none;
-      z-index: 50;
-      text-align: center;
-      line-height: 1.4;
-    `;
-    document.body.appendChild(this.playerNicknameElement);
-    this.updatePlayerNicknameContent();
-  }
-
-  /**
-   * Aggiorna il contenuto del nickname con rank
-   */
-  private updatePlayerNicknameContent(): void {
-    if (!this.playerNicknameElement) return;
-
-    const nickname = this.context.playerNickname || 'Commander';
-    const rank = this.getPlayerRank();
-
-    this.playerNicknameElement.innerHTML = `
-      <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
-      <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
-    `;
-  }
-
-  /**
-   * Ottiene il rank corrente del player
-   */
-  private getPlayerRank(): string {
-    if (!this.economySystem) return 'Recruit';
-
-    // Ottieni il componente Honor del player per il rank
-    const honor = this.economySystem.getPlayerHonor?.();
-    if (honor && typeof honor.getRank === 'function') {
-      return honor.getRank();
-    }
-
-    return 'Recruit';
-  }
-
-  /**
-   * Aggiorna la posizione del nickname sotto la nave del player
-   */
-  private updatePlayerNicknamePosition(): void {
-    if (!this.playerNicknameElement || !this.playerEntity) return;
-
-    const transform = this.world.getECS().getComponent(this.playerEntity, Transform);
-    if (!transform) return;
-
-    // Trova il MovementSystem nei sistemi registrati
-    const movementSystem = this.findMovementSystem();
-    if (!movementSystem) return;
-
-    const camera = movementSystem.getCamera();
-    const canvasSize = this.world.getCanvasSize();
-
-    // Converte le coordinate mondo in coordinate schermo
-    const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
-
-    // Aggiorna il contenuto (potrebbe essere cambiato il rank)
-    this.updatePlayerNicknameContent();
-
-    // Forza il ricalcolo delle dimensioni dopo l'aggiornamento del contenuto
-    this.playerNicknameElement.style.display = 'block';
-
-    // Posiziona il nickname 45px sotto il centro della nave (più spazio per due righe)
-    const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
-    const nicknameY = screenPos.y + 45;
-
-    this.playerNicknameElement.style.left = `${nicknameX}px`;
-    this.playerNicknameElement.style.top = `${nicknameY}px`;
-  }
-
-  /**
-   * Trova il MovementSystem nei sistemi registrati
-   */
-  private findMovementSystem(): any {
-    const ecs = this.world.getECS();
-    if (ecs && (ecs as any).systems) {
-      return (ecs as any).systems.find((system: any) => system.getCamera);
-    }
-    return null;
-  }
-
-  /**
-   * Rimuove l'elemento DOM del nickname
-   */
-  private removePlayerNicknameElement(): void {
-    if (this.playerNicknameElement && document.body.contains(this.playerNicknameElement)) {
-      document.body.removeChild(this.playerNicknameElement);
-      this.playerNicknameElement = null;
-    }
-  }
-
-  /**
-   * Inizializza il mondo di gioco e crea entità
+   * Inizializza mondo e entità
    */
   private async initializeGame(): Promise<void> {
-    // Load ship sprite
+    await this.loadAndCreateEntities();
+    this.configureSystemIntegrations();
+  }
+
+  /**
+   * Carica risorse e crea entità
+   */
+  private async loadAndCreateEntities(): Promise<void> {
     const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
     const shipSprite = new Sprite(shipImage, shipImage.width * 0.2, shipImage.height * 0.2);
 
-    // Load map background sprite
-    const mapBackgroundImage = await this.context.assetManager.loadImage('/assets/maps/maps1/1/bg.jpg');
-    const mapBackgroundSprite = new Sprite(mapBackgroundImage, mapBackgroundImage.width, mapBackgroundImage.height);
+    this.playerSystem.createPlayer(0, 0);
 
-    // Load NPC sprites
     const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
-    const scouterSprite = new Sprite(scouterImage, scouterImage.width * 0.15, scouterImage.height * 0.15); // Ridimensionato al 15%
+    const scouterSprite = new Sprite(scouterImage, scouterImage.width * 0.15, scouterImage.height * 0.15);
+    this.npcSystem.createScouters(50, scouterSprite);
+  }
 
-    const ecs = this.world.getECS();
+  /**
+   * Configura integrazioni sistemi
+   */
+  private configureSystemIntegrations(): void {
+    const playerEntity = this.playerSystem.getPlayerEntity();
 
-    // Crea sistemi
-    const movementSystem = new MovementSystem(ecs);
-    const parallaxSystem = new ParallaxSystem(ecs, movementSystem);
-    const renderSystem = new RenderSystem(ecs, movementSystem);
-    const inputSystem = new InputSystem(ecs, this.context.canvas);
-    const playerControlSystem = new PlayerControlSystem(ecs);
-    const npcBehaviorSystem = new NpcBehaviorSystem(ecs);
-    const npcSelectionSystem = new NpcSelectionSystem(ecs);
-    const combatSystem = new CombatSystem(ecs, movementSystem, this.context);
-    const explosionSystem = new ExplosionSystem(ecs);
-    const damageTextSystem = new DamageTextSystem(ecs, movementSystem);
-    const projectileSystem = new ProjectileSystem(ecs);
-    const minimapSystem = new MinimapSystem(ecs, this.context.canvas);
-    this.logSystem = new LogSystem(ecs);
-    this.economySystem = new EconomySystem(ecs);
-    const rankSystem = new RankSystem(ecs);
-    const rewardSystem = new RewardSystem(ecs);
-    const boundsSystem = new BoundsSystem(ecs, movementSystem);
-    const respawnSystem = new NpcRespawnSystem(ecs, this.context);
+    (this.playerControlSystem as any).setPlayerEntity(playerEntity);
+    (this.playerControlSystem as any).setCamera(this.movementSystem.getCamera());
 
-    // Sistemi Quest
-    this.questManager = new QuestManager();
-    this.questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
+    (this.minimapSystem as any).setCamera(this.movementSystem.getCamera());
+    (this.minimapSystem as any).setMoveToCallback((x: number, y: number) =>
+      (this.playerControlSystem as any).movePlayerTo(x, y));
 
-    // Aggiungi sistemi all'ECS (ordine importante!)
-    ecs.addSystem(inputSystem);        // Input per primo
-    ecs.addSystem(npcSelectionSystem); // Selezione NPC
-    ecs.addSystem(playerControlSystem); // Poi controllo player
-    ecs.addSystem(combatSystem);       // Sistema combattimento
-    ecs.addSystem(explosionSystem);    // Sistema esplosioni
-    ecs.addSystem(projectileSystem);   // Sistema proiettili
-    ecs.addSystem(npcBehaviorSystem);  // Poi comportamento NPC
-    ecs.addSystem(movementSystem);     // Poi movimento
-    ecs.addSystem(parallaxSystem);     // Sistema parallax (sfondo)
-    ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
-    ecs.addSystem(boundsSystem);       // Sistema bounds (linee rosse)
-    ecs.addSystem(minimapSystem);      // Minimappa
-    ecs.addSystem(damageTextSystem);   // Testi danno alla fine (più sopra di tutto)
-    ecs.addSystem(this.logSystem);     // Sistema log ALLA FINE (sopra tutto)
-    ecs.addSystem(this.economySystem); // Sistema economia
-    ecs.addSystem(rankSystem); // Sistema rank
-    ecs.addSystem(respawnSystem); // Sistema respawn NPC
-    ecs.addSystem(rewardSystem); // Sistema ricompense (dopo respawn per evitare conflitti)
+    (this.economySystem as any).setPlayerEntity(playerEntity);
+    (this.rankSystem as any).setPlayerEntity(playerEntity);
+    (this.rewardSystem as any).setPlayerEntity(playerEntity);
+    (this.boundsSystem as any).setPlayerEntity(playerEntity);
+    (this.npcRespawnSystem as any).setPlayerEntity(playerEntity);
 
-    // Crea la nave player
-    const playerShip = this.createPlayerShip(ecs, shipSprite);
-    this.playerEntity = playerShip;
+    this.setupEconomyCallbacks();
+  }
 
-    // Imposta il player nel sistema di controllo
-    playerControlSystem.setPlayerEntity(playerShip);
-
-    // Crea l'entità background della mappa
-    this.createMapBackground(ecs, mapBackgroundSprite);
-
-    // Passa la camera al sistema di controllo player
-    playerControlSystem.setCamera(movementSystem.getCamera());
-
-    // Configura minimappa
-    minimapSystem.setCamera(movementSystem.getCamera());
-    minimapSystem.setMoveToCallback((worldX, worldY) => {
-      // Quando si clicca sulla minimappa, muovi il player alla posizione
-      playerControlSystem.movePlayerTo(worldX, worldY);
-    });
-
-    // Quando finisce il movimento dalla minimappa, cancella la linea
-    playerControlSystem.setMinimapMovementCompleteCallback(() => {
-      minimapSystem.clearDestination();
-    });
-
-    // Configura sistema economico, rank e ricompense
-    this.economySystem.setPlayerEntity(playerShip);
-    this.economySystem.setRankSystem(rankSystem);
-    rankSystem.setPlayerEntity(playerShip);
-    rewardSystem.setEconomySystem(this.economySystem);
-    rewardSystem.setPlayerEntity(playerShip); // Per aggiornare statistiche player
-    rewardSystem.setQuestTrackingSystem(this.questTrackingSystem!);
-
-    // Configura sistema di log
-    combatSystem.setLogSystem(this.logSystem!);
-    rewardSystem.setLogSystem(this.logSystem!);
-
-    // Configura sistema bounds
-    boundsSystem.setPlayerEntity(playerShip);
-
-    // Configura sistema respawn NPC
-    respawnSystem.setPlayerEntity(playerShip);
-    rewardSystem.setRespawnSystem(respawnSystem);
-
-    // Configura sistema quest
-    this.questTrackingSystem!.setEconomySystem(this.economySystem);
-    this.questTrackingSystem!.setLogSystem(this.logSystem!);
-    this.questTrackingSystem!.setPlayerEntity(this.playerEntity);
-
-    // Configura callbacks per aggiornamenti HUD
-    this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
-      // Aggiorna HUD con nuovi valori
-      this.showPlayerInfo();
-    });
-
-    this.economySystem.setCreditsChangedCallback((newAmount, change) => {
-      this.showPlayerInfo();
-    });
-
-    this.economySystem.setCosmosChangedCallback((newAmount, change) => {
-      this.showPlayerInfo();
-    });
-
-    this.economySystem.setHonorChangedCallback((newAmount, change, newRank) => {
-      this.showPlayerInfo();
-      this.updatePlayerNicknameContent();
-    });
-
-    // Crea alcuni NPC
-    this.createScouter(ecs, 50, scouterSprite); // Crea 50 Scouter che si muovono
-
-    // Crea stelle distribuite su tutta la mappa
-    // Stelle create direttamente nel RenderSystem
-
-    // Collega input al controllo player e selezione NPC
-    inputSystem.setMouseStateCallback((pressed, x, y) => {
-      if (pressed) {
-        // Assicurati che il canvas abbia il focus per gli eventi tastiera
-        this.context.canvas.focus();
-
-        // Prima controlla se il mouse down è sulla minimappa
-        const minimapHandled = minimapSystem.handleMouseDown(x, y);
-        if (minimapHandled) {
-          return; // Mouse down gestito dalla minimappa, non fare altro
-        }
-
-        // Se si clicca normalmente (non sulla minimappa), cancella destinazione minimappa
-        minimapSystem.clearDestination();
-
-        // Prova a selezionare NPC
-        const canvasSize = this.world.getCanvasSize();
-        const worldPos = movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
-        const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
-
-        // Se non ha selezionato un NPC, attiva il movimento del player normale
-        if (!npcSelected) {
-          playerControlSystem.handleMouseState(pressed, x, y);
-        }
-      } else {
-        // Su mouse up, ferma il movimento dalla minimappa e del player
-        minimapSystem.handleMouseUp();
-        playerControlSystem.handleMouseState(pressed, x, y);
-      }
-    });
-
-    inputSystem.setMouseMoveWhilePressedCallback((x, y) => {
-      // Prima controlla se il mouse move è nella minimappa
-      const minimapHandled = minimapSystem.handleMouseMove(x, y);
-      if (!minimapHandled) {
-        // Se non è nella minimappa, gestisci il movimento normale del player
-        playerControlSystem.handleMouseMoveWhilePressed(x, y);
-      }
-    });
-
-    // Combattimento ora automatico - non serve più la barra spaziatrice
-
-    // Mostra messaggio di benvenuto
-    if (this.logSystem) {
-      this.logSystem.logWelcome('Commander');
-    }
+  /**
+   * Setup callbacks economici
+   */
+  private setupEconomyCallbacks(): void {
+    (this.economySystem as any).setExperienceChangedCallback(() => this.uiSystem.updatePanels());
+    (this.economySystem as any).setCreditsChangedCallback(() => this.uiSystem.updatePanels());
+    (this.economySystem as any).setHonorChangedCallback(() => this.uiSystem.updatePanels());
   }
 
 
   /**
-   * Crea la nave player controllabile
+   * Aggiorna gioco - Delega ai sistemi
    */
-  private createPlayerShip(ecs: any, sprite: Sprite): any {
-    const ship = ecs.createEntity();
-
-    // Spawna il player al centro del mondo (0,0)
-    // La camera è centrata su (0,0), quindi apparirà al centro dello schermo
-    const worldCenterX = 0;
-    const worldCenterY = 0;
-
-    // Aggiungi componenti alla nave player
-    const transform = new Transform(worldCenterX, worldCenterY, 0);
-    const velocity = new Velocity(0, 0, 0);
-    const health = new Health(100000, 100000); // Vita aumentata a 100k
-    const damage = new Damage(500, 300, 1000); // Danno aumentato a 500
-            const credits = new Credits(1000); // Inizia con 1000 Credits
-            const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
-            const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
-            const honor = new Honor(0); // Inizia con 0 Honor Points (ranking verrà aggiornato dal server)
-            const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
-            const activeQuest = new ActiveQuest(); // Sistema quest
-
-    ecs.addComponent(ship, Transform, transform);
-    ecs.addComponent(ship, Velocity, velocity);
-    ecs.addComponent(ship, Health, health);
-    ecs.addComponent(ship, Damage, damage);
-            ecs.addComponent(ship, Credits, credits);
-            ecs.addComponent(ship, Cosmos, cosmos);
-            ecs.addComponent(ship, Experience, experience);
-            ecs.addComponent(ship, Honor, honor);
-            ecs.addComponent(ship, PlayerStats, playerStats);
-            ecs.addComponent(ship, ActiveQuest, activeQuest);
-    ecs.addComponent(ship, Sprite, sprite);
-
-    return ship;
-  }
-
-
-  /**
-   * Crea Scouter distribuiti uniformemente su tutta la mappa
-   */
-  private createScouter(ecs: any, count: number, sprite?: Sprite): void {
-    const minDistance = 100; // Distanza minima tra Scouter
-    const minDistanceFromPlayer = 200; // Distanza minima dal player (centro)
-    const worldWidth = CONFIG.WORLD_WIDTH;
-    const worldHeight = CONFIG.WORLD_HEIGHT;
-    const positions: { x: number, y: number }[] = [];
-
-    // Dividi la mappa in una griglia per distribuzione uniforme
-    const gridCols = Math.ceil(Math.sqrt(count * worldWidth / worldHeight));
-    const gridRows = Math.ceil(count / gridCols);
-
-    for (let i = 0; i < count; i++) {
-      let attempts = 0;
-      let validPosition = false;
-      let x = 0, y = 0;
-
-      // Trova una posizione valida distribuita uniformemente
-      while (!validPosition && attempts < 100) { // Più tentativi per distribuzione uniforme
-        // Usa una distribuzione a griglia con variazioni casuali
-        const gridX = i % gridCols;
-        const gridY = Math.floor(i / gridCols);
-
-        // Calcola posizione base nella griglia
-        const cellWidth = worldWidth / gridCols;
-        const cellHeight = worldHeight / gridRows;
-
-        const baseX = gridX * cellWidth + cellWidth / 2 - worldWidth / 2;
-        const baseY = gridY * cellHeight + cellHeight / 2 - worldHeight / 2;
-
-        // Aggiungi variazione casuale entro la cella
-        const variationX = (Math.random() - 0.5) * cellWidth * 0.8; // 80% della cella
-        const variationY = (Math.random() - 0.5) * cellHeight * 0.8;
-
-        x = baseX + variationX;
-        y = baseY + variationY;
-
-        // Verifica che non sia troppo vicino al player
-        const distanceFromPlayer = Math.sqrt(x * x + y * y);
-        if (distanceFromPlayer < minDistanceFromPlayer) {
-          attempts++;
-          continue;
-        }
-
-        // Verifica che non sia troppo vicino ad altri Scouter
-        validPosition = positions.every(pos => {
-          const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
-          return distance >= minDistance;
-        });
-
-        attempts++;
-      }
-
-      // Se dopo 100 tentativi non trova posizione valida, posiziona casualmente
-      if (!validPosition) {
-        x = (Math.random() - 0.5) * worldWidth;
-        y = (Math.random() - 0.5) * worldHeight;
-
-        // Assicurati che non sia troppo vicino al player
-        const distanceFromPlayer = Math.sqrt(x * x + y * y);
-        if (distanceFromPlayer < minDistanceFromPlayer) {
-          x = x * (worldWidth / 2 / distanceFromPlayer);
-          y = y * (worldWidth / 2 / distanceFromPlayer);
-        }
-      }
-
-      positions.push({ x, y });
-
-      const streuner = ecs.createEntity();
-      const npcDef = getNpcDefinition('Scouter');
-
-      if (!npcDef) {
-        console.error('NPC definition not found for Scouter');
-        continue;
-      }
-
-      // Aggiungi componenti allo Scouter usando la configurazione
-      ecs.addComponent(streuner, Transform, new Transform(x, y, 0));
-      ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0)); // velocità angolare = 0
-      ecs.addComponent(streuner, Health, new Health(npcDef.stats.health, npcDef.stats.health));
-      ecs.addComponent(streuner, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
-      ecs.addComponent(streuner, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
-      ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
-
-      // Aggiungi sprite se fornito
-      if (sprite) {
-        ecs.addComponent(streuner, Sprite, sprite);
-      }
+  update(deltaTime: number): void {
+    this.world.update(deltaTime);
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (playerEntity) {
+      this.updatePlayerNicknamePosition();
     }
   }
 
   /**
-   * Crea l'entità background della mappa come elemento parallax
+   * Renderizza gioco
    */
-  private createMapBackground(ecs: any, backgroundSprite: Sprite): any {
-    const backgroundEntity = ecs.createEntity();
-
-    // Posiziona l'immagine al centro del mondo (0,0)
-    const transform = new Transform(0, 0, 0);
-    // Velocità parallax molto bassa (0.05 = si muove molto lentamente per effetto profondità)
-    const parallaxLayer = new ParallaxLayer(0.05, 0.05, 0, 0, -1); // zIndex negativo per essere dietro tutto
-
-    // Aggiungi componenti
-    ecs.addComponent(backgroundEntity, Transform, transform);
-    ecs.addComponent(backgroundEntity, Sprite, backgroundSprite);
-    ecs.addComponent(backgroundEntity, ParallaxLayer, parallaxLayer);
-
-    return backgroundEntity;
+  render(ctx: CanvasRenderingContext2D): void {
+    this.world.render(ctx);
   }
 
   /**
-   * Crea elementi parallax per lo sfondo
+   * Esce dal gameplay
    */
+  exit(): void {
+    this.uiSystem.destroy();
+  }
 
   /**
-   * Restituisce il mondo di gioco per accesso esterno
+   * Aggiorna posizione nickname
+   */
+  private updatePlayerNicknamePosition(): void {
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const transform = this.world.getECS().getComponent(playerEntity, Transform);
+    if (!transform) return;
+
+    this.uiSystem.updatePlayerNicknamePosition(
+      transform.x, transform.y,
+      this.movementSystem.getCamera(),
+      this.world.getCanvasSize()
+    );
+  }
+
+  /**
+   * Accesso al mondo per debug
    */
   getWorld(): World {
     return this.world;
   }
 }
-
