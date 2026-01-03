@@ -50,7 +50,9 @@ export abstract class BasePanel {
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
       z-index: 2000;
       opacity: 0;
+      transform: scale(0.95);
       pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
@@ -113,6 +115,7 @@ export abstract class BasePanel {
     // Piccola pausa per permettere al browser di applicare la posizione
     setTimeout(() => {
       this.container.style.opacity = '1';
+      this.container.style.transform = 'scale(1)';
       this.container.style.pointerEvents = 'auto';
     }, 10);
 
@@ -132,6 +135,7 @@ export abstract class BasePanel {
 
     this.isVisible = false;
     this.container.style.opacity = '0';
+    this.container.style.transform = 'scale(0.95)';
     this.container.style.pointerEvents = 'none';
 
     this.onHide();
