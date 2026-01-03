@@ -7,17 +7,29 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { SkillPoints } from '../../entities/currency/SkillPoints';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
+import { PlayerSystem } from '../../systems/player/PlayerSystem';
 
 /**
  * SkillsPanel - Pannello per visualizzare statistiche giocatore e gestire abilità
  */
 export class SkillsPanel extends BasePanel {
   private ecs: ECS;
+  private playerSystem: PlayerSystem | null = null;
   private tooltipElement: HTMLElement | null = null;
 
-  constructor(config: PanelConfig, ecs: ECS) {
+  constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
     super(config);
     this.ecs = ecs;
+    this.playerSystem = playerSystem || null;
+  }
+
+  /**
+   * Imposta il riferimento al PlayerSystem
+   */
+  setPlayerSystem(playerSystem: PlayerSystem): void {
+    this.playerSystem = playerSystem;
+    // Aggiorna immediatamente le statistiche quando riceviamo il riferimento
+    this.updatePlayerStats();
   }
 
   /**
@@ -467,14 +479,15 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   private updatePlayerStats(): void {
-    if (!this.container) return;
+    if (!this.container || !this.playerSystem) return;
 
-    const playerEntity = this.ecs.getPlayerEntity();
+    const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
 
     // Ottieni componenti del giocatore
     const health = this.ecs.getComponent(playerEntity, Health);
     const shield = this.ecs.getComponent(playerEntity, Shield);
+    const damage = this.ecs.getComponent(playerEntity, Damage);
     const skillPoints = this.ecs.getComponent(playerEntity, SkillPoints);
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
 
@@ -504,13 +517,12 @@ export class SkillsPanel extends BasePanel {
         speedValue.textContent = `${calculatedSpeed} u/s`;
       }
 
-      // Aggiorna damage con bonus dagli upgrade
-      const damageBonus = playerUpgrades.getDamageBonus();
-      const calculatedDamage = Math.floor(playerDef.stats.damage * damageBonus);
-
-      const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
-      if (damageValue) {
-        damageValue.textContent = calculatedDamage.toString();
+      // Aggiorna damage dal componente Damage del player
+      if (damage) {
+        const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
+        if (damageValue) {
+          damageValue.textContent = damage.damage.toString();
+        }
       }
     }
 
@@ -527,7 +539,7 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
-    // Le statistiche vengono aggiornate dal metodo update() ogni frame
+    this.updatePlayerStats();
   }
 
   /**
@@ -543,7 +555,8 @@ export class SkillsPanel extends BasePanel {
    * Acquista un upgrade per una statistica
    */
   private upgradeStat(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
-    const playerEntity = this.ecs.getPlayerEntity();
+    if (!this.playerSystem) return;
+    const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
 
     const skillPoints = this.ecs.getComponent(playerEntity, SkillPoints);
@@ -579,11 +592,13 @@ export class SkillsPanel extends BasePanel {
       // Rimuovi skill point
       skillPoints.spendPoints(1);
 
-      // Aggiorna le statistiche del giocatore
-      this.updatePlayerStats();
-
       // Forza aggiornamento delle statistiche fisiche del giocatore
       this.updatePlayerPhysicalStats();
+
+      // Aggiorna le statistiche del giocatore (dopo aver aggiornato i componenti)
+      this.updatePlayerStats();
+    } else {
+      console.log('❌ SkillsPanel: Upgrade failed for', statType);
     }
   }
 
@@ -591,7 +606,8 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche fisiche del giocatore (HP, Shield, Speed) dopo un upgrade
    */
   private updatePlayerPhysicalStats(): void {
-    const playerEntity = this.ecs.getPlayerEntity();
+    if (!this.playerSystem) return;
+    const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
 
     const playerDef = getPlayerDefinition();

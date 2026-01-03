@@ -4,7 +4,8 @@ import { DamageText } from '../../entities/combat/DamageText';
 import { Transform } from '../../entities/spatial/Transform';
 
 /**
- * Rendering testi di danno
+ * Sistema per il rendering dei testi di danno fluttuanti
+ * Gestisce animazione e visualizzazione dei numeri danno
  */
 export class DamageTextSystem extends BaseSystem {
   private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera

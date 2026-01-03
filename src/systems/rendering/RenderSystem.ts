@@ -83,7 +83,9 @@ export class RenderSystem extends BaseSystem {
           }
         } else {
           // Renderizza come player (con sprite se disponibile)
-          this.renderEntity(ctx, transform, screenPos.x, screenPos.y, sprite);
+          // Aggiungi leggera fluttuazione al player
+          const floatOffsetY = Math.sin(Date.now() * 0.003) * 2; // Fluttuazione verticale di ±2 pixel
+          this.renderEntity(ctx, transform, screenPos.x, screenPos.y + floatOffsetY, sprite);
 
           // Mostra sempre il range di attacco del player
           const damage = this.ecs.getComponent(entity, Damage);
@@ -325,42 +327,50 @@ export class RenderSystem extends BaseSystem {
 
       ctx.save();
 
-      if (isNpcProjectile && this.scouterProjectileImage && this.scouterProjectileImage.complete) {
-        // Renderizza proiettile scouter come immagine
-        const imageSize = 36; // Dimensione del proiettile (ingrandito)
-        ctx.drawImage(
-          this.scouterProjectileImage,
-          screenPos.x - imageSize / 2,
-          screenPos.y - imageSize / 2,
-          imageSize,
-          imageSize
-        );
+      if (isNpcProjectile) {
+        // Renderizza proiettile NPC (scouter)
+        if (this.scouterProjectileImage && this.scouterProjectileImage.complete && this.scouterProjectileImage.width > 0) {
+          // Usa l'immagine del proiettile se disponibile
+          const imageSize = 36; // Dimensione del proiettile (ingrandito)
+          ctx.drawImage(
+            this.scouterProjectileImage,
+            screenPos.x - imageSize / 2,
+            screenPos.y - imageSize / 2,
+            imageSize,
+            imageSize
+          );
+        } else {
+          // Fallback: proiettile NPC come laser verde semplice
+          const laserLength = 12; // Lunghezza leggermente più corta
+          const endX = screenPos.x + projectile.directionX * laserLength;
+          const endY = screenPos.y + projectile.directionY * laserLength;
 
-        // Aggiungi effetto luminoso verde
-        ctx.shadowColor = '#00ff00';
-        ctx.shadowBlur = 6;
+          // Laser verde semplice per NPC
+          ctx.strokeStyle = '#00ff00'; // Verde per NPC
+          ctx.lineWidth = 2.5;
+          ctx.lineCap = 'round';
 
-        // Ridiseegna per l'effetto glow
-        ctx.globalAlpha = 0.5;
-        ctx.drawImage(
-          this.scouterProjectileImage,
-          screenPos.x - imageSize / 2,
-          screenPos.y - imageSize / 2,
-          imageSize,
-          imageSize
-        );
+          ctx.beginPath();
+          ctx.moveTo(screenPos.x, screenPos.y);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
 
-        ctx.restore();
+          // Linea bianca al centro per effetto laser
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(screenPos.x, screenPos.y);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+        }
       } else {
-        // Renderizza proiettile player come laser rosso
-
-        // Calcola la fine del laser (direzione del proiettile)
+        // Renderizza proiettile player come laser rosso (ora duali)
         const laserLength = 15; // Lunghezza del laser
         const endX = screenPos.x + projectile.directionX * laserLength;
         const endY = screenPos.y + projectile.directionY * laserLength;
 
         // Disegna il laser come linea rossa
-        ctx.strokeStyle = '#ff0000'; // Rosso per i laser
+        ctx.strokeStyle = '#ff0000'; // Rosso per i laser del player
         ctx.lineWidth = 3;
         ctx.lineCap = 'round';
 
@@ -368,13 +378,13 @@ export class RenderSystem extends BaseSystem {
         ctx.shadowColor = '#ff0000';
         ctx.shadowBlur = 8;
 
-      ctx.beginPath();
-      ctx.moveTo(screenPos.x, screenPos.y);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(screenPos.x, screenPos.y);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
 
-      // Aggiungi una linea più sottile al centro per effetto laser
-      ctx.strokeStyle = '#ffffff'; // Bianco al centro
+        // Aggiungi una linea più sottile al centro per effetto laser
+        ctx.strokeStyle = '#ffffff'; // Bianco al centro
       ctx.lineWidth = 1;
       ctx.shadowBlur = 0; // Rimuovi ombra per il centro
       ctx.stroke();

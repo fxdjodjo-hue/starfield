@@ -21,9 +21,15 @@ export interface PlayerStartingResources {
   skillPoints: number;
 }
 
+export interface PlayerSpriteSize {
+  width: number;
+  height: number;
+}
+
 export interface PlayerDefinition {
   stats: PlayerStats;
   startingResources: PlayerStartingResources;
+  spriteSize: PlayerSpriteSize;
   description?: string;
 }
 
@@ -33,7 +39,7 @@ export interface PlayerDefinition {
 export const PLAYER_DEFINITION: PlayerDefinition = {
   stats: {
     health: 100000,
-    shield: 50000, 
+    shield: 50000,
     damage: 500,
     range: 300,
     cooldown: 1000,
@@ -46,6 +52,10 @@ export const PLAYER_DEFINITION: PlayerDefinition = {
     experience: 0,
     honor: 0,
     skillPoints: 10
+  },
+  spriteSize: {
+    width: 112,
+    height: 112
   },
   description: 'La nave controllata dal giocatore'
 };

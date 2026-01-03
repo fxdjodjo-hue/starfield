@@ -8,15 +8,18 @@ import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { UiSystem } from '../ui/UiSystem';
+import { PlayerSystem } from '../player/PlayerSystem';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
  */
 export class ProjectileSystem extends BaseSystem {
   private uiSystem: UiSystem | null = null;
+  private playerSystem: PlayerSystem;
 
-  constructor(ecs: ECS, uiSystem?: UiSystem) {
+  constructor(ecs: ECS, playerSystem: PlayerSystem, uiSystem?: UiSystem) {
     super(ecs);
+    this.playerSystem = playerSystem;
     this.uiSystem = uiSystem || null;
   }
 
@@ -86,7 +89,7 @@ export class ProjectileSystem extends BaseSystem {
     if (!projectile) return false;
 
     // Trova il player
-    const playerEntity = this.ecs.getPlayerEntity();
+    const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return false;
 
     // I proiettili homing sono:
@@ -205,7 +208,7 @@ export class ProjectileSystem extends BaseSystem {
     if (!targetHealth) return;
 
     // Verifica se il target è il player
-    const playerEntity = this.ecs.getPlayerEntity();
+    const playerEntity = this.playerSystem.getPlayerEntity();
     const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
 
     // Registra che l'entità è stata danneggiata (per comportamenti AI reattivi)

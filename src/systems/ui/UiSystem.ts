@@ -9,6 +9,7 @@ import { ChatPanel } from '../../presentation/ui/ChatPanel';
 import { ChatManager } from './ChatManager';
 import { getPanelConfig } from '../../presentation/ui/PanelConfig';
 import { QuestSystem } from '../quest/QuestSystem';
+import { PlayerSystem } from '../player/PlayerSystem';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -20,20 +21,23 @@ export class UiSystem extends System {
   private chatPanel: ChatPanel;
   private chatManager: ChatManager;
   private questSystem: QuestSystem;
+  private skillsPanel: SkillsPanel | null = null;
+  private playerSystem: PlayerSystem | null = null;
   private economySystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
   private context: any = null;
 
-  constructor(ecs: ECS, questSystem: QuestSystem, context?: any) {
+  constructor(ecs: ECS, questSystem: QuestSystem, context?: any, playerSystem?: PlayerSystem) {
     super(ecs);
     this.ecs = ecs;
     this.context = context;
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
-    this.chatPanel = new ChatPanel(this.ecs, this.context);
+    this.chatPanel = new ChatPanel(this.ecs, this.context, this.playerSystem || undefined);
     this.chatManager = new ChatManager(this.chatPanel, this.context);
     this.questSystem = questSystem;
+    this.playerSystem = playerSystem || null;
   }
 
   /**
@@ -41,6 +45,20 @@ export class UiSystem extends System {
    */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
+  }
+
+  /**
+   * Imposta il riferimento al PlayerSystem
+   */
+  setPlayerSystem(playerSystem: PlayerSystem): void {
+    this.playerSystem = playerSystem;
+    // Aggiorna anche i pannelli che ne hanno bisogno
+    if (this.skillsPanel) {
+      this.skillsPanel.setPlayerSystem(playerSystem);
+    }
+    if (this.chatPanel) {
+      this.chatPanel.setPlayerSystem(playerSystem);
+    }
   }
 
   /**
@@ -68,8 +86,8 @@ export class UiSystem extends System {
 
     // Crea e registra il pannello delle skills
     const skillsConfig = getPanelConfig('skills');
-    const skillsPanel = new SkillsPanel(skillsConfig, this.ecs);
-    this.uiManager.registerPanel(skillsPanel);
+    this.skillsPanel = new SkillsPanel(skillsConfig, this.ecs, this.playerSystem || undefined);
+    this.uiManager.registerPanel(this.skillsPanel);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
@@ -236,9 +254,9 @@ export class UiSystem extends System {
     // Forza la visibilità e ricalcola dimensioni
     this.playerNicknameElement.style.display = 'block';
 
-    // Posiziona il nickname centrato orizzontalmente sotto la nave (10px sotto per essere visibile)
+    // Posiziona il nickname centrato orizzontalmente sotto la nave
     const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
-    const nicknameY = screenPos.y + 60; // Sotto la nave
+    const nicknameY = screenPos.y + 45; // Sotto la nave
 
     this.playerNicknameElement.style.left = `${nicknameX}px`;
     this.playerNicknameElement.style.top = `${nicknameY}px`;

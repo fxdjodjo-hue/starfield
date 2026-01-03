@@ -15,6 +15,7 @@ import { Sprite } from '../../entities/Sprite';
 import { MovementSystem } from '../physics/MovementSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
+import { PlayerSystem } from '../player/PlayerSystem';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -25,15 +26,17 @@ export class CombatSystem extends BaseSystem {
   private movementSystem: MovementSystem;
   private logSystem: LogSystem | null = null;
   private gameContext: GameContext;
+  private playerSystem: PlayerSystem;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
 
-  constructor(ecs: ECS, movementSystem: MovementSystem, gameContext: GameContext) {
+  constructor(ecs: ECS, movementSystem: MovementSystem, gameContext: GameContext, playerSystem: PlayerSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
     this.gameContext = gameContext;
+    this.playerSystem = playerSystem;
   }
 
   update(deltaTime: number): void {
@@ -72,7 +75,7 @@ export class CombatSystem extends BaseSystem {
     }
 
     // Trova il player come target
-    const playerEntity = this.ecs.getPlayerEntity();
+    const playerEntity = this.playerSystem.getPlayerEntity();
 
     if (!playerEntity) return;
 
@@ -102,6 +105,62 @@ export class CombatSystem extends BaseSystem {
     const directionX = dx / distance;
     const directionY = dy / distance;
 
+    // Verifica se l'attaccante è il player per applicare laser duali
+    const isPlayer = attackerEntity === this.playerSystem.getPlayerEntity();
+
+    if (isPlayer) {
+      // Player: crea due laser laterali
+      this.createDualLasers(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
+    } else {
+      // NPC: crea singolo proiettile come prima
+      this.createSingleProjectile(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
+    }
+  }
+
+  /**
+   * Crea due laser laterali per il player (modifica visiva, danno invariato)
+   */
+  private createDualLasers(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any, baseDirectionX: number, baseDirectionY: number): void {
+    // Angolo di deviazione per i laser laterali (circa 60 gradi)
+    const deviationAngle = Math.PI / 3; // 60 gradi in radianti
+
+    // Calcola le direzioni deviate
+    const cos = Math.cos(deviationAngle);
+    const sin = Math.sin(deviationAngle);
+
+    // Laser sinistro
+    const leftDirectionX = baseDirectionX * cos - baseDirectionY * sin;
+    const leftDirectionY = baseDirectionX * sin + baseDirectionY * cos;
+
+    // Laser destro
+    const rightDirectionX = baseDirectionX * cos + baseDirectionY * sin;
+    const rightDirectionY = -baseDirectionX * sin + baseDirectionY * cos;
+
+    // Crea i due laser visivi: uno con danno completo (500), l'altro puramente visivo (0)
+    const fullDamage = attackerDamage.damage; // 500 danni
+    const visualOnlyDamage = 0; // Solo effetto visivo
+
+    this.createProjectileAt(attackerEntity, attackerTransform, fullDamage, leftDirectionX, leftDirectionY, targetEntity);
+    this.createProjectileAt(attackerEntity, attackerTransform, visualOnlyDamage, rightDirectionX, rightDirectionY, targetEntity);
+
+    // Registra l'attacco per il cooldown
+    attackerDamage.performAttack(this.lastUpdateTime);
+  }
+
+  /**
+   * Crea un singolo proiettile (usato dagli NPC)
+   */
+  private createSingleProjectile(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any, directionX: number, directionY: number): void {
+    this.createProjectileAt(attackerEntity, attackerTransform, attackerDamage.damage, directionX, directionY, targetEntity);
+
+    // Registra l'attacco per il cooldown
+    attackerDamage.performAttack(this.lastUpdateTime);
+  }
+
+  /**
+   * Crea un proiettile in una posizione e direzione specifica
+   */
+  private createProjectileAt(attackerEntity: any, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: any): void {
     // Crea il proiettile leggermente avanti all'attaccante per evitare auto-collisione
     const projectileX = attackerTransform.x + directionX * 25; // 25 pixel avanti (dimensione nave)
     const projectileY = attackerTransform.y + directionY * 25;
@@ -111,14 +170,10 @@ export class CombatSystem extends BaseSystem {
 
     // Aggiungi componenti al proiettile
     const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
-    const projectile = new Projectile(attackerDamage.damage, 400, directionX, directionY, attackerEntity.id, targetEntity.id, 3000);
-
+    const projectile = new Projectile(damage, 400, directionX, directionY, attackerEntity.id, targetEntity.id, 3000);
 
     this.ecs.addComponent(projectileEntity, Transform, projectileTransform);
     this.ecs.addComponent(projectileEntity, Projectile, projectile);
-
-    // Registra l'attacco per il cooldown
-    attackerDamage.performAttack(this.lastUpdateTime);
   }
 
   /**
@@ -135,7 +190,7 @@ export class CombatSystem extends BaseSystem {
     if (!isBoundsDamage && activeCount >= 3) return;
 
     // Determina il colore e offset del testo
-    const playerEntity = this.ecs.getPlayerEntity();
+    const playerEntity = this.playerSystem.getPlayerEntity();
     const isPlayerDamage = playerEntity && targetEntityId === playerEntity.id;
 
     let textColor: string;
@@ -206,7 +261,7 @@ export class CombatSystem extends BaseSystem {
     const selectedNpc = selectedNpcs[0];
 
     // Trova il player
-    const playerEntity = this.ecs.getPlayerEntity();
+    const playerEntity = this.playerSystem.getPlayerEntity();
 
     if (!playerEntity) return;
 

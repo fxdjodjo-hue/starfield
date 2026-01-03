@@ -5,10 +5,13 @@ import { Velocity } from '../../entities/spatial/Velocity';
 import { Sprite } from '../../entities/Sprite';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
 import { Credits, Cosmos } from '../../entities/currency/Currency';
 import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
 import { PlayerStats } from '../../entities/player/PlayerStats';
+import { SkillPoints } from '../../entities/currency/SkillPoints';
+import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 
@@ -36,13 +39,15 @@ export class PlayerSystem extends System {
     this.ecs.addComponent(entity, Velocity, new Velocity(0, 0));
 
     // Aggiungi componenti visuali
-    this.ecs.addComponent(entity, Sprite, new Sprite(null as any)); // Placeholder - sarà impostato dal sistema di caricamento asset
+    const playerSprite = new Sprite(null, playerDef.spriteSize.width, playerDef.spriteSize.height);
+    this.ecs.addComponent(entity, Sprite, playerSprite); // Placeholder - sarà impostato dal sistema di caricamento asset
 
     // Aggiungi componenti combattimento
     this.ecs.addComponent(entity, Health, new Health(playerDef.stats.health, playerDef.stats.health));
     if (playerDef.stats.shield) {
       this.ecs.addComponent(entity, Shield, new Shield(playerDef.stats.shield, playerDef.stats.shield));
     }
+    this.ecs.addComponent(entity, Damage, new Damage(playerDef.stats.damage, playerDef.stats.range, playerDef.stats.cooldown));
 
     // Aggiungi componenti economici
     this.ecs.addComponent(entity, Credits, new Credits(playerDef.startingResources.credits));
@@ -52,6 +57,10 @@ export class PlayerSystem extends System {
     this.ecs.addComponent(entity, Experience, new Experience(0));
     this.ecs.addComponent(entity, Honor, new Honor(0));
     this.ecs.addComponent(entity, PlayerStats, new PlayerStats());
+
+    // Aggiungi componenti per gli upgrade
+    this.ecs.addComponent(entity, SkillPoints, new SkillPoints(playerDef.startingResources.skillPoints));
+    this.ecs.addComponent(entity, PlayerUpgrades, new PlayerUpgrades());
 
     // Aggiungi componente quest
     this.ecs.addComponent(entity, ActiveQuest, new ActiveQuest());

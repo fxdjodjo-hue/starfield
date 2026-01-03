@@ -3,16 +3,16 @@
  * Holds image data and rendering properties
  */
 export class Sprite {
-  public image: HTMLImageElement;
+  public image: HTMLImageElement | null;
   public width: number;
   public height: number;
   public offsetX: number;
   public offsetY: number;
 
-  constructor(image: HTMLImageElement, width?: number, height?: number, offsetX: number = 0, offsetY: number = 0) {
+  constructor(image: HTMLImageElement | null, width?: number, height?: number, offsetX: number = 0, offsetY: number = 0) {
     this.image = image;
-    this.width = width ?? image.width;
-    this.height = height ?? image.height;
+    this.width = width ?? (image ? image.width : 0);
+    this.height = height ?? (image ? image.height : 0);
     this.offsetX = offsetX;
     this.offsetY = offsetY;
   }
@@ -21,7 +21,7 @@ export class Sprite {
    * Check if the sprite image is loaded
    */
   isLoaded(): boolean {
-    return this.image.complete && this.image.naturalWidth !== 0;
+    return this.image !== null && this.image.complete && this.image.naturalWidth !== 0;
   }
 }
 

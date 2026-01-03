@@ -24,6 +24,7 @@ import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
 import { QuestManager } from '../quest/QuestManager';
 import { UiSystem } from '../ui/UiSystem';
 import { PlayerStatusDisplaySystem } from '../player/PlayerStatusDisplaySystem';
+import { PlayerSystem } from '../player/PlayerSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
 import { Sprite } from '../../entities/Sprite';
@@ -57,6 +58,7 @@ export class GameInitializationSystem extends System {
   private uiSystem: UiSystem;
   private movementSystem!: MovementSystem;
   private economySystem: any;
+  private playerSystem!: PlayerSystem;
 
   constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
     super(ecs);
@@ -104,11 +106,8 @@ export class GameInitializationSystem extends System {
     const playerControlSystem = new PlayerControlSystem(this.ecs);
     const npcBehaviorSystem = new NpcBehaviorSystem(this.ecs);
     const npcSelectionSystem = new NpcSelectionSystem(this.ecs);
-    const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context);
     const explosionSystem = new ExplosionSystem(this.ecs);
-    const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
     const chatTextSystem = new ChatTextSystem(this.ecs, this.movementSystem);
-    const projectileSystem = new ProjectileSystem(this.ecs, this.uiSystem);
     const minimapSystem = new MinimapSystem(this.ecs, this.context.canvas);
     const logSystem = new LogSystem(this.ecs);
     this.economySystem = new EconomySystem(this.ecs);
@@ -118,6 +117,10 @@ export class GameInitializationSystem extends System {
     const respawnSystem = new NpcRespawnSystem(this.ecs, this.context);
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
+    this.playerSystem = new PlayerSystem(this.ecs);
+    const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context, this.playerSystem);
+    const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
+    const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem);
 
     return {
       movementSystem: this.movementSystem,
@@ -143,6 +146,7 @@ export class GameInitializationSystem extends System {
       questSystem: this.questSystem,
       uiSystem: this.uiSystem,
       playerStatusDisplaySystem,
+      playerSystem: this.playerSystem,
       assets: { shipImage, mapBackgroundImage, scouterImage }
     };
   }
@@ -155,12 +159,14 @@ export class GameInitializationSystem extends System {
             explosionSystem, projectileSystem, npcBehaviorSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
-            respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem } = systems;
+            respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
+            playerSystem } = systems;
 
     // Ordine importante per l'esecuzione
     this.ecs.addSystem(inputSystem);
     this.ecs.addSystem(npcSelectionSystem);
     this.ecs.addSystem(playerControlSystem);
+    this.ecs.addSystem(playerSystem);
     this.ecs.addSystem(combatSystem);
     this.ecs.addSystem(explosionSystem);
     this.ecs.addSystem(projectileSystem);
@@ -254,11 +260,23 @@ export class GameInitializationSystem extends System {
    * Restituisce il player entity creato
    */
   private async createGameEntities(systems: any): Promise<any> {
-    const { assets } = systems;
+    const { assets, playerSystem } = systems;
 
-    // Crea la nave player
-    const playerShip = this.createPlayerShip(assets.shipImage);
-    this.setPlayerEntityInSystems(playerShip, systems);
+    // Crea il player usando il PlayerSystem
+    const worldCenterX = 0;
+    const worldCenterY = 0;
+    const playerEntity = playerSystem.createPlayer(worldCenterX, worldCenterY);
+
+    // Imposta lo sprite del player
+    const sprite = this.ecs.getComponent(playerEntity, Sprite);
+    const playerDef = getPlayerDefinition();
+    if (sprite) {
+      sprite.image = assets.shipImage;
+      sprite.width = playerDef.spriteSize.width;
+      sprite.height = playerDef.spriteSize.height;
+    }
+
+    this.setPlayerEntityInSystems(playerEntity, systems);
 
     // Crea l'entità background della mappa
     this.createMapBackground(assets.mapBackgroundImage);
@@ -266,7 +284,7 @@ export class GameInitializationSystem extends System {
     // Crea NPC
     this.createScouter(50, assets.scouterImage);
 
-    return playerShip;
+    return playerEntity;
   }
 
   /**
@@ -275,7 +293,8 @@ export class GameInitializationSystem extends System {
   private setPlayerEntityInSystems(playerEntity: any, systems: any): void {
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
-      boundsSystem, respawnSystem, questTrackingSystem, playerStatusDisplaySystem
+      boundsSystem, respawnSystem, questTrackingSystem, playerStatusDisplaySystem,
+      playerSystem, uiSystem
     } = systems;
 
     playerControlSystem.setPlayerEntity(playerEntity);
@@ -286,77 +305,11 @@ export class GameInitializationSystem extends System {
     respawnSystem.setPlayerEntity(playerEntity);
     questTrackingSystem.setPlayerEntity(playerEntity);
     playerStatusDisplaySystem.setPlayerEntity(playerEntity);
+
+    // Imposta il riferimento al PlayerSystem nel UiSystem (per pannelli che ne hanno bisogno)
+    uiSystem.setPlayerSystem(playerSystem);
   }
 
-  /**
-   * Crea la nave player controllabile
-   */
-  private createPlayerShip(sprite: HTMLImageElement): any {
-    const ship = this.ecs.createEntity();
-    const playerDef = getPlayerDefinition();
-
-    // Spawna il player al centro del mondo (0,0)
-    const worldCenterX = 0;
-    const worldCenterY = 0;
-
-    // Aggiungi componenti usando la configurazione
-    const transform = new Transform(worldCenterX, worldCenterY, 0);
-    const velocity = new Velocity(0, 0, 0);
-
-    // Crea prima tutti i componenti
-    const credits = new Credits(playerDef.startingResources.credits);
-    const cosmos = new Cosmos(playerDef.startingResources.cosmos);
-    const experience = new Experience(playerDef.startingResources.experience, playerDef.startingResources.level);
-    const honor = new Honor(playerDef.startingResources.honor);
-    const skillPoints = new SkillPoints(playerDef.startingResources.skillPoints, playerDef.startingResources.skillPoints);
-    const playerUpgrades = new PlayerUpgrades();
-
-    // Ora calcola i bonus dagli upgrade
-    const hpBonus = playerUpgrades.getHPBonus();
-    const shieldBonus = playerUpgrades.getShieldBonus();
-    const speedBonus = playerUpgrades.getSpeedBonus();
-    const damageBonus = playerUpgrades.getDamageBonus();
-
-    // Applica bonus alle statistiche base
-    const baseHealth = Math.floor(playerDef.stats.health * hpBonus);
-    const baseShield = playerDef.stats.shield ? Math.floor(playerDef.stats.shield * shieldBonus) : undefined;
-    const baseDamage = Math.floor(playerDef.stats.damage * damageBonus);
-
-    const health = new Health(baseHealth, baseHealth);
-    const damage = new Damage(baseDamage, playerDef.stats.range, playerDef.stats.cooldown);
-
-    // Condizionale per scudi (se presenti nella config)
-    let shield: Shield | undefined;
-    if (baseShield && baseShield > 0) {
-      shield = new Shield(baseShield, baseShield);
-    }
-    const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
-    const activeQuest = new ActiveQuest(); // Sistema quest
-    const shipSprite = new Sprite(sprite, sprite.width * 0.2, sprite.height * 0.2);
-
-    // Aggiungi componenti
-    this.ecs.addComponent(ship, Transform, transform);
-    this.ecs.addComponent(ship, Velocity, velocity);
-    this.ecs.addComponent(ship, Health, health);
-    this.ecs.addComponent(ship, Damage, damage);
-
-    // Aggiungi scudi solo se definiti
-    if (shield) {
-      this.ecs.addComponent(ship, Shield, shield);
-    }
-
-    this.ecs.addComponent(ship, Credits, credits);
-    this.ecs.addComponent(ship, Cosmos, cosmos);
-    this.ecs.addComponent(ship, Experience, experience);
-    this.ecs.addComponent(ship, Honor, honor);
-    this.ecs.addComponent(ship, PlayerStats, playerStats);
-    this.ecs.addComponent(ship, SkillPoints, skillPoints);
-    this.ecs.addComponent(ship, PlayerUpgrades, playerUpgrades);
-    this.ecs.addComponent(ship, ActiveQuest, activeQuest);
-    this.ecs.addComponent(ship, Sprite, shipSprite);
-
-    return ship;
-  }
 
   /**
    * Crea Scouter distribuiti uniformemente su tutta la mappa

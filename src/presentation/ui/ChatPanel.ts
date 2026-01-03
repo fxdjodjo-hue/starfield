@@ -1,5 +1,6 @@
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { ChatText } from '../../entities/combat/ChatText';
+import { PlayerSystem } from '../../systems/player/PlayerSystem';
 
 /**
  * ChatPanel - Pannello chat semplice nell'angolo in basso a sinistra
@@ -15,12 +16,21 @@ export class ChatPanel {
   private maxMessages: number = 50;
   private ecs: ECS | null = null;
   private context: any = null;
+  private playerSystem: PlayerSystem | null = null;
 
-  constructor(ecs?: ECS, context?: any) {
+  constructor(ecs?: ECS, context?: any, playerSystem?: PlayerSystem) {
     this.ecs = ecs || null;
     this.context = context || null;
+    this.playerSystem = playerSystem || null;
     this.createPanel();
     this.setupEventListeners();
+  }
+
+  /**
+   * Imposta il riferimento al PlayerSystem
+   */
+  setPlayerSystem(playerSystem: PlayerSystem): void {
+    this.playerSystem = playerSystem;
   }
 
   /**
@@ -474,13 +484,13 @@ export class ChatPanel {
    * Crea un testo fluttuante sopra il giocatore con il messaggio della chat
    */
   private createChatTextAbovePlayer(message: string): void {
-    if (!this.ecs) {
-      console.warn('ChatPanel: ECS not available');
+    if (!this.ecs || !this.playerSystem) {
+      console.warn('ChatPanel: ECS or PlayerSystem not available');
       return;
     }
 
     // Trova l'entità del giocatore
-    const playerEntity = this.ecs.getPlayerEntity();
+    const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) {
       console.warn('ChatPanel: Player entity not found');
       return;
