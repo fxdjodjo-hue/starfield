@@ -6,6 +6,7 @@ import { QuestManager } from '../../systems/QuestManager';
 import { QuestSystem } from '../../systems/QuestSystem';
 import { GameInitializationSystem } from '../../systems/GameInitializationSystem';
 import { UiSystem } from '../../systems/UiSystem';
+import { PlayerStatusDisplaySystem } from '../../systems/PlayerStatusDisplaySystem';
 import { Transform } from '../../entities/spatial/Transform';
 
 /**
