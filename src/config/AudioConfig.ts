@@ -1,10 +1,10 @@
-export interface AudioConfig {
+export type AudioConfig = {
   masterVolume: number;
   musicVolume: number;
   effectsVolume: number;
   uiVolume: number;
   enabled: boolean;
-}
+};
 
 export const AUDIO_CONFIG: AudioConfig = {
   masterVolume: 1.0,

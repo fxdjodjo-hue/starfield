@@ -2,6 +2,9 @@ import { System } from '../../infrastructure/ecs/System';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { AudioConfig } from '../../config/AudioConfig';
 
+// Re-export AudioConfig for backward compatibility
+export type { AudioConfig };
+
 export interface SoundAsset {
   key: string;
   url: string;
