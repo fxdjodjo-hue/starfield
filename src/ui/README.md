@@ -6,7 +6,77 @@ Il layer UI gestisce interfacce utente HTML/CSS sovrapposte al canvas di gioco, 
 
 ## 📋 Componenti UI
 
-### UIManager
+### 🏠 StartScreen
+**Schermata iniziale del gioco con input nickname**
+
+**File:** `StartScreen.ts`
+
+**Elementi:**
+- Titolo del gioco con effetti visivi
+- Campo input per nickname giocatore
+- Pulsante "Play" per avviare la partita
+- Informazioni versione
+- Sfondo animato
+
+**Responsabilità:**
+- Prima interazione utente
+- Raccolta informazioni iniziali (nickname)
+- Transizione allo stato di gioco
+
+**Integrazione:**
+```typescript
+const startScreen = new StartScreen(context);
+startScreen.setOnPlayCallback((nickname) => {
+  // Transizione a PlayState
+});
+```
+
+### 📊 PlayerHUD
+**HUD del giocatore con statistiche essenziali**
+
+**File:** `PlayerHUD.ts`
+
+**Statistiche visualizzate:**
+- Livello giocatore
+- Crediti attuali
+- Punti Cosmos
+- Esperienza (barra progresso)
+- Onore accumulato
+
+**Caratteristiche:**
+- Posizionato in alto a sinistra
+- Design glass morphism
+- Aggiornamenti real-time
+- Toggle con tasto H
+
+**Architettura:**
+- Separazione logica-business/presentazione
+- Interfaccia type-safe per dati
+- Styling consistente
+
+### 🗺️ Minimap
+**Minimappa interattiva per navigazione**
+
+**File:** `Minimap.ts`
+
+**Funzionalità:**
+- Overview quadrata del mondo di gioco
+- Rappresentazione entità come pallini colorati
+- Click-to-move per navigazione rapida
+- Zoom e pan configurabili
+
+**Elementi visualizzati:**
+- Giocatore (pallino speciale)
+- NPC nemici
+- NPC selezionati (evidenziati)
+- Bordi mondo di gioco
+
+**Configurazione:**
+- Dimensioni personalizzabili
+- Colori configurabili per ogni tipo entità
+- Fattore scala adattivo
+
+### 🎛️ UIManager (Moderno)
 **Sistema centrale di gestione UI - Coordina pannelli e icone flottanti**
 
 **File:** `UIManager.ts`
@@ -22,7 +92,7 @@ Il layer UI gestisce interfacce utente HTML/CSS sovrapposte al canvas di gioco, 
 - Responsive design
 - API unificata per tutti i pannelli
 
-### BasePanel
+### 📋 BasePanel
 **Classe astratta base per tutti i pannelli UI**
 
 **File:** `UIManager.ts`
@@ -37,7 +107,7 @@ Il layer UI gestisce interfacce utente HTML/CSS sovrapposte al canvas di gioco, 
 - Event handling integrato
 - Styling consistente
 
-### FloatingIcon
+### 🎯 FloatingIcon
 **Icone flottanti per accedere ai pannelli**
 
 **File:** `UIManager.ts`
@@ -51,22 +121,23 @@ Il layer UI gestisce interfacce utente HTML/CSS sovrapposte al canvas di gioco, 
 - Indicatori stato attivo
 - Posizionamento intelligente
 
-### PlayerStatsPanel
-**Pannello statistiche giocatore con design moderno**
+### 📈 PlayerStatsPanel
+**Pannello statistiche giocatore dettagliate**
 
 **File:** `PlayerStatsPanel.ts`
 
 **Statistiche visualizzate:**
-- Livello e esperienza (con progress bar)
+- Livello e esperienza (con progress bar animata)
 - Crediti e onore
 - Uccisioni totali
 - Tempo di gioco
 
 **Design features:**
-- Layout a griglia responsive
-- Card con hover effects
-- Gradienti moderni
+- Layout a griglia responsive (2 colonne)
+- Card moderne con hover effects
+- Gradienti e glass morphism
 - Icone colorate per categoria
+- Pulsante chiusura elegante
 
 ## 🎨 Design Principles
 
@@ -105,21 +176,44 @@ uiManager.registerPanel(panel);
 
 ## 🔗 Integrazione con Game States
 
+### StartState Integration
+```typescript
+class StartState extends GameState {
+  private startScreen: StartScreen;
+
+  async enter(context: GameContext) {
+    // Crea schermata iniziale
+    this.startScreen = new StartScreen(context);
+
+    // Callback per transizione a PlayState
+    this.startScreen.setOnPlayCallback((nickname) => {
+      context.playerNickname = nickname;
+      // Transizione a PlayState
+    });
+  }
+}
+```
+
 ### PlayState Integration
 ```typescript
 class PlayState extends GameState {
+  private playerHUD: PlayerHUD;
+  private minimap: Minimap;
   private uiManager: UIManager;
 
   async enter(context: GameContext) {
-    // Inizializza sistema UI
-    this.initializeUI();
+    // Inizializza componenti UI
+    this.playerHUD = new PlayerHUD();
+    this.minimap = new Minimap();
+    this.uiManager = new UIManager();
 
-    // Toggle UI con HUD (tasto H)
+    // Setup sistemi UI
+    this.initializeUI();
     this.setupHudToggle();
   }
 
   private initializeUI(): void {
-    // Crea e registra pannelli
+    // Registra pannelli moderni
     const statsPanel = new PlayerStatsPanel({
       id: 'player-stats',
       icon: '📊',
@@ -132,8 +226,25 @@ class PlayState extends GameState {
   }
 
   update(deltaTime: number) {
-    // Aggiorna dati pannelli
+    // Aggiorna HUD e minimappa
+    this.updatePlayerHUD();
+    this.updateMinimap();
+
+    // Aggiorna pannelli moderni
     this.updateUIPanels();
+  }
+
+  private updatePlayerHUD(): void {
+    const hudData: PlayerHUDData = {
+      level: this.getPlayerLevel(),
+      credits: this.getPlayerCredits(),
+      cosmos: this.getPlayerCosmos(),
+      experience: this.getPlayerExperience(),
+      expForNextLevel: this.getExpForNextLevel(),
+      honor: this.getPlayerHonor()
+    };
+
+    this.playerHUD.updateData(hudData);
   }
 }
 ```
@@ -187,17 +298,20 @@ interface PlayerStatsData {
 panel.update(playerStatsData);
 ```
 
-## 🚀 Aggiungere Nuovi Pannelli
+## 🚀 Aggiungere Nuovi Pannelli (UIManager)
 
 ### 1. Crea la classe pannello
 ```typescript
 export class InventoryPanel extends BasePanel {
   protected createPanelContent(): HTMLElement {
-    // Implementa layout inventario
+    // Layout inventario con griglia oggetti
+    const inventoryGrid = this.createInventoryGrid();
+    return inventoryGrid;
   }
 
   update(data: PanelData): void {
-    // Implementa logica aggiornamento
+    // Aggiorna oggetti inventario
+    this.updateInventoryItems(data.items);
   }
 }
 ```
@@ -209,7 +323,7 @@ const inventoryConfig = {
   icon: '🎒',
   title: 'Inventario',
   position: 'bottom-left',
-  size: { width: 400, height: 600 }
+  size: { width: 500, height: 400 }
 };
 ```
 
@@ -218,6 +332,29 @@ const inventoryConfig = {
 const inventoryPanel = new InventoryPanel(inventoryConfig);
 this.uiManager.registerPanel(inventoryPanel);
 ```
+
+## 🔄 Estensioni Future
+
+### Pannelli UIManager
+- **🎒 Inventario** - Gestione oggetti e equipaggiamento
+- **⚙️ Impostazioni** - Configurazione audio/video
+- **📜 Missioni** - Quest attive e completate
+- **👥 Alleanze** - Relazioni diplomatiche
+- **🏆 Classifiche** - Leaderboard e achievement
+- **💬 Chat** - Comunicazione multiplayer
+- **🗺️ Mappa** - Navigazione dettagliata
+
+### Miglioramenti HUD
+- **🔄 Modalità compatta/espansa** - Toggle dimensioni
+- **📊 Statistiche aggiuntive** - DPS, accuracy, ecc.
+- **🎨 Temi personalizzabili** - Cambiamento colori
+- **📱 Responsive scaling** - Adattamento dispositivi
+
+### Advanced UI Components
+- **💡 Tooltip intelligenti** - Info contestuali
+- **🎬 Animazioni avanzate** - Transizioni fluide
+- **✨ Effetti particellari** - Feedback visivo
+- **🎛️ Layout adattivi** - Comportamento diverso risoluzioni
 
 ## 📱 Funzionalità Implementate
 
