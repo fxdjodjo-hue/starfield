@@ -19,9 +19,11 @@ export class UiSystem extends System {
   private economySystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
+  private ecs: ECS;
 
   constructor(ecs: ECS, questSystem: QuestSystem) {
     super(ecs);
+    this.ecs = ecs;
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
     this.questSystem = questSystem;
@@ -58,7 +60,7 @@ export class UiSystem extends System {
 
     // Crea e registra il pannello delle skills
     const skillsConfig = getPanelConfig('skills');
-    const skillsPanel = new SkillsPanel(skillsConfig);
+    const skillsPanel = new SkillsPanel(skillsConfig, this.ecs);
     this.uiManager.registerPanel(skillsPanel);
 
     // Collega il pannello quest al sistema quest
