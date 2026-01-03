@@ -344,8 +344,11 @@ export class SkillsPanel extends BasePanel {
 
     if (shield) {
       const shieldElements = this.statsContainer.querySelectorAll('[data-stat="shield"]');
+      console.log('SkillsPanel: Updating shield - elements found:', shieldElements.length, 'current value:', shield.current, 'max:', shield.max);
       shieldElements.forEach((el: HTMLElement) => {
-        el.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
+        const newValue = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
+        console.log('SkillsPanel: Setting shield element text to:', newValue);
+        el.textContent = newValue;
       });
     }
 
@@ -382,6 +385,7 @@ export class SkillsPanel extends BasePanel {
   update(deltaTime: number): void {
     // Aggiorna solo se il pannello è visibile e il container è nel DOM
     if (this.isVisible && this.statsContainer && this.statsContainer.parentElement) {
+      console.log('SkillsPanel: Updating visible panel');
       this.updatePlayerStats();
     }
   }

@@ -299,9 +299,12 @@ export class UiSystem extends System {
   }
 
   update(deltaTime: number): void {
+    console.log('UiSystem: update called');
     // Aggiorna pannello skills se visibile
     const skillsPanel = this.uiManager.getPanel('skills-panel') as any;
+    console.log('UiSystem: skills panel exists:', !!skillsPanel);
     if (skillsPanel && skillsPanel.update) {
+      console.log('UiSystem: calling skillsPanel.update()');
       skillsPanel.update(deltaTime);
     }
 
