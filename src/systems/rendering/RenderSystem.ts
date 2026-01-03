@@ -11,6 +11,7 @@ import { Camera } from '../../entities/spatial/Camera';
 import { MovementSystem } from '../physics/MovementSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
+import { Velocity } from '../../entities/spatial/Velocity';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -58,7 +59,8 @@ export class RenderSystem extends BaseSystem {
         if (npc) {
           // Renderizza come NPC
           const entitySprite = this.ecs.getComponent(entity, Sprite);
-          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite);
+          const entityVelocity = this.ecs.getComponent(entity, Velocity);
+          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite, entityVelocity);
 
           // Mostra range di attacco se selezionato
           if (selected !== undefined) {
@@ -131,12 +133,28 @@ export class RenderSystem extends BaseSystem {
   /**
    * Renderizza un NPC
    */
-  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false, sprite?: Sprite): void {
+  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false, sprite?: Sprite, velocity?: Velocity): void {
     ctx.save();
 
     // Applica trasformazioni usando le coordinate schermo
     ctx.translate(screenX, screenY);
-    ctx.rotate(transform.rotation);
+
+    // Per NPC con sprite, calcola rotazione basata sulla direzione di movimento
+    if (sprite && sprite.isLoaded() && velocity) {
+      // Calcola l'angolo dalla direzione di movimento
+      const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+      if (speed > 0.1) { // Se si sta muovendo (velocità minima per evitare divisioni per zero)
+        const rotationAngle = Math.atan2(velocity.y, velocity.x) + Math.PI / 2; // +90° per orientare correttamente lo sprite
+        ctx.rotate(rotationAngle);
+      } else {
+        // Se fermo, usa la rotazione standard
+        ctx.rotate(transform.rotation);
+      }
+    } else {
+      // Per forme geometriche o NPC senza velocity, usa la rotazione standard
+      ctx.rotate(transform.rotation);
+    }
+
     ctx.scale(transform.scaleX, transform.scaleY);
 
     // Cerchio rosso di selezione (se selezionato)
