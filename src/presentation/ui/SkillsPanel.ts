@@ -15,6 +15,8 @@ export class SkillsPanel extends BasePanel {
   constructor(config: PanelConfig, ecs: ECS) {
     super(config);
     this.ecs = ecs;
+    // Forza la creazione del contenuto per permettere gli aggiornamenti
+    this.createPanelContent();
   }
 
   /**
@@ -312,46 +314,28 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   private updatePlayerStats(): void {
-    if (!this.statsContainer) {
-      console.log('SkillsPanel: statsContainer not found');
-      return;
-    }
+    if (!this.statsContainer) return;
 
     const playerEntity = this.ecs.getPlayerEntity();
-    console.log('SkillsPanel: playerEntity =', playerEntity?.id);
-
-    if (!playerEntity) {
-      console.log('SkillsPanel: no player entity found');
-      return;
-    }
+    if (!playerEntity) return;
 
     // Ottieni componenti del giocatore
     const health = this.ecs.getComponent(playerEntity, Health);
     const shield = this.ecs.getComponent(playerEntity, Shield);
     const experience = this.ecs.getComponent(playerEntity, Experience);
 
-    console.log('SkillsPanel: components found - health:', !!health, 'shield:', !!shield, 'experience:', !!experience);
-    console.log('SkillsPanel: health values:', health ? { current: health.current, max: health.max } : null);
-    console.log('SkillsPanel: shield values:', shield ? { current: shield.current, max: shield.max } : null);
-
     // Aggiorna statistiche combattimento
     if (health) {
       const healthValue = this.statsContainer.querySelector('.stat-hp') as HTMLElement;
-      console.log('SkillsPanel: health element found:', !!healthValue);
       if (healthValue) {
-        const newText = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
-        console.log('SkillsPanel: setting health text to:', newText);
-        healthValue.textContent = newText;
+        healthValue.textContent = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
       }
     }
 
     if (shield) {
       const shieldValue = this.statsContainer.querySelector('.stat-shield') as HTMLElement;
-      console.log('SkillsPanel: shield element found:', !!shieldValue);
       if (shieldValue) {
-        const newText = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
-        console.log('SkillsPanel: setting shield text to:', newText);
-        shieldValue.textContent = newText;
+        shieldValue.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
       }
     }
 
@@ -385,7 +369,6 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
-    console.log('SkillsPanel.onShow() called');
     // Le statistiche vengono aggiornate dal metodo update() ogni frame
   }
 
@@ -393,7 +376,6 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene nascosto
    */
   protected onHide(): void {
-    console.log('SkillsPanel.onHide() called');
     // Le statistiche continuano ad aggiornarsi anche quando il pannello è chiuso
   }
 
@@ -401,11 +383,8 @@ export class SkillsPanel extends BasePanel {
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   update(deltaTime: number): void {
-    console.log('SkillsPanel.update() called, isVisible:', this.isVisible, 'statsContainer:', !!this.statsContainer);
-    // Aggiorna le statistiche sempre (anche se il pannello è chiuso)
-    // I calcoli sono leggeri e i valori saranno pronti quando il pannello si riapre
+    // Aggiorna le statistiche sempre se il container esiste
     if (this.statsContainer) {
-      console.log('SkillsPanel: updating player stats');
       this.updatePlayerStats();
     }
   }
