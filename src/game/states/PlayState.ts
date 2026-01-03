@@ -64,16 +64,9 @@ export class PlayState extends GameState {
     this.uiSystem.showPlayerInfo();
 
     // Avvia musica di background
-    console.log('PlayState: Attempting to start background music');
-    console.log('PlayState: audioSystem exists:', !!this.audioSystem);
-
     if (this.audioSystem) {
-      console.log('PlayState: Initializing audio system');
       this.audioSystem.init();
-      console.log('PlayState: Playing background music');
       this.audioSystem.playMusic('background');
-    } else {
-      console.warn('PlayState: AudioSystem not available');
     }
 
     // Messaggio di benvenuto nella chat
@@ -187,7 +180,6 @@ export class PlayState extends GameState {
     this.questManager = systems.questManager;
     this.movementSystem = systems.movementSystem;
     this.audioSystem = systems.audioSystem;
-    console.log('PlayState: Assigned audioSystem:', !!this.audioSystem);
 
     // Collega l'EconomySystem all'UiSystem
     if (systems.economySystem) {

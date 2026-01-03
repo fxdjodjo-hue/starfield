@@ -99,11 +99,7 @@ export default class AudioSystem extends System {
   }
 
   playMusic(key: string, volume: number = this.config.musicVolume): void {
-    console.log(`AudioSystem: Attempting to play music '${key}'`);
-    if (!this.config.enabled) {
-      console.log('AudioSystem: Audio disabled, skipping playback');
-      return;
-    }
+    if (!this.config.enabled) return;
 
     try {
       // Ferma musica precedente se presente
@@ -119,14 +115,11 @@ export default class AudioSystem extends System {
         return;
       }
 
-      console.log(`AudioSystem: Loading audio from '/assets/audio/${assetPath}'`);
       this.musicInstance = new Audio(`/assets/audio/${assetPath}`);
       this.musicInstance.volume = this.config.masterVolume * volume;
       this.musicInstance.loop = true;
 
-      this.musicInstance.play().then(() => {
-        console.log(`AudioSystem: Successfully playing music '${key}'`);
-      }).catch(error => {
+      this.musicInstance.play().catch(error => {
         console.warn(`Audio system: Failed to play music '${key}':`, error);
       });
     } catch (error) {
