@@ -2,6 +2,7 @@ import { World } from '../infrastructure/engine/World';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { QuestManager } from './QuestManager';
 import { LogSystem } from './rendering/LogSystem';
+import { LogType } from '../entities/ui/LogMessage';
 
 /**
  * QuestTrackingSystem - Sistema che traccia gli eventi di gioco per aggiornare le quest
@@ -56,7 +57,7 @@ export class QuestTrackingSystem {
             if (questCompleted) {
               // Mostra messaggio di completamento quest nel log
               if (this.logSystem) {
-                this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, require('../entities/ui/LogMessage').LogType.REWARD);
+                this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD);
               }
 
               // Completa la quest e ottieni le ricompense
