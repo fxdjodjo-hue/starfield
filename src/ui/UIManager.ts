@@ -8,7 +8,7 @@ export interface PanelConfig {
   id: string;
   icon: string; // Unicode icon or CSS class
   title: string;
-  position: 'top-left' | 'top-right' | 'center-left' | 'bottom-left' | 'bottom-right';
+  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'bottom-left' | 'bottom-right';
   size: { width: number; height: number };
 }
 
@@ -279,6 +279,8 @@ export class FloatingIcon {
         return `top: ${margin}px; right: ${margin}px;`;
       case 'center-left':
         return `top: 50%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below':
+        return `top: 60%; left: ${margin}px; transform: translateY(-50%);`;
       case 'bottom-left':
         return `bottom: ${margin}px; left: ${margin}px;`;
       case 'bottom-right':

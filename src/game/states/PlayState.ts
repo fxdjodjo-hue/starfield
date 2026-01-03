@@ -120,7 +120,7 @@ export class PlayState extends GameState {
       id: 'quest-panel',
       icon: '📋',
       title: 'Missioni & Quest',
-      position: 'bottom-left' as const,
+      position: 'center-left-below' as const,
       size: { width: 1300, height: 750 }
     };
 
