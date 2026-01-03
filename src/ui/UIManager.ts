@@ -73,24 +73,8 @@ export abstract class BasePanel {
    * Restituisce gli stili di posizione basati sulla configurazione
    */
   private getPositionStyles(): string {
-    const margin = 20; // Distanza dal bordo per icone
-    const panelMargin = 80; // Distanza dal bordo per pannelli
-    const iconSize = 48; // Dimensione icona
-
-    switch (this.config.position) {
-      case 'top-left':
-        return `top: ${panelMargin}px; left: ${panelMargin + iconSize + 10}px;`;
-      case 'top-right':
-        return `top: ${panelMargin}px; right: ${panelMargin}px;`;
-      case 'center-left':
-        return `top: 50%; left: ${panelMargin + iconSize + 10}px; transform: translateY(-50%);`;
-      case 'bottom-left':
-        return `bottom: ${panelMargin}px; left: ${panelMargin + iconSize + 10}px;`;
-      case 'bottom-right':
-        return `bottom: ${panelMargin}px; right: ${panelMargin}px;`;
-      default:
-        return `top: 50%; left: ${panelMargin + iconSize + 10}px; transform: translateY(-50%);`;
-    }
+    // Pannelli sempre centrati al centro dello schermo per massima usabilità
+    return `top: 50%; left: 50%; transform: translate(-50%, -50%);`;
   }
 
   /**
