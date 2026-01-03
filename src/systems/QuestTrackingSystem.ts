@@ -7,10 +7,19 @@ import { QuestManager } from './QuestManager';
  * Monitora uccisioni, raccolte e altri eventi che influenzano il progresso delle quest
  */
 export class QuestTrackingSystem {
+  private economySystem: any = null;
+
   constructor(
     private world: World,
     private questManager: QuestManager
   ) {}
+
+  /**
+   * Imposta il riferimento all'EconomySystem per assegnare ricompense
+   */
+  setEconomySystem(economySystem: any): void {
+    this.economySystem = economySystem;
+  }
 
   /**
    * Chiamato quando un NPC viene ucciso
@@ -54,37 +63,30 @@ export class QuestTrackingSystem {
    * Applica le ricompense della quest completata
    */
   private applyQuestRewards(rewards: any[]): void {
+    if (!this.economySystem) {
+      console.warn('EconomySystem not set in QuestTrackingSystem');
+      return;
+    }
+
     rewards.forEach(reward => {
       switch (reward.type) {
         case 'credits':
           if (reward.amount) {
-            console.log(`Ricompensa ricevuta: ${reward.amount} cosmos`);
-            // TODO: Integrare con il sistema economico per aggiungere i credits
-            this.addCreditsToPlayer(reward.amount);
+            console.log(`Ricompensa quest ricevuta: ${reward.amount} cosmos`);
+            this.economySystem.addCosmos(reward.amount, 'quest reward');
           }
           break;
 
         case 'experience':
           if (reward.amount) {
-            console.log(`Ricompensa ricevuta: ${reward.amount} XP`);
-            // TODO: Integrare con il sistema esperienza
+            console.log(`Ricompensa quest ricevuta: ${reward.amount} XP`);
+            // TODO: Integrare con il sistema esperienza quando disponibile
           }
           break;
 
         default:
-          console.log(`Ricompensa sconosciuta: ${reward.type}`);
+          console.log(`Ricompensa quest sconosciuta: ${reward.type}`);
       }
     });
-  }
-
-  /**
-   * Aggiunge credits al giocatore (placeholder - da integrare con EconomySystem)
-   */
-  private addCreditsToPlayer(amount: number): void {
-    // TODO: Integrare con il vero sistema economico
-    console.log(`Aggiunti ${amount} cosmos al giocatore`);
-
-    // Per ora, possiamo cercare l'entità player e aggiornare i suoi credits
-    // Questo sarà da implementare quando avremo il sistema economico integrato
   }
 }

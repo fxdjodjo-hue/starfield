@@ -102,6 +102,9 @@ export class PlayState extends GameState {
 
     // Inizializza il sistema UI
     this.initializeUI();
+
+    // Configura listener per l'apertura del pannello quest
+    this.setupQuestPanelListener();
   }
 
   /**
@@ -119,6 +122,50 @@ export class PlayState extends GameState {
     this.uiManager.registerPanel(questPanel);
 
     console.log('UI System initialized with player stats and quest panels');
+  }
+
+  /**
+   * Configura il listener per l'apertura del pannello quest
+   */
+  private setupQuestPanelListener(): void {
+    // Intercetta quando il pannello quest viene aperto per accettare automaticamente le quest
+    const questPanel = this.uiManager.getPanel('quest-panel') as QuestPanel;
+    if (questPanel) {
+      // Sovrascrivi il metodo show del pannello per aggiungere logica personalizzata
+      const originalShow = questPanel.show.bind(questPanel);
+      questPanel.show = () => {
+        // Prima mostra il pannello
+        originalShow();
+
+        // Poi accetta automaticamente le quest disponibili
+        this.autoAcceptAvailableQuests();
+
+        // Aggiorna l'UI per riflettere le nuove quest accettate
+        setTimeout(() => this.updateUIPanels(), 100);
+      };
+    }
+  }
+
+  /**
+   * Accetta automaticamente tutte le quest disponibili
+   */
+  private autoAcceptAvailableQuests(): void {
+    if (!this.questManager || !this.playerEntity) return;
+
+    const activeQuest = this.world.getECS().getComponent(this.playerEntity, ActiveQuest);
+    if (!activeQuest) return;
+
+    // Trova le quest disponibili
+    const availableQuestIds = ['kill_scouter_1']; // Per ora hardcoded, poi dinamico
+
+    for (const questId of availableQuestIds) {
+      if (this.questManager.isQuestAvailable(questId)) {
+        const accepted = this.questManager.acceptQuest(questId, activeQuest);
+        if (accepted) {
+          console.log(`Quest "${questId}" accettata automaticamente!`);
+        }
+      }
+    }
   }
 
   /**
@@ -622,6 +669,7 @@ export class PlayState extends GameState {
 
     // Configura sistema quest
     rewardSystem.setQuestTrackingSystem(this.questTrackingSystem!);
+    this.questTrackingSystem!.setEconomySystem(this.economySystem);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
