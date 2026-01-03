@@ -53,6 +53,8 @@ export class LogSystem extends BaseSystem {
       });
     }
 
+    console.log(`🎨 LogSystem render called with ctx: ${!!ctx}, canvas size: ${ctx.canvas.width}x${ctx.canvas.height}`);
+
     // Ordina per timestamp (più recenti in basso)
     const sortedMessages = logMessages
       .map(entity => this.ecs.getComponent(entity, LogMessage))
@@ -95,6 +97,7 @@ export class LogSystem extends BaseSystem {
     ctx.shadowOffsetY = 1;
 
     // Disegna il testo centrato
+    console.log(`✏️ Drawing text: "${message.text}" at (${canvasWidth / 2}, ${y})`);
     ctx.fillText(message.text, canvasWidth / 2, y);
 
     // Ripristina contesto

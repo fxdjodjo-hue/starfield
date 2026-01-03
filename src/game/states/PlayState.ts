@@ -617,8 +617,8 @@ export class PlayState extends GameState {
     ecs.addSystem(renderSystem);       // Rendering principale (include stelle)
     ecs.addSystem(boundsSystem);       // Sistema bounds (linee rosse)
     ecs.addSystem(minimapSystem);      // Minimappa
-    ecs.addSystem(this.logSystem);     // Sistema log (messaggi centrati in alto)
     ecs.addSystem(damageTextSystem);   // Testi danno alla fine (più sopra di tutto)
+    ecs.addSystem(this.logSystem);     // Sistema log ALLA FINE (sopra tutto)
     ecs.addSystem(this.economySystem); // Sistema economia
     ecs.addSystem(rankSystem); // Sistema rank
     ecs.addSystem(respawnSystem); // Sistema respawn NPC
