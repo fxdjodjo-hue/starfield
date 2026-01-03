@@ -3,6 +3,7 @@ import { ECS } from '../infrastructure/ecs/ECS';
 import { Credits, Cosmos } from '../entities/Currency';
 import { Experience } from '../entities/Experience';
 import { Honor } from '../entities/Honor';
+import { SkillPoints } from '../entities/SkillPoints';
 
 /**
  * Sistema Economy - gestisce l'economia completa del giocatore
@@ -537,7 +538,15 @@ export class EconomySystem extends BaseSystem {
     if (!experience) return false;
 
     const oldLevel = experience.level;
-    const leveledUp = experience.addExp(amount);
+
+    // Callback per assegnare skill points quando si sale di livello
+    const leveledUp = experience.addExp(amount, (newLevel) => {
+      // Assegna 1 skill point per livello salito
+      const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
+      if (skillPoints) {
+        skillPoints.addPoints(1);
+      }
+    });
 
     if (leveledUp) {
     }

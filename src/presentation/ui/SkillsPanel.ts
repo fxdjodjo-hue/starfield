@@ -4,6 +4,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Experience } from '../../entities/Experience';
+import { SkillPoints } from '../../entities/SkillPoints';
 
 /**
  * SkillsPanel - Pannello per visualizzare statistiche giocatore e gestire abilità
@@ -320,6 +321,7 @@ export class SkillsPanel extends BasePanel {
     const health = this.ecs.getComponent(playerEntity, Health);
     const shield = this.ecs.getComponent(playerEntity, Shield);
     const experience = this.ecs.getComponent(playerEntity, Experience);
+    const skillPoints = this.ecs.getComponent(playerEntity, SkillPoints);
 
     // Aggiorna statistiche combattimento
     if (health) {
@@ -355,10 +357,12 @@ export class SkillsPanel extends BasePanel {
       }
     }
 
-    // Punti abilità (placeholder - per ora 0)
-    const skillPointsValue = this.container.querySelector('.stat-punti-abilità') as HTMLElement;
-    if (skillPointsValue) {
-      skillPointsValue.textContent = '0';
+    // Punti abilità dal componente ECS
+    if (skillPoints) {
+      const skillPointsValue = this.container.querySelector('.stat-punti-abilità') as HTMLElement;
+      if (skillPointsValue) {
+        skillPointsValue.textContent = skillPoints.current.toString();
+      }
     }
   }
 

@@ -18,6 +18,7 @@ export interface PlayerStartingResources {
   level: number;
   experience: number;
   honor: number;
+  skillPoints: number;
 }
 
 export interface PlayerDefinition {
@@ -43,7 +44,8 @@ export const PLAYER_DEFINITION: PlayerDefinition = {
     cosmos: 50,
     level: 1,
     experience: 0,
-    honor: 0
+    honor: 0,
+    skillPoints: 0
   },
   description: 'La nave controllata dal giocatore'
 };

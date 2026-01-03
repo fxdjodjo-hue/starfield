@@ -67,7 +67,7 @@ export class Experience extends Component {
   /**
    * Aggiunge esperienza e gestisce automaticamente i level up
    */
-  addExp(amount: number): boolean {
+  addExp(amount: number, onLevelUp?: (newLevel: number) => void): boolean {
     if (amount <= 0) return false;
 
     this._totalExpEarned += amount;
@@ -77,6 +77,10 @@ export class Experience extends Component {
     while (this._totalExpEarned >= this.getExpRequiredForLevel(this._level + 1)) {
       this.levelUp();
       leveledUp = true;
+      // Notifica il level up se è stata fornita una callback
+      if (onLevelUp) {
+        onLevelUp(this._level);
+      }
     }
 
     // Aggiorna l'exp nel livello corrente dopo eventuali level up

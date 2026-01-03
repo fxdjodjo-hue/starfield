@@ -35,6 +35,7 @@ import { Credits, Cosmos } from '../entities/Currency';
 import { Experience } from '../entities/Experience';
 import { Honor } from '../entities/Honor';
 import { PlayerStats } from '../entities/PlayerStats';
+import { SkillPoints } from '../entities/SkillPoints';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { Npc } from '../entities/ai/Npc';
 import { ParallaxLayer } from '../entities/spatial/ParallaxLayer';
@@ -307,6 +308,7 @@ export class GameInitializationSystem extends System {
     const cosmos = new Cosmos(playerDef.startingResources.cosmos);
     const experience = new Experience(playerDef.startingResources.experience, playerDef.startingResources.level);
     const honor = new Honor(playerDef.startingResources.honor);
+    const skillPoints = new SkillPoints(playerDef.startingResources.skillPoints);
     const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
     const activeQuest = new ActiveQuest(); // Sistema quest
     const shipSprite = new Sprite(sprite, sprite.width * 0.2, sprite.height * 0.2);
@@ -327,6 +329,7 @@ export class GameInitializationSystem extends System {
     this.ecs.addComponent(ship, Experience, experience);
     this.ecs.addComponent(ship, Honor, honor);
     this.ecs.addComponent(ship, PlayerStats, playerStats);
+    this.ecs.addComponent(ship, SkillPoints, skillPoints);
     this.ecs.addComponent(ship, ActiveQuest, activeQuest);
     this.ecs.addComponent(ship, Sprite, shipSprite);
 
