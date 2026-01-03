@@ -220,6 +220,7 @@ export class FloatingIcon {
   constructor(panel: BasePanel) {
     this.panel = panel;
     this.config = panel.getConfig();
+    console.log('FloatingIcon: Creating icon for panel:', this.config.id, 'with icon:', this.config.icon, 'at position:', this.config.position);
     this.element = this.createIconElement(this.config);
     this.setupEventListeners();
   }
@@ -331,10 +332,13 @@ export class FloatingIcon {
    * Mostra l'icona
    */
   show(): void {
+    console.log('FloatingIcon: Showing icon for panel:', this.config.id);
     if (!document.body.contains(this.element)) {
       document.body.appendChild(this.element);
+      console.log('FloatingIcon: Icon element added to DOM');
     }
     this.element.style.display = 'flex';
+    console.log('FloatingIcon: Icon display set to flex');
   }
 
   /**
@@ -397,10 +401,13 @@ export class UIManager {
   registerPanel(panel: BasePanel): void {
     // La configurazione è già nel pannello stesso (single source of truth)
     const config = panel.getConfig();
+    console.log('UIManager: Registering panel:', config.id, 'with icon:', config.icon);
     const icon = new FloatingIcon(panel);
 
     this.panels.set(config.id, panel);
     this.icons.set(config.id, icon);
+
+    console.log('UIManager: Panel registered successfully. Total panels:', this.panels.size, 'Total icons:', this.icons.size);
 
     // Mostra l'icona se il manager è visibile
     if (this.isVisible) {
