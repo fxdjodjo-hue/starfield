@@ -329,9 +329,11 @@ export class SkillsPanel extends BasePanel {
     if (!this.statsContainer || !this.playerEntity) return;
 
     // Ottieni componenti del giocatore
-    const health = this.ecs.getComponent(playerEntity, Health);
-    const shield = this.ecs.getComponent(playerEntity, Shield);
-    const experience = this.ecs.getComponent(playerEntity, Experience);
+    const health = this.ecs.getComponent(this.playerEntity, Health);
+    const shield = this.ecs.getComponent(this.playerEntity, Shield);
+    const experience = this.ecs.getComponent(this.playerEntity, Experience);
+
+    console.log('SkillsPanel: Updating stats - Health:', health?.current, '/', health?.max, 'Shield:', shield?.current, '/', shield?.max);
 
 
     // Aggiorna statistiche combattimento
