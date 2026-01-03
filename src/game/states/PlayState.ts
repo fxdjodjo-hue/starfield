@@ -443,7 +443,27 @@ export class PlayState extends GameState {
 
     // Load map background sprite
     const mapBackgroundImage = await this.context.assetManager.loadImage('/assets/maps/maps1/1/bg.jpg');
-    const mapBackgroundSprite = new Sprite(mapBackgroundImage, mapBackgroundImage.width, mapBackgroundImage.height);
+
+    // Calcola dimensioni ottimali per coprire l'intera mappa mantenendo proporzioni
+    const worldWidth = CONFIG.WORLD_WIDTH;
+    const worldHeight = CONFIG.WORLD_HEIGHT;
+    const imageAspectRatio = mapBackgroundImage.width / mapBackgroundImage.height;
+    const worldAspectRatio = worldWidth / worldHeight;
+
+    let bgWidth, bgHeight;
+
+    // Adatta le dimensioni per coprire tutta l'area mantenendo proporzioni
+    if (imageAspectRatio > worldAspectRatio) {
+      // Immagine più larga: scala basata sull'altezza
+      bgHeight = worldHeight * 1.2; // 20% più grande per margine
+      bgWidth = bgHeight * imageAspectRatio;
+    } else {
+      // Immagine più alta: scala basata sulla larghezza
+      bgWidth = worldWidth * 1.2; // 20% più grande per margine
+      bgHeight = bgWidth / imageAspectRatio;
+    }
+
+    const mapBackgroundSprite = new Sprite(mapBackgroundImage, bgWidth, bgHeight);
 
     const ecs = this.world.getECS();
 
@@ -735,8 +755,8 @@ export class PlayState extends GameState {
 
     // Posiziona l'immagine al centro del mondo (0,0)
     const transform = new Transform(0, 0, 0);
-    // Velocità parallax molto bassa (0.05 = si muove molto lentamente per effetto profondità)
-    const parallaxLayer = new ParallaxLayer(0.05, 0.05, 0, 0, -1); // zIndex negativo per essere dietro tutto
+    // Velocità parallax per effetto profondità (0.1 = movimento moderato per immagine grande)
+    const parallaxLayer = new ParallaxLayer(0.1, 0.1, 0, 0, -1); // zIndex negativo per essere dietro tutto
 
     // Aggiungi componenti
     ecs.addComponent(backgroundEntity, Transform, transform);
