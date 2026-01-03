@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
+import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Camera } from '../../entities/spatial/Camera';
 import { CONFIG } from '../../utils/config/Config';
@@ -43,6 +44,17 @@ export class PlayerControlSystem extends BaseSystem {
    */
   setCamera(camera: Camera): void {
     this.camera = camera;
+  }
+
+  /**
+   * Ottiene la velocità del player dalla configurazione
+   * Nota: attualmente hardcoded, ma pronto per future implementazioni
+   * che ottengano la velocità dal componente del player
+   */
+  private getPlayerSpeed(): number {
+    // TODO: Implementare lettura velocità dal componente player
+    // Per ora usa valore fisso che corrisponde alla configurazione
+    return 300; // Valore che corrisponde alla configurazione del player
   }
 
   /**
@@ -135,7 +147,7 @@ export class PlayerControlSystem extends BaseSystem {
       const dirY = dy / distance;
 
       // Imposta velocity verso la destinazione (stessa velocità del player)
-      velocity.setVelocity(dirX * CONFIG.PLAYER_SPEED, dirY * CONFIG.PLAYER_SPEED);
+      velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
 
       // Ruota verso la direzione del movimento (sempre, dato che è navigazione)
       const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
@@ -179,7 +191,7 @@ export class PlayerControlSystem extends BaseSystem {
       const dirY = dy / distance;
 
       // Imposta velocity verso il mouse
-      velocity.setVelocity(dirX * CONFIG.PLAYER_SPEED, dirY * CONFIG.PLAYER_SPEED);
+      velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
 
       // NON ruotare verso il mouse se c'è un NPC selezionato
       // La rotazione verso l'NPC ha priorità e viene gestita in faceSelectedNpc()

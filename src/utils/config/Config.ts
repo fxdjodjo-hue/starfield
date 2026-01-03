@@ -23,7 +23,6 @@ export const CONFIG = {
   SHOW_COLLISION_BOXES: false,
 
   // Parametri di gioco
-  PLAYER_SPEED: 300,
   NPC_COUNT: 50,
   PROJECTILE_SPEED: 500,
   MAX_HEALTH: 100,

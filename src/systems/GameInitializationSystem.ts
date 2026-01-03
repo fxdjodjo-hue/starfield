@@ -38,6 +38,7 @@ import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { Npc } from '../entities/ai/Npc';
 import { ParallaxLayer } from '../entities/spatial/ParallaxLayer';
 import { getNpcDefinition } from '../config/NpcConfig';
+import { getPlayerDefinition } from '../config/PlayerConfig';
 import { CONFIG } from '../utils/config/Config';
 
 /**
@@ -279,28 +280,43 @@ export class GameInitializationSystem extends System {
    */
   private createPlayerShip(sprite: HTMLImageElement): any {
     const ship = this.ecs.createEntity();
+    const playerDef = getPlayerDefinition();
 
     // Spawna il player al centro del mondo (0,0)
     const worldCenterX = 0;
     const worldCenterY = 0;
 
-    // Aggiungi componenti alla nave player
+    // Aggiungi componenti usando la configurazione
     const transform = new Transform(worldCenterX, worldCenterY, 0);
     const velocity = new Velocity(0, 0, 0);
-    const health = new Health(100000, 100000); // Vita aumentata a 100k
-    const damage = new Damage(500, 300, 1000); // Danno aumentato a 500
-    const credits = new Credits(1000); // Inizia con 1000 Credits
-    const cosmos = new Cosmos(50); // Inizia con 50 Cosmos
-    const experience = new Experience(0, 1); // Inizia a livello 1 con 0 exp
-    const honor = new Honor(0); // Inizia con 0 Honor Points
+    const health = new Health(playerDef.stats.health, playerDef.stats.health);
+    const damage = new Damage(playerDef.stats.damage, playerDef.stats.range, playerDef.stats.cooldown);
+
+    // Condizionale per scudi (se presenti nella config)
+    let shield: Shield | undefined;
+    if (playerDef.stats.shield && playerDef.stats.shield > 0) {
+      shield = new Shield(playerDef.stats.shield, playerDef.stats.shield);
+    }
+
+    const credits = new Credits(playerDef.startingResources.credits);
+    const cosmos = new Cosmos(playerDef.startingResources.cosmos);
+    const experience = new Experience(playerDef.startingResources.experience, playerDef.startingResources.level);
+    const honor = new Honor(playerDef.startingResources.honor);
     const playerStats = new PlayerStats(0, 0, 0, 0); // Statistiche iniziali
     const activeQuest = new ActiveQuest(); // Sistema quest
     const shipSprite = new Sprite(sprite, sprite.width * 0.2, sprite.height * 0.2);
 
+    // Aggiungi componenti
     this.ecs.addComponent(ship, Transform, transform);
     this.ecs.addComponent(ship, Velocity, velocity);
     this.ecs.addComponent(ship, Health, health);
     this.ecs.addComponent(ship, Damage, damage);
+
+    // Aggiungi scudi solo se definiti
+    if (shield) {
+      this.ecs.addComponent(ship, Shield, shield);
+    }
+
     this.ecs.addComponent(ship, Credits, credits);
     this.ecs.addComponent(ship, Cosmos, cosmos);
     this.ecs.addComponent(ship, Experience, experience);
