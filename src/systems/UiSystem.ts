@@ -5,6 +5,7 @@ import { PlayerHUD } from '../presentation/ui/PlayerHUD';
 import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
 import { QuestPanel } from '../presentation/ui/QuestPanel';
 import { SkillsPanel } from '../presentation/ui/SkillsPanel';
+import { ChatPanel } from '../presentation/ui/ChatPanel';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
 import { QuestSystem } from './QuestSystem';
 
@@ -15,6 +16,7 @@ import { QuestSystem } from './QuestSystem';
 export class UiSystem extends System {
   private uiManager: UIManager;
   private playerHUD: PlayerHUD;
+  private chatPanel: ChatPanel;
   private questSystem: QuestSystem;
   private economySystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
@@ -26,6 +28,7 @@ export class UiSystem extends System {
     this.ecs = ecs;
     this.uiManager = new UIManager();
     this.playerHUD = new PlayerHUD();
+    this.chatPanel = new ChatPanel(this.ecs);
     this.questSystem = questSystem;
   }
 
@@ -42,6 +45,7 @@ export class UiSystem extends System {
   initialize(): void {
     this.initializePanels();
     this.setupQuestPanelIntegration();
+    this.initializeChat();
   }
 
   /**
@@ -65,6 +69,13 @@ export class UiSystem extends System {
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
+  }
+
+  /**
+   * Inizializza la chat
+   */
+  private initializeChat(): void {
+    this.chatPanel.show();
   }
 
   /**
@@ -307,6 +318,13 @@ export class UiSystem extends System {
   }
 
   /**
+   * Aggiunge un messaggio di sistema alla chat
+   */
+  addSystemMessage(message: string): void {
+    this.chatPanel.addSystemMessage(message);
+  }
+
+  /**
    * Cleanup delle risorse UI
    */
   destroy(): void {
@@ -317,5 +335,8 @@ export class UiSystem extends System {
     if ((this as any).hudToggleListener) {
       document.removeEventListener('keydown', (this as any).hudToggleListener);
     }
+
+    // Distruggi la chat
+    this.chatPanel.destroy();
   }
 }

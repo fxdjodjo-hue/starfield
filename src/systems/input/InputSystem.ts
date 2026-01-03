@@ -94,8 +94,13 @@ export class InputSystem extends BaseSystem {
 
     // Gestione tastiera
     window.addEventListener('keydown', (event) => {
-      // Preveniamo comportamenti di default per alcuni tasti
+      // Non intercettare la barra spaziatrice se un campo input ha il focus
       if (event.code === 'Space') {
+        const activeElement = document.activeElement;
+        if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+          // Lascia che il campo input gestisca la barra spaziatrice normalmente
+          return;
+        }
         event.preventDefault();
         this.onKeyPress?.('Space');
       }

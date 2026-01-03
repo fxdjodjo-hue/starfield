@@ -7,14 +7,17 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
+import { UiSystem } from '../UiSystem';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
  */
 export class ProjectileSystem extends BaseSystem {
+  private uiSystem: UiSystem | null = null;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, uiSystem?: UiSystem) {
     super(ecs);
+    this.uiSystem = uiSystem || null;
   }
 
   update(deltaTime: number): void {
@@ -201,6 +204,9 @@ export class ProjectileSystem extends BaseSystem {
 
     if (!targetHealth) return;
 
+    // Verifica se il target è il player
+    const playerEntity = this.ecs.getPlayerEntity();
+    const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
 
     // Registra che l'entità è stata danneggiata (per comportamenti AI reattivi)
     let damageTaken = this.ecs.getComponent(targetEntity, DamageTaken);

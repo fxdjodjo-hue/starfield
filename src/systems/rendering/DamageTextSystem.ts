@@ -55,7 +55,7 @@ export class DamageTextSystem extends BaseSystem {
       if (!damageText) continue;
 
       // Muovi il testo verso l'alto nel tempo (con limite massimo)
-      const moveSpeed = -40; // Pixel al secondo verso l'alto (ridotto per durata 1s)
+      const moveSpeed = -40; // Pixel al secondo verso l'alto
       const maxOffset = damageText.initialOffsetY - 100; // Non andare oltre 100px sopra l'entità
       damageText.currentOffsetY = Math.max(maxOffset, damageText.currentOffsetY + moveSpeed * deltaTimeSeconds);
 

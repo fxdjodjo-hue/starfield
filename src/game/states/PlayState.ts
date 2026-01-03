@@ -61,6 +61,11 @@ export class PlayState extends GameState {
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
 
+    // Messaggio di benvenuto nella chat
+    setTimeout(() => {
+      this.uiSystem.addSystemMessage('🚀 Benvenuto in Starfield! Usa la chat per comunicare.');
+    }, 1000);
+
     // Il nickname verrà creato al primo update quando tutti i sistemi sono pronti
 
     // HUD toggle gestito da UiSystem
