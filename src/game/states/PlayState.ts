@@ -2,46 +2,11 @@
 import { GameContext } from '/src/infrastructure/engine/GameContext';
 import { World } from '/src/infrastructure/engine/World';
 import { MovementSystem } from '/src/systems/physics/MovementSystem';
-import { RenderSystem } from '/src/systems/rendering/RenderSystem';
-import { InputSystem } from '/src/systems/input/InputSystem';
-import { PlayerControlSystem } from '/src/systems/input/PlayerControlSystem';
-import { NpcBehaviorSystem } from '/src/systems/ai/NpcBehaviorSystem';
-import { NpcSelectionSystem } from '/src/systems/ai/NpcSelectionSystem';
-import { CombatSystem } from '/src/systems/combat/CombatSystem';
-import { ExplosionSystem } from '/src/systems/combat/ExplosionSystem';
-import { ProjectileSystem } from '/src/systems/combat/ProjectileSystem';
-import { DamageTextSystem } from '/src/systems/rendering/DamageTextSystem';
-import { MinimapSystem } from '/src/systems/rendering/MinimapSystem';
-import { LogSystem } from '/src/systems/rendering/LogSystem';
-import { ParallaxSystem } from '/src/systems/rendering/ParallaxSystem';
-import { EconomySystem } from '/src/systems/EconomySystem';
-import { RankSystem } from '/src/systems/RankSystem';
-import { RewardSystem } from '/src/systems/RewardSystem';
 import { QuestManager } from '/src/systems/QuestManager';
-import { QuestTrackingSystem } from '/src/systems/QuestTrackingSystem';
 import { QuestSystem } from '/src/systems/QuestSystem';
 import { GameInitializationSystem } from '/src/systems/GameInitializationSystem';
-import { BoundsSystem } from '/src/systems/BoundsSystem';
-import { NpcRespawnSystem } from '/src/systems/NpcRespawnSystem';
-import { PlayerHUD } from '/src/presentation/ui/PlayerHUD';
-import type { PlayerHUDData } from '/src/presentation/ui/PlayerHUD';
 import { UiSystem } from '/src/systems/UiSystem';
 import { Transform } from '/src/entities/spatial/Transform';
-import { Velocity } from '/src/entities/spatial/Velocity';
-import { Npc } from '/src/entities/ai/Npc';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
-import { Health } from '/src/entities/combat/Health';
-import { Shield } from '/src/entities/combat/Shield';
-import { Damage } from '/src/entities/combat/Damage';
-import { Credits, Cosmos } from '/src/entities/Currency';
-import { Experience } from '/src/entities/Experience';
-import { Sprite } from '/src/entities/Sprite';
-import { Honor } from '/src/entities/Honor';
-import { PlayerStats } from '/src/entities/PlayerStats';
-import { ActiveQuest } from '/src/entities/quest/ActiveQuest';
-import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
-import { CONFIG } from '/src/utils/config/Config';
-import { getNpcDefinition } from '/src/config/NpcConfig';
 
 /**
  * Stato del gameplay attivo
@@ -51,16 +16,12 @@ export class PlayState extends GameState {
   private world: World;
   private uiSystem: UiSystem;
   private gameInitSystem: GameInitializationSystem;
-  private startTime: number = Date.now();
   private context: GameContext;
   private playerEntity: any = null;
   private economySystem: any = null;
-  private logSystem: LogSystem | null = null;
   private questSystem: QuestSystem | null = null;
-  private questTrackingSystem: QuestTrackingSystem | null = null;
   private questManager: QuestManager | null = null;
   private movementSystem: MovementSystem | null = null;
-  private playerNicknameElement: HTMLElement | null = null;
   private nicknameCreated: boolean = false;
 
   constructor(context: GameContext) {
@@ -82,7 +43,7 @@ export class PlayState extends GameState {
   /**
    * Avvia il gameplay
    */
-  async enter(context: GameContext): Promise<void> {
+  async enter(_context: GameContext): Promise<void> {
     // Nasconde il titolo principale
     this.uiSystem.hideMainTitle();
 
@@ -127,7 +88,7 @@ export class PlayState extends GameState {
   /**
    * Renderizza il gioco
    */
-  render(ctx: CanvasRenderingContext2D): void {
+  render(_ctx: CanvasRenderingContext2D): void {
     // Renderizza il mondo di gioco
     this.world.render();
   }
@@ -135,7 +96,7 @@ export class PlayState extends GameState {
   /**
    * Gestisce input di gioco
    */
-  handleInput(event: Event): void {
+  handleInput(_event: Event): void {
     // Gli input sono gestiti dai sistemi ECS (InputSystem)
     // Questo metodo Ã¨ disponibile per input speciali se necessario
   }
@@ -168,14 +129,6 @@ export class PlayState extends GameState {
 
 
 
-  /**
-   * Crea l'elemento nickname delegando all'UiSystem
-   */
-  private createPlayerNicknameElement(): void {
-    const nickname = this.context.playerNickname || 'Commander';
-    const rank = this.getPlayerRank();
-    this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
-  }
 
 
   /**
