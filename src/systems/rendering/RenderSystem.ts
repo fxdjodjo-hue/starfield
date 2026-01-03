@@ -210,10 +210,11 @@ export class RenderSystem extends BaseSystem {
       }
     }
 
-    // Renderizza sempre il nickname sotto l'NPC (utile per identificare il tipo)
-    this.renderNpcNickname(ctx, npc, 0, 45);
-
     ctx.restore();
+
+    // Renderizza il nickname FUORI dalle trasformazioni per evitare effetti 3D strani
+    // Il nickname deve rimanere orizzontale e leggibile
+    this.renderNpcNickname(ctx, npc, screenX, screenY + 45);
   }
 
   /**
