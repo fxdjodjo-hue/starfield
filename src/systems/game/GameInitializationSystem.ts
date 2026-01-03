@@ -209,6 +209,7 @@ export class GameInitializationSystem extends System {
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
     playerControlSystem.setCamera(this.movementSystem.getCamera());
+    playerControlSystem.setAudioSystem(this.audioSystem);
     minimapSystem.setCamera(this.movementSystem.getCamera());
     economySystem.setRankSystem(rankSystem);
     rankSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player

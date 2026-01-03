@@ -15,6 +15,7 @@ import { CONFIG } from '../../utils/config/Config';
 export class PlayerControlSystem extends BaseSystem {
   private playerEntity: any = null;
   private camera: Camera | null = null;
+  private audioSystem: any = null;
   private onMouseStateCallback?: (pressed: boolean, x: number, y: number) => void;
   private isMousePressed = false;
   private lastMouseX = 0;
@@ -22,6 +23,7 @@ export class PlayerControlSystem extends BaseSystem {
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
   private onMinimapMovementComplete?: () => void;
+  private isEnginePlaying = false;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -46,6 +48,33 @@ export class PlayerControlSystem extends BaseSystem {
    */
   setCamera(camera: Camera): void {
     this.camera = camera;
+  }
+
+  /**
+   * Imposta il sistema audio per i suoni del motore
+   */
+  setAudioSystem(audioSystem: any): void {
+    this.audioSystem = audioSystem;
+  }
+
+  /**
+   * Avvia il suono del motore
+   */
+  private startEngineSound(): void {
+    if (this.audioSystem && !this.isEnginePlaying) {
+      this.audioSystem.playSound('engine', 0.3, true); // Volume ridotto per il motore, loop attivato
+      this.isEnginePlaying = true;
+    }
+  }
+
+  /**
+   * Ferma il suono del motore
+   */
+  private stopEngineSound(): void {
+    if (this.audioSystem && this.isEnginePlaying) {
+      this.audioSystem.stopSound('engine');
+      this.isEnginePlaying = false;
+    }
   }
 
   /**
@@ -75,6 +104,15 @@ export class PlayerControlSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
+
+    const isMoving = (this.minimapTargetX !== null && this.minimapTargetY !== null) || this.isMousePressed;
+
+    // Gestisci suono del motore
+    if (isMoving && !this.isEnginePlaying) {
+      this.startEngineSound();
+    } else if (!isMoving && this.isEnginePlaying) {
+      this.stopEngineSound();
+    }
 
     // Priorità: movimento minimappa > movimento mouse > fermo
     if (this.minimapTargetX !== null && this.minimapTargetY !== null) {

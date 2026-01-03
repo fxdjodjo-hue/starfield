@@ -71,10 +71,15 @@ export default class AudioSystem extends System {
 
   // Metodi pubblici per gestione audio
 
-  playSound(key: string, volume: number = this.config.effectsVolume): void {
+  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false): void {
     if (!this.config.enabled) return;
 
     try {
+      // Se il suono è già in riproduzione e non è loop, non riavviarlo
+      if (this.sounds.has(key) && !loop) {
+        return;
+      }
+
       // Cerca il path nell'AUDIO_ASSETS
       const assetPath = this.getAssetPath(key, 'effects');
       if (!assetPath) {
@@ -84,15 +89,18 @@ export default class AudioSystem extends System {
 
       const audio = new Audio(`/assets/audio/${assetPath}`);
       audio.volume = this.config.masterVolume * volume;
+      audio.loop = loop;
       audio.play().catch(error => {
         console.warn(`Audio system: Failed to play sound '${key}':`, error);
       });
       this.sounds.set(key, audio);
 
-      // Rimuovi dalla mappa quando finisce
-      audio.addEventListener('ended', () => {
-        this.sounds.delete(key);
-      });
+      // Per suoni non loop, rimuovi dalla mappa quando finisce
+      if (!loop) {
+        audio.addEventListener('ended', () => {
+          this.sounds.delete(key);
+        });
+      }
     } catch (error) {
       console.warn(`Audio system: Failed to play sound '${key}':`, error);
     }
@@ -175,11 +183,21 @@ export default class AudioSystem extends System {
     }
   }
 
+  stopSound(key: string): void {
+    const audio = this.sounds.get(key);
+    if (audio) {
+      audio.pause();
+      audio.currentTime = 0;
+      this.sounds.delete(key);
+    }
+  }
+
   private stopAllSounds(): void {
     this.sounds.forEach(audio => {
       audio.pause();
       audio.currentTime = 0;
     });
+    this.sounds.clear();
     this.stopMusic();
   }
 

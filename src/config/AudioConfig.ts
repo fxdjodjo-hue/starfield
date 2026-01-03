@@ -24,7 +24,8 @@ export const AUDIO_ASSETS = {
     shieldHit: 'effects/shield_hit.wav',
     collect: 'effects/collect.wav',
     upgrade: 'effects/upgrade.wav',
-    damage: 'effects/damage.wav'
+    damage: 'effects/damage.wav',
+    engine: 'effects/enginesoundeffect.mp3'
   },
 
   // Musica
