@@ -8,7 +8,7 @@ import { LogMessage, LogType } from '/src/entities/ui/LogMessage';
  * Mostra informazioni importanti del gameplay con animazioni e styling
  */
 export class LogSystem extends BaseSystem {
-  private maxMessages: number = 2; // Numero massimo di messaggi visibili contemporaneamente
+  private maxMessages: number = 5; // Numero massimo di messaggi visibili contemporaneamente
   private messageSpacing: number = 8; // Spazio tra i messaggi
   private topMargin: number = 50; // Margine dall'alto dello schermo
 
@@ -139,7 +139,7 @@ export class LogSystem extends BaseSystem {
   /**
    * Log specifico per ricompense
    */
-  logReward(credits: number, cosmos: number, experience: number, honor: number): void {
+  logReward(credits: number, cosmos: number, experience: number, honor: number, duration: number = 3000): void {
     let rewardText = '🎁 Ricompense: ';
     const rewards: string[] = [];
 
@@ -150,7 +150,7 @@ export class LogSystem extends BaseSystem {
 
     if (rewards.length > 0) {
       rewardText += rewards.join(', ');
-      this.addLogMessage(rewardText, LogType.REWARD);
+      this.addLogMessage(rewardText, LogType.REWARD, duration);
     }
   }
 }

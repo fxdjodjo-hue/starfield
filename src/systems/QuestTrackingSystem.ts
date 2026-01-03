@@ -57,7 +57,7 @@ export class QuestTrackingSystem {
             if (questCompleted) {
               // Mostra messaggio di completamento quest nel log
               if (this.logSystem) {
-                this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD);
+                this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD, 5000); // Durata più lunga per quest
               }
 
               // Completa la quest e ottieni le ricompense
@@ -120,7 +120,7 @@ export class QuestTrackingSystem {
 
     // Mostra le ricompense nel log del sistema
     if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
-      this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor);
+      this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000); // Durata più lunga per ricompense quest
     }
   }
 }
