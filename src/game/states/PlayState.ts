@@ -183,7 +183,6 @@ export class PlayState extends GameState {
 
     // Crea il nickname se non è ancora stato creato (solo una volta)
     if (!this.nicknameCreated) {
-      console.log('DEBUG: Creating nickname element now that systems are ready');
       const nickname = this.context.playerNickname || 'Commander';
       const rank = this.getPlayerRank();
       this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
@@ -192,8 +191,6 @@ export class PlayState extends GameState {
 
     const camera = this.movementSystem.getCamera();
     const canvasSize = this.world.getCanvasSize();
-
-    console.log(`DEBUG: Player position: (${transform.x}, ${transform.y}), Camera: (${camera.x}, ${camera.y})`);
 
     // Delega all'UiSystem
     this.uiSystem.updatePlayerNicknamePosition(transform.x, transform.y, camera, canvasSize);

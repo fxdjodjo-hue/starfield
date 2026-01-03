@@ -39,7 +39,6 @@ export class UiSystem extends System {
   initialize(): void {
     this.initializePanels();
     this.setupQuestPanelIntegration();
-    console.log('UI System initialized with player stats and quest panels');
   }
 
   /**

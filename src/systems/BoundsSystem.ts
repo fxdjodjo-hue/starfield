@@ -59,8 +59,6 @@ export class BoundsSystem extends BaseSystem {
 
         // Mostra il numero di danno come testo fluttuante
         this.notifyCombatSystemOfDamage(this.playerEntity, this.DAMAGE_AMOUNT);
-
-        console.log(`⚠️ Player fuori bounds! Danno: -${this.DAMAGE_AMOUNT} HP`);
       }
     } else {
       // Reset del timer quando torna dentro i bounds

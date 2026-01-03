@@ -43,8 +43,6 @@ export class NpcRespawnSystem extends BaseSystem {
       deathTime,
       respawnTime: deathTime + CONFIG.NPC_RESPAWN_DELAY
     });
-
-    console.log(`🔄 NPC ${npcType} programmato per respawn tra ${CONFIG.NPC_RESPAWN_DELAY / 1000}s`);
   }
 
   update(deltaTime: number): void {
@@ -92,8 +90,6 @@ export class NpcRespawnSystem extends BaseSystem {
 
     // Crea il nuovo NPC (ora async per caricare lo sprite)
     await this.createNpcAtPosition(npcType, spawnPosition.x, spawnPosition.y);
-
-    console.log(`✨ Respawned ${npcType} at (${spawnPosition.x.toFixed(0)}, ${spawnPosition.y.toFixed(0)})`);
   }
 
   /**
@@ -118,7 +114,6 @@ export class NpcRespawnSystem extends BaseSystem {
     }
 
     // Se non trova posizione sicura, usa una posizione di fallback
-    console.warn('⚠️ Could not find safe spawn position, using fallback');
     const fallbackAngle = Math.random() * Math.PI * 2;
     const fallbackDistance = CONFIG.NPC_RESPAWN_DISTANCE_MAX;
     return {

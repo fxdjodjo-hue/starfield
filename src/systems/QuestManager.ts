@@ -38,8 +38,6 @@ export class QuestManager {
         this.availableQuests.push(quest);
       }
     }
-
-    console.log(`📋 Initialized ${this.availableQuests.length} quests from registry (only those without prerequisites)`);
   }
 
   /**
@@ -76,7 +74,6 @@ export class QuestManager {
 
     // Verifica i prerequisiti prima di accettare
     if (!this.canAcceptQuest(questId)) {
-      console.warn(`⚠️ Cannot accept quest "${questId}" - prerequisites not met`);
       return false;
     }
 
@@ -204,7 +201,6 @@ export class QuestManager {
       if (hasPrerequisites) {
         const quest = this.createQuestFromConfig(config);
         this.availableQuests.push(quest);
-        console.log(`🔓 Quest "${quest.title}" ora disponibile!`);
       }
     }
   }

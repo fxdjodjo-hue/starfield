@@ -37,7 +37,6 @@ export class PresentationSystem {
   initialize(): void {
     this.initializePanels();
     this.setupQuestPanelIntegration();
-    console.log('UI System initialized with player stats and quest panels');
   }
 
   /**
@@ -216,9 +215,6 @@ export class PresentationSystem {
 
     this.playerNicknameElement.style.left = `${nicknameX}px`;
     this.playerNicknameElement.style.top = `${nicknameY}px`;
-
-    // Debug: log delle coordinate se necessario
-    // console.log(`Nickname pos: screen(${screenPos.x}, ${screenPos.y}) -> DOM(${nicknameX}, ${nicknameY})`);
   }
 
   /**

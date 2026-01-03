@@ -58,13 +58,10 @@ export class QuestTrackingSystem implements QuestEventHandler {
    * Questo è il metodo principale per il tracking scalabile
    */
   handleEvent(event: QuestEvent, activeQuestComponent: ActiveQuest): void {
-    console.log(`📡 Quest Event: ${event.type} - ${event.targetId} (${event.targetType}) x${event.amount || 1}`);
-
     // Trova tutte le quest attive che potrebbero essere interessate da questo evento
     activeQuestComponent.quests.forEach(quest => {
       const questConfig = QuestRegistry.get(quest.id);
       if (!questConfig) {
-        console.warn(`⚠️ Quest config not found for ${quest.id}`);
         return;
       }
 
@@ -108,7 +105,6 @@ export class QuestTrackingSystem implements QuestEventHandler {
                event.targetId === objective.targetName;
 
       default:
-        console.warn(`⚠️ Unknown objective type: ${objective.type}`);
         return false;
     }
   }
@@ -117,8 +113,6 @@ export class QuestTrackingSystem implements QuestEventHandler {
    * Gestisce il completamento di una quest
    */
   private handleQuestCompletion(quest: any, activeQuestComponent: ActiveQuest): void {
-    console.log(`🎯 Quest completed: ${quest.title}`);
-
     // Mostra messaggio di completamento quest nel log
     if (this.logSystem) {
       this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD, 5000);
@@ -169,17 +163,15 @@ export class QuestTrackingSystem implements QuestEventHandler {
 
         case RewardType.ITEM:
           // TODO: Implementare sistema inventario per ricompense item
-          console.log(`🎒 Item reward: ${reward.itemId} (not implemented yet)`);
           break;
 
         default:
-          console.warn(`⚠️ Unknown reward type: ${reward.type}`);
+          break;
       }
     });
 
     // Mostra le ricompense nel log del sistema
     if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
-      console.log(`🎁 Creating reward message: ${totalCredits}c, ${totalCosmos}cos, ${totalExperience}xp, ${totalHonor}h`);
       this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000);
     }
   }
@@ -190,7 +182,6 @@ export class QuestTrackingSystem implements QuestEventHandler {
    */
   triggerEvent(event: QuestEvent): void {
     if (!this.playerEntity) {
-      console.warn('⚠️ Player entity not set in QuestTrackingSystem');
       return;
     }
 
@@ -205,8 +196,6 @@ export class QuestTrackingSystem implements QuestEventHandler {
    * @deprecated Usa triggerEvent() con QuestEvent invece
    */
   onNpcKilled(npcType: string, activeQuestComponent: ActiveQuest): void {
-    console.warn('⚠️ onNpcKilled is deprecated. Use triggerEvent with QuestEvent instead.');
-
     // Converte la chiamata legacy in un evento moderno
     const event: QuestEvent = {
       type: QuestEventType.NPC_KILLED,

@@ -55,13 +55,8 @@ export class QuestSystem extends System {
     if (this.questManager.isQuestAvailable(questId) && this.questManager.canAcceptQuest(questId)) {
       const accepted = this.questManager.acceptQuest(questId, activeQuest);
       if (accepted) {
-        console.log(`🎉 Quest "${questId}" accettata dal giocatore!`);
         this.notifyQuestPanelUpdate();
-      } else {
-        console.warn(`❌ Impossibile accettare la quest "${questId}" - prerequisiti non soddisfatti`);
       }
-    } else {
-      console.warn(`❌ Quest "${questId}" non disponibile o prerequisiti non soddisfatti`);
     }
   }
 
@@ -79,10 +74,7 @@ export class QuestSystem extends System {
 
     const abandoned = this.questManager.abandonQuest(questId, activeQuest);
     if (abandoned) {
-      console.log(`👋 Quest "${questId}" abbandonata dal giocatore`);
       this.notifyQuestPanelUpdate();
-    } else {
-      console.warn(`❌ Impossibile abbandonare la quest "${questId}"`);
     }
   }
 
