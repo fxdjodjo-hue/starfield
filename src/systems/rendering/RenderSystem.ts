@@ -60,7 +60,6 @@ export class RenderSystem extends BaseSystem {
 
         // Controlla se è un'esplosione
         if (explosion) {
-          console.log(`Rendering explosion at (${screenPos.x}, ${screenPos.y}), frame ${explosion.currentFrame}/${explosion.frames.length}`);
           this.renderExplosion(ctx, transform, explosion, screenPos.x, screenPos.y);
         } else if (npc) {
           // Renderizza come NPC
@@ -436,13 +435,9 @@ export class RenderSystem extends BaseSystem {
     if (currentFrame && currentFrame.complete && currentFrame.naturalWidth > 0) {
       ctx.save();
 
-      console.log(`Drawing explosion frame ${explosion.currentFrame} at (${screenX}, ${screenY})`);
-
       // Centra l'esplosione rispetto alla posizione dell'entità - dimensioni più grandi
       const explosionWidth = currentFrame.width * 0.8; // Scala l'esplosione al 80%
       const explosionHeight = currentFrame.height * 0.8;
-
-      console.log(`Explosion size: ${explosionWidth}x${explosionHeight}`);
 
       ctx.drawImage(
         currentFrame,
@@ -453,8 +448,6 @@ export class RenderSystem extends BaseSystem {
       );
 
       ctx.restore();
-    } else {
-      console.warn('Explosion frame not ready or invalid');
     }
   }
 
