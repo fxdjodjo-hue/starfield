@@ -4,7 +4,6 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
-import { Experience } from '../../entities/Experience';
 import { SkillPoints } from '../../entities/SkillPoints';
 import { PlayerUpgrades } from '../../entities/PlayerUpgrades';
 
@@ -139,18 +138,16 @@ export class SkillsPanel extends BasePanel {
       { label: 'Speed', icon: '💨', value: '300 u/s', color: '#f59e0b', upgradeKey: 'speed' }
     ]);
 
-    // Sezione Progressione
-    const progressionStatsSection = this.createStatsSection('📈 Progressione', [
-      { label: 'Livello', icon: '🏆', value: '1', color: '#fbbf24' },
-      { label: 'Esperienza', icon: '⭐', value: '0/10,000', color: '#10b981' },
-      { label: 'Punti Abilità', icon: '⚡', value: '0', color: '#a855f7' }
+    // Sezione Abilità (solo punti abilità)
+    const skillsStatsSection = this.createStatsSection('⚡ Punti Abilità', [
+      { label: 'Disponibili', icon: '⚡', value: '10', color: '#a855f7' }
     ]);
 
     // Sezione placeholder per abilità future
     const skillsSection = this.createSkillsSection();
 
     statsContainer.appendChild(combatStatsSection);
-    statsContainer.appendChild(progressionStatsSection);
+    statsContainer.appendChild(skillsStatsSection);
     statsContainer.appendChild(skillsSection);
 
     content.appendChild(statsContainer);
@@ -356,7 +353,6 @@ export class SkillsPanel extends BasePanel {
     // Ottieni componenti del giocatore
     const health = this.ecs.getComponent(playerEntity, Health);
     const shield = this.ecs.getComponent(playerEntity, Shield);
-    const experience = this.ecs.getComponent(playerEntity, Experience);
     const skillPoints = this.ecs.getComponent(playerEntity, SkillPoints);
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
 
@@ -387,22 +383,9 @@ export class SkillsPanel extends BasePanel {
       }
     }
 
-    // Aggiorna statistiche progressione
-    if (experience) {
-      const levelValue = this.container.querySelector('.stat-livello') as HTMLElement;
-      if (levelValue) {
-        levelValue.textContent = experience.level.toString();
-      }
-
-      const expValue = this.container.querySelector('.stat-esperienza') as HTMLElement;
-      if (expValue) {
-        expValue.textContent = `${experience.exp.toLocaleString()}/${experience.expForNextLevel.toLocaleString()}`;
-      }
-    }
-
     // Punti abilità dal componente ECS
     if (skillPoints) {
-      const skillPointsValue = this.container.querySelector('.stat-punti-abilità') as HTMLElement;
+      const skillPointsValue = this.container.querySelector('.stat-disponibili') as HTMLElement;
       if (skillPointsValue) {
         skillPointsValue.textContent = skillPoints.current.toString();
       }
