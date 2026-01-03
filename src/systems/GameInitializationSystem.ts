@@ -309,13 +309,15 @@ export class GameInitializationSystem extends System {
     const hpBonus = playerUpgrades.getHPBonus();
     const shieldBonus = playerUpgrades.getShieldBonus();
     const speedBonus = playerUpgrades.getSpeedBonus();
+    const damageBonus = playerUpgrades.getDamageBonus();
 
     // Applica bonus alle statistiche base
     const baseHealth = Math.floor(playerDef.stats.health * hpBonus);
     const baseShield = playerDef.stats.shield ? Math.floor(playerDef.stats.shield * shieldBonus) : undefined;
+    const baseDamage = Math.floor(playerDef.stats.damage * damageBonus);
 
     const health = new Health(baseHealth, baseHealth);
-    const damage = new Damage(playerDef.stats.damage, playerDef.stats.range, playerDef.stats.cooldown);
+    const damage = new Damage(baseDamage, playerDef.stats.range, playerDef.stats.cooldown);
 
     // Condizionale per scudi (se presenti nella config)
     let shield: Shield | undefined;

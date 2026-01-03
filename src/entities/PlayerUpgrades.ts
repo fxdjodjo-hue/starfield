@@ -8,6 +8,7 @@ export class PlayerUpgrades extends Component {
   private _hpUpgrades: number = 0;
   private _shieldUpgrades: number = 0;
   private _speedUpgrades: number = 0;
+  private _damageUpgrades: number = 0;
 
   constructor(hpUpgrades: number = 0, shieldUpgrades: number = 0, speedUpgrades: number = 0) {
     super();
@@ -29,8 +30,12 @@ export class PlayerUpgrades extends Component {
     return this._speedUpgrades;
   }
 
+  get damageUpgrades(): number {
+    return this._damageUpgrades;
+  }
+
   get totalUpgrades(): number {
-    return this._hpUpgrades + this._shieldUpgrades + this._speedUpgrades;
+    return this._hpUpgrades + this._shieldUpgrades + this._speedUpgrades + this._damageUpgrades;
   }
 
   // Methods
@@ -59,6 +64,14 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
+   * Acquista un upgrade Damage (+1% Damage)
+   */
+  upgradeDamage(): boolean {
+    this._damageUpgrades++;
+    return true;
+  }
+
+  /**
    * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.01)
    */
   getHPBonus(): number {
@@ -80,21 +93,30 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
+   * Calcola il bonus moltiplicatore per Damage (1.0 + upgrades * 0.01)
+   */
+  getDamageBonus(): number {
+    return 1.0 + (this._damageUpgrades * 0.01);
+  }
+
+  /**
    * Resetta tutti gli upgrade (per debug o reset)
    */
   reset(): void {
     this._hpUpgrades = 0;
     this._shieldUpgrades = 0;
     this._speedUpgrades = 0;
+    this._damageUpgrades = 0;
   }
 
   /**
    * Imposta direttamente il numero di upgrade per ogni statistica
    */
-  setUpgrades(hp: number, shield: number, speed: number): void {
+  setUpgrades(hp: number, shield: number, speed: number, damage: number = 0): void {
     this._hpUpgrades = Math.max(0, hp);
     this._shieldUpgrades = Math.max(0, shield);
     this._speedUpgrades = Math.max(0, speed);
+    this._damageUpgrades = Math.max(0, damage);
   }
 
   /**
@@ -104,7 +126,8 @@ export class PlayerUpgrades extends Component {
     return {
       hpUpgrades: this._hpUpgrades,
       shieldUpgrades: this._shieldUpgrades,
-      speedUpgrades: this._speedUpgrades
+      speedUpgrades: this._speedUpgrades,
+      damageUpgrades: this._damageUpgrades
     };
   }
 
@@ -116,6 +139,7 @@ export class PlayerUpgrades extends Component {
       this._hpUpgrades = Math.max(0, data.hpUpgrades || 0);
       this._shieldUpgrades = Math.max(0, data.shieldUpgrades || 0);
       this._speedUpgrades = Math.max(0, data.speedUpgrades || 0);
+      this._damageUpgrades = Math.max(0, data.damageUpgrades || 0);
     }
   }
 }

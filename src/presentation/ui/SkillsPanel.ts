@@ -301,14 +301,16 @@ export class SkillsPanel extends BasePanel {
 
     section.appendChild(sectionTitle);
 
-    // Crea i tre pulsanti di upgrade con statistiche integrate
+    // Crea i quattro pulsanti di upgrade con statistiche integrate
     const hpUpgrade = this.createStatUpgradeButton('HP', '❤️', '#10b981', 'hp');
     const shieldUpgrade = this.createStatUpgradeButton('Shield', '🛡️', '#3b82f6', 'shield');
     const speedUpgrade = this.createStatUpgradeButton('Speed', '💨', '#f59e0b', 'speed');
+    const damageUpgrade = this.createStatUpgradeButton('Damage', '⚡', '#ef4444', 'damage');
 
     section.appendChild(hpUpgrade);
     section.appendChild(shieldUpgrade);
     section.appendChild(speedUpgrade);
+    section.appendChild(damageUpgrade);
 
     return section;
   }
@@ -413,7 +415,7 @@ export class SkillsPanel extends BasePanel {
     // Click sul bottone di upgrade
     upgradeButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed');
+      this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed' | 'damage');
     });
 
     // Effetto hover sul pulsante interno
@@ -500,6 +502,15 @@ export class SkillsPanel extends BasePanel {
       if (speedValue) {
         speedValue.textContent = `${calculatedSpeed} u/s`;
       }
+
+      // Aggiorna damage con bonus dagli upgrade
+      const damageBonus = playerUpgrades.getDamageBonus();
+      const calculatedDamage = Math.floor(playerDef.stats.damage * damageBonus);
+
+      const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
+      if (damageValue) {
+        damageValue.textContent = calculatedDamage.toString();
+      }
     }
 
     // Punti abilità dal componente ECS (nell'header)
@@ -530,7 +541,7 @@ export class SkillsPanel extends BasePanel {
   /**
    * Acquista un upgrade per una statistica
    */
-  private upgradeStat(statType: 'hp' | 'shield' | 'speed'): void {
+  private upgradeStat(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
     const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -557,6 +568,9 @@ export class SkillsPanel extends BasePanel {
         break;
       case 'speed':
         success = playerUpgrades.upgradeSpeed();
+        break;
+      case 'damage':
+        success = playerUpgrades.upgradeDamage();
         break;
     }
 
