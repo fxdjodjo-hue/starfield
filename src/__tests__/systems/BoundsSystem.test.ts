@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { BoundsSystem } from '../../../systems/BoundsSystem';
+import { BoundsSystem } from '../../../systems/physics/BoundsSystem';
 
 describe('BoundsSystem', () => {
   it('should create instance', () => {

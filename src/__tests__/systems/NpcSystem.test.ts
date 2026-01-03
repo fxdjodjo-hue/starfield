@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { NpcSystem } from '../../../systems/NpcSystem';
+import { NpcSystem } from '../../../systems/npc/NpcSystem';
 
 describe('NpcSystem', () => {
   it('should create instance', () => {

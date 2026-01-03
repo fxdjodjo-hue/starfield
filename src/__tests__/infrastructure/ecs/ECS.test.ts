@@ -259,20 +259,5 @@ describe('ECS', () => {
     });
   });
 });
-    const instance = new ECS();
-    expect(typeof instance.createEntity).toBe('function');
-  });
-
-  it('should have removeEntity method', () => {
-    const instance = new ECS();
-    expect(typeof instance.removeEntity).toBe('function');
-  });
-
-  it('should have entityExists method', () => {
-    const instance = new ECS();
-    expect(typeof instance.entityExists).toBe('function');
-  });
-
-});
 
 

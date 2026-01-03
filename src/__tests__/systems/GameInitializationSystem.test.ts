@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { GameInitializationSystem } from '../../../systems/GameInitializationSystem';
+import { GameInitializationSystem } from '../../../systems/game/GameInitializationSystem';
 
 describe('GameInitializationSystem', () => {
   it('should create instance', () => {

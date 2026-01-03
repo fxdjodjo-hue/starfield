@@ -7,7 +7,7 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
-import { UiSystem } from '../UiSystem';
+import { UiSystem } from '../ui/UiSystem';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione

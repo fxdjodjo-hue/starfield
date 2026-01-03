@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PresentationSystem } from '../../../systems/PresentationSystem';
+import { PresentationSystem } from '../../../systems/ui/PresentationSystem';
 
 describe('PresentationSystem', () => {
   it('should create instance', () => {

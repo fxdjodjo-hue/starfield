@@ -8,7 +8,7 @@ import { SkillsPanel } from '../presentation/ui/SkillsPanel';
 import { ChatPanel } from '../presentation/ui/ChatPanel';
 import { ChatManager } from './ChatManager';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
-import { QuestSystem } from './QuestSystem';
+import { QuestSystem } from '../quest/QuestSystem';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente

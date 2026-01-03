@@ -2,10 +2,10 @@
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { World } from '../../infrastructure/engine/World';
 import { MovementSystem } from '../../systems/physics/MovementSystem';
-import { QuestManager } from '../../systems/QuestManager';
-import { QuestSystem } from '../../systems/QuestSystem';
-import { GameInitializationSystem } from '../../systems/GameInitializationSystem';
-import { UiSystem } from '../../systems/UiSystem';
+import { QuestManager } from '../../systems/quest/QuestManager';
+import { QuestSystem } from '../../systems/quest/QuestSystem';
+import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
+import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
 
 /**

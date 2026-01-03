@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UiSystem } from '../../../systems/UiSystem';
+import { UiSystem } from '../../../systems/ui/UiSystem';
 
 describe('UiSystem', () => {
   it('should create instance', () => {

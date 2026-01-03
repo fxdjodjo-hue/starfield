@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RewardSystem } from '../../../systems/RewardSystem';
+import { RewardSystem } from '../../../systems/rewards/RewardSystem';
 
 describe('RewardSystem', () => {
   it('should create instance', () => {

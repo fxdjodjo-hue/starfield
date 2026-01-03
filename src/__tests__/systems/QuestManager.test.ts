@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { QuestManager } from '../../../systems/QuestManager';
+import { QuestManager } from '../../../systems/quest/QuestManager';
 
 describe('QuestManager', () => {
   it('should have initializeQuests method', () => {

@@ -3,7 +3,7 @@ import { PlayerHUD } from '../presentation/ui/PlayerHUD';
 import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
 import { QuestPanel } from '../presentation/ui/QuestPanel';
 import { getPanelConfig } from '../presentation/ui/PanelConfig';
-import { QuestSystem } from './QuestSystem';
+import { QuestSystem } from '../quest/QuestSystem';
 
 /**
  * PresentationSystem - Sistema di presentazione per l'interfaccia utente

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PlayerSystem } from '../../../systems/PlayerSystem';
+import { PlayerSystem } from '../../../systems/player/PlayerSystem';
 
 describe('PlayerSystem', () => {
   it('should create instance', () => {

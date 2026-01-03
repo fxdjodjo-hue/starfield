@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { QuestTrackingSystem } from '../../../systems/QuestTrackingSystem';
+import { QuestTrackingSystem } from '../../../systems/quest/QuestTrackingSystem';
 
 describe('QuestTrackingSystem', () => {
   it('should create instance', () => {

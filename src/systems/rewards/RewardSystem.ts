@@ -5,11 +5,11 @@ import { Explosion } from '../entities/combat/Explosion';
 import { Npc } from '../entities/ai/Npc';
 import { PlayerStats } from '../entities/player/PlayerStats';
 import { getNpcDefinition } from '../config/NpcConfig';
-import { LogSystem } from './rendering/LogSystem';
+import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../presentation/ui/LogMessage';
-import { NpcRespawnSystem } from './NpcRespawnSystem';
+import { NpcRespawnSystem } from '../npc/NpcRespawnSystem';
 import { QuestEventType } from '../config/QuestConfig';
-import { QuestTrackingSystem } from './QuestTrackingSystem';
+import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { Component } from '../infrastructure/ecs/Component';
 
