@@ -192,6 +192,69 @@ export default class AudioSystem extends System {
     }
   }
 
+  /**
+   * Fade in del suono (graduale aumento volume)
+   */
+  fadeInSound(key: string, duration: number = 500, targetVolume: number = this.config.effectsVolume): void {
+    const audio = this.sounds.get(key);
+    if (!audio) return;
+
+    const startVolume = 0;
+    const startTime = Date.now();
+
+    const fadeStep = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Curva ease-in per fade più naturale
+      const easedProgress = progress * progress;
+      audio.volume = this.config.masterVolume * startVolume + (this.config.masterVolume * targetVolume - this.config.masterVolume * startVolume) * easedProgress;
+
+      if (progress < 1) {
+        requestAnimationFrame(fadeStep);
+      }
+    };
+
+    fadeStep();
+  }
+
+  /**
+   * Fade out del suono (graduale diminuzione volume)
+   */
+  fadeOutSound(key: string, duration: number = 300): Promise<void> {
+    return new Promise((resolve) => {
+      const audio = this.sounds.get(key);
+      if (!audio) {
+        resolve();
+        return;
+      }
+
+      const startVolume = audio.volume / this.config.masterVolume;
+      const startTime = Date.now();
+
+      const fadeStep = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+
+        // Curva ease-out per fade più naturale
+        const easedProgress = 1 - Math.pow(1 - progress, 2);
+        audio.volume = this.config.masterVolume * (startVolume * (1 - easedProgress));
+
+        if (progress < 1) {
+          requestAnimationFrame(fadeStep);
+        } else {
+          // Fade completato, ferma il suono
+          audio.pause();
+          audio.currentTime = 0;
+          this.sounds.delete(key);
+          resolve();
+        }
+      };
+
+      fadeStep();
+    });
+  }
+
   private stopAllSounds(): void {
     this.sounds.forEach(audio => {
       audio.pause();

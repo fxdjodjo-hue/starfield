@@ -18,6 +18,7 @@ Classe principale che gestisce:
 - Riproduzione suoni ed effetti
 - Controlli volume indipendenti
 - Gestione musica di sottofondo
+- **Fade in/out graduale** per transizioni morbide
 - Cleanup risorse
 
 ### Configurazione
@@ -59,6 +60,21 @@ this.audioSystem.setMasterVolume(0.8);
 this.audioSystem.setMusicVolume(0.6);
 this.audioSystem.setEffectsVolume(1.0);
 ```
+
+### Fade Effects
+```typescript
+// Fade in graduale (800ms) fino al volume target
+this.audioSystem.fadeInSound('engine', 800, 0.3);
+
+// Fade out graduale (500ms) con promessa di completamento
+await this.audioSystem.fadeOutSound('engine', 500);
+```
+
+**Caratteristiche Fade:**
+- **Curve easing**: ease-in per fade in, ease-out per fade out
+- **Durata configurabile**: millisecondi personalizzabili
+- **Volume target**: controllo preciso del volume finale
+- **Promise-based**: fade out restituisce Promise per sincronizzazione
 
 ## 📋 Asset Richiesti
 

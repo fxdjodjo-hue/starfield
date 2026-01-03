@@ -58,21 +58,25 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Avvia il suono del motore
+   * Avvia il suono del motore con fade in
    */
-  private startEngineSound(): void {
+  private async startEngineSound(): Promise<void> {
     if (this.audioSystem && !this.isEnginePlaying) {
-      this.audioSystem.playSound('engine', 0.3, true); // Volume ridotto per il motore, loop attivato
+      // Avvia il suono con volume 0 per evitare pop iniziale
+      this.audioSystem.playSound('engine', 0, true);
+      // Fade in graduale
+      this.audioSystem.fadeInSound('engine', 800, 0.3); // 800ms fade in, volume target 0.3
       this.isEnginePlaying = true;
     }
   }
 
   /**
-   * Ferma il suono del motore
+   * Ferma il suono del motore con fade out
    */
-  private stopEngineSound(): void {
+  private async stopEngineSound(): Promise<void> {
     if (this.audioSystem && this.isEnginePlaying) {
-      this.audioSystem.stopSound('engine');
+      // Fade out graduale
+      await this.audioSystem.fadeOutSound('engine', 500); // 500ms fade out
       this.isEnginePlaying = false;
     }
   }
