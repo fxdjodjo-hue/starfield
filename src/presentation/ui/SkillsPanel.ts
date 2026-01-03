@@ -12,6 +12,7 @@ export class SkillsPanel extends BasePanel {
   private ecs: ECS;
   private statsContainer: HTMLElement | null = null;
   private updateInterval: number | null = null;
+  private isVisible: boolean = false;
 
   constructor(config: PanelConfig, ecs: ECS) {
     super(config);
@@ -316,12 +317,16 @@ export class SkillsPanel extends BasePanel {
     if (!this.statsContainer) return;
 
     const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) return;
+    if (!playerEntity) {
+      console.log('SkillsPanel: No player entity found');
+      return;
+    }
 
     // Ottieni componenti del giocatore
     const health = this.ecs.getComponent(playerEntity, Health);
     const shield = this.ecs.getComponent(playerEntity, Shield);
     const experience = this.ecs.getComponent(playerEntity, Experience);
+
 
     // Aggiorna statistiche combattimento
     if (health) {
@@ -365,24 +370,26 @@ export class SkillsPanel extends BasePanel {
   }
 
   /**
+   * Metodo update chiamato dal sistema ECS ogni frame
+   */
+  update(deltaTime: number): void {
+    if (this.isVisible && this.statsContainer) {
+      this.updatePlayerStats();
+    }
+  }
+
+  /**
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
+    this.isVisible = true;
     this.updatePlayerStats();
-    // Aggiorna le statistiche ogni secondo mentre il pannello è aperto
-    this.updateInterval = window.setInterval(() => {
-      this.updatePlayerStats();
-    }, 1000);
   }
 
   /**
    * Callback quando il pannello viene nascosto
    */
   protected onHide(): void {
-    // Ferma l'aggiornamento periodico
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
+    this.isVisible = false;
   }
 }

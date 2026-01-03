@@ -289,8 +289,13 @@ export class UiSystem extends System {
   }
 
   update(deltaTime: number): void {
-    // Aggiornamenti periodici dell'UI se necessari
-    // Per ora delega agli altri sistemi
+    // Aggiorna pannello skills se visibile
+    const skillsPanel = this.uiManager.getPanel('skills-panel') as any;
+    if (skillsPanel && skillsPanel.update) {
+      skillsPanel.update(deltaTime);
+    }
+
+    // Altri aggiornamenti periodici dell'UI se necessari
   }
 
   /**
