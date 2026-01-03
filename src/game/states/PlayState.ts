@@ -25,6 +25,7 @@ import { UIManager } from '/src/ui/UIManager';
 import { PlayerStatsPanel } from '/src/ui/PlayerStatsPanel';
 import { QuestPanel } from '/src/ui/QuestPanel';
 import type { PanelData } from '/src/ui/UIManager';
+import { getPanelConfig } from '/src/ui/PanelConfig';
 import { Transform } from '/src/entities/spatial/Transform';
 import { Velocity } from '/src/entities/spatial/Velocity';
 import { Npc } from '/src/entities/ai/Npc';
@@ -102,28 +103,13 @@ export class PlayState extends GameState {
    * Inizializza il sistema UI con pannelli e icone
    */
   private initializeUI(): void {
-    // Configurazione singola fonte di verità per il pannello statistiche
-    const statsConfig = {
-      id: 'player-stats',
-      icon: '📊',
-      title: 'Statistiche Giocatore',
-      position: 'center-left' as const,
-      size: { width: 1300, height: 750 }
-    };
-
-    // Crea il pannello con la configurazione e registralo
+    // Crea e registra il pannello delle statistiche giocatore
+    const statsConfig = getPanelConfig('stats');
     const statsPanel = new PlayerStatsPanel(statsConfig);
     this.uiManager.registerPanel(statsPanel);
 
-    // Crea e registra il pannello delle quest (stesse dimensioni del pannello stats)
-    const questConfig = {
-      id: 'quest-panel',
-      icon: '📋',
-      title: 'Missioni & Quest',
-      position: 'center-left-below' as const,
-      size: { width: 1300, height: 750 }
-    };
-
+    // Crea e registra il pannello delle quest
+    const questConfig = getPanelConfig('quest');
     const questPanel = new QuestPanel(questConfig);
     this.uiManager.registerPanel(questPanel);
 
