@@ -28,6 +28,7 @@ import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
 import { Credits, Cosmos } from '/src/entities/Currency';
 import { Experience } from '/src/entities/Experience';
+import { Sprite } from '/src/entities/Sprite';
 import { Honor } from '/src/entities/Honor';
 import { PlayerStats } from '/src/entities/PlayerStats';
 import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
@@ -435,6 +436,10 @@ export class PlayState extends GameState {
    * Inizializza il mondo di gioco e crea entità
    */
   private async initializeGame(): Promise<void> {
+    // Load ship sprite
+    const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
+    const shipSprite = new Sprite(shipImage, shipImage.width * 0.2, shipImage.height * 0.2);
+
     const ecs = this.world.getECS();
 
     // Crea sistemi
@@ -474,7 +479,7 @@ export class PlayState extends GameState {
     ecs.addSystem(respawnSystem); // Sistema respawn NPC
 
     // Crea la nave player
-    const playerShip = this.createPlayerShip(ecs);
+    const playerShip = this.createPlayerShip(ecs, shipSprite);
     this.playerEntity = playerShip;
 
     // Imposta il player nel sistema di controllo
@@ -590,7 +595,7 @@ export class PlayState extends GameState {
   /**
    * Crea la nave player controllabile
    */
-  private createPlayerShip(ecs: any): any {
+  private createPlayerShip(ecs: any, sprite: Sprite): any {
     const ship = ecs.createEntity();
 
     // Spawna il player al centro del mondo (0,0)
@@ -618,6 +623,7 @@ export class PlayState extends GameState {
             ecs.addComponent(ship, Experience, experience);
             ecs.addComponent(ship, Honor, honor);
             ecs.addComponent(ship, PlayerStats, playerStats);
+    ecs.addComponent(ship, Sprite, sprite);
 
     return ship;
   }

@@ -10,6 +10,7 @@ import { Projectile } from '../../entities/combat/Projectile';
 import { Camera } from '../../entities/spatial/Camera';
 import { MovementSystem } from '../physics/MovementSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
+import { Sprite } from '../../entities/Sprite';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -42,6 +43,7 @@ export class RenderSystem extends BaseSystem {
       const selected = this.ecs.getComponent(entity, SelectedNpc);
       const projectile = this.ecs.getComponent(entity, Projectile);
       const parallax = this.ecs.getComponent(entity, ParallaxLayer);
+      const sprite = this.ecs.getComponent(entity, Sprite);
 
       // Salta i proiettili - vengono renderizzati separatamente
       if (projectile) continue;
@@ -65,8 +67,8 @@ export class RenderSystem extends BaseSystem {
             }
           }
         } else {
-          // Renderizza come player
-          this.renderEntity(ctx, transform, screenPos.x, screenPos.y);
+          // Renderizza come player (con sprite se disponibile)
+          this.renderEntity(ctx, transform, screenPos.x, screenPos.y, sprite);
 
           // Mostra sempre il range di attacco del player
           const damage = this.ecs.getComponent(entity, Damage);
@@ -79,7 +81,7 @@ export class RenderSystem extends BaseSystem {
         const health = this.ecs.getComponent(entity, Health);
         const shield = this.ecs.getComponent(entity, Shield);
         if (health || shield) {
-          this.renderHealthAndShieldBars(ctx, screenPos.x, screenPos.y, health, shield);
+          this.renderHealthAndShieldBars(ctx, screenPos.x, screenPos.y, health || null, shield || null);
         }
       }
     }
@@ -91,7 +93,7 @@ export class RenderSystem extends BaseSystem {
   /**
    * Renderizza una singola entità (placeholder per nave)
    */
-  private renderEntity(ctx: CanvasRenderingContext2D, transform: Transform, screenX: number, screenY: number): void {
+  private renderEntity(ctx: CanvasRenderingContext2D, transform: Transform, screenX: number, screenY: number, sprite?: Sprite): void {
     ctx.save();
 
     // Applica trasformazioni usando le coordinate schermo
@@ -99,21 +101,28 @@ export class RenderSystem extends BaseSystem {
     ctx.rotate(transform.rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
 
-    // Render placeholder nave (triangolo semplice)
-    ctx.fillStyle = '#00ff88';
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
+    if (sprite && sprite.isLoaded()) {
+      // Renderizza lo sprite
+      const spriteX = -sprite.width / 2 + sprite.offsetX;
+      const spriteY = -sprite.height / 2 + sprite.offsetY;
+      ctx.drawImage(sprite.image, spriteX, spriteY, sprite.width, sprite.height);
+    } else {
+      // Render placeholder nave (triangolo semplice) - fallback
+      ctx.fillStyle = '#00ff88';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
 
-    // Triangolo leggermente più grande (scalato del 30%)
-    const scale = 1.3;
-    ctx.beginPath();
-    ctx.moveTo(0, -15 * scale); // Punta superiore
-    ctx.lineTo(-10 * scale, 10 * scale); // Angolo sinistro
-    ctx.lineTo(10 * scale, 10 * scale); // Angolo destro
-    ctx.closePath();
+      // Triangolo leggermente più grande (scalato del 30%)
+      const scale = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(0, -15 * scale); // Punta superiore
+      ctx.lineTo(-10 * scale, 10 * scale); // Angolo sinistro
+      ctx.lineTo(10 * scale, 10 * scale); // Angolo destro
+      ctx.closePath();
 
-    ctx.fill();
-    ctx.stroke();
+      ctx.fill();
+      ctx.stroke();
+    }
 
     ctx.restore();
   }
@@ -132,15 +141,15 @@ export class RenderSystem extends BaseSystem {
     // Cerchio rosso di selezione (se selezionato)
     if (isSelected) {
       ctx.beginPath();
-      ctx.arc(0, 0, 25, 0, Math.PI * 2); // Cerchio di raggio 25px attorno all'NPC
+      ctx.arc(0, 0, 18, 0, Math.PI * 2); // Cerchio di raggio 18px attorno all'NPC
       ctx.strokeStyle = '#ff0000';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 2;
       ctx.stroke();
     }
 
     if (npc.npcType === 'triangle') {
       // Triangolo rosso per NPC nemici
-      const size = 14;
+      const size = 10;
       ctx.beginPath();
       ctx.moveTo(0, -size/2); // Punta superiore
       ctx.lineTo(-size/2, size/2); // Angolo sinistro
@@ -155,7 +164,7 @@ export class RenderSystem extends BaseSystem {
       ctx.stroke();
     } else {
       // Quadrato per gli NPC normali (tipo 'square' o default)
-      const size = 12;
+      const size = 8;
       ctx.beginPath();
       ctx.rect(-size/2, -size/2, size, size);
 
