@@ -493,7 +493,7 @@ export class PlayState extends GameState {
     playerControlSystem.setPlayerEntity(playerShip);
 
     // Crea l'entità background della mappa
-    this.createMapBackground(ecs, mapBackground);
+    this.createMapBackground(ecs, mapBackgroundSprite);
 
     // Passa la camera al sistema di controllo player
     playerControlSystem.setCamera(movementSystem.getCamera());
