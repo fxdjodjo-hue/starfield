@@ -1,5 +1,5 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
 
 /**
  * Sistema di input per mouse

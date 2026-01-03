@@ -1,8 +1,8 @@
 import { GameLoop } from './GameLoop';
 import { GameContext } from './GameContext';
-import { GameState } from '/src/game/states/GameState';
-import { StartState } from '/src/game/states/StartState';
-import { PlayState } from '/src/game/states/PlayState';
+import { GameState } from '../../game/states/GameState';
+import { StartState } from '../../game/states/StartState';
+import { PlayState } from '../../game/states/PlayState';
 
 /**
  * Classe principale del gioco che coordina stati e game loop

@@ -1,12 +1,12 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Projectile } from '/src/entities/combat/Projectile';
-import { Health } from '/src/entities/combat/Health';
-import { Shield } from '/src/entities/combat/Shield';
-import { Damage } from '/src/entities/combat/Damage';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
-import { DamageTaken } from '/src/entities/combat/DamageTaken';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Transform } from '../../entities/spatial/Transform';
+import { Projectile } from '../../entities/combat/Projectile';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { DamageTaken } from '../../entities/combat/DamageTaken';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione

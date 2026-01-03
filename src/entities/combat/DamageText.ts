@@ -1,4 +1,4 @@
-import { Component } from '/src/infrastructure/ecs/Component';
+import { Component } from '../../infrastructure/ecs/Component';
 
 /**
  * Testi di danno che seguono le entità colpite

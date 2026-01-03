@@ -1,7 +1,7 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { DamageText } from '/src/entities/combat/DamageText';
-import { Transform } from '/src/entities/spatial/Transform';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { DamageText } from '../../entities/combat/DamageText';
+import { Transform } from '../../entities/spatial/Transform';
 
 /**
  * Rendering testi di danno

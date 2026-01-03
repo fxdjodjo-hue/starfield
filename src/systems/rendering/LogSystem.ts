@@ -1,7 +1,7 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { LogMessage, LogType } from '/src/presentation/ui/LogMessage';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Transform } from '../../entities/spatial/Transform';
+import { LogMessage, LogType } from '../../presentation/ui/LogMessage';
 
 /**
  * Sistema per gestire e renderizzare i messaggi di log centrati in alto

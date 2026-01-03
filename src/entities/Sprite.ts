@@ -24,3 +24,4 @@ export class Sprite {
     return this.image.complete && this.image.naturalWidth !== 0;
   }
 }
+

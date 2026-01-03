@@ -1,4 +1,4 @@
-import { Component } from '/src/infrastructure/ecs/Component';
+import { Component } from '../../infrastructure/ecs/Component';
 
 /**
  * Classe base astratta per componenti che gestiscono risorse (HP, Shield, Mana, ecc.)

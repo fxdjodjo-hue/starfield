@@ -1,12 +1,12 @@
 ﻿import { GameState } from './GameState';
-import { GameContext } from '/src/infrastructure/engine/GameContext';
-import { World } from '/src/infrastructure/engine/World';
-import { MovementSystem } from '/src/systems/physics/MovementSystem';
-import { QuestManager } from '/src/systems/QuestManager';
-import { QuestSystem } from '/src/systems/QuestSystem';
-import { GameInitializationSystem } from '/src/systems/GameInitializationSystem';
-import { UiSystem } from '/src/systems/UiSystem';
-import { Transform } from '/src/entities/spatial/Transform';
+import { GameContext } from '../../infrastructure/engine/GameContext';
+import { World } from '../../infrastructure/engine/World';
+import { MovementSystem } from '../../systems/physics/MovementSystem';
+import { QuestManager } from '../../systems/QuestManager';
+import { QuestSystem } from '../../systems/QuestSystem';
+import { GameInitializationSystem } from '../../systems/GameInitializationSystem';
+import { UiSystem } from '../../systems/UiSystem';
+import { Transform } from '../../entities/spatial/Transform';
 
 /**
  * Stato del gameplay attivo

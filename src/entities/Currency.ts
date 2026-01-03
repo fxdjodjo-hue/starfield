@@ -1,4 +1,4 @@
-import { Component } from '/src/infrastructure/ecs/Component';
+import { Component } from '../infrastructure/ecs/Component';
 
 /**
  * Componente Credits - gestisce i Credits del giocatore

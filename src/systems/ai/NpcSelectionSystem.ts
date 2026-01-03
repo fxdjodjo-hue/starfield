@@ -1,8 +1,8 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Npc } from '/src/entities/ai/Npc';
-import { Transform } from '/src/entities/spatial/Transform';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Npc } from '../../entities/ai/Npc';
+import { Transform } from '../../entities/spatial/Transform';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 
 /**
  * Sistema di selezione NPC - gestisce click su NPC e selezione

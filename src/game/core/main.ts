@@ -1,5 +1,5 @@
 // Main game initialization
-import { Game } from '/src/infrastructure/engine/Game';
+import { Game } from '../../infrastructure/engine/Game';
 
 async function main() {
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;

@@ -1,4 +1,4 @@
-import { Component } from '/src/infrastructure/ecs/Component';
+import { Component } from '../infrastructure/ecs/Component';
 
 /**
  * Componente Experience - gestisce i punti esperienza e il livello del giocatore

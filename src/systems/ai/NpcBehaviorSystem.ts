@@ -1,12 +1,12 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Npc } from '/src/entities/ai/Npc';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Velocity } from '/src/entities/spatial/Velocity';
-import { Damage } from '/src/entities/combat/Damage';
-import { DamageTaken } from '/src/entities/combat/DamageTaken';
-import { Health } from '/src/entities/combat/Health';
-import { CONFIG } from '/src/utils/config/Config';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Npc } from '../../entities/ai/Npc';
+import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
+import { Damage } from '../../entities/combat/Damage';
+import { DamageTaken } from '../../entities/combat/DamageTaken';
+import { Health } from '../../entities/combat/Health';
+import { CONFIG } from '../../utils/config/Config';
 
 /**
  * Stato interno per gestire movimenti fluidi degli NPC

@@ -1,4 +1,4 @@
-import { Component } from '/src/infrastructure/ecs/Component';
+import { Component } from '../infrastructure/ecs/Component';
 
 /**
  * Componente Honor - gestisce i punti onore e ranking competitivo del giocatore

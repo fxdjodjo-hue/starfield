@@ -1,20 +1,20 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Health } from '/src/entities/combat/Health';
-import { Shield } from '/src/entities/combat/Shield';
-import { Damage } from '/src/entities/combat/Damage';
-import { DamageTaken } from '/src/entities/combat/DamageTaken';
-import { DamageText } from '/src/entities/combat/DamageText';
-import { Explosion } from '/src/entities/combat/Explosion';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Velocity } from '/src/entities/spatial/Velocity';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
-import { Npc } from '/src/entities/ai/Npc';
-import { Projectile } from '/src/entities/combat/Projectile';
-import { Sprite } from '/src/entities/Sprite';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
+import { DamageTaken } from '../../entities/combat/DamageTaken';
+import { DamageText } from '../../entities/combat/DamageText';
+import { Explosion } from '../../entities/combat/Explosion';
+import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { Npc } from '../../entities/ai/Npc';
+import { Projectile } from '../../entities/combat/Projectile';
+import { Sprite } from '../../entities/Sprite';
 import { MovementSystem } from '../physics/MovementSystem';
 import { LogSystem } from '../rendering/LogSystem';
-import { GameContext } from '/src/infrastructure/engine/GameContext';
+import { GameContext } from '../../infrastructure/engine/GameContext';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità

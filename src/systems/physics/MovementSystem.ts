@@ -1,9 +1,9 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Velocity } from '/src/entities/spatial/Velocity';
-import { Camera } from '/src/entities/spatial/Camera';
-import { Npc } from '/src/entities/ai/Npc';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
+import { Camera } from '../../entities/spatial/Camera';
+import { Npc } from '../../entities/ai/Npc';
 
 /**
  * Sistema di movimento che aggiorna le posizioni basandosi sulla velocity

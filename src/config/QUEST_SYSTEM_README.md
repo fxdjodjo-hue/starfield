@@ -197,3 +197,4 @@ const allQuests = QuestRegistry.getAll();
 - ✅ TODO: Implementare sistemi exp/honor/inventario
 
 Questo sistema è progettato per crescere con il tuo gioco! 🚀✨
+

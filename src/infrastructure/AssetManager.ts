@@ -74,3 +74,4 @@ export class AssetManager {
     await Promise.all(promises);
   }
 }
+

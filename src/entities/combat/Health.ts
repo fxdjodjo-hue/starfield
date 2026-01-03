@@ -34,6 +34,7 @@ export class Health extends ResourceComponent {
 
   /**
    * Proprietà per accesso diretto (per compatibilità)
+   * Nota: questi getter/setter delegano a currentValue/maxValue che hanno clamping built-in
    */
   get current(): number {
     return this.currentValue;

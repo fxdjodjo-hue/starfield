@@ -1,4 +1,4 @@
-import type { GameContext } from '/src/infrastructure/engine/GameContext';
+import type { GameContext } from '../../infrastructure/engine/GameContext';
 
 /**
  * Classe astratta base per tutti gli stati del gioco

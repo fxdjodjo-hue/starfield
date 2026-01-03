@@ -1,9 +1,9 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { ParallaxLayer } from '/src/entities/spatial/ParallaxLayer';
-import { Sprite } from '/src/entities/Sprite';
-import { MovementSystem } from '/src/systems/physics/MovementSystem';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Transform } from '../../entities/spatial/Transform';
+import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
+import { Sprite } from '../../entities/Sprite';
+import { MovementSystem } from '../physics/MovementSystem';
 
 /**
  * Sistema Parallax - gestisce elementi con effetto parallax

@@ -1,8 +1,8 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Credits, Cosmos } from '/src/entities/Currency';
-import { Experience } from '/src/entities/Experience';
-import { Honor } from '/src/entities/Honor';
+import { System as BaseSystem } from '../infrastructure/ecs/System';
+import { ECS } from '../infrastructure/ecs/ECS';
+import { Credits, Cosmos } from '../entities/Currency';
+import { Experience } from '../entities/Experience';
+import { Honor } from '../entities/Honor';
 
 /**
  * Sistema Economy - gestisce l'economia completa del giocatore
@@ -62,12 +62,6 @@ export class EconomySystem extends BaseSystem {
     // Non crea più pannelli separati - i valori sono nell'HUD del PlayState
   }
 
-  /**
-   * Rimuove tutti i display economici (non usato)
-   */
-  removeEconomyDisplays(): void {
-    // Non rimuove più nulla - i valori sono nell'HUD del PlayState
-  }
 
   /**
    * Crea l'elemento UI per i Credits

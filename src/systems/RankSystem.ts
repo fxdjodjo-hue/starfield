@@ -1,8 +1,8 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Experience } from '/src/entities/Experience';
-import { Honor } from '/src/entities/Honor';
-import { PlayerStats } from '/src/entities/PlayerStats';
+import { System as BaseSystem } from '../infrastructure/ecs/System';
+import { ECS } from '../infrastructure/ecs/ECS';
+import { Experience } from '../entities/Experience';
+import { Honor } from '../entities/Honor';
+import { PlayerStats } from '../entities/PlayerStats';
 
 /**
  * Sistema Rank - gestisce il calcolo dei gradi militari

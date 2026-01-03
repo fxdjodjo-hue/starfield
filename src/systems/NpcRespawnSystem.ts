@@ -1,14 +1,14 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Velocity } from '/src/entities/spatial/Velocity';
-import { Health } from '/src/entities/combat/Health';
-import { Shield } from '/src/entities/combat/Shield';
-import { Damage } from '/src/entities/combat/Damage';
-import { Sprite } from '/src/entities/Sprite';
-import { Npc } from '/src/entities/ai/Npc';
-import { CONFIG } from '/src/utils/config/Config';
-import { getNpcDefinition } from '/src/config/NpcConfig';
+import { System as BaseSystem } from '../infrastructure/ecs/System';
+import { ECS } from '../infrastructure/ecs/ECS';
+import { Transform } from '../entities/spatial/Transform';
+import { Velocity } from '../entities/spatial/Velocity';
+import { Health } from '../entities/combat/Health';
+import { Shield } from '../entities/combat/Shield';
+import { Damage } from '../entities/combat/Damage';
+import { Sprite } from '../entities/Sprite';
+import { Npc } from '../entities/ai/Npc';
+import { CONFIG } from '../utils/config/Config';
+import { getNpcDefinition } from '../config/NpcConfig';
 
 /**
  * Sistema Respawn NPC - Gestisce la rigenerazione degli NPC morti

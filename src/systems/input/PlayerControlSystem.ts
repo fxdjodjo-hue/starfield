@@ -1,10 +1,10 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Velocity } from '/src/entities/spatial/Velocity';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
-import { Camera } from '/src/entities/spatial/Camera';
-import { CONFIG } from '/src/utils/config/Config';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { Camera } from '../../entities/spatial/Camera';
+import { CONFIG } from '../../utils/config/Config';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo

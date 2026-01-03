@@ -1,6 +1,6 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Explosion } from '/src/entities/combat/Explosion';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Explosion } from '../../entities/combat/Explosion';
 
 /**
  * Sistema di gestione delle esplosioni

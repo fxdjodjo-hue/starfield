@@ -1,6 +1,6 @@
 import { GameState } from './GameState';
-import { GameContext } from '/src/infrastructure/engine/GameContext';
-import { StartScreen } from '/src/presentation/ui/StartScreen';
+import { GameContext } from '../../infrastructure/engine/GameContext';
+import { StartScreen } from '../../presentation/ui/StartScreen';
 
 /**
  * Stato della schermata iniziale

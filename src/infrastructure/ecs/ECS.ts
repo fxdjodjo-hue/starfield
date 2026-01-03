@@ -1,10 +1,10 @@
 import { Entity, EntityIdGenerator } from './Entity';
 import { Component } from './Component';
 import { System } from './System';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Health } from '/src/entities/combat/Health';
-import { Damage } from '/src/entities/combat/Damage';
-import { SelectedNpc } from '/src/entities/combat/SelectedNpc';
+import { Transform } from '../../entities/spatial/Transform';
+import { Health } from '../../entities/combat/Health';
+import { Damage } from '../../entities/combat/Damage';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 
 /**
  * Entity Component System principale

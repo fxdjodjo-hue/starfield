@@ -1,8 +1,8 @@
-import { System as BaseSystem } from '/src/infrastructure/ecs/System';
-import { ECS } from '/src/infrastructure/ecs/ECS';
-import { Transform } from '/src/entities/spatial/Transform';
-import { Health } from '/src/entities/combat/Health';
-import { CONFIG } from '/src/utils/config/Config';
+import { System as BaseSystem } from '../infrastructure/ecs/System';
+import { ECS } from '../infrastructure/ecs/ECS';
+import { Transform } from '../entities/spatial/Transform';
+import { Health } from '../entities/combat/Health';
+import { CONFIG } from '../utils/config/Config';
 import { MovementSystem } from './physics/MovementSystem';
 
 /**
