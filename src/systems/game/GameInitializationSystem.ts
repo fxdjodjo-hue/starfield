@@ -62,6 +62,7 @@ export class GameInitializationSystem extends System {
   private economySystem: any;
   private playerSystem!: PlayerSystem;
   private audioSystem!: AudioSystem;
+  private systemsCache: any = null;
 
   constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
     super(ecs);
@@ -79,16 +80,16 @@ export class GameInitializationSystem extends System {
    */
   async initialize(): Promise<any> {
     // Crea e configura tutti i sistemi
-    const systems = await this.createSystems();
+    this.systemsCache = await this.createSystems();
 
     // Aggiungi sistemi all'ECS nell'ordine corretto
-    this.addSystemsToECS(systems);
+    this.addSystemsToECS(this.systemsCache);
 
     // Configura le interazioni tra sistemi
-    this.configureSystemInteractions(systems);
+    this.configureSystemInteractions(this.systemsCache);
 
     // Crea le entità di gioco e restituisci il player entity
-    const playerEntity = await this.createGameEntities(systems);
+    const playerEntity = await this.createGameEntities(this.systemsCache);
     return playerEntity;
   }
 
@@ -128,7 +129,7 @@ export class GameInitializationSystem extends System {
     const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
     const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem);
 
-    return {
+    const result = {
       movementSystem: this.movementSystem,
       parallaxSystem,
       renderSystem,
@@ -157,7 +158,7 @@ export class GameInitializationSystem extends System {
       assets: { shipImage, mapBackgroundImage, scouterImage }
     };
 
-    console.log('GameInitializationSystem: Returning audioSystem:', !!this.audioSystem);
+    console.log('GameInitializationSystem: Returning audioSystem:', !!result.audioSystem);
     return result;
   }
 
@@ -433,7 +434,7 @@ export class GameInitializationSystem extends System {
    * Restituisce i sistemi esistenti
    */
   getSystems(): any {
-    return {
+    return this.systemsCache || {
       questSystem: this.questSystem,
       uiSystem: this.uiSystem,
       questManager: this.questManager,
