@@ -24,6 +24,7 @@ export class PlayerControlSystem extends BaseSystem {
   private minimapTargetY: number | null = null;
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
+  private engineSoundPromise: Promise<void> | null = null;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -61,12 +62,22 @@ export class PlayerControlSystem extends BaseSystem {
    * Avvia il suono del motore con fade in
    */
   private async startEngineSound(): Promise<void> {
-    if (this.audioSystem && !this.isEnginePlaying) {
+    if (!this.audioSystem) return;
+
+    try {
+      // Se è già in riproduzione, non fare nulla
+      if (this.isEnginePlaying) return;
+
+      this.isEnginePlaying = true;
+
       // Avvia il suono con volume 0 per evitare pop iniziale
       this.audioSystem.playSound('engine', 0, true);
+
       // Fade in graduale
-      this.audioSystem.fadeInSound('engine', 800, 0.15); // 800ms fade in, volume target 0.15
-      this.isEnginePlaying = true;
+      this.audioSystem.fadeInSound('engine', 800, 0.15);
+    } catch (error) {
+      console.warn('PlayerControlSystem: Error starting engine sound:', error);
+      this.isEnginePlaying = false;
     }
   }
 
@@ -74,9 +85,19 @@ export class PlayerControlSystem extends BaseSystem {
    * Ferma il suono del motore con fade out
    */
   private async stopEngineSound(): Promise<void> {
-    if (this.audioSystem && this.isEnginePlaying) {
+    if (!this.audioSystem) return;
+
+    try {
+      // Se non è in riproduzione, non fare nulla
+      if (!this.isEnginePlaying) return;
+
+      this.isEnginePlaying = false;
+
       // Fade out graduale
-      await this.audioSystem.fadeOutSound('engine', 500); // 500ms fade out
+      await this.audioSystem.fadeOutSound('engine', 500);
+    } catch (error) {
+      console.warn('PlayerControlSystem: Error stopping engine sound:', error);
+      // Reset dello stato in caso di errore
       this.isEnginePlaying = false;
     }
   }
@@ -111,11 +132,15 @@ export class PlayerControlSystem extends BaseSystem {
 
     const isMoving = (this.minimapTargetX !== null && this.minimapTargetY !== null) || this.isMousePressed;
 
-    // Gestisci suono del motore
-    if (isMoving && !this.isEnginePlaying) {
-      this.startEngineSound();
-    } else if (!isMoving && this.isEnginePlaying) {
-      this.stopEngineSound();
+    // Gestisci suono del motore - evita chiamate multiple rapide
+    if (isMoving && !this.isEnginePlaying && !this.engineSoundPromise) {
+      this.engineSoundPromise = this.startEngineSound().finally(() => {
+        this.engineSoundPromise = null;
+      });
+    } else if (!isMoving && this.isEnginePlaying && !this.engineSoundPromise) {
+      this.engineSoundPromise = this.stopEngineSound().finally(() => {
+        this.engineSoundPromise = null;
+      });
     }
 
     // Priorità: movimento minimappa > movimento mouse > fermo

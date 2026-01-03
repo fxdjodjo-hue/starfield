@@ -75,8 +75,11 @@ export default class AudioSystem extends System {
     if (!this.config.enabled) return;
 
     try {
-      // Se il suono è già in riproduzione e non è loop, non riavviarlo
-      if (this.sounds.has(key) && !loop) {
+      // Per suoni loop, ferma quello precedente se esiste
+      if (loop && this.sounds.has(key)) {
+        this.stopSound(key);
+      } else if (this.sounds.has(key) && !loop) {
+        // Per suoni non loop, se già presente non riavviarlo
         return;
       }
 
@@ -90,9 +93,13 @@ export default class AudioSystem extends System {
       const audio = new Audio(`/assets/audio/${assetPath}`);
       audio.volume = this.config.masterVolume * volume;
       audio.loop = loop;
+
       audio.play().catch(error => {
         console.warn(`Audio system: Failed to play sound '${key}':`, error);
+        // Rimuovi dalla mappa se fallisce
+        this.sounds.delete(key);
       });
+
       this.sounds.set(key, audio);
 
       // Per suoni non loop, rimuovi dalla mappa quando finisce
@@ -103,6 +110,7 @@ export default class AudioSystem extends System {
       }
     } catch (error) {
       console.warn(`Audio system: Failed to play sound '${key}':`, error);
+      this.sounds.delete(key);
     }
   }
 
