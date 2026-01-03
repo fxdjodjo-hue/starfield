@@ -284,7 +284,7 @@ export class FloatingIcon {
       case 'center-left':
         return `top: 50%; left: ${margin}px; transform: translateY(-50%);`;
       case 'center-left-below':
-        return `top: 52%; left: ${margin}px; transform: translateY(-50%);`;
+        return `top: 56%; left: ${margin}px; transform: translateY(-50%);`;
       case 'bottom-left':
         return `bottom: ${margin}px; left: ${margin}px;`;
       case 'bottom-right':
