@@ -243,6 +243,7 @@ export class QuestPanel extends BasePanel {
    * Crea una card per una singola quest
    */
   private createQuestCard(quest: Quest, sectionType: 'active' | 'completed' | 'available' = 'active'): HTMLElement {
+    console.log(`📄 QuestPanel: Creating quest card for "${quest.title}" in section: ${sectionType}`);
     const card = document.createElement('div');
     card.className = 'quest-card';
     card.style.cssText = `
@@ -367,9 +368,11 @@ export class QuestPanel extends BasePanel {
 
       acceptButton.addEventListener('click', (e) => {
         e.stopPropagation();
+        console.log(`🖱️ QuestPanel: Accept button clicked for quest: ${quest.id}`);
         this.onQuestAccept(quest.id);
       });
 
+      console.log(`🎨 QuestPanel: Created accept button for quest: ${quest.id}`);
       actionContainer.appendChild(acceptButton);
       card.appendChild(actionContainer);
     }
@@ -434,6 +437,7 @@ export class QuestPanel extends BasePanel {
     this.updateQuestList('completed-quests', this.questData.completedQuests);
 
     // Aggiorna quest disponibili
+    console.log(`🔄 QuestPanel: Updating available quests list with ${this.questData.availableQuests.length} quests`);
     this.updateQuestList('available-quests', this.questData.availableQuests);
   }
 
