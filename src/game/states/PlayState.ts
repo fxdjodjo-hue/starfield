@@ -538,7 +538,7 @@ export class PlayState extends GameState {
     const rankSystem = new RankSystem(ecs);
     const rewardSystem = new RewardSystem(ecs);
     const boundsSystem = new BoundsSystem(ecs, movementSystem);
-    const respawnSystem = new NpcRespawnSystem(ecs);
+    const respawnSystem = new NpcRespawnSystem(ecs, this.context);
 
     // Aggiungi sistemi all'ECS (ordine importante!)
     ecs.addSystem(inputSystem);        // Input per primo

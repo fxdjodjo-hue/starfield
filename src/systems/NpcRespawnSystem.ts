@@ -5,6 +5,7 @@ import { Velocity } from '/src/entities/spatial/Velocity';
 import { Health } from '/src/entities/combat/Health';
 import { Shield } from '/src/entities/combat/Shield';
 import { Damage } from '/src/entities/combat/Damage';
+import { Sprite } from '/src/entities/Sprite';
 import { Npc } from '/src/entities/ai/Npc';
 import { CONFIG } from '/src/utils/config/Config';
 import { getNpcDefinition } from '/src/config/NpcConfig';
@@ -19,9 +20,11 @@ export class NpcRespawnSystem extends BaseSystem {
 
   // Riferimento ai sistemi necessari
   private playerEntity: any = null;
+  private gameContext: any = null;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, gameContext?: any) {
     super(ecs);
+    this.gameContext = gameContext;
   }
 
   /**
@@ -54,15 +57,20 @@ export class NpcRespawnSystem extends BaseSystem {
       entry => currentTime >= entry.respawnTime
     );
 
-    // Respawna gli NPC pronti
-    for (const entry of readyForRespawn) {
-      this.respawnNpc(entry.npcType);
-    }
+    // Respawna gli NPC pronti (gestisce async internamente)
+    if (readyForRespawn.length > 0) {
+      // Avvia tutti i respawn in parallelo senza bloccare il main thread
+      Promise.all(
+        readyForRespawn.map(entry => this.respawnNpc(entry.npcType))
+      ).catch(error => {
+        console.error('Error during NPC respawn:', error);
+      });
 
-    // Rimuovi dalla coda gli NPC respawnati
-    this.respawnQueue = this.respawnQueue.filter(
-      entry => currentTime < entry.respawnTime
-    );
+      // Rimuovi dalla coda gli NPC che stiamo respawnando
+      this.respawnQueue = this.respawnQueue.filter(
+        entry => currentTime < entry.respawnTime
+      );
+    }
   }
 
   render(ctx: CanvasRenderingContext2D): void {
@@ -72,7 +80,7 @@ export class NpcRespawnSystem extends BaseSystem {
   /**
    * Respawna un NPC in una posizione sicura lontana dal player
    */
-  private respawnNpc(npcType: string): void {
+  private async respawnNpc(npcType: string): Promise<void> {
     if (!this.playerEntity) return;
 
     // Ottieni posizione del player
@@ -82,8 +90,8 @@ export class NpcRespawnSystem extends BaseSystem {
     // Trova una posizione sicura per il respawn
     const spawnPosition = this.findSafeSpawnPosition(playerTransform);
 
-    // Crea il nuovo NPC
-    this.createNpcAtPosition(npcType, spawnPosition.x, spawnPosition.y);
+    // Crea il nuovo NPC (ora async per caricare lo sprite)
+    await this.createNpcAtPosition(npcType, spawnPosition.x, spawnPosition.y);
 
     console.log(`✨ Respawned ${npcType} at (${spawnPosition.x.toFixed(0)}, ${spawnPosition.y.toFixed(0)})`);
   }
@@ -146,23 +154,52 @@ export class NpcRespawnSystem extends BaseSystem {
   /**
    * Crea un NPC in una posizione specifica
    */
-  private createNpcAtPosition(npcType: string, x: number, y: number): void {
+  private async createNpcAtPosition(npcType: string, x: number, y: number): Promise<void> {
     const npcDef = getNpcDefinition(npcType);
     if (!npcDef) {
       console.error(`No NPC definition found for type: ${npcType}`);
       return;
     }
 
-    // Crea l'entità NPC
-    const npcEntity = this.ecs.createEntity();
+    try {
+      // Carica lo sprite per questo tipo di NPC
+      const spriteImage = await this.loadNpcSprite(npcType);
+      const sprite = new Sprite(spriteImage, spriteImage.width * 0.15, spriteImage.height * 0.15);
 
-    // Aggiungi componenti usando la configurazione
-    this.ecs.addComponent(npcEntity, Transform, new Transform(x, y, 0));
-    this.ecs.addComponent(npcEntity, Velocity, new Velocity(0, 0, 0));
-    this.ecs.addComponent(npcEntity, Health, new Health(npcDef.stats.health, npcDef.stats.health));
-    this.ecs.addComponent(npcEntity, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
-    this.ecs.addComponent(npcEntity, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
-    this.ecs.addComponent(npcEntity, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
+      // Crea l'entità NPC
+      const npcEntity = this.ecs.createEntity();
+
+      // Aggiungi componenti usando la configurazione
+      this.ecs.addComponent(npcEntity, Transform, new Transform(x, y, 0));
+      this.ecs.addComponent(npcEntity, Velocity, new Velocity(0, 0, 0));
+      this.ecs.addComponent(npcEntity, Health, new Health(npcDef.stats.health, npcDef.stats.health));
+      this.ecs.addComponent(npcEntity, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
+      this.ecs.addComponent(npcEntity, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
+      this.ecs.addComponent(npcEntity, Sprite, sprite); // AGGIUNGI LO SPRITE MANCANTE!
+      this.ecs.addComponent(npcEntity, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
+
+      console.log(`Respawned ${npcType} at (${x.toFixed(0)}, ${y.toFixed(0)}) with sprite`);
+    } catch (error) {
+      console.error(`Failed to respawn ${npcType}:`, error);
+    }
+  }
+
+  /**
+   * Carica lo sprite per un tipo specifico di NPC
+   */
+  private async loadNpcSprite(npcType: string): Promise<HTMLImageElement> {
+    // Mappa dei percorsi degli sprite per ogni tipo di NPC
+    const spritePaths: Record<string, string> = {
+      'Scouter': '/assets/npc_ships/scouter/npc_scouter.png',
+      // Aggiungi qui altri tipi di NPC quando necessari
+    };
+
+    const spritePath = spritePaths[npcType];
+    if (!spritePath) {
+      throw new Error(`No sprite path defined for NPC type: ${npcType}`);
+    }
+
+    return await this.gameContext.assetManager.loadImage(spritePath);
   }
 
   /**
