@@ -28,7 +28,7 @@ export class CombatSystem extends BaseSystem {
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
-  private explosionSpriteSheet: HTMLImageElement | null = null; // Cache dello spritesheet dell'esplosione
+  private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
 
   constructor(ecs: ECS, movementSystem: MovementSystem, gameContext: GameContext) {
     super(ecs);
@@ -352,9 +352,9 @@ export class CombatSystem extends BaseSystem {
    */
   private async createExplosion(entity: any): Promise<void> {
     try {
-      // Carica lo spritesheet dell'esplosione se non già caricati
-      if (!this.explosionSpriteSheet) {
-        this.explosionSpriteSheet = await this.loadExplosionSpriteSheet();
+      // Carica i frame dell'esplosione se non già caricati
+      if (!this.explosionFrames) {
+        this.explosionFrames = await this.loadExplosionFrames();
       }
 
       // Rimuovi componenti non necessari per l'esplosione (mantieni Transform per la posizione)
@@ -366,8 +366,8 @@ export class CombatSystem extends BaseSystem {
       this.ecs.removeComponent(entity, Npc);
       this.ecs.removeComponent(entity, Velocity); // Rimuovi velocità così l'esplosione rimane ferma
 
-      // Aggiungi il componente esplosione (spritesheet con 8 frame a 80ms ciascuno)
-      const explosion = new Explosion(this.explosionSpriteSheet, 8, 80, 8); // 8 frame totali, 80ms per frame, 8 frame per riga
+      // Aggiungi il componente esplosione
+      const explosion = new Explosion(this.explosionFrames, 80); // 80ms per frame
       this.ecs.addComponent(entity, Explosion, explosion);
 
     } catch (error) {
@@ -380,10 +380,18 @@ export class CombatSystem extends BaseSystem {
   /**
    * Carica tutti i frame dell'animazione dell'esplosione
    */
-  private async loadExplosionSpriteSheet(): Promise<HTMLImageElement> {
-    // Carica lo spritesheet dell'esplosione realistica
-    const spriteSheet = await this.gameContext.assetManager.loadImage('/assets/explosions/explosions_npc/realistic_explosion.png');
-    return spriteSheet;
+  private async loadExplosionFrames(): Promise<HTMLImageElement[]> {
+    const frames: HTMLImageElement[] = [];
+    const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
+
+    // Carica i 10 frame dell'esplosione
+    for (let i = 1; i <= 10; i++) {
+      const framePath = `${basePath}${i}.png`;
+      const frame = await this.gameContext.assetManager.loadImage(framePath);
+      frames.push(frame);
+    }
+
+    return frames;
   }
 
   /**
