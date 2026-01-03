@@ -2,7 +2,11 @@
 
 Musica di sottofondo per Starfield.
 
-## 📋 File Richiesti
+## 📋 File Disponibili
+
+- `bgmusic.mp3` ✅ - Traccia di background principale (loop)
+
+## 📋 File Richiesti (futuri)
 
 - `menu_theme.mp3` - Tema menu principale (loop)
 - `gameplay_theme.mp3` - Tema esplorazione (loop)

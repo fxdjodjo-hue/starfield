@@ -23,6 +23,7 @@ export const AUDIO_ASSETS = {
 
   // Musica
   music: {
+    background: 'music/bgmusic.mp3',
     menu: 'music/menu_theme.mp3',
     gameplay: 'music/gameplay_theme.mp3',
     battle: 'music/battle_theme.mp3',

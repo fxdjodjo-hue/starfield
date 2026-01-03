@@ -26,6 +26,8 @@ import { UiSystem } from '../ui/UiSystem';
 import { PlayerStatusDisplaySystem } from '../player/PlayerStatusDisplaySystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
+import AudioSystem from '../audio/AudioSystem';
+import { AUDIO_CONFIG } from '../../config/AudioConfig';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
 import { Sprite } from '../../entities/Sprite';
 import { Transform } from '../../entities/spatial/Transform';
@@ -59,6 +61,7 @@ export class GameInitializationSystem extends System {
   private movementSystem!: MovementSystem;
   private economySystem: any;
   private playerSystem!: PlayerSystem;
+  private audioSystem!: AudioSystem;
 
   constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
     super(ecs);
@@ -99,6 +102,7 @@ export class GameInitializationSystem extends System {
     const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
 
     // Crea sistemi
+    this.audioSystem = new AudioSystem(AUDIO_CONFIG);
     this.movementSystem = new MovementSystem(this.ecs);
     const parallaxSystem = new ParallaxSystem(this.ecs, this.movementSystem);
     const renderSystem = new RenderSystem(this.ecs, this.movementSystem);
@@ -147,6 +151,7 @@ export class GameInitializationSystem extends System {
       uiSystem: this.uiSystem,
       playerStatusDisplaySystem,
       playerSystem: this.playerSystem,
+      audioSystem: this.audioSystem,
       assets: { shipImage, mapBackgroundImage, scouterImage }
     };
   }

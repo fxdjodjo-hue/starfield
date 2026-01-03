@@ -1,12 +1,16 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import AudioSystem from '../../systems/audio/AudioSystem';
 
-// Mock di Phaser Scene
-const mockScene = {
-  sound: {
-    add: vi.fn(),
-    volume: 1.0
-  }
+// Mock di Audio
+const mockAudio = {
+  play: vi.fn().mockResolvedValue(undefined),
+  pause: vi.fn(),
+  volume: 1.0,
+  currentTime: 0,
+  loop: false,
+  paused: false,
+  ended: false,
+  addEventListener: vi.fn()
 };
 
 describe('AudioSystem', () => {
@@ -14,7 +18,9 @@ describe('AudioSystem', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    audioSystem = new AudioSystem(mockScene as any);
+    // Mock del costruttore Audio
+    global.Audio = vi.fn().mockImplementation(() => ({ ...mockAudio })) as any;
+    audioSystem = new AudioSystem();
   });
 
   describe('initialization', () => {
@@ -33,7 +39,7 @@ describe('AudioSystem', () => {
         musicVolume: 0.3,
         enabled: false
       };
-      audioSystem = new AudioSystem(mockScene as any, customConfig);
+      audioSystem = new AudioSystem(customConfig);
 
       const config = audioSystem.getConfig();
       expect(config.masterVolume).toBe(0.5);
@@ -45,55 +51,34 @@ describe('AudioSystem', () => {
 
   describe('audio playback', () => {
     it('should play sound effects when enabled', () => {
-      const mockSound = {
-        play: vi.fn(),
-        isPlaying: false,
-        stop: vi.fn()
-      };
-      mockScene.sound.add.mockReturnValue(mockSound);
+      audioSystem.playSound('effects/laser.wav');
 
-      audioSystem.playSound('test_sound');
-
-      expect(mockScene.sound.add).toHaveBeenCalledWith('test_sound', {
-        volume: 0.8
-      });
-      expect(mockSound.play).toHaveBeenCalled();
+      expect(global.Audio).toHaveBeenCalledWith('/assets/audio/effects/laser.wav');
+      expect(mockAudio.play).toHaveBeenCalled();
     });
 
     it('should not play sounds when disabled', () => {
       audioSystem.updateConfig({ enabled: false });
-      audioSystem.playSound('test_sound');
+      audioSystem.playSound('effects/laser.wav');
 
-      expect(mockScene.sound.add).not.toHaveBeenCalled();
+      expect(global.Audio).not.toHaveBeenCalled();
     });
 
     it('should play music and stop previous music', () => {
-      const mockMusic1 = {
-        play: vi.fn(),
-        stop: vi.fn(),
-        isPlaying: true,
-        pause: vi.fn(),
-        resume: vi.fn(),
-        setVolume: vi.fn()
-      };
-      const mockMusic2 = {
-        play: vi.fn(),
-        stop: vi.fn(),
-        isPlaying: false,
-        pause: vi.fn(),
-        resume: vi.fn(),
-        setVolume: vi.fn()
-      };
+      const mockMusic1 = { ...mockAudio };
+      const mockMusic2 = { ...mockAudio };
 
-      mockScene.sound.add
-        .mockReturnValueOnce(mockMusic1)
-        .mockReturnValueOnce(mockMusic2);
+      (global.Audio as any)
+        .mockImplementationOnce(() => mockMusic1)
+        .mockImplementationOnce(() => mockMusic2);
 
-      audioSystem.playMusic('music1');
+      audioSystem.playMusic('music/bgmusic.mp3');
       expect(mockMusic1.play).toHaveBeenCalled();
+      expect(mockMusic1.loop).toBe(true);
 
-      audioSystem.playMusic('music2');
-      expect(mockMusic1.stop).toHaveBeenCalled();
+      audioSystem.playMusic('music/bgmusic.mp3');
+      expect(mockMusic1.pause).toHaveBeenCalled();
+      expect(mockMusic1.currentTime).toBe(0);
       expect(mockMusic2.play).toHaveBeenCalled();
     });
   });
@@ -101,58 +86,44 @@ describe('AudioSystem', () => {
   describe('volume controls', () => {
     it('should set master volume', () => {
       audioSystem.setMasterVolume(0.5);
-      expect(mockScene.sound.volume).toBe(0.5);
+      expect(audioSystem.getConfig().masterVolume).toBe(0.5);
     });
 
     it('should clamp volume values', () => {
       audioSystem.setMasterVolume(-0.5);
-      expect(mockScene.sound.volume).toBe(0);
+      expect(audioSystem.getConfig().masterVolume).toBe(0);
 
       audioSystem.setMasterVolume(1.5);
-      expect(mockScene.sound.volume).toBe(1);
+      expect(audioSystem.getConfig().masterVolume).toBe(1);
     });
 
     it('should set music volume', () => {
-      const mockMusic = {
-        play: vi.fn(),
-        stop: vi.fn(),
-        isPlaying: true,
-        pause: vi.fn(),
-        resume: vi.fn(),
-        setVolume: vi.fn()
-      };
-      mockScene.sound.add.mockReturnValue(mockMusic);
+      const mockMusic = { ...mockAudio };
+      (global.Audio as any).mockImplementationOnce(() => mockMusic);
 
-      audioSystem.playMusic('test');
+      audioSystem.playMusic('music/bgmusic.mp3');
       audioSystem.setMusicVolume(0.6);
 
-      expect(mockMusic.setVolume).toHaveBeenCalledWith(0.6);
+      expect(mockMusic.volume).toBe(0.6);
     });
   });
 
   describe('cleanup', () => {
     it('should cleanup resources on destroy', () => {
-      const mockSound1 = {
-        play: vi.fn(),
-        stop: vi.fn(),
-        isPlaying: true
-      };
-      const mockSound2 = {
-        play: vi.fn(),
-        stop: vi.fn(),
-        isPlaying: false
-      };
+      const mockSound1 = { ...mockAudio, paused: false };
+      const mockSound2 = { ...mockAudio, paused: true };
 
-      mockScene.sound.add
-        .mockReturnValueOnce(mockSound1)
-        .mockReturnValueOnce(mockSound2);
+      (global.Audio as any)
+        .mockImplementationOnce(() => mockSound1)
+        .mockImplementationOnce(() => mockSound2);
 
-      audioSystem.playSound('sound1');
-      audioSystem.playSound('sound2');
+      audioSystem.playSound('effects/laser.wav');
+      audioSystem.playSound('effects/explosion.wav');
       audioSystem.destroy();
 
-      expect(mockSound1.stop).toHaveBeenCalled();
-      expect(mockSound2.stop).not.toHaveBeenCalled();
+      expect(mockSound1.pause).toHaveBeenCalled();
+      expect(mockSound1.currentTime).toBe(0);
+      expect(mockSound2.pause).toHaveBeenCalled();
     });
   });
 });

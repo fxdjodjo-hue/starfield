@@ -7,6 +7,7 @@ import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
+import AudioSystem from '../../systems/audio/AudioSystem';
 
 /**
  * Stato del gameplay attivo
@@ -22,6 +23,7 @@ export class PlayState extends GameState {
   private questSystem: QuestSystem | null = null;
   private questManager: QuestManager | null = null;
   private movementSystem: MovementSystem | null = null;
+  private audioSystem: AudioSystem | null = null;
   private nicknameCreated: boolean = false;
 
   constructor(context: GameContext) {
@@ -60,6 +62,12 @@ export class PlayState extends GameState {
 
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
+
+    // Avvia musica di background
+    if (this.audioSystem) {
+      this.audioSystem.init();
+      this.audioSystem.playMusic('background');
+    }
 
     // Messaggio di benvenuto nella chat
     setTimeout(() => {
@@ -110,6 +118,11 @@ export class PlayState extends GameState {
    * Termina il gameplay
    */
   exit(): void {
+    // Ferma musica di background
+    if (this.audioSystem) {
+      this.audioSystem.stopMusic();
+    }
+
     // Cleanup completo dell'HUD
     this.uiSystem.destroy();
 
@@ -166,6 +179,7 @@ export class PlayState extends GameState {
     this.uiSystem = systems.uiSystem;
     this.questManager = systems.questManager;
     this.movementSystem = systems.movementSystem;
+    this.audioSystem = systems.audioSystem;
 
     // Collega l'EconomySystem all'UiSystem
     if (systems.economySystem) {
