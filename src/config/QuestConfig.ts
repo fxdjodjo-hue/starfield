@@ -130,7 +130,7 @@ export interface QuestEvent {
  * Handler per eventi di quest
  */
 export interface QuestEventHandler {
-  handleEvent(event: QuestEvent, activeQuests: any[]): void;
+  handleEvent(event: QuestEvent, activeQuestComponent: any): void;
 }
 
 /**

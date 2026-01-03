@@ -1,8 +1,8 @@
-import { World } from '../infrastructure/engine/World';
-import { ActiveQuest } from '../entities/quest/ActiveQuest';
+import { World } from '../../infrastructure/engine/World';
+import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { QuestManager } from './QuestManager';
 import { LogSystem } from '../rendering/LogSystem';
-import { LogType } from '../presentation/ui/LogMessage';
+import { LogType } from '../../presentation/ui/LogMessage';
 import {
   type QuestEvent,
   QuestEventType,
@@ -10,7 +10,7 @@ import {
   ObjectiveType,
   RewardType,
   type QuestEventHandler
-} from '../config/QuestConfig';
+} from '../../config/QuestConfig';
 
 /**
  * QuestTrackingSystem - Sistema modulare per tracciare eventi di gioco e aggiornare quest
@@ -27,10 +27,16 @@ export class QuestTrackingSystem implements QuestEventHandler {
   private logSystem: LogSystem | null = null;
   private playerEntity: any = null;
 
+  private world: World;
+  private questManager: QuestManager;
+
   constructor(
-    private world: World,
-    private questManager: QuestManager
-  ) {}
+    world: World,
+    questManager: QuestManager
+  ) {
+    this.world = world;
+    this.questManager = questManager;
+  }
 
   /**
    * Imposta il riferimento all'EconomySystem per assegnare ricompense

@@ -18,6 +18,7 @@ export interface PlayerHUDData {
 export class PlayerHUD {
   private container: HTMLElement;
   private isVisible: boolean = false;
+  private _isExpanded: boolean = false;
 
   constructor() {
     this.container = this.createHUDContainer();
@@ -300,6 +301,32 @@ export class PlayerHUD {
     if (styleElement) {
       document.head.removeChild(styleElement);
     }
+  }
+
+  /**
+   * Espande l'HUD mostrando più dettagli
+   */
+  expand(): void {
+    this._isExpanded = true;
+    // Per ora, espansione semplice - possiamo aggiungere animazioni dopo
+    this.container.style.transform = 'scale(1.05)';
+    this.container.style.padding = '16px 24px';
+  }
+
+  /**
+   * Collassa l'HUD alla dimensione normale
+   */
+  collapse(): void {
+    this._isExpanded = false;
+    this.container.style.transform = 'scale(1)';
+    this.container.style.padding = '12px 20px';
+  }
+
+  /**
+   * Restituisce true se l'HUD è espanso
+   */
+  isExpanded(): boolean {
+    return this._isExpanded;
   }
 
   /**

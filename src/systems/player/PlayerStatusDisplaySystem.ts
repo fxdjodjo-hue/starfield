@@ -1,7 +1,7 @@
-import { System } from '../infrastructure/ecs/System';
-import { ECS } from '../infrastructure/ecs/ECS';
-import { Health } from '../entities/combat/Health';
-import { Shield } from '../entities/combat/Shield';
+import { System } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
 
 /**
  * PlayerStatusDisplaySystem - Sistema semplice per mostrare HP e Shield del giocatore

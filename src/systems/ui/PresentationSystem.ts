@@ -1,8 +1,8 @@
-import { UIManager } from '../presentation/ui/UIManager';
-import { PlayerHUD } from '../presentation/ui/PlayerHUD';
-import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
-import { QuestPanel } from '../presentation/ui/QuestPanel';
-import { getPanelConfig } from '../presentation/ui/PanelConfig';
+import { UIManager } from '../../presentation/ui/UIManager';
+import { PlayerHUD } from '../../presentation/ui/PlayerHUD';
+import { PlayerStatsPanel } from '../../presentation/ui/PlayerStatsPanel';
+import { QuestPanel } from '../../presentation/ui/QuestPanel';
+import { getPanelConfig } from '../../presentation/ui/PanelConfig';
 import { QuestSystem } from '../quest/QuestSystem';
 
 /**

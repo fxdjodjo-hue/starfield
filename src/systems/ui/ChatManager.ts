@@ -1,4 +1,4 @@
-import { ChatPanel } from '../presentation/ui/ChatPanel';
+import { ChatPanel } from '../../presentation/ui/ChatPanel';
 
 /**
  * ChatManager - Gestore centrale della chat per single-player e multiplayer

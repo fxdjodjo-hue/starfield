@@ -1,13 +1,13 @@
-import { Quest } from '../entities/quest/Quest';
-import { ActiveQuest } from '../entities/quest/ActiveQuest';
-import type { QuestObjective, QuestReward, QuestData } from '../presentation/ui/QuestPanel';
+import { Quest } from '../../entities/quest/Quest';
+import { ActiveQuest } from '../../entities/quest/ActiveQuest';
+import type { QuestObjective, QuestReward, QuestData } from '../../presentation/ui/QuestPanel';
 import {
   QuestRegistry,
   QuestObjectiveFactory,
   QuestRewardFactory,
   initializeDefaultQuests,
   type QuestConfig
-} from '../config/QuestConfig';
+} from '../../config/QuestConfig';
 
 /**
  * QuestManager - Sistema di gestione delle quest

@@ -1,8 +1,8 @@
-import { System } from '../infrastructure/ecs/System';
-import { ECS } from '../infrastructure/ecs/ECS';
-import { ActiveQuest } from '../entities/quest/ActiveQuest';
+import { System } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { QuestManager } from './QuestManager';
-import { QuestPanel } from '../presentation/ui/QuestPanel';
+import { QuestPanel } from '../../presentation/ui/QuestPanel';
 
 /**
  * Sistema di orchestrazione per la gestione delle quest

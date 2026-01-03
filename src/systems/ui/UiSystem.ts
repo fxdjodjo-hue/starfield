@@ -1,13 +1,13 @@
-import { System } from '../infrastructure/ecs/System';
-import { ECS } from '../infrastructure/ecs/ECS';
-import { UIManager } from '../presentation/ui/UIManager';
-import { PlayerHUD } from '../presentation/ui/PlayerHUD';
-import { PlayerStatsPanel } from '../presentation/ui/PlayerStatsPanel';
-import { QuestPanel } from '../presentation/ui/QuestPanel';
-import { SkillsPanel } from '../presentation/ui/SkillsPanel';
-import { ChatPanel } from '../presentation/ui/ChatPanel';
+import { System } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { UIManager } from '../../presentation/ui/UIManager';
+import { PlayerHUD } from '../../presentation/ui/PlayerHUD';
+import { PlayerStatsPanel } from '../../presentation/ui/PlayerStatsPanel';
+import { QuestPanel } from '../../presentation/ui/QuestPanel';
+import { SkillsPanel } from '../../presentation/ui/SkillsPanel';
+import { ChatPanel } from '../../presentation/ui/ChatPanel';
 import { ChatManager } from './ChatManager';
-import { getPanelConfig } from '../presentation/ui/PanelConfig';
+import { getPanelConfig } from '../../presentation/ui/PanelConfig';
 import { QuestSystem } from '../quest/QuestSystem';
 
 /**
@@ -23,7 +23,6 @@ export class UiSystem extends System {
   private economySystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
-  private ecs: ECS;
   private context: any = null;
 
   constructor(ecs: ECS, questSystem: QuestSystem, context?: any) {
@@ -313,10 +312,10 @@ export class UiSystem extends System {
    * Aggiorna i pannelli che supportano aggiornamenti real-time
    */
   private updateRealtimePanels(deltaTime: number): void {
-    // Aggiorna pannello Skills se ha il metodo update
+    // Aggiorna pannello Skills se ha il metodo updateECS
     const skillsPanel = this.uiManager.getPanel('skills-panel');
-    if (skillsPanel && typeof skillsPanel.update === 'function') {
-      skillsPanel.update(deltaTime);
+    if (skillsPanel && typeof (skillsPanel as any).updateECS === 'function') {
+      (skillsPanel as any).updateECS(deltaTime);
     }
 
     // Altri pannelli possono essere aggiunti qui se necessario

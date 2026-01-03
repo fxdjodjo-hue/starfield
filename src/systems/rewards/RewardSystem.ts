@@ -1,17 +1,17 @@
-import { System as BaseSystem } from '../infrastructure/ecs/System';
-import { ECS } from '../infrastructure/ecs/ECS';
-import { Health } from '../entities/combat/Health';
-import { Explosion } from '../entities/combat/Explosion';
-import { Npc } from '../entities/ai/Npc';
-import { PlayerStats } from '../entities/player/PlayerStats';
-import { getNpcDefinition } from '../config/NpcConfig';
+import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { Health } from '../../entities/combat/Health';
+import { Explosion } from '../../entities/combat/Explosion';
+import { Npc } from '../../entities/ai/Npc';
+import { PlayerStats } from '../../entities/player/PlayerStats';
+import { getNpcDefinition } from '../../config/NpcConfig';
 import { LogSystem } from '../rendering/LogSystem';
-import { LogType } from '../presentation/ui/LogMessage';
+import { LogType } from '../../presentation/ui/LogMessage';
 import { NpcRespawnSystem } from '../npc/NpcRespawnSystem';
-import { QuestEventType } from '../config/QuestConfig';
+import { QuestEventType } from '../../config/QuestConfig';
 import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
-import { ActiveQuest } from '../entities/quest/ActiveQuest';
-import { Component } from '../infrastructure/ecs/Component';
+import { ActiveQuest } from '../../entities/quest/ActiveQuest';
+import { Component } from '../../infrastructure/ecs/Component';
 
 /**
  * Componente per marcare NPC già processati per le ricompense

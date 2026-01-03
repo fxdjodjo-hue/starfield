@@ -751,10 +751,19 @@ export class SkillsPanel extends BasePanel {
   /**
    * Metodo update chiamato dal sistema ECS ogni frame
    */
-  update(deltaTime: number): void {
+  updateECS(deltaTime: number): void {
     // Aggiorna le statistiche sempre se il container esiste
     if (this.container) {
       this.updatePlayerStats();
     }
+  }
+
+  /**
+   * Implementazione del metodo update richiesto da BasePanel
+   */
+  update(data: PanelData): void {
+    // Per SkillsPanel, l'update con PanelData non è necessario
+    // dato che aggiorna automaticamente le statistiche ogni frame
+    this.updatePlayerStats();
   }
 }
