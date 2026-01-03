@@ -670,6 +670,7 @@ export class PlayState extends GameState {
     // Configura sistema quest
     rewardSystem.setQuestTrackingSystem(this.questTrackingSystem!);
     this.questTrackingSystem!.setEconomySystem(this.economySystem);
+    this.questTrackingSystem!.setLogSystem(this.logSystem!);
 
     // Configura callbacks per aggiornamenti HUD
     this.economySystem.setExperienceChangedCallback((newAmount, change, leveledUp) => {
