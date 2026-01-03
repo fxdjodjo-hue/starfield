@@ -110,14 +110,54 @@ export class SkillsPanel extends BasePanel {
     const subtitle = document.createElement('p');
     subtitle.textContent = 'Sistema abilità e potenziamenti';
     subtitle.style.cssText = `
-      margin: 4px 0 0 0;
+      margin: 4px 0 8px 0;
       color: rgba(148, 163, 184, 0.7);
       font-size: 12px;
       font-weight: 400;
     `;
 
+    // Punti abilità come testo prominente
+    const skillPointsDisplay = document.createElement('div');
+    skillPointsDisplay.className = 'skill-points-display';
+    skillPointsDisplay.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(168, 85, 247, 0.1);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #a855f7;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    `;
+
+    const skillIcon = document.createElement('span');
+    skillIcon.textContent = '⚡';
+    skillIcon.style.cssText = 'font-size: 16px;';
+
+    const skillText = document.createElement('span');
+    skillText.textContent = 'Punti Abilità: ';
+    skillText.style.cssText = 'color: rgba(255, 255, 255, 0.9);';
+
+    const skillValue = document.createElement('span');
+    skillValue.className = 'skill-points-value';
+    skillValue.textContent = '10';
+    skillValue.style.cssText = `
+      color: #a855f7;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    `;
+
+    skillPointsDisplay.appendChild(skillIcon);
+    skillPointsDisplay.appendChild(skillText);
+    skillPointsDisplay.appendChild(skillValue);
+
     header.appendChild(title);
     header.appendChild(subtitle);
+    header.appendChild(skillPointsDisplay);
     content.appendChild(header);
 
     // Contenitore principale per le statistiche
@@ -138,16 +178,10 @@ export class SkillsPanel extends BasePanel {
       { label: 'Speed', icon: '💨', value: '300 u/s', color: '#f59e0b', upgradeKey: 'speed' }
     ]);
 
-    // Sezione Abilità (solo punti abilità)
-    const skillsStatsSection = this.createStatsSection('⚡ Punti Abilità', [
-      { label: 'Disponibili', icon: '⚡', value: '10', color: '#a855f7' }
-    ]);
-
     // Sezione placeholder per abilità future
     const skillsSection = this.createSkillsSection();
 
     statsContainer.appendChild(combatStatsSection);
-    statsContainer.appendChild(skillsStatsSection);
     statsContainer.appendChild(skillsSection);
 
     content.appendChild(statsContainer);
@@ -383,9 +417,9 @@ export class SkillsPanel extends BasePanel {
       }
     }
 
-    // Punti abilità dal componente ECS
+    // Punti abilità dal componente ECS (nell'header)
     if (skillPoints) {
-      const skillPointsValue = this.container.querySelector('.stat-disponibili') as HTMLElement;
+      const skillPointsValue = this.container.querySelector('.skill-points-value') as HTMLElement;
       if (skillPointsValue) {
         skillPointsValue.textContent = skillPoints.current.toString();
       }
