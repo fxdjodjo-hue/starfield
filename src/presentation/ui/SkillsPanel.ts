@@ -155,6 +155,9 @@ export class SkillsPanel extends BasePanel {
 
     content.appendChild(this.statsContainer);
 
+    // Aggiorna le statistiche dopo che il DOM è stato creato
+    this.updatePlayerStats();
+
     return content;
   }
 
@@ -315,11 +318,7 @@ export class SkillsPanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   private updatePlayerStats(): void {
-    console.log('SkillsPanel: updatePlayerStats() called');
-    if (!this.statsContainer) {
-      console.log('SkillsPanel: statsContainer is null');
-      return;
-    }
+    if (!this.statsContainer) return;
 
     const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) {
@@ -336,25 +335,20 @@ export class SkillsPanel extends BasePanel {
     // Aggiorna statistiche combattimento
     if (health) {
       const healthElements = this.statsContainer.querySelectorAll('[data-stat="hp"]');
-      console.log('SkillsPanel: Found HP elements:', healthElements.length);
       healthElements.forEach((el: HTMLElement) => {
         el.textContent = `${health.current.toLocaleString()}/${health.max.toLocaleString()}`;
-        console.log('SkillsPanel: Updated HP to:', el.textContent);
       });
     }
 
     if (shield) {
       const shieldElements = this.statsContainer.querySelectorAll('[data-stat="shield"]');
-      console.log('SkillsPanel: Found Shield elements:', shieldElements.length);
       shieldElements.forEach((el: HTMLElement) => {
         el.textContent = `${shield.current.toLocaleString()}/${shield.max.toLocaleString()}`;
-        console.log('SkillsPanel: Updated Shield to:', el.textContent);
       });
     }
 
     // Speed rimane hardcoded per ora (300)
     const speedElements = this.statsContainer.querySelectorAll('[data-stat="speed"]');
-    console.log('SkillsPanel: Found Speed elements:', speedElements.length);
     speedElements.forEach((el: HTMLElement) => {
       el.textContent = '300 u/s';
     });
@@ -362,13 +356,11 @@ export class SkillsPanel extends BasePanel {
     // Aggiorna statistiche progressione
     if (experience) {
       const levelElements = this.statsContainer.querySelectorAll('[data-stat="livello"]');
-      console.log('SkillsPanel: Found Level elements:', levelElements.length);
       levelElements.forEach((el: HTMLElement) => {
         el.textContent = experience.level.toString();
       });
 
       const expElements = this.statsContainer.querySelectorAll('[data-stat="esperienza"]');
-      console.log('SkillsPanel: Found Experience elements:', expElements.length);
       expElements.forEach((el: HTMLElement) => {
         el.textContent = `${experience.exp.toLocaleString()}/${experience.expForNextLevel.toLocaleString()}`;
       });
@@ -376,7 +368,6 @@ export class SkillsPanel extends BasePanel {
 
     // Punti abilità (placeholder - per ora 0)
     const skillElements = this.statsContainer.querySelectorAll('[data-stat="punti-abilità"]');
-    console.log('SkillsPanel: Found Skill Points elements:', skillElements.length);
     skillElements.forEach((el: HTMLElement) => {
       el.textContent = '0';
     });
@@ -386,9 +377,7 @@ export class SkillsPanel extends BasePanel {
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   update(deltaTime: number): void {
-    console.log('SkillsPanel: update() called, isVisible:', this.isVisible, 'has statsContainer:', !!this.statsContainer);
     if (this.isVisible && this.statsContainer) {
-      console.log('SkillsPanel: Calling updatePlayerStats()');
       this.updatePlayerStats();
     }
   }
@@ -397,16 +386,13 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
-    console.log('SkillsPanel: onShow() called - setting visible to true');
     this.isVisible = true;
-    this.updatePlayerStats();
   }
 
   /**
    * Callback quando il pannello viene nascosto
    */
   protected onHide(): void {
-    console.log('SkillsPanel: onHide() called - setting visible to false');
     this.isVisible = false;
   }
 }
