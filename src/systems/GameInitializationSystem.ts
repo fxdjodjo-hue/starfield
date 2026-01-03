@@ -10,6 +10,7 @@ import { NpcSelectionSystem } from './ai/NpcSelectionSystem';
 import { CombatSystem } from './combat/CombatSystem';
 import { ExplosionSystem } from './combat/ExplosionSystem';
 import { DamageTextSystem } from './rendering/DamageTextSystem';
+import { ChatTextSystem } from './rendering/ChatTextSystem';
 import { ProjectileSystem } from './combat/ProjectileSystem';
 import { MinimapSystem } from './rendering/MinimapSystem';
 import { LogSystem } from './rendering/LogSystem';
@@ -105,7 +106,8 @@ export class GameInitializationSystem extends System {
     const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context);
     const explosionSystem = new ExplosionSystem(this.ecs);
     const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
-    const projectileSystem = new ProjectileSystem(this.ecs);
+    const chatTextSystem = new ChatTextSystem(this.ecs, this.movementSystem);
+    const projectileSystem = new ProjectileSystem(this.ecs, this.uiSystem);
     const minimapSystem = new MinimapSystem(this.ecs, this.context.canvas);
     const logSystem = new LogSystem(this.ecs);
     this.economySystem = new EconomySystem(this.ecs);
@@ -127,6 +129,7 @@ export class GameInitializationSystem extends System {
       combatSystem,
       explosionSystem,
       damageTextSystem,
+      chatTextSystem,
       projectileSystem,
       minimapSystem,
       logSystem,
@@ -150,7 +153,7 @@ export class GameInitializationSystem extends System {
     const { inputSystem, npcSelectionSystem, playerControlSystem, combatSystem,
             explosionSystem, projectileSystem, npcBehaviorSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
-            damageTextSystem, logSystem, economySystem, rankSystem,
+            damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
             respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem } = systems;
 
     // Ordine importante per l'esecuzione
@@ -167,6 +170,7 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(boundsSystem);
     this.ecs.addSystem(minimapSystem);
     this.ecs.addSystem(damageTextSystem);
+    this.ecs.addSystem(chatTextSystem);
     this.ecs.addSystem(logSystem);
     this.ecs.addSystem(economySystem);
     this.ecs.addSystem(rankSystem);
@@ -184,7 +188,8 @@ export class GameInitializationSystem extends System {
     const {
       movementSystem, playerControlSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, combatSystem, logSystem, boundsSystem,
-      respawnSystem, questTrackingSystem, inputSystem, npcSelectionSystem
+      respawnSystem, questTrackingSystem, inputSystem, npcSelectionSystem,
+      chatTextSystem
     } = systems;
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi

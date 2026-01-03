@@ -34,7 +34,7 @@ export class PlayState extends GameState {
     this.questManager = new QuestManager();
     this.questSystem = new QuestSystem(this.world.getECS(), this.questManager);
     // UiSystem riceverà l'EconomySystem dopo l'inizializzazione
-    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem);
+    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, this.context);
 
     // Crea sistema di inizializzazione
     this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem);
@@ -60,6 +60,11 @@ export class PlayState extends GameState {
 
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
+
+    // Messaggio di benvenuto nella chat
+    setTimeout(() => {
+      this.uiSystem.addSystemMessage('🚀 Benvenuto in Starfield! Usa la chat per comunicare.');
+    }, 1000);
 
     // Il nickname verrà creato al primo update quando tutti i sistemi sono pronti
 
