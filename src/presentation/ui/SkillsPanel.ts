@@ -174,11 +174,7 @@ export class SkillsPanel extends BasePanel {
     // Sezione Upgrade con statistiche integrate
     const upgradeSection = this.createUpgradeSection();
 
-    // Sezione placeholder per abilità future
-    const skillsSection = this.createSkillsSection();
-
     statsContainer.appendChild(upgradeSection);
-    statsContainer.appendChild(skillsSection);
 
     content.appendChild(statsContainer);
 
@@ -452,42 +448,6 @@ export class SkillsPanel extends BasePanel {
     }
   }
 
-  /**
-   * Crea la sezione delle abilità (placeholder per ora)
-   */
-  private createSkillsSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.style.cssText = `
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    `;
-
-    const sectionTitle = document.createElement('h3');
-    sectionTitle.textContent = '⚡ Upgrade Statistiche';
-    sectionTitle.style.cssText = `
-      margin: 0 0 16px 0;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 16px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    `;
-
-    // Crea i tre pulsanti di upgrade con statistiche integrate
-    const hpUpgrade = this.createStatUpgradeButton('HP', '❤️', '#10b981', 'hp');
-    const shieldUpgrade = this.createStatUpgradeButton('Shield', '🛡️', '#3b82f6', 'shield');
-    const speedUpgrade = this.createStatUpgradeButton('Speed', '💨', '#f59e0b', 'speed');
-
-    section.appendChild(sectionTitle);
-    section.appendChild(hpUpgrade);
-    section.appendChild(shieldUpgrade);
-    section.appendChild(speedUpgrade);
-
-    return section;
-  }
 
 
   /**
