@@ -30,6 +30,7 @@ export class CombatSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
+    console.log(`[DEBUG] CombatSystem.update() chiamato - deltaTime: ${deltaTime}`);
     this.lastUpdateTime = Date.now();
 
     // Rimuovi tutte le entità morte
@@ -40,10 +41,13 @@ export class CombatSystem extends BaseSystem {
 
     // NPC attaccano automaticamente il player quando nel range (tutti gli NPC, non solo selezionati)
     const allNpcs = this.ecs.getEntitiesWithComponents(Npc, Damage, Transform);
+    console.log(`[DEBUG] NPC nel mondo: ${allNpcs.length}`);
 
     for (const attackerEntity of allNpcs) {
       this.processNpcCombat(attackerEntity);
     }
+
+    // Elabora il combattimento per un NPC selezionato (player combatte automaticamente)
   }
 
   /**
@@ -103,6 +107,7 @@ export class CombatSystem extends BaseSystem {
     // Aggiungi componenti al proiettile
     const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
     const projectile = new Projectile(attackerDamage.damage, 400, directionX, directionY, attackerEntity.id, targetEntity.id, 3000);
+
 
     this.ecs.addComponent(projectileEntity, Transform, projectileTransform);
     this.ecs.addComponent(projectileEntity, Projectile, projectile);
@@ -182,8 +187,12 @@ export class CombatSystem extends BaseSystem {
    * Elabora il combattimento automatico del player contro NPC selezionati
    */
   private processPlayerCombat(): void {
+    console.log(`[DEBUG] processPlayerCombat() chiamato`);
+
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    console.log(`[DEBUG] NPC selezionati trovati: ${selectedNpcs.length}`);
+
     if (selectedNpcs.length === 0) {
       // Reset dei flag quando non c'è nessun NPC selezionato
       this.attackStartedLogged = false;
@@ -194,6 +203,7 @@ export class CombatSystem extends BaseSystem {
     }
 
     const selectedNpc = selectedNpcs[0];
+    console.log(`[DEBUG] Player sta combattendo contro NPC selezionato: ${selectedNpc.id}`);
 
     // Trova il player
     const playerEntity = this.ecs.getPlayerEntity();
@@ -209,6 +219,13 @@ export class CombatSystem extends BaseSystem {
     // Controlla se il player è nel range di attacco
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
     if (!npcTransform) return;
+
+    // Calcola distanza per debug
+    const distance = Math.sqrt(
+      Math.pow(playerTransform.x - npcTransform.x, 2) +
+      Math.pow(playerTransform.y - npcTransform.y, 2)
+    );
+    console.log(`[DEBUG] Distanza Player-NPC ${selectedNpc.id}: ${distance.toFixed(1)}px (range max: ${playerDamage.attackRange}px)`);
 
     // Controlla se l'NPC selezionato è ancora visibile nella viewport
     const canvasSize = (this.ecs as any).context?.canvas ?
@@ -245,22 +262,32 @@ export class CombatSystem extends BaseSystem {
       return; // Esci dalla funzione, non continuare con la logica di combattimento
     }
 
-    if (playerDamage.isInRange(
+    const inRange = playerDamage.isInRange(
       playerTransform.x, playerTransform.y,
       npcTransform.x, npcTransform.y
-    )) {
+    );
+
+    console.log(`[DEBUG] Player nel range di NPC ${selectedNpc.id}: ${inRange}`);
+
+    if (inRange) {
       // Inizia logging attacco se non è stato ancora loggato per questo combattimento
       if (!this.attackStartedLogged) {
         this.startAttackLogging(selectedNpc);
         this.attackStartedLogged = true;
       }
 
-      if (playerDamage.canAttack(this.lastUpdateTime)) {
+      const canAttack = playerDamage.canAttack(this.lastUpdateTime);
+      console.log(`[DEBUG] Player può attaccare NPC ${selectedNpc.id}: ${canAttack}`);
+
+      if (canAttack) {
+        console.log(`[DEBUG] Player spara a NPC ${selectedNpc.id}!`);
         // Ruota il player verso l'NPC prima di attaccare
         this.faceTarget(playerTransform, npcTransform);
 
         // Il player spara un proiettile verso l'NPC
         this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
+      } else {
+        console.log(`[DEBUG] Player in cooldown, tempo rimanente: ${(playerDamage.getCooldownRemaining(this.lastUpdateTime) / 1000).toFixed(1)}s`);
       }
     } else {
       // Fuori range - se stavamo attaccando questo NPC, l'attacco è finito
