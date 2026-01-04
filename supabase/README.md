@@ -41,26 +41,26 @@ supabase gen types typescript --local > src/lib/database.types.ts
 
 ## 📊 Database Schema
 
-### Core Tables
+### Core Tables (Single-Player Data Only)
 
-- **`user_profiles`** - Extended user information (username, display name, status)
-- **`player_stats`** - Player statistics (level, experience, currencies)
-- **`game_sessions`** - Game session tracking (duration, score, achievements)
-- **`inventory_items`** - Player inventory (weapons, upgrades, cosmetics)
-- **`quest_progress`** - Quest completion tracking
-- **`user_achievements`** - Achievement system
-- **`leaderboard`** - Global rankings (auto-updated)
-- **`friendships`** - Friend system
-- **`chat_messages`** - Chat system (for future multiplayer)
+The database schema reflects **exactly** what the current single-player game manages:
+
+- **`user_profiles`** - Basic user information (username, display name)
+- **`player_stats`** - Player statistics from `PlayerStats` component:
+  - `kills`, `deaths`, `missions_completed`, `play_time`
+- **`player_upgrades`** - Player upgrades from `PlayerUpgrades` component:
+  - `hp_upgrades`, `shield_upgrades`, `speed_upgrades`, `damage_upgrades`
+- **`player_currencies`** - All currency components combined:
+  - `Credits`, `Cosmos`, `Experience`, `Honor`, `SkillPoints`
+- **`quest_progress`** - Quest progress from `ActiveQuest` + `Quest` components:
+  - `quest_id`, `objectives` (JSON array), `is_completed`
 
 ### Key Features
 
 - **Row Level Security (RLS)** - Users can only access their own data
-- **Real-time subscriptions** - For multiplayer features
-- **Automatic leaderboard** - Updates via database triggers
-- **Achievement system** - Tracks player accomplishments
-- **Inventory management** - Supports stacking and equipping
-- **Quest progression** - Flexible JSON-based progress tracking
+- **Minimal Schema** - Only tables that exist in the current game code
+- **No Over-Engineering** - No features not implemented in single-player
+- **Simple JSON Storage** - Quest objectives stored as JSONB arrays
 
 ## 🔧 Development
 
