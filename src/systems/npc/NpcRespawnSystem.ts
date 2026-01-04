@@ -185,6 +185,7 @@ export class NpcRespawnSystem extends BaseSystem {
     // Mappa dei percorsi degli sprite per ogni tipo di NPC
     const spritePaths: Record<string, string> = {
       'Scouter': '/assets/npc_ships/scouter/npc_scouter.png',
+      'Frigate': '/assets/npc_ships/frigate/npc_frigate.png',
       // Aggiungi qui altri tipi di NPC quando necessari
     };
 
