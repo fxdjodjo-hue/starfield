@@ -284,11 +284,7 @@ export class NpcBehaviorSystem extends BaseSystem {
       const directionX = dx / distance;
       const directionY = dy / distance;
 
-      // Controlla se il player si sta muovendo
-      const playerIsMoving = playerVelocity &&
-        (Math.abs(playerVelocity.x) > 10 || Math.abs(playerVelocity.y) > 10);
-
-        // Usa sempre la velocità base dalla configurazione dell'NPC
+      // Usa sempre la velocità base dalla configurazione dell'NPC
         const entity = this.ecs.getEntity(entityId!);
         if (!entity) return;
         const currentNpc = this.ecs.getComponent(entity, Npc);
@@ -310,8 +306,7 @@ export class NpcBehaviorSystem extends BaseSystem {
           movementDirectionX = -directionX;
           movementDirectionY = -directionY;
         } else {
-          // Distanza perfetta - continua diritto lentamente
-          // Non fermarti mai completamente per evitare vibrazioni
+          // Distanza perfetta - continua nella direzione corrente lentamente
         }
 
       // Per NPC senza state, usa movimento semplice
