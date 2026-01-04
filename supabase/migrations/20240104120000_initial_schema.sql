@@ -1,5 +1,4 @@
 -- Starfield Game Database Schema - Single Player Data Only
--- Minimal schema reflecting exactly what the current single-player game manages
 
 -- Enable Row Level Security
 ALTER DEFAULT PRIVILEGES REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC;

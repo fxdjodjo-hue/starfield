@@ -1,5 +1,6 @@
 import type { GameContext } from '../../infrastructure/engine/GameContext';
 import { getFormattedVersion } from '../../utils/config/Version';
+import { auth } from '../../lib/supabase';
 
 /**
  * Schermata iniziale del gioco Starfield
@@ -17,6 +18,9 @@ export class StartScreen {
   private versionElement!: HTMLDivElement;
   private headerContainer!: HTMLDivElement;
   private container!: HTMLDivElement;
+
+  // Stato
+  private isCreatingUser: boolean = false;
 
   constructor(context: GameContext) {
     this.context = context;
@@ -183,7 +187,7 @@ export class StartScreen {
   /**
    * Gestisce il click sul pulsante play
    */
-  private handlePlay(): void {
+  private async handlePlay(): Promise<void> {
     const nickname = this.nicknameInput.value.trim();
 
     if (nickname.length === 0) {
@@ -197,11 +201,63 @@ export class StartScreen {
       return;
     }
 
-    // Salva nickname nel context
-    this.context.playerNickname = nickname;
+    if (this.isCreatingUser) {
+      return; // Evita multiple richieste
+    }
 
-    // Chiama callback
-    this.onPlayCallback?.(nickname);
+    // Mostra loading
+    this.isCreatingUser = true;
+    this.playButton.textContent = 'Creating Account...';
+    this.playButton.disabled = true;
+    this.nicknameInput.disabled = true;
+
+    console.log('👤 [StartScreen] Creando utente per nickname:', nickname);
+
+    try {
+      // Crea utente con Supabase Auth (email temporanea per demo)
+      const tempEmail = `${nickname.toLowerCase()}@starfield.local`;
+      const tempPassword = 'password123'; // Per demo - in produzione usare password sicura
+
+      const { data: authData, error: authError } = await auth.signUp(tempEmail, tempPassword, nickname);
+
+      if (authError) {
+        console.error('❌ [StartScreen] Errore creazione utente:', authError.message);
+
+        // Mostra errore
+        this.nicknameInput.style.borderColor = '#ff4444';
+        this.nicknameInput.placeholder = 'Error creating account!';
+
+        // Reset UI
+        this.playButton.textContent = 'START GAME';
+        this.playButton.disabled = false;
+        this.nicknameInput.disabled = false;
+        this.isCreatingUser = false;
+
+        return;
+      }
+
+      console.log('✅ [StartScreen] Utente creato con successo:', authData.user?.id);
+
+      // Salva dati nel context
+      this.context.playerNickname = nickname;
+      this.context.playerId = authData.user?.id || '';
+
+      // Chiama callback
+      this.onPlayCallback?.(nickname);
+
+    } catch (error) {
+      console.error('❌ [StartScreen] Errore critico:', error);
+
+      // Mostra errore generico
+      this.nicknameInput.style.borderColor = '#ff4444';
+      this.nicknameInput.placeholder = 'Connection error!';
+
+      // Reset UI
+      this.playButton.textContent = 'START GAME';
+      this.playButton.disabled = false;
+      this.nicknameInput.disabled = false;
+      this.isCreatingUser = false;
+    }
   }
 
   /**
