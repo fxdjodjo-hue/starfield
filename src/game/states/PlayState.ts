@@ -32,20 +32,28 @@ export class PlayState extends GameState {
     // Crea il mondo di gioco
     this.world = new World(context.canvas);
 
-    // Inizializza sistemi UI e Quest per operazioni immediate
+    // Inizializza sistemi Quest per operazioni immediate
     this.questManager = new QuestManager();
     this.questSystem = new QuestSystem(this.world.getECS(), this.questManager);
-    // UiSystem riceverà l'EconomySystem e PlayerSystem dopo l'inizializzazione
-    this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, this.context);
 
-    // Crea sistema di inizializzazione
-    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, this.uiSystem);
+    // UiSystem verrà creato nel metodo enter() per evitare inizializzazioni premature
+    // this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, this.context);
+
+    // Crea sistema di inizializzazione (senza UiSystem per ora)
+    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, null);
   }
 
   /**
    * Avvia il gameplay
    */
   async enter(_context: GameContext): Promise<void> {
+    // Crea UiSystem solo ora (quando si entra nel PlayState)
+    if (!this.uiSystem) {
+      this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, this.context);
+      // Aggiorna il sistema di inizializzazione con l'UiSystem appena creato
+      (this.gameInitSystem as any).uiSystem = this.uiSystem;
+    }
+
     // Nasconde il titolo principale
     this.uiSystem.hideMainTitle();
 

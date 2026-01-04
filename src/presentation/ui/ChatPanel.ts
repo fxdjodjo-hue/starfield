@@ -7,23 +7,31 @@ import { PlayerSystem } from '../../systems/player/PlayerSystem';
  * Mostra sempre la chat senza possibilità di chiusura
  */
 export class ChatPanel {
-  private container: HTMLElement;
-  private messagesContainer: HTMLElement;
-  private inputContainer: HTMLElement;
-  private inputElement: HTMLInputElement;
-  private isVisible: boolean = false;
+  private container!: HTMLElement;
+  private header!: HTMLElement;
+  private messagesContainer!: HTMLElement;
+  private inputContainer!: HTMLElement;
+  private inputElement!: HTMLInputElement;
+  private toggleButton!: HTMLElement;
+  private _isVisible: boolean = false;
   private messages: ChatMessage[] = [];
   private maxMessages: number = 50;
   private ecs: ECS | null = null;
   private context: any = null;
   private playerSystem: PlayerSystem | null = null;
+  private escKeyListener: ((e: KeyboardEvent) => void) | null = null;
+  private enterKeyListener: ((e: KeyboardEvent) => void) | null = null;
+  private isEnabled: boolean = true;
 
   constructor(ecs?: ECS, context?: any, playerSystem?: PlayerSystem) {
     this.ecs = ecs || null;
     this.context = context || null;
     this.playerSystem = playerSystem || null;
+    this.isEnabled = true; // Abilita la chat quando viene creata
     this.createPanel();
     this.setupEventListeners();
+    // Inizializza in stato chiuso (solo header visibile)
+    this.hide();
   }
 
   /**
@@ -47,13 +55,13 @@ export class ChatPanel {
       left: 5px;
       width: 400px;
       height: 300px;
-      background: rgba(15, 23, 42, 0.95);
+      background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 25px;
       box-shadow:
-        0 20px 40px rgba(0, 0, 0, 0.4),
+        0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
       z-index: 1500;
       display: flex;
@@ -63,20 +71,22 @@ export class ChatPanel {
       -webkit-user-select: none;
       -moz-user-select: none;
       -ms-user-select: none;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     `;
 
-    // Header con titolo e pulsante chiusura
-    const header = document.createElement('div');
-    header.className = 'chat-header';
-    header.style.cssText = `
+    // Header con titolo e pulsante toggle
+    this.header = document.createElement('div');
+    this.header.className = 'chat-header';
+    this.header.style.cssText = `
       padding: 12px 16px;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%);
-      border-bottom: 1px solid rgba(148, 163, 184, 0.2);
-      border-radius: 12px 12px 0 0;
+      background: rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 25px 25px 0 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 8px;
+      cursor: pointer;
     `;
 
     // Container sinistro con titolo
@@ -86,27 +96,27 @@ export class ChatPanel {
     const title = document.createElement('span');
     title.textContent = '💬 Chat';
     title.style.cssText = `
-      color: rgba(255, 255, 255, 0.95);
+      color: rgba(255, 255, 255, 0.9);
       font-size: 14px;
       font-weight: 700;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     `;
 
     titleContainer.appendChild(title);
 
-    // Pulsante chiusura nell'angolino destro (stile glass)
-    const closeButton = document.createElement('button');
-    closeButton.textContent = '-';
-    closeButton.className = 'chat-close-button';
-    closeButton.style.cssText = `
-      background: rgba(15, 23, 42, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      color: rgba(148, 163, 184, 0.8);
+    // Pulsante toggle nell'angolino destro (stile glass)
+    this.toggleButton = document.createElement('button');
+    this.toggleButton.textContent = '+';
+    this.toggleButton.className = 'chat-toggle-button';
+    this.toggleButton.style.cssText = `
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.8);
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
       padding: 0;
-      border-radius: 6px;
+      border-radius: 12px;
       width: 24px;
       height: 24px;
       display: flex;
@@ -115,29 +125,42 @@ export class ChatPanel {
       text-align: center;
       line-height: 1;
       transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     `;
 
-    closeButton.addEventListener('mouseenter', () => {
-      closeButton.style.background = 'rgba(148, 163, 184, 0.9)';
-      closeButton.style.borderColor = 'rgba(148, 163, 184, 0.5)';
-      closeButton.style.color = 'rgba(15, 23, 42, 0.9)';
-      closeButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+    this.toggleButton.addEventListener('mouseenter', () => {
+      this.toggleButton.style.background = 'rgba(255, 255, 255, 0.2)';
+      this.toggleButton.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+      this.toggleButton.style.color = 'rgba(255, 255, 255, 0.9)';
+      this.toggleButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
     });
 
-    closeButton.addEventListener('mouseleave', () => {
-      closeButton.style.background = 'rgba(15, 23, 42, 0.8)';
-      closeButton.style.borderColor = 'rgba(148, 163, 184, 0.3)';
-      closeButton.style.color = 'rgba(148, 163, 184, 0.8)';
-      closeButton.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+    this.toggleButton.addEventListener('mouseleave', () => {
+      this.toggleButton.style.background = 'rgba(255, 255, 255, 0.1)';
+      this.toggleButton.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      this.toggleButton.style.color = 'rgba(255, 255, 255, 0.8)';
+      this.toggleButton.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
     });
 
-    closeButton.addEventListener('click', () => {
-      this.hideWithAnimation();
+    // Toggle click handler
+    const toggleClick = () => {
+      if (!this.isEnabled) return;
+      if (this._isVisible) {
+        this.hideWithAnimation();
+      } else {
+        this.show();
+      }
+    };
+
+    this.toggleButton.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleClick();
     });
 
-    header.appendChild(titleContainer);
-    header.appendChild(closeButton);
+    this.header.addEventListener('click', toggleClick);
+
+    this.header.appendChild(titleContainer);
+    this.header.appendChild(this.toggleButton);
 
     // Container dei messaggi
     this.messagesContainer = document.createElement('div');
@@ -176,8 +199,8 @@ export class ChatPanel {
     this.inputContainer.className = 'chat-input-container';
     this.inputContainer.style.cssText = `
       padding: 12px 16px;
-      border-top: 1px solid rgba(148, 163, 184, 0.2);
-      background: rgba(30, 41, 59, 0.8);
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.05);
       display: flex;
       gap: 8px;
       align-items: center;
@@ -193,12 +216,12 @@ export class ChatPanel {
     this.inputElement.style.cssText = `
       flex: 1;
       padding: 8px 12px;
-      background: rgba(51, 65, 85, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 6px;
-      color: #ffffff;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      color: rgba(255, 255, 255, 0.9);
       font-size: 14px;
-      font-family: Arial, sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       outline: none;
       transition: all 0.2s ease;
       white-space: pre;
@@ -207,44 +230,52 @@ export class ChatPanel {
     `;
 
     this.inputElement.addEventListener('focus', () => {
-      this.inputElement.style.borderColor = 'rgba(59, 130, 246, 0.5)';
-      this.inputElement.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.2)';
+      this.inputElement.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+      this.inputElement.style.boxShadow = '0 0 0 2px rgba(255, 255, 255, 0.1)';
+      this.inputElement.style.background = 'rgba(255, 255, 255, 0.15)';
     });
 
     this.inputElement.addEventListener('blur', () => {
-      this.inputElement.style.borderColor = 'rgba(148, 163, 184, 0.3)';
+      this.inputElement.style.borderColor = 'rgba(255, 255, 255, 0.2)';
       this.inputElement.style.boxShadow = 'none';
+      this.inputElement.style.background = 'rgba(255, 255, 255, 0.1)';
     });
 
     // Pulsante invio
     const sendButton = document.createElement('button');
-    sendButton.textContent = '📤';
+    sendButton.textContent = '↑';
     sendButton.className = 'chat-send-button';
     sendButton.style.cssText = `
       padding: 8px 12px;
-      background: linear-gradient(135deg, #10b981, #059669);
-      border: 1px solid rgba(16, 185, 129, 0.5);
-      border-radius: 6px;
-      color: white;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      color: rgba(255, 255, 255, 0.8);
       font-size: 14px;
       cursor: pointer;
       transition: all 0.2s ease;
       display: flex;
       align-items: center;
       justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     `;
 
     sendButton.addEventListener('mouseenter', () => {
-      sendButton.style.background = 'linear-gradient(135deg, #059669, #047857)';
-      sendButton.style.borderColor = 'rgba(16, 185, 129, 0.8)';
+      sendButton.style.background = 'rgba(255, 255, 255, 0.2)';
+      sendButton.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+      sendButton.style.color = 'rgba(255, 255, 255, 0.9)';
+      sendButton.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
     });
 
     sendButton.addEventListener('mouseleave', () => {
-      sendButton.style.background = 'linear-gradient(135deg, #10b981, #059669)';
-      sendButton.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+      sendButton.style.background = 'rgba(255, 255, 255, 0.1)';
+      sendButton.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      sendButton.style.color = 'rgba(255, 255, 255, 0.8)';
+      sendButton.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.2)';
     });
 
     sendButton.addEventListener('click', () => {
+      if (!this.isEnabled) return;
       this.sendMessage();
     });
 
@@ -252,7 +283,7 @@ export class ChatPanel {
     this.inputContainer.appendChild(sendButton);
 
     // Assembla tutto
-    this.container.appendChild(header);
+    this.container.appendChild(this.header);
     this.container.appendChild(this.messagesContainer);
     this.container.appendChild(this.inputContainer);
   }
@@ -263,7 +294,8 @@ export class ChatPanel {
   private setupEventListeners(): void {
     // Focus sull'input mostra la chat
     this.inputElement.addEventListener('focus', () => {
-      if (!this.isVisible) {
+      if (!this.isEnabled) return;
+      if (!this._isVisible) {
         this.show();
       }
     });
@@ -276,30 +308,35 @@ export class ChatPanel {
 
     // Invio messaggio con Enter
     this.inputElement.addEventListener('keypress', (e) => {
+      if (!this.isEnabled) return;
       if (e.key === 'Enter') {
         this.sendMessage();
       }
     });
 
     // Listener globale per ESC e "-" che chiude la chat quando è aperta
-    document.addEventListener('keydown', (e) => {
-      if ((e.key === 'Escape' || e.key === '-') && this.isVisible) {
+    this.escKeyListener = (e: KeyboardEvent) => {
+      if (!this.isEnabled) return;
+      if ((e.key === 'Escape' || e.key === '-') && this._isVisible) {
         e.preventDefault();
         this.hideWithAnimation();
       }
-    });
+    };
+    document.addEventListener('keydown', this.escKeyListener);
 
     // Listener globale per riaprire la chat con Invio quando è chiusa
-    document.addEventListener('keydown', (e) => {
+    this.enterKeyListener = (e: KeyboardEvent) => {
+      if (!this.isEnabled) return;
       // Non intercettare se qualsiasi input ha il focus
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
         return;
       }
-      if (e.key === 'Enter' && !this.isVisible) {
+      if (e.key === 'Enter' && !this._isVisible) {
         e.preventDefault();
         this.show();
       }
-    });
+    };
+    document.addEventListener('keydown', this.enterKeyListener);
 
     // Previeni chiusura del pannello quando si clicca dentro
     this.container.addEventListener('click', (e) => {
@@ -308,12 +345,12 @@ export class ChatPanel {
   }
 
   /**
-   * Mostra la chat con animazione d'entrata
+   * Mostra la chat con animazione d'espansione dal punto attuale
    */
   show(): void {
-    if (this.isVisible) return;
+    if (this._isVisible) return;
 
-    this.isVisible = true;
+    this._isVisible = true;
     if (!document.body.contains(this.container)) {
       document.body.appendChild(this.container);
     }
@@ -321,34 +358,52 @@ export class ChatPanel {
     // Mostra il container
     this.container.style.display = 'flex';
 
-    // Inizia con la chat sotto lo schermo
-    this.container.style.transform = 'translateY(100%)';
+    // Ottieni l'altezza attuale dell'header (quando è minimizzata)
+    const currentHeight = this.container.offsetHeight;
+    const targetHeight = 300;
 
-    // Piccola pausa per permettere al browser di applicare la trasformazione iniziale
+    // Imposta l'altezza iniziale (attuale) per l'animazione
+    this.container.style.height = currentHeight + 'px';
+    this.container.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+
+    // Piccola pausa per permettere al browser di applicare l'altezza iniziale
     setTimeout(() => {
-      // Aggiungi animazione per far salire la chat
-      this.container.style.transition = 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
-      this.container.style.transform = 'translateY(0)';
+      // Aggiungi animazione per espandere l'altezza
+      this.container.style.height = targetHeight + 'px';
     }, 10);
+
+    // Espandi messaggi e input quando l'animazione è completa
+    setTimeout(() => {
+      this.messagesContainer.style.display = 'flex';
+      this.inputContainer.style.display = 'flex';
+      // Aggiorna il pulsante toggle
+      this.toggleButton.textContent = '-';
+      // Rimuovi la transizione dopo l'animazione
+      this.container.style.transition = '';
+    }, 410);
 
     // Focus automatico sull'input quando l'animazione è completa
     setTimeout(() => {
       this.inputElement.focus();
-      // Rimuovi la transizione dopo l'animazione
-      this.container.style.transition = '';
-    }, 410);
+    }, 420);
 
     // Il messaggio di benvenuto viene gestito dal PlayState
   }
 
   /**
-   * Nasconde la chat
+   * Nasconde la chat (solo messaggi e input, mantiene l'header)
    */
   hide(): void {
-    if (!this.isVisible) return;
+    if (!this._isVisible) return;
 
-    this.isVisible = false;
-    this.container.style.display = 'none';
+    this._isVisible = false;
+    // Nasconde solo messaggi e input, mantiene l'header visibile
+    this.messagesContainer.style.display = 'none';
+    this.inputContainer.style.display = 'none';
+    // Aggiorna il pulsante toggle
+    this.toggleButton.textContent = '+';
+    // Rimuovi il focus dall'input
+    this.inputElement.blur();
   }
 
   /**
@@ -434,7 +489,7 @@ export class ChatPanel {
       const nameSpan = document.createElement('span');
       nameSpan.textContent = `${playerName}: `;
       nameSpan.style.cssText = `
-        color: #10b981;
+        color: rgba(16, 185, 129, 0.9);
         font-weight: 600;
       `;
       messageDiv.appendChild(nameSpan);
@@ -445,7 +500,7 @@ export class ChatPanel {
     textSpan.textContent = message.content;
     textSpan.style.cssText = `
       word-wrap: break-word;
-      color: ${message.type === 'system' ? '#3b82f6' : 'rgba(255, 255, 255, 0.9)'};
+      color: ${message.type === 'system' ? 'rgba(59, 130, 246, 0.9)' : 'rgba(255, 255, 255, 0.9)'};
     `;
 
     messageDiv.appendChild(textSpan);
@@ -464,20 +519,38 @@ export class ChatPanel {
   }
 
   /**
-   * Nasconde la chat con animazione verso il basso
+   * Nasconde la chat con animazione di compressione
    */
   private hideWithAnimation(): void {
-    // Aggiungi animazione di slide down
-    this.container.style.transition = 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-    this.container.style.transform = 'translateY(100%)';
+    if (!this._isVisible) return;
 
-    // Dopo l'animazione, nascondi completamente
+    // Salva l'altezza attuale per l'animazione
+    const currentHeight = this.container.offsetHeight;
+    const headerHeight = this.header.offsetHeight;
+
+    // Imposta altezza fissa per l'animazione
+    this.container.style.height = currentHeight + 'px';
+    this.container.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
+
+    // Dopo un breve delay, comprimi all'altezza dell'header
     setTimeout(() => {
-      this.hide();
-      // Ripristina la posizione per quando verrà ri-mostrata
-      this.container.style.transform = 'translateY(0)';
+      this.container.style.height = headerHeight + 'px';
+      // Nasconde messaggi e input durante l'animazione
+      this.messagesContainer.style.display = 'none';
+      this.inputContainer.style.display = 'none';
+    }, 10);
+
+    // Completa l'animazione
+    setTimeout(() => {
+      this._isVisible = false;
+      // Aggiorna il pulsante toggle
+      this.toggleButton.textContent = '+';
+      // Rimuovi il focus dall'input
+      this.inputElement.blur();
+      // Mantieni l'altezza dell'header per lo stato chiuso
+      this.container.style.height = headerHeight + 'px';
       this.container.style.transition = '';
-    }, 500);
+    }, 410);
   }
 
   /**
@@ -519,13 +592,27 @@ export class ChatPanel {
    * Verifica se la chat è visibile
    */
   isVisible(): boolean {
-    return this.isVisible;
+    return this._isVisible;
   }
 
   /**
    * Distrugge il pannello e rimuove gli elementi dal DOM
    */
   destroy(): void {
+    // Disabilita completamente la chat
+    this.isEnabled = false;
+
+    // Rimuovi event listeners globali
+    if (this.escKeyListener) {
+      document.removeEventListener('keydown', this.escKeyListener);
+      this.escKeyListener = null;
+    }
+    if (this.enterKeyListener) {
+      document.removeEventListener('keydown', this.enterKeyListener);
+      this.enterKeyListener = null;
+    }
+
+    // Rimuovi il container dal DOM
     if (document.body.contains(this.container)) {
       document.body.removeChild(this.container);
     }

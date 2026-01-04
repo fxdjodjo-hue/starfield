@@ -15,7 +15,7 @@ export interface PanelConfig {
 export const PANEL_CONFIGS = {
   stats: {
     id: 'player-stats',
-    icon: '📊',
+    icon: '⊞',
     title: 'Statistiche Giocatore',
     position: 'center-left' as const,
     size: { width: 1300, height: 750 }
@@ -23,7 +23,7 @@ export const PANEL_CONFIGS = {
 
   quest: {
     id: 'quest-panel',
-    icon: '📋',
+    icon: '⊳',
     title: 'Missioni & Quest',
     position: 'center-left-below' as const,
     size: { width: 1300, height: 750 }
@@ -31,7 +31,7 @@ export const PANEL_CONFIGS = {
 
   skills: {
     id: 'skills-panel',
-    icon: '⚡',
+    icon: '⊹',
     title: 'Skills & Abilità',
     position: 'center-left-below2' as const,
     size: { width: 1300, height: 750 }

@@ -45,14 +45,17 @@ export class SkillsPanel extends BasePanel {
       flex-direction: column;
       gap: 20px;
       position: relative;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
-      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 25px;
       overflow-y: auto;
     `;
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
     const closeButton = document.createElement('button');
-    closeButton.textContent = '✕';
+    closeButton.textContent = 'X';
     closeButton.style.cssText = `
       position: absolute;
       top: 16px;
@@ -99,8 +102,8 @@ export class SkillsPanel extends BasePanel {
     const header = document.createElement('div');
     header.style.cssText = `
       text-align: center;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
@@ -108,14 +111,14 @@ export class SkillsPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = '⚡ Skills & Abilità';
+    title.textContent = 'Skills & Abilità';
     title.style.cssText = `
       margin: 0;
       color: rgba(255, 255, 255, 0.95);
       font-size: 22px;
       font-weight: 700;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      background: linear-gradient(135deg, #60a5fa, #a855f7);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      background: rgba(255, 255, 255, 0.08);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -125,7 +128,7 @@ export class SkillsPanel extends BasePanel {
     subtitle.textContent = 'Sistema abilità e potenziamenti';
     subtitle.style.cssText = `
       margin: 4px 0 8px 0;
-      color: rgba(148, 163, 184, 0.7);
+      color: rgba(255, 255, 255, 0.7);
       font-size: 12px;
       font-weight: 400;
     `;
@@ -144,12 +147,12 @@ export class SkillsPanel extends BasePanel {
       border-radius: 20px;
       font-size: 14px;
       font-weight: 600;
-      color: #a855f7;
+      color: rgba(255, 255, 255, 0.95);
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
     `;
 
     const skillIcon = document.createElement('span');
-    skillIcon.textContent = '⚡';
+    skillIcon.textContent = '★';
     skillIcon.style.cssText = 'font-size: 16px;';
 
     const skillText = document.createElement('span');
@@ -160,7 +163,7 @@ export class SkillsPanel extends BasePanel {
     skillValue.className = 'skill-points-value';
     skillValue.textContent = '10';
     skillValue.style.cssText = `
-      color: #a855f7;
+      color: rgba(255, 255, 255, 0.95);
       font-weight: 700;
       font-variant-numeric: tabular-nums;
     `;
@@ -201,8 +204,8 @@ export class SkillsPanel extends BasePanel {
   private createStatsSection(title: string, stats: Array<{label: string, icon: string, value: string, color: string, upgradeKey?: string}>): HTMLElement {
     const section = document.createElement('div');
     section.style.cssText = `
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 16px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -235,7 +238,7 @@ export class SkillsPanel extends BasePanel {
         align-items: center;
         gap: 8px;
         padding: 8px 12px;
-        background: rgba(15, 23, 42, 0.6);
+        background: rgba(255, 255, 255, 0.03);
         border-radius: 8px;
         border-left: 3px solid ${stat.color};
       `;
@@ -259,7 +262,7 @@ export class SkillsPanel extends BasePanel {
       label.textContent = stat.label;
       label.style.cssText = `
         font-size: 11px;
-        color: rgba(148, 163, 184, 0.7);
+        color: rgba(255, 255, 255, 0.7);
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: 0.3px;
@@ -294,15 +297,15 @@ export class SkillsPanel extends BasePanel {
   private createUpgradeSection(): HTMLElement {
     const section = document.createElement('div');
     section.style.cssText = `
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 16px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     `;
 
     const sectionTitle = document.createElement('h3');
-    sectionTitle.textContent = '⚔️ Statistiche & Upgrade';
+    sectionTitle.textContent = 'Statistiche & Upgrade';
     sectionTitle.style.cssText = `
       margin: 0 0 16px 0;
       color: rgba(255, 255, 255, 0.9);
@@ -315,10 +318,10 @@ export class SkillsPanel extends BasePanel {
     section.appendChild(sectionTitle);
 
     // Crea i quattro pulsanti di upgrade con statistiche integrate
-    const hpUpgrade = this.createStatUpgradeButton('HP', '❤️', '#10b981', 'hp');
-    const shieldUpgrade = this.createStatUpgradeButton('Shield', '🛡️', '#3b82f6', 'shield');
-    const speedUpgrade = this.createStatUpgradeButton('Speed', '💨', '#f59e0b', 'speed');
-    const damageUpgrade = this.createStatUpgradeButton('Damage', '⚡', '#ef4444', 'damage');
+    const hpUpgrade = this.createStatUpgradeButton('HP', '+', '#10b981', 'hp');
+    const shieldUpgrade = this.createStatUpgradeButton('Shield', '+', '#3b82f6', 'shield');
+    const speedUpgrade = this.createStatUpgradeButton('Speed', '+', '#f59e0b', 'speed');
+    const damageUpgrade = this.createStatUpgradeButton('Damage', '+', '#ef4444', 'damage');
 
     section.appendChild(hpUpgrade);
     section.appendChild(shieldUpgrade);
@@ -340,7 +343,7 @@ export class SkillsPanel extends BasePanel {
       width: 100%;
       padding: 14px 16px;
       margin-bottom: 10px;
-      background: rgba(15, 23, 42, 0.6);
+      background: rgba(255, 255, 255, 0.03);
       border: 1px solid ${color}40;
       border-radius: 10px;
       color: rgba(255, 255, 255, 0.9);
@@ -352,14 +355,14 @@ export class SkillsPanel extends BasePanel {
     `;
 
     button.addEventListener('mouseenter', () => {
-      button.style.background = `rgba(15, 23, 42, 0.8)`;
+      button.style.background = `rgba(255, 255, 255, 0.1)`;
       button.style.borderColor = color;
       button.style.transform = 'translateY(-2px)';
       button.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2)`;
     });
 
     button.addEventListener('mouseleave', () => {
-      button.style.background = `rgba(15, 23, 42, 0.6)`;
+      button.style.background = `rgba(255, 255, 255, 0.05)`;
       button.style.borderColor = `${color}40`;
       button.style.transform = 'translateY(0)';
       button.style.boxShadow = 'none';
@@ -397,7 +400,7 @@ export class SkillsPanel extends BasePanel {
     currentValue.textContent = this.getInitialStatValue(upgradeType);
     currentValue.style.cssText = `
       font-size: 13px;
-      color: rgba(148, 163, 184, 0.8);
+      color: rgba(255, 255, 255, 0.8);
       font-weight: 500;
       font-variant-numeric: tabular-nums;
     `;
@@ -658,7 +661,7 @@ export class SkillsPanel extends BasePanel {
         description = 'Rappresentano la salute della tua nave. Quando arrivano a 0, la nave viene distrutta. Gli upgrade aumentano la resistenza ai danni. Più HP = più possibilità di sopravvivenza.';
         break;
       case 'shield':
-        title = '🛡️ SCUDO ENERGETICO';
+        title = 'SCUDO ENERGETICO';
         description = 'Protegge la nave dai danni prima degli HP. Si ricarica automaticamente nel tempo. Gli upgrade aumentano la capacità massima. Più scudi = migliore protezione iniziale.';
         break;
       case 'speed':
@@ -672,7 +675,7 @@ export class SkillsPanel extends BasePanel {
     this.tooltipElement.className = 'stat-tooltip';
     this.tooltipElement.style.cssText = `
       position: absolute;
-      background: rgba(15, 23, 42, 0.95);
+      background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(148, 163, 184, 0.3);
       border-radius: 8px;
       padding: 16px;
@@ -695,7 +698,7 @@ export class SkillsPanel extends BasePanel {
         <button class="tooltip-close" style="
           background: none;
           border: none;
-          color: rgba(148, 163, 184, 0.7);
+          color: rgba(255, 255, 255, 0.7);
           cursor: pointer;
           font-size: 18px;
           padding: 0;

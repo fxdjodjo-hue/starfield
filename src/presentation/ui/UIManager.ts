@@ -40,13 +40,13 @@ export abstract class BasePanel {
       ${this.getPositionStyles()}
       width: ${this.config.size.width}px;
       height: ${this.config.size.height}px;
-      background: rgba(15, 23, 42, 0.95);
+      background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 25px;
       box-shadow:
-        0 20px 40px rgba(0, 0, 0, 0.4),
+        0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
       z-index: 2000;
       opacity: 0;
@@ -104,6 +104,12 @@ export abstract class BasePanel {
 
     this.isVisible = true;
 
+    // Emette evento per aggiornare l'icona corrispondente
+    const event = new CustomEvent('panelVisibilityChanged', {
+      detail: { panelId: this.config.id, isVisible: true }
+    });
+    document.dispatchEvent(event);
+
     // Assicura che sia nel DOM PRIMA di applicare gli stili
     if (!document.body.contains(this.container)) {
       document.body.appendChild(this.container);
@@ -137,6 +143,12 @@ export abstract class BasePanel {
     this.container.style.opacity = '0';
     this.container.style.transform = 'scale(0.95)';
     this.container.style.pointerEvents = 'none';
+
+    // Emette evento per aggiornare l'icona corrispondente
+    const event = new CustomEvent('panelVisibilityChanged', {
+      detail: { panelId: this.config.id, isVisible: false }
+    });
+    document.dispatchEvent(event);
 
     this.onHide();
   }
@@ -239,7 +251,7 @@ export class FloatingIcon {
       ${this.getIconPosition(config.position)}
       width: 48px;
       height: 48px;
-      background: rgba(15, 23, 42, 0.9);
+      background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(148, 163, 184, 0.3);
@@ -248,7 +260,7 @@ export class FloatingIcon {
       align-items: center;
       justify-content: center;
       font-size: 20px;
-      color: rgba(148, 163, 184, 0.8);
+      color: rgba(255, 255, 255, 0.8);
       cursor: pointer;
       z-index: 1500;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -315,17 +327,23 @@ export class FloatingIcon {
    */
   private updateStyle(): void {
     if (this.panel.isPanelVisible()) {
-      this.element.style.background = 'rgba(59, 130, 246, 0.9)';
+      // Stato attivo - glass con accento bianco
+      this.element.style.background = 'rgba(255, 255, 255, 0.2)';
       this.element.style.color = 'rgba(255, 255, 255, 0.9)';
-      this.element.style.borderColor = 'rgba(59, 130, 246, 0.5)';
+      this.element.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+      this.element.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
     } else if (this.isHovered) {
-      this.element.style.background = 'rgba(148, 163, 184, 0.9)';
-      this.element.style.color = 'rgba(15, 23, 42, 0.9)';
-      this.element.style.borderColor = 'rgba(148, 163, 184, 0.5)';
+      // Hover - glass più intenso
+      this.element.style.background = 'rgba(255, 255, 255, 0.15)';
+      this.element.style.color = 'rgba(255, 255, 255, 0.9)';
+      this.element.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+      this.element.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
     } else {
-      this.element.style.background = 'rgba(15, 23, 42, 0.9)';
-      this.element.style.color = 'rgba(148, 163, 184, 0.8)';
-      this.element.style.borderColor = 'rgba(148, 163, 184, 0.3)';
+      // Stato normale - glass sottile
+      this.element.style.background = 'rgba(255, 255, 255, 0.1)';
+      this.element.style.color = 'rgba(255, 255, 255, 0.8)';
+      this.element.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      this.element.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
     }
   }
 
@@ -354,6 +372,13 @@ export class FloatingIcon {
   }
 
   /**
+   * Restituisce l'ID del pannello associato
+   */
+  getPanelId(): string {
+    return this.config.id;
+  }
+
+  /**
    * Distrugge l'icona
    */
   destroy(): void {
@@ -375,6 +400,18 @@ export class UIManager {
 
   constructor() {
     this.setupResizeHandler();
+    this.setupPanelEventListeners();
+  }
+
+  /**
+   * Imposta i listener per gli eventi dei pannelli
+   */
+  private setupPanelEventListeners(): void {
+    // Ascolta eventi personalizzati per i cambi di stato dei pannelli
+    document.addEventListener('panelVisibilityChanged', (event: any) => {
+      const { panelId, isVisible } = event.detail;
+      this.updatePanelIcon(panelId);
+    });
   }
 
   /**
@@ -474,6 +511,16 @@ export class UIManager {
    */
   getPanel(panelId: string): BasePanel | undefined {
     return this.panels.get(panelId);
+  }
+
+  /**
+   * Aggiorna lo stato dell'icona di un pannello specifico
+   */
+  updatePanelIcon(panelId: string): void {
+    const icon = this.icons.get(panelId);
+    if (icon) {
+      icon.updateState();
+    }
   }
 
   /**

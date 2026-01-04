@@ -100,14 +100,17 @@ export class QuestPanel extends BasePanel {
       flex-direction: column;
       gap: 20px;
       position: relative;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
-      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 25px;
       overflow-y: auto;
     `;
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
     const closeButton = document.createElement('button');
-    closeButton.textContent = '✕';
+    closeButton.textContent = 'X';
     closeButton.style.cssText = `
       position: absolute;
       top: 16px;
@@ -152,8 +155,8 @@ export class QuestPanel extends BasePanel {
     const header = document.createElement('div');
     header.style.cssText = `
       text-align: center;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
@@ -161,14 +164,14 @@ export class QuestPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = '📋 Missioni & Quest';
+    title.textContent = 'Missioni & Quest';
     title.style.cssText = `
       margin: 0;
       color: rgba(255, 255, 255, 0.95);
       font-size: 22px;
       font-weight: 700;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      background: linear-gradient(135deg, #60a5fa, #a855f7);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      background: rgba(255, 255, 255, 0.08);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -188,7 +191,7 @@ export class QuestPanel extends BasePanel {
     `;
 
     // Sezione quest attive (inizialmente vuote, verranno popolate da update())
-    const activeSection = this.createQuestSection('🎯 Quest Attive', 'active-quests', [], 'active');
+    const activeSection = this.createQuestSection('Quest Attive', 'active-quests', [], 'active');
     const completedSection = this.createQuestSection('✅ Quest Completate', 'completed-quests', [], 'completed');
     const availableSection = this.createQuestSection('📋 Quest Disponibili', 'available-quests', [], 'available');
 
@@ -208,8 +211,8 @@ export class QuestPanel extends BasePanel {
     const section = document.createElement('div');
     section.className = 'quest-section';
     section.style.cssText = `
-      background: rgba(30, 41, 59, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 16px;
       display: flex;
@@ -221,7 +224,7 @@ export class QuestPanel extends BasePanel {
     sectionTitle.textContent = title;
     sectionTitle.style.cssText = `
       margin: 0 0 8px 0;
-      color: rgba(148, 163, 184, 0.9);
+      color: rgba(255, 255, 255, 0.9);
       font-size: 16px;
       font-weight: 600;
       display: flex;
@@ -247,7 +250,7 @@ export class QuestPanel extends BasePanel {
       const emptyMessage = document.createElement('div');
       emptyMessage.textContent = 'Nessuna quest in questa categoria';
       emptyMessage.style.cssText = `
-        color: rgba(148, 163, 184, 0.6);
+        color: rgba(255, 255, 255, 0.6);
         font-style: italic;
         text-align: center;
         padding: 20px;
@@ -269,7 +272,7 @@ export class QuestPanel extends BasePanel {
     card.className = 'quest-card';
     card.style.cssText = `
       background: rgba(51, 65, 85, 0.8);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       padding: 12px;
       display: flex;
@@ -320,7 +323,7 @@ export class QuestPanel extends BasePanel {
     const questDescription = document.createElement('div');
     questDescription.textContent = quest.description;
     questDescription.style.cssText = `
-      color: rgba(148, 163, 184, 0.8);
+      color: rgba(255, 255, 255, 0.8);
       font-size: 12px;
       line-height: 1.4;
     `;
@@ -534,7 +537,7 @@ export class QuestPanel extends BasePanel {
       const emptyMessage = document.createElement('div');
       emptyMessage.textContent = 'Nessuna quest in questa categoria';
       emptyMessage.style.cssText = `
-        color: rgba(148, 163, 184, 0.6);
+        color: rgba(255, 255, 255, 0.6);
         font-style: italic;
         text-align: center;
         padding: 20px;

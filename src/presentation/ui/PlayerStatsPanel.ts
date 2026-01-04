@@ -47,15 +47,18 @@ export class PlayerStatsPanel extends BasePanel {
       flex-direction: column;
       gap: 20px;
       position: relative;
-      background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
-      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 25px;
       overflow-y: auto;
     `;
 
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
     const closeButton = document.createElement('button');
-    closeButton.textContent = '✕';
+    closeButton.textContent = 'X';
     closeButton.style.cssText = `
       position: absolute;
       top: 16px;
@@ -100,8 +103,8 @@ export class PlayerStatsPanel extends BasePanel {
     const header = document.createElement('div');
     header.style.cssText = `
       text-align: center;
-      background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(147, 51, 234, 0.2) 100%);
-      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
@@ -109,14 +112,14 @@ export class PlayerStatsPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = '📊 Statistiche Giocatore';
+    title.textContent = 'Statistiche Giocatore';
     title.style.cssText = `
       margin: 0;
       color: rgba(255, 255, 255, 0.95);
       font-size: 22px;
       font-weight: 700;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-      background: linear-gradient(135deg, #60a5fa, #a855f7);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      background: rgba(255, 255, 255, 0.08);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -126,7 +129,7 @@ export class PlayerStatsPanel extends BasePanel {
     subtitle.textContent = 'Monitora il tuo progresso e statistiche';
     subtitle.style.cssText = `
       margin: 4px 0 0 0;
-      color: rgba(148, 163, 184, 0.7);
+      color: rgba(255, 255, 255, 0.7);
       font-size: 12px;
       font-weight: 400;
     `;
@@ -147,12 +150,12 @@ export class PlayerStatsPanel extends BasePanel {
     `;
 
     // Sezioni statistiche con design moderno
-    const levelSection = this.createModernStatCard('🏆', 'Livello', 'level-display', '#fbbf24');
-    const expSection = this.createModernStatCard('⭐', 'Esperienza', 'exp-display', '#10b981');
-    const creditsSection = this.createModernStatCard('💰', 'Crediti', 'credits-display', '#f59e0b');
-    const honorSection = this.createModernStatCard('⚔️', 'Onore', 'honor-display', '#ef4444');
-    const killsSection = this.createModernStatCard('💀', 'Uccisioni', 'kills-display', '#8b5cf6');
-    const timeSection = this.createModernStatCard('⏱️', 'Tempo Gioco', 'time-display', '#06b6d4');
+    const levelSection = this.createModernStatCard('', 'Livello', 'level-display', '#fbbf24');
+    const expSection = this.createModernStatCard('', 'Esperienza', 'exp-display', '#10b981');
+    const creditsSection = this.createModernStatCard('', 'Crediti', 'credits-display', '#f59e0b');
+    const honorSection = this.createModernStatCard('', 'Onore', 'honor-display', '#ef4444');
+    const killsSection = this.createModernStatCard('', 'Uccisioni', 'kills-display', '#8b5cf6');
+    const timeSection = this.createModernStatCard('', 'Tempo Gioco', 'time-display', '#06b6d4');
 
     statsContainer.appendChild(levelSection);
     statsContainer.appendChild(expSection);
@@ -173,7 +176,7 @@ export class PlayerStatsPanel extends BasePanel {
     const card = document.createElement('div');
     card.className = 'stat-card';
     card.style.cssText = `
-      background: rgba(30, 41, 59, 0.8);
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(148, 163, 184, 0.2);
       border-radius: 12px;
       padding: 16px;
@@ -215,7 +218,7 @@ export class PlayerStatsPanel extends BasePanel {
     const labelElement = document.createElement('span');
     labelElement.textContent = label;
     labelElement.style.cssText = `
-      color: rgba(148, 163, 184, 0.8);
+      color: rgba(255, 255, 255, 0.8);
       font-size: 12px;
       font-weight: 600;
       text-transform: uppercase;
@@ -277,7 +280,7 @@ export class PlayerStatsPanel extends BasePanel {
         <div style="width: 100%; height: 6px; background: rgba(148, 163, 184, 0.2); border-radius: 3px; overflow: hidden;">
           <div style="width: ${expPercent}%; height: 100%; background: linear-gradient(90deg, #10b981, #34d399); border-radius: 3px; transition: width 0.5s ease;"></div>
         </div>
-        <div style="margin-top: 4px; font-size: 11px; color: rgba(148, 163, 184, 0.6);">
+        <div style="margin-top: 4px; font-size: 11px; color: rgba(255, 255, 255, 0.6);">
           ${expPercent}% al prossimo livello
         </div>
       `;

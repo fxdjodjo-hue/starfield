@@ -227,7 +227,20 @@ export class UiSystem extends System {
    * Inizializza la chat
    */
   private initializeChat(): void {
-    this.chatPanel.show();
+    // Assicurati che il pannello chat sia nel DOM anche se nascosto
+    if (!document.body.contains(this.chatPanel['container'])) {
+      // Imposta gli stili per lo stato nascosto prima di aggiungere al DOM
+      const container = this.chatPanel['container'];
+      const headerHeight = this.chatPanel['header'].offsetHeight || 49;
+      container.style.height = headerHeight + 'px';
+      container.style.display = 'flex';
+      this.chatPanel['messagesContainer'].style.display = 'none';
+      this.chatPanel['inputContainer'].style.display = 'none';
+      this.chatPanel['toggleButton'].textContent = '+';
+      this.chatPanel['_isVisible'] = false;
+
+      document.body.appendChild(container);
+    }
   }
 
   /**
