@@ -91,11 +91,6 @@ export class PlayerStatsPanel extends BasePanel {
     });
 
     closeButton.addEventListener('click', () => {
-      // Suono click UI
-      const uiSystem = (window as any).uiSystem;
-      if (uiSystem && uiSystem.audioSystem) {
-        uiSystem.audioSystem.playSound('click', 0.3, false, true, 'ui');
-      }
       this.hide();
     });
 

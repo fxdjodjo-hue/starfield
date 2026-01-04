@@ -53,6 +53,77 @@ export class UiSystem extends System {
    */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
+    this.setupUIClickSounds();
+  }
+
+  /**
+   * Configura suoni click per tutti gli elementi UI interattivi
+   */
+  private setupUIClickSounds(): void {
+    // Aggiungi suoni click a tutti i pulsanti esistenti
+    const buttons = document.querySelectorAll('button, .ui-panel button, .clickable, [role="button"]');
+
+    buttons.forEach(button => {
+      // Evita duplicati se già ha il listener
+      if (!(button as any)._uiClickSoundAdded) {
+        button.addEventListener('click', () => {
+          if (this.audioSystem) {
+            this.audioSystem.playSound('click', 0.3, false, true, 'ui');
+          }
+        });
+        (button as any)._uiClickSoundAdded = true;
+      }
+    });
+
+    // Osserva per nuovi elementi aggiunti dinamicamente
+    this.setupMutationObserver();
+  }
+
+  /**
+   * Osserva cambiamenti DOM per aggiungere suoni ai nuovi elementi
+   */
+  private setupMutationObserver(): void {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as Element;
+
+            // Aggiungi suoni ai nuovi pulsanti
+            const buttons = element.querySelectorAll('button, .ui-panel button, .clickable, [role="button"]');
+            buttons.forEach(button => {
+              if (!(button as any)._uiClickSoundAdded) {
+                button.addEventListener('click', () => {
+                  if (this.audioSystem) {
+                    this.audioSystem.playSound('click', 0.3, false, true, 'ui');
+                  }
+                });
+                (button as any)._uiClickSoundAdded = true;
+              }
+            });
+
+            // Se l'elemento stesso è un pulsante
+            if ((element.tagName === 'BUTTON' ||
+                 element.classList.contains('clickable') ||
+                 element.getAttribute('role') === 'button') &&
+                !(element as any)._uiClickSoundAdded) {
+              element.addEventListener('click', () => {
+                if (this.audioSystem) {
+                  this.audioSystem.playSound('click', 0.3, false, true, 'ui');
+                }
+              });
+              (element as any)._uiClickSoundAdded = true;
+            }
+          }
+        });
+      });
+    });
+
+    // Osserva tutto il documento per cambiamenti
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
   }
 
   /**
