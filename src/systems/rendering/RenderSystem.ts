@@ -223,7 +223,14 @@ export class RenderSystem extends BaseSystem {
 
     // Renderizza il nickname FUORI dalle trasformazioni per evitare effetti 3D strani
     // Il nickname deve rimanere orizzontale e leggibile
-    this.renderNpcNickname(ctx, npc, screenX, screenY + 45);
+    // Ricalcola le coordinate schermo per evitare vibrazioni dovute a desincronizzazione
+    const camera = this.movementSystem?.getCamera();
+    if (camera) {
+      const nicknameScreenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
+      this.renderNpcNickname(ctx, npc, nicknameScreenPos.x, nicknameScreenPos.y + 45);
+    } else {
+      this.renderNpcNickname(ctx, npc, screenX, screenY + 45);
+    }
   }
 
   /**
