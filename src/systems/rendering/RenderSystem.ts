@@ -152,19 +152,27 @@ export class RenderSystem extends BaseSystem {
     // Applica trasformazioni usando le coordinate schermo
     ctx.translate(screenX, screenY);
 
-    // Per NPC con sprite, calcola rotazione basata sulla direzione di movimento
-    if (sprite && sprite.isLoaded() && velocity) {
-      // Calcola l'angolo dalla direzione di movimento
-      const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-      if (speed > 0.1) { // Se si sta muovendo (velocità minima per evitare divisioni per zero)
-        const rotationAngle = Math.atan2(velocity.y, velocity.x) + Math.PI / 2; // +90° per orientare correttamente lo sprite
-        ctx.rotate(rotationAngle);
+    // Per NPC con sprite, determina la rotazione appropriata
+    if (sprite && sprite.isLoaded()) {
+      // NPC aggressive mantengono la rotazione impostata dal CombatSystem (puntano al player)
+      if (npc.behavior === 'aggressive') {
+        ctx.rotate(transform.rotation); // Usa rotazione impostata dal sistema di combattimento
+      } else if (velocity) {
+        // NPC normali ruotano basato sulla direzione di movimento
+        const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+        if (speed > 0.1) { // Se si sta muovendo (velocità minima per evitare divisioni per zero)
+          const rotationAngle = Math.atan2(velocity.y, velocity.x) + Math.PI / 2; // +90° per orientare correttamente lo sprite
+          ctx.rotate(rotationAngle);
+        } else {
+          // Se fermo, usa la rotazione standard
+          ctx.rotate(transform.rotation);
+        }
       } else {
-        // Se fermo, usa la rotazione standard
+        // NPC senza velocity, usa la rotazione standard
         ctx.rotate(transform.rotation);
       }
     } else {
-      // Per forme geometriche o NPC senza velocity, usa la rotazione standard
+      // Per forme geometriche, usa la rotazione standard
       ctx.rotate(transform.rotation);
     }
 
