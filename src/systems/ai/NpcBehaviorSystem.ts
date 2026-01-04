@@ -32,6 +32,9 @@ export class NpcBehaviorSystem extends BaseSystem {
   // Stato per movimenti fluidi
   private npcStates: Map<number, NpcState> = new Map();
 
+  // Tracking per comportamenti persistenti (NPC aggressive restano aggressive più a lungo)
+  private npcBehaviorTimers: Map<number, number> = new Map();
+
   constructor(ecs: ECS) {
     super(ecs);
   }
@@ -65,6 +68,15 @@ export class NpcBehaviorSystem extends BaseSystem {
     for (const entity of npcs) {
       const npc = this.ecs.getComponent(entity, Npc);
       if (npc) {
+        // Controlla se l'NPC ha un timer di comportamento persistente
+        const behaviorTimer = this.npcBehaviorTimers.get(entity.id) || 0;
+
+        // Gli NPC aggressive mantengono il comportamento per 5 secondi invece di 1
+        if (npc.behavior === 'aggressive' && behaviorTimer > 0) {
+          this.npcBehaviorTimers.set(entity.id, behaviorTimer - 1000);
+          continue; // Salta l'update del comportamento, mantieni aggressive
+        }
+
         this.updateNpcBehavior(npc, entity.id);
       }
     }
@@ -98,11 +110,13 @@ export class NpcBehaviorSystem extends BaseSystem {
 
     // Logica prioritaria basata su stato NPC (valida per tutti i tipi)
     if (isLowHealth) {
-      // NPC con poca salute fugge dal player
+      // NPC con poca salute fugge dal player (priorità massima, resetta timer)
       npc.setBehavior('flee');
+      this.npcBehaviorTimers.delete(entityId);
     } else if (isDamaged) {
-      // NPC danneggiato insegue il player per vendetta
+      // NPC danneggiato insegue il player per vendetta (priorità alta, resetta timer)
       npc.setBehavior('pursuit');
+      this.npcBehaviorTimers.delete(entityId);
     } else {
       // Comportamenti normali quando non è danneggiato né con poca salute
       if (npc.npcType === 'Scouter') {
@@ -113,6 +127,11 @@ export class NpcBehaviorSystem extends BaseSystem {
         const behaviors = ['cruise', 'aggressive'];
         const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         npc.setBehavior(randomBehavior);
+
+        // Se diventa aggressive, imposta timer di persistenza (5 secondi)
+        if (randomBehavior === 'aggressive') {
+          this.npcBehaviorTimers.set(entityId, 5000); // 5 secondi
+        }
       } else {
         // Altri NPC mantengono comportamenti semplici
         npc.setBehavior('cruise'); // Nuovo comportamento base
@@ -581,5 +600,12 @@ export class NpcBehaviorSystem extends BaseSystem {
       Math.cos(targetAngle) * state.currentSpeed,
       Math.sin(targetAngle) * state.currentSpeed
     );
+  }
+
+  /**
+   * Cleanup dei timer di comportamento persistente
+   */
+  public cleanupBehaviorTimers(): void {
+    this.npcBehaviorTimers.clear();
   }
 }
