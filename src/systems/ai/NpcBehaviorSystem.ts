@@ -211,7 +211,6 @@ export class NpcBehaviorSystem extends BaseSystem {
           y: dy / distance
         };
         this.fleeDirections.set(entityId, fleeDirection);
-        console.log(`[FLEE] NPC ${entityId} starting flee with FIXED direction: (${fleeDirection.x.toFixed(2)}, ${fleeDirection.y.toFixed(2)})`);
       } else {
         this.executeCruiseBehavior(transform, velocity, deltaTime);
         return;
@@ -226,8 +225,6 @@ export class NpcBehaviorSystem extends BaseSystem {
       fleeDirection.x * fleeSpeed,
       fleeDirection.y * fleeSpeed
     );
-
-    console.log(`[FLEE] NPC ${entityId} fleeing with FIXED direction: (${fleeDirection.x.toFixed(2)}, ${fleeDirection.y.toFixed(2)})`);
   }
 
   private isPlayerVisibleToNpc(npcEntityId: number): boolean {

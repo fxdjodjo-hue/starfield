@@ -162,10 +162,8 @@ export class RenderSystem extends BaseSystem {
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
         if (speed > 0.1) {
           const rotationAngle = Math.atan2(velocity.y, velocity.x) + Math.PI / 2;
-          console.log(`[FLEE RENDER] NPC fleeing with angle: ${(rotationAngle * 180 / Math.PI).toFixed(1)}°`);
           ctx.rotate(rotationAngle);
         } else {
-          console.log(`[FLEE RENDER] NPC fleeing but not moving`);
           ctx.rotate(0); // Default orientation
         }
       } else if (velocity) {

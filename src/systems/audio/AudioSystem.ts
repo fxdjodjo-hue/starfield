@@ -101,7 +101,6 @@ export default class AudioSystem extends System {
       const playAudio = async (retryCount = 0) => {
         try {
           await audio.play();
-          console.log(`Audio system: Playing '${key}' successfully`);
         } catch (error) {
           if (retryCount < 2) {
             console.warn(`Audio system: Failed to play '${key}' (attempt ${retryCount + 1}), retrying...`);
