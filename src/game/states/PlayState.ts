@@ -450,23 +450,35 @@ export class PlayState extends GameState {
       const element = document.createElement('div');
       element.id = `remote-player-nickname-${clientId}`;
       element.style.cssText = `
-        position: absolute;
-        font-family: 'Courier New', monospace;
-        font-size: 12px;
-        font-weight: bold;
-        color: #00ff88;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
-        text-align: center;
+        position: fixed;
+        color: rgba(255, 255, 255, 0.9);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-weight: 500;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
         pointer-events: none;
-        z-index: 1000;
-        white-space: pre-line;
+        user-select: none;
+        z-index: 50;
+        text-align: center;
+        line-height: 1.4;
+        white-space: nowrap;
+        border-radius: 5px;
       `;
 
-      // Formatta come due righe: nickname sopra, [rank] sotto
-      element.textContent = `${nickname}\n[${rank}]`;
+      // Usa la stessa struttura HTML del player locale
+      element.innerHTML = `
+        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
+        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
+      `;
 
       document.body.appendChild(element);
       this.remotePlayerNicknameElements.set(clientId, element);
+    } else {
+      // Aggiorna contenuto se già esiste
+      const element = this.remotePlayerNicknameElements.get(clientId)!;
+      element.innerHTML = `
+        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
+        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
+      `;
     }
   }
 
@@ -476,11 +488,17 @@ export class PlayState extends GameState {
   private updateRemotePlayerNicknamePosition(clientId: string, screenX: number, screenY: number): void {
     const element = this.remotePlayerNicknameElements.get(clientId);
     if (element) {
+      // Forza la visibilità e ricalcola dimensioni
+      element.style.display = 'block';
+
+      // Posiziona il nickname centrato orizzontalmente sotto la nave (stesso del player locale)
       const nicknameX = screenX - element.offsetWidth / 2;
-      const nicknameY = screenY + 55; // Sotto la nave, come gli NPC
+      const nicknameY = screenY + 45; // Sotto la nave (stesso del player locale)
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;
+      element.style.transform = 'none';
+      element.style.display = 'block';
     }
   }
 
