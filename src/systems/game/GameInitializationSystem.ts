@@ -62,6 +62,7 @@ export class GameInitializationSystem extends System {
   private economySystem: any;
   private playerSystem!: PlayerSystem;
   private audioSystem!: AudioSystem;
+  private playerStatusDisplaySystem!: PlayerStatusDisplaySystem;
   private systemsCache: any = null;
 
   constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
@@ -120,7 +121,7 @@ export class GameInitializationSystem extends System {
     const boundsSystem = new BoundsSystem(this.ecs, this.movementSystem);
     const respawnSystem = new NpcRespawnSystem(this.ecs, this.context);
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
-    const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
+    this.playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
     this.playerSystem = new PlayerSystem(this.ecs);
     const renderSystem = new RenderSystem(this.ecs, this.movementSystem, this.playerSystem);
     const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context, this.playerSystem);
@@ -259,7 +260,11 @@ export class GameInitializationSystem extends System {
         // Controlla se il click è nel pannello glass della minimappa (anche nei bordi)
         const inMinimapGlassPanel = minimapSystem.isClickInGlassPanel(x, y);
 
-        if (!minimapHandled && !inMinimapGlassPanel) {
+        // Controlla se il click è nell'HUD del player status
+        const inPlayerStatusHUD = this.playerStatusDisplaySystem.isClickInHUD(x, y);
+        console.log(`GameInit: PlayerStatusHUD click: ${inPlayerStatusHUD}, coords: (${x}, ${y})`);
+
+        if (!minimapHandled && !inMinimapGlassPanel && !inPlayerStatusHUD) {
           minimapSystem.clearDestination();
           const canvasSize = this.world.getCanvasSize();
           const worldPos = this.movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);

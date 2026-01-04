@@ -190,6 +190,17 @@ export class PlayerStatusDisplaySystem extends System {
   }
 
   /**
+   * Verifica se un click è dentro l'area dell'HUD del player status
+   */
+  isClickInHUD(screenX: number, screenY: number): boolean {
+    if (!this.statusElement || !this.statusElement.parentElement) return false;
+
+    const rect = this.statusElement.getBoundingClientRect();
+    return screenX >= rect.left && screenX <= rect.right &&
+           screenY >= rect.top && screenY <= rect.bottom;
+  }
+
+  /**
    * Rimuove il display quando il sistema viene distrutto
    */
   destroy(): void {
