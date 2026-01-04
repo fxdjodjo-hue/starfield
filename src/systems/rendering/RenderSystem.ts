@@ -227,9 +227,9 @@ export class RenderSystem extends BaseSystem {
     const camera = this.movementSystem?.getCamera();
     if (camera) {
       const nicknameScreenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
-      this.renderNpcNickname(ctx, npc, nicknameScreenPos.x, nicknameScreenPos.y + 45);
+      this.renderNpcNickname(ctx, npc, nicknameScreenPos.x, nicknameScreenPos.y + 55);
     } else {
-      this.renderNpcNickname(ctx, npc, screenX, screenY + 45);
+      this.renderNpcNickname(ctx, npc, screenX, screenY + 55);
     }
   }
 
