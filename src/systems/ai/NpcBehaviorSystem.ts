@@ -17,8 +17,6 @@ interface NpcState {
   targetSpeed: number; // Velocità target
   acceleration: number; // Accelerazione per transizioni fluide
   patrolAngle: number; // Angolo per comportamento patrol
-  circleCenterX: number; // Centro del movimento circolare
-  circleCenterY: number;
   lastUpdateTime: number; // Per timing delle transizioni
 }
 
@@ -108,18 +106,16 @@ export class NpcBehaviorSystem extends BaseSystem {
     } else {
       // Comportamenti normali quando non è danneggiato né con poca salute
       if (npc.npcType === 'Scouter') {
-        // Scouter hanno comportamenti complessi
-        const behaviors = ['cruise', 'patrol'];
-        const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
-        npc.setBehavior(randomBehavior);
+        // Scouter hanno comportamento semplice - cruise diventa patrol
+        npc.setBehavior('cruise');
       } else if (npc.npcType === 'Frigate') {
-        // Frigate sono aggressive - possono andare in pursuit anche senza essere danneggiate
-        const behaviors = ['patrol', 'pursuit', 'circle'];
+        // Frigate sono aggressive - solo pursuit attivo
+        const behaviors = ['cruise', 'pursuit'];
         const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         npc.setBehavior(randomBehavior);
       } else {
         // Altri NPC mantengono comportamenti semplici
-        npc.setBehavior('patrol'); // Comportamento base
+        npc.setBehavior('cruise'); // Nuovo comportamento base
       }
     }
 
@@ -209,15 +205,8 @@ export class NpcBehaviorSystem extends BaseSystem {
       }
     }
 
-    // Logica normale dei comportamenti complessi (solo Scouter)
+    // Logica normale dei comportamenti (cruise è ora il patrol unificato)
     switch (npc.behavior) {
-      case 'patrol':
-        this.executePatrolBehavior(transform, velocity, deltaTime, state);
-        break;
-      case 'circle':
-        // Circle attivato solo quando NPC attacca il player
-        this.executeSmoothCircleBehavior(transform, velocity, deltaTime, state);
-        break;
       case 'cruise':
         this.executeCruiseBehavior(transform, velocity, deltaTime, state);
         break;
@@ -237,25 +226,7 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   /**
-   * Comportamento patrol - mantiene una direzione più a lungo per movimenti fluidi
-   */
-  private executePatrolBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
-    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il patrol
-    velocity.setAngularVelocity(0);
-
-    // Aggiorna occasionalmente la direzione (ogni 15-25 secondi circa)
-    if (Math.random() < 0.0005) { // ~0.05% probabilità per frame (molto più rara)
-      state.patrolAngle = Math.random() * Math.PI * 2;
-      state.targetSpeed = 50; // Velocità fissa
-    }
-
-    this.updateSmoothVelocity(velocity, state.targetSpeed, state.patrolAngle, deltaTime, state);
-  }
-
-
-
-  /**
-   * Comportamento cruise - mantiene direzione fissa per tratte molto lunghe
+   * Comportamento cruise/patrol - movimento lineare continuo (ora comportamento base di patrol)
    */
   private executeCruiseBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
     // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il cruise
@@ -268,37 +239,6 @@ export class NpcBehaviorSystem extends BaseSystem {
     }
 
     this.updateSmoothVelocity(velocity, state.targetSpeed, state.targetAngle, deltaTime, state);
-  }
-
-  /**
-   * Comportamento circle fluido - movimento circolare relativo alla posizione iniziale
-   */
-  private executeSmoothCircleBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
-    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il movimento circolare
-    velocity.setAngularVelocity(0);
-
-    // Inizializza il centro del cerchio alla prima esecuzione
-    if (state.circleCenterX === 0 && state.circleCenterY === 0) {
-      state.circleCenterX = transform.x + (Math.random() - 0.5) * 200; // Centro casuale vicino all'NPC
-      state.circleCenterY = transform.y + (Math.random() - 0.5) * 200;
-    }
-
-    const radius = 100; // Raggio fisso
-    const speed = 50; // Velocità fissa
-
-    const dx = transform.x - state.circleCenterX;
-    const dy = transform.y - state.circleCenterY;
-
-    // Direzione tangente (perpendicolare al raggio)
-    const tangentX = -dy;
-    const tangentY = dx;
-
-    // Normalizza e applica velocità
-    const length = Math.sqrt(tangentX * tangentX + tangentY * tangentY);
-    if (length > 0) {
-      const targetAngle = Math.atan2(tangentY, tangentX);
-      this.updateSmoothVelocity(velocity, speed, targetAngle, deltaTime, state);
-    }
   }
 
   /**
@@ -463,8 +403,6 @@ export class NpcBehaviorSystem extends BaseSystem {
         targetSpeed: 50, // Velocità fissa di 50 pixels/second
         acceleration: 50, // pixels/second²
         patrolAngle: Math.random() * Math.PI * 2,
-        circleCenterX: 0,
-        circleCenterY: 0,
         lastUpdateTime: Date.now()
       });
     }
