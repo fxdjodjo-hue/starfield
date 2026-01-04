@@ -324,13 +324,13 @@ export class NpcBehaviorSystem extends BaseSystem {
       const playerIsMoving = playerVelocity &&
         (Math.abs(playerVelocity.x) > 10 || Math.abs(playerVelocity.y) > 10);
 
-        // Ottieni la velocità dalla configurazione dell'NPC
+        // Usa sempre la velocità base dalla configurazione dell'NPC
         const currentNpc = this.ecs.getComponent(this.ecs.getEntity(entityId!), Npc);
         const npcConfig = getNpcDefinition(currentNpc?.npcType || 'Frigate');
-        const baseSpeed = npcConfig?.stats.speed || 150; // Default 150 se non trovato
+        const baseSpeed = npcConfig?.stats.speed || 150; // Velocità base dal config
 
-        // Logica di distanza intelligente per comportamento aggressivo
-        let targetSpeed = Math.min(baseSpeed * 0.8, 100); // 80% della velocità base, max 100
+        // Logica di movimento semplificata - usa sempre la velocità base
+        let targetSpeed = baseSpeed; // Sempre la velocità base dell'NPC
         let movementDirectionX = directionX;
         let movementDirectionY = directionY;
 
@@ -340,23 +340,20 @@ export class NpcBehaviorSystem extends BaseSystem {
           const safeDistance = 250; // Distanza massima sicura
 
           if (distance < optimalDistance - 20) {
-            // Troppo vicino - allontanati alla velocità dell'NPC
+            // Troppo vicino - allontanati
             movementDirectionX = -directionX;
             movementDirectionY = -directionY;
-            targetSpeed = baseSpeed * 0.4; // 40% della velocità per allontanamento controllato
           } else if (distance > safeDistance) {
-            // Troppo lontano dal limite sicuro - avvicinati leggermente
-            targetSpeed = baseSpeed * 0.3; // 30% della velocità per avvicinamento moderato
+            // Troppo lontano - avvicinati
           } else if (distance > optimalDistance + 20) {
-            // Nella zona "grigia" (200-250px) - allontanati leggermente per sicurezza
+            // Zona grigia - allontanati per sicurezza
             movementDirectionX = -directionX;
             movementDirectionY = -directionY;
-            targetSpeed = baseSpeed * 0.2; // 20% della velocità per allontanamento lento
           } else {
-            // Distanza ideale (160-200px) - mantieni posizione
+            // Distanza ideale - stai fermo
             movementDirectionX = 0;
             movementDirectionY = 0;
-            targetSpeed = 0; // Fermo alla distanza ideale
+            targetSpeed = 0;
           }
         }
 
