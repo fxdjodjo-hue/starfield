@@ -420,6 +420,11 @@ export class CombatSystem extends BaseSystem {
    */
   private async createExplosion(entity: any): Promise<void> {
     try {
+      // Riproduci suono esplosione
+      if (this.audioSystem) {
+        this.audioSystem.playSound('explosion', 0.6, false, true); // Volume più alto per impatto drammatico
+      }
+
       // Carica i frame dell'esplosione se non già caricati
       if (!this.explosionFrames) {
         this.explosionFrames = await this.loadExplosionFrames();

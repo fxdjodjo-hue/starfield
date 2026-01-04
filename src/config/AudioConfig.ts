@@ -19,7 +19,7 @@ export const AUDIO_ASSETS = {
   // Effetti sonori
   effects: {
     laser: 'effects/laser/laser_red.wav',
-    explosion: 'effects/explosion.wav',
+    explosion: 'effects/explosions/explosion.mp3',
     hit: 'effects/hit.wav',
     shieldHit: 'effects/shield_hit.wav',
     collect: 'effects/collect.wav',
