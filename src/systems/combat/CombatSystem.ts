@@ -128,7 +128,7 @@ export class CombatSystem extends BaseSystem {
     } else {
       // Riproduci suono laser degli scouter
       if (this.audioSystem) {
-        this.audioSystem.playSound('scouterLaser', 0.35, false, true); // Suono leggermente più basso per NPC
+        this.audioSystem.playSound('scouterLaser', 0.25, false, true); // Volume leggermente ridotto
       }
 
       // NPC: crea singolo proiettile come prima
