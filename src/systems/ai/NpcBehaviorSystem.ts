@@ -102,24 +102,13 @@ export class NpcBehaviorSystem extends BaseSystem {
     const isLowHealth = this.isNpcLowHealth(entityId); // Priorità massima
     const isDamaged = this.isNpcUnderAttack(entityId);  // Priorità media
 
-    // Ottieni i transform per la rotazione immediata
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
-    const npcTransform = this.ecs.getComponent(this.ecs.getEntity(entityId), Transform);
-
     // Logica prioritaria basata su stato NPC (valida per tutti i tipi)
     if (isLowHealth) {
       // NPC con poca salute fugge dal player (priorità massima)
       npc.setBehavior('flee');
     } else if (isDamaged) {
       // NPC danneggiato diventa aggressivo per vendetta (priorità alta)
-      const wasNotAggressive = npc.behavior !== 'aggressive';
       npc.setBehavior('aggressive');
-
-      // Se l'NPC è appena diventato aggressivo a causa del danno, ruotalo immediatamente verso il player
-      if (wasNotAggressive && playerTransform && npcTransform) {
-        this.faceTargetImmediately(npcTransform, playerTransform);
-      }
     } else {
       // Comportamenti normali quando non è danneggiato né con poca salute
       if (npc.npcType === 'Scouter') {
@@ -292,18 +281,6 @@ export class NpcBehaviorSystem extends BaseSystem {
     return distance <= 800;
   }
 
-  /**
-   * Ruota immediatamente l'NPC verso il target (usato quando diventa aggressivo)
-   */
-  private faceTargetImmediately(attackerTransform: Transform, targetTransform: Transform): void {
-    const dx = targetTransform.x - attackerTransform.x;
-    const dy = targetTransform.y - attackerTransform.y;
-
-    // Calcola l'angolo e ruota la nave
-    const angle = Math.atan2(dy, dx) + Math.PI / 2;
-    attackerTransform.rotation = angle;
-  }
-
   private executeAggressiveBehavior(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
     // Comportamento aggressivo: insegue e attacca il player con logica di distanza intelligente
     velocity.setAngularVelocity(0);
@@ -359,10 +336,14 @@ export class NpcBehaviorSystem extends BaseSystem {
           movementDirectionX = -directionX;
           movementDirectionY = -directionY;
         } else {
-          // Distanza perfetta per attaccare - stai fermo
+          // Distanza perfetta per attaccare - stai fermo ma mantieni la rotazione verso il player
           movementDirectionX = 0;
           movementDirectionY = 0;
           targetSpeed = 0;
+
+          // Aggiorna la rotazione anche quando sei fermo (per mantenere l'orientamento verso il player)
+          const angle = Math.atan2(directionY, directionX) + Math.PI / 2;
+          transform.rotation = angle;
         }
 
       // Per NPC senza state, usa movimento semplice
