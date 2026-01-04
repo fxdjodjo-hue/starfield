@@ -17,5 +17,8 @@
     "typescript": "~5.9.3",
     "vite": "^7.2.4",
     "vitest": "^4.0.16"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0"
   }
 }
