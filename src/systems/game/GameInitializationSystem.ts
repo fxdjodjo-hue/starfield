@@ -513,7 +513,7 @@ export class GameInitializationSystem extends System {
       this.ecs.addComponent(frigate, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
 
       if (sprite) {
-        const frigateSprite = new Sprite(sprite, sprite.width * 0.18, sprite.height * 0.18); // Frigate leggermente più grandi degli Scouter
+        const frigateSprite = new Sprite(sprite, sprite.width * 0.16, sprite.height * 0.16); // Frigate leggermente più grandi degli Scouter
         this.ecs.addComponent(frigate, Sprite, frigateSprite);
       }
     }
