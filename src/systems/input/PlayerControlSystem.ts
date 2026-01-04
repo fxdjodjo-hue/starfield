@@ -74,7 +74,7 @@ export class PlayerControlSystem extends BaseSystem {
       this.audioSystem.playSound('engine', 0, true);
 
       // Fade in graduale
-      this.audioSystem.fadeInSound('engine', 800, 0.15);
+      this.audioSystem.fadeInSound('engine', 800, 0.08);
     } catch (error) {
       console.warn('PlayerControlSystem: Error starting engine sound:', error);
       this.isEnginePlaying = false;
