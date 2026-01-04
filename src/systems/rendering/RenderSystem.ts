@@ -317,7 +317,8 @@ export class RenderSystem extends BaseSystem {
 
         if (projectileImage && projectileImage.complete && projectileImage.width > 0) {
           // Usa l'immagine del proiettile specifica per il tipo di NPC
-          const imageSize = 36; // Dimensione del proiettile (ingrandito)
+          // I proiettili delle frigate sono leggermente più piccoli
+          const imageSize = projectileImage === this.frigateProjectileImage ? 28 : 36;
           ctx.drawImage(
             projectileImage,
             screenPos.x - imageSize / 2,
