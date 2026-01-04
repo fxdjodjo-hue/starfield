@@ -221,15 +221,14 @@ export class PlayState extends GameState {
       return;
     }
 
-    // Ottieni l'immagine della nave dal player locale
-    let shipImage: HTMLImageElement | null = null;
+    // Ottieni sprite info dal player locale
     const playerSprite = this.world.getECS().getComponent(this.playerEntity, Sprite);
-    if (playerSprite && playerSprite.image) {
-      shipImage = playerSprite.image;
-    }
+    const shipImage = playerSprite?.image || null;
+    const shipWidth = playerSprite?.width || 32;
+    const shipHeight = playerSprite?.height || 32;
 
     // Inizializza il sistema per i giocatori remoti
-    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage);
+    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, shipWidth, shipHeight);
     this.world.getECS().addSystem(this.remotePlayerSystem);
 
     // Inizializza il sistema di rete multiplayer

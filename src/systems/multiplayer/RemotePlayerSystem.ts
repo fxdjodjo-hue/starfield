@@ -13,10 +13,14 @@ export class RemotePlayerSystem extends BaseSystem {
   // Mappa clientId -> entityId per tracciare i giocatori remoti
   private remotePlayers: Map<string, number> = new Map();
   private shipImage: HTMLImageElement | null = null;
+  private shipWidth: number = 32;
+  private shipHeight: number = 32;
 
-  constructor(ecs: ECS, shipImage?: HTMLImageElement | null) {
+  constructor(ecs: ECS, shipImage?: HTMLImageElement | null, shipWidth?: number, shipHeight?: number) {
     super(ecs);
     this.shipImage = shipImage || null;
+    this.shipWidth = shipWidth || 32;
+    this.shipHeight = shipHeight || 32;
   }
 
   update(_deltaTime: number): void {
@@ -47,7 +51,7 @@ export class RemotePlayerSystem extends BaseSystem {
     this.ecs.addComponent(entity, Health, health);
 
     // Aggiungi sprite per il giocatore remoto (stesso del player locale)
-    const sprite = new Sprite(this.shipImage, 32, 32);
+    const sprite = new Sprite(this.shipImage, this.shipWidth, this.shipHeight);
     this.ecs.addComponent(entity, Sprite, sprite);
 
     // Registra il giocatore remoto
