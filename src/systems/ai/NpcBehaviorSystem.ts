@@ -116,19 +116,10 @@ export class NpcBehaviorSystem extends BaseSystem {
         npc.setBehavior('cruise');
       } else if (npc.npcType === 'Frigate') {
         // Frigate diventano aggressive quando il player è visibile
-        const isVisible = this.isPlayerVisibleToNpc(entityId);
-        if (isVisible) {
-          // Debug: solo se non è già aggressive per evitare cambi frequenti
-          if (npc.behavior !== 'aggressive') {
-            console.log(`Frigate ${entityId} becomes aggressive`);
-            npc.setBehavior('aggressive');
-          }
+        if (this.isPlayerVisibleToNpc(entityId)) {
+          npc.setBehavior('aggressive');
         } else {
-          // Debug: solo se non è già in cruise
-          if (npc.behavior !== 'cruise') {
-            console.log(`Frigate ${entityId} returns to cruise`);
-            npc.setBehavior('cruise');
-          }
+          npc.setBehavior('cruise');
         }
       } else {
         // Altri NPC mantengono comportamenti semplici
@@ -335,18 +326,19 @@ export class NpcBehaviorSystem extends BaseSystem {
         let movementDirectionY = directionY;
 
         if (!playerIsMoving) {
-          // Player fermo - mantieni distanza di sicurezza
+          // Player fermo - mantieni distanza di sicurezza con isteresi per evitare oscillazioni
           const optimalDistance = 180; // Distanza ideale dalla nave del player
-          const safeDistance = 250; // Distanza massima sicura
+          const safeDistanceMin = 220; // Soglia minima per allontanamento (isteresi)
+          const safeDistanceMax = 230; // Soglia massima per avvicinamento (isteresi)
 
           if (distance < optimalDistance - 20) {
             // Troppo vicino - allontanati
             movementDirectionX = -directionX;
             movementDirectionY = -directionY;
-          } else if (distance > safeDistance) {
-            // Troppo lontano - avvicinati
-          } else if (distance > optimalDistance + 20) {
-            // Zona grigia - allontanati per sicurezza
+          } else if (distance > safeDistanceMax) {
+            // Molto lontano - avvicinati
+          } else if (distance > safeDistanceMin) {
+            // Zona di sicurezza - allontanati
             movementDirectionX = -directionX;
             movementDirectionY = -directionY;
           } else {
