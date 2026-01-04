@@ -433,7 +433,7 @@ export class RenderSystem extends BaseSystem {
     ctx.save();
 
     // Stile uniforme al player ma con colori distintivi per tipo NPC
-    ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+    ctx.font = '500 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
