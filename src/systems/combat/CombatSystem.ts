@@ -77,12 +77,9 @@ export class CombatSystem extends BaseSystem {
     if (!attackerTransform || !attackerDamage) return;
 
     // Verifica se l'NPC è stato danneggiato recentemente (solo NPC danneggiati attaccano)
-    // ECCEZIONE: NPC in modalità aggressive o Frigate in pursuit attaccano anche senza essere stati danneggiati
+    // ECCEZIONE: NPC in modalità aggressive attaccano anche senza essere stati danneggiati
     const npc = this.ecs.getComponent(attackerEntity, Npc);
-    const canAttackAggressively = npc && (
-      npc.behavior === 'aggressive' ||
-      (npc.npcType === 'Frigate' && npc.behavior === 'pursuit')
-    );
+    const canAttackAggressively = npc && npc.behavior === 'aggressive';
 
     const damageTaken = this.ecs.getComponent(attackerEntity, DamageTaken);
     if (!canAttackAggressively && (!damageTaken || !damageTaken.wasDamagedRecently(Date.now(), 10000))) {
