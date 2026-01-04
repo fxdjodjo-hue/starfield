@@ -107,8 +107,8 @@ export class NpcBehaviorSystem extends BaseSystem {
       // NPC con poca salute fugge dal player (priorità massima)
       npc.setBehavior('flee');
     } else if (isDamaged) {
-      // NPC danneggiato insegue il player per vendetta (priorità alta)
-      npc.setBehavior('pursuit');
+      // NPC danneggiato diventa aggressivo per vendetta (priorità alta)
+      npc.setBehavior('aggressive');
     } else {
       // Comportamenti normali quando non è danneggiato né con poca salute
       if (npc.npcType === 'Scouter') {
