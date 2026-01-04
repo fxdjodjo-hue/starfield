@@ -117,7 +117,12 @@ export class CombatSystem extends BaseSystem {
     const isPlayer = attackerEntity === this.playerSystem.getPlayerEntity();
 
     if (isPlayer) {
-      // Player: crea due laser laterali con suoni sincronizzati
+      // Riproduci suono laser una volta per lo sparo
+      if (this.audioSystem) {
+        this.audioSystem.playSound('laser', 0.4);
+      }
+
+      // Player: crea due laser laterali
       this.createDualLasers(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     } else {
       // NPC: crea singolo proiettile come prima
@@ -148,20 +153,7 @@ export class CombatSystem extends BaseSystem {
     const fullDamage = attackerDamage.damage; // 500 danni
     const visualOnlyDamage = 0; // Solo effetto visivo
 
-    // Riproduci suono per il primo laser (con danno)
-    if (this.audioSystem) {
-      this.audioSystem.playSound('laser', 0.4, false, true); // allowMultiple=true per suoni ravvicinati
-    }
     this.createProjectileAt(attackerEntity, attackerTransform, fullDamage, leftDirectionX, leftDirectionY, targetEntity);
-
-    // Piccolo delay prima del secondo suono laser per effetto più realistico
-    setTimeout(() => {
-      // Riproduci suono per il secondo laser (visivo)
-      if (this.audioSystem) {
-        this.audioSystem.playSound('laser', 0.35, false, true); // allowMultiple=true per suoni ravvicinati
-      }
-    }, 50); // 50ms di delay
-
     this.createProjectileAt(attackerEntity, attackerTransform, visualOnlyDamage, rightDirectionX, rightDirectionY, targetEntity);
 
     // Registra l'attacco per il cooldown
