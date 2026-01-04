@@ -109,8 +109,8 @@ export class NpcBehaviorSystem extends BaseSystem {
         // Scouter hanno comportamento semplice - cruise diventa patrol
         npc.setBehavior('cruise');
       } else if (npc.npcType === 'Frigate') {
-        // Frigate sono aggressive - solo pursuit attivo
-        const behaviors = ['cruise', 'pursuit'];
+        // Frigate sono molto aggressive - seguono e attaccano attivamente il player
+        const behaviors = ['cruise', 'pursuit', 'aggressive'];
         const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         npc.setBehavior(randomBehavior);
       } else {
@@ -187,6 +187,11 @@ export class NpcBehaviorSystem extends BaseSystem {
       return;
     }
 
+    if (npc.behavior === 'aggressive') {
+      this.executeAggressiveBehavior(transform, velocity, deltaTime, entityId);
+      return;
+    }
+
     if (npc.behavior === 'flee') {
       this.executeFleeBehavior(transform, velocity, deltaTime, entityId);
       return;
@@ -239,6 +244,49 @@ export class NpcBehaviorSystem extends BaseSystem {
     }
 
     this.updateSmoothVelocity(velocity, state.targetSpeed, state.targetAngle, deltaTime, state);
+  }
+
+  /**
+   * Comportamento aggressive - l'NPC insegue attivamente e attacca il player
+   */
+  private executeAggressiveBehavior(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
+    // Comportamento pursuit ma con velocità ancora più alta per essere più aggressivo
+    velocity.setAngularVelocity(0);
+
+    // Trova il player
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
+      .filter(playerEntity => !this.ecs.hasComponent(playerEntity, Npc));
+
+    if (playerEntities.length === 0) {
+      this.executeIdleBehavior(velocity);
+      return;
+    }
+
+    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+    if (!playerTransform) {
+      this.executeIdleBehavior(velocity);
+      return;
+    }
+
+    // Calcola direzione e distanza dal player
+    const dx = playerTransform.x - transform.x;
+    const dy = playerTransform.y - transform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0) {
+      // Normalizza la direzione
+      const directionX = dx / distance;
+      const directionY = dy / distance;
+
+      // Velocità ancora più alta per comportamento aggressivo
+      const aggressiveSpeed = 100; // Più veloce del pursuit normale (80)
+
+      // Per NPC senza state, usa movimento semplice e diretto
+      velocity.setVelocity(
+        directionX * aggressiveSpeed,
+        directionY * aggressiveSpeed
+      );
+    }
   }
 
   /**
