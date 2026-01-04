@@ -46,6 +46,11 @@ export const AUDIO_ASSETS = {
     select: 'ui/select.wav',
     back: 'ui/back.wav',
     confirm: 'ui/confirm.wav'
+  },
+
+  // Voice
+  voice: {
+    warning: 'voice/warning/warning_voice.mp3'
   }
 };
 

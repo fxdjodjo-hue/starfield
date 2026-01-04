@@ -216,6 +216,11 @@ export class GameInitializationSystem extends System {
     if (combatSystem && typeof combatSystem.setAudioSystem === 'function') {
       combatSystem.setAudioSystem(this.audioSystem);
     }
+
+    // Collega AudioSystem al sistema bounds
+    if (boundsSystem && typeof boundsSystem.setAudioSystem === 'function') {
+      boundsSystem.setAudioSystem(this.audioSystem);
+    }
     economySystem.setRankSystem(rankSystem);
     rankSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
     rewardSystem.setEconomySystem(economySystem);

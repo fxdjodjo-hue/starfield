@@ -21,6 +21,12 @@ export class BoundsSystem extends BaseSystem {
   private readonly DAMAGE_INTERVAL = 1000; // 1 secondo
   private readonly DAMAGE_AMOUNT = 10;
 
+  // Sistema audio
+  private audioSystem: any = null;
+
+  // Stato warning
+  private warningPlayed = false;
+
   // Riferimenti ai sistemi
   private playerEntity: any = null;
   private movementSystem: MovementSystem;
@@ -37,6 +43,13 @@ export class BoundsSystem extends BaseSystem {
     this.playerEntity = playerEntity;
   }
 
+  /**
+   * Imposta il sistema audio per i suoni di warning
+   */
+  setAudioSystem(audioSystem: any): void {
+    this.audioSystem = audioSystem;
+  }
+
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
 
@@ -49,6 +62,14 @@ export class BoundsSystem extends BaseSystem {
     const isOutOfBounds = this.isOutOfBounds(transform.x, transform.y);
 
     if (isOutOfBounds) {
+      // Riproduci suono warning la prima volta che entra nei bounds
+      if (!this.warningPlayed) {
+        if (this.audioSystem) {
+          this.audioSystem.playSound('warning', 0.7, false, true); // Volume alto per warning importante
+        }
+        this.warningPlayed = true;
+      }
+
       // Accumula tempo quando fuori bounds
       this.damageTimer += deltaTime;
 
@@ -61,8 +82,9 @@ export class BoundsSystem extends BaseSystem {
         this.notifyCombatSystemOfDamage(this.playerEntity, this.DAMAGE_AMOUNT);
       }
     } else {
-      // Reset del timer quando torna dentro i bounds
+      // Reset del timer e del flag warning quando torna dentro i bounds
       this.damageTimer = 0;
+      this.warningPlayed = false;
     }
   }
 
