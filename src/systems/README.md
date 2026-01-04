@@ -14,6 +14,7 @@ Ogni sistema è:
 
 ### 🎯 Core Systems
 - **MovementSystem**: Gestione movimento entità e camera
+- **InterpolationSystem**: Interpolazione posizioni per movimenti fluidi (multiplayer)
 - **RenderSystem**: Rendering di tutte le entità e sfondi
 - **InputSystem**: Gestione input utente (tastiera/mouse)
 

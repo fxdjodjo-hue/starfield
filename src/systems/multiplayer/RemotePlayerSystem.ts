@@ -1,11 +1,11 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Sprite } from '../../entities/Sprite';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
-import { Velocity } from '../../entities/spatial/Velocity';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
@@ -71,9 +71,8 @@ export class RemotePlayerSystem extends BaseSystem {
     const transform = new Transform(position.x, position.y, rotation);
     this.ecs.addComponent(entity, Transform, transform);
 
-    // Aggiungi velocità (inizialmente ferma)
-    const velocity = new Velocity(0, 0, 0);
-    this.ecs.addComponent(entity, Velocity, velocity);
+    // Nota: Non aggiungiamo Velocity ai remote player per evitare conflitti
+    // con il MovementSystem durante l'interpolazione
 
     // Aggiungi salute per mostrare le barre
     const health = new Health(100, 100); // HP completo per giocatori remoti
@@ -111,10 +110,17 @@ export class RemotePlayerSystem extends BaseSystem {
     if (entity) {
       const transform = this.ecs.getComponent(entity, Transform);
       if (transform) {
-        transform.x = position.x;
-        transform.y = position.y;
-        transform.rotation = rotation;
+        // Rimuovi eventuali interpolazioni esistenti per evitare conflitti
+        this.ecs.removeComponent(entity, InterpolationTarget);
 
+        // Crea un nuovo target di interpolazione invece di impostare direttamente la posizione
+        const interpolationTarget = new InterpolationTarget(
+          position.x, position.y, rotation,  // Target
+          transform.x, transform.y, transform.rotation, // Start (posizione attuale)
+          100 // 100ms di interpolazione
+        );
+
+        this.ecs.addComponent(entity, InterpolationTarget, interpolationTarget);
       }
     }
   }

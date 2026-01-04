@@ -14,6 +14,7 @@ Gestisce tutto ciò che riguarda posizione, movimento e vista nel mondo di gioco
 - `Velocity` - Velocità lineare e angolare per movimento
 - `Camera` - Viewport management e coordinate schermo
 - `ParallaxLayer` - Sfondo spaziale con effetto profondità
+- `InterpolationTarget` - Target di interpolazione per movimenti fluidi (multiplayer)
 
 **Responsabilità:** Tutto ciò che si muove o ha una posizione fisica.
 
