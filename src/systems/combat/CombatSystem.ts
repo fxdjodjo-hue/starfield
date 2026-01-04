@@ -32,6 +32,7 @@ export class CombatSystem extends BaseSystem {
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
+  private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
 
   constructor(ecs: ECS, movementSystem: MovementSystem, gameContext: GameContext, playerSystem: PlayerSystem) {
     super(ecs);
@@ -408,9 +409,14 @@ export class CombatSystem extends BaseSystem {
       // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
       const isDead = health && health.isDead() && (!shield || !shield.isActive());
 
-      if (isDead && !this.ecs.hasComponent(entity, Explosion)) {
+      if (isDead && !this.ecs.hasComponent(entity, Explosion) && !this.explodingEntities.has(entity.id)) {
         // Crea l'effetto esplosione invece di rimuovere immediatamente
-        this.createExplosion(entity);
+        this.explodingEntities.add(entity.id);
+        this.createExplosion(entity).catch(error => {
+          console.error('Error creating explosion:', error);
+          // Rimuovi dall'insieme in caso di errore
+          this.explodingEntities.delete(entity.id);
+        });
       }
     }
   }
@@ -443,9 +449,15 @@ export class CombatSystem extends BaseSystem {
       const explosion = new Explosion(this.explosionFrames, 80); // 80ms per frame
       this.ecs.addComponent(entity, Explosion, explosion);
 
+      // Pulisci il Set dopo che l'esplosione è finita (10 frame * 80ms = 800ms + margine)
+      setTimeout(() => {
+        this.explodingEntities.delete(entity.id);
+      }, 1000);
+
     } catch (error) {
       console.error('Errore nel creare l\'esplosione:', error);
-      // Fallback: rimuovi l'entità se fallisce il caricamento
+      // Rimuovi dall'insieme e fallback: rimuovi l'entità se fallisce il caricamento
+      this.explodingEntities.delete(entity.id);
       this.ecs.removeEntity(entity);
     }
   }
