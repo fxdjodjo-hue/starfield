@@ -151,7 +151,7 @@ export class GameInitializationSystem extends System {
       questTrackingSystem,
       questSystem: this.questSystem,
       uiSystem: this.uiSystem,
-      playerStatusDisplaySystem,
+      playerStatusDisplaySystem: this.playerStatusDisplaySystem,
       playerSystem: this.playerSystem,
       audioSystem: this.audioSystem,
       assets: { shipImage, mapBackgroundImage, scouterImage }
@@ -262,7 +262,6 @@ export class GameInitializationSystem extends System {
 
         // Controlla se il click è nell'HUD del player status
         const inPlayerStatusHUD = this.playerStatusDisplaySystem.isClickInHUD(x, y);
-        console.log(`GameInit: PlayerStatusHUD click: ${inPlayerStatusHUD}, coords: (${x}, ${y})`);
 
         if (!minimapHandled && !inMinimapGlassPanel && !inPlayerStatusHUD) {
           minimapSystem.clearDestination();
