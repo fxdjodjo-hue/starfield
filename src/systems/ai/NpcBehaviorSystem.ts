@@ -332,17 +332,21 @@ export class NpcBehaviorSystem extends BaseSystem {
           // Troppo lontano - avvicinati
           targetSpeed = 80; // Avvicinamento aggressivo
         } else {
-          // Distanza ideale - movimento irregolare invece di orbita perfetta
-          const slowSpeed = 25;
+          // Distanza ideale - movimento irregolare a zig-zag per tattiche più realistiche
+          const baseSpeed = 35;
 
-          // Aggiungi variazione casuale alla direzione per movimento meno prevedibile
-          const angleVariation = (Math.random() - 0.5) * Math.PI * 0.3; // ±27 gradi
-          const currentAngle = Math.atan2(directionY, directionX);
-          const adjustedAngle = currentAngle + angleVariation;
+          // Aggiungi variazioni casuali per movimento irregolare
+          const angleVariation = (Math.random() - 0.5) * Math.PI * 0.8; // ±72 gradi di variazione
+          const baseAngle = Math.atan2(directionY, directionX);
+          const zigZagAngle = baseAngle + angleVariation;
 
-          movementDirectionX = Math.cos(adjustedAngle);
-          movementDirectionY = Math.sin(adjustedAngle);
-          targetSpeed = slowSpeed;
+          // Movimento irregolare invece di circolare perfetto
+          movementDirectionX = Math.cos(zigZagAngle + Math.PI / 2); // Perpendicolare con variazione
+          movementDirectionY = Math.sin(zigZagAngle + Math.PI / 2);
+
+          // Velocità variabile per movimento più irregolare
+          const speedVariation = (Math.random() - 0.5) * 15; // ±7.5 velocità
+          targetSpeed = baseSpeed + speedVariation;
         }
       }
 
