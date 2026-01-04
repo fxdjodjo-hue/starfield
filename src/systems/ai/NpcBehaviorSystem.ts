@@ -116,10 +116,19 @@ export class NpcBehaviorSystem extends BaseSystem {
         npc.setBehavior('cruise');
       } else if (npc.npcType === 'Frigate') {
         // Frigate diventano aggressive quando il player è visibile
-        if (this.isPlayerVisibleToNpc(entityId)) {
-          npc.setBehavior('aggressive');
+        const isVisible = this.isPlayerVisibleToNpc(entityId);
+        if (isVisible) {
+          // Debug: solo se non è già aggressive per evitare cambi frequenti
+          if (npc.behavior !== 'aggressive') {
+            console.log(`Frigate ${entityId} becomes aggressive`);
+            npc.setBehavior('aggressive');
+          }
         } else {
-          npc.setBehavior('cruise');
+          // Debug: solo se non è già in cruise
+          if (npc.behavior !== 'cruise') {
+            console.log(`Frigate ${entityId} returns to cruise`);
+            npc.setBehavior('cruise');
+          }
         }
       } else {
         // Altri NPC mantengono comportamenti semplici
