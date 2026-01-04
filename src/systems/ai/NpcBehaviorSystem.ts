@@ -101,10 +101,17 @@ export class NpcBehaviorSystem extends BaseSystem {
     const isLowHealth = this.isNpcLowHealth(entityId);
 
     if (isLowHealth) {
-      npc.setBehavior('flee');
+      if (npc.behavior !== 'flee') {
+        console.log(`[DEBUG] NPC ${entityId} (${npc.npcType}): Switching to FLEE (low health)`);
+        npc.setBehavior('flee');
+      }
     } else {
       // Comportamento base per tipo NPC
-      npc.setBehavior(npc.npcType === 'Frigate' ? 'aggressive' : 'cruise');
+      const targetBehavior = npc.npcType === 'Frigate' ? 'aggressive' : 'cruise';
+      if (npc.behavior !== targetBehavior) {
+        console.log(`[DEBUG] NPC ${entityId} (${npc.npcType}): Switching to ${targetBehavior.toUpperCase()}`);
+        npc.setBehavior(targetBehavior);
+      }
     }
 
     // Assicurati che lo stato sia inizializzato per tutti gli NPC che ne hanno bisogno
@@ -256,6 +263,7 @@ export class NpcBehaviorSystem extends BaseSystem {
 
   private executeAggressiveBehavior(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
     // Comportamento aggressivo: insegue e attacca il player con logica di distanza intelligente
+    console.log(`[DEBUG] executeAggressiveBehavior: NPC ${entityId} executing aggressive behavior`);
     velocity.setAngularVelocity(0);
 
     // Trova il player

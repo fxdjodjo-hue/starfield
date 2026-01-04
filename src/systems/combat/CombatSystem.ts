@@ -89,6 +89,7 @@ export class CombatSystem extends BaseSystem {
 
     // NPC che attaccano devono sempre puntare verso il player
     if (canAttackAggressively || (damageTaken && damageTaken.wasDamagedRecently(Date.now(), 10000))) {
+      console.log(`[DEBUG] CombatSystem: NPC ${attackerEntity.id} preparing to attack (aggressive: ${canAttackAggressively})`);
       this.facePlayer(attackerTransform, attackerEntity);
     }
 

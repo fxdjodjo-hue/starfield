@@ -157,14 +157,24 @@ export class RenderSystem extends BaseSystem {
       // NPC aggressive mantengono la rotazione impostata dal CombatSystem (puntano al player)
       if (npc.behavior === 'aggressive') {
         ctx.rotate(transform.rotation); // Usa rotazione impostata dal sistema di combattimento
-      } else if (velocity) {
-        // NPC normali ruotano basato sulla direzione di movimento
+      } else if (npc.behavior === 'flee') {
+        // NPC in fuga ruotano SEMPRE basato sulla direzione di movimento (FORZATO)
         const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-        if (speed > 0.1) { // Se si sta muovendo (velocità minima per evitare divisioni per zero)
-          const rotationAngle = Math.atan2(velocity.y, velocity.x) + Math.PI / 2; // +90° per orientare correttamente lo sprite
+        if (speed > 0.1) {
+          const rotationAngle = Math.atan2(velocity.y, velocity.x) + Math.PI / 2;
+          console.log(`[FLEE RENDER] NPC fleeing with angle: ${(rotationAngle * 180 / Math.PI).toFixed(1)}°`);
           ctx.rotate(rotationAngle);
         } else {
-          // Se fermo, usa la rotazione standard
+          console.log(`[FLEE RENDER] NPC fleeing but not moving`);
+          ctx.rotate(0); // Default orientation
+        }
+      } else if (velocity) {
+        // NPC normali (cruise) ruotano basato sulla direzione di movimento
+        const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+        if (speed > 0.1) {
+          const rotationAngle = Math.atan2(velocity.y, velocity.x) + Math.PI / 2;
+          ctx.rotate(rotationAngle);
+        } else {
           ctx.rotate(transform.rotation);
         }
       } else {
