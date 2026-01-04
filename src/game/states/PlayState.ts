@@ -152,6 +152,8 @@ export class PlayState extends GameState {
     // Rimuovi elementi DOM dei nickname NPC
     this.cleanupNpcNicknames();
 
+    // Rimuovi eventuali riferimenti ai timer di comportamento (ora non usati)
+
     this.uiSystem.showMainTitle();
     // Qui potremmo salvare lo stato di gioco, cleanup, etc.
   }

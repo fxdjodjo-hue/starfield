@@ -32,9 +32,6 @@ export class NpcBehaviorSystem extends BaseSystem {
   // Stato per movimenti fluidi
   private npcStates: Map<number, NpcState> = new Map();
 
-  // Tracking per comportamenti persistenti (NPC aggressive restano aggressive più a lungo)
-  private npcBehaviorTimers: Map<number, number> = new Map();
-
   constructor(ecs: ECS) {
     super(ecs);
   }
@@ -68,13 +65,9 @@ export class NpcBehaviorSystem extends BaseSystem {
     for (const entity of npcs) {
       const npc = this.ecs.getComponent(entity, Npc);
       if (npc) {
-        // Controlla se l'NPC ha un timer di comportamento persistente
-        const behaviorTimer = this.npcBehaviorTimers.get(entity.id) || 0;
-
-        // Gli NPC aggressive mantengono il comportamento per 5 secondi invece di 1
-        if (npc.behavior === 'aggressive' && behaviorTimer > 0) {
-          this.npcBehaviorTimers.set(entity.id, behaviorTimer - 1000);
-          continue; // Salta l'update del comportamento, mantieni aggressive
+        // NPC aggressive mantengono il comportamento finché il player è visibile
+        if (npc.behavior === 'aggressive' && this.isPlayerVisibleToNpc(entity.id)) {
+          continue; // Mantieni comportamento aggressive
         }
 
         this.updateNpcBehavior(npc, entity.id);
@@ -110,27 +103,22 @@ export class NpcBehaviorSystem extends BaseSystem {
 
     // Logica prioritaria basata su stato NPC (valida per tutti i tipi)
     if (isLowHealth) {
-      // NPC con poca salute fugge dal player (priorità massima, resetta timer)
+      // NPC con poca salute fugge dal player (priorità massima)
       npc.setBehavior('flee');
-      this.npcBehaviorTimers.delete(entityId);
     } else if (isDamaged) {
-      // NPC danneggiato insegue il player per vendetta (priorità alta, resetta timer)
+      // NPC danneggiato insegue il player per vendetta (priorità alta)
       npc.setBehavior('pursuit');
-      this.npcBehaviorTimers.delete(entityId);
     } else {
       // Comportamenti normali quando non è danneggiato né con poca salute
       if (npc.npcType === 'Scouter') {
         // Scouter hanno comportamento semplice - cruise diventa patrol
         npc.setBehavior('cruise');
       } else if (npc.npcType === 'Frigate') {
-        // Frigate sono aggressive - attaccano attivamente il player
-        const behaviors = ['cruise', 'aggressive'];
-        const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
-        npc.setBehavior(randomBehavior);
-
-        // Se diventa aggressive, imposta timer di persistenza (20 secondi)
-        if (randomBehavior === 'aggressive') {
-          this.npcBehaviorTimers.set(entityId, 20000); // 20 secondi
+        // Frigate diventano aggressive quando il player è visibile
+        if (this.isPlayerVisibleToNpc(entityId)) {
+          npc.setBehavior('aggressive');
+        } else {
+          npc.setBehavior('cruise');
         }
       } else {
         // Altri NPC mantengono comportamenti semplici
@@ -263,6 +251,36 @@ export class NpcBehaviorSystem extends BaseSystem {
   /**
    * Comportamento aggressive - l'NPC insegue attivamente e attacca il player
    */
+  /**
+   * Controlla se il player è visibile/raggiungibile per un NPC specifico
+   */
+  private isPlayerVisibleToNpc(npcEntityId: number): boolean {
+    // Trova l'NPC
+    const npcEntity = this.ecs.getEntity(npcEntityId);
+    if (!npcEntity) return false;
+
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+    const npcDamage = this.ecs.getComponent(npcEntity, Damage);
+    if (!npcTransform || !npcDamage) return false;
+
+    // Trova il player
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
+      .filter(entity => !this.ecs.hasComponent(entity, Npc));
+
+    if (playerEntities.length === 0) return false;
+
+    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+    if (!playerTransform) return false;
+
+    // Controlla se il player è nel range di attacco dell'NPC
+    const dx = playerTransform.x - npcTransform.x;
+    const dy = playerTransform.y - npcTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Il player è "visibile" se è entro il range di attacco (come per il player)
+    return distance <= npcDamage.range;
+  }
+
   private executeAggressiveBehavior(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
     // Comportamento aggressivo: insegue e attacca il player con logica di distanza intelligente
     velocity.setAngularVelocity(0);
@@ -602,10 +620,4 @@ export class NpcBehaviorSystem extends BaseSystem {
     );
   }
 
-  /**
-   * Cleanup dei timer di comportamento persistente
-   */
-  public cleanupBehaviorTimers(): void {
-    this.npcBehaviorTimers.clear();
-  }
 }
