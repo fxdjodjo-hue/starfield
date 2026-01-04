@@ -119,7 +119,7 @@ export class CombatSystem extends BaseSystem {
     if (isPlayer) {
       // Riproduci suono laser una volta per lo sparo
       if (this.audioSystem) {
-        this.audioSystem.playSound('laser', 0.4);
+        this.audioSystem.playSound('laser', 0.4, false, true); // allowMultiple=true per affidabilità
       }
 
       // Player: crea due laser laterali
