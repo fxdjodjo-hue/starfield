@@ -3,6 +3,8 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Sprite } from '../../entities/Sprite';
 import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
 import { Velocity } from '../../entities/spatial/Velocity';
 
 /**
@@ -50,6 +52,14 @@ export class RemotePlayerSystem extends BaseSystem {
     const health = new Health(100, 100); // HP completo per giocatori remoti
     this.ecs.addComponent(entity, Health, health);
 
+    // Aggiungi scudo (come player locale)
+    const shield = new Shield(50, 50); // Scudo completo per giocatori remoti
+    this.ecs.addComponent(entity, Shield, shield);
+
+    // Aggiungi danno (per completezza, anche se non controllato localmente)
+    const damage = new Damage(50, 30, 100); // Valori base per giocatori remoti
+    this.ecs.addComponent(entity, Damage, damage);
+
     // Aggiungi sprite per il giocatore remoto (stesso del player locale)
     const sprite = new Sprite(this.shipImage, this.shipWidth, this.shipHeight);
     this.ecs.addComponent(entity, Sprite, sprite);
@@ -57,7 +67,7 @@ export class RemotePlayerSystem extends BaseSystem {
     // Registra il giocatore remoto
     this.remotePlayers.set(clientId, entity.id);
 
-    console.log(`👤 [REMOTE] Added remote player: ${clientId} (entity ${entity.id}) at (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
+    console.log(`👤 [REMOTE] Added remote player: ${clientId} (entity ${entity.id}) at (${position.x.toFixed(1)}, ${position.y.toFixed(1)}) with Health, Shield, Damage, Sprite`);
     return entity.id;
   }
 
