@@ -108,7 +108,13 @@ export class NpcBehaviorSystem extends BaseSystem {
       npc.setBehavior('flee');
     } else if (isDamaged) {
       // NPC danneggiato diventa aggressivo per vendetta (priorità alta)
+      const wasNotAggressive = npc.behavior !== 'aggressive';
       npc.setBehavior('aggressive');
+
+      // Se l'NPC è appena diventato aggressivo a causa del danno, ruotalo immediatamente verso il player
+      if (wasNotAggressive && playerTransform) {
+        this.faceTargetImmediately(npcTransform, playerTransform);
+      }
     } else {
       // Comportamenti normali quando non è danneggiato né con poca salute
       if (npc.npcType === 'Scouter') {
@@ -279,6 +285,18 @@ export class NpcBehaviorSystem extends BaseSystem {
 
     // Il player è "visibile" se è entro un range più ampio per rendere gli NPC più reattivi
     return distance <= 800;
+  }
+
+  /**
+   * Ruota immediatamente l'NPC verso il target (usato quando diventa aggressivo)
+   */
+  private faceTargetImmediately(attackerTransform: Transform, targetTransform: Transform): void {
+    const dx = targetTransform.x - attackerTransform.x;
+    const dy = targetTransform.y - attackerTransform.y;
+
+    // Calcola l'angolo e ruota la nave
+    const angle = Math.atan2(dy, dx) + Math.PI / 2;
+    attackerTransform.rotation = angle;
   }
 
   private executeAggressiveBehavior(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
