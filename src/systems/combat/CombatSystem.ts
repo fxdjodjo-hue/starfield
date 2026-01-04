@@ -118,7 +118,7 @@ export class CombatSystem extends BaseSystem {
     const isPlayer = attackerEntity === this.playerSystem.getPlayerEntity();
 
     if (isPlayer) {
-      // Riproduci suono laser una volta per lo sparo
+      // Riproduci suono laser del player
       if (this.audioSystem) {
         this.audioSystem.playSound('laser', 0.4, false, true); // allowMultiple=true per affidabilità
       }
@@ -126,6 +126,11 @@ export class CombatSystem extends BaseSystem {
       // Player: crea due laser laterali
       this.createDualLasers(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     } else {
+      // Riproduci suono laser degli scouter
+      if (this.audioSystem) {
+        this.audioSystem.playSound('scouterLaser', 0.35, false, true); // Suono leggermente più basso per NPC
+      }
+
       // NPC: crea singolo proiettile come prima
       this.createSingleProjectile(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     }

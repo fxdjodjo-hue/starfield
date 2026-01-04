@@ -5,6 +5,7 @@ Suoni di sparo laser per Starfield.
 ## 📋 File Disponibili
 
 - `laser_red.wav` ✅ - Suono laser player (in uso)
+- `scouter_laser_sound.wav` ✅ - Suono laser scouter/NPC (in uso)
 
 ## 🎵 Caratteristiche
 
