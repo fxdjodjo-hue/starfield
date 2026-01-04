@@ -316,7 +316,8 @@ export class NpcBehaviorSystem extends BaseSystem {
         (Math.abs(playerVelocity.x) > 10 || Math.abs(playerVelocity.y) > 10);
 
       // Ottieni la velocità dalla configurazione dell'NPC
-      const npcConfig = getNpcDefinition(npc.npcType);
+      const currentNpc = this.ecs.getComponent(this.ecs.getEntity(entityId!), Npc);
+      const npcConfig = getNpcDefinition(currentNpc?.npcType || 'Frigate');
       const baseSpeed = npcConfig?.stats.speed || 150; // Default 150 se non trovato
 
       // Logica di distanza intelligente per comportamento aggressivo
