@@ -336,12 +336,19 @@ export class NpcBehaviorSystem extends BaseSystem {
           movementDirectionX = -directionX;
           movementDirectionY = -directionY;
         } else {
-          // Distanza perfetta per attaccare - stai fermo ma mantieni la rotazione verso il player
-          movementDirectionX = 0;
-          movementDirectionY = 0;
-          targetSpeed = 0;
+          // Distanza perfetta per attaccare - movimento lento circolare per rimanere dinamici
+          // Invece di stare completamente fermi, facciamo un movimento circolare lento
+          const time = Date.now() * 0.001; // Tempo in secondi per movimento circolare
+          const circleRadius = 0.3; // Raggio del movimento circolare (molto piccolo)
 
-          // Aggiorna la rotazione anche quando sei fermo (per mantenere l'orientamento verso il player)
+          // Movimento circolare lento attorno alla posizione ottimale
+          movementDirectionX = Math.cos(time * 0.5) * circleRadius; // Movimento circolare lento
+          movementDirectionY = Math.sin(time * 0.5) * circleRadius;
+
+          // Velocità molto bassa per il movimento circolare
+          targetSpeed = baseSpeed * 0.1; // 10% della velocità base
+
+          // Mantieni sempre la rotazione verso il player
           const angle = Math.atan2(directionY, directionX) + Math.PI / 2;
           transform.rotation = angle;
         }
