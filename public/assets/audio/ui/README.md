@@ -1,17 +1,14 @@
-# UI Audio Effects
+# UI Sound Effects
 
-Suoni interfaccia utente per Starfield.
+Suoni per l'interfaccia utente di Starfield.
 
-## 📋 File Richiesti
+## 📋 File Disponibili
 
-- `click.wav` - Click su pulsante/elemento
-- `hover.wav` - Hover su elemento interattivo
-- `select.wav` - Selezione elemento da lista/menu
-- `back.wav` - Torna indietro navigazione
-- `confirm.wav` - Conferma azione/dialogo
+- `clickui.wav` ✅ - Suono click per tutti i pulsanti UI
 
 ## 🎵 Caratteristiche
 
-- **Durata**: 0.1-0.5 secondi
-- **Tipo**: WAV per latenza minima
-- **Volume**: Soft, non intrusivo
+- **Tipo**: One-shot breve
+- **Volume**: Basso (0.3) per feedback senza distrazione
+- **Uso**: Click su pulsanti, elementi interattivi
+- **Risposta**: Immediata per feedback tattile

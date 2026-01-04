@@ -106,7 +106,6 @@ export class GameInitializationSystem extends System {
     this.audioSystem = new AudioSystem(AUDIO_CONFIG);
     this.movementSystem = new MovementSystem(this.ecs);
     const parallaxSystem = new ParallaxSystem(this.ecs, this.movementSystem);
-    const renderSystem = new RenderSystem(this.ecs, this.movementSystem);
     const inputSystem = new InputSystem(this.ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(this.ecs);
     const npcBehaviorSystem = new NpcBehaviorSystem(this.ecs);
@@ -123,6 +122,7 @@ export class GameInitializationSystem extends System {
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
     this.playerSystem = new PlayerSystem(this.ecs);
+    const renderSystem = new RenderSystem(this.ecs, this.movementSystem, this.playerSystem);
     const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context, this.playerSystem);
     const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
     const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem);
@@ -220,6 +220,11 @@ export class GameInitializationSystem extends System {
     // Collega AudioSystem al sistema bounds
     if (boundsSystem && typeof boundsSystem.setAudioSystem === 'function') {
       boundsSystem.setAudioSystem(this.audioSystem);
+    }
+
+    // Collega AudioSystem al sistema UI
+    if (uiSystem && typeof uiSystem.setAudioSystem === 'function') {
+      uiSystem.setAudioSystem(this.audioSystem);
     }
     economySystem.setRankSystem(rankSystem);
     rankSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player

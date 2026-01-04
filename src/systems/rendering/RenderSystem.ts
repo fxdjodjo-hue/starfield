@@ -10,6 +10,7 @@ import { Explosion } from '../../entities/combat/Explosion';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Camera } from '../../entities/spatial/Camera';
 import { MovementSystem } from '../physics/MovementSystem';
+import { PlayerSystem } from '../player/PlayerSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -20,11 +21,13 @@ import { Velocity } from '../../entities/spatial/Velocity';
  */
 export class RenderSystem extends BaseSystem {
   private movementSystem: MovementSystem;
+  private playerSystem: PlayerSystem;
   private scouterProjectileImage: HTMLImageElement | null = null;
 
-  constructor(ecs: ECS, movementSystem: MovementSystem) {
+  constructor(ecs: ECS, movementSystem: MovementSystem, playerSystem: PlayerSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
+    this.playerSystem = playerSystem;
     this.loadScouterProjectileImage();
   }
 
@@ -322,8 +325,9 @@ export class RenderSystem extends BaseSystem {
       const screenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
 
       // Controlla se il proiettile appartiene a un NPC (scouter)
-      const ownerEntity = this.ecs.getEntity(projectile.ownerId);
-      const isNpcProjectile = ownerEntity && this.ecs.getComponent(ownerEntity, Npc);
+      // Usa la stessa logica robusta del ProjectileSystem per garantire consistenza
+      const playerEntity = this.playerSystem.getPlayerEntity();
+      const isNpcProjectile = playerEntity && projectile.ownerId !== playerEntity.id;
 
       ctx.save();
 

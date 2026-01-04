@@ -24,6 +24,7 @@ export class UiSystem extends System {
   private skillsPanel: SkillsPanel | null = null;
   private playerSystem: PlayerSystem | null = null;
   private economySystem: any = null;
+  private audioSystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
   private context: any = null;
@@ -45,6 +46,13 @@ export class UiSystem extends System {
    */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
+  }
+
+  /**
+   * Imposta il sistema audio per i suoni UI
+   */
+  setAudioSystem(audioSystem: any): void {
+    this.audioSystem = audioSystem;
   }
 
   /**

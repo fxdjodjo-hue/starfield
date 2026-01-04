@@ -41,7 +41,7 @@ export const AUDIO_ASSETS = {
 
   // UI
   ui: {
-    click: 'ui/click.wav',
+    click: 'ui/clickui.wav',
     hover: 'ui/hover.wav',
     select: 'ui/select.wav',
     back: 'ui/back.wav',
