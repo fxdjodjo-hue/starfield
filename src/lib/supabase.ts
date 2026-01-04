@@ -18,7 +18,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 })
 
-// Database types (generated from schema)
+// Database types (simplified for single-player data only)
 export type Database = {
   public: {
     Tables: {
@@ -27,9 +27,6 @@ export type Database = {
           id: string
           username: string
           display_name: string | null
-          avatar_url: string | null
-          status: 'online' | 'offline' | 'away'
-          last_seen: string
           created_at: string
           updated_at: string
         }
@@ -37,9 +34,6 @@ export type Database = {
           id: string
           username: string
           display_name?: string | null
-          avatar_url?: string | null
-          status?: 'online' | 'offline' | 'away'
-          last_seen?: string
           created_at?: string
           updated_at?: string
         }
@@ -47,140 +41,101 @@ export type Database = {
           id?: string
           username?: string
           display_name?: string | null
-          avatar_url?: string | null
-          status?: 'online' | 'offline' | 'away'
-          last_seen?: string
           created_at?: string
           updated_at?: string
         }
       }
       player_stats: {
         Row: {
-          id: string
           user_id: string
-          level: number
-          experience: number
-          credits: number
-          cosmos: number
-          honor: number
-          skill_points: number
-          total_playtime: number
-          games_played: number
-          games_won: number
-          enemies_killed: number
-          quests_completed: number
+          kills: number
+          deaths: number
+          missions_completed: number
+          play_time: number
           created_at: string
           updated_at: string
         }
         Insert: {
-          id?: string
           user_id: string
-          level?: number
-          experience?: number
-          credits?: number
-          cosmos?: number
-          honor?: number
-          skill_points?: number
-          total_playtime?: number
-          games_played?: number
-          games_won?: number
-          enemies_killed?: number
-          quests_completed?: number
+          kills?: number
+          deaths?: number
+          missions_completed?: number
+          play_time?: number
           created_at?: string
           updated_at?: string
         }
         Update: {
-          id?: string
           user_id?: string
-          level?: number
-          experience?: number
-          credits?: number
-          cosmos?: number
-          honor?: number
-          skill_points?: number
-          total_playtime?: number
-          games_played?: number
-          games_won?: number
-          enemies_killed?: number
-          quests_completed?: number
+          kills?: number
+          deaths?: number
+          missions_completed?: number
+          play_time?: number
           created_at?: string
           updated_at?: string
         }
       }
-      game_sessions: {
+      player_upgrades: {
         Row: {
-          id: string
           user_id: string
-          session_type: string
-          start_time: string
-          end_time: string | null
-          duration: number | null
-          score: number
-          enemies_killed: number
-          credits_earned: number
-          experience_gained: number
-          completed: boolean
+          hp_upgrades: number
+          shield_upgrades: number
+          speed_upgrades: number
+          damage_upgrades: number
           created_at: string
+          updated_at: string
         }
         Insert: {
-          id?: string
           user_id: string
-          session_type?: string
-          start_time?: string
-          end_time?: string | null
-          duration?: number | null
-          score?: number
-          enemies_killed?: number
-          credits_earned?: number
-          experience_gained?: number
-          completed?: boolean
+          hp_upgrades?: number
+          shield_upgrades?: number
+          speed_upgrades?: number
+          damage_upgrades?: number
           created_at?: string
+          updated_at?: string
         }
         Update: {
-          id?: string
           user_id?: string
-          session_type?: string
-          start_time?: string
-          end_time?: string | null
-          duration?: number | null
-          score?: number
-          enemies_killed?: number
-          credits_earned?: number
-          experience_gained?: number
-          completed?: boolean
+          hp_upgrades?: number
+          shield_upgrades?: number
+          speed_upgrades?: number
+          damage_upgrades?: number
           created_at?: string
+          updated_at?: string
         }
       }
-      inventory_items: {
+      player_currencies: {
         Row: {
-          id: string
           user_id: string
-          item_type: string
-          item_id: string
-          item_name: string
-          quantity: number
-          equipped: boolean
-          acquired_at: string
+          credits: number
+          cosmos: number
+          experience: number
+          honor: number
+          skill_points_current: number
+          skill_points_total: number
+          created_at: string
+          updated_at: string
         }
         Insert: {
-          id?: string
           user_id: string
-          item_type: string
-          item_id: string
-          item_name: string
-          quantity?: number
-          equipped?: boolean
-          acquired_at?: string
+          credits?: number
+          cosmos?: number
+          experience?: number
+          honor?: number
+          skill_points_current?: number
+          skill_points_total?: number
+          created_at?: string
+          updated_at?: string
         }
         Update: {
-          id?: string
           user_id?: string
-          item_type?: string
-          item_id?: string
-          item_name?: string
-          quantity?: number
-          equipped?: boolean
-          acquired_at?: string
+          credits?: number
+          cosmos?: number
+          experience?: number
+          honor?: number
+          skill_points_current?: number
+          skill_points_total?: number
+          created_at?: string
+          updated_at?: string
         }
       }
       quest_progress: {
@@ -188,156 +143,28 @@ export type Database = {
           id: string
           user_id: string
           quest_id: string
-          status: 'not_started' | 'in_progress' | 'completed' | 'failed'
-          progress: any
+          objectives: any // JSONB array of quest objectives
+          is_completed: boolean
           started_at: string
           completed_at: string | null
-          rewards_claimed: boolean
         }
         Insert: {
           id?: string
           user_id: string
           quest_id: string
-          status?: 'not_started' | 'in_progress' | 'completed' | 'failed'
-          progress?: any
+          objectives?: any
+          is_completed?: boolean
           started_at?: string
           completed_at?: string | null
-          rewards_claimed?: boolean
         }
         Update: {
           id?: string
           user_id?: string
           quest_id?: string
-          status?: 'not_started' | 'in_progress' | 'completed' | 'failed'
-          progress?: any
+          objectives?: any
+          is_completed?: boolean
           started_at?: string
           completed_at?: string | null
-          rewards_claimed?: boolean
-        }
-      }
-      user_achievements: {
-        Row: {
-          id: string
-          user_id: string
-          achievement_id: string
-          achievement_name: string
-          description: string | null
-          rarity: 'common' | 'rare' | 'epic' | 'legendary'
-          points: number
-          unlocked_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          achievement_id: string
-          achievement_name: string
-          description?: string | null
-          rarity?: 'common' | 'rare' | 'epic' | 'legendary'
-          points?: number
-          unlocked_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          achievement_id?: string
-          achievement_name?: string
-          description?: string | null
-          rarity?: 'common' | 'rare' | 'epic' | 'legendary'
-          points?: number
-          unlocked_at?: string
-        }
-      }
-      leaderboard: {
-        Row: {
-          id: string
-          user_id: string
-          username: string | null
-          display_name: string | null
-          level: number | null
-          experience: number | null
-          honor: number | null
-          enemies_killed: number | null
-          quests_completed: number | null
-          rank: number | null
-          last_updated: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          username?: string | null
-          display_name?: string | null
-          level?: number | null
-          experience?: number | null
-          honor?: number | null
-          enemies_killed?: number | null
-          quests_completed?: number | null
-          rank?: number | null
-          last_updated?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          username?: string | null
-          display_name?: string | null
-          level?: number | null
-          experience?: number | null
-          honor?: number | null
-          enemies_killed?: number | null
-          quests_completed?: number | null
-          rank?: number | null
-          last_updated?: string
-        }
-      }
-      friendships: {
-        Row: {
-          id: string
-          user_id: string
-          friend_id: string
-          status: string
-          requested_at: string
-          accepted_at: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          friend_id: string
-          status?: string
-          requested_at?: string
-          accepted_at?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          friend_id?: string
-          status?: string
-          requested_at?: string
-          accepted_at?: string | null
-        }
-      }
-      chat_messages: {
-        Row: {
-          id: string
-          user_id: string
-          room_id: string | null
-          message_type: string
-          content: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          room_id?: string | null
-          message_type?: string
-          content: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          room_id?: string | null
-          message_type?: string
-          content?: string
-          created_at?: string
         }
       }
     }
@@ -347,11 +174,7 @@ export type Database = {
     Functions: {
       [_ in never]: never
     }
-    Enums: {
-      user_status: 'online' | 'offline' | 'away'
-      quest_status: 'not_started' | 'in_progress' | 'completed' | 'failed'
-      achievement_rarity: 'common' | 'rare' | 'epic' | 'legendary'
-    }
+    Enums: {}
   }
 }
 
@@ -394,143 +217,151 @@ export const auth = {
   }
 }
 
-// Game data helpers
+// Game data helpers - Simplified for single-player data only
 export const gameAPI = {
-  // Player profile
-  getPlayerProfile: async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    return { data, error }
+  // Get all player data at once (for loading game)
+  getPlayerData: async (userId: string) => {
+    try {
+      const [profile, stats, upgrades, currencies, quests] = await Promise.all([
+        supabase.from('user_profiles').select('*').eq('id', userId).single(),
+        supabase.from('player_stats').select('*').eq('user_id', userId).single(),
+        supabase.from('player_upgrades').select('*').eq('user_id', userId).single(),
+        supabase.from('player_currencies').select('*').eq('user_id', userId).single(),
+        supabase.from('quest_progress').select('*').eq('user_id', userId)
+      ]);
+
+      return {
+        data: {
+          profile: profile.data,
+          stats: stats.data,
+          upgrades: upgrades.data,
+          currencies: currencies.data,
+          quests: quests.data || []
+        },
+        error: profile.error || stats.error || upgrades.error || currencies.error || quests.error
+      };
+    } catch (error) {
+      return { data: null, error };
+    }
   },
 
-  updatePlayerProfile: async (userId: string, updates: any) => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('id', userId)
-    return { data, error }
+  // Save all player data at once (for saving game)
+  savePlayerData: async (userId: string, playerData: any) => {
+    try {
+      const updates = [];
+
+      // Update stats
+      if (playerData.stats) {
+        updates.push(
+          supabase.from('player_stats').upsert({
+            user_id: userId,
+            ...playerData.stats,
+            updated_at: new Date().toISOString()
+          })
+        );
+      }
+
+      // Update upgrades
+      if (playerData.upgrades) {
+        updates.push(
+          supabase.from('player_upgrades').upsert({
+            user_id: userId,
+            ...playerData.upgrades,
+            updated_at: new Date().toISOString()
+          })
+        );
+      }
+
+      // Update currencies
+      if (playerData.currencies) {
+        updates.push(
+          supabase.from('player_currencies').upsert({
+            user_id: userId,
+            ...playerData.currencies,
+            updated_at: new Date().toISOString()
+          })
+        );
+      }
+
+      // Update quest progress
+      if (playerData.quests) {
+        const questUpdates = playerData.quests.map((quest: any) =>
+          supabase.from('quest_progress').upsert({
+            user_id: userId,
+            quest_id: quest.quest_id,
+            objectives: quest.objectives,
+            is_completed: quest.is_completed,
+            completed_at: quest.completed_at
+          })
+        );
+        updates.push(...questUpdates);
+      }
+
+      const results = await Promise.all(updates);
+      const errors = results.filter(result => result.error);
+
+      return {
+        data: results.filter(result => result.data),
+        error: errors.length > 0 ? errors[0].error : null
+      };
+    } catch (error) {
+      return { data: null, error };
+    }
   },
 
-  // Player stats
-  getPlayerStats: async (userId: string) => {
+  // Individual table operations (for specific updates)
+  updatePlayerStats: async (userId: string, stats: any) => {
     const { data, error } = await supabase
       .from('player_stats')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-    return { data, error }
-  },
-
-  updatePlayerStats: async (userId: string, updates: any) => {
-    const { data, error } = await supabase
-      .from('player_stats')
-      .update({ ...updates, updated_at: new Date().toISOString() })
-      .eq('user_id', userId)
-    return { data, error }
-  },
-
-  // Game sessions
-  startGameSession: async (userId: string, sessionType: string = 'single_player') => {
-    const { data, error } = await supabase
-      .from('game_sessions')
-      .insert({
+      .upsert({
         user_id: userId,
-        session_type: sessionType,
-        start_time: new Date().toISOString()
-      })
-      .select()
-      .single()
-    return { data, error }
+        ...stats,
+        updated_at: new Date().toISOString()
+      });
+    return { data, error };
   },
 
-  endGameSession: async (sessionId: string, sessionData: any) => {
-    const endTime = new Date().toISOString()
-    const startTime = new Date(sessionData.start_time)
-    const duration = Math.floor((new Date(endTime).getTime() - startTime.getTime()) / 1000)
-
+  updatePlayerUpgrades: async (userId: string, upgrades: any) => {
     const { data, error } = await supabase
-      .from('game_sessions')
-      .update({
-        end_time: endTime,
-        duration,
-        ...sessionData,
-        completed: true
-      })
-      .eq('id', sessionId)
-    return { data, error }
-  },
-
-  // Inventory
-  getPlayerInventory: async (userId: string) => {
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .eq('user_id', userId)
-      .order('acquired_at', { ascending: false })
-    return { data, error }
-  },
-
-  addInventoryItem: async (userId: string, item: any) => {
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .insert({
+      .from('player_upgrades')
+      .upsert({
         user_id: userId,
-        ...item
-      })
-    return { data, error }
+        ...upgrades,
+        updated_at: new Date().toISOString()
+      });
+    return { data, error };
   },
 
-  // Quests
-  getQuestProgress: async (userId: string) => {
+  updatePlayerCurrencies: async (userId: string, currencies: any) => {
     const { data, error } = await supabase
-      .from('quest_progress')
-      .select('*')
-      .eq('user_id', userId)
-    return { data, error }
+      .from('player_currencies')
+      .upsert({
+        user_id: userId,
+        ...currencies,
+        updated_at: new Date().toISOString()
+      });
+    return { data, error };
   },
 
-  updateQuestProgress: async (userId: string, questId: string, updates: any) => {
+  updateQuestProgress: async (userId: string, questId: string, progress: any) => {
     const { data, error } = await supabase
       .from('quest_progress')
       .upsert({
         user_id: userId,
         quest_id: questId,
-        ...updates
-      })
-    return { data, error }
+        objectives: progress.objectives,
+        is_completed: progress.is_completed,
+        completed_at: progress.completed_at
+      });
+    return { data, error };
   },
 
-  // Leaderboard
-  getLeaderboard: async (limit: number = 100) => {
+  getQuestProgress: async (userId: string) => {
     const { data, error } = await supabase
-      .from('leaderboard')
+      .from('quest_progress')
       .select('*')
-      .order('rank', { ascending: true })
-      .limit(limit)
-    return { data, error }
-  },
-
-  // Achievements
-  getUserAchievements: async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_achievements')
-      .select('*')
-      .eq('user_id', userId)
-      .order('unlocked_at', { ascending: false })
-    return { data, error }
-  },
-
-  unlockAchievement: async (userId: string, achievement: any) => {
-    const { data, error } = await supabase
-      .from('user_achievements')
-      .insert({
-        user_id: userId,
-        ...achievement
-      })
-    return { data, error }
+      .eq('user_id', userId);
+    return { data, error };
   }
 }
 

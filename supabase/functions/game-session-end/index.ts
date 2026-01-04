@@ -24,13 +24,6 @@ serve(async (req) => {
       }
     )
 
-    // Get request body
-    const { sessionId, sessionData } = await req.json()
-
-    if (!sessionId) {
-      throw new Error('Session ID is required')
-    }
-
     // Get current user
     const {
       data: { user },
@@ -40,88 +33,83 @@ serve(async (req) => {
       throw new Error('User not authenticated')
     }
 
-    // Get session data
-    const { data: session, error: sessionError } = await supabaseClient
-      .from('game_sessions')
-      .select('*')
-      .eq('id', sessionId)
-      .eq('user_id', user.id)
-      .single()
+    // Get request body with game session data
+    const { stats, upgrades, currencies, quests } = await req.json()
 
-    if (sessionError || !session) {
-      throw new Error('Session not found or access denied')
+    // Update all player data in a transaction-like manner
+    const updates = []
+
+    // Update stats (reflects PlayerStats component)
+    if (stats) {
+      updates.push(
+        supabaseClient.from('player_stats').upsert({
+          user_id: user.id,
+          kills: stats.kills || 0,
+          deaths: stats.deaths || 0,
+          missions_completed: stats.missionsCompleted || 0,
+          play_time: stats.playTime || 0,
+          updated_at: new Date().toISOString()
+        })
+      )
     }
 
-    // Calculate session duration
-    const endTime = new Date().toISOString()
-    const startTime = new Date(session.start_time)
-    const duration = Math.floor((new Date(endTime).getTime() - startTime.getTime()) / 1000)
-
-    // Prepare update data
-    const updateData = {
-      end_time: endTime,
-      duration,
-      completed: true,
-      ...sessionData
+    // Update upgrades (reflects PlayerUpgrades component)
+    if (upgrades) {
+      updates.push(
+        supabaseClient.from('player_upgrades').upsert({
+          user_id: user.id,
+          hp_upgrades: upgrades.hpUpgrades || 0,
+          shield_upgrades: upgrades.shieldUpgrades || 0,
+          speed_upgrades: upgrades.speedUpgrades || 0,
+          damage_upgrades: upgrades.damageUpgrades || 0,
+          updated_at: new Date().toISOString()
+        })
+      )
     }
 
-    // Update session
-    const { data: updatedSession, error: updateError } = await supabaseClient
-      .from('game_sessions')
-      .update(updateData)
-      .eq('id', sessionId)
-      .select()
-      .single()
-
-    if (updateError) {
-      throw updateError
+    // Update currencies (combines all currency components)
+    if (currencies) {
+      updates.push(
+        supabaseClient.from('player_currencies').upsert({
+          user_id: user.id,
+          credits: currencies.credits || 0,
+          cosmos: currencies.cosmos || 0,
+          experience: currencies.experience || 0,
+          honor: currencies.honor || 0,
+          skill_points_current: currencies.skillPointsCurrent || 0,
+          skill_points_total: currencies.skillPointsTotal || 0,
+          updated_at: new Date().toISOString()
+        })
+      )
     }
 
-    // Update player stats
-    const { data: currentStats, error: statsError } = await supabaseClient
-      .from('player_stats')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    if (statsError) {
-      throw statsError
+    // Update quest progress
+    if (quests && Array.isArray(quests)) {
+      const questUpdates = quests.map((quest: any) =>
+        supabaseClient.from('quest_progress').upsert({
+          user_id: user.id,
+          quest_id: quest.questId || quest.id,
+          objectives: quest.objectives || [],
+          is_completed: quest.isCompleted || false,
+          completed_at: quest.completedAt || null
+        })
+      )
+      updates.push(...questUpdates)
     }
 
-    // Calculate new stats
-    const newStats = {
-      total_playtime: (currentStats.total_playtime || 0) + duration,
-      games_played: (currentStats.games_played || 0) + 1,
-      experience: (currentStats.experience || 0) + (sessionData.experience_gained || 0),
-      credits: (currentStats.credits || 0) + (sessionData.credits_earned || 0),
-      enemies_killed: (currentStats.enemies_killed || 0) + (sessionData.enemies_killed || 0),
-      updated_at: new Date().toISOString()
+    // Execute all updates
+    const results = await Promise.all(updates)
+    const errors = results.filter(result => result.error)
+
+    if (errors.length > 0) {
+      throw new Error(`Update failed: ${errors[0].error.message}`)
     }
-
-    // Check for level up
-    const experienceNeeded = (currentStats.level || 1) * 1000 // Simple leveling formula
-    if (newStats.experience >= experienceNeeded) {
-      newStats.level = (currentStats.level || 1) + 1
-    }
-
-    // Update player stats
-    const { error: updateStatsError } = await supabaseClient
-      .from('player_stats')
-      .update(newStats)
-      .eq('user_id', user.id)
-
-    if (updateStatsError) {
-      throw updateStatsError
-    }
-
-    // Check for achievements
-    await checkAchievements(supabaseClient, user.id, newStats)
 
     return new Response(
       JSON.stringify({
         success: true,
-        session: updatedSession,
-        stats: newStats
+        message: 'Game data saved successfully',
+        updatedTables: updates.length
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -141,56 +129,3 @@ serve(async (req) => {
     )
   }
 })
-
-// Helper function to check and unlock achievements
-async function checkAchievements(supabaseClient: any, userId: string, stats: any) {
-  const achievements = []
-
-  // First game achievement
-  if (stats.games_played === 1) {
-    achievements.push({
-      achievement_id: 'first_game',
-      achievement_name: 'First Flight',
-      description: 'Complete your first game session',
-      rarity: 'common',
-      points: 10
-    })
-  }
-
-  // Level up achievement
-  if (stats.level > 1) {
-    achievements.push({
-      achievement_id: `level_${stats.level}`,
-      achievement_name: `Level ${stats.level}`,
-      description: `Reach level ${stats.level}`,
-      rarity: 'rare',
-      points: stats.level * 5
-    })
-  }
-
-  // Killer achievement
-  if (stats.enemies_killed >= 10 && stats.enemies_killed % 10 === 0) {
-    achievements.push({
-      achievement_id: `killer_${stats.enemies_killed}`,
-      achievement_name: 'Star Destroyer',
-      description: `Destroy ${stats.enemies_killed} enemies`,
-      rarity: 'epic',
-      points: Math.floor(stats.enemies_killed / 10) * 20
-    })
-  }
-
-  // Insert achievements
-  for (const achievement of achievements) {
-    try {
-      await supabaseClient
-        .from('user_achievements')
-        .insert({
-          user_id: userId,
-          ...achievement
-        })
-    } catch (error) {
-      // Achievement might already exist, ignore error
-      console.log('Achievement already unlocked:', achievement.achievement_id)
-    }
-  }
-}
