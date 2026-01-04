@@ -325,28 +325,21 @@ export class NpcBehaviorSystem extends BaseSystem {
         let movementDirectionX = directionX;
         let movementDirectionY = directionY;
 
-        if (!playerIsMoving) {
-          // Player fermo - mantieni distanza di sicurezza con isteresi per evitare oscillazioni
-          const optimalDistance = 180; // Distanza ideale dalla nave del player
-          const safeDistanceMin = 220; // Soglia minima per allontanamento (isteresi)
-          const safeDistanceMax = 230; // Soglia massima per avvicinamento (isteresi)
+        // Logica semplice: mantieni sempre la distanza ottimale per attaccare (range di attacco)
+        const attackRange = 300; // Range di attacco dell'NPC
 
-          if (distance < optimalDistance - 20) {
-            // Troppo vicino - allontanati
-            movementDirectionX = -directionX;
-            movementDirectionY = -directionY;
-          } else if (distance > safeDistanceMax) {
-            // Molto lontano - avvicinati
-          } else if (distance > safeDistanceMin) {
-            // Zona di sicurezza - allontanati
-            movementDirectionX = -directionX;
-            movementDirectionY = -directionY;
-          } else {
-            // Distanza ideale - stai fermo
-            movementDirectionX = 0;
-            movementDirectionY = 0;
-            targetSpeed = 0;
-          }
+        if (distance > attackRange + 10) {
+          // Troppo lontano - avvicinati per poter attaccare
+          // Nessuna direzione da cambiare, vai verso il player
+        } else if (distance < attackRange - 10) {
+          // Troppo vicino - allontanati per mantenere distanza di tiro
+          movementDirectionX = -directionX;
+          movementDirectionY = -directionY;
+        } else {
+          // Distanza perfetta per attaccare - stai fermo
+          movementDirectionX = 0;
+          movementDirectionY = 0;
+          targetSpeed = 0;
         }
 
       // Per NPC senza state, usa movimento semplice
