@@ -49,6 +49,25 @@ export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
       honor: 2
     },
     description: 'Nemico base dello spazio profondo'
+  },
+  'Frigate': {
+    type: 'Frigate',
+    defaultBehavior: 'patrol',
+    stats: {
+      health: 1200,
+      shield: 840,
+      damage: 750,
+      range: 250,
+      cooldown: 1500, // 1.5 secondi
+      speed: 150
+    },
+    rewards: {
+      credits: 1236,
+      cosmos: 5,
+      experience: 618,
+      honor: 3
+    },
+    description: 'Nave da guerra di medie dimensioni'
   }
 };
 

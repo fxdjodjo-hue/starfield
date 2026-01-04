@@ -102,6 +102,7 @@ export class GameInitializationSystem extends System {
     const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
     const mapBackgroundImage = await this.context.assetManager.loadImage('/assets/maps/maps1/1/bg.jpg');
     const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
+    const frigateImage = await this.context.assetManager.loadImage('/assets/npc_ships/frigate/npc_frigate.png');
 
     // Crea sistemi
     this.audioSystem = new AudioSystem(AUDIO_CONFIG);
@@ -154,7 +155,7 @@ export class GameInitializationSystem extends System {
       playerStatusDisplaySystem: this.playerStatusDisplaySystem,
       playerSystem: this.playerSystem,
       audioSystem: this.audioSystem,
-      assets: { shipImage, mapBackgroundImage, scouterImage }
+      assets: { shipImage, mapBackgroundImage, scouterImage, frigateImage }
     };
 
     return result;
@@ -314,7 +315,8 @@ export class GameInitializationSystem extends System {
     this.createMapBackground(assets.mapBackgroundImage);
 
     // Crea NPC
-    this.createScouter(50, assets.scouterImage);
+    this.createScouter(25, assets.scouterImage);
+    this.createFrigate(25, assets.frigateImage);
 
     return playerEntity;
   }
@@ -428,6 +430,91 @@ export class GameInitializationSystem extends System {
       if (sprite) {
         const scouterSprite = new Sprite(sprite, sprite.width * 0.15, sprite.height * 0.15);
         this.ecs.addComponent(streuner, Sprite, scouterSprite);
+      }
+    }
+  }
+
+  /**
+   * Crea Frigate distribuite uniformemente su tutta la mappa
+   */
+  private createFrigate(count: number, sprite?: HTMLImageElement): void {
+    const minDistance = 150; // Distanza minima tra Frigate (più grandi degli Scouter)
+    const minDistanceFromPlayer = 300; // Distanza minima dal player (più lontane)
+    const worldWidth = CONFIG.WORLD_WIDTH;
+    const worldHeight = CONFIG.WORLD_HEIGHT;
+    const positions: { x: number, y: number }[] = [];
+
+    // Dividi la mappa in una griglia per distribuzione uniforme
+    const gridCols = Math.ceil(Math.sqrt(count * worldWidth / worldHeight));
+    const gridRows = Math.ceil(count / gridCols);
+
+    for (let i = 0; i < count; i++) {
+      let attempts = 0;
+      let validPosition = false;
+      let x = 0, y = 0;
+
+      // Trova una posizione valida distribuita uniformemente
+      while (!validPosition && attempts < 100) {
+        const gridX = i % gridCols;
+        const gridY = Math.floor(i / gridCols);
+
+        const cellWidth = worldWidth / gridCols;
+        const cellHeight = worldHeight / gridRows;
+
+        const baseX = gridX * cellWidth + cellWidth / 2 - worldWidth / 2;
+        const baseY = gridY * cellHeight + cellHeight / 2 - worldHeight / 2;
+
+        const variationX = (Math.random() - 0.5) * cellWidth * 0.8;
+        const variationY = (Math.random() - 0.5) * cellHeight * 0.8;
+
+        x = baseX + variationX;
+        y = baseY + variationY;
+
+        // Verifica che non sia troppo vicino al player
+        const distanceFromPlayer = Math.sqrt(x * x + y * y);
+        if (distanceFromPlayer < minDistanceFromPlayer) {
+          attempts++;
+          continue;
+        }
+
+        // Verifica che non sia troppo vicino ad altre Frigate
+        validPosition = positions.every(pos => {
+          const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
+          return distance >= minDistance;
+        });
+
+        attempts++;
+      }
+
+      // Fallback: posizione casuale
+      if (!validPosition) {
+        x = (Math.random() - 0.5) * worldWidth;
+        y = (Math.random() - 0.5) * worldHeight;
+      }
+
+      positions.push({ x, y });
+
+      // Crea l'entità Frigate
+      const frigate = this.ecs.createEntity();
+
+      const npcDef = getNpcDefinition('Frigate');
+
+      if (!npcDef) {
+        console.error('NPC definition not found for Frigate');
+        continue;
+      }
+
+      // Aggiungi componenti alla Frigate
+      this.ecs.addComponent(frigate, Transform, new Transform(x, y, 0));
+      this.ecs.addComponent(frigate, Velocity, new Velocity(0, 0, 0));
+      this.ecs.addComponent(frigate, Health, new Health(npcDef.stats.health, npcDef.stats.health));
+      this.ecs.addComponent(frigate, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
+      this.ecs.addComponent(frigate, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
+      this.ecs.addComponent(frigate, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
+
+      if (sprite) {
+        const frigateSprite = new Sprite(sprite, sprite.width * 0.2, sprite.height * 0.2); // Frigate più grandi
+        this.ecs.addComponent(frigate, Sprite, frigateSprite);
       }
     }
   }
