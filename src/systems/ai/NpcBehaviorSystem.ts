@@ -332,10 +332,10 @@ export class NpcBehaviorSystem extends BaseSystem {
           // Troppo lontano - avvicinati
           targetSpeed = 80; // Avvicinamento aggressivo
         } else {
-          // Distanza ideale - mantieni posizione senza movimento circolare
-          movementDirectionX = 0;
-          movementDirectionY = 0;
-          targetSpeed = 0; // Fermo alla distanza ideale
+          // Distanza ideale - cerca di allontanarsi leggermente per mantenere spazio
+          movementDirectionX = -directionX; // Allontanati dal player
+          movementDirectionY = -directionY;
+          targetSpeed = 20; // Movimento lento di allontanamento
         }
       }
 
