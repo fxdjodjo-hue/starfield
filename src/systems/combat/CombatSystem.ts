@@ -114,25 +114,22 @@ export class CombatSystem extends BaseSystem {
    * Crea un proiettile dall'attaccante verso il target
    */
   private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any): void {
-    // Per NPC ruotati correttamente, usa la loro rotazione per la direzione del proiettile
-    // Invece di ricalcolare dal target (che potrebbe essere impreciso)
+    // Assicurati che l'NPC sia ruotato correttamente PRIMA di calcolare il proiettile
     const isPlayer = attackerEntity === this.playerSystem.getPlayerEntity();
 
-    let directionX: number, directionY: number;
-
-    if (isPlayer) {
-      // Player: calcola direzione dal target (come prima)
-      const dx = targetTransform.x - attackerTransform.x;
-      const dy = targetTransform.y - attackerTransform.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      directionX = dx / distance;
-      directionY = dy / distance;
-    } else {
-      // NPC: usa la rotazione dell'NPC per la direzione (più precisa dopo facePlayer)
-      const angle = attackerTransform.rotation;
-      directionX = Math.cos(angle);
-      directionY = Math.sin(angle);
+    // Per NPC, forza la rotazione verso il target prima di sparare
+    if (!isPlayer) {
+      this.faceTarget(attackerTransform, targetTransform);
     }
+
+    // Ora calcola direzione del proiettile (sempre dal target per consistenza)
+    const dx = targetTransform.x - attackerTransform.x;
+    const dy = targetTransform.y - attackerTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Normalizza la direzione
+    const directionX = dx / distance;
+    const directionY = dy / distance;
 
     if (isPlayer) {
       // Riproduci suono laser del player
