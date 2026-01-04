@@ -204,7 +204,7 @@ export class GameInitializationSystem extends System {
       movementSystem, playerControlSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, combatSystem, logSystem, boundsSystem,
       respawnSystem, questTrackingSystem, inputSystem, npcSelectionSystem,
-      chatTextSystem
+      chatTextSystem, uiSystem
     } = systems;
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
