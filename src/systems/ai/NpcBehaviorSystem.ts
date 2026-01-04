@@ -332,25 +332,17 @@ export class NpcBehaviorSystem extends BaseSystem {
           // Troppo lontano - avvicinati
           targetSpeed = 80; // Avvicinamento aggressivo
         } else {
-          // Distanza ideale - movimento circolare con variazioni angolari ma velocità costante
-          const circleSpeed = 40; // Velocità costante per movimento fluido
+          // Distanza ideale - movimento irregolare invece di orbita perfetta
+          const slowSpeed = 25;
 
-          // Aggiungi variazione casuale all'angolo del movimento circolare (±45 gradi)
-          const angleVariation = (Math.random() - 0.5) * Math.PI * 0.5; // ±45 gradi
-          const baseAngle = Math.atan2(directionY, directionX);
-          const adjustedAngle = baseAngle + angleVariation;
+          // Aggiungi variazione casuale alla direzione per movimento meno prevedibile
+          const angleVariation = (Math.random() - 0.5) * Math.PI * 0.3; // ±27 gradi
+          const currentAngle = Math.atan2(directionY, directionX);
+          const adjustedAngle = currentAngle + angleVariation;
 
-          // Movimento circolare con variazione angolare ma velocità costante
-          movementDirectionX = Math.cos(adjustedAngle + Math.PI / 2); // Perpendicolare con variazione
-          movementDirectionY = Math.sin(adjustedAngle + Math.PI / 2);
-
-          targetSpeed = circleSpeed;
-
-          // Occasionalmente (10% probabilità) cambia direzione del movimento circolare
-          if (Math.random() < 0.1) {
-            movementDirectionX *= -1;
-            movementDirectionY *= -1;
-          }
+          movementDirectionX = Math.cos(adjustedAngle);
+          movementDirectionY = Math.sin(adjustedAngle);
+          targetSpeed = slowSpeed;
         }
       }
 
