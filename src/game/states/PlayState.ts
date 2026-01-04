@@ -6,6 +6,7 @@ import { QuestManager } from '../../systems/quest/QuestManager';
 import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
+import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
@@ -32,6 +33,7 @@ export class PlayState extends GameState {
   private movementSystem: MovementSystem | null = null;
   private audioSystem: AudioSystem | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
+  private remotePlayerSystem: RemotePlayerSystem | null = null;
   private nicknameCreated: boolean = false;
 
   // Gestione elementi DOM per nickname NPC (stabili come il player)
@@ -80,8 +82,12 @@ export class PlayState extends GameState {
     // Inizializza il sistema UI dopo che tutti i sistemi sono stati creati
     this.uiSystem.initialize();
 
+    // Inizializza il sistema per i giocatori remoti
+    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS());
+    this.world.getECS().addSystem(this.remotePlayerSystem);
+
     // Inizializza il sistema di rete multiplayer
-    this.clientNetworkSystem = new ClientNetworkSystem(this.world.getECS(), this.context);
+    this.clientNetworkSystem = new ClientNetworkSystem(this.world.getECS(), this.context, this.remotePlayerSystem);
 
     // Imposta informazioni del player nel sistema di rete
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);

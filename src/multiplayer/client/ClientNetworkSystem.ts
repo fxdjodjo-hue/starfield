@@ -2,6 +2,11 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { Transform } from '../../entities/spatial/Transform';
+import { Sprite } from '../../entities/Sprite';
+import { Health } from '../../entities/combat/Health';
+import { Velocity } from '../../entities/spatial/Velocity';
+import { Npc } from '../../entities/ai/Npc';
+import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
 
 /**
  * Sistema di rete client semplificato per multiplayer funzionante
@@ -9,6 +14,7 @@ import { Transform } from '../../entities/spatial/Transform';
  */
 export class ClientNetworkSystem extends BaseSystem {
   private gameContext: GameContext;
+  private remotePlayerSystem: RemotePlayerSystem;
   private socket: WebSocket | null = null;
   private clientId: string = '';
   private connected = false;
@@ -25,9 +31,10 @@ export class ClientNetworkSystem extends BaseSystem {
   private readonly HEARTBEAT_INTERVAL = 5000; // 5 secondi
   private readonly POSITION_SYNC_INTERVAL = 100; // 10 FPS per posizione
 
-  constructor(ecs: ECS, gameContext: GameContext, serverUrl: string = 'ws://localhost:3000') {
+  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = 'ws://localhost:3000') {
     super(ecs);
     this.gameContext = gameContext;
+    this.remotePlayerSystem = remotePlayerSystem;
 
     // Genera un client ID univoco
     this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
@@ -54,13 +61,17 @@ export class ClientNetworkSystem extends BaseSystem {
         console.log('✅ Connected to server');
         this.connected = true;
 
+        // Prima ottieni la posizione corrente del player locale
+        const currentPosition = this.getLocalPlayerPosition();
+
         // Invia messaggio di join con informazioni complete del player
         this.sendMessage({
           type: 'join',
           clientId: this.clientId,
           nickname: this.playerNickname,
           playerId: this.playerId,
-          userId: this.gameContext.localClientId // Supabase auth ID
+          userId: this.gameContext.localClientId, // Supabase auth ID
+          position: currentPosition // Posizione iniziale del player
         });
       };
 
@@ -119,6 +130,81 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Ottiene la posizione corrente del player locale
+   */
+  private getLocalPlayerPosition(): { x: number; y: number; rotation: number } {
+    // Trova il player locale (assumiamo sia l'unico senza componente NPC)
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
+      .filter(entity => !this.ecs.hasComponent(entity, Npc));
+
+    if (playerEntities.length > 0) {
+      const playerEntity = playerEntities[0];
+      const transform = this.ecs.getComponent(playerEntity, Transform);
+
+      if (transform) {
+        return {
+          x: transform.x,
+          y: transform.y,
+          rotation: transform.rotation || 0
+        };
+      }
+    }
+
+    // Fallback: posizione default
+    console.warn('[CLIENT] Could not find local player position, using default');
+    return { x: 400, y: 300, rotation: 0 };
+  }
+
+  /**
+   * Gestisce aggiornamenti posizione di giocatori remoti
+   */
+  private handleRemotePlayerUpdate(message: any): void {
+    const { clientId, position, rotation } = message;
+
+    if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
+      // Crea nuovo giocatore remoto
+      this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
+    } else {
+      // Aggiorna posizione giocatore remoto esistente
+      this.remotePlayerSystem.updateRemotePlayer(clientId, position, rotation || 0);
+    }
+  }
+
+  /**
+   * Crea un nuovo giocatore remoto
+   */
+  private createRemotePlayer(clientId: string, position: any, rotation: number): number {
+    // Crea una nuova entity per il giocatore remoto
+    const entity = this.ecs.createEntity();
+
+    // Aggiungi componenti base
+    const transform = new Transform(position.x, position.y, rotation || 0);
+    this.ecs.addComponent(entity, Transform, transform);
+
+    // Aggiungi velocità (anche se non si muove attivamente, serve per rendering)
+    const velocity = new Velocity(0, 0, 0);
+    this.ecs.addComponent(entity, Velocity, velocity);
+
+    // Aggiungi salute per mostrare le barre e confermare che è renderizzato
+    const health = new Health(100, 100); // 100/100 HP
+    this.ecs.addComponent(entity, Health, health);
+
+    // Aggiungi sprite per il giocatore remoto (stesso del player locale per ora)
+    const sprite = new Sprite(null, 32, 32); // null significa usa colore invece di immagine
+    this.ecs.addComponent(entity, Sprite, sprite);
+
+    console.log(`🎯 [CLIENT] Created remote player entity ${entity.id} with components: Transform, Velocity, Health, Sprite`);
+    return entity.id;
+  }
+
+  /**
+   * Gestisce disconnessione di un giocatore remoto
+   */
+  public handleRemotePlayerDisconnected(clientId: string): void {
+    this.remotePlayerSystem.removeRemotePlayer(clientId);
+  }
+
+  /**
    * Sincronizza la posizione del player al server
    */
   private sendPlayerPosition(): void {
@@ -172,6 +258,22 @@ export class ClientNetworkSystem extends BaseSystem {
           // Position acknowledgment - non richiede elaborazione
           break;
 
+        case 'remote_player_update':
+          // Aggiornamento posizione di un altro giocatore
+          this.handleRemotePlayerUpdate(message);
+          break;
+
+        case 'player_joined':
+          // Un nuovo giocatore si è connesso
+          console.log(`👋 [CLIENT] New player joined: ${message.clientId} (${message.nickname})`);
+          break;
+
+        case 'player_left':
+          // Un giocatore si è disconnesso
+          console.log(`👋 [CLIENT] Player left: ${message.clientId}`);
+          this.handleRemotePlayerDisconnected(message.clientId);
+          break;
+
         case 'heartbeat_ack':
           // Heartbeat acknowledgment - connessione viva
           break;
@@ -206,7 +308,7 @@ export class ClientNetworkSystem extends BaseSystem {
    * Verifica se è connesso
    */
   isConnected(): boolean {
-    return this.isConnected;
+    return this.connected;
   }
 
   /**
