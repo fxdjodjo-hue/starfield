@@ -63,10 +63,11 @@ export class PlayState extends GameState {
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
 
-    // Avvia musica di background
+    // Avvia musica di background e suoni ambientali
     if (this.audioSystem) {
       this.audioSystem.init();
       this.audioSystem.playMusic('background');
+      this.audioSystem.playMusic('ambience'); // Suono ambientale in loop
     }
 
     // Messaggio di benvenuto nella chat
@@ -118,9 +119,10 @@ export class PlayState extends GameState {
    * Termina il gameplay
    */
   exit(): void {
-    // Ferma musica di background
+    // Ferma musica di background e suoni ambientali
     if (this.audioSystem) {
-      this.audioSystem.stopMusic();
+      this.audioSystem.stopSound('background');
+      this.audioSystem.stopSound('ambience');
     }
 
     // Cleanup completo dell'HUD

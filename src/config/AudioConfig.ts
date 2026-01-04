@@ -8,7 +8,7 @@ export type AudioConfig = {
 
 export const AUDIO_CONFIG: AudioConfig = {
   masterVolume: 1.0,
-  musicVolume: 0.0, // Temporaneamente disattivata per test suoni combattimento
+  musicVolume: 0.02, // Volume molto basso per background ambientale
   effectsVolume: 0.8,
   uiVolume: 0.9,
   enabled: true
@@ -31,6 +31,7 @@ export const AUDIO_ASSETS = {
   // Musica
   music: {
     background: 'music/bgmusic.mp3',
+    ambience: 'ambient/ambience.mp3',
     menu: 'music/menu_theme.mp3',
     gameplay: 'music/gameplay_theme.mp3',
     battle: 'music/battle_theme.mp3',
