@@ -115,8 +115,11 @@ export class NpcBehaviorSystem extends BaseSystem {
         npc.setBehavior('cruise');
       } else if (npc.npcType === 'Frigate') {
         // Frigate diventano aggressive quando il player è visibile
-        // TEMP: Forza aggressive per debug
-        npc.setBehavior('aggressive');
+        if (this.isPlayerVisibleToNpc(entityId)) {
+          npc.setBehavior('aggressive');
+        } else {
+          npc.setBehavior('cruise');
+        }
       } else {
         // Altri NPC mantengono comportamenti semplici
         npc.setBehavior('cruise'); // Nuovo comportamento base
@@ -254,43 +257,27 @@ export class NpcBehaviorSystem extends BaseSystem {
   private isPlayerVisibleToNpc(npcEntityId: number): boolean {
     // Trova l'NPC
     const npcEntity = this.ecs.getEntity(npcEntityId);
-    if (!npcEntity) {
-      console.log(`NPC entity ${npcEntityId} not found`);
-      return false;
-    }
+    if (!npcEntity) return false;
 
     const npcTransform = this.ecs.getComponent(npcEntity, Transform);
-    const npcDamage = this.ecs.getComponent(npcEntity, Damage);
-    if (!npcTransform || !npcDamage) {
-      console.log(`NPC ${npcEntityId} missing transform or damage component`);
-      return false;
-    }
+    if (!npcTransform) return false;
 
     // Trova il player
     const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
       .filter(entity => !this.ecs.hasComponent(entity, Npc));
 
-    if (playerEntities.length === 0) {
-      console.log('No player entities found');
-      return false;
-    }
+    if (playerEntities.length === 0) return false;
 
     const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
-    if (!playerTransform) {
-      console.log('Player has no transform component');
-      return false;
-    }
+    if (!playerTransform) return false;
 
-    // Controlla se il player è nel range di attacco dell'NPC
+    // Controlla se il player è nel range di attacco (300 come il player)
     const dx = playerTransform.x - npcTransform.x;
     const dy = playerTransform.y - npcTransform.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Debug info
-    console.log(`NPC ${npcEntityId} at (${npcTransform.x.toFixed(0)}, ${npcTransform.y.toFixed(0)}), Player at (${playerTransform.x.toFixed(0)}, ${playerTransform.y.toFixed(0)}), Distance: ${distance.toFixed(0)}, Range: ${npcDamage.range}, Visible: ${distance <= npcDamage.range}`);
-
-    // Il player è "visibile" se è entro il range di attacco (come per il player)
-    return distance <= npcDamage.range;
+    // Il player è "visibile" se è entro il range di attacco del player (300)
+    return distance <= 300;
   }
 
   private executeAggressiveBehavior(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
