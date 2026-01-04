@@ -70,11 +70,11 @@ export class PlayerControlSystem extends BaseSystem {
 
       this.isEnginePlaying = true;
 
-      // Avvia il suono con volume minimo per transizione morbida
-      this.audioSystem.playSound('engine', 0.05, true); // Volume minimo invece di 0
+      // Avvia il suono con volume 0 per evitare pop iniziale
+      this.audioSystem.playSound('engine', 0, true);
 
-      // Fade in graduale verso volume normale
-      this.audioSystem.fadeInSound('engine', 800, 0.5);
+      // Fade in graduale
+      this.audioSystem.fadeInSound('engine', 800, 0.08);
     } catch (error) {
       console.warn('PlayerControlSystem: Error starting engine sound:', error);
       this.isEnginePlaying = false;
@@ -82,7 +82,7 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Ferma il suono del motore con fade out morbido
+   * Ferma il suono del motore con fade out
    */
   private async stopEngineSound(): Promise<void> {
     if (!this.audioSystem) return;
@@ -93,16 +93,8 @@ export class PlayerControlSystem extends BaseSystem {
 
       this.isEnginePlaying = false;
 
-      // Prima fade out verso volume minimo
-      this.audioSystem.fadeInSound('engine', 300, 0.02); // Fade veloce verso volume minimo
-
-      // Poi aspetta un po' e ferma completamente
-      setTimeout(async () => {
-        if (!this.isEnginePlaying) { // Controlla che non sia ricominciato
-          await this.audioSystem.fadeOutSound('engine', 200);
-        }
-      }, 500);
-
+      // Fade out graduale
+      await this.audioSystem.fadeOutSound('engine', 500);
     } catch (error) {
       console.warn('PlayerControlSystem: Error stopping engine sound:', error);
       // Reset dello stato in caso di errore
