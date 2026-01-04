@@ -420,7 +420,7 @@ export class PlayState extends GameState {
       const camera = this.movementSystem?.getCamera();
       if (!camera) continue;
 
-      const canvasSize = { width: 800, height: 600 }; // Valori di default, potrebbero essere dinamici
+      const canvasSize = this.world.getCanvasSize();
       const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
 
       // Assicura che esista l'elemento DOM per questo remote player
