@@ -29,6 +29,7 @@ export class UiSystem extends System {
   private mainTitleElement: HTMLElement | null = null;
   private context: any = null;
   private isMinimalUI: boolean = false;
+  private panelsWereOpen: Set<string> = new Set(); // Traccia quali pannelli erano aperti
 
   constructor(ecs: ECS, questSystem: QuestSystem, context?: any, playerSystem?: PlayerSystem) {
     super(ecs);
@@ -349,6 +350,14 @@ export class UiSystem extends System {
    * Mostra la modalità UI minimal (solo PlayerHUD visibile)
    */
   private showMinimalUI(): void {
+    // Salva quali pannelli erano aperti
+    this.panelsWereOpen.clear();
+    this.uiManager.getPanels().forEach((panel, panelId) => {
+      if (panel.isPanelVisible()) {
+        this.panelsWereOpen.add(panelId);
+      }
+    });
+
     this.isMinimalUI = true;
     this.uiManager.hideUI(); // Nasconde tutti i pannelli e icone flottanti
     // Il PlayerHUD rimane visibile automaticamente
@@ -359,7 +368,13 @@ export class UiSystem extends System {
    */
   private showFullUI(): void {
     this.isMinimalUI = false;
-    this.uiManager.showUI(); // Mostra tutti i pannelli e icone flottanti
+    this.uiManager.showUI(); // Mostra le icone flottanti
+
+    // Riapri i pannelli che erano aperti prima
+    this.panelsWereOpen.forEach(panelId => {
+      this.uiManager.openPanel(panelId);
+    });
+    this.panelsWereOpen.clear();
   }
 
   /**

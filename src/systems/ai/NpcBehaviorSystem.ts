@@ -102,6 +102,11 @@ export class NpcBehaviorSystem extends BaseSystem {
     const isLowHealth = this.isNpcLowHealth(entityId); // Priorità massima
     const isDamaged = this.isNpcUnderAttack(entityId);  // Priorità media
 
+    // Ottieni i transform per la rotazione immediata
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
+    const npcTransform = this.ecs.getComponent(this.ecs.getEntity(entityId), Transform);
+
     // Logica prioritaria basata su stato NPC (valida per tutti i tipi)
     if (isLowHealth) {
       // NPC con poca salute fugge dal player (priorità massima)
@@ -112,7 +117,7 @@ export class NpcBehaviorSystem extends BaseSystem {
       npc.setBehavior('aggressive');
 
       // Se l'NPC è appena diventato aggressivo a causa del danno, ruotalo immediatamente verso il player
-      if (wasNotAggressive && playerTransform) {
+      if (wasNotAggressive && playerTransform && npcTransform) {
         this.faceTargetImmediately(npcTransform, playerTransform);
       }
     } else {
