@@ -111,7 +111,7 @@ export class RenderSystem extends BaseSystem {
     ctx.rotate(transform.rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
 
-    if (sprite && sprite.isLoaded()) {
+    if (sprite && sprite.isLoaded() && sprite.image) {
       // Renderizza lo sprite
       const spriteX = -sprite.width / 2 + sprite.offsetX;
       const spriteY = -sprite.height / 2 + sprite.offsetY;
@@ -176,7 +176,7 @@ export class RenderSystem extends BaseSystem {
     }
 
     // Se l'NPC ha uno sprite, renderizza quello invece della forma geometrica
-    if (sprite && sprite.isLoaded()) {
+    if (sprite && sprite.isLoaded() && sprite.image) {
       // Renderizza lo sprite dell'NPC
       const spriteX = -sprite.width / 2 + sprite.offsetX;
       const spriteY = -sprite.height / 2 + sprite.offsetY;
