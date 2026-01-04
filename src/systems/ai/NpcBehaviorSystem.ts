@@ -325,32 +325,20 @@ export class NpcBehaviorSystem extends BaseSystem {
         let movementDirectionX = directionX;
         let movementDirectionY = directionY;
 
-        // Logica semplice: mantieni sempre la distanza ottimale per attaccare (range di attacco)
-        const attackRange = 300; // Range di attacco dell'NPC
+        // Logica semplicissima: mantieni la distanza di attacco
+        const attackRange = 300;
 
-        if (distance > attackRange + 10) {
-          // Troppo lontano - avvicinati per poter attaccare
-          // Nessuna direzione da cambiare, vai verso il player
-        } else if (distance < attackRange - 10) {
-          // Troppo vicino - allontanati per mantenere distanza di tiro
+        if (distance > attackRange) {
+          // Troppo lontano - avvicinati
+        } else if (distance < attackRange) {
+          // Troppo vicino - allontanati
           movementDirectionX = -directionX;
           movementDirectionY = -directionY;
         } else {
-          // Distanza perfetta per attaccare - movimento lento circolare per rimanere dinamici
-          // Invece di stare completamente fermi, facciamo un movimento circolare lento
-          const time = Date.now() * 0.001; // Tempo in secondi per movimento circolare
-          const circleRadius = 0.3; // Raggio del movimento circolare (molto piccolo)
-
-          // Movimento circolare lento attorno alla posizione ottimale
-          movementDirectionX = Math.cos(time * 0.5) * circleRadius; // Movimento circolare lento
-          movementDirectionY = Math.sin(time * 0.5) * circleRadius;
-
-          // Velocità molto bassa per il movimento circolare
-          targetSpeed = baseSpeed * 0.1; // 10% della velocità base
-
-          // Mantieni sempre la rotazione verso il player
-          const angle = Math.atan2(directionY, directionX) + Math.PI / 2;
-          transform.rotation = angle;
+          // Distanza perfetta - fermati
+          movementDirectionX = 0;
+          movementDirectionY = 0;
+          targetSpeed = 0;
         }
 
       // Per NPC senza state, usa movimento semplice

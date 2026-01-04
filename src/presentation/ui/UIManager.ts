@@ -558,13 +558,6 @@ export class UIManager {
   }
 
   /**
-   * Restituisce la mappa dei pannelli
-   */
-  getPanels(): Map<string, BasePanel> {
-    return this.panels;
-  }
-
-  /**
    * Distrugge tutti i pannelli e icone
    */
   destroy(): void {
