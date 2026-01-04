@@ -7,6 +7,7 @@ import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
+import { Npc } from '../../entities/ai/Npc';
 import AudioSystem from '../../systems/audio/AudioSystem';
 
 /**
@@ -25,6 +26,9 @@ export class PlayState extends GameState {
   private movementSystem: MovementSystem | null = null;
   private audioSystem: AudioSystem | null = null;
   private nicknameCreated: boolean = false;
+
+  // Gestione elementi DOM per nickname NPC (stabili come il player)
+  private npcNicknameElements: Map<number, HTMLDivElement> = new Map();
 
   constructor(context: GameContext) {
     super();
@@ -108,8 +112,11 @@ export class PlayState extends GameState {
     // Aggiorna le informazioni del player (HP)
     this.uiSystem.showPlayerInfo();
 
-    // Aggiorna posizione del nickname
+    // Aggiorna posizione del nickname del player
     this.updateNicknamePosition();
+
+    // Aggiorna posizioni nickname NPC (DOM-based per stabilità)
+    this.updateNpcNicknames();
   }
 
   /**
@@ -141,7 +148,9 @@ export class PlayState extends GameState {
     // Cleanup completo dell'HUD
     this.uiSystem.destroy();
 
-    // Rimuovi elemento nickname (delegato all'UiSystem)
+    // Rimuovi elemento nickname del player (delegato all'UiSystem)
+    // Rimuovi elementi DOM dei nickname NPC
+    this.cleanupNpcNicknames();
 
     this.uiSystem.showMainTitle();
     // Qui potremmo salvare lo stato di gioco, cleanup, etc.
@@ -233,6 +242,102 @@ export class PlayState extends GameState {
 
     // Delega all'UiSystem
     this.uiSystem.updatePlayerNicknamePosition(transform.x, transform.y, camera, canvasSize);
+  }
+
+  /**
+   * Aggiorna posizioni e visibilità dei nickname NPC (elementi DOM stabili)
+   */
+  private updateNpcNicknames(): void {
+    if (!this.movementSystem || !this.uiSystem) return;
+
+    const camera = this.movementSystem.getCamera();
+    const canvasSize = this.world.getCanvasSize();
+    const ecs = this.world.getECS();
+
+    // Trova tutti gli NPC nel sistema
+    const npcs = ecs.getEntitiesWithComponents(Npc, Transform);
+
+    // Track quali NPC sono ancora visibili per cleanup
+    const visibleNpcIds = new Set<number>();
+
+    for (const entity of npcs) {
+      const npc = ecs.getComponent(entity, Npc);
+      const transform = ecs.getComponent(entity, Transform);
+
+      if (npc && transform) {
+        // Verifica se l'NPC è visibile sulla schermata
+        const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
+        const isVisible = screenPos.x >= -100 && screenPos.x <= canvasSize.width + 100 &&
+                         screenPos.y >= -100 && screenPos.y <= canvasSize.height + 100;
+
+        if (isVisible) {
+          visibleNpcIds.add(entity.id);
+          this.ensureNpcNicknameElement(entity.id, npc.npcType);
+          this.updateNpcNicknamePosition(entity.id, screenPos.x, screenPos.y);
+        }
+      }
+    }
+
+    // Rimuovi elementi DOM per NPC non più visibili
+    for (const [entityId, element] of this.npcNicknameElements) {
+      if (!visibleNpcIds.has(entityId)) {
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+        this.npcNicknameElements.delete(entityId);
+      }
+    }
+  }
+
+  /**
+   * Assicura che esista un elemento DOM per il nickname dell'NPC
+   */
+  private ensureNpcNicknameElement(entityId: number, npcType: string): void {
+    if (!this.npcNicknameElements.has(entityId)) {
+      const element = document.createElement('div');
+      element.id = `npc-nickname-${entityId}`;
+      element.style.cssText = `
+        position: fixed;
+        color: rgba(255, 68, 68, 0.9);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-weight: 500;
+        font-size: 12px;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        z-index: 100;
+        white-space: nowrap;
+      `;
+      element.textContent = npcType;
+      document.body.appendChild(element);
+      this.npcNicknameElements.set(entityId, element);
+    }
+  }
+
+  /**
+   * Aggiorna la posizione dell'elemento DOM del nickname NPC
+   */
+  private updateNpcNicknamePosition(entityId: number, screenX: number, screenY: number): void {
+    const element = this.npcNicknameElements.get(entityId);
+    if (element) {
+      const nicknameX = screenX - element.offsetWidth / 2;
+      const nicknameY = screenY + 55;
+
+      element.style.left = `${nicknameX}px`;
+      element.style.top = `${nicknameY}px`;
+      element.style.display = 'block';
+    }
+  }
+
+  /**
+   * Rimuove tutti gli elementi DOM dei nickname NPC (cleanup)
+   */
+  private cleanupNpcNicknames(): void {
+    for (const [entityId, element] of this.npcNicknameElements) {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    }
+    this.npcNicknameElements.clear();
   }
 
 

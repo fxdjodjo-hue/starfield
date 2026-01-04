@@ -75,7 +75,7 @@ export class RenderSystem extends BaseSystem {
           // Renderizza come NPC
           const entitySprite = this.ecs.getComponent(entity, Sprite);
           const entityVelocity = this.ecs.getComponent(entity, Velocity);
-          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite, entityVelocity, camera);
+          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite, entityVelocity);
 
           // Range di attacco NPC rimosso (era debug)
         } else {
@@ -140,7 +140,7 @@ export class RenderSystem extends BaseSystem {
   /**
    * Renderizza un NPC
    */
-  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false, sprite?: Sprite, velocity?: Velocity, camera?: any): void {
+  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false, sprite?: Sprite, velocity?: Velocity): void {
     ctx.save();
 
     // Applica trasformazioni usando le coordinate schermo
@@ -223,12 +223,8 @@ export class RenderSystem extends BaseSystem {
 
     ctx.restore();
 
-    // Renderizza il nickname FUORI dalle trasformazioni per evitare effetti 3D strani
-    // Il nickname deve rimanere orizzontale e leggibile
-    // Usa coordinate mondo stabili invece di schermo per eliminare vibrazioni
-    if (camera) {
-      this.renderNpcNickname(ctx, npc, transform.x, transform.y, camera);
-    }
+    // Il nickname viene gestito come elemento DOM separato nel PlayState
+    // per garantire la stessa stabilità del nickname del player
   }
 
   /**
@@ -431,38 +427,6 @@ export class RenderSystem extends BaseSystem {
     ctx.restore();
   }
 
-  /**
-   * Renderizza il nickname dell'NPC sotto di esso (stile uniforme al player)
-   * Usa coordinate mondo per stabilità invece di coordinate schermo
-   */
-  private renderNpcNickname(ctx: CanvasRenderingContext2D, npc: Npc, worldX: number, worldY: number, camera: any): void {
-    if (!camera) return;
-
-    ctx.save();
-
-    // Converti coordinate mondo in coordinate schermo per posizione stabile
-    const screenPos = camera.worldToScreen(worldX, worldY, ctx.canvas.width, ctx.canvas.height);
-
-    // Stile uniforme al player ma con colori distintivi per tipo NPC
-    ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Colore rosso uniforme per tutti gli NPC
-    const textColor = 'rgba(255, 68, 68, 0.9)'; // Rosso con trasparenza
-
-    // Testo con ombra elegante come il player
-    ctx.fillStyle = textColor;
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 3;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 1;
-
-    // Disegna il testo centrato sotto l'NPC
-    ctx.fillText(npc.npcType, screenPos.x, screenPos.y + 55);
-
-    ctx.restore();
-  }
 
   /**
    * Renderizza un effetto esplosione
