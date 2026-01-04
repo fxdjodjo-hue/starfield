@@ -385,7 +385,7 @@ export class RenderSystem extends BaseSystem {
    */
   private getProjectileImageForOwner(ownerId: number): HTMLImageElement | null {
     // Trova l'entità owner nel sistema ECS
-    const ownerEntity = this.ecs.getEntityById(ownerId);
+    const ownerEntity = this.ecs.getEntity(ownerId);
     if (!ownerEntity) return this.scouterProjectileImage; // Fallback
 
     // Controlla se l'owner è un NPC e quale tipo
