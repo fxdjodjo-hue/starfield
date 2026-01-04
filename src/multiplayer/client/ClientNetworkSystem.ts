@@ -31,7 +31,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private readonly HEARTBEAT_INTERVAL = 5000; // 5 secondi
   private readonly POSITION_SYNC_INTERVAL = 100; // 10 FPS per posizione
 
-  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = 'ws://localhost:3000') {
+  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem | null, serverUrl: string = 'ws://localhost:3000') {
     super(ecs);
     this.gameContext = gameContext;
     this.remotePlayerSystem = remotePlayerSystem;
@@ -161,12 +161,14 @@ export class ClientNetworkSystem extends BaseSystem {
   private handleRemotePlayerUpdate(message: any): void {
     const { clientId, position, rotation } = message;
 
-    if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
-      // Crea nuovo giocatore remoto
-      this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
-    } else {
-      // Aggiorna posizione giocatore remoto esistente
-      this.remotePlayerSystem.updateRemotePlayer(clientId, position, rotation || 0);
+    if (this.remotePlayerSystem) {
+      if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
+        // Crea nuovo giocatore remoto
+        this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
+      } else {
+        // Aggiorna posizione giocatore remoto esistente
+        this.remotePlayerSystem.updateRemotePlayer(clientId, position, rotation || 0);
+      }
     }
   }
 
@@ -201,7 +203,9 @@ export class ClientNetworkSystem extends BaseSystem {
    * Gestisce disconnessione di un giocatore remoto
    */
   public handleRemotePlayerDisconnected(clientId: string): void {
-    this.remotePlayerSystem.removeRemotePlayer(clientId);
+    if (this.remotePlayerSystem) {
+      this.remotePlayerSystem.removeRemotePlayer(clientId);
+    }
   }
 
   /**

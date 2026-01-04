@@ -9,6 +9,7 @@ import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSyste
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
+import { Sprite } from '../../entities/Sprite';
 import { Npc } from '../../entities/ai/Npc';
 import AudioSystem from '../../systems/audio/AudioSystem';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
@@ -82,15 +83,7 @@ export class PlayState extends GameState {
     // Inizializza il sistema UI dopo che tutti i sistemi sono stati creati
     this.uiSystem.initialize();
 
-    // Inizializza il sistema per i giocatori remoti
-    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS());
-    this.world.getECS().addSystem(this.remotePlayerSystem);
-
-    // Inizializza il sistema di rete multiplayer
-    this.clientNetworkSystem = new ClientNetworkSystem(this.world.getECS(), this.context, this.remotePlayerSystem);
-
-    // Imposta informazioni del player nel sistema di rete
-    this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
+    // Sistemi multiplayer verranno inizializzati dopo la creazione del player
 
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
@@ -220,6 +213,33 @@ export class PlayState extends GameState {
 
 
   /**
+   * Inizializza sistemi multiplayer dopo la creazione del player
+   */
+  private initializeMultiplayerSystems(): void {
+    if (!this.playerEntity) {
+      console.error('Player entity not found, cannot initialize multiplayer systems');
+      return;
+    }
+
+    // Ottieni l'immagine della nave dal player locale
+    let shipImage: HTMLImageElement | null = null;
+    const playerSprite = this.world.getECS().getComponent(this.playerEntity, Sprite);
+    if (playerSprite && playerSprite.image) {
+      shipImage = playerSprite.image;
+    }
+
+    // Inizializza il sistema per i giocatori remoti
+    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage);
+    this.world.getECS().addSystem(this.remotePlayerSystem);
+
+    // Inizializza il sistema di rete multiplayer
+    this.clientNetworkSystem = new ClientNetworkSystem(this.world.getECS(), this.context, this.remotePlayerSystem);
+
+    // Imposta informazioni del player nel sistema di rete
+    this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
+  }
+
+  /**
    * Inizializza il mondo di gioco e crea entitÃ 
    */
   private async initializeGame(): Promise<void> {
@@ -238,6 +258,9 @@ export class PlayState extends GameState {
     if (systems.economySystem) {
       this.uiSystem.setEconomySystem(systems.economySystem);
     }
+
+    // Inizializza sistemi multiplayer dopo che il player è stato creato
+    this.initializeMultiplayerSystems();
 
     // Collega il PlayerSystem all'UiSystem
     if (systems.playerSystem) {
