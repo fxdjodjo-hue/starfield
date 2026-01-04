@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import path from 'path';
 
 export default defineConfig({
-  base: process.env.NODE_ENV === 'production' ? '/starfield/' : '/',
+  base: '/',
   server: {
     port: 5173,
   },
