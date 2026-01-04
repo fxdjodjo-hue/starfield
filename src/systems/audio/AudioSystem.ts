@@ -71,15 +71,18 @@ export default class AudioSystem extends System {
 
   // Metodi pubblici per gestione audio
 
-  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false): void {
+  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false, allowMultiple: boolean = false): void {
     if (!this.config.enabled) return;
 
     try {
+      // Crea una chiave unica per suoni multipli ravvicinati
+      const soundKey = allowMultiple ? `${key}_${Date.now()}_${Math.random()}` : key;
+
       // Per suoni loop, ferma quello precedente se esiste
       if (loop && this.sounds.has(key)) {
         this.stopSound(key);
-      } else if (this.sounds.has(key) && !loop) {
-        // Per suoni non loop, se già presente non riavviarlo
+      } else if (this.sounds.has(soundKey) && !loop && !allowMultiple) {
+        // Per suoni non loop, se già presente non riavviarlo (a meno che allowMultiple)
         return;
       }
 
@@ -94,23 +97,42 @@ export default class AudioSystem extends System {
       audio.volume = this.config.masterVolume * volume;
       audio.loop = loop;
 
-      audio.play().catch(error => {
-        console.warn(`Audio system: Failed to play sound '${key}':`, error);
-        // Rimuovi dalla mappa se fallisce
-        this.sounds.delete(key);
-      });
+      // Gestisci la riproduzione con retry per superare blocchi del browser
+      const playAudio = async (retryCount = 0) => {
+        try {
+          await audio.play();
+          console.log(`Audio system: Playing '${key}' successfully`);
+        } catch (error) {
+          if (retryCount < 2) {
+            console.warn(`Audio system: Failed to play '${key}' (attempt ${retryCount + 1}), retrying...`);
+            // Riprova dopo un delay crescente
+            setTimeout(() => playAudio(retryCount + 1), 50 * (retryCount + 1));
+          } else {
+            console.warn(`Audio system: Failed to play '${key}' after ${retryCount + 1} attempts:`, error);
+            this.sounds.delete(soundKey);
+          }
+          return;
+        }
+      };
 
-      this.sounds.set(key, audio);
+      playAudio();
+      this.sounds.set(soundKey, audio);
 
       // Per suoni non loop, rimuovi dalla mappa quando finisce
       if (!loop) {
         audio.addEventListener('ended', () => {
-          this.sounds.delete(key);
+          this.sounds.delete(soundKey);
         });
+
+        // Safety timeout per suoni che potrebbero non finire correttamente
+        setTimeout(() => {
+          if (this.sounds.has(soundKey)) {
+            this.sounds.delete(soundKey);
+          }
+        }, 5000); // 5 secondi massimo per suoni laser
       }
     } catch (error) {
-      console.warn(`Audio system: Failed to play sound '${key}':`, error);
-      this.sounds.delete(key);
+      console.warn(`Audio system: Failed to create sound '${key}':`, error);
     }
   }
 

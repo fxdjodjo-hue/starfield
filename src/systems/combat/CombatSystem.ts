@@ -150,7 +150,7 @@ export class CombatSystem extends BaseSystem {
 
     // Riproduci suono per il primo laser (con danno)
     if (this.audioSystem) {
-      this.audioSystem.playSound('laser', 0.4);
+      this.audioSystem.playSound('laser', 0.4, false, true); // allowMultiple=true per suoni ravvicinati
     }
     this.createProjectileAt(attackerEntity, attackerTransform, fullDamage, leftDirectionX, leftDirectionY, targetEntity);
 
@@ -158,7 +158,7 @@ export class CombatSystem extends BaseSystem {
     setTimeout(() => {
       // Riproduci suono per il secondo laser (visivo)
       if (this.audioSystem) {
-        this.audioSystem.playSound('laser', 0.35); // Volume leggermente più basso per il secondo laser
+        this.audioSystem.playSound('laser', 0.35, false, true); // allowMultiple=true per suoni ravvicinati
       }
     }, 50); // 50ms di delay
 
