@@ -23,17 +23,23 @@ export class RenderSystem extends BaseSystem {
   private movementSystem: MovementSystem;
   private playerSystem: PlayerSystem;
   private scouterProjectileImage: HTMLImageElement | null = null;
+  private frigateProjectileImage: HTMLImageElement | null = null;
 
   constructor(ecs: ECS, movementSystem: MovementSystem, playerSystem: PlayerSystem) {
     super(ecs);
     this.movementSystem = movementSystem;
     this.playerSystem = playerSystem;
-    this.loadScouterProjectileImage();
+    this.loadProjectileImages();
   }
 
-  private loadScouterProjectileImage(): void {
+  private loadProjectileImages(): void {
+    // Carica immagine proiettile scouter
     this.scouterProjectileImage = new Image();
     this.scouterProjectileImage.src = 'assets/npc_ships/scouter/npc_scouter_projectile.png';
+
+    // Carica immagine proiettile frigate
+    this.frigateProjectileImage = new Image();
+    this.frigateProjectileImage.src = 'assets/npc_ships/frigate/npc_frigate_projectile.png';
   }
 
   update(deltaTime: number): void {
@@ -306,12 +312,14 @@ export class RenderSystem extends BaseSystem {
       ctx.save();
 
       if (isNpcProjectile) {
-        // Renderizza proiettile NPC (scouter)
-        if (this.scouterProjectileImage && this.scouterProjectileImage.complete && this.scouterProjectileImage.width > 0) {
-          // Usa l'immagine del proiettile se disponibile
+        // Determina l'immagine del proiettile in base al tipo di NPC
+        const projectileImage = this.getProjectileImageForOwner(projectile.ownerId);
+
+        if (projectileImage && projectileImage.complete && projectileImage.width > 0) {
+          // Usa l'immagine del proiettile specifica per il tipo di NPC
           const imageSize = 36; // Dimensione del proiettile (ingrandito)
           ctx.drawImage(
-            this.scouterProjectileImage,
+            projectileImage,
             screenPos.x - imageSize / 2,
             screenPos.y - imageSize / 2,
             imageSize,
@@ -370,6 +378,24 @@ export class RenderSystem extends BaseSystem {
       ctx.restore();
       }
     }
+  }
+
+  /**
+   * Restituisce l'immagine del proiettile appropriata per il tipo di NPC che ha sparato
+   */
+  private getProjectileImageForOwner(ownerId: number): HTMLImageElement | null {
+    // Trova l'entità owner nel sistema ECS
+    const ownerEntity = this.ecs.getEntityById(ownerId);
+    if (!ownerEntity) return this.scouterProjectileImage; // Fallback
+
+    // Controlla se l'owner è un NPC e quale tipo
+    const npc = this.ecs.getComponent(ownerEntity, Npc);
+    if (npc && npc.npcType === 'Frigate') {
+      return this.frigateProjectileImage;
+    }
+
+    // Default per scouter e altri
+    return this.scouterProjectileImage;
   }
 
   /**
