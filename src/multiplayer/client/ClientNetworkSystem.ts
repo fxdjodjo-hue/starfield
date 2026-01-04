@@ -159,15 +159,23 @@ export class ClientNetworkSystem extends BaseSystem {
    * Gestisce aggiornamenti posizione di giocatori remoti
    */
   private handleRemotePlayerUpdate(message: any): void {
-    const { clientId, position, rotation } = message;
+    const { clientId, position, rotation, nickname, rank } = message;
 
     if (this.remotePlayerSystem) {
       if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
         // Crea nuovo giocatore remoto
         this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
+        // Imposta info nickname se presente
+        if (nickname) {
+          this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
+        }
       } else {
         // Aggiorna posizione giocatore remoto esistente
         this.remotePlayerSystem.updateRemotePlayer(clientId, position, rotation || 0);
+        // Aggiorna info nickname se presente
+        if (nickname) {
+          this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
+        }
       }
     }
   }
@@ -270,6 +278,11 @@ export class ClientNetworkSystem extends BaseSystem {
         case 'player_joined':
           // Un nuovo giocatore si è connesso
           console.log(`👋 [CLIENT] New player joined: ${message.clientId} (${message.nickname})`);
+          // Imposta info nickname per il remote player
+          if (this.remotePlayerSystem && message.nickname) {
+            // Per ora usa rank fisso, in futuro potrebbe venire dal server
+            this.remotePlayerSystem.setRemotePlayerInfo(message.clientId, message.nickname, 'Recruit');
+          }
           break;
 
         case 'player_left':

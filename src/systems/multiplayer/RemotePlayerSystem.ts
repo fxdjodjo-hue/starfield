@@ -14,6 +14,8 @@ import { Velocity } from '../../entities/spatial/Velocity';
 export class RemotePlayerSystem extends BaseSystem {
   // Mappa clientId -> entityId per tracciare i giocatori remoti
   private remotePlayers: Map<string, number> = new Map();
+  // Mappa clientId -> {nickname, rank} per info visualizzazione
+  private remotePlayerInfo: Map<string, {nickname: string, rank: string}> = new Map();
   private shipImage: HTMLImageElement | null = null;
   private shipWidth: number = 32;
   private shipHeight: number = 32;
@@ -28,6 +30,20 @@ export class RemotePlayerSystem extends BaseSystem {
   update(_deltaTime: number): void {
     // Per ora non abbiamo logica di update specifica
     // I componenti Velocity vengono gestiti dal MovementSystem
+  }
+
+  /**
+   * Imposta info nickname e rank per un remote player
+   */
+  setRemotePlayerInfo(clientId: string, nickname: string, rank: string = 'Recruit'): void {
+    this.remotePlayerInfo.set(clientId, { nickname, rank });
+  }
+
+  /**
+   * Ottiene info di un remote player
+   */
+  getRemotePlayerInfo(clientId: string): {nickname: string, rank: string} | undefined {
+    return this.remotePlayerInfo.get(clientId);
   }
 
   /**
@@ -107,6 +123,7 @@ export class RemotePlayerSystem extends BaseSystem {
       if (entity) {
         this.ecs.removeEntity(entity);
         this.remotePlayers.delete(clientId);
+        this.remotePlayerInfo.delete(clientId);
         console.log(`👤 [REMOTE] Removed remote player: ${clientId} (entity ${entityId})`);
       }
     }
