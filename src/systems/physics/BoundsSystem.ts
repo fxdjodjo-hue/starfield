@@ -21,11 +21,12 @@ export class BoundsSystem extends BaseSystem {
   private readonly DAMAGE_INTERVAL = 1000; // 1 secondo
   private readonly DAMAGE_AMOUNT = 10;
 
+  // Timer per warning vocale periodico
+  private warningTimer = 0;
+  private readonly WARNING_INTERVAL = 3000; // 3 secondi
+
   // Sistema audio
   private audioSystem: any = null;
-
-  // Stato warning
-  private warningPlayed = false;
 
   // Riferimenti ai sistemi
   private playerEntity: any = null;
@@ -62,29 +63,32 @@ export class BoundsSystem extends BaseSystem {
     const isOutOfBounds = this.isOutOfBounds(transform.x, transform.y);
 
     if (isOutOfBounds) {
-      // Riproduci suono warning la prima volta che entra nei bounds
-      if (!this.warningPlayed) {
-        if (this.audioSystem) {
-          this.audioSystem.playSound('warning', 0.7, false, true, 'voice'); // Volume alto per warning importante
-        }
-        this.warningPlayed = true;
-      }
-
-      // Accumula tempo quando fuori bounds
+      // Accumula tempo per il danno periodico
       this.damageTimer += deltaTime;
+
+      // Accumula tempo per il warning vocale periodico
+      this.warningTimer += deltaTime;
+
+      // Riproduci warning vocale ogni 3 secondi
+      if (this.warningTimer >= this.WARNING_INTERVAL) {
+        if (this.audioSystem) {
+          this.audioSystem.playSound('warning', 0.7, false, true, 'voice');
+        }
+        this.warningTimer = 0; // Reset del timer warning
+      }
 
       // Applica danno periodico quando accumulato abbastanza tempo
       if (this.damageTimer >= this.DAMAGE_INTERVAL) {
         health.takeDamage(this.DAMAGE_AMOUNT);
-        this.damageTimer = 0; // Reset del timer
+        this.damageTimer = 0; // Reset del timer danno
 
         // Mostra il numero di danno come testo fluttuante
         this.notifyCombatSystemOfDamage(this.playerEntity, this.DAMAGE_AMOUNT);
       }
     } else {
-      // Reset del timer e del flag warning quando torna dentro i bounds
+      // Reset di tutti i timer quando torna dentro i bounds
       this.damageTimer = 0;
-      this.warningPlayed = false;
+      this.warningTimer = 0;
     }
   }
 
