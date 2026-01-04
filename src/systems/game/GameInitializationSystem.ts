@@ -213,7 +213,6 @@ export class GameInitializationSystem extends System {
     minimapSystem.setCamera(this.movementSystem.getCamera());
 
     // Collega AudioSystem ai sistemi di combattimento
-    const combatSystem = systems.combatSystem;
     if (combatSystem && typeof combatSystem.setAudioSystem === 'function') {
       combatSystem.setAudioSystem(this.audioSystem);
     }
