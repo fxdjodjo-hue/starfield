@@ -87,6 +87,11 @@ export class CombatSystem extends BaseSystem {
       return;
     }
 
+    // NPC che attaccano devono sempre puntare verso il player
+    if (canAttackAggressively || (damageTaken && damageTaken.wasDamagedRecently(Date.now(), 10000))) {
+      this.facePlayer(attackerTransform, attackerEntity);
+    }
+
     // Trova il player come target
     const playerEntity = this.playerSystem.getPlayerEntity();
 
@@ -264,6 +269,23 @@ export class CombatSystem extends BaseSystem {
     // Calcola l'angolo e ruota la nave
     const angle = Math.atan2(dy, dx) + Math.PI / 2;
     attackerTransform.rotation = angle;
+  }
+
+  /**
+   * Ruota l'NPC verso il player
+   */
+  private facePlayer(npcTransform: Transform, npcEntity: any): void {
+    // Trova il player (entità con Transform ma senza componente Npc)
+    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
+      .filter(entity => !this.ecs.hasComponent(entity, Npc));
+
+    if (playerEntities.length === 0) return;
+
+    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+    if (!playerTransform) return;
+
+    // Ruota l'NPC verso il player
+    this.faceTarget(npcTransform, playerTransform);
   }
 
   /**
