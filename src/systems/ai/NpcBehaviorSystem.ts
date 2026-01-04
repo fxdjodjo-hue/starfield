@@ -276,8 +276,8 @@ export class NpcBehaviorSystem extends BaseSystem {
     const dy = playerTransform.y - npcTransform.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Il player è "visibile" se è entro il range di attacco del player (300)
-    return distance <= 300;
+    // Il player è "visibile" se è entro un range più ampio per rendere gli NPC più reattivi
+    return distance <= 800;
   }
 
   private executeAggressiveBehavior(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
