@@ -221,16 +221,12 @@ export class RenderSystem extends BaseSystem {
 
     ctx.restore();
 
+    ctx.restore();
+
     // Renderizza il nickname FUORI dalle trasformazioni per evitare effetti 3D strani
     // Il nickname deve rimanere orizzontale e leggibile
-    // Ricalcola le coordinate schermo per evitare vibrazioni dovute a desincronizzazione
-    const camera = this.movementSystem?.getCamera();
-    if (camera) {
-      const nicknameScreenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
-      this.renderNpcNickname(ctx, npc, nicknameScreenPos.x, nicknameScreenPos.y + 55);
-    } else {
-      this.renderNpcNickname(ctx, npc, screenX, screenY + 55);
-    }
+    // Usa coordinate mondo stabili invece di schermo per eliminare vibrazioni
+    this.renderNpcNickname(ctx, npc, transform.x, transform.y, camera);
   }
 
   /**
@@ -435,12 +431,18 @@ export class RenderSystem extends BaseSystem {
 
   /**
    * Renderizza il nickname dell'NPC sotto di esso (stile uniforme al player)
+   * Usa coordinate mondo per stabilità invece di coordinate schermo
    */
-  private renderNpcNickname(ctx: CanvasRenderingContext2D, npc: Npc, offsetX: number, offsetY: number): void {
+  private renderNpcNickname(ctx: CanvasRenderingContext2D, npc: Npc, worldX: number, worldY: number, camera: any): void {
+    if (!camera) return;
+
     ctx.save();
 
+    // Converti coordinate mondo in coordinate schermo per posizione stabile
+    const screenPos = camera.worldToScreen(worldX, worldY, ctx.canvas.width, ctx.canvas.height);
+
     // Stile uniforme al player ma con colori distintivi per tipo NPC
-    ctx.font = '500 14px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
+    ctx.font = '500 12px "Segoe UI", Tahoma, Geneva, Verdana, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
@@ -454,8 +456,8 @@ export class RenderSystem extends BaseSystem {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 1;
 
-    // Disegna il testo
-    ctx.fillText(npc.npcType, offsetX, offsetY);
+    // Disegna il testo centrato sotto l'NPC
+    ctx.fillText(npc.npcType, screenPos.x, screenPos.y + 55);
 
     ctx.restore();
   }
