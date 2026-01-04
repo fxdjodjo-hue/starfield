@@ -300,7 +300,7 @@ export class NpcBehaviorSystem extends BaseSystem {
         let movementDirectionX = directionX;
         let movementDirectionY = directionY;
 
-        // Logica semplicissima: mantieni la distanza di attacco
+        // Logica semplicissima: mantieni la distanza di attacco (mai fermi completamente)
         const attackRange = 300;
 
         if (distance > attackRange) {
@@ -310,10 +310,8 @@ export class NpcBehaviorSystem extends BaseSystem {
           movementDirectionX = -directionX;
           movementDirectionY = -directionY;
         } else {
-          // Distanza perfetta - fermati
-          movementDirectionX = 0;
-          movementDirectionY = 0;
-          targetSpeed = 0;
+          // Distanza perfetta - continua diritto lentamente
+          // Non fermarti mai completamente per evitare vibrazioni
         }
 
       // Per NPC senza state, usa movimento semplice
