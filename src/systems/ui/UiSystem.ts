@@ -67,6 +67,7 @@ export class UiSystem extends System {
       '.clickable',       // Elementi con classe clickable
       '[role="button"]',  // Elementi con role button
       '.ui-floating-icon', // Icone flottanti (principale!)
+      '.upgrade-button',  // Pulsanti upgrade nel skills panel
       '.hud-icon',        // Icone HUD
       '.panel-icon',      // Icone pannelli
       '.ui-icon',         // Icone UI generiche
@@ -114,8 +115,8 @@ export class UiSystem extends System {
             // Selettori estesi per nuovi elementi
             const selectors = [
               'button', '.ui-panel button', '.clickable', '[role="button"]',
-              '.ui-floating-icon', '.hud-icon', '.panel-icon', '.ui-icon',
-              '[data-clickable="true"]', '.icon-button', '[onclick]', '.interactive'
+              '.ui-floating-icon', '.upgrade-button', '.hud-icon', '.panel-icon',
+              '.ui-icon', '[data-clickable="true"]', '.icon-button', '[onclick]', '.interactive'
             ];
 
             const selectorString = selectors.join(', ');
