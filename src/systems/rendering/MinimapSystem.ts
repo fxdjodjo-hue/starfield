@@ -143,7 +143,7 @@ export class MinimapSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza la minimappa (senza cerchi debug del player e NPC)
+   * Renderizza la minimappa
    */
   render(ctx: CanvasRenderingContext2D): void {
     if (!this.minimap.visible) return;
@@ -317,22 +317,25 @@ export class MinimapSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza solo gli elementi di selezione sulla minimappa (no debug cerchi)
+   * Renderizza tutte le entità sulla minimappa
    */
   private renderEntities(ctx: CanvasRenderingContext2D): void {
-    // Renderizza solo il cerchio di selezione per NPC selezionati
+    // Renderizza NPC
+    const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
-    selectedNpcs.forEach(entityId => {
+    npcEntities.forEach(entityId => {
       const transform = this.ecs.getComponent(entityId, Transform);
       if (transform) {
-        this.renderNpcSelectionRing(ctx, transform.x, transform.y);
+        const isSelected = selectedNpcs.includes(entityId);
+        const color = isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor;
+        this.renderEntityDot(ctx, transform.x, transform.y, color);
       }
     });
   }
 
   /**
-   * Renderizza solo gli elementi di navigazione (linee destinazione)
+   * Renderizza l'indicatore del player
    */
   private renderPlayerIndicator(ctx: CanvasRenderingContext2D): void {
     if (!this.camera) return;
@@ -341,32 +344,38 @@ export class MinimapSystem extends BaseSystem {
     const playerX = this.camera.x;
     const playerY = this.camera.y;
 
-    // Renderizza solo linea verso destinazione se presente (no cerchio player)
+    // Renderizza player con forma diversa (triangolo)
+    this.renderPlayerTriangle(ctx, playerX, playerY);
+
+    // Renderizza linea verso destinazione se presente
     if (this.destinationX !== null && this.destinationY !== null) {
       this.renderDestinationLine(ctx, playerX, playerY, this.destinationX, this.destinationY);
     }
   }
 
   /**
-   * Renderizza un anello di selezione per NPC selezionati
+   * Renderizza un pallino per un'entità
    */
-  private renderNpcSelectionRing(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
+  private renderEntityDot(ctx: CanvasRenderingContext2D, worldX: number, worldY: number, color: string): void {
     const pos = this.minimap.worldToMinimap(worldX, worldY);
-    const radius = this.minimap.entityDotSize + 2;
 
     // Salva stato
     ctx.save();
 
-    // Anello di selezione bianco con glow
-    ctx.shadowColor = '#ffffff';
-    ctx.shadowBlur = 4;
+    // Glow effect glass per gli NPC
+    ctx.shadowColor = color.replace('0.8)', '0.6)'); // Riduce l'opacità del glow
+    ctx.shadowBlur = 3;
 
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([]); // Linea continua
-
+    // Cerchio principale
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    ctx.arc(pos.x, pos.y, this.minimap.entityDotSize, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bordino bianco con glow ridotto
+    ctx.shadowBlur = 2;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 1;
     ctx.stroke();
 
     // Ripristina stato
@@ -419,6 +428,29 @@ export class MinimapSystem extends BaseSystem {
     ctx.restore();
   }
 
+  /**
+   * Renderizza il player come semplice pallino blu
+   */
+  private renderPlayerTriangle(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
+    const pos = this.minimap.worldToMinimap(worldX, worldY);
+    const radius = 4;
+
+    // Salva stato
+    ctx.save();
+
+    // Semplice pallino blu con glow sottile
+    ctx.shadowColor = '#0088ff';
+    ctx.shadowBlur = 4;
+
+    ctx.fillStyle = '#0088ff';
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ripristina stato
+    ctx.restore();
+  }
 
   /**
    * Gestisce il resize della finestra

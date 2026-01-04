@@ -77,24 +77,14 @@ export class RenderSystem extends BaseSystem {
           const entityVelocity = this.ecs.getComponent(entity, Velocity);
           this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite, entityVelocity);
 
-          // Mostra range di attacco se selezionato
-          if (selected !== undefined) {
-            const damage = this.ecs.getComponent(entity, Damage);
-            if (damage) {
-              this.renderAttackRange(ctx, screenPos.x, screenPos.y, damage.attackRange, '#ff4444');
-            }
-          }
+          // Range di attacco NPC rimosso (era debug)
         } else {
           // Renderizza come player (con sprite se disponibile)
           // Aggiungi leggera fluttuazione al player
           const floatOffsetY = Math.sin(Date.now() * 0.003) * 2; // Fluttuazione verticale di ±2 pixel
           this.renderEntity(ctx, transform, screenPos.x, screenPos.y + floatOffsetY, sprite);
 
-          // Mostra sempre il range di attacco del player
-          const damage = this.ecs.getComponent(entity, Damage);
-          if (damage) {
-            this.renderAttackRange(ctx, screenPos.x, screenPos.y, damage.attackRange, '#44ff44');
-          }
+          // Range di attacco player rimosso (era debug)
         }
 
         // Renderizza le barre salute/shield se l'entità ha componenti
@@ -289,25 +279,6 @@ export class RenderSystem extends BaseSystem {
     }
   }
 
-  /**
-   * Renderizza il cerchio del range di attacco
-   */
-  private renderAttackRange(ctx: CanvasRenderingContext2D, x: number, y: number, range: number, color: string): void {
-    ctx.save();
-
-    // Cerchio semitrasparente per il range
-    ctx.beginPath();
-    ctx.arc(x, y, range, 0, Math.PI * 2);
-    ctx.fillStyle = color + '20'; // Colore con 20% opacità
-    ctx.fill();
-
-    // Bordino del range
-    ctx.strokeStyle = color + '60'; // Colore con 60% opacità
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.restore();
-  }
 
   /**
    * Renderizza tutti i proiettili
