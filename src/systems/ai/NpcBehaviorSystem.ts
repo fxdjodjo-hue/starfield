@@ -7,6 +7,7 @@ import { Damage } from '../../entities/combat/Damage';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { Health } from '../../entities/combat/Health';
 import { CONFIG } from '../../utils/config/Config';
+import { getNpcDefinition } from '../../config/NpcConfig';
 
 /**
  * Stato interno per gestire movimenti fluidi degli NPC
@@ -314,8 +315,12 @@ export class NpcBehaviorSystem extends BaseSystem {
       const playerIsMoving = playerVelocity &&
         (Math.abs(playerVelocity.x) > 10 || Math.abs(playerVelocity.y) > 10);
 
+      // Ottieni la velocità dalla configurazione dell'NPC
+      const npcConfig = getNpcDefinition(npc.npcType);
+      const baseSpeed = npcConfig?.stats.speed || 150; // Default 150 se non trovato
+
       // Logica di distanza intelligente per comportamento aggressivo
-      let targetSpeed = 100; // Velocità aggressiva base
+      let targetSpeed = Math.min(baseSpeed * 0.8, 100); // 80% della velocità base, max 100
       let movementDirectionX = directionX;
       let movementDirectionY = directionY;
 
@@ -324,18 +329,18 @@ export class NpcBehaviorSystem extends BaseSystem {
         const optimalDistance = 180; // Distanza ideale dalla nave del player
 
         if (distance < optimalDistance - 20) {
-          // Troppo vicino - allontanati
+          // Troppo vicino - allontanati alla velocità dell'NPC
           movementDirectionX = -directionX;
           movementDirectionY = -directionY;
-          targetSpeed = 70; // Velocità di allontanamento
+          targetSpeed = baseSpeed * 0.4; // 40% della velocità per allontanamento controllato
         } else if (distance > optimalDistance + 20) {
-          // Troppo lontano - avvicinati
-          targetSpeed = 80; // Avvicinamento aggressivo
+          // Troppo lontano - avvicinati velocemente
+          targetSpeed = baseSpeed * 0.6; // 60% della velocità per avvicinamento
         } else {
-          // Distanza ideale - cerca di allontanarsi leggermente per mantenere spazio
+          // Distanza ideale - cerca di allontanarsi leggermente alla velocità normale
           movementDirectionX = -directionX; // Allontanati dal player
           movementDirectionY = -directionY;
-          targetSpeed = 20; // Movimento lento di allontanamento
+          targetSpeed = baseSpeed * 0.15; // 15% della velocità per movimento lento di mantenimento
         }
       }
 
