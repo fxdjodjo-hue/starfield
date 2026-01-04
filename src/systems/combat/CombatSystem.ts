@@ -422,7 +422,7 @@ export class CombatSystem extends BaseSystem {
     try {
       // Riproduci suono esplosione
       if (this.audioSystem) {
-        this.audioSystem.playSound('explosion', 0.6, false, true); // Volume più alto per impatto drammatico
+        this.audioSystem.playSound('explosion', 0.1, false, true); // Volume più basso per equilibrio sonoro
       }
 
       // Carica i frame dell'esplosione se non già caricati
