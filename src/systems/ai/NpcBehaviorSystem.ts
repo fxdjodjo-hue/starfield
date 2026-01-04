@@ -128,9 +128,9 @@ export class NpcBehaviorSystem extends BaseSystem {
         const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         npc.setBehavior(randomBehavior);
 
-        // Se diventa aggressive, imposta timer di persistenza (5 secondi)
+        // Se diventa aggressive, imposta timer di persistenza (20 secondi)
         if (randomBehavior === 'aggressive') {
-          this.npcBehaviorTimers.set(entityId, 5000); // 5 secondi
+          this.npcBehaviorTimers.set(entityId, 20000); // 20 secondi
         }
       } else {
         // Altri NPC mantengono comportamenti semplici
