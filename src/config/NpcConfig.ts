@@ -38,7 +38,7 @@ export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
       health: 800,
       shield: 560,
       damage: 500,
-      range: 220,
+      range: 300, // Allineato al range del player
       cooldown: 1200, // 1.2 secondi
       speed: 200
     },
@@ -52,12 +52,12 @@ export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
   },
   'Frigate': {
     type: 'Frigate',
-    defaultBehavior: 'patrol',
+    defaultBehavior: 'cruise',
     stats: {
       health: 1200,
       shield: 840,
       damage: 750,
-      range: 250,
+      range: 300, // Allineato al range del player
       cooldown: 1500, // 1.5 secondi
       speed: 150
     },

@@ -12,7 +12,7 @@ describe('NpcConfig', () => {
     it('should contain Frigate definition', () => {
       expect(NPC_DEFINITIONS['Frigate']).toBeDefined();
       expect(NPC_DEFINITIONS['Frigate'].type).toBe('Frigate');
-      expect(NPC_DEFINITIONS['Frigate'].defaultBehavior).toBe('patrol');
+      expect(NPC_DEFINITIONS['Frigate'].defaultBehavior).toBe('cruise');
     });
 
     it('should have Frigate with higher stats than Scouter', () => {
@@ -22,6 +22,14 @@ describe('NpcConfig', () => {
       expect(frigate.stats.health).toBeGreaterThan(scouter.stats.health);
       expect(frigate.stats.damage).toBeGreaterThan(scouter.stats.damage);
       expect(frigate.stats.shield).toBeGreaterThan(scouter.stats.shield);
+    });
+
+    it('should have NPCs with same range as player (300)', () => {
+      const scouter = NPC_DEFINITIONS['Scouter'];
+      const frigate = NPC_DEFINITIONS['Frigate'];
+
+      expect(scouter.stats.range).toBe(300);
+      expect(frigate.stats.range).toBe(300);
     });
   });
 
