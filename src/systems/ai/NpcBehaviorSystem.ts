@@ -3,7 +3,6 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Npc } from '../../entities/ai/Npc';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
-import { Damage } from '../../entities/combat/Damage';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { Health } from '../../entities/combat/Health';
 import { CONFIG } from '../../utils/config/Config';
@@ -98,33 +97,14 @@ export class NpcBehaviorSystem extends BaseSystem {
    * Aggiorna il comportamento di un singolo NPC
    */
   private updateNpcBehavior(npc: Npc, entityId: number): void {
-    // Tutti gli NPC possono reagire al danno, ma solo Scouter hanno comportamenti complessi
-    const isLowHealth = this.isNpcLowHealth(entityId); // Priorità massima
-    const isDamaged = this.isNpcUnderAttack(entityId);  // Priorità media
+    // Logica semplicissima: scappa se salute bassa, altrimenti comportamento base
+    const isLowHealth = this.isNpcLowHealth(entityId);
 
-    // Logica prioritaria basata su stato NPC (valida per tutti i tipi)
     if (isLowHealth) {
-      // NPC con poca salute fugge dal player (priorità massima)
       npc.setBehavior('flee');
-    } else if (isDamaged) {
-      // NPC danneggiato diventa aggressivo per vendetta (priorità alta)
-      npc.setBehavior('aggressive');
     } else {
-      // Comportamenti normali quando non è danneggiato né con poca salute
-      if (npc.npcType === 'Scouter') {
-        // Scouter hanno comportamento semplice - cruise diventa patrol
-        npc.setBehavior('cruise');
-      } else if (npc.npcType === 'Frigate') {
-        // Frigate diventano aggressive quando il player è visibile
-        if (this.isPlayerVisibleToNpc(entityId)) {
-          npc.setBehavior('aggressive');
-        } else {
-          npc.setBehavior('cruise');
-        }
-      } else {
-        // Altri NPC mantengono comportamenti semplici
-        npc.setBehavior('cruise'); // Nuovo comportamento base
-      }
+      // Comportamento base per tipo NPC
+      npc.setBehavior(npc.npcType === 'Frigate' ? 'aggressive' : 'cruise');
     }
 
     // Assicurati che lo stato sia inizializzato per tutti gli NPC che ne hanno bisogno
@@ -216,7 +196,7 @@ export class NpcBehaviorSystem extends BaseSystem {
     // Logica normale dei comportamenti (cruise è ora il patrol unificato)
     switch (npc.behavior) {
       case 'cruise':
-        this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+        this.executeCruiseBehavior(transform, velocity, deltaTime);
         break;
       default:
         this.executeIdleBehavior(velocity);
@@ -236,17 +216,10 @@ export class NpcBehaviorSystem extends BaseSystem {
   /**
    * Comportamento cruise/patrol - movimento lineare continuo (ora comportamento base di patrol)
    */
-  private executeCruiseBehavior(transform: Transform, velocity: Velocity, deltaTime: number, state: NpcState): void {
-    // Azzera velocità angolare - gli NPC non dovrebbero ruotare durante il cruise
+  private executeCruiseBehavior(transform: Transform, velocity: Velocity, deltaTime: number): void {
+    // Movimento semplice in linea retta
     velocity.setAngularVelocity(0);
-
-    // Cambia direzione molto raramente (ogni 30-60 secondi circa)
-    if (Math.random() < 0.0002) { // ~0.02% probabilità per frame (estremamente rara)
-      state.targetAngle = Math.random() * Math.PI * 2;
-      state.targetSpeed = 50; // Velocità fissa
-    }
-
-    this.updateSmoothVelocity(velocity, state.targetSpeed, state.targetAngle, deltaTime, state);
+    velocity.setVelocity(50, 0); // Velocità costante verso destra
   }
 
   /**
@@ -316,7 +289,9 @@ export class NpcBehaviorSystem extends BaseSystem {
         (Math.abs(playerVelocity.x) > 10 || Math.abs(playerVelocity.y) > 10);
 
         // Usa sempre la velocità base dalla configurazione dell'NPC
-        const currentNpc = this.ecs.getComponent(this.ecs.getEntity(entityId!), Npc);
+        const entity = this.ecs.getEntity(entityId!);
+        if (!entity) return;
+        const currentNpc = this.ecs.getComponent(entity, Npc);
         const npcConfig = getNpcDefinition(currentNpc?.npcType || 'Frigate');
         const baseSpeed = npcConfig?.stats.speed || 150; // Velocità base dal config
 
@@ -362,7 +337,7 @@ export class NpcBehaviorSystem extends BaseSystem {
 
     if (playerEntities.length === 0) {
       // Se non trova il player, torna a cruise
-      this.executeCruiseBehavior(transform, velocity, deltaTime, state);
+      this.executeCruiseBehavior(transform, velocity, deltaTime);
       return;
     }
 
