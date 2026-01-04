@@ -255,7 +255,11 @@ export class GameInitializationSystem extends System {
 
         // Minimappa ha priorità
         const minimapHandled = minimapSystem.handleMouseDown(x, y);
-        if (!minimapHandled) {
+
+        // Controlla se il click è nel pannello glass della minimappa (anche nei bordi)
+        const inMinimapGlassPanel = minimapSystem.isClickInGlassPanel(x, y);
+
+        if (!minimapHandled && !inMinimapGlassPanel) {
           minimapSystem.clearDestination();
           const canvasSize = this.world.getCanvasSize();
           const worldPos = this.movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);

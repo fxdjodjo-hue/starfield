@@ -16,7 +16,7 @@ export const PANEL_CONFIGS = {
   stats: {
     id: 'player-stats',
     icon: '⊞',
-    title: 'Statistiche Giocatore',
+    title: 'Player Statistics',
     position: 'center-left' as const,
     size: { width: 1300, height: 750 }
   },
@@ -24,7 +24,7 @@ export const PANEL_CONFIGS = {
   quest: {
     id: 'quest-panel',
     icon: '⊳',
-    title: 'Missioni & Quest',
+    title: 'Missions & Quests',
     position: 'center-left-below' as const,
     size: { width: 1300, height: 750 }
   },
@@ -32,7 +32,7 @@ export const PANEL_CONFIGS = {
   skills: {
     id: 'skills-panel',
     icon: '⊹',
-    title: 'Skills & Abilità',
+    title: 'Skills & Abilities',
     position: 'center-left-below2' as const,
     size: { width: 1300, height: 750 }
   }

@@ -209,7 +209,7 @@ export class ChatPanel {
     // Input field
     this.inputElement = document.createElement('input');
     this.inputElement.type = 'text';
-    this.inputElement.placeholder = 'Scrivi un messaggio...';
+    this.inputElement.placeholder = 'Type a message...';
     this.inputElement.className = 'chat-input';
     this.inputElement.autocomplete = 'off';
     this.inputElement.spellcheck = false;

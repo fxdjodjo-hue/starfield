@@ -14,13 +14,13 @@ import { QuestRegistry, ObjectiveType, RewardType } from './QuestConfig';
 export function addResourceCollectionQuest(): void {
   QuestRegistry.register({
     id: 'collect_energy_crystals',
-    title: 'Caccia ai Cristalli',
-    description: 'Raccogli 10 cristalli di energia sparsi nel settore.',
+    title: 'Crystal Hunt',
+    description: 'Collect 10 energy crystals scattered in the sector.',
     type: 'collect',
     objectives: [{
       id: 'collect_crystals_obj',
       type: ObjectiveType.COLLECT,
-      description: 'Raccogli 10 Cristalli di Energia',
+      description: 'Collect 10 Energy Crystals',
       target: 10,
       targetName: 'energy_crystal'
     }],
@@ -38,13 +38,13 @@ export function addResourceCollectionQuest(): void {
 export function addExplorationQuest(): void {
   QuestRegistry.register({
     id: 'explore_asteroid_field',
-    title: 'Esplorazione Campo Asteroidi',
-    description: 'Esplora il campo asteroidi Alpha-7 e mappa le risorse disponibili.',
+    title: 'Asteroid Field Exploration',
+    description: 'Explore the Alpha-7 asteroid field and map available resources.',
     type: 'explore',
     objectives: [{
       id: 'explore_asteroid_obj',
       type: ObjectiveType.EXPLORE,
-      description: 'Visita Campo Asteroidi Alpha-7',
+      description: 'Visit Asteroid Field Alpha-7',
       target: 1,
       targetName: 'asteroid_field_alpha_7'
     }],
@@ -63,13 +63,13 @@ export function addExplorationQuest(): void {
 export function addAdvancedCombatQuest(): void {
   QuestRegistry.register({
     id: 'kill_frigate_elite',
-    title: 'Caccia all\'Élite',
-    description: 'Affronta e sconfiggi una Frigate d\'élite. Richiede abilità avanzate.',
+    title: 'Elite Hunt',
+    description: 'Face and defeat an elite Frigate. Requires advanced skills.',
     type: 'kill',
     objectives: [{
       id: 'kill_frigate_elite_obj',
       type: ObjectiveType.KILL,
-      description: 'Uccidi 1 Frigate d\'Élite',
+      description: 'Kill 1 Elite Frigate',
       target: 1,
       targetType: 'frigate_elite'
     }],
@@ -93,13 +93,13 @@ export function addQuestChain(): void {
   // Parte 1: Introduzione
   QuestRegistry.register({
     id: 'tutorial_combat',
-    title: 'Lezione di Combattimento',
-    description: 'Impara le basi del combattimento spaziale.',
+    title: 'Combat Lesson',
+    description: 'Learn the basics of space combat.',
     type: 'tutorial',
     objectives: [{
       id: 'tutorial_combat_obj',
       type: ObjectiveType.KILL,
-      description: 'Uccidi 3 Scouter',
+      description: 'Kill 3 Scouters',
       target: 3,
       targetType: 'scouter'
     }],
@@ -113,13 +113,13 @@ export function addQuestChain(): void {
   // Parte 2: Combattimento intermedio
   QuestRegistry.register({
     id: 'intermediate_combat',
-    title: 'Maestro di Combattimento',
-    description: 'Dimostra la tua maestria contro nemici più forti.',
+    title: 'Combat Master',
+    description: 'Demonstrate your mastery against stronger enemies.',
     type: 'combat',
     objectives: [{
       id: 'intermediate_combat_obj',
       type: ObjectiveType.KILL,
-      description: 'Uccidi 5 Frigate',
+      description: 'Kill 5 Frigates',
       target: 5,
       targetType: 'frigate'
     }],
@@ -135,21 +135,21 @@ export function addQuestChain(): void {
   // Parte 3: Campagna finale
   QuestRegistry.register({
     id: 'campaign_finale',
-    title: 'La Battaglia Finale',
-    description: 'Conduci l\'attacco finale contro la flotta nemica.',
+    title: 'The Final Battle',
+    description: 'Lead the final attack against the enemy fleet.',
     type: 'campaign',
     objectives: [
       {
         id: 'campaign_kill_obj',
         type: ObjectiveType.KILL,
-        description: 'Uccidi 10 Frigate d\'Élite',
+        description: 'Kill 10 Elite Frigates',
         target: 10,
         targetType: 'frigate_elite'
       },
       {
         id: 'campaign_collect_obj',
         type: ObjectiveType.COLLECT,
-        description: 'Raccogli 5 Cristalli di Potere',
+        description: 'Collect 5 Power Crystals',
         target: 5,
         targetName: 'power_crystal'
       }
@@ -173,21 +173,21 @@ export function addQuestChain(): void {
 export function addSeasonalEventQuest(): void {
   QuestRegistry.register({
     id: 'holiday_invasion',
-    title: 'Invasione Festiva',
-    description: '🌟 Evento Speciale: Difendi il settore dagli invasori festivi!',
+    title: 'Holiday Invasion',
+    description: '🌟 Special Event: Defend the sector from holiday invaders!',
     type: 'event',
     objectives: [
       {
         id: 'holiday_kill_obj',
         type: ObjectiveType.KILL,
-        description: 'Uccidi 25 Invasori Festivi',
+        description: 'Kill 25 Holiday Invaders',
         target: 25,
         targetType: 'holiday_invader'
       },
       {
         id: 'holiday_collect_obj',
         type: ObjectiveType.COLLECT,
-        description: 'Raccogli 50 Pacchetti Festivi',
+        description: 'Collect 50 Holiday Packages',
         target: 50,
         targetName: 'holiday_package'
       }

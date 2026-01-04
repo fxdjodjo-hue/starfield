@@ -228,10 +228,12 @@ export class FloatingIcon {
   private panel: BasePanel;
   private config: PanelConfig;
   private isHovered: boolean = false;
+  private onOpenPanel?: (panelId: string) => void;
 
-  constructor(panel: BasePanel) {
+  constructor(panel: BasePanel, onOpenPanel?: (panelId: string) => void) {
     this.panel = panel;
     this.config = panel.getConfig();
+    this.onOpenPanel = onOpenPanel;
     this.element = this.createIconElement(this.config);
     this.setupEventListeners();
   }
@@ -308,7 +310,13 @@ export class FloatingIcon {
   private setupEventListeners(): void {
     this.element.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.panel.toggle();
+      if (this.onOpenPanel) {
+        // Usa il nuovo sistema: apri pannello chiudendo tutti gli altri
+        this.onOpenPanel(this.config.id);
+      } else {
+        // Fallback al comportamento precedente
+        this.panel.toggle();
+      }
     });
 
     this.element.addEventListener('mouseenter', () => {
@@ -436,7 +444,7 @@ export class UIManager {
   registerPanel(panel: BasePanel): void {
     // La configurazione è già nel pannello stesso (single source of truth)
     const config = panel.getConfig();
-    const icon = new FloatingIcon(panel);
+    const icon = new FloatingIcon(panel, (panelId) => this.openPanel(panelId));
 
     this.panels.set(config.id, panel);
     this.icons.set(config.id, icon);
@@ -504,6 +512,25 @@ export class UIManager {
   closeAllPanels(): void {
     this.panels.forEach(panel => panel.hide());
     this.icons.forEach(icon => icon.updateState());
+  }
+
+  /**
+   * Apre un pannello specifico chiudendo tutti gli altri (solo un pannello per volta)
+   * Se il pannello è già aperto, lo chiude
+   */
+  openPanel(panelId: string): void {
+    const panel = this.panels.get(panelId);
+    if (!panel) return;
+
+    // Se il pannello è già aperto, chiudilo
+    if (panel.isPanelVisible()) {
+      panel.hide();
+      return;
+    }
+
+    // Altrimenti chiudi tutti i pannelli e apri quello specifico
+    this.closeAllPanels();
+    panel.show();
   }
 
   /**

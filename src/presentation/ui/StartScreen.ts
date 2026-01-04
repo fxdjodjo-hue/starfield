@@ -104,7 +104,7 @@ export class StartScreen {
 
     // Label nickname
     const label = document.createElement('label');
-    label.textContent = 'Inserisci il tuo nickname:';
+    label.textContent = 'Enter your nickname:';
     label.style.cssText = `
       color: #ffffff;
       display: block;
@@ -117,7 +117,7 @@ export class StartScreen {
     // Input nickname
     this.nicknameInput = document.createElement('input');
     this.nicknameInput.type = 'text';
-    this.nicknameInput.placeholder = 'Il tuo nickname...';
+    this.nicknameInput.placeholder = 'Your nickname...';
     this.nicknameInput.maxLength = 20;
     this.nicknameInput.style.cssText = `
       width: 100%;
@@ -133,7 +133,7 @@ export class StartScreen {
 
     // Pulsante play
     this.playButton = document.createElement('button');
-    this.playButton.textContent = 'INIZIA AVVENTURA';
+    this.playButton.textContent = 'START';
     this.playButton.style.cssText = `
       width: 100%;
       padding: 15px;
@@ -189,10 +189,10 @@ export class StartScreen {
     if (nickname.length === 0) {
       // Mostra errore
       this.nicknameInput.style.borderColor = '#ff4444';
-      this.nicknameInput.placeholder = 'Inserisci un nickname!';
+      this.nicknameInput.placeholder = 'Enter a nickname!';
       setTimeout(() => {
         this.nicknameInput.style.borderColor = '#0088ff';
-        this.nicknameInput.placeholder = 'Il tuo nickname...';
+        this.nicknameInput.placeholder = 'Your nickname...';
       }, 2000);
       return;
     }

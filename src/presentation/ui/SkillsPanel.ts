@@ -111,7 +111,7 @@ export class SkillsPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = 'Skills & Abilità';
+    title.textContent = 'Skills & Abilities';
     title.style.cssText = `
       margin: 0;
       color: rgba(255, 255, 255, 0.95);
@@ -125,7 +125,7 @@ export class SkillsPanel extends BasePanel {
     `;
 
     const subtitle = document.createElement('p');
-    subtitle.textContent = 'Sistema abilità e potenziamenti';
+    subtitle.textContent = 'Skills and upgrade system';
     subtitle.style.cssText = `
       margin: 4px 0 8px 0;
       color: rgba(255, 255, 255, 0.7);
@@ -156,7 +156,7 @@ export class SkillsPanel extends BasePanel {
     skillIcon.style.cssText = 'font-size: 16px;';
 
     const skillText = document.createElement('span');
-    skillText.textContent = 'Punti Abilità: ';
+    skillText.textContent = 'Skill Points: ';
     skillText.style.cssText = 'color: rgba(255, 255, 255, 0.9);';
 
     const skillValue = document.createElement('span');
@@ -305,7 +305,7 @@ export class SkillsPanel extends BasePanel {
     `;
 
     const sectionTitle = document.createElement('h3');
-    sectionTitle.textContent = 'Statistiche & Upgrade';
+    sectionTitle.textContent = 'Statistics & Upgrades';
     sectionTitle.style.cssText = `
       margin: 0 0 16px 0;
       color: rgba(255, 255, 255, 0.9);
@@ -570,7 +570,7 @@ export class SkillsPanel extends BasePanel {
     // Controlla se ha abbastanza skill points
     if (skillPoints.current < 1) {
       // TODO: Mostra messaggio di errore
-      console.log('Non hai abbastanza skill points!');
+      console.log('You don\'t have enough skill points!');
       return;
     }
 
@@ -657,16 +657,16 @@ export class SkillsPanel extends BasePanel {
 
     switch (statType) {
       case 'hp':
-        title = '💚 PUNTI VITA (HP)';
-        description = 'Rappresentano la salute della tua nave. Quando arrivano a 0, la nave viene distrutta. Gli upgrade aumentano la resistenza ai danni. Più HP = più possibilità di sopravvivenza.';
+        title = '💚 HEALTH POINTS (HP)';
+        description = 'They represent your ship\'s health. When they reach 0, the ship is destroyed. Upgrades increase damage resistance. More HP = more survival chances.';
         break;
       case 'shield':
-        title = 'SCUDO ENERGETICO';
-        description = 'Protegge la nave dai danni prima degli HP. Si ricarica automaticamente nel tempo. Gli upgrade aumentano la capacità massima. Più scudi = migliore protezione iniziale.';
+        title = 'ENERGY SHIELD';
+        description = 'Protects the ship from damage before HP. Recharges automatically over time. Upgrades increase maximum capacity. More shields = better initial protection.';
         break;
       case 'speed':
-        title = '💨 VELOCITÀ DI MOVIMENTO';
-        description = 'Determina quanto velocemente si muove la nave. Influenza la manovrabilità in combattimento. Gli upgrade migliorano l\'accelerazione. Più velocità = migliore controllo in battaglia.';
+        title = '💨 MOVEMENT SPEED';
+        description = 'Determines how fast the ship moves. Affects maneuverability in combat. Upgrades improve acceleration. More speed = better control in battle.';
         break;
     }
 

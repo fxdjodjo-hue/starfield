@@ -85,7 +85,7 @@ export class PlayState extends GameState {
 
     // Messaggio di benvenuto nella chat
     setTimeout(() => {
-      this.uiSystem.addSystemMessage('🚀 Benvenuto in Starfield! Usa la chat per comunicare.');
+      this.uiSystem.addSystemMessage('🚀 Welcome to Starfield! Use the chat to communicate.');
     }, 1000);
 
     // Il nickname verrà creato al primo update quando tutti i sistemi sono pronti

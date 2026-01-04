@@ -43,12 +43,12 @@ export class Minimap {
     this.width = width;
     this.height = height;
 
-    // Colori tema spaziale
+    // Colori tema glass spaziale
     this.backgroundColor = 'rgba(0, 0, 0, 0.8)';
     this.borderColor = '#00ff88';
-    this.playerColor = '#0088ff'; // Blu per il player
-    this.npcColor = '#ff4444';   // Rosso per gli NPC
-    this.selectedNpcColor = '#ffff00';
+    this.playerColor = 'rgba(255, 255, 255, 0.9)'; // Bianco glass per il player
+    this.npcColor = 'rgba(255, 100, 100, 0.8)';   // Rosso tenue per gli NPC
+    this.selectedNpcColor = 'rgba(255, 255, 100, 0.8)'; // Giallo tenue per NPC selezionati
 
     // Dimensioni mondo
     this.worldWidth = worldWidth;

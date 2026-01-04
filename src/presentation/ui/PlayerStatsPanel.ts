@@ -112,7 +112,7 @@ export class PlayerStatsPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = 'Statistiche Giocatore';
+    title.textContent = 'Player Statistics';
     title.style.cssText = `
       margin: 0;
       color: rgba(255, 255, 255, 0.95);
@@ -126,7 +126,7 @@ export class PlayerStatsPanel extends BasePanel {
     `;
 
     const subtitle = document.createElement('p');
-    subtitle.textContent = 'Monitora il tuo progresso e statistiche';
+    subtitle.textContent = 'Monitor your progress and statistics';
     subtitle.style.cssText = `
       margin: 4px 0 0 0;
       color: rgba(255, 255, 255, 0.7);

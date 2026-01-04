@@ -164,7 +164,7 @@ export class QuestPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = 'Missioni & Quest';
+    title.textContent = 'Missions & Quests';
     title.style.cssText = `
       margin: 0;
       color: rgba(255, 255, 255, 0.95);
@@ -191,9 +191,9 @@ export class QuestPanel extends BasePanel {
     `;
 
     // Sezione quest attive (inizialmente vuote, verranno popolate da update())
-    const activeSection = this.createQuestSection('Quest Attive', 'active-quests', [], 'active');
-    const completedSection = this.createQuestSection('✅ Quest Completate', 'completed-quests', [], 'completed');
-    const availableSection = this.createQuestSection('📋 Quest Disponibili', 'available-quests', [], 'available');
+    const activeSection = this.createQuestSection('Active Quests', 'active-quests', [], 'active');
+    const completedSection = this.createQuestSection('✅ Completed Quests', 'completed-quests', [], 'completed');
+    const availableSection = this.createQuestSection('📋 Available Quests', 'available-quests', [], 'available');
 
     questContainer.appendChild(activeSection);
     questContainer.appendChild(completedSection);
@@ -248,7 +248,7 @@ export class QuestPanel extends BasePanel {
     // Aggiungi quest placeholder se la lista è vuota
     if (quests.length === 0) {
       const emptyMessage = document.createElement('div');
-      emptyMessage.textContent = 'Nessuna quest in questa categoria';
+      emptyMessage.textContent = 'No quests in this category';
       emptyMessage.style.cssText = `
         color: rgba(255, 255, 255, 0.6);
         font-style: italic;
@@ -365,7 +365,7 @@ export class QuestPanel extends BasePanel {
       `;
 
       const abandonButton = document.createElement('button');
-      abandonButton.textContent = 'Abbandona Quest';
+      abandonButton.textContent = 'Abandon Quest';
       abandonButton.style.cssText = `
         background: linear-gradient(135deg, #ef4444, #dc2626);
         color: white;
@@ -404,7 +404,7 @@ export class QuestPanel extends BasePanel {
       `;
 
       const acceptButton = document.createElement('button');
-      acceptButton.textContent = 'Accetta Quest';
+      acceptButton.textContent = 'Accept Quest';
       acceptButton.style.cssText = `
         background: linear-gradient(135deg, #10b981, #059669);
         color: white;
@@ -535,7 +535,7 @@ export class QuestPanel extends BasePanel {
 
     if (quests.length === 0) {
       const emptyMessage = document.createElement('div');
-      emptyMessage.textContent = 'Nessuna quest in questa categoria';
+      emptyMessage.textContent = 'No quests in this category';
       emptyMessage.style.cssText = `
         color: rgba(255, 255, 255, 0.6);
         font-style: italic;

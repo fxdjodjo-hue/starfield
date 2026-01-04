@@ -170,13 +170,13 @@ export function initializeDefaultQuests(): void {
   // Quest di uccisione Scouter
   QuestRegistry.register({
     id: 'kill_scouter_1',
-    title: 'Caccia allo Scouter',
-    description: 'Gli Scouter rappresentano una minaccia. Uccidine 1 per dimostrare il tuo valore.',
+    title: 'Scouter Hunt',
+    description: 'Scouters represent a threat. Kill 1 to prove your worth.',
     type: 'kill',
     objectives: [{
       id: 'kill_scouter_obj',
       type: ObjectiveType.KILL,
-      description: 'Uccidi 1 Scouter',
+      description: 'Kill 1 Scouter',
       target: 1,
       targetType: 'scouter'
     }],
@@ -191,13 +191,13 @@ export function initializeDefaultQuests(): void {
   // Quest di uccisione multipla (esempio per scalabilità futura)
   QuestRegistry.register({
     id: 'kill_multiple_scouters',
-    title: 'Cacciatore di Scouter',
-    description: 'Hai dimostrato il tuo valore. Ora uccidine 5 per diventare un vero cacciatore.',
+    title: 'Scouter Hunter',
+    description: 'You have proven your worth. Now kill 5 to become a true hunter.',
     type: 'kill',
     objectives: [{
       id: 'kill_multiple_scouters_obj',
       type: ObjectiveType.KILL,
-      description: 'Uccidi 5 Scouter',
+      description: 'Kill 5 Scouters',
       target: 5,
       targetType: 'scouter'
     }],
