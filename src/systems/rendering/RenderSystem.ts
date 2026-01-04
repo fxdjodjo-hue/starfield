@@ -84,6 +84,16 @@ export class RenderSystem extends BaseSystem {
           const floatOffsetY = Math.sin(Date.now() * 0.003) * 2; // Fluttuazione verticale di ±2 pixel
           this.renderEntity(ctx, transform, screenPos.x, screenPos.y + floatOffsetY, sprite);
 
+          // Cerchio blu di selezione per il player (più grande degli NPC)
+          ctx.save();
+          ctx.translate(screenPos.x, screenPos.y + floatOffsetY);
+          ctx.beginPath();
+          ctx.arc(0, 0, 28, 0, Math.PI * 2); // Cerchio di raggio 28px attorno al player
+          ctx.strokeStyle = '#0088ff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.restore();
+
           // Range di attacco player rimosso (era debug)
         }
 
