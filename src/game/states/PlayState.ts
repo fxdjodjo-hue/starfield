@@ -12,10 +12,6 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Sprite } from '../../entities/Sprite';
 import { Npc } from '../../entities/ai/Npc';
 import AudioSystem from '../../systems/audio/AudioSystem';
-import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
-import { Credits, Cosmos } from '../../entities/currency/Currency';
-import { Experience } from '../../entities/currency/Experience';
-import { SkillPoints } from '../../entities/currency/SkillPoints';
 
 /**
  * Stato del gameplay attivo
@@ -36,12 +32,7 @@ export class PlayState extends GameState {
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
   private nicknameCreated: boolean = false;
-
-  // Gestione elementi DOM per nickname NPC (stabili come il player)
-  private npcNicknameElements: Map<number, HTMLDivElement> = new Map();
-  // Gestione elementi DOM per nickname remote player
-  private remotePlayerNicknameElements: Map<string, HTMLDivElement> = new Map();
-
+  private remotePlayerSpriteUpdated: boolean = false;
 
   constructor(context: GameContext) {
     super();
@@ -132,10 +123,8 @@ export class PlayState extends GameState {
     // Aggiorna posizione del nickname del player
     this.updateNicknamePosition();
 
-    // Aggiorna posizioni nickname NPC (DOM-based per stabilità)
+    // Aggiorna posizioni nickname NPC e remote player (delegato a UiSystem)
     this.updateNpcNicknames();
-
-    // Aggiorna posizioni nickname remote player
     this.updateRemotePlayerNicknames();
 
     // Aggiorna il sistema di rete multiplayer
@@ -173,12 +162,7 @@ export class PlayState extends GameState {
     // Cleanup completo dell'HUD
     this.uiSystem.destroy();
 
-    // Rimuovi elemento nickname del player (delegato all'UiSystem)
-    // Rimuovi elementi DOM dei nickname NPC
-    this.cleanupNpcNicknames();
-
-    // Rimuovi elementi DOM dei nickname remote player
-    this.cleanupRemotePlayerNicknames();
+    // Rimuovi elementi DOM dei nickname (delegato all'UiSystem)
 
     // Rimuovi eventuali riferimenti ai timer di comportamento (ora non usati)
 
@@ -235,6 +219,7 @@ export class PlayState extends GameState {
     const shipWidth = playerSprite?.width || 32;
     const shipHeight = playerSprite?.height || 32;
 
+
     // Inizializza il sistema per i giocatori remoti
     this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, shipWidth, shipHeight);
     this.world.getECS().addSystem(this.remotePlayerSystem);
@@ -290,7 +275,7 @@ export class PlayState extends GameState {
 
     // Crea il nickname se non è ancora stato creato (solo una volta)
     if (!this.nicknameCreated) {
-      const nickname = this.context.localPlayer?.nickname || 'Commander';
+      const nickname = this.context.playerNickname || 'Commander';
       const rank = this.getPlayerRank();
       this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
       this.nicknameCreated = true; // Flag per evitare ricreazione
@@ -331,72 +316,40 @@ export class PlayState extends GameState {
 
         if (isVisible) {
           visibleNpcIds.add(entity.id);
-          this.ensureNpcNicknameElement(entity.id, npc.npcType);
-          this.updateNpcNicknamePosition(entity.id, screenPos.x, screenPos.y);
+          this.uiSystem.ensureNpcNicknameElement(entity.id, npc.npcType);
+          this.uiSystem.updateNpcNicknamePosition(entity.id, screenPos.x, screenPos.y);
         }
       }
     }
 
     // Rimuovi elementi DOM per NPC non più visibili
-    for (const [entityId, element] of this.npcNicknameElements) {
+    const activeNpcIds = this.uiSystem.getNpcNicknameEntityIds();
+    for (const entityId of activeNpcIds) {
       if (!visibleNpcIds.has(entityId)) {
-        if (element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-        this.npcNicknameElements.delete(entityId);
+        this.uiSystem.removeNpcNicknameElement(entityId);
       }
     }
   }
 
-  /**
-   * Assicura che esista un elemento DOM per il nickname dell'NPC
-   */
-  private ensureNpcNicknameElement(entityId: number, npcType: string): void {
-    if (!this.npcNicknameElements.has(entityId)) {
-      const element = document.createElement('div');
-      element.id = `npc-nickname-${entityId}`;
-      element.style.cssText = `
-        position: fixed;
-        color: rgba(255, 68, 68, 0.9);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-weight: 500;
-        font-size: 12px;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-        pointer-events: none;
-        z-index: 100;
-        white-space: nowrap;
-      `;
-      element.textContent = npcType;
-      document.body.appendChild(element);
-      this.npcNicknameElements.set(entityId, element);
-    }
-  }
+
+
 
   /**
-   * Aggiorna la posizione dell'elemento DOM del nickname NPC
+   * Aggiorna l'immagine del sprite per i remote player se necessario
    */
-  private updateNpcNicknamePosition(entityId: number, screenX: number, screenY: number): void {
-    const element = this.npcNicknameElements.get(entityId);
-    if (element) {
-      const nicknameX = screenX - element.offsetWidth / 2;
-      const nicknameY = screenY + 55;
+  private updateRemotePlayerSpriteImage(): void {
+    if (!this.remotePlayerSystem || !this.playerEntity || this.remotePlayerSpriteUpdated) return;
 
-      element.style.left = `${nicknameX}px`;
-      element.style.top = `${nicknameY}px`;
-      element.style.display = 'block';
+    const playerSprite = this.world.getECS().getComponent(this.playerEntity, Sprite);
+    if (playerSprite && playerSprite.image && playerSprite.isLoaded()) {
+      // L'immagine del player è caricata, aggiorna il sprite condiviso dei remote player
+      this.remotePlayerSystem.updateSharedSpriteImage(
+        playerSprite.image,
+        playerSprite.width,
+        playerSprite.height
+      );
+      this.remotePlayerSpriteUpdated = true; // Evita aggiornamenti ripetuti
     }
-  }
-
-  /**
-   * Rimuove tutti gli elementi DOM dei nickname NPC (cleanup)
-   */
-  private cleanupNpcNicknames(): void {
-    for (const [entityId, element] of this.npcNicknameElements) {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    }
-    this.npcNicknameElements.clear();
   }
 
   /**
@@ -404,6 +357,9 @@ export class PlayState extends GameState {
    */
   private updateRemotePlayerNicknames(): void {
     if (!this.remotePlayerSystem) return;
+
+    // Controlla se dobbiamo aggiornare l'immagine del sprite condiviso
+    this.updateRemotePlayerSpriteImage();
 
     // Per ogni remote player attivo
     for (const clientId of this.remotePlayerSystem.getActiveRemotePlayers()) {
@@ -426,18 +382,16 @@ export class PlayState extends GameState {
       // Assicura che esista l'elemento DOM per questo remote player
       const playerInfo = this.remotePlayerSystem.getRemotePlayerInfo(clientId);
       if (playerInfo) {
-        this.ensureRemotePlayerNicknameElement(clientId, playerInfo.nickname, playerInfo.rank);
-        this.updateRemotePlayerNicknamePosition(clientId, screenPos.x, screenPos.y);
+        this.uiSystem.ensureRemotePlayerNicknameElement(clientId, playerInfo.nickname, playerInfo.rank);
+        this.uiSystem.updateRemotePlayerNicknamePosition(clientId, screenPos.x, screenPos.y);
       }
     }
 
     // Rimuovi elementi per remote player che non esistono più
-    for (const [clientId, element] of this.remotePlayerNicknameElements) {
+    const activeClientIds = this.uiSystem.getRemotePlayerNicknameClientIds();
+    for (const clientId of activeClientIds) {
       if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
-        if (element.parentNode) {
-          element.parentNode.removeChild(element);
-        }
-        this.remotePlayerNicknameElements.delete(clientId);
+        this.uiSystem.removeRemotePlayerNicknameElement(clientId);
       }
     }
   }
@@ -445,74 +399,8 @@ export class PlayState extends GameState {
   /**
    * Assicura che esista un elemento DOM per il nickname del remote player
    */
-  private ensureRemotePlayerNicknameElement(clientId: string, nickname: string, rank: string): void {
-    if (!this.remotePlayerNicknameElements.has(clientId)) {
-      const element = document.createElement('div');
-      element.id = `remote-player-nickname-${clientId}`;
-      element.style.cssText = `
-        position: fixed;
-        color: rgba(255, 255, 255, 0.9);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-weight: 500;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-        pointer-events: none;
-        user-select: none;
-        z-index: 50;
-        text-align: center;
-        line-height: 1.4;
-        white-space: nowrap;
-        border-radius: 5px;
-      `;
 
-      // Usa la stessa struttura HTML del player locale
-      element.innerHTML = `
-        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
-        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
-      `;
 
-      document.body.appendChild(element);
-      this.remotePlayerNicknameElements.set(clientId, element);
-    } else {
-      // Aggiorna contenuto se già esiste
-      const element = this.remotePlayerNicknameElements.get(clientId)!;
-      element.innerHTML = `
-        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
-        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
-      `;
-    }
-  }
-
-  /**
-   * Aggiorna la posizione dell'elemento DOM del nickname remote player
-   */
-  private updateRemotePlayerNicknamePosition(clientId: string, screenX: number, screenY: number): void {
-    const element = this.remotePlayerNicknameElements.get(clientId);
-    if (element) {
-      // Forza la visibilità e ricalcola dimensioni
-      element.style.display = 'block';
-
-      // Posiziona il nickname centrato orizzontalmente sotto la nave (stesso del player locale)
-      const nicknameX = screenX - element.offsetWidth / 2;
-      const nicknameY = screenY + 45; // Sotto la nave (stesso del player locale)
-
-      element.style.left = `${nicknameX}px`;
-      element.style.top = `${nicknameY}px`;
-      element.style.transform = 'none';
-      element.style.display = 'block';
-    }
-  }
-
-  /**
-   * Rimuove tutti gli elementi DOM dei nickname remote player (cleanup)
-   */
-  private cleanupRemotePlayerNicknames(): void {
-    for (const [clientId, element] of this.remotePlayerNicknameElements) {
-      if (element.parentNode) {
-        element.parentNode.removeChild(element);
-      }
-    }
-    this.remotePlayerNicknameElements.clear();
-  }
 
 
 

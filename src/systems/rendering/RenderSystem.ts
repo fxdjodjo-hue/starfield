@@ -64,6 +64,7 @@ export class RenderSystem extends BaseSystem {
       const sprite = this.ecs.getComponent(entity, Sprite);
       const explosion = this.ecs.getComponent(entity, Explosion);
 
+
       // Salta i proiettili - vengono renderizzati separatamente
       if (projectile) continue;
 
@@ -118,12 +119,12 @@ export class RenderSystem extends BaseSystem {
     ctx.scale(transform.scaleX, transform.scaleY);
 
     if (sprite && sprite.isLoaded() && sprite.image) {
-      // Renderizza lo sprite
+      // Renderizza lo sprite con immagine
       const spriteX = -sprite.width / 2 + sprite.offsetX;
       const spriteY = -sprite.height / 2 + sprite.offsetY;
       ctx.drawImage(sprite.image, spriteX, spriteY, sprite.width, sprite.height);
-    } else {
-      // Render placeholder nave (triangolo semplice) - fallback
+    } else if (sprite) {
+      // Render fallback per sprite senza immagine valida (es. remote player)
       ctx.fillStyle = '#00ff88';
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;

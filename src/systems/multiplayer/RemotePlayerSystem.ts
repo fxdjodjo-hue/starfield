@@ -16,16 +16,27 @@ export class RemotePlayerSystem extends BaseSystem {
   private remotePlayers: Map<string, number> = new Map();
   // Mappa clientId -> {nickname, rank} per info visualizzazione
   private remotePlayerInfo: Map<string, {nickname: string, rank: string}> = new Map();
-  private shipImage: HTMLImageElement | null = null;
-  private shipWidth: number = 32;
-  private shipHeight: number = 32;
+
+  // Sprite condiviso per tutti i remote player (più efficiente)
+  private sharedSprite: Sprite;
 
   constructor(ecs: ECS, shipImage?: HTMLImageElement | null, shipWidth?: number, shipHeight?: number) {
     super(ecs);
-    this.shipImage = shipImage || null;
-    this.shipWidth = shipWidth || 32;
-    this.shipHeight = shipHeight || 32;
+    const width = shipWidth || 32;
+    const height = shipHeight || 32;
+    // Crea un singolo sprite condiviso per tutti i remote player
+    this.sharedSprite = new Sprite(shipImage, width, height);
   }
+
+  /**
+   * Aggiorna l'immagine del sprite condiviso (per quando l'immagine viene caricata)
+   */
+  updateSharedSpriteImage(image: HTMLImageElement | null, width?: number, height?: number): void {
+    if (width) this.sharedSprite.width = width;
+    if (height) this.sharedSprite.height = height;
+    this.sharedSprite.image = image;
+  }
+
 
   update(_deltaTime: number): void {
     // Per ora non abbiamo logica di update specifica
@@ -76,14 +87,14 @@ export class RemotePlayerSystem extends BaseSystem {
     const damage = new Damage(50, 30, 100); // Valori base per giocatori remoti
     this.ecs.addComponent(entity, Damage, damage);
 
-    // Aggiungi sprite per il giocatore remoto (stesso del player locale)
-    const sprite = new Sprite(this.shipImage, this.shipWidth, this.shipHeight);
-    this.ecs.addComponent(entity, Sprite, sprite);
+    // Aggiungi il sprite condiviso per il giocatore remoto
+    // Tutti i remote player condividono lo stesso sprite per efficienza
+    this.ecs.addComponent(entity, Sprite, this.sharedSprite);
+
 
     // Registra il giocatore remoto
     this.remotePlayers.set(clientId, entity.id);
 
-    console.log(`👤 [REMOTE] Added remote player: ${clientId} (entity ${entity.id}) at (${position.x.toFixed(1)}, ${position.y.toFixed(1)}) with Health, Shield, Damage, Sprite`);
     return entity.id;
   }
 
@@ -93,7 +104,6 @@ export class RemotePlayerSystem extends BaseSystem {
   updateRemotePlayer(clientId: string, position: { x: number; y: number }, rotation: number = 0): void {
     const entityId = this.remotePlayers.get(clientId);
     if (!entityId) {
-      console.warn(`[REMOTE] Tried to update unknown remote player: ${clientId}`);
       return;
     }
 
@@ -105,10 +115,6 @@ export class RemotePlayerSystem extends BaseSystem {
         transform.y = position.y;
         transform.rotation = rotation;
 
-        // Log ridotto per evitare spam
-        if (Math.random() < 0.05) { // 5% dei messaggi
-          console.log(`📍 [REMOTE] Updated ${clientId}: (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
-        }
       }
     }
   }
@@ -124,7 +130,6 @@ export class RemotePlayerSystem extends BaseSystem {
         this.ecs.removeEntity(entity);
         this.remotePlayers.delete(clientId);
         this.remotePlayerInfo.delete(clientId);
-        console.log(`👤 [REMOTE] Removed remote player: ${clientId} (entity ${entityId})`);
       }
     }
   }

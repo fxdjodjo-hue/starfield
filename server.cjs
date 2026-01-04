@@ -58,7 +58,9 @@ wss.on('connection', (ws) => {
               clientId: existingClientId,
               position: playerData.position,
               rotation: 0,
-              tick: 0
+              tick: 0,
+              nickname: playerData.nickname,
+              playerId: playerData.playerId
             };
             ws.send(JSON.stringify(existingPlayerBroadcast));
             console.log(`📍 [SERVER] Sent position of existing player ${existingClientId} to new player ${data.clientId}`);
@@ -78,7 +80,9 @@ wss.on('connection', (ws) => {
             clientId: data.clientId,
             position: data.position,
             rotation: data.position.rotation || 0,
-            tick: 0
+            tick: 0,
+            nickname: data.nickname,
+            playerId: data.playerId
           };
 
           wss.clients.forEach(client => {
@@ -109,7 +113,9 @@ wss.on('connection', (ws) => {
             clientId: data.clientId,
             position: data.position,
             rotation: data.rotation,
-            tick: data.tick
+            tick: data.tick,
+            nickname: playerData.nickname,
+            playerId: playerData.playerId
           };
 
           // Invia a tutti i client connessi tranne quello che ha inviato l'aggiornamento

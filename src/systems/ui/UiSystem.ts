@@ -10,6 +10,8 @@ import { ChatManager } from './ChatManager';
 import { getPanelConfig } from '../../presentation/ui/PanelConfig';
 import { QuestSystem } from '../quest/QuestSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { Transform } from '../../entities/spatial/Transform';
+import { Npc } from '../../entities/ai/Npc';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -28,6 +30,12 @@ export class UiSystem extends System {
   private playerNicknameElement: HTMLElement | null = null;
   private mainTitleElement: HTMLElement | null = null;
   private context: any = null;
+
+  // Gestione nickname NPC (da PlayState)
+  private npcNicknameElements: Map<number, HTMLElement> = new Map();
+
+  // Gestione nickname remote player (da PlayState)
+  private remotePlayerNicknameElements: Map<string, HTMLElement> = new Map();
 
   constructor(ecs: ECS, questSystem: QuestSystem, context?: any, playerSystem?: PlayerSystem) {
     super(ecs);
@@ -464,6 +472,181 @@ export class UiSystem extends System {
     return this.playerHUD;
   }
 
+  // ===== GESTIONE NICKNAME NPC =====
+
+  /**
+   * Assicura che esista un elemento DOM per il nickname dell'NPC
+   */
+  ensureNpcNicknameElement(entityId: number, npcType: string): void {
+    if (!this.npcNicknameElements.has(entityId)) {
+      const element = document.createElement('div');
+      element.id = `npc-nickname-${entityId}`;
+      element.style.cssText = `
+        position: fixed;
+        color: rgba(255, 255, 255, 0.8);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-weight: 400;
+        font-size: 12px;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+        pointer-events: none;
+        user-select: none;
+        z-index: 40;
+        text-align: center;
+        line-height: 1.2;
+        white-space: nowrap;
+        border-radius: 3px;
+        padding: 2px 4px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      `;
+      element.textContent = npcType;
+      document.body.appendChild(element);
+      this.npcNicknameElements.set(entityId, element);
+    }
+  }
+
+  /**
+   * Aggiorna la posizione dell'elemento DOM del nickname NPC
+   */
+  updateNpcNicknamePosition(entityId: number, screenX: number, screenY: number): void {
+    const element = this.npcNicknameElements.get(entityId);
+    if (element) {
+      // Forza la visibilità e ricalcola dimensioni
+      element.style.display = 'block';
+
+      // Posiziona il nickname centrato orizzontalmente sopra l'NPC
+      const nicknameX = screenX - element.offsetWidth / 2;
+      const nicknameY = screenY - 50; // Sopra l'NPC
+
+      element.style.left = `${nicknameX}px`;
+      element.style.top = `${nicknameY}px`;
+      element.style.transform = 'none';
+      element.style.display = 'block';
+    }
+  }
+
+  /**
+   * Rimuove l'elemento DOM per il nickname di un NPC specifico
+   */
+  removeNpcNicknameElement(entityId: number): void {
+    const element = this.npcNicknameElements.get(entityId);
+    if (element) {
+      document.body.removeChild(element);
+      this.npcNicknameElements.delete(entityId);
+    }
+  }
+
+  /**
+   * Rimuove tutti gli elementi DOM dei nickname NPC
+   */
+  removeAllNpcNicknameElements(): void {
+    for (const [entityId, element] of this.npcNicknameElements) {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    }
+    this.npcNicknameElements.clear();
+  }
+
+  /**
+   * Ottiene gli entityId degli NPC che hanno elementi nickname attivi
+   */
+  getNpcNicknameEntityIds(): number[] {
+    return Array.from(this.npcNicknameElements.keys());
+  }
+
+  // ===== GESTIONE NICKNAME REMOTE PLAYER =====
+
+  /**
+   * Assicura che esista un elemento DOM per il nickname del remote player
+   */
+  ensureRemotePlayerNicknameElement(clientId: string, nickname: string, rank: string): void {
+    if (!this.remotePlayerNicknameElements.has(clientId)) {
+      const element = document.createElement('div');
+      element.id = `remote-player-nickname-${clientId}`;
+      element.style.cssText = `
+        position: fixed;
+        color: rgba(255, 255, 255, 0.9);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        font-weight: 500;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        user-select: none;
+        z-index: 45;
+        text-align: center;
+        line-height: 1.4;
+        white-space: nowrap;
+        border-radius: 5px;
+      `;
+
+      // Formatta il nickname su due righe: nome sopra, rank sotto
+      element.innerHTML = `
+        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
+        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
+      `;
+
+      document.body.appendChild(element);
+      this.remotePlayerNicknameElements.set(clientId, element);
+    } else {
+      // Aggiorna il contenuto se già esiste
+      const element = this.remotePlayerNicknameElements.get(clientId)!;
+      element.innerHTML = `
+        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
+        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
+      `;
+    }
+  }
+
+  /**
+   * Aggiorna la posizione dell'elemento DOM del nickname remote player
+   */
+  updateRemotePlayerNicknamePosition(clientId: string, screenX: number, screenY: number): void {
+    const element = this.remotePlayerNicknameElements.get(clientId);
+    if (element) {
+      // Forza la visibilità e ricalcola dimensioni
+      element.style.display = 'block';
+
+      // Posiziona il nickname centrato orizzontalmente sotto il remote player
+      const nicknameX = screenX - element.offsetWidth / 2;
+      const nicknameY = screenY + 45; // Sotto il remote player
+
+      element.style.left = `${nicknameX}px`;
+      element.style.top = `${nicknameY}px`;
+      element.style.transform = 'none';
+      element.style.display = 'block';
+    }
+  }
+
+  /**
+   * Rimuove l'elemento DOM per il nickname di un remote player specifico
+   */
+  removeRemotePlayerNicknameElement(clientId: string): void {
+    const element = this.remotePlayerNicknameElements.get(clientId);
+    if (element) {
+      document.body.removeChild(element);
+      this.remotePlayerNicknameElements.delete(clientId);
+    }
+  }
+
+  /**
+   * Rimuove tutti gli elementi DOM dei nickname remote player
+   */
+  removeAllRemotePlayerNicknameElements(): void {
+    for (const [clientId, element] of this.remotePlayerNicknameElements) {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    }
+    this.remotePlayerNicknameElements.clear();
+  }
+
+  /**
+   * Ottiene i clientId dei remote player che hanno elementi nickname attivi
+   */
+  getRemotePlayerNicknameClientIds(): string[] {
+    return Array.from(this.remotePlayerNicknameElements.keys());
+  }
+
   update(deltaTime: number): void {
     // Aggiorna i pannelli che richiedono aggiornamenti periodici
     this.updateRealtimePanels(deltaTime);
@@ -533,6 +716,8 @@ export class UiSystem extends System {
    */
   destroy(): void {
     this.removePlayerNicknameElement();
+    this.removeAllNpcNicknameElements();
+    this.removeAllRemotePlayerNicknameElements();
     this.showMainTitle();
 
     // Rimuovi event listeners

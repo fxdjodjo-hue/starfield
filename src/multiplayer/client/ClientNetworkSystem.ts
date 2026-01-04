@@ -54,7 +54,6 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   connect(serverUrl: string): void {
     try {
-      console.log(`🔌 Connecting to server: ${serverUrl}`);
       this.socket = new WebSocket(serverUrl);
 
       this.socket.onopen = () => {
@@ -156,15 +155,31 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Determina il rank del giocatore basato sul playerId
+   */
+  private determineRankFromPlayerId(playerId?: number): string {
+    // Per ora usa logica semplice basata su playerId
+    // In futuro potrebbe venire dal server
+    if (!playerId) return 'Recruit';
+
+    // Esempio: playerId più bassi = rank più alto (primi giocatori)
+    if (playerId <= 10) return 'Captain';
+    if (playerId <= 50) return 'Lieutenant';
+    if (playerId <= 100) return 'Sergeant';
+
+    return 'Recruit';
+  }
+
+  /**
    * Gestisce aggiornamenti posizione di giocatori remoti
    */
   private handleRemotePlayerUpdate(message: any): void {
     const { clientId, position, rotation, nickname, rank } = message;
 
     if (this.remotePlayerSystem) {
-      if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
-        // Crea nuovo giocatore remoto
-        this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
+    if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
+      // Crea nuovo giocatore remoto
+      this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
         // Imposta info nickname se presente
         if (nickname) {
           this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
@@ -203,7 +218,6 @@ export class ClientNetworkSystem extends BaseSystem {
     const sprite = new Sprite(null, 32, 32); // null significa usa colore invece di immagine
     this.ecs.addComponent(entity, Sprite, sprite);
 
-    console.log(`🎯 [CLIENT] Created remote player entity ${entity.id} with components: Transform, Velocity, Health, Sprite`);
     return entity.id;
   }
 
@@ -262,7 +276,6 @@ export class ClientNetworkSystem extends BaseSystem {
 
       switch (message.type) {
         case 'welcome':
-          console.log('🎉 Server welcome:', message);
           this.gameContext.localClientId = message.clientId || this.clientId;
           break;
 
@@ -297,7 +310,6 @@ export class ClientNetworkSystem extends BaseSystem {
 
         case 'world_update':
           // Qui gestiremmo gli aggiornamenti del mondo
-          console.log('🌍 World update received');
           break;
 
         case 'error':
@@ -305,7 +317,10 @@ export class ClientNetworkSystem extends BaseSystem {
           break;
 
         default:
-          console.log('📨 Unknown message type:', message.type);
+          // Log unknown messages in development only
+          if (import.meta.env.DEV) {
+            console.log('📨 Unknown message type:', message.type);
+          }
       }
     } catch (error) {
       console.error('Failed to parse message:', error);
