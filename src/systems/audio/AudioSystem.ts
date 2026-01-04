@@ -71,7 +71,7 @@ export default class AudioSystem extends System {
 
   // Metodi pubblici per gestione audio
 
-  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false, allowMultiple: boolean = false): void {
+  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false, allowMultiple: boolean = false, category: keyof typeof AUDIO_ASSETS = 'effects'): void {
     if (!this.config.enabled) return;
 
     try {
@@ -86,10 +86,10 @@ export default class AudioSystem extends System {
         return;
       }
 
-      // Cerca il path nell'AUDIO_ASSETS
-      const assetPath = this.getAssetPath(key, 'effects');
+      // Cerca il path nell'AUDIO_ASSETS nella categoria specificata
+      const assetPath = this.getAssetPath(key, category);
       if (!assetPath) {
-        console.warn(`Audio system: Asset '${key}' not found in AUDIO_ASSETS.effects`);
+        console.warn(`Audio system: Asset '${key}' not found in AUDIO_ASSETS.${category}`);
         return;
       }
 

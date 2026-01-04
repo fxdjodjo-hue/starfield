@@ -65,7 +65,7 @@ export class BoundsSystem extends BaseSystem {
       // Riproduci suono warning la prima volta che entra nei bounds
       if (!this.warningPlayed) {
         if (this.audioSystem) {
-          this.audioSystem.playSound('warning', 0.7, false, true); // Volume alto per warning importante
+          this.audioSystem.playSound('warning', 0.7, false, true, 'voice'); // Volume alto per warning importante
         }
         this.warningPlayed = true;
       }

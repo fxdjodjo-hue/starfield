@@ -67,7 +67,12 @@ export class PlayState extends GameState {
     if (this.audioSystem) {
       this.audioSystem.init();
       this.audioSystem.playMusic('background');
-      this.audioSystem.playMusic('ambience'); // Suono ambientale in loop
+      // Piccolo delay prima di avviare ambience per evitare conflitti
+      setTimeout(() => {
+        if (this.audioSystem) {
+          this.audioSystem.playMusic('ambience'); // Suono ambientale in loop
+        }
+      }, 100);
     }
 
     // Messaggio di benvenuto nella chat
