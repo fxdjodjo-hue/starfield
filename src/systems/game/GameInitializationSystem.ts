@@ -26,6 +26,7 @@ import { UiSystem } from '../ui/UiSystem';
 import { PlayerStatusDisplaySystem } from '../player/PlayerStatusDisplaySystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
+import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import AudioSystem from '../audio/AudioSystem';
 import { AUDIO_CONFIG } from '../../config/AudioConfig';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
@@ -65,13 +66,16 @@ export class GameInitializationSystem extends System {
   private playerStatusDisplaySystem!: PlayerStatusDisplaySystem;
   private systemsCache: any = null;
 
-  constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem) {
+  private playState: any = null; // Reference to PlayState for saving
+
+  constructor(ecs: ECS, world: World, context: GameContext, questManager: QuestManager, questSystem: QuestSystem, uiSystem: UiSystem | null, playState?: any) {
     super(ecs);
     this.world = world;
     this.context = context;
     this.questManager = questManager;
     this.questSystem = questSystem;
     this.uiSystem = uiSystem;
+    this.playState = playState;
     // L'economySystem verrà creato in createSystems()
     this.economySystem = null;
   }
@@ -118,10 +122,10 @@ export class GameInitializationSystem extends System {
     const logSystem = new LogSystem(this.ecs);
     this.economySystem = new EconomySystem(this.ecs);
     const rankSystem = new RankSystem(this.ecs);
-    const rewardSystem = new RewardSystem(this.ecs);
+    const rewardSystem = new RewardSystem(this.ecs, this.playState);
     const boundsSystem = new BoundsSystem(this.ecs, this.movementSystem);
     const respawnSystem = new NpcRespawnSystem(this.ecs, this.context);
-    const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager);
+    const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager, this.playState);
     this.playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
     this.playerSystem = new PlayerSystem(this.ecs);
     const renderSystem = new RenderSystem(this.ecs, this.movementSystem, this.playerSystem);
@@ -299,6 +303,10 @@ export class GameInitializationSystem extends System {
     const worldCenterX = 0;
     const worldCenterY = 0;
     const playerEntity = playerSystem.createPlayer(worldCenterX, worldCenterY);
+
+    // Aggiungi autorità multiplayer al player (client può predire, server corregge)
+    const playerAuthority = new Authority(this.context.localClientId, AuthorityLevel.CLIENT_PREDICTIVE);
+    this.ecs.addComponent(playerEntity, playerAuthority);
 
     // Imposta lo sprite del player
     const sprite = this.ecs.getComponent(playerEntity, Sprite);
@@ -550,6 +558,7 @@ export class GameInitializationSystem extends System {
       movementSystem: this.movementSystem
     };
   }
+
 
   update(deltaTime: number): void {
     // Questo sistema non ha aggiornamenti periodici

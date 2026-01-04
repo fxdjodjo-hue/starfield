@@ -7,6 +7,7 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { Sprite } from '../../entities/Sprite';
 import { Npc } from '../../entities/ai/Npc';
+import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { CONFIG } from '../../utils/config/Config';
 import { getNpcDefinition } from '../../config/NpcConfig';
 
@@ -172,6 +173,10 @@ export class NpcRespawnSystem extends BaseSystem {
       this.ecs.addComponent(npcEntity, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
       this.ecs.addComponent(npcEntity, Sprite, sprite); // AGGIUNGI LO SPRITE MANCANTE!
       this.ecs.addComponent(npcEntity, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
+
+      // Aggiungi autorità multiplayer agli NPC (solo server ha autorità)
+      const npcAuthority = new Authority('server', AuthorityLevel.SERVER_AUTHORITATIVE);
+      this.ecs.addComponent(npcEntity, Authority, npcAuthority);
 
     } catch (error) {
       console.error(`Failed to respawn ${npcType}:`, error);

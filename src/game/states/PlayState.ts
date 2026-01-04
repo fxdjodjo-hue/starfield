@@ -5,16 +5,14 @@ import { MovementSystem } from '../../systems/physics/MovementSystem';
 import { QuestManager } from '../../systems/quest/QuestManager';
 import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
+import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
 import AudioSystem from '../../systems/audio/AudioSystem';
-import { gameAPI } from '../../lib/supabase';
-import { PlayerStats } from '../../entities/player/PlayerStats';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { Credits, Cosmos } from '../../entities/currency/Currency';
 import { Experience } from '../../entities/currency/Experience';
-import { Honor } from '../../entities/currency/Honor';
 import { SkillPoints } from '../../entities/currency/SkillPoints';
 
 /**
@@ -22,9 +20,10 @@ import { SkillPoints } from '../../entities/currency/SkillPoints';
  * Gestisce il mondo di gioco, ECS e tutti i sistemi di gameplay
  */
 export class PlayState extends GameState {
-  private world: World;
-  private uiSystem: UiSystem;
-  private gameInitSystem: GameInitializationSystem;
+
+  private world!: World;
+  private uiSystem!: UiSystem;
+  private gameInitSystem!: GameInitializationSystem;
   private context: GameContext;
   private playerEntity: any = null;
   private economySystem: any = null;
@@ -32,16 +31,12 @@ export class PlayState extends GameState {
   private questManager: QuestManager | null = null;
   private movementSystem: MovementSystem | null = null;
   private audioSystem: AudioSystem | null = null;
+  private clientNetworkSystem: ClientNetworkSystem | null = null;
   private nicknameCreated: boolean = false;
 
   // Gestione elementi DOM per nickname NPC (stabili come il player)
   private npcNicknameElements: Map<number, HTMLDivElement> = new Map();
 
-  // Database integration
-  private lastSaveTime: number = 0;
-  private saveInterval: number = 30000; // 30 secondi
-  private isDatabaseConnected: boolean = false;
-  private isLoadingData: boolean = false;
 
   constructor(context: GameContext) {
     super();
@@ -57,7 +52,7 @@ export class PlayState extends GameState {
     // this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, this.context);
 
     // Crea sistema di inizializzazione (senza UiSystem per ora)
-    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, null);
+    this.gameInitSystem = new GameInitializationSystem(this.world.getECS(), this.world, this.context, this.questManager, this.questSystem, null, this);
   }
 
   /**
@@ -66,7 +61,7 @@ export class PlayState extends GameState {
   async enter(_context: GameContext): Promise<void> {
     // Crea UiSystem solo ora (quando si entra nel PlayState)
     if (!this.uiSystem) {
-      this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem, this.context);
+      this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem!, this.context);
       // Aggiorna il sistema di inizializzazione con l'UiSystem appena creato
       (this.gameInitSystem as any).uiSystem = this.uiSystem;
     }
@@ -77,10 +72,6 @@ export class PlayState extends GameState {
     try {
       // Inizializza il mondo e crea il giocatore PRIMA di mostrare l'HUD
       await this.initializeGame();
-
-      // Carica i dati del giocatore dal database DOPO l'inizializzazione
-      console.log('🎮 [PlayState] Gioco inizializzato, caricando dati database...');
-      await this.loadPlayerData();
     } catch (error) {
       console.error('Failed to initialize game:', error);
       throw error;
@@ -88,6 +79,12 @@ export class PlayState extends GameState {
 
     // Inizializza il sistema UI dopo che tutti i sistemi sono stati creati
     this.uiSystem.initialize();
+
+    // Inizializza il sistema di rete multiplayer
+    this.clientNetworkSystem = new ClientNetworkSystem(this.world.getECS(), this.context);
+
+    // Imposta informazioni del player nel sistema di rete
+    this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
 
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
@@ -119,6 +116,8 @@ export class PlayState extends GameState {
 
 
 
+
+
   /**
    * Aggiorna il gameplay
    */
@@ -135,11 +134,9 @@ export class PlayState extends GameState {
     // Aggiorna posizioni nickname NPC (DOM-based per stabilità)
     this.updateNpcNicknames();
 
-    // Salvataggio automatico periodico
-    if (this.shouldSaveData()) {
-      this.savePlayerData().catch(error => {
-        console.error('❌ [PlayState] Errore salvataggio automatico:', error);
-      });
+    // Aggiorna il sistema di rete multiplayer
+    if (this.clientNetworkSystem) {
+      this.clientNetworkSystem.update(deltaTime);
     }
   }
 
@@ -179,7 +176,7 @@ export class PlayState extends GameState {
     // Rimuovi eventuali riferimenti ai timer di comportamento (ora non usati)
 
     this.uiSystem.showMainTitle();
-    // Qui potremmo salvare lo stato di gioco, cleanup, etc.
+    // Qui potremmo fare altro cleanup se necessario
   }
 
   /**
@@ -257,7 +254,7 @@ export class PlayState extends GameState {
 
     // Crea il nickname se non è ancora stato creato (solo una volta)
     if (!this.nicknameCreated) {
-      const nickname = this.context.playerNickname || 'Commander';
+      const nickname = this.context.localPlayer?.nickname || 'Commander';
       const rank = this.getPlayerRank();
       this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
       this.nicknameCreated = true; // Flag per evitare ricreazione
@@ -367,236 +364,12 @@ export class PlayState extends GameState {
   }
 
 
-  /**
-   * Carica i dati del giocatore dal database
-   */
-  private async loadPlayerData(): Promise<void> {
-    console.log('🔄 [PlayState] Iniziando caricamento dati giocatore...');
 
-    try {
-      this.isLoadingData = true;
 
-      // Usa l'userId reale dal context (creato nello StartScreen)
-      const userId = this.context.playerId;
 
-      if (!userId) {
-        console.warn('⚠️ [PlayState] UserId non trovato nel context, saltando caricamento');
-        this.isDatabaseConnected = false;
-        return;
-      }
 
-      console.log('📡 [PlayState] Richiedendo dati per userId:', userId);
-      const result = await gameAPI.getPlayerData(userId);
 
-      if (result.error) {
-        console.warn('⚠️ [PlayState] Errore caricamento dati:', result.error.message);
-        console.log('🎮 [PlayState] Continuando con dati default...');
-        this.isDatabaseConnected = false;
-        return;
-      }
 
-      console.log('✅ [PlayState] Dati caricati dal database:', result.data);
-      this.isDatabaseConnected = true;
-
-      // Applica i dati caricati al gioco
-      if (result.data) {
-        await this.applyLoadedDataToGame(result.data);
-      }
-
-    } catch (error) {
-      console.error('❌ [PlayState] Errore critico caricamento dati:', error);
-      console.log('🎮 [PlayState] Continuando con dati default...');
-      this.isDatabaseConnected = false;
-    } finally {
-      this.isLoadingData = false;
-    }
-  }
-
-  /**
-   * Applica i dati caricati dal database ai componenti del gioco
-   */
-  private async applyLoadedDataToGame(data: any): Promise<void> {
-    console.log('🔧 [PlayState] Applicando dati caricati al gioco...', data);
-
-    if (!this.playerEntity) {
-      console.warn('⚠️ [PlayState] Player entity non ancora creato, salto applicazione dati');
-      return;
-    }
-
-    const ecs = this.world.getECS();
-
-    try {
-      // Applica statistiche giocatore
-      if (data.stats) {
-        console.log('📊 [PlayState] Applicando stats:', data.stats);
-        const playerStats = ecs.getComponent(this.playerEntity, PlayerStats);
-        if (playerStats) {
-          // Nota: PlayerStats non ha metodi setter diretti
-          // Per ora loggiamo solo che abbiamo i dati
-          console.log('✅ [PlayState] PlayerStats trovato, dati pronti per applicazione');
-        }
-      }
-
-      // Applica upgrades giocatore
-      if (data.upgrades) {
-        console.log('⬆️ [PlayState] Applicando upgrades:', data.upgrades);
-        const playerUpgrades = ecs.getComponent(this.playerEntity, PlayerUpgrades);
-        if (playerUpgrades) {
-          playerUpgrades.setUpgrades(
-            data.upgrades.hp_upgrades || 0,
-            data.upgrades.shield_upgrades || 0,
-            data.upgrades.speed_upgrades || 0,
-            data.upgrades.damage_upgrades || 0
-          );
-          console.log('✅ [PlayState] PlayerUpgrades applicati');
-        }
-      }
-
-      // Applica valute
-      if (data.currencies) {
-        console.log('💰 [PlayState] Applicando valute:', data.currencies);
-
-        // Credits
-        const credits = ecs.getComponent(this.playerEntity, Credits);
-        if (credits) {
-          credits.setCredits(data.currencies.credits || 1000);
-        }
-
-        // Cosmos
-        const cosmos = ecs.getComponent(this.playerEntity, Cosmos);
-        if (cosmos) {
-          cosmos.setCosmos(data.currencies.cosmos || 100);
-        }
-
-        // Experience
-        const experience = ecs.getComponent(this.playerEntity, Experience);
-        if (experience && data.currencies.experience) {
-          experience.setLevel(Math.floor(data.currencies.experience / 10000) + 1);
-        }
-
-        // SkillPoints
-        const skillPoints = ecs.getComponent(this.playerEntity, SkillPoints);
-        if (skillPoints) {
-          skillPoints.setPoints(data.currencies.skill_points_current || 0);
-        }
-
-        console.log('✅ [PlayState] Valute applicate');
-      }
-
-      console.log('🎉 [PlayState] Applicazione dati completata!');
-
-    } catch (error) {
-      console.error('❌ [PlayState] Errore applicazione dati:', error);
-    }
-  }
-
-  /**
-   * Salva i dati del giocatore nel database
-   */
-  private async savePlayerData(): Promise<void> {
-    if (!this.isDatabaseConnected || this.isLoadingData) {
-      console.log('⏭️ [PlayState] Salvataggio saltato (non connesso o caricamento in corso)');
-      return;
-    }
-
-    console.log('💾 [PlayState] Iniziando salvataggio dati giocatore...');
-
-    try {
-      const userId = this.context.playerId;
-
-      if (!userId) {
-        console.warn('⚠️ [PlayState] UserId non trovato nel context, saltando salvataggio');
-        return;
-      }
-
-      const gameData = this.collectCurrentGameData();
-
-      console.log('📤 [PlayState] Salvando dati per userId:', userId);
-      const result = await gameAPI.savePlayerData(userId, gameData);
-
-      if (result.error) {
-        console.error('❌ [PlayState] Errore salvataggio:', result.error.message);
-        this.isDatabaseConnected = false;
-      } else {
-        console.log('✅ [PlayState] Dati salvati con successo!');
-        this.lastSaveTime = Date.now();
-      }
-
-    } catch (error) {
-      console.error('❌ [PlayState] Errore critico salvataggio:', error);
-      this.isDatabaseConnected = false;
-    }
-  }
-
-  /**
-   * Raccoglie i dati correnti del gioco per il salvataggio
-   */
-  private collectCurrentGameData(): any {
-    if (!this.playerEntity) {
-      console.warn('⚠️ [PlayState] Player entity non trovato, dati vuoti');
-      return {};
-    }
-
-    const ecs = this.world.getECS();
-    const data: any = {};
-
-    try {
-      // Raccogli statistiche
-      const playerStats = ecs.getComponent(this.playerEntity, PlayerStats);
-      if (playerStats) {
-        data.stats = {
-          kills: playerStats.kills,
-          deaths: playerStats.deaths,
-          missions_completed: playerStats.missionsCompleted,
-          play_time: playerStats.playTime
-        };
-      }
-
-      // Raccogli upgrades
-      const playerUpgrades = ecs.getComponent(this.playerEntity, PlayerUpgrades);
-      if (playerUpgrades) {
-        data.upgrades = {
-          hp_upgrades: playerUpgrades.hpUpgrades,
-          shield_upgrades: playerUpgrades.shieldUpgrades,
-          speed_upgrades: playerUpgrades.speedUpgrades,
-          damage_upgrades: playerUpgrades.damageUpgrades
-        };
-      }
-
-      // Raccogli valute
-      const credits = ecs.getComponent(this.playerEntity, Credits);
-      const cosmos = ecs.getComponent(this.playerEntity, Cosmos);
-      const experience = ecs.getComponent(this.playerEntity, Experience);
-      const skillPoints = ecs.getComponent(this.playerEntity, SkillPoints);
-
-      data.currencies = {
-        credits: credits?.credits || 0,
-        cosmos: cosmos?.cosmos || 0,
-        experience: experience?.totalExpEarned || 0,
-        honor: 0, // TODO: Implementare Honor component
-        skill_points_current: skillPoints?.current || 0,
-        skill_points_total: skillPoints?.totalEarned || 0
-      };
-
-      // Quest vuote per ora
-      data.quests = [];
-
-      console.log('📊 [PlayState] Dati raccolti per salvataggio');
-
-    } catch (error) {
-      console.error('❌ [PlayState] Errore raccolta dati:', error);
-    }
-
-    return data;
-  }
-
-  /**
-   * Determina se è ora di salvare i dati
-   */
-  private shouldSaveData(): boolean {
-    const now = Date.now();
-    return (now - this.lastSaveTime) > this.saveInterval;
-  }
 
   /**
    * Restituisce il mondo di gioco per accesso esterno

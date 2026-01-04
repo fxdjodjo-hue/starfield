@@ -26,16 +26,15 @@ export class QuestTrackingSystem implements QuestEventHandler {
   private economySystem: any = null;
   private logSystem: LogSystem | null = null;
   private playerEntity: any = null;
+  private playState: any = null; // Reference to PlayState for saving
 
   private world: World;
   private questManager: QuestManager;
 
-  constructor(
-    world: World,
-    questManager: QuestManager
-  ) {
+  constructor(world: World, questManager: QuestManager, playState?: any) {
     this.world = world;
     this.questManager = questManager;
+    this.playState = playState;
   }
 
   /**
@@ -179,6 +178,18 @@ export class QuestTrackingSystem implements QuestEventHandler {
     // Mostra le ricompense nel log del sistema
     if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
       this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000);
+    }
+
+    // Segnala cambiamento per salvataggio event-driven
+    if (this.playState && this.playState.markAsChanged) {
+      this.playState.markAsChanged();
+      // Per quest completate, salva immediatamente (evento importante)
+      if (import.meta.env.DEV) {
+        console.log('🏆 [QuestTrackingSystem] Quest completata - salvataggio immediato');
+      }
+      this.playState.saveIfChanged().catch(error => {
+        console.error('❌ [QuestTrackingSystem] Errore salvataggio immediato quest:', error);
+      });
     }
   }
 

@@ -28,9 +28,11 @@ export class RewardSystem extends BaseSystem {
   private logSystem: LogSystem | null = null;
   private respawnSystem: NpcRespawnSystem | null = null;
   private questTrackingSystem: QuestTrackingSystem | null = null;
+  private playState: any = null; // Reference to PlayState for saving
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, playState?: any) {
     super(ecs);
+    this.playState = playState;
   }
 
   /**
@@ -121,6 +123,17 @@ export class RewardSystem extends BaseSystem {
     if (npcDef.rewards.honor > 0) {
       this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
     }
+
+    // Segnala cambiamento per salvataggio event-driven
+    if (this.playState && this.playState.markAsChanged) {
+      this.playState.markAsChanged();
+      // Logging ridotto per performance
+      if (import.meta.env.DEV) {
+        console.log('🎯 [RewardSystem] Ricompensa assegnata - salvataggio pianificato');
+      }
+    }
+    // Nota: se playState non è disponibile, il salvataggio non avviene automaticamente
+    // ma il gioco continua normalmente
 
     // Crea il messaggio dell'NPC sconfitto PRIMA di notificare il quest system
     if (this.logSystem) {
