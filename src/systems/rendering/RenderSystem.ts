@@ -75,7 +75,7 @@ export class RenderSystem extends BaseSystem {
           // Renderizza come NPC
           const entitySprite = this.ecs.getComponent(entity, Sprite);
           const entityVelocity = this.ecs.getComponent(entity, Velocity);
-          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite, entityVelocity);
+          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite, entityVelocity, camera);
 
           // Range di attacco NPC rimosso (era debug)
         } else {
@@ -140,7 +140,7 @@ export class RenderSystem extends BaseSystem {
   /**
    * Renderizza un NPC
    */
-  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false, sprite?: Sprite, velocity?: Velocity): void {
+  private renderNpc(ctx: CanvasRenderingContext2D, transform: Transform, npc: Npc, screenX: number, screenY: number, isSelected: boolean = false, sprite?: Sprite, velocity?: Velocity, camera?: any): void {
     ctx.save();
 
     // Applica trasformazioni usando le coordinate schermo
@@ -226,7 +226,9 @@ export class RenderSystem extends BaseSystem {
     // Renderizza il nickname FUORI dalle trasformazioni per evitare effetti 3D strani
     // Il nickname deve rimanere orizzontale e leggibile
     // Usa coordinate mondo stabili invece di schermo per eliminare vibrazioni
-    this.renderNpcNickname(ctx, npc, transform.x, transform.y, camera);
+    if (camera) {
+      this.renderNpcNickname(ctx, npc, transform.x, transform.y, camera);
+    }
   }
 
   /**
