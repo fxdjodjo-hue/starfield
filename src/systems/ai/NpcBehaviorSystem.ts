@@ -112,6 +112,11 @@ export class NpcBehaviorSystem extends BaseSystem {
         const behaviors = ['cruise', 'patrol'];
         const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
         npc.setBehavior(randomBehavior);
+      } else if (npc.npcType === 'Frigate') {
+        // Frigate sono aggressive - possono andare in pursuit anche senza essere danneggiate
+        const behaviors = ['patrol', 'pursuit', 'circle'];
+        const randomBehavior = behaviors[Math.floor(Math.random() * behaviors.length)];
+        npc.setBehavior(randomBehavior);
       } else {
         // Altri NPC mantengono comportamenti semplici
         npc.setBehavior('patrol'); // Comportamento base
