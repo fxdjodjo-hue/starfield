@@ -319,12 +319,13 @@ export class NpcBehaviorSystem extends BaseSystem {
     }
 
     const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+    const playerVelocity = this.ecs.getComponent(playerEntities[0], Velocity);
     if (!playerTransform) {
       this.executeIdleBehavior(velocity);
       return;
     }
 
-    // Calcola direzione verso il player
+    // Calcola direzione e distanza dal player
     const dx = playerTransform.x - transform.x;
     const dy = playerTransform.y - transform.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
@@ -334,16 +335,43 @@ export class NpcBehaviorSystem extends BaseSystem {
       const directionX = dx / distance;
       const directionY = dy / distance;
 
-      // Calcola angolo target
-      const targetAngle = Math.atan2(directionY, directionX);
+      // Controlla se il player si sta muovendo
+      const playerIsMoving = playerVelocity &&
+        (Math.abs(playerVelocity.x) > 10 || Math.abs(playerVelocity.y) > 10);
 
-      // Usa velocità più alta per l'inseguimento (velocità di "carica")
-      const pursuitSpeed = 80; // Più veloce del normale movimento
+      // Logica di distanza intelligente per le Frigate
+      const npc = this.ecs.getComponent(this.ecs.getEntity(entityId!), Npc);
+      const isFrigate = npc && npc.npcType === 'Frigate';
+
+      let targetSpeed = 80; // Velocità normale di pursuit
+      let movementDirectionX = directionX;
+      let movementDirectionY = directionY;
+
+      if (isFrigate && !playerIsMoving) {
+        // Player fermo - mantieni distanza di sicurezza
+        const optimalDistance = 180; // Distanza ideale dalla nave del player
+
+        if (distance < optimalDistance - 20) {
+          // Troppo vicino - allontanati
+          movementDirectionX = -directionX;
+          movementDirectionY = -directionY;
+          targetSpeed = 60; // Velocità di allontanamento più lenta
+        } else if (distance > optimalDistance + 20) {
+          // Troppo lontano - avvicinati leggermente
+          targetSpeed = 40; // Avvicinamento lento
+        } else {
+          // Distanza ideale - movimento circolare lento per posizionamento tattico
+          const circleSpeed = 30;
+          movementDirectionX = -directionY; // Movimento perpendicolare (circolare)
+          movementDirectionY = directionX;
+          targetSpeed = circleSpeed;
+        }
+      }
 
       // Per NPC senza state, usa movimento semplice
       velocity.setVelocity(
-        directionX * pursuitSpeed,
-        directionY * pursuitSpeed
+        movementDirectionX * targetSpeed,
+        movementDirectionY * targetSpeed
       );
     }
   }
