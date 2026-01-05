@@ -5,9 +5,6 @@ import { MovementSystem } from '../physics/MovementSystem';
 import { RenderSystem } from '../rendering/RenderSystem';
 import { InputSystem } from '../input/InputSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
-import { NpcBehaviorSystem } from '../ai/NpcBehaviorSystem';
-import { NpcMovementSystem } from '../ai/NpcMovementSystem';
-import { NpcSelectionSystem } from '../ai/NpcSelectionSystem';
 import { CombatSystem } from '../combat/CombatSystem';
 import { ExplosionSystem } from '../combat/ExplosionSystem';
 import { DamageTextSystem } from '../rendering/DamageTextSystem';
@@ -19,7 +16,6 @@ import { EconomySystem } from '../economy/EconomySystem';
 import { RankSystem } from '../rewards/RankSystem';
 import { RewardSystem } from '../rewards/RewardSystem';
 import { BoundsSystem } from '../physics/BoundsSystem';
-import { NpcRespawnSystem } from '../npc/NpcRespawnSystem';
 import { QuestSystem } from '../quest/QuestSystem';
 import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
 import { QuestManager } from '../quest/QuestManager';
@@ -120,9 +116,6 @@ export class GameInitializationSystem extends System {
     const parallaxSystem = new ParallaxSystem(this.ecs, cameraSystem);
     const inputSystem = new InputSystem(this.ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(this.ecs);
-    const npcMovementSystem = new NpcMovementSystem(this.ecs);
-    const npcBehaviorSystem = new NpcBehaviorSystem(this.ecs, npcMovementSystem);
-    const npcSelectionSystem = new NpcSelectionSystem(this.ecs);
     const explosionSystem = new ExplosionSystem(this.ecs);
     const chatTextSystem = new ChatTextSystem(this.ecs, cameraSystem);
     const minimapSystem = new MinimapSystem(this.ecs, this.context.canvas);
@@ -131,7 +124,6 @@ export class GameInitializationSystem extends System {
     const rankSystem = new RankSystem(this.ecs);
     const rewardSystem = new RewardSystem(this.ecs, this.playState);
     const boundsSystem = new BoundsSystem(this.ecs, cameraSystem);
-    const respawnSystem = new NpcRespawnSystem(this.ecs, this.context);
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager, this.playState);
     this.playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
     this.playerSystem = new PlayerSystem(this.ecs);
@@ -156,9 +148,6 @@ export class GameInitializationSystem extends System {
       renderSystem,
       inputSystem,
       playerControlSystem,
-      npcBehaviorSystem,
-      npcMovementSystem,
-      npcSelectionSystem,
       combatSystem,
       explosionSystem,
       damageTextSystem,
@@ -170,7 +159,6 @@ export class GameInitializationSystem extends System {
       rankSystem,
       rewardSystem,
       boundsSystem,
-      respawnSystem,
       questTrackingSystem,
       questSystem: this.questSystem,
       uiSystem: this.uiSystem,
@@ -189,24 +177,21 @@ export class GameInitializationSystem extends System {
    * Aggiunge tutti i sistemi all'ECS nell'ordine corretto
    */
   private addSystemsToECS(systems: any): void {
-    const { inputSystem, npcSelectionSystem, playerControlSystem, combatSystem,
-            cameraSystem, explosionSystem, projectileSystem, npcBehaviorSystem, npcMovementSystem, movementSystem,
+    const { inputSystem, playerControlSystem, combatSystem,
+            cameraSystem, explosionSystem, projectileSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
-            respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
+            rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
             playerSystem, remoteNpcSystem, remoteProjectileSystem } = systems;
 
     // Ordine importante per l'esecuzione
     this.ecs.addSystem(inputSystem);
-    this.ecs.addSystem(npcSelectionSystem);
     this.ecs.addSystem(playerControlSystem);
     this.ecs.addSystem(playerSystem);
     this.ecs.addSystem(combatSystem);
     this.ecs.addSystem(explosionSystem);
     this.ecs.addSystem(projectileSystem);
     this.ecs.addSystem(cameraSystem);
-    this.ecs.addSystem(npcBehaviorSystem);
-    this.ecs.addSystem(npcMovementSystem);
     this.ecs.addSystem(movementSystem);
     this.ecs.addSystem(parallaxSystem);
     this.ecs.addSystem(renderSystem);
@@ -217,7 +202,6 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(logSystem);
     this.ecs.addSystem(economySystem);
     this.ecs.addSystem(rankSystem);
-    this.ecs.addSystem(respawnSystem);
     this.ecs.addSystem(rewardSystem);
     this.ecs.addSystem(questSystem);
     this.ecs.addSystem(remoteNpcSystem); // Sistema NPC remoti per multiplayer
@@ -233,7 +217,7 @@ export class GameInitializationSystem extends System {
     const {
       movementSystem, playerControlSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, combatSystem, logSystem, boundsSystem,
-      respawnSystem, questTrackingSystem, inputSystem, npcSelectionSystem,
+      questTrackingSystem, inputSystem,
       chatTextSystem, uiSystem, cameraSystem
     } = systems;
 
@@ -267,8 +251,6 @@ export class GameInitializationSystem extends System {
     rewardSystem.setLogSystem(logSystem);
     combatSystem.setLogSystem(logSystem);
     boundsSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
-    respawnSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
-    rewardSystem.setRespawnSystem(respawnSystem);
     rewardSystem.setQuestTrackingSystem(questTrackingSystem);
     questTrackingSystem.setEconomySystem(economySystem);
     questTrackingSystem.setLogSystem(logSystem);
@@ -299,13 +281,7 @@ export class GameInitializationSystem extends System {
 
         if (!minimapHandled && !inMinimapGlassPanel && !inPlayerStatusHUD) {
           minimapSystem.clearDestination();
-          const canvasSize = this.world.getCanvasSize();
-          const worldPos = cameraSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
-          const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
-
-          if (!npcSelected) {
-            playerControlSystem.handleMouseState(pressed, x, y);
-          }
+          playerControlSystem.handleMouseState(pressed, x, y);
         }
       } else {
         minimapSystem.handleMouseUp();
@@ -373,7 +349,6 @@ export class GameInitializationSystem extends System {
     rankSystem.setPlayerEntity(playerEntity);
     rewardSystem.setPlayerEntity(playerEntity);
     boundsSystem.setPlayerEntity(playerEntity);
-    respawnSystem.setPlayerEntity(playerEntity);
     questTrackingSystem.setPlayerEntity(playerEntity);
     playerStatusDisplaySystem.setPlayerEntity(playerEntity);
 
