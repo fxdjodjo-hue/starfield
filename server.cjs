@@ -601,11 +601,11 @@ function updateNpcMovements() {
     const startY = npc.position.y;
 
     // Movimento semplice con velocity
-    let deltaX = npc.velocity.x * (deltaTime / 1000);
-    let deltaY = npc.velocity.y * (deltaTime / 1000);
+    const speed = NPC_CONFIG[npc.type].stats.speed;
+    let deltaX = npc.velocity.x * (deltaTime / 1000) * (speed / 100); // Normalizza velocità base
+    let deltaY = npc.velocity.y * (deltaTime / 1000) * (speed / 100);
 
     // Modifica velocità basata sul comportamento
-    const speed = NPC_CONFIG[npc.type].stats.speed;
     switch (npc.behavior) {
       case 'aggressive':
         deltaX *= 2;
