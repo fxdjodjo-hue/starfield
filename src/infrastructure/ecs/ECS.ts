@@ -1,6 +1,10 @@
 import { Entity, EntityIdGenerator } from './Entity';
 import { Component } from './Component';
 import { System } from './System';
+import { Transform } from '../../entities/spatial/Transform';
+import { Health } from '../../entities/combat/Health';
+import { Damage } from '../../entities/combat/Damage';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 
 /**
  * Entity Component System principale
@@ -184,4 +188,14 @@ export class ECS {
     }
   }
 
+  /**
+   * Trova l'entità player (entità con Transform, Health, Damage ma senza SelectedNpc)
+   * Usato dai sistemi che hanno bisogno di identificare il player
+   */
+  getPlayerEntity(): Entity | null {
+    const playerEntities = this.getEntitiesWithComponents(Transform, Health, Damage)
+      .filter(entity => !this.hasComponent(entity, SelectedNpc));
+
+    return playerEntities.length > 0 ? playerEntities[0] : null;
+  }
 }
