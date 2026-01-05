@@ -179,14 +179,14 @@ export class ClientNetworkSystem extends BaseSystem {
     if (this.remotePlayerSystem) {
     if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
       // Crea nuovo giocatore remoto
-      this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
+      this.remotePlayerSystem.addRemotePlayer(clientId, position.x, position.y, rotation || 0);
         // Imposta info nickname se presente
         if (nickname) {
           this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
         }
       } else {
         // Aggiorna posizione giocatore remoto esistente
-        this.remotePlayerSystem.updateRemotePlayer(clientId, position, rotation || 0);
+        this.remotePlayerSystem.updateRemotePlayer(clientId, position.x, position.y, rotation || 0);
         // Aggiorna info nickname se presente
         if (nickname) {
           this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');

@@ -1,12 +1,10 @@
 /**
- * InterpolationTarget OTTIMIZZATO - Sistema Persistente per Remote Player
+ * InterpolationTarget SEMPLIFICATO - Sistema essenziale per Remote Player
  *
- * Elimina completamente gli scatti nei remote player durante movimento continuo
- * del player locale attraverso:
- * - Interpolazione persistente (componente mai rimosso)
- * - Exponential smoothing adattivo
- * - Dead reckoning per pacchetti mancanti
- * - Frame-rate independence
+ * Interpolazione fluida ma semplificata per ridurre complessità:
+ * - Smoothing fisso invece di adattivo
+ * - Senza dead reckoning avanzato
+ * - Frame-rate independence base
  */
 export class InterpolationTarget {
   // ==========================================
@@ -24,113 +22,48 @@ export class InterpolationTarget {
   targetRotation: number;
 
   // ==========================================
-  // SMOOTHING ADATTIVO
+  // SMOOTHING SEMPLIFICATO
   // ==========================================
-  private baseSmoothing: number = 0.15;    // 15% smoothing base
-  private adaptiveMultiplier: number = 2.0; // 2x quando lontano
-  private minSmoothing: number = 0.08;     // Min per stabilità
-
-  // ==========================================
-  // DEAD RECKONING
-  // ==========================================
-  private lastVelocityX: number = 0;
-  private lastVelocityY: number = 0;
-  private lastUpdateTime: number = 0;
-  private deadReckoningDelay: number = 150;    // ms prima di estrapolare
-  private maxExtrapolationTime: number = 0.2;  // secondi max estrapolazione
-
-  // ==========================================
-  // DELTATIME NORMALIZATION
-  // ==========================================
-  private targetFrameTime: number = 16.67;     // 60 FPS baseline
-  private maxDeltaMultiplier: number = 2.0;    // Max 2x velocità
+  private smoothingFactor: number = 0.3;   // Smoothing fisso (30% per frame)
+  private angularSmoothing: number = 0.4;  // Smoothing separato per rotazione
 
   constructor(initialX: number, initialY: number, initialRotation: number) {
     // Inizializza render = target
     this.renderX = this.targetX = initialX;
     this.renderY = this.targetY = initialY;
     this.renderRotation = this.targetRotation = initialRotation;
-    this.lastUpdateTime = Date.now();
   }
 
   /**
-   * AGGIORNA TARGET - Componente rimane PERSISTENTE
+   * AGGIORNA TARGET - Versione semplificata
    * Chiamato quando arriva un pacchetto server per remote player
    */
   updateTarget(x: number, y: number, rotation: number): void {
-    const now = Date.now();
-
-    // Calcola velocity per dead reckoning
-    if (this.lastUpdateTime > 0) {
-      const deltaTime = (now - this.lastUpdateTime) / 1000;
-      if (deltaTime > 0) {
-        this.lastVelocityX = (x - this.targetX) / deltaTime;
-        this.lastVelocityY = (y - this.targetY) / deltaTime;
-      }
-    }
-
-    // Aggiorna target (NON rimuove mai il componente)
+    // Aggiorna semplicemente i target (senza calcoli di velocity complessi)
     this.targetX = x;
     this.targetY = y;
     this.targetRotation = rotation;
-    this.lastUpdateTime = now;
   }
 
   /**
-   * UPDATE RENDER - Exponential Smoothing Adattivo + Dead Reckoning
-   * Chiamato ogni frame per interpolazione fluida
+   * UPDATE RENDER - Versione semplificata
+   * Interpolazione lineare semplice ogni frame
    */
   updateRender(deltaTime: number): void {
-    const now = Date.now();
-    const timeSinceUpdate = now - this.lastUpdateTime;
+    // Normalizza deltaTime per frame-rate independence (max 2x velocità)
+    const normalizedDelta = Math.min(deltaTime / 16.67, 2.0);
 
-    // ==========================================
-    // DEAD RECKONING - Estrapola se pacchetti mancanti
-    // ==========================================
-    let effectiveTargetX = this.targetX;
-    let effectiveTargetY = this.targetY;
+    // Calcola smoothing finale
+    const positionSmoothing = this.smoothingFactor * normalizedDelta;
+    const rotationSmoothing = this.angularSmoothing * normalizedDelta;
 
-    if (timeSinceUpdate > this.deadReckoningDelay) {
-      // Estrapola posizione futura basata su ultima velocity
-      const extrapolateTime = Math.min(
-        (timeSinceUpdate - this.deadReckoningDelay) / 1000,
-        this.maxExtrapolationTime
-      );
-      effectiveTargetX += this.lastVelocityX * extrapolateTime;
-      effectiveTargetY += this.lastVelocityY * extrapolateTime;
-    }
-
-    // ==========================================
-    // ADAPTIVE SMOOTHING - Basato su distanza dal target
-    // ==========================================
-    const distance = Math.sqrt(
-      Math.pow(effectiveTargetX - this.renderX, 2) +
-      Math.pow(effectiveTargetY - this.renderY, 2)
-    );
-
-    // Più lontano = smoothing più alto (convergenza veloce)
-    let adaptiveSmoothing = this.baseSmoothing;
-    if (distance > 50) {
-      adaptiveSmoothing *= this.adaptiveMultiplier;  // 2x quando lontano
-    } else if (distance < 5) {
-      adaptiveSmoothing = Math.max(this.minSmoothing, adaptiveSmoothing * 0.5); // 0.5x quando vicino
-    }
-
-    // ==========================================
-    // DELTATIME NORMALIZATION - Frame-rate independence
-    // ==========================================
-    const normalizedDelta = Math.min(deltaTime / this.targetFrameTime, this.maxDeltaMultiplier);
-    const finalSmoothing = adaptiveSmoothing * normalizedDelta;
-
-    // ==========================================
-    // EXPONENTIAL SMOOTHING
-    // ==========================================
-    this.renderX += (effectiveTargetX - this.renderX) * finalSmoothing;
-    this.renderY += (effectiveTargetY - this.renderY) * finalSmoothing;
+    // Interpolazione lineare semplice per posizione
+    this.renderX += (this.targetX - this.renderX) * positionSmoothing;
+    this.renderY += (this.targetY - this.renderY) * positionSmoothing;
 
     // Interpolazione angolare con shortest path
     const angleDiff = this.calculateShortestAngle(this.renderRotation, this.targetRotation);
-    this.renderRotation += angleDiff * finalSmoothing;
+    this.renderRotation += angleDiff * rotationSmoothing;
     this.renderRotation = this.normalizeAngle(this.renderRotation);
   }
 
@@ -148,23 +81,5 @@ export class InterpolationTarget {
     while (angle < 0) angle += 2 * Math.PI;
     while (angle >= 2 * Math.PI) angle -= 2 * Math.PI;
     return angle;
-  }
-
-  // ==========================================
-  // DEBUGGING
-  // ==========================================
-  getDebugInfo(): any {
-    const distance = Math.sqrt(
-      Math.pow(this.targetX - this.renderX, 2) +
-      Math.pow(this.targetY - this.renderY, 2)
-    );
-
-    return {
-      renderPosition: `${this.renderX.toFixed(1)}, ${this.renderY.toFixed(1)}`,
-      targetPosition: `${this.targetX.toFixed(1)}, ${this.targetY.toFixed(1)}`,
-      distance: distance.toFixed(1),
-      timeSinceUpdate: Date.now() - this.lastUpdateTime,
-      lastVelocity: `${this.lastVelocityX.toFixed(1)}, ${this.lastVelocityY.toFixed(1)}`
-    };
   }
 }

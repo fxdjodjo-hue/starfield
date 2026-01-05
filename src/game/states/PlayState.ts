@@ -233,8 +233,9 @@ export class PlayState extends GameState {
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
   }
 
+
   /**
-   * Inizializza il mondo di gioco e crea entitÃ 
+   * Inizializza il mondo di gioco e crea entitÃ
    */
   private async initializeGame(): Promise<void> {
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity

@@ -12,15 +12,13 @@ import { Damage } from '../../entities/combat/Damage';
  * Gestisce creazione, aggiornamento e rimozione delle entità remote player
  */
 export class RemotePlayerSystem extends BaseSystem {
-  // Mappa clientId -> entityId per tracciare i giocatori remoti
-  private remotePlayers: Map<string, number> = new Map();
-  // Mappa clientId -> {nickname, rank} per info visualizzazione
-  private remotePlayerInfo: Map<string, {nickname: string, rank: string}> = new Map();
+  // Mappa unificata clientId -> {entityId, nickname, rank} per sicurezza e performance
+  private remotePlayers: Map<string, {entityId: number, nickname: string, rank: string}> = new Map();
 
   // Sprite condiviso per tutti i remote player (più efficiente)
   private sharedSprite: Sprite;
 
-  constructor(ecs: ECS, shipImage?: HTMLImageElement | null, shipWidth?: number, shipHeight?: number) {
+  constructor(ecs: ECS, shipImage: HTMLImageElement | null = null, shipWidth?: number, shipHeight?: number) {
     super(ecs);
     const width = shipWidth || 32;
     const height = shipHeight || 32;
@@ -47,28 +45,37 @@ export class RemotePlayerSystem extends BaseSystem {
    * Imposta info nickname e rank per un remote player
    */
   setRemotePlayerInfo(clientId: string, nickname: string, rank: string = 'Recruit'): void {
-    this.remotePlayerInfo.set(clientId, { nickname, rank });
+    const playerData = this.remotePlayers.get(clientId);
+    if (playerData) {
+      playerData.nickname = nickname;
+      playerData.rank = rank;
+    }
   }
 
   /**
    * Ottiene info di un remote player
    */
   getRemotePlayerInfo(clientId: string): {nickname: string, rank: string} | undefined {
-    return this.remotePlayerInfo.get(clientId);
+    const playerData = this.remotePlayers.get(clientId);
+    return playerData ? { nickname: playerData.nickname, rank: playerData.rank } : undefined;
   }
 
   /**
-   * Aggiunge un nuovo giocatore remoto
+   * Aggiunge un nuovo giocatore remoto o aggiorna posizione se già esistente
    */
-  addRemotePlayer(clientId: string, position: { x: number; y: number }, rotation: number = 0): number {
-    // Rimuovi giocatore esistente se presente
-    this.removeRemotePlayer(clientId);
+  addRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): number {
+
+    // Se il giocatore remoto esiste già, aggiorna solo la posizione senza ricreare l'entity
+    if (this.remotePlayers.has(clientId)) {
+      this.updateRemotePlayer(clientId, x, y, rotation);
+      return this.remotePlayers.get(clientId)!.entityId;
+    }
 
     // Crea una nuova entity per il giocatore remoto
     const entity = this.ecs.createEntity();
 
     // Aggiungi componenti base
-    const transform = new Transform(position.x, position.y, rotation);
+    const transform = new Transform(x, y, rotation);
     this.ecs.addComponent(entity, Transform, transform);
 
     // Nota: Non aggiungiamo Velocity ai remote player per evitare conflitti
@@ -92,11 +99,15 @@ export class RemotePlayerSystem extends BaseSystem {
 
     // AGGIUNGI INTERPOLAZIONE PERSISTENTE
     // Componente rimane attivo per sempre - interpolazione continua
-    const interpolation = new InterpolationTarget(position.x, position.y, rotation);
+    const interpolation = new InterpolationTarget(x, y, rotation);
     this.ecs.addComponent(entity, InterpolationTarget, interpolation);
 
-    // Registra il giocatore remoto
-    this.remotePlayers.set(clientId, entity.id);
+    // Registra il giocatore remoto nella mappa unificata
+    this.remotePlayers.set(clientId, {
+      entityId: entity.id,
+      nickname: '',
+      rank: 'Recruit'
+    });
 
     return entity.id;
   }
@@ -104,19 +115,19 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Aggiorna posizione e rotazione di un giocatore remoto esistente
    */
-  updateRemotePlayer(clientId: string, position: { x: number; y: number }, rotation: number = 0): void {
-    const entityId = this.remotePlayers.get(clientId);
-    if (!entityId) {
+  updateRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): void {
+    const playerData = this.remotePlayers.get(clientId);
+    if (!playerData) {
       return;
     }
 
-    const entity = this.ecs.getEntity(entityId);
+    const entity = this.ecs.getEntity(playerData.entityId);
     if (entity) {
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
       if (interpolation) {
         // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
         // Eliminazione completa degli scatti attraverso interpolazione continua
-        interpolation.updateTarget(position.x, position.y, rotation);
+        interpolation.updateTarget(x, y, rotation);
       }
     }
   }
@@ -125,13 +136,12 @@ export class RemotePlayerSystem extends BaseSystem {
    * Rimuove un giocatore remoto
    */
   removeRemotePlayer(clientId: string): void {
-    const entityId = this.remotePlayers.get(clientId);
-    if (entityId) {
-      const entity = this.ecs.getEntity(entityId);
+    const playerData = this.remotePlayers.get(clientId);
+    if (playerData) {
+      const entity = this.ecs.getEntity(playerData.entityId);
       if (entity) {
         this.ecs.removeEntity(entity);
         this.remotePlayers.delete(clientId);
-        this.remotePlayerInfo.delete(clientId);
       }
     }
   }
@@ -140,7 +150,9 @@ export class RemotePlayerSystem extends BaseSystem {
    * Rimuove tutti i giocatori remoti
    */
   removeAllRemotePlayers(): void {
-    for (const clientId of this.remotePlayers.keys()) {
+    // Usa Array.from per iterazione sicura mentre modifichiamo la mappa
+    const clientIds = Array.from(this.remotePlayers.keys());
+    for (const clientId of clientIds) {
       this.removeRemotePlayer(clientId);
     }
   }
@@ -149,7 +161,8 @@ export class RemotePlayerSystem extends BaseSystem {
    * Ottiene l'entity ID di un giocatore remoto
    */
   getRemotePlayerEntity(clientId: string): number | undefined {
-    return this.remotePlayers.get(clientId);
+    const playerData = this.remotePlayers.get(clientId);
+    return playerData ? playerData.entityId : undefined;
   }
 
   /**
