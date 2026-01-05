@@ -1,36 +1,167 @@
 const WebSocket = require('ws');
 
-// Import ServerNpcManager (usando require per compatibilità)
-let ServerNpcManager;
-try {
-  // In produzione il file sarà compilato
-  ServerNpcManager = require('./server/npc/ServerNpcManager.ts');
-} catch (e) {
-  // Fallback per development - simuliamo la classe base
-  ServerNpcManager = class {
-    constructor() { this.npcs = new Map(); }
-    createNpc(type, x, y) {
-      const id = `npc_${Math.random().toString(36).substr(2, 9)}`;
-      const npc = {
-        id,
-        type,
-        position: { x: x || Math.random() * 20000, y: y || Math.random() * 12500, rotation: 0 },
-        health: type === 'Scouter' ? 800 : 1200,
-        maxHealth: type === 'Scouter' ? 800 : 1200,
-        shield: type === 'Scouter' ? 560 : 840,
-        maxShield: type === 'Scouter' ? 560 : 840,
-        behavior: 'cruise',
-        lastUpdate: Date.now()
-      };
-      this.npcs.set(id, npc);
-      console.log(`🆕 [SERVER] Created NPC ${id} (${type})`);
-      return id;
+// ServerNpcManager - Gestione centralizzata degli NPC
+class ServerNpcManager {
+  constructor() {
+    this.npcs = new Map();
+    this.npcIdCounter = 0;
+  }
+
+  /**
+   * Crea un nuovo NPC nel mondo
+   */
+  createNpc(type, x, y) {
+    const npcId = `npc_${this.npcIdCounter++}`;
+
+    // Se non specificate, genera posizioni casuali distribuite
+    const finalX = x ?? (Math.random() - 0.5) * 20000;
+    const finalY = y ?? (Math.random() - 0.5) * 12500;
+
+    // Statistiche base per tipo
+    const stats = type === 'Scouter'
+      ? { health: 800, shield: 560, damage: 500, speed: 200 }
+      : { health: 1200, shield: 840, damage: 750, speed: 150 };
+
+    const npc = {
+      id: npcId,
+      type,
+      position: { x: finalX, y: finalY, rotation: 0 },
+      velocity: { x: 0, y: 0 },
+      health: stats.health,
+      maxHealth: stats.health,
+      shield: stats.shield,
+      maxShield: stats.shield,
+      behavior: 'cruise',
+      lastUpdate: Date.now(),
+      lastSignificantMove: Date.now()
+    };
+
+    this.npcs.set(npcId, npc);
+    console.log(`🆕 [SERVER] Created NPC ${npcId} (${type}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)})`);
+
+    return npcId;
+  }
+
+  /**
+   * Aggiorna lo stato di un NPC
+   */
+  updateNpc(npcId, updates) {
+    const npc = this.npcs.get(npcId);
+    if (!npc) {
+      console.warn(`[SERVER] Attempted to update non-existent NPC: ${npcId}`);
+      return;
     }
-    getAllNpcs() { return Array.from(this.npcs.values()); }
-    getNpcsNeedingUpdate(since) {
-      return this.getAllNpcs().filter(npc => npc.lastUpdate > since);
+
+    // Controlla se ci sono movimenti significativi
+    const hasSignificantMovement = updates.position &&
+      (Math.abs(updates.position.x - npc.position.x) > 5 ||
+       Math.abs(updates.position.y - npc.position.y) > 5);
+
+    Object.assign(npc, updates);
+    npc.lastUpdate = Date.now();
+
+    if (hasSignificantMovement) {
+      npc.lastSignificantMove = Date.now();
     }
-  };
+  }
+
+  /**
+   * Ottiene lo stato di un NPC specifico
+   */
+  getNpc(npcId) {
+    return this.npcs.get(npcId);
+  }
+
+  /**
+   * Ottiene tutti gli NPC
+   */
+  getAllNpcs() {
+    return Array.from(this.npcs.values());
+  }
+
+  /**
+   * Ottiene NPC che si sono mossi significativamente dall'ultimo controllo
+   */
+  getNpcsNeedingUpdate(since) {
+    return this.getAllNpcs().filter(npc => npc.lastSignificantMove > since);
+  }
+
+  /**
+   * Applica danno a un NPC
+   */
+  damageNpc(npcId, damage, attackerId) {
+    const npc = this.npcs.get(npcId);
+    if (!npc) return false;
+
+    // Prima danneggia lo scudo
+    if (npc.shield > 0) {
+      const shieldDamage = Math.min(damage, npc.shield);
+      npc.shield -= shieldDamage;
+      damage -= shieldDamage;
+    }
+
+    // Poi danneggia la salute
+    if (damage > 0) {
+      npc.health = Math.max(0, npc.health - damage);
+    }
+
+    npc.lastUpdate = Date.now();
+
+    console.log(`💥 [SERVER] NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`);
+
+    // Se morto, rimuovi l'NPC
+    if (npc.health <= 0) {
+      this.removeNpc(npcId);
+      return true; // NPC morto
+    }
+
+    return false; // NPC sopravvissuto
+  }
+
+  /**
+   * Rimuove un NPC dal mondo
+   */
+  removeNpc(npcId) {
+    const existed = this.npcs.delete(npcId);
+    if (existed) {
+      console.log(`💥 [SERVER] Removed NPC ${npcId}`);
+    }
+    return existed;
+  }
+
+  /**
+   * Statistiche del manager
+   */
+  getStats() {
+    const allNpcs = this.getAllNpcs();
+    const scouters = allNpcs.filter(npc => npc.type === 'Scouter').length;
+    const frigates = allNpcs.filter(npc => npc.type === 'Frigate').length;
+
+    return {
+      totalNpcs: allNpcs.length,
+      scouters,
+      frigates
+    };
+  }
+
+  /**
+   * Inizializza NPC del mondo (chiamato all'avvio del server)
+   */
+  initializeWorldNpcs(scouterCount = 25, frigateCount = 25) {
+    console.log(`🌍 [SERVER] Initializing world NPCs: ${scouterCount} Scouters, ${frigateCount} Frigates`);
+
+    // Distribuisci uniformemente gli NPC nel mondo
+    for (let i = 0; i < scouterCount; i++) {
+      this.createNpc('Scouter');
+    }
+
+    for (let i = 0; i < frigateCount; i++) {
+      this.createNpc('Frigate');
+    }
+
+    const stats = this.getStats();
+    console.log(`✅ [SERVER] World initialization complete: ${stats.totalNpcs} NPCs (${stats.scouters} Scouters, ${stats.frigates} Frigates)`);
+  }
 }
 
 // Crea server WebSocket sulla porta 3000
