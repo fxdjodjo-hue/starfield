@@ -39,6 +39,7 @@ class ServerNpcManager {
       maxHealth: stats.health,
       shield: stats.shield,
       maxShield: stats.shield,
+      lastBounce: 0, // Timestamp dell'ultimo rimbalzo ai confini
       behavior: 'cruise',
       lastUpdate: Date.now(),
       lastSignificantMove: Date.now()
@@ -592,16 +593,22 @@ function updateNpcMovements() {
     if (newX >= npcManager.WORLD_LEFT && newX <= npcManager.WORLD_RIGHT) {
       npc.position.x = newX;
     } else {
-      // Se uscirebbe dai confini, cambia direzione
-      npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
+      // Se uscirebbe dai confini, cambia direzione SOLO se non abbiamo già cambiato recentemente
+      if (!npc.lastBounce || Date.now() - npc.lastBounce > 1000) { // 1 secondo cooldown
+        npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
+        npc.lastBounce = Date.now();
+      }
       bounced = true;
     }
 
     if (newY >= npcManager.WORLD_TOP && newY <= npcManager.WORLD_BOTTOM) {
       npc.position.y = newY;
     } else {
-      // Se uscirebbe dai confini, cambia direzione
-      npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
+      // Se uscirebbe dai confini, cambia direzione SOLO se non abbiamo già cambiato recentemente
+      if (!npc.lastBounce || Date.now() - npc.lastBounce > 1000) { // 1 secondo cooldown
+        npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
+        npc.lastBounce = Date.now();
+      }
       bounced = true;
     }
 
@@ -612,9 +619,9 @@ function updateNpcMovements() {
       npc.position.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
     }
 
-    // Rotazione casuale occasionale per rendere il movimento più naturale (meno frequente)
-    if (Math.random() < 0.005) { // 0.5% probabilità ogni frame
-      npc.position.rotation += (Math.random() - 0.5) * 0.3; // ±0.15 radianti, più sottile
+    // Rotazione casuale molto occasionale per movimento "cruise-like" rilassato
+    if (Math.random() < 0.0005) { // 0.05% probabilità ogni frame (~ogni 30 secondi)
+      npc.position.rotation += (Math.random() - 0.5) * 0.5; // ±0.25 radianti, cambi più ampi ma rari
     }
 
     // Mantieni rotazione in range [0, 2π]
