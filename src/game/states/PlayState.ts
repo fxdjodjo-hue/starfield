@@ -9,6 +9,7 @@ import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
+import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
 import { Sprite } from '../../entities/Sprite';
@@ -35,6 +36,7 @@ export class PlayState extends GameState {
   private audioSystem: AudioSystem | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
+  private remoteNpcSystem: RemoteNpcSystem | null = null;
   private nicknameCreated: boolean = false;
   private remotePlayerSpriteUpdated: boolean = false;
 
@@ -228,8 +230,18 @@ export class PlayState extends GameState {
     this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, shipWidth, shipHeight);
     this.world.getECS().addSystem(this.remotePlayerSystem);
 
-    // Inizializza il sistema di rete multiplayer
-    this.clientNetworkSystem = new ClientNetworkSystem(this.world.getECS(), this.context, this.remotePlayerSystem);
+    // Ottieni il RemoteNpcSystem creato dal GameInitializationSystem
+    const systems = this.gameInitSystem.getSystems();
+    this.remoteNpcSystem = systems.remoteNpcSystem || null;
+
+    // Inizializza il sistema di rete multiplayer con supporto NPC
+    this.clientNetworkSystem = new ClientNetworkSystem(
+      this.world.getECS(),
+      this.context,
+      this.remotePlayerSystem,
+      undefined, // Usa URL di default
+      this.remoteNpcSystem // Passa il sistema NPC
+    );
     this.world.getECS().addSystem(this.clientNetworkSystem);
 
     // Imposta informazioni del player nel sistema di rete

@@ -1,10 +1,46 @@
 const WebSocket = require('ws');
 
+// Import ServerNpcManager (usando require per compatibilità)
+let ServerNpcManager;
+try {
+  // In produzione il file sarà compilato
+  ServerNpcManager = require('./server/npc/ServerNpcManager.ts');
+} catch (e) {
+  // Fallback per development - simuliamo la classe base
+  ServerNpcManager = class {
+    constructor() { this.npcs = new Map(); }
+    createNpc(type, x, y) {
+      const id = `npc_${Math.random().toString(36).substr(2, 9)}`;
+      const npc = {
+        id,
+        type,
+        position: { x: x || Math.random() * 20000, y: y || Math.random() * 12500, rotation: 0 },
+        health: type === 'Scouter' ? 800 : 1200,
+        maxHealth: type === 'Scouter' ? 800 : 1200,
+        shield: type === 'Scouter' ? 560 : 840,
+        maxShield: type === 'Scouter' ? 560 : 840,
+        behavior: 'cruise',
+        lastUpdate: Date.now()
+      };
+      this.npcs.set(id, npc);
+      console.log(`🆕 [SERVER] Created NPC ${id} (${type})`);
+      return id;
+    }
+    getAllNpcs() { return Array.from(this.npcs.values()); }
+    getNpcsNeedingUpdate(since) {
+      return this.getAllNpcs().filter(npc => npc.lastUpdate > since);
+    }
+  };
+}
+
 // Crea server WebSocket sulla porta 3000
 const wss = new WebSocket.Server({ port: 3000 });
 
 // Stato dei giocatori connessi
 const connectedPlayers = new Map();
+
+// Gestione NPC centralizzata
+const npcManager = new ServerNpcManager();
 
 // Queue per aggiornamenti posizione per ridurre race conditions
 const positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
@@ -20,6 +56,9 @@ console.log('🚀 WebSocket server started on ws://localhost:3000');
 /**
  * Processa la queue degli aggiornamenti posizione per ridurre race conditions
  */
+// Inizializza NPC del mondo
+npcManager.initializeWorldNpcs(25, 25); // 25 Scouter + 25 Frigate
+
 function processPositionUpdates() {
   // Per ogni client che ha aggiornamenti in queue
   for (const [clientId, updates] of positionUpdateQueue) {
@@ -56,6 +95,81 @@ function processPositionUpdates() {
     positionUpdateQueue.delete(clientId);
   }
 }
+
+// Broadcasting NPC periodico (ogni 200ms)
+function broadcastNpcUpdates() {
+  const npcsToUpdate = npcManager.getNpcsNeedingUpdate(Date.now() - 1000); // NPC aggiornati negli ultimi 1s
+
+  if (npcsToUpdate.length === 0) return;
+
+  const npcBulkUpdate = {
+    type: 'npc_bulk_update',
+    npcs: npcsToUpdate.map(npc => ({
+      id: npc.id,
+      position: npc.position,
+      health: { current: npc.health, max: npc.maxHealth },
+      behavior: npc.behavior
+    })),
+    timestamp: Date.now()
+  };
+
+  // Broadcast a tutti i client connessi
+  let broadcastCount = 0;
+  wss.clients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(JSON.stringify(npcBulkUpdate));
+      broadcastCount++;
+    }
+  });
+
+  if (broadcastCount > 0) {
+    console.log(`🌍 [SERVER] Broadcasted ${npcsToUpdate.length} NPC updates to ${broadcastCount} clients`);
+  }
+}
+
+// Sistema di movimento NPC semplice (server-side)
+function updateNpcMovements() {
+  const allNpcs = npcManager.getAllNpcs();
+
+  for (const npc of allNpcs) {
+    // Movimento semplice basato sul comportamento
+    switch (npc.behavior) {
+      case 'cruise':
+        // Movimento lineare semplice
+        npc.position.x += Math.cos(npc.position.rotation) * 50 * 0.016; // 50 units/second * deltaTime
+        npc.position.y += Math.sin(npc.position.rotation) * 50 * 0.016;
+        break;
+
+      case 'aggressive':
+        // Movimento più veloce quando aggressivi
+        npc.position.x += Math.cos(npc.position.rotation) * 100 * 0.016;
+        npc.position.y += Math.sin(npc.position.rotation) * 100 * 0.016;
+        break;
+
+      case 'flee':
+        // Movimento di fuga (indietro)
+        npc.position.x -= Math.cos(npc.position.rotation) * 80 * 0.016;
+        npc.position.y -= Math.sin(npc.position.rotation) * 80 * 0.016;
+        break;
+    }
+
+    // Rotazione casuale occasionale per rendere il movimento più naturale
+    if (Math.random() < 0.02) { // 2% probabilità ogni frame
+      npc.position.rotation += (Math.random() - 0.5) * 0.5; // ±0.25 radianti
+    }
+
+    // Mantieni rotazione in range [0, 2π]
+    npc.position.rotation = ((npc.position.rotation % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+    npc.lastUpdate = Date.now();
+  }
+}
+
+// Avvia movimento NPC (60 FPS)
+setInterval(updateNpcMovements, 1000 / 60);
+
+// Avvia broadcasting NPC
+setInterval(broadcastNpcUpdates, 200);
 
 wss.on('connection', (ws) => {
   console.log('✅ New client connected');
@@ -115,6 +229,25 @@ wss.on('connection', (ws) => {
             console.log(`📍 [SERVER] Sent position of existing player ${existingClientId} to new player ${data.clientId}`);
           }
         });
+
+        // Invia tutti gli NPC esistenti al nuovo giocatore
+        const allNpcs = npcManager.getAllNpcs();
+        if (allNpcs.length > 0) {
+          const initialNpcsMessage = {
+            type: 'initial_npcs',
+            npcs: allNpcs.map(npc => ({
+              id: npc.id,
+              type: npc.type,
+              position: npc.position,
+              health: { current: npc.health, max: npc.maxHealth },
+              shield: { current: npc.shield, max: npc.maxShield },
+              behavior: npc.behavior
+            })),
+            timestamp: Date.now()
+          };
+          ws.send(JSON.stringify(initialNpcsMessage));
+          console.log(`🌍 [SERVER] Sent ${allNpcs.length} initial NPCs to new player ${data.clientId}`);
+        }
 
         ws.send(JSON.stringify({
           type: 'welcome',

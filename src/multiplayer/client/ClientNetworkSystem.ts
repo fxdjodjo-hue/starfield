@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
+import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
@@ -9,6 +10,11 @@ import { WelcomeHandler } from './handlers/WelcomeHandler';
 import { RemotePlayerUpdateHandler } from './handlers/RemotePlayerUpdateHandler';
 import { PlayerJoinedHandler } from './handlers/PlayerJoinedHandler';
 import { PlayerLeftHandler } from './handlers/PlayerLeftHandler';
+// NPC handlers
+import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
+import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
+import { NpcBulkUpdateHandler } from './handlers/NpcBulkUpdateHandler';
+import { NpcLeftHandler } from './handlers/NpcLeftHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { ConnectionManager } from './managers/ConnectionManager';
@@ -43,6 +49,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private readonly messageRouter: MessageRouter;
   public readonly remotePlayerManager: RemotePlayerManager;
   private readonly positionTracker: PlayerPositionTracker;
+  private remoteNpcSystem: RemoteNpcSystem | null = null;
 
   // Error handling callbacks
   private onDisconnectedCallback?: () => void;
@@ -50,9 +57,10 @@ export class ClientNetworkSystem extends BaseSystem {
   private onReconnectingCallback?: () => void;
   private onReconnectedCallback?: () => void;
 
-  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL) {
+  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem) {
     super(ecs);
     this.gameContext = gameContext;
+    this.remoteNpcSystem = remoteNpcSystem || null;
 
     // Generate unique client ID
     this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
@@ -89,12 +97,25 @@ export class ClientNetworkSystem extends BaseSystem {
    * Registers all message handlers with the message router
    */
   private registerMessageHandlers(): void {
-    this.messageRouter.registerHandlers([
+    const handlers = [
       new WelcomeHandler(),
       new RemotePlayerUpdateHandler(),
       new PlayerJoinedHandler(),
       new PlayerLeftHandler()
-    ]);
+    ];
+
+    // Aggiungi handlers NPC se il sistema è disponibile
+    if (this.remoteNpcSystem) {
+      handlers.push(
+        new InitialNpcsHandler(),
+        new NpcJoinedHandler(),
+        new NpcBulkUpdateHandler(),
+        new NpcLeftHandler()
+      );
+      console.log('🎮 [CLIENT] NPC handlers registered');
+    }
+
+    this.messageRouter.registerHandlers(handlers);
   }
 
   /**
@@ -330,6 +351,13 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   isConnected(): boolean {
     return this.connectionManager.isConnectionActive();
+  }
+
+  /**
+   * Gets the RemoteNpcSystem instance
+   */
+  getRemoteNpcSystem(): RemoteNpcSystem | null {
+    return this.remoteNpcSystem;
   }
 
   /**

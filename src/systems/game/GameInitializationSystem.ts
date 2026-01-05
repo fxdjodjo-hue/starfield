@@ -32,6 +32,7 @@ import AudioSystem from '../audio/AudioSystem';
 import { AUDIO_CONFIG } from '../../config/AudioConfig';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
+import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
 import { Sprite } from '../../entities/Sprite';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -130,6 +131,12 @@ export class GameInitializationSystem extends System {
     const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, combatSystem);
     const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem || undefined);
 
+    // Sistema NPC remoti per multiplayer
+    const npcSprites = new Map<string, HTMLImageElement>();
+    if (assets.scouterImage) npcSprites.set('scouter', assets.scouterImage);
+    if (assets.frigateImage) npcSprites.set('frigate', assets.frigateImage);
+    const remoteNpcSystem = new RemoteNpcSystem(this.ecs, npcSprites);
+
     const result = {
       cameraSystem,
       movementSystem: this.movementSystem,
@@ -158,6 +165,7 @@ export class GameInitializationSystem extends System {
       playerStatusDisplaySystem: this.playerStatusDisplaySystem,
       playerSystem: this.playerSystem,
       audioSystem: this.audioSystem,
+      remoteNpcSystem,
       assets: { shipImage, mapBackgroundImage, scouterImage, frigateImage }
     };
 
@@ -173,7 +181,7 @@ export class GameInitializationSystem extends System {
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
             respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
-            playerSystem } = systems;
+            playerSystem, remoteNpcSystem } = systems;
 
     // Ordine importante per l'esecuzione
     this.ecs.addSystem(inputSystem);
@@ -199,6 +207,7 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(respawnSystem);
     this.ecs.addSystem(rewardSystem);
     this.ecs.addSystem(questSystem);
+    this.ecs.addSystem(remoteNpcSystem); // Sistema NPC remoti per multiplayer
     this.ecs.addSystem(uiSystem);
     this.ecs.addSystem(playerStatusDisplaySystem);
   }
@@ -323,9 +332,9 @@ export class GameInitializationSystem extends System {
     // Crea l'entità background della mappa
     this.createMapBackground(assets.mapBackgroundImage);
 
-    // Crea NPC
-    this.createScouter(25, assets.scouterImage);
-    this.createFrigate(25, assets.frigateImage);
+    // Nota: Gli NPC ora vengono creati e gestiti dal server
+    // Non creiamo più NPC locali per garantire consistenza multiplayer
+    console.log('🌍 [INIT] NPC creation delegated to server for multiplayer consistency');
 
     return playerEntity;
   }
