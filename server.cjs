@@ -596,6 +596,7 @@ function updateNpcMovements() {
     const newX = npc.position.x + deltaX;
     const newY = npc.position.y + deltaY;
 
+
     // Controlla confini del mondo e applica movimento solo se entro i limiti
     let bounced = false;
     if (newX >= npcManager.WORLD_LEFT && newX <= npcManager.WORLD_RIGHT) {
@@ -620,16 +621,12 @@ function updateNpcMovements() {
       bounced = true;
     }
 
-    // Se NON abbiamo colpito un bordo, aggiorna rotazione basata sul movimento attuale
-    // Se abbiamo colpito un bordo, mantieni la rotazione appena cambiata
-    if (!bounced && (deltaX !== 0 || deltaY !== 0)) {
-      // Usa la stessa formula dei player: Math.atan2 + Math.PI/2 per orientamento sprite corretto
-      npc.position.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
-    }
+    // Per movimento cruise-like: mantieni direzione stabile, cambia occasionalmente
+    // NON aggiornare rotazione basandosi sul movimento corrente (causa movimento circolare)
 
-    // Rotazione casuale molto occasionale per movimento "cruise-like" rilassato
-    if (Math.random() < 0.0005) { // 0.05% probabilità ogni frame (~ogni 30 secondi)
-      npc.position.rotation += (Math.random() - 0.5) * 0.5; // ±0.25 radianti, cambi più ampi ma rari
+    // Rotazione casuale più frequente per movimento naturale cruise-like
+    if (Math.random() < 0.002) { // 0.2% probabilità ogni frame (~ogni 5 secondi in media)
+      npc.position.rotation += (Math.random() - 0.5) * 0.3; // ±0.15 radianti, cambi moderati
     }
 
     // Mantieni rotazione in range [0, 2π]
