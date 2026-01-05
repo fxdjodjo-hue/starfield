@@ -5,6 +5,7 @@ import { MovementSystem } from '../physics/MovementSystem';
 import { RenderSystem } from '../rendering/RenderSystem';
 import { InputSystem } from '../input/InputSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
+import { NpcSelectionSystem } from '../ai/NpcSelectionSystem';
 import { CombatSystem } from '../combat/CombatSystem';
 import { ExplosionSystem } from '../combat/ExplosionSystem';
 import { DamageTextSystem } from '../rendering/DamageTextSystem';
@@ -116,6 +117,7 @@ export class GameInitializationSystem extends System {
     const parallaxSystem = new ParallaxSystem(this.ecs, cameraSystem);
     const inputSystem = new InputSystem(this.ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(this.ecs);
+    const npcSelectionSystem = new NpcSelectionSystem(this.ecs);
     const explosionSystem = new ExplosionSystem(this.ecs);
     const chatTextSystem = new ChatTextSystem(this.ecs, cameraSystem);
     const minimapSystem = new MinimapSystem(this.ecs, this.context.canvas);
@@ -148,6 +150,7 @@ export class GameInitializationSystem extends System {
       renderSystem,
       inputSystem,
       playerControlSystem,
+      npcSelectionSystem,
       combatSystem,
       explosionSystem,
       damageTextSystem,
@@ -177,7 +180,7 @@ export class GameInitializationSystem extends System {
    * Aggiunge tutti i sistemi all'ECS nell'ordine corretto
    */
   private addSystemsToECS(systems: any): void {
-    const { inputSystem, playerControlSystem, combatSystem,
+    const { inputSystem, playerControlSystem, npcSelectionSystem, combatSystem,
             cameraSystem, explosionSystem, projectileSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
@@ -186,6 +189,7 @@ export class GameInitializationSystem extends System {
 
     // Ordine importante per l'esecuzione
     this.ecs.addSystem(inputSystem);
+    this.ecs.addSystem(npcSelectionSystem);
     this.ecs.addSystem(playerControlSystem);
     this.ecs.addSystem(playerSystem);
     this.ecs.addSystem(combatSystem);
@@ -280,8 +284,17 @@ export class GameInitializationSystem extends System {
         const inPlayerStatusHUD = this.playerStatusDisplaySystem.isClickInHUD(x, y);
 
         if (!minimapHandled && !inMinimapGlassPanel && !inPlayerStatusHUD) {
-          minimapSystem.clearDestination();
-          playerControlSystem.handleMouseState(pressed, x, y);
+          // Converti coordinate schermo in coordinate mondo per la selezione NPC
+          const worldPos = cameraSystem.screenToWorld(x, y, this.context.canvas.width, this.context.canvas.height);
+
+          // Prova prima la selezione NPC
+          const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
+
+          if (!npcSelected) {
+            // Se non è stato selezionato un NPC, gestisci movimento player
+            minimapSystem.clearDestination();
+            playerControlSystem.handleMouseState(pressed, x, y);
+          }
         }
       } else {
         minimapSystem.handleMouseUp();
@@ -294,6 +307,12 @@ export class GameInitializationSystem extends System {
       if (!minimapHandled) {
         playerControlSystem.handleMouseMoveWhilePressed(x, y);
       }
+    });
+
+    // Configura selezione NPC
+    npcSelectionSystem.setOnNpcClickCallback((npcEntity) => {
+      // Per ora semplice log, in futuro potremmo aggiungere feedback visivo
+      console.log(`🎯 [NPC SELECTION] NPC selezionato: ${npcEntity.id}`);
     });
   }
 
