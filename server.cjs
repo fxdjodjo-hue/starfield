@@ -42,7 +42,7 @@ class ServerNpcManager {
       lastBounce: 0, // Timestamp dell'ultimo rimbalzo ai confini
       behavior: 'cruise',
       lastUpdate: Date.now(),
-      lastSignificantMove: Date.now()
+      lastSignificantMove: 0 // Non è stato ancora trasmesso, impostiamo a 0
     };
 
     this.npcs.set(npcId, npc);
