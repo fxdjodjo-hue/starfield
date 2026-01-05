@@ -563,25 +563,34 @@ function updateNpcMovements() {
     let deltaX = 0;
     let deltaY = 0;
 
+    // Usa la velocità dalle statistiche dell'NPC invece di valori hard-coded
+    const speed = npc.type === 'Scouter' ? 200 : 150; // Velocità base dalle statistiche
+    const deltaTime = 1000 / 60; // Fixed timestep per fisica server
+
     // Movimento semplice basato sul comportamento
     switch (npc.behavior) {
       case 'cruise':
         // Movimento lineare semplice
-        deltaX = Math.cos(npc.position.rotation) * 50 * 0.016; // 50 units/second * deltaTime
-        deltaY = Math.sin(npc.position.rotation) * 50 * 0.016;
+        deltaX = Math.cos(npc.position.rotation) * speed * (deltaTime / 1000);
+        deltaY = Math.sin(npc.position.rotation) * speed * (deltaTime / 1000);
         break;
 
       case 'aggressive':
         // Movimento più veloce quando aggressivi
-        deltaX = Math.cos(npc.position.rotation) * 100 * 0.016;
-        deltaY = Math.sin(npc.position.rotation) * 100 * 0.016;
+        deltaX = Math.cos(npc.position.rotation) * (speed * 2) * (deltaTime / 1000);
+        deltaY = Math.sin(npc.position.rotation) * (speed * 2) * (deltaTime / 1000);
         break;
 
       case 'flee':
         // Movimento di fuga (indietro)
-        deltaX = -Math.cos(npc.position.rotation) * 80 * 0.016;
-        deltaY = -Math.sin(npc.position.rotation) * 80 * 0.016;
+        deltaX = -Math.cos(npc.position.rotation) * (speed * 1.5) * (deltaTime / 1000);
+        deltaY = -Math.sin(npc.position.rotation) * (speed * 1.5) * (deltaTime / 1000);
         break;
+    }
+
+    // Debug log per il primo NPC
+    if (npc.id === 'npc_0') {
+      console.log(`[DEBUG] NPC ${npc.id} (${npc.behavior}): pos=(${npc.position.x.toFixed(1)}, ${npc.position.y.toFixed(1)}), rot=${npc.position.rotation.toFixed(2)}, delta=(${deltaX.toFixed(2)}, ${deltaY.toFixed(2)}), speed=${speed}`);
     }
 
     // Calcola nuova posizione
