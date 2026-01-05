@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { AssetManager } from '../../infrastructure/AssetManager';
 import { Transform } from '../../entities/spatial/Transform';
+import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { Npc } from '../../entities/ai/Npc';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
@@ -67,14 +68,27 @@ export class RenderSystem extends BaseSystem {
     if (explosion) {
       this.renderExplosion(ctx, transform, explosion, screenX, screenY);
     } else if (npc) {
-      // Render NPC with rotation from helper
+      // Render NPC - differenzia tra locali e remoti
       const entitySprite = this.ecs.getComponent(entity, Sprite);
       if (entitySprite) {
-        const rotationAngle = NpcRenderer.getRenderRotation(npc, transform, velocity);
-        const renderTransform: RenderableTransform = {
-          x: screenX, y: screenY, rotation: 0, scaleX: transform.scaleX, scaleY: transform.scaleY
-        };
-        SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
+        // Controlla se è un NPC remoto (server authoritative)
+        const authority = this.ecs.getComponent(entity, Authority);
+        const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
+
+        if (isRemoteNpc) {
+          // NPC remoto: usa direttamente transform.rotation (come i remote player)
+          const renderTransform: RenderableTransform = {
+            x: screenX, y: screenY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
+          };
+          SpriteRenderer.render(ctx, renderTransform, entitySprite);
+        } else {
+          // NPC locale: usa NpcRenderer per calcolare la rotazione
+          const rotationAngle = NpcRenderer.getRenderRotation(npc, transform, velocity);
+          const renderTransform: RenderableTransform = {
+            x: screenX, y: screenY, rotation: 0, scaleX: transform.scaleX, scaleY: transform.scaleY
+          };
+          SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
+        }
       }
     } else {
       // Render player with float effect

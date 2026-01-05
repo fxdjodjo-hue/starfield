@@ -8,15 +8,9 @@ import { Velocity } from '../../entities/spatial/Velocity';
 export class NpcRenderer {
   /**
    * Get the appropriate rotation angle for NPC rendering based on behavior and velocity
+   * Used only for local NPCs - remote NPCs use transform.rotation directly
    */
   static getRenderRotation(npc: Npc, transform: Transform, velocity?: Velocity): number {
-    // Priority: transform.rotation (for remote/interpolated NPCs)
-    // Fallback: velocity-based calculation for local NPCs
-
-    // Se abbiamo una rotazione valida nel transform, usala (per NPC remoti/interpolati)
-    if (transform.rotation !== 0 && Number.isFinite(transform.rotation)) {
-      return transform.rotation;
-    }
 
     // Fallback per NPC locali: calcola basato su velocity
     if (npc.behavior === 'aggressive') {
