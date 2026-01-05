@@ -447,13 +447,16 @@ setInterval(() => {
     if (npcsNeedingUpdate.length > 0) {
       const message = {
         type: 'npc_bulk_update',
-        npcs: npcsNeedingUpdate.map(npc => ({
-          id: npc.id,
-          position: npc.position,
-          health: { current: npc.health, max: npc.maxHealth },
-          shield: { current: npc.shield, max: npc.maxShield },
-          behavior: npc.behavior
-        }))
+        npcs: npcsNeedingUpdate.map(npc => {
+          console.log(`[SERVER] Broadcasting NPC ${npc.id}: rot=${npc.position.rotation.toFixed(2)}`);
+          return {
+            id: npc.id,
+            position: npc.position,
+            health: { current: npc.health, max: npc.maxHealth },
+            shield: { current: npc.shield, max: npc.maxShield },
+            behavior: npc.behavior
+          };
+        })
       };
 
       // Broadcast a tutti i client
@@ -599,9 +602,18 @@ function updateNpcMovements() {
       npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
     }
 
-    // Rotazione casuale occasionale per rendere il movimento più naturale
-    if (Math.random() < 0.02) { // 2% probabilità ogni frame
-      npc.position.rotation += (Math.random() - 0.5) * 0.5; // ±0.25 radianti
+    // Calcola rotazione basata sulla direzione del movimento (più realistico!)
+    if (deltaX !== 0 || deltaY !== 0) {
+      // Se l'NPC si sta muovendo, aggiorna la rotazione per puntare nella direzione del movimento
+      npc.position.rotation = Math.atan2(deltaY, deltaX);
+
+      // Debug: mostra quando la rotazione cambia per movimento
+      console.log(`[SERVER] NPC ${npc.id} direction change: rot=${npc.position.rotation.toFixed(2)} (dx=${deltaX.toFixed(2)}, dy=${deltaY.toFixed(2)})`);
+    }
+
+    // Rotazione casuale occasionale per rendere il movimento più naturale (meno frequente)
+    if (Math.random() < 0.005) { // 0.5% probabilità ogni frame
+      npc.position.rotation += (Math.random() - 0.5) * 0.3; // ±0.15 radianti, più sottile
     }
 
     // Mantieni rotazione in range [0, 2π]
