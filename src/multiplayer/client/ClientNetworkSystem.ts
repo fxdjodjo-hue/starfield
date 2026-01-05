@@ -22,6 +22,7 @@ import { ProjectileUpdateHandler } from './handlers/ProjectileUpdateHandler';
 import { ProjectileDestroyedHandler } from './handlers/ProjectileDestroyedHandler';
 import { EntityDamagedHandler } from './handlers/EntityDamagedHandler';
 import { EntityDestroyedHandler } from './handlers/EntityDestroyedHandler';
+import { ExplosionCreatedHandler } from './handlers/ExplosionCreatedHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { ConnectionManager } from './managers/ConnectionManager';
@@ -131,7 +132,8 @@ export class ClientNetworkSystem extends BaseSystem {
         new ProjectileUpdateHandler(),
         new ProjectileDestroyedHandler(),
         new EntityDamagedHandler(),
-        new EntityDestroyedHandler()
+        new EntityDestroyedHandler(),
+        new ExplosionCreatedHandler()
       );
       console.log('⚔️ [CLIENT] Combat handlers registered');
     }
@@ -386,6 +388,131 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getRemoteProjectileSystem(): RemoteProjectileSystem | null {
     return this.remoteProjectileSystem;
+  }
+
+  /**
+   * Gets the ECS instance
+   */
+  getECS(): ECS | null {
+    return this.ecs;
+  }
+
+  /**
+   * Sends notification of explosion created to the server
+   */
+  sendExplosionCreated(data: {
+    explosionId: string;
+    entityId: string;
+    entityType: 'player' | 'npc';
+    position: { x: number; y: number };
+    explosionType: 'entity_death' | 'projectile_impact' | 'special';
+  }): void {
+    if (!this.socket || !this.isConnected) {
+      console.warn('[CLIENT] Cannot send explosion created: not connected');
+      return;
+    }
+
+    const message = {
+      type: MESSAGE_TYPES.EXPLOSION_CREATED,
+      explosionId: data.explosionId,
+      entityId: data.entityId,
+      entityType: data.entityType,
+      position: data.position,
+      explosionType: data.explosionType
+    };
+
+    this.sendMessage(message);
+  }
+
+  /**
+   * Creates a remote explosion for synchronized visual effects
+   */
+  async createRemoteExplosion(message: {
+    explosionId: string;
+    entityId: string;
+    entityType: 'player' | 'npc';
+    position: { x: number; y: number };
+    explosionType: 'entity_death' | 'projectile_impact' | 'special';
+  }): Promise<void> {
+    try {
+      if (!this.ecs) {
+        console.warn('[CLIENT] Cannot create remote explosion: ECS not available');
+        return;
+      }
+
+      // Crea entità temporanea per l'esplosione
+      const explosionEntity = this.ecs.createEntity();
+
+      // Usa i frame cachati o caricali
+      let explosionFrames = this.explosionFramesCache;
+      if (!explosionFrames) {
+        explosionFrames = await this.loadExplosionFrames();
+        this.explosionFramesCache = explosionFrames;
+      }
+
+      // Import componenti
+      const { Explosion } = await import('../../entities/combat/Explosion');
+      const { Transform } = await import('../../entities/spatial/Transform');
+
+      // Crea componenti
+      const transform = new Transform(message.position.x, message.position.y, 0);
+      const explosion = new Explosion(explosionFrames, 80); // 80ms per frame
+
+      // Aggiungi componenti all'entità
+      this.ecs.addComponent(explosionEntity, Transform, transform);
+      this.ecs.addComponent(explosionEntity, Explosion, explosion);
+
+      console.log(`💥 [CLIENT] Created remote explosion entity ${explosionEntity.id} for ${message.entityType} ${message.entityId}`);
+
+      // L'ExplosionSystem esistente gestirà automaticamente questa entità
+      // perché cerca tutte le entità con componente Explosion
+
+    } catch (error) {
+      console.error('[CLIENT] Error creating remote explosion:', error);
+    }
+  }
+
+  /**
+   * Cache per i frame delle esplosioni
+   */
+  private explosionFramesCache: HTMLImageElement[] | null = null;
+
+  /**
+   * Carica i frame dell'esplosione (cache per performance)
+   */
+  private async loadExplosionFrames(): Promise<HTMLImageElement[]> {
+    if (this.explosionFramesCache) {
+      return this.explosionFramesCache;
+    }
+
+    const frames: HTMLImageElement[] = [];
+    const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
+
+    // Carica tutti i frame (da 1 a 16, assumendo che esistano)
+    for (let i = 1; i <= 16; i++) {
+      const framePath = `${basePath}${i.toString().padStart(3, '0')}.png`;
+      try {
+        // Usa il sistema di asset loading del context se disponibile
+        if (this.gameContext?.assetManager) {
+          const img = await this.gameContext.assetManager.loadImage(framePath);
+          frames.push(img);
+        } else {
+          // Fallback: carica direttamente
+          const img = new Image();
+          img.src = framePath;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          frames.push(img);
+        }
+      } catch (error) {
+        console.warn(`[CLIENT] Could not load explosion frame ${framePath}:`, error);
+      }
+    }
+
+    this.explosionFramesCache = frames;
+    return frames;
   }
 
   /**

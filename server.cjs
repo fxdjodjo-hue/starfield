@@ -759,6 +759,30 @@ wss.on('connection', (ws) => {
         );
       }
 
+      // Gestisce creazione esplosioni
+      if (data.type === 'explosion_created') {
+        console.log(`💥 [SERVER] Explosion created: ${data.explosionType} for ${data.entityType} ${data.entityId}`);
+
+        // Broadcast l'esplosione a tutti gli altri client
+        const message = {
+          type: 'explosion_created',
+          explosionId: data.explosionId,
+          entityId: data.entityId,
+          entityType: data.entityType,
+          position: data.position,
+          explosionType: data.explosionType
+        };
+
+        // Broadcast a tutti i client (incluso quello che ha creato l'esplosione per conferma)
+        for (const [clientId, client] of connectedPlayers.entries()) {
+          try {
+            client.ws.send(JSON.stringify(message));
+          } catch (error) {
+            console.error(`[SERVER] Error broadcasting explosion to ${clientId}:`, error);
+          }
+        }
+      }
+
     } catch (error) {
       console.error('❌ [SERVER] Error parsing message:', error);
     }

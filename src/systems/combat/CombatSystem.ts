@@ -521,6 +521,28 @@ export class CombatSystem extends BaseSystem {
       const explosion = new Explosion(this.explosionFrames, 80); // 80ms per frame
       this.ecs.addComponent(entity, Explosion, explosion);
 
+      // Notifica il sistema di rete per sincronizzazione multiplayer
+      if (this.clientNetworkSystem) {
+        const transform = this.ecs.getComponent(entity, Transform);
+        if (transform) {
+          // Determina il tipo di entità
+          const hasNpc = this.ecs.hasComponent(entity, Npc);
+          const entityType = hasNpc ? 'npc' : 'player';
+
+          // Genera ID univoco per l'esplosione
+          const explosionId = `expl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+          // Invia notifica di esplosione creata
+          this.clientNetworkSystem.sendExplosionCreated({
+            explosionId,
+            entityId: entity.id.toString(),
+            entityType,
+            position: { x: transform.x, y: transform.y },
+            explosionType: 'entity_death'
+          });
+        }
+      }
+
       // Pulisci il Set dopo che l'esplosione è finita (10 frame * 80ms = 800ms + margine)
       setTimeout(() => {
         this.explodingEntities.delete(entity.id);

@@ -65,7 +65,8 @@ export const MESSAGE_TYPES = {
   PROJECTILE_UPDATE: 'projectile_update',
   PROJECTILE_DESTROYED: 'projectile_destroyed',
   ENTITY_DAMAGED: 'entity_damaged',
-  ENTITY_DESTROYED: 'entity_destroyed'
+  ENTITY_DESTROYED: 'entity_destroyed',
+  EXPLOSION_CREATED: 'explosion_created'
 } as const;
 
 /**
@@ -219,6 +220,18 @@ export interface EntityDestroyedMessage {
   };
 }
 
+/**
+ * Esplosione creata (effetto visivo)
+ */
+export interface ExplosionCreatedMessage {
+  type: typeof MESSAGE_TYPES.EXPLOSION_CREATED;
+  explosionId: string;
+  entityId: string;
+  entityType: 'player' | 'npc';
+  position: { x: number; y: number };
+  explosionType: 'entity_death' | 'projectile_impact' | 'special';
+}
+
 // Type union per tutti i messaggi NPC
 export type NpcMessage =
   | NpcJoinedMessage
@@ -234,7 +247,8 @@ export type CombatMessage =
   | ProjectileUpdateMessage
   | ProjectileDestroyedMessage
   | EntityDamagedMessage
-  | EntityDestroyedMessage;
+  | EntityDestroyedMessage
+  | ExplosionCreatedMessage;
 
 // Type union per tutti i messaggi di rete
 export type NetworkMessageUnion =
