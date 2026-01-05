@@ -23,5 +23,12 @@ export class Sprite {
   isLoaded(): boolean {
     return this.image !== null && this.image.complete && this.image.naturalWidth !== 0;
   }
+
+  /**
+   * Create a clone of this sprite
+   */
+  clone(): Sprite {
+    return new Sprite(this.image, this.width, this.height, this.offsetX, this.offsetY);
+  }
 }
 
