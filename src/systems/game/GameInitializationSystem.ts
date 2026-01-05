@@ -6,6 +6,7 @@ import { RenderSystem } from '../rendering/RenderSystem';
 import { InputSystem } from '../input/InputSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { NpcBehaviorSystem } from '../ai/NpcBehaviorSystem';
+import { NpcMovementSystem } from '../ai/NpcMovementSystem';
 import { NpcSelectionSystem } from '../ai/NpcSelectionSystem';
 import { CombatSystem } from '../combat/CombatSystem';
 import { ExplosionSystem } from '../combat/ExplosionSystem';
@@ -109,7 +110,8 @@ export class GameInitializationSystem extends System {
     const parallaxSystem = new ParallaxSystem(this.ecs, cameraSystem);
     const inputSystem = new InputSystem(this.ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(this.ecs);
-    const npcBehaviorSystem = new NpcBehaviorSystem(this.ecs);
+    const npcMovementSystem = new NpcMovementSystem(this.ecs);
+    const npcBehaviorSystem = new NpcBehaviorSystem(this.ecs, npcMovementSystem);
     const npcSelectionSystem = new NpcSelectionSystem(this.ecs);
     const explosionSystem = new ExplosionSystem(this.ecs);
     const chatTextSystem = new ChatTextSystem(this.ecs, cameraSystem);
@@ -136,6 +138,7 @@ export class GameInitializationSystem extends System {
       inputSystem,
       playerControlSystem,
       npcBehaviorSystem,
+      npcMovementSystem,
       npcSelectionSystem,
       combatSystem,
       explosionSystem,
@@ -166,7 +169,7 @@ export class GameInitializationSystem extends System {
    */
   private addSystemsToECS(systems: any): void {
     const { inputSystem, npcSelectionSystem, playerControlSystem, combatSystem,
-            cameraSystem, explosionSystem, projectileSystem, npcBehaviorSystem, movementSystem,
+            cameraSystem, explosionSystem, projectileSystem, npcBehaviorSystem, npcMovementSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
             respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
@@ -182,6 +185,7 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(projectileSystem);
     this.ecs.addSystem(cameraSystem);
     this.ecs.addSystem(npcBehaviorSystem);
+    this.ecs.addSystem(npcMovementSystem);
     this.ecs.addSystem(movementSystem);
     this.ecs.addSystem(parallaxSystem);
     this.ecs.addSystem(renderSystem);
