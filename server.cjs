@@ -442,7 +442,7 @@ setInterval(() => {
 
     // Broadcast aggiornamenti NPC se necessario
     const now = Date.now();
-    const npcsNeedingUpdate = npcManager.getNpcsNeedingUpdate(now - 5000); // Ultimi 5 secondi
+    const npcsNeedingUpdate = npcManager.getNpcsNeedingUpdate(now - 1000); // Ultimo secondo
 
     if (npcsNeedingUpdate.length > 0) {
       const message = {
@@ -606,6 +606,9 @@ function updateNpcMovements() {
     // Mantieni rotazione in range [0, 2π]
     npc.position.rotation = ((npc.position.rotation % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
 
+    // Aggiorna lastSignificantMove per ogni movimento (anche piccolo)
+    // Questo assicura che gli NPC in movimento vengano trasmessi regolarmente
+    npc.lastSignificantMove = Date.now();
     npc.lastUpdate = Date.now();
   }
 }
