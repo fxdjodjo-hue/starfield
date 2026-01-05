@@ -75,12 +75,7 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
-    // Riprova a trovare il movement system se necessario
-    if (!this.movementSystem) {
-      this.movementSystem = this.findMovementSystem();
-    }
-
-    if (!ctx.canvas || !this.movementSystem) {
+    if (!ctx.canvas || !this.cameraSystem) {
       return; // Silenziosamente senza log per evitare spam
     }
 

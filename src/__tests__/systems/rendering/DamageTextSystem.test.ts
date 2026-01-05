@@ -8,10 +8,6 @@ describe('DamageTextSystem', () => {
     expect(instance).toBeDefined();
   });
 
-  it('should have findMovementSystem method', () => {
-    const instance = new DamageTextSystem(null as any);
-    expect(typeof instance.findMovementSystem).toBe('function');
-  });
 
   it('should have cleanupDamageText method', () => {
     const instance = new DamageTextSystem(null as any);

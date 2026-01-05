@@ -230,6 +230,7 @@ export class PlayState extends GameState {
 
     // Inizializza il sistema di rete multiplayer
     this.clientNetworkSystem = new ClientNetworkSystem(this.world.getECS(), this.context, this.remotePlayerSystem);
+    this.world.getECS().addSystem(this.clientNetworkSystem);
 
     // Imposta informazioni del player nel sistema di rete
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
@@ -383,7 +384,7 @@ export class PlayState extends GameState {
       if (!transform) continue;
 
       // Converti posizione world a schermo
-      const camera = this.movementSystem?.getCamera();
+      const camera = this.cameraSystem?.getCamera();
       if (!camera) continue;
 
       const canvasSize = this.world.getCanvasSize();

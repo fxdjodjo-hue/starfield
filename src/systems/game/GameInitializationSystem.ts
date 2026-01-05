@@ -30,19 +30,13 @@ import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import AudioSystem from '../audio/AudioSystem';
 import { AUDIO_CONFIG } from '../../config/AudioConfig';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
+import { CameraSystem } from '../rendering/CameraSystem';
 import { Sprite } from '../../entities/Sprite';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
-import { Credits, Cosmos } from '../../entities/currency/Currency';
-import { Experience } from '../../entities/currency/Experience';
-import { Honor } from '../../entities/currency/Honor';
-import { PlayerStats } from '../../entities/player/PlayerStats';
-import { SkillPoints } from '../../entities/currency/SkillPoints';
-import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
-import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { Npc } from '../../entities/ai/Npc';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { getNpcDefinition } from '../../config/NpcConfig';
@@ -58,7 +52,7 @@ export class GameInitializationSystem extends System {
   private context: GameContext;
   private questManager: QuestManager;
   private questSystem: QuestSystem;
-  private uiSystem: UiSystem;
+  private uiSystem: UiSystem | null;
   private movementSystem!: MovementSystem;
   private economySystem: any;
   private playerSystem!: PlayerSystem;
@@ -132,7 +126,7 @@ export class GameInitializationSystem extends System {
     const renderSystem = new RenderSystem(this.ecs, cameraSystem, this.playerSystem, this.context.assetManager);
     const combatSystem = new CombatSystem(this.ecs, cameraSystem, this.context, this.playerSystem);
     const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, combatSystem);
-    const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem);
+    const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem || undefined);
 
     const result = {
       cameraSystem,
@@ -213,7 +207,7 @@ export class GameInitializationSystem extends System {
       movementSystem, playerControlSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, combatSystem, logSystem, boundsSystem,
       respawnSystem, questTrackingSystem, inputSystem, npcSelectionSystem,
-      chatTextSystem, uiSystem
+      chatTextSystem, uiSystem, cameraSystem
     } = systems;
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
@@ -274,7 +268,7 @@ export class GameInitializationSystem extends System {
         if (!minimapHandled && !inMinimapGlassPanel && !inPlayerStatusHUD) {
           minimapSystem.clearDestination();
           const canvasSize = this.world.getCanvasSize();
-          const worldPos = this.movementSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
+          const worldPos = cameraSystem.getCamera().screenToWorld(x, y, canvasSize.width, canvasSize.height);
           const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
 
           if (!npcSelected) {
@@ -309,7 +303,7 @@ export class GameInitializationSystem extends System {
 
     // Aggiungi autorità multiplayer al player (client può predire, server corregge)
     const playerAuthority = new Authority(this.context.localClientId, AuthorityLevel.CLIENT_PREDICTIVE);
-    this.ecs.addComponent(playerEntity, playerAuthority);
+    this.ecs.addComponent(playerEntity, Authority, playerAuthority);
 
     // Imposta lo sprite del player
     const sprite = this.ecs.getComponent(playerEntity, Sprite);
