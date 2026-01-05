@@ -410,29 +410,10 @@ class ServerProjectileManager {
 const positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
 const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
 
-// Processa collisioni proiettili ogni 100ms
+// Tick unificato MapServer (20 Hz - ogni 50ms)
 setInterval(() => {
-  try {
-    mapServer.projectileManager.checkCollisions();
-  } catch (error) {
-    console.error('❌ [SERVER] Error checking projectile collisions:', error);
-  }
-}, 100); // Ogni 100ms per collisioni precise
-
-// Aggiorna NPC ogni 200ms (movimento autonomo)
-setInterval(() => {
-  try {
-    // Aggiorna movimento NPC mantenendoli entro i confini
-    updateNpcMovements();
-  } catch (error) {
-    console.error('❌ [SERVER] Error updating NPCs:', error);
-  }
-}, 200); // Ogni 200ms per aggiornamenti NPC
-
-// Processa la queue degli aggiornamenti posizione
-setInterval(() => {
-  processPositionUpdates();
-}, PROCESS_INTERVAL);
+  mapServer.tick();
+}, 50);
 
 console.log('🚀 WebSocket server started on ws://localhost:3000');
 
@@ -480,6 +461,26 @@ class MapServer {
   getAllNpcs() { return this.npcManager.getAllNpcs(); }
   getNpc(npcId) { return this.npcManager.getNpc(npcId); }
   createNpc(type, x, y) { return this.npcManager.createNpc(type, x, y); }
+
+  // Tick unificato per la mappa (20 Hz)
+  tick() {
+    try {
+      // 1. Movimento NPC
+      updateNpcMovements();
+
+      // 2. Collisioni proiettili
+      this.projectileManager.checkCollisions();
+
+      // 3. Broadcast aggiornamenti NPC significativi
+      broadcastNpcUpdates();
+
+      // 4. Processa aggiornamenti posizione giocatori
+      processPositionUpdates();
+
+    } catch (error) {
+      console.error(`❌ [MapServer:${this.mapId}] Error in tick:`, error);
+    }
+  }
 
   // Broadcasting specifico della mappa
   broadcastToMap(message, excludeClientId = null) {
@@ -613,11 +614,7 @@ function updateNpcMovements() {
   }
 }
 
-// Avvia movimento NPC (60 FPS)
-setInterval(updateNpcMovements, 1000 / 60);
-
-// Avvia broadcasting NPC
-setInterval(broadcastNpcUpdates, 50);
+// Sistema di tick unificato attivo (20 Hz)
 
 wss.on('connection', (ws) => {
   console.log('✅ New client connected');
