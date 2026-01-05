@@ -9,6 +9,10 @@ import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'
  * causato dagli aggiornamenti di rete sporadici
  */
 export class InterpolationSystem extends BaseSystem {
+  private debugStats = {
+    activePredictions: 0,
+    lastDebugTime: 0
+  };
 
   constructor(ecs: ECS) {
     super(ecs);
