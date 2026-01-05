@@ -550,6 +550,10 @@ function updateNpcMovements() {
   for (const npc of allNpcs) {
     const deltaTime = 1000 / 60; // Fixed timestep per fisica server
 
+    // Salva posizione iniziale per calcolare movimento significativo
+    const startX = npc.position.x;
+    const startY = npc.position.y;
+
     // Movimento semplice con velocity
     let deltaX = npc.velocity.x * (deltaTime / 1000);
     let deltaY = npc.velocity.y * (deltaTime / 1000);
@@ -591,13 +595,20 @@ function updateNpcMovements() {
       npc.position.y = Math.max(mapServer.npcManager.WORLD_TOP, Math.min(mapServer.npcManager.WORLD_BOTTOM, newY));
     }
 
+    // Calcola movimento significativo (solo se spostamento > 5px)
+    const dx = npc.position.x - startX;
+    const dy = npc.position.y - startY;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq > 25) { // 5px threshold
+      npc.lastSignificantMove = Date.now();
+    }
+
     // Aggiorna rotazione dello sprite per riflettere la direzione del movimento
     if (deltaX !== 0 || deltaY !== 0) {
       npc.position.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
     }
 
-    // Aggiorna lastSignificantMove - gli NPC si muovono sempre ora
-    npc.lastSignificantMove = Date.now();
     npc.lastUpdate = Date.now();
   }
 }
