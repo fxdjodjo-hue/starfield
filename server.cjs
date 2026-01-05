@@ -451,7 +451,8 @@ setInterval(() => {
           id: npc.id,
           position: npc.position,
           health: { current: npc.health, max: npc.maxHealth },
-          shield: { current: npc.shield, max: npc.maxShield }
+          shield: { current: npc.shield, max: npc.maxShield },
+          behavior: npc.behavior
         }))
       };
 
