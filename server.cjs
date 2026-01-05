@@ -622,9 +622,15 @@ function updateNpcMovements() {
     }
 
     // Per movimento cruise-like: mantieni direzione stabile, cambia occasionalmente
-    // NON aggiornare rotazione basandosi sul movimento corrente (causa movimento circolare)
+    // Ma aggiorna sempre la rotazione dello sprite per riflettere la direzione del movimento
+
+    // Aggiorna rotazione dello sprite per puntare nella direzione del movimento
+    if (deltaX !== 0 || deltaY !== 0) {
+      npc.position.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
+    }
 
     // Rotazione casuale più frequente per movimento naturale cruise-like
+    // NOTA: questo influenza il movimento futuro, non la rotazione dello sprite
     if (Math.random() < 0.002) { // 0.2% probabilità ogni frame (~ogni 5 secondi in media)
       npc.position.rotation += (Math.random() - 0.5) * 0.3; // ±0.15 radianti, cambi moderati
     }
