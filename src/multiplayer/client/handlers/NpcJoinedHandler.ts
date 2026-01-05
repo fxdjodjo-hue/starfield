@@ -25,6 +25,7 @@ export class NpcJoinedHandler extends BaseMessageHandler {
       message.npcType,
       message.position.x,
       message.position.y,
+      message.position.rotation,
       message.health,
       message.shield,
       message.behavior

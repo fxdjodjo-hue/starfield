@@ -58,7 +58,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Crea un nuovo NPC remoto
    */
-  addRemoteNpc(npcId: string, type: 'Scouter' | 'Frigate', x: number, y: number, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
+  addRemoteNpc(npcId: string, type: 'Scouter' | 'Frigate', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
     // Verifica se l'NPC esiste già
     if (this.remoteNpcs.has(npcId)) {
       console.warn(`[REMOTE_NPC] NPC ${npcId} already exists, updating instead`);
@@ -77,8 +77,8 @@ export class RemoteNpcSystem extends BaseSystem {
     const entity = this.ecs.createEntity();
 
     // Componenti spaziali con interpolazione
-    this.ecs.addComponent(entity, Transform, new Transform(x, y, 0));
-    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, 0));
+    this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation));
+    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation));
 
     // Componenti visivi
     this.ecs.addComponent(entity, Sprite, sprite.clone()); // Clone per evitare condivisione
@@ -195,6 +195,7 @@ export class RemoteNpcSystem extends BaseSystem {
         npcData.type,
         npcData.position.x,
         npcData.position.y,
+        npcData.position.rotation,
         npcData.health,
         npcData.shield,
         npcData.behavior

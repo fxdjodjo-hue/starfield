@@ -607,8 +607,6 @@ function updateNpcMovements() {
       // Se l'NPC si sta muovendo, aggiorna la rotazione per puntare nella direzione del movimento
       npc.position.rotation = Math.atan2(deltaY, deltaX);
 
-      // Debug: mostra quando la rotazione cambia per movimento
-      console.log(`[SERVER] NPC ${npc.id} direction change: rot=${npc.position.rotation.toFixed(2)} (dx=${deltaX.toFixed(2)}, dy=${deltaY.toFixed(2)})`);
     }
 
     // Rotazione casuale occasionale per rendere il movimento più naturale (meno frequente)

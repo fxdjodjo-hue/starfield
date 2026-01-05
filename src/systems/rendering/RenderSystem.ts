@@ -77,7 +77,6 @@ export class RenderSystem extends BaseSystem {
 
         if (isRemoteNpc) {
           // NPC remoto: usa direttamente transform.rotation (come i remote player)
-          console.log(`[RENDER] Remote NPC ${entity.id}: transform.rotation=${transform.rotation.toFixed(2)}`);
           const renderTransform: RenderableTransform = {
             x: screenX, y: screenY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
           };
