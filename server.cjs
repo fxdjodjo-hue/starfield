@@ -173,9 +173,293 @@ const connectedPlayers = new Map();
 // Gestione NPC centralizzata
 const npcManager = new ServerNpcManager();
 
+// Gestione proiettili per combattimento multiplayer
+class ServerProjectileManager {
+  constructor() {
+    this.projectiles = new Map(); // projectileId -> projectile data
+    this.collisionChecks = new Map(); // clientId -> last collision check time
+  }
+
+  /**
+   * Registra un nuovo proiettile sparato da un giocatore
+   */
+  addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser') {
+    const projectile = {
+      id: projectileId,
+      playerId,
+      position: { ...position },
+      velocity: { ...velocity },
+      damage,
+      projectileType,
+      createdAt: Date.now(),
+      lastUpdate: Date.now()
+    };
+
+    this.projectiles.set(projectileId, projectile);
+    console.log(`🚀 [SERVER] Projectile ${projectileId} added for player ${playerId}`);
+
+    // Broadcast a tutti i client tranne quello che ha sparato
+    this.broadcastProjectileFired(projectile, playerId);
+  }
+
+  /**
+   * Aggiorna posizione di un proiettile
+   */
+  updateProjectile(projectileId, position) {
+    const projectile = this.projectiles.get(projectileId);
+    if (!projectile) return;
+
+    projectile.position = { ...position };
+    projectile.lastUpdate = Date.now();
+  }
+
+  /**
+   * Rimuove un proiettile (distrutto o fuori schermo)
+   */
+  removeProjectile(projectileId, reason = 'unknown') {
+    const projectile = this.projectiles.get(projectileId);
+    if (!projectile) return;
+
+    this.projectiles.delete(projectileId);
+    console.log(`💥 [SERVER] Projectile ${projectileId} removed (${reason})`);
+
+    // Broadcast distruzione a tutti i client
+    this.broadcastProjectileDestroyed(projectileId, reason);
+  }
+
+  /**
+   * Verifica collisioni tra proiettili e NPC/giocatori
+   */
+  checkCollisions() {
+    const now = Date.now();
+    const projectilesToRemove = [];
+
+    for (const [projectileId, projectile] of this.projectiles.entries()) {
+      // Simula movimento del proiettile (aggiorna posizione)
+      const deltaTime = (now - projectile.lastUpdate) / 1000; // secondi
+      projectile.position.x += projectile.velocity.x * deltaTime;
+      projectile.position.y += projectile.velocity.y * deltaTime;
+      projectile.lastUpdate = now;
+
+      // Verifica collisioni con NPC
+      const hitNpc = this.checkNpcCollision(projectile);
+      if (hitNpc) {
+        // Applica danno all'NPC
+        const npcDead = npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
+
+        // Notifica danno
+        this.broadcastEntityDamaged(hitNpc, projectile);
+
+        // Se NPC morto, broadcast distruzione
+        if (npcDead) {
+          this.broadcastEntityDestroyed(hitNpc, projectile.playerId);
+        }
+
+        projectilesToRemove.push(projectileId);
+        continue;
+      }
+
+      // Verifica collisioni con giocatori (TODO: implementare quando aggiunto health dei giocatori)
+
+      // Verifica se proiettile è fuori dai confini del mondo
+      if (this.isOutOfBounds(projectile.position)) {
+        projectilesToRemove.push(projectileId);
+        continue;
+      }
+
+      // Verifica timeout (proiettili troppo vecchi vengono rimossi)
+      if (now - projectile.createdAt > 10000) { // 10 secondi
+        projectilesToRemove.push(projectileId);
+        continue;
+      }
+    }
+
+    // Rimuovi proiettili distrutti
+    projectilesToRemove.forEach(id => this.removeProjectile(id, 'collision'));
+  }
+
+  /**
+   * Verifica collisione con NPC
+   */
+  checkNpcCollision(projectile) {
+    const npcs = npcManager.getAllNpcs();
+    for (const npc of npcs) {
+      const distance = Math.sqrt(
+        Math.pow(projectile.position.x - npc.position.x, 2) +
+        Math.pow(projectile.position.y - npc.position.y, 2)
+      );
+
+      // Collisione se distanza < 50 pixel (dimensione nave)
+      if (distance < 50) {
+        return npc;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Verifica se posizione è fuori dai confini del mondo
+   */
+  isOutOfBounds(position) {
+    const worldSize = 25000; // Raggio del mondo
+    return Math.abs(position.x) > worldSize || Math.abs(position.y) > worldSize;
+  }
+
+  /**
+   * Broadcast creazione proiettile
+   */
+  broadcastProjectileFired(projectile, excludeClientId) {
+    const message = {
+      type: 'projectile_fired',
+      projectileId: projectile.id,
+      playerId: projectile.playerId,
+      position: projectile.position,
+      velocity: projectile.velocity,
+      damage: projectile.damage,
+      projectileType: projectile.projectileType
+    };
+
+    this.broadcastToAll(message, excludeClientId);
+  }
+
+  /**
+   * Broadcast distruzione proiettile
+   */
+  broadcastProjectileDestroyed(projectileId, reason) {
+    const message = {
+      type: 'projectile_destroyed',
+      projectileId,
+      reason
+    };
+
+    this.broadcastToAll(message);
+  }
+
+  /**
+   * Broadcast danno a entità
+   */
+  broadcastEntityDamaged(npc, projectile) {
+    const message = {
+      type: 'entity_damaged',
+      entityId: npc.id,
+      entityType: 'npc',
+      damage: projectile.damage,
+      attackerId: projectile.playerId,
+      newHealth: npc.health,
+      newShield: npc.shield,
+      position: npc.position
+    };
+
+    this.broadcastToAll(message);
+  }
+
+  /**
+   * Broadcast distruzione entità
+   */
+  broadcastEntityDestroyed(npc, destroyerId) {
+    const message = {
+      type: 'entity_destroyed',
+      entityId: npc.id,
+      entityType: 'npc',
+      destroyerId,
+      position: npc.position,
+      rewards: this.calculateRewards(npc)
+    };
+
+    this.broadcastToAll(message);
+  }
+
+  /**
+   * Calcola ricompense per distruzione NPC
+   */
+  calculateRewards(npc) {
+    const baseRewards = {
+      Scouter: { credits: 50, experience: 10, honor: 5 },
+      Frigate: { credits: 100, experience: 20, honor: 10 }
+    };
+
+    return baseRewards[npc.type] || { credits: 25, experience: 5, honor: 2 };
+  }
+
+  /**
+   * Broadcast messaggio a tutti i client (opzionalmente escludendo uno)
+   */
+  broadcastToAll(message, excludeClientId = null) {
+    for (const [clientId, client] of connectedPlayers.entries()) {
+      if (excludeClientId && clientId === excludeClientId) continue;
+
+      try {
+        client.ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error(`[SERVER] Error broadcasting to ${clientId}:`, error);
+      }
+    }
+  }
+
+  /**
+   * Statistiche proiettili attivi
+   */
+  getStats() {
+    return {
+      activeProjectiles: this.projectiles.size,
+      projectilesByType: Array.from(this.projectiles.values()).reduce((acc, proj) => {
+        acc[proj.projectileType] = (acc[proj.projectileType] || 0) + 1;
+        return acc;
+      }, {})
+    };
+  }
+}
+
+// Gestione proiettili
+const projectileManager = new ServerProjectileManager();
+
 // Queue per aggiornamenti posizione per ridurre race conditions
 const positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
 const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
+
+// Processa collisioni proiettili ogni 100ms
+setInterval(() => {
+  try {
+    projectileManager.checkCollisions();
+  } catch (error) {
+    console.error('❌ [SERVER] Error checking projectile collisions:', error);
+  }
+}, 100); // Ogni 100ms per collisioni precise
+
+// Aggiorna NPC ogni 200ms (movimento autonomo)
+setInterval(() => {
+  try {
+    // Per ora gli NPC rimangono fermi, ma qui potremmo aggiungere logica di movimento
+    // npcManager.updateNpcMovements();
+
+    // Broadcast aggiornamenti NPC se necessario
+    const now = Date.now();
+    const npcsNeedingUpdate = npcManager.getNpcsNeedingUpdate(now - 5000); // Ultimi 5 secondi
+
+    if (npcsNeedingUpdate.length > 0) {
+      const message = {
+        type: 'npc_bulk_update',
+        npcs: npcsNeedingUpdate.map(npc => ({
+          id: npc.id,
+          position: npc.position,
+          health: { current: npc.health, max: npc.maxHealth },
+          shield: { current: npc.shield, max: npc.maxShield }
+        }))
+      };
+
+      // Broadcast a tutti i client
+      for (const [clientId, client] of connectedPlayers.entries()) {
+        try {
+          client.ws.send(JSON.stringify(message));
+        } catch (error) {
+          console.error(`[SERVER] Error broadcasting NPC updates to ${clientId}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ [SERVER] Error updating NPCs:', error);
+  }
+}, 200); // Ogni 200ms per aggiornamenti NPC
 
 // Processa la queue degli aggiornamenti posizione
 setInterval(() => {
@@ -458,6 +742,21 @@ wss.on('connection', (ws) => {
           clientId: data.clientId,
           serverTime: Date.now()
         }));
+      }
+
+      // Gestisce spari di proiettili
+      if (data.type === 'projectile_fired') {
+        console.log(`🔫 [SERVER] Projectile fired: ${data.projectileId} by ${data.playerId}`);
+
+        // Registra il proiettile nel server
+        projectileManager.addProjectile(
+          data.projectileId,
+          data.playerId,
+          data.position,
+          data.velocity,
+          data.damage,
+          data.projectileType || 'laser'
+        );
       }
 
     } catch (error) {

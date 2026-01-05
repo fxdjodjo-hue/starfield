@@ -58,7 +58,14 @@ export const MESSAGE_TYPES = {
   NPC_BULK_UPDATE: 'npc_bulk_update',
   INITIAL_NPCS: 'initial_npcs',
   NPC_LEFT: 'npc_left',
-  NPC_DAMAGED: 'npc_damaged'
+  NPC_DAMAGED: 'npc_damaged',
+
+  // Combat messages
+  PROJECTILE_FIRED: 'projectile_fired',
+  PROJECTILE_UPDATE: 'projectile_update',
+  PROJECTILE_DESTROYED: 'projectile_destroyed',
+  ENTITY_DAMAGED: 'entity_damaged',
+  ENTITY_DESTROYED: 'entity_destroyed'
 } as const;
 
 /**
@@ -151,6 +158,67 @@ export interface NpcDamagedMessage {
   newShield: number;
 }
 
+/**
+ * Proiettile sparato da un giocatore
+ */
+export interface ProjectileFiredMessage {
+  type: typeof MESSAGE_TYPES.PROJECTILE_FIRED;
+  projectileId: string;
+  playerId: string;
+  position: { x: number; y: number };
+  velocity: { x: number; y: number };
+  damage: number;
+  projectileType: 'laser' | 'plasma' | 'missile';
+}
+
+/**
+ * Aggiornamento posizione proiettile
+ */
+export interface ProjectileUpdateMessage {
+  type: typeof MESSAGE_TYPES.PROJECTILE_UPDATE;
+  projectileId: string;
+  position: { x: number; y: number };
+}
+
+/**
+ * Proiettile distrutto (collisione o fuori schermo)
+ */
+export interface ProjectileDestroyedMessage {
+  type: typeof MESSAGE_TYPES.PROJECTILE_DESTROYED;
+  projectileId: string;
+  reason: 'collision' | 'out_of_bounds' | 'timeout';
+}
+
+/**
+ * Entità danneggiata (giocatore o NPC)
+ */
+export interface EntityDamagedMessage {
+  type: typeof MESSAGE_TYPES.ENTITY_DAMAGED;
+  entityId: string;
+  entityType: 'player' | 'npc';
+  damage: number;
+  attackerId: string;
+  newHealth: number;
+  newShield: number;
+  position: { x: number; y: number };
+}
+
+/**
+ * Entità distrutta (morta)
+ */
+export interface EntityDestroyedMessage {
+  type: typeof MESSAGE_TYPES.ENTITY_DESTROYED;
+  entityId: string;
+  entityType: 'player' | 'npc';
+  destroyerId: string;
+  position: { x: number; y: number };
+  rewards?: {
+    credits: number;
+    experience: number;
+    honor: number;
+  };
+}
+
 // Type union per tutti i messaggi NPC
 export type NpcMessage =
   | NpcJoinedMessage
@@ -159,3 +227,17 @@ export type NpcMessage =
   | NpcBulkUpdateMessage
   | NpcLeftMessage
   | NpcDamagedMessage;
+
+// Type union per tutti i messaggi di combattimento
+export type CombatMessage =
+  | ProjectileFiredMessage
+  | ProjectileUpdateMessage
+  | ProjectileDestroyedMessage
+  | EntityDamagedMessage
+  | EntityDestroyedMessage;
+
+// Type union per tutti i messaggi di rete
+export type NetworkMessageUnion =
+  | PlayerMessage
+  | NpcMessage
+  | CombatMessage;

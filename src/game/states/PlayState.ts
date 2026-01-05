@@ -10,6 +10,7 @@ import { GameInitializationSystem } from '../../systems/game/GameInitializationS
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
+import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
 import { Transform } from '../../entities/spatial/Transform';
 import { Sprite } from '../../entities/Sprite';
@@ -37,6 +38,7 @@ export class PlayState extends GameState {
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
+  private remoteProjectileSystem: RemoteProjectileSystem | null = null;
   private nicknameCreated: boolean = false;
   private remotePlayerSpriteUpdated: boolean = false;
 
@@ -230,22 +232,27 @@ export class PlayState extends GameState {
     this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, shipWidth, shipHeight);
     this.world.getECS().addSystem(this.remotePlayerSystem);
 
-    // Ottieni il RemoteNpcSystem creato dal GameInitializationSystem
+    // Ottieni i sistemi remoti creati dal GameInitializationSystem
     const systems = this.gameInitSystem.getSystems();
     this.remoteNpcSystem = systems.remoteNpcSystem || null;
+    this.remoteProjectileSystem = systems.remoteProjectileSystem || null;
 
-    // Inizializza il sistema di rete multiplayer con supporto NPC
+    // Inizializza il sistema di rete multiplayer con supporto NPC e proiettili
     this.clientNetworkSystem = new ClientNetworkSystem(
       this.world.getECS(),
       this.context,
       this.remotePlayerSystem,
       undefined, // Usa URL di default
-      this.remoteNpcSystem // Passa il sistema NPC
+      this.remoteNpcSystem, // Sistema NPC
+      this.remoteProjectileSystem // Sistema proiettili
     );
     this.world.getECS().addSystem(this.clientNetworkSystem);
 
     // Imposta informazioni del player nel sistema di rete
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
+
+    // Collega ClientNetworkSystem ai sistemi che ne hanno bisogno
+    this.configureNetworkSystemConnections();
   }
 
 
@@ -432,6 +439,20 @@ export class PlayState extends GameState {
 
 
 
+
+  /**
+   * Configura le connessioni tra sistemi e ClientNetworkSystem
+   */
+  private configureNetworkSystemConnections(): void {
+    // Collega ClientNetworkSystem al CombatSystem per notifiche di spari
+    const systems = this.world.getECS().getSystems ? this.world.getECS().getSystems() : [];
+    const combatSystem = systems.find((system: any) =>
+      system.constructor.name === 'CombatSystem'
+    );
+    if (combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
+      combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    }
+  }
 
   /**
    * Restituisce il mondo di gioco per accesso esterno

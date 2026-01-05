@@ -27,6 +27,7 @@ export class CombatSystem extends BaseSystem {
   private logSystem: LogSystem | null = null;
   private gameContext: GameContext;
   private playerSystem: PlayerSystem;
+  private clientNetworkSystem: any = null; // Sistema di rete per notifiche multiplayer
   private audioSystem: any = null;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
@@ -46,6 +47,13 @@ export class CombatSystem extends BaseSystem {
    */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
+  }
+
+  /**
+   * Imposta il sistema di rete per notifiche multiplayer
+   */
+  setClientNetworkSystem(clientNetworkSystem: any): void {
+    this.clientNetworkSystem = clientNetworkSystem;
   }
 
   update(deltaTime: number): void {
@@ -202,6 +210,9 @@ export class CombatSystem extends BaseSystem {
     const projectileX = attackerTransform.x + directionX * 25; // 25 pixel avanti (dimensione nave)
     const projectileY = attackerTransform.y + directionY * 25;
 
+    // Genera ID univoco per il proiettile (per sincronizzazione multiplayer)
+    const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
     // Crea l'entità proiettile
     const projectileEntity = this.ecs.createEntity();
 
@@ -209,8 +220,29 @@ export class CombatSystem extends BaseSystem {
     const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
     const projectile = new Projectile(damage, 400, directionX, directionY, attackerEntity.id, targetEntity.id, 3000);
 
+    // Aggiungi ID univoco al proiettile per tracking multiplayer
+    (projectile as any).id = projectileId;
+
     this.ecs.addComponent(projectileEntity, Transform, projectileTransform);
     this.ecs.addComponent(projectileEntity, Projectile, projectile);
+
+    // Notifica il sistema di rete per sincronizzazione multiplayer
+    if (this.clientNetworkSystem) {
+      const playerEntity = this.playerSystem.getPlayerEntity();
+      const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
+
+      if (isLocalPlayer) {
+        // Invia notifica di proiettile sparato solo per il giocatore locale
+        this.clientNetworkSystem.sendProjectileFired({
+          projectileId,
+          playerId: this.clientNetworkSystem.getLocalClientId(),
+          position: { x: projectileX, y: projectileY },
+          velocity: { x: directionX * 400, y: directionY * 400 }, // 400 è la velocità del proiettile
+          damage,
+          projectileType: 'laser' // Per ora solo laser
+        });
+      }
+    }
   }
 
   /**

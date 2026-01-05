@@ -33,6 +33,7 @@ import { AUDIO_CONFIG } from '../../config/AudioConfig';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
+import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { Sprite } from '../../entities/Sprite';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -137,6 +138,9 @@ export class GameInitializationSystem extends System {
     if (frigateImage) npcSprites.set('frigate', frigateImage);
     const remoteNpcSystem = new RemoteNpcSystem(this.ecs, npcSprites);
 
+    // Sistema proiettili remoti per multiplayer
+    const remoteProjectileSystem = new RemoteProjectileSystem(this.ecs);
+
     const result = {
       cameraSystem,
       movementSystem: this.movementSystem,
@@ -166,6 +170,7 @@ export class GameInitializationSystem extends System {
       playerSystem: this.playerSystem,
       audioSystem: this.audioSystem,
       remoteNpcSystem,
+      remoteProjectileSystem,
       assets: { shipImage, mapBackgroundImage, scouterImage, frigateImage }
     };
 
@@ -181,7 +186,7 @@ export class GameInitializationSystem extends System {
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
             respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
-            playerSystem, remoteNpcSystem } = systems;
+            playerSystem, remoteNpcSystem, remoteProjectileSystem } = systems;
 
     // Ordine importante per l'esecuzione
     this.ecs.addSystem(inputSystem);
@@ -208,6 +213,7 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(rewardSystem);
     this.ecs.addSystem(questSystem);
     this.ecs.addSystem(remoteNpcSystem); // Sistema NPC remoti per multiplayer
+    this.ecs.addSystem(remoteProjectileSystem); // Sistema proiettili remoti per multiplayer
     this.ecs.addSystem(uiSystem);
     this.ecs.addSystem(playerStatusDisplaySystem);
   }
@@ -231,6 +237,13 @@ export class GameInitializationSystem extends System {
     // Collega AudioSystem ai sistemi di combattimento
     if (combatSystem && typeof combatSystem.setAudioSystem === 'function') {
       combatSystem.setAudioSystem(this.audioSystem);
+    }
+
+    // Collega ClientNetworkSystem al CombatSystem per notifiche multiplayer
+    if (combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
+      // Il ClientNetworkSystem sarà impostato più tardi nel PlayState
+      // Per ora impostiamo un placeholder che sarà sostituito
+      combatSystem.setClientNetworkSystem(null);
     }
 
     // Collega AudioSystem al sistema bounds

@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
+import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
 
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
@@ -15,6 +16,12 @@ import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
 import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
 import { NpcBulkUpdateHandler } from './handlers/NpcBulkUpdateHandler';
 import { NpcLeftHandler } from './handlers/NpcLeftHandler';
+// Combat handlers
+import { ProjectileFiredHandler } from './handlers/ProjectileFiredHandler';
+import { ProjectileUpdateHandler } from './handlers/ProjectileUpdateHandler';
+import { ProjectileDestroyedHandler } from './handlers/ProjectileDestroyedHandler';
+import { EntityDamagedHandler } from './handlers/EntityDamagedHandler';
+import { EntityDestroyedHandler } from './handlers/EntityDestroyedHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { ConnectionManager } from './managers/ConnectionManager';
@@ -50,6 +57,7 @@ export class ClientNetworkSystem extends BaseSystem {
   public readonly remotePlayerManager: RemotePlayerManager;
   private readonly positionTracker: PlayerPositionTracker;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
+  private remoteProjectileSystem: RemoteProjectileSystem | null = null;
 
   // Error handling callbacks
   private onDisconnectedCallback?: () => void;
@@ -57,10 +65,11 @@ export class ClientNetworkSystem extends BaseSystem {
   private onReconnectingCallback?: () => void;
   private onReconnectedCallback?: () => void;
 
-  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem) {
+  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem) {
     super(ecs);
     this.gameContext = gameContext;
     this.remoteNpcSystem = remoteNpcSystem || null;
+    this.remoteProjectileSystem = remoteProjectileSystem || null;
 
     // Generate unique client ID
     this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
@@ -113,6 +122,18 @@ export class ClientNetworkSystem extends BaseSystem {
         new NpcLeftHandler()
       );
       console.log('🎮 [CLIENT] NPC handlers registered');
+    }
+
+    // Aggiungi handlers di combattimento se il sistema è disponibile
+    if (this.remoteProjectileSystem) {
+      handlers.push(
+        new ProjectileFiredHandler(),
+        new ProjectileUpdateHandler(),
+        new ProjectileDestroyedHandler(),
+        new EntityDamagedHandler(),
+        new EntityDestroyedHandler()
+      );
+      console.log('⚔️ [CLIENT] Combat handlers registered');
     }
 
     this.messageRouter.registerHandlers(handlers);
@@ -358,6 +379,49 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getRemoteNpcSystem(): RemoteNpcSystem | null {
     return this.remoteNpcSystem;
+  }
+
+  /**
+   * Gets the RemoteProjectileSystem instance
+   */
+  getRemoteProjectileSystem(): RemoteProjectileSystem | null {
+    return this.remoteProjectileSystem;
+  }
+
+  /**
+   * Sends notification of a fired projectile to the server
+   */
+  sendProjectileFired(data: {
+    projectileId: string;
+    playerId: string;
+    position: { x: number; y: number };
+    velocity: { x: number; y: number };
+    damage: number;
+    projectileType: 'laser' | 'plasma' | 'missile';
+  }): void {
+    if (!this.socket || !this.isConnected) {
+      console.warn('[CLIENT] Cannot send projectile fired: not connected');
+      return;
+    }
+
+    const message = {
+      type: MESSAGE_TYPES.PROJECTILE_FIRED,
+      projectileId: data.projectileId,
+      playerId: data.playerId,
+      position: data.position,
+      velocity: data.velocity,
+      damage: data.damage,
+      projectileType: data.projectileType
+    };
+
+    this.sendMessage(message);
+  }
+
+  /**
+   * Gets the local client ID
+   */
+  getLocalClientId(): string {
+    return this.clientId;
   }
 
   /**
