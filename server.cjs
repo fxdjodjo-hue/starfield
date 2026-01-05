@@ -5,6 +5,14 @@ class ServerNpcManager {
   constructor() {
     this.npcs = new Map();
     this.npcIdCounter = 0;
+
+    // Confini del mondo (coerenti con CONFIG nel client)
+    this.WORLD_WIDTH = 21000;
+    this.WORLD_HEIGHT = 13100;
+    this.WORLD_LEFT = -this.WORLD_WIDTH / 2;    // -10500
+    this.WORLD_RIGHT = this.WORLD_WIDTH / 2;    // +10500
+    this.WORLD_TOP = -this.WORLD_HEIGHT / 2;    // -6550
+    this.WORLD_BOTTOM = this.WORLD_HEIGHT / 2;  // +6550
   }
 
   /**
@@ -13,9 +21,9 @@ class ServerNpcManager {
   createNpc(type, x, y) {
     const npcId = `npc_${this.npcIdCounter++}`;
 
-    // Se non specificate, genera posizioni casuali distribuite
-    const finalX = x ?? (Math.random() - 0.5) * 20000;
-    const finalY = y ?? (Math.random() - 0.5) * 12500;
+    // Se non specificate, genera posizioni casuali ENTRO i confini del mondo
+    const finalX = x ?? (Math.random() * (this.WORLD_RIGHT - this.WORLD_LEFT) + this.WORLD_LEFT);
+    const finalY = y ?? (Math.random() * (this.WORLD_BOTTOM - this.WORLD_TOP) + this.WORLD_TOP);
 
     // Statistiche base per tipo
     const stats = type === 'Scouter'
@@ -429,8 +437,8 @@ setInterval(() => {
 // Aggiorna NPC ogni 200ms (movimento autonomo)
 setInterval(() => {
   try {
-    // Per ora gli NPC rimangono fermi, ma qui potremmo aggiungere logica di movimento
-    // npcManager.updateNpcMovements();
+    // Aggiorna movimento NPC mantenendoli entro i confini
+    updateNpcMovements();
 
     // Broadcast aggiornamenti NPC se necessario
     const now = Date.now();
@@ -547,25 +555,47 @@ function updateNpcMovements() {
   const allNpcs = npcManager.getAllNpcs();
 
   for (const npc of allNpcs) {
+    let deltaX = 0;
+    let deltaY = 0;
+
     // Movimento semplice basato sul comportamento
     switch (npc.behavior) {
       case 'cruise':
         // Movimento lineare semplice
-        npc.position.x += Math.cos(npc.position.rotation) * 50 * 0.016; // 50 units/second * deltaTime
-        npc.position.y += Math.sin(npc.position.rotation) * 50 * 0.016;
+        deltaX = Math.cos(npc.position.rotation) * 50 * 0.016; // 50 units/second * deltaTime
+        deltaY = Math.sin(npc.position.rotation) * 50 * 0.016;
         break;
 
       case 'aggressive':
         // Movimento più veloce quando aggressivi
-        npc.position.x += Math.cos(npc.position.rotation) * 100 * 0.016;
-        npc.position.y += Math.sin(npc.position.rotation) * 100 * 0.016;
+        deltaX = Math.cos(npc.position.rotation) * 100 * 0.016;
+        deltaY = Math.sin(npc.position.rotation) * 100 * 0.016;
         break;
 
       case 'flee':
         // Movimento di fuga (indietro)
-        npc.position.x -= Math.cos(npc.position.rotation) * 80 * 0.016;
-        npc.position.y -= Math.sin(npc.position.rotation) * 80 * 0.016;
+        deltaX = -Math.cos(npc.position.rotation) * 80 * 0.016;
+        deltaY = -Math.sin(npc.position.rotation) * 80 * 0.016;
         break;
+    }
+
+    // Calcola nuova posizione
+    const newX = npc.position.x + deltaX;
+    const newY = npc.position.y + deltaY;
+
+    // Controlla confini del mondo e applica movimento solo se entro i limiti
+    if (newX >= npcManager.WORLD_LEFT && newX <= npcManager.WORLD_RIGHT) {
+      npc.position.x = newX;
+    } else {
+      // Se uscirebbe dai confini, cambia direzione
+      npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
+    }
+
+    if (newY >= npcManager.WORLD_TOP && newY <= npcManager.WORLD_BOTTOM) {
+      npc.position.y = newY;
+    } else {
+      // Se uscirebbe dai confini, cambia direzione
+      npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
     }
 
     // Rotazione casuale occasionale per rendere il movimento più naturale
