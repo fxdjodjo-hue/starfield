@@ -424,29 +424,6 @@ setInterval(() => {
   try {
     // Aggiorna movimento NPC mantenendoli entro i confini
     updateNpcMovements();
-
-    // Broadcast aggiornamenti NPC se necessario
-    const now = Date.now();
-    const npcsNeedingUpdate = mapServer.npcManager.getNpcsNeedingUpdate(now - 1000); // Ultimo secondo
-
-    if (npcsNeedingUpdate.length > 0) {
-      const message = {
-        type: 'npc_bulk_update',
-        npcs: npcsNeedingUpdate.map(npc => {
-          console.log(`[SERVER] Broadcasting NPC ${npc.id}: rot=${npc.position.rotation.toFixed(2)}`);
-          return {
-            id: npc.id,
-            position: npc.position,
-            health: { current: npc.health, max: npc.maxHealth },
-            shield: { current: npc.shield, max: npc.maxShield },
-            behavior: npc.behavior
-          };
-        })
-      };
-
-      // Broadcast a tutti i client
-      mapServer.broadcastToMap(message);
-    }
   } catch (error) {
     console.error('❌ [SERVER] Error updating NPCs:', error);
   }
@@ -648,7 +625,8 @@ wss.on('connection', (ws) => {
           playerId: data.playerId,
           userId: data.userId,
           connectedAt: new Date().toISOString(),
-          lastInputAt: null
+          lastInputAt: null,
+          ws: ws
         };
 
         mapServer.addPlayer(data.clientId, playerData);
