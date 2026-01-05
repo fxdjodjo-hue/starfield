@@ -90,6 +90,10 @@ export class RemotePlayerSystem extends BaseSystem {
     // Tutti i remote player condividono lo stesso sprite per efficienza
     this.ecs.addComponent(entity, Sprite, this.sharedSprite);
 
+    // AGGIUNGI INTERPOLAZIONE PERSISTENTE
+    // Componente rimane attivo per sempre - interpolazione continua
+    const interpolation = new InterpolationTarget(position.x, position.y, rotation);
+    this.ecs.addComponent(entity, InterpolationTarget, interpolation);
 
     // Registra il giocatore remoto
     this.remotePlayers.set(clientId, entity.id);
@@ -108,19 +112,11 @@ export class RemotePlayerSystem extends BaseSystem {
 
     const entity = this.ecs.getEntity(entityId);
     if (entity) {
-      const transform = this.ecs.getComponent(entity, Transform);
-      if (transform) {
-        // Rimuovi eventuali interpolazioni esistenti per evitare conflitti
-        this.ecs.removeComponent(entity, InterpolationTarget);
-
-        // Crea un nuovo target di interpolazione invece di impostare direttamente la posizione
-        const interpolationTarget = new InterpolationTarget(
-          position.x, position.y, rotation,  // Target
-          transform.x, transform.y, transform.rotation, // Start (posizione attuale)
-          100 // 100ms di interpolazione
-        );
-
-        this.ecs.addComponent(entity, InterpolationTarget, interpolationTarget);
+      const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
+      if (interpolation) {
+        // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
+        // Eliminazione completa degli scatti attraverso interpolazione continua
+        interpolation.updateTarget(position.x, position.y, rotation);
       }
     }
   }

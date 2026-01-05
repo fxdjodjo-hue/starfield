@@ -29,7 +29,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private lastPositionSyncTime = 0;
   private lastHeartbeatTime = 0;
   private readonly HEARTBEAT_INTERVAL = 5000; // 5 secondi
-  private readonly POSITION_SYNC_INTERVAL = 100; // 10 FPS per posizione
+  private readonly POSITION_SYNC_INTERVAL = 50; // 20 FPS per posizione - Ottimizzato per fluidità
 
   constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem | null, serverUrl: string = 'ws://localhost:3000') {
     super(ecs);

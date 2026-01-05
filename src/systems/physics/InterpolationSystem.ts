@@ -15,33 +15,33 @@ export class InterpolationSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    // Trova tutte le entità con componenti di interpolazione
+    // Trova tutti i remote player con interpolazione
     const entities = this.ecs.getEntitiesWithComponents(Transform, InterpolationTarget);
+
+    // Debug logging periodico
+    this.debugStats.activePredictions = entities.length;
+    const now = Date.now();
+    if (now - this.debugStats.lastDebugTime > 3000) {
+      console.log(`🎯 [Interpolation] Active remote players: ${this.debugStats.activePredictions}`);
+      this.debugStats.lastDebugTime = now;
+    }
 
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
 
       if (transform && interpolation) {
-        const progress = interpolation.getProgress();
+        // UPDATE RENDER con exponential smoothing adattivo
+        interpolation.updateRender(deltaTime);
 
-        // Interpolazione lineare per posizione e rotazione
-        transform.x = this.lerp(interpolation.startX, interpolation.targetX, progress);
-        transform.y = this.lerp(interpolation.startY, interpolation.targetY, progress);
-        transform.rotation = this.lerp(interpolation.startRotation, interpolation.targetRotation, progress);
+        // APPLICA POSIZIONE INTERPOLATA al Transform per rendering
+        transform.x = interpolation.renderX;
+        transform.y = interpolation.renderY;
+        transform.rotation = interpolation.renderRotation;
 
-        // Rimuovi il componente quando l'interpolazione è completata
-        if (interpolation.isComplete()) {
-          this.ecs.removeComponent(entity, InterpolationTarget);
-        }
+        // NOTA: Componente rimane PERSISTENTE - mai rimosso
+        // Interpolazione continua senza interruzioni
       }
     }
-  }
-
-  /**
-   * Interpolazione lineare tra due valori
-   */
-  private lerp(start: number, end: number, progress: number): number {
-    return start + (end - start) * progress;
   }
 }
