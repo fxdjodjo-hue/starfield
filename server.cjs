@@ -6,7 +6,56 @@ const wss = new WebSocket.Server({ port: 3000 });
 // Stato dei giocatori connessi
 const connectedPlayers = new Map();
 
+// Queue per aggiornamenti posizione per ridurre race conditions
+const positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
+const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
+
+// Processa la queue degli aggiornamenti posizione
+setInterval(() => {
+  processPositionUpdates();
+}, PROCESS_INTERVAL);
+
 console.log('🚀 WebSocket server started on ws://localhost:3000');
+
+/**
+ * Processa la queue degli aggiornamenti posizione per ridurre race conditions
+ */
+function processPositionUpdates() {
+  // Per ogni client che ha aggiornamenti in queue
+  for (const [clientId, updates] of positionUpdateQueue) {
+    if (updates.length === 0) continue;
+
+    // Prendi l'ultimo aggiornamento (più recente)
+    const latestUpdate = updates[updates.length - 1];
+
+    // Broadcasting: inoltra l'ultimo aggiornamento a tutti gli altri client
+    const positionBroadcast = {
+      type: 'remote_player_update',
+      clientId: clientId,
+      position: latestUpdate.position,
+      rotation: latestUpdate.rotation,
+      tick: latestUpdate.tick,
+      nickname: latestUpdate.nickname,
+      playerId: latestUpdate.playerId
+    };
+
+    // Invia a tutti i client connessi tranne quello che ha inviato l'aggiornamento
+    let broadcastCount = 0;
+    wss.clients.forEach(client => {
+      if (client !== latestUpdate.senderWs && client.readyState === WebSocket.OPEN) {
+        client.send(JSON.stringify(positionBroadcast));
+        broadcastCount++;
+      }
+    });
+
+    if (broadcastCount > 0) {
+      console.log(`📡 [SERVER] Broadcasted position update from ${clientId} to ${broadcastCount} clients`);
+    }
+
+    // Svuota la queue per questo client
+    positionUpdateQueue.delete(clientId);
+  }
+}
 
 wss.on('connection', (ws) => {
   console.log('✅ New client connected');
@@ -107,25 +156,26 @@ wss.on('connection', (ws) => {
             console.log(`📍 [SERVER] Position from ${data.clientId}: (${data.position.x.toFixed(1)}, ${data.position.y.toFixed(1)})`);
           }
 
-          // Broadcasting: inoltra la posizione a tutti gli altri client connessi
-          const positionBroadcast = {
-            type: 'remote_player_update',
-            clientId: data.clientId,
+          // Aggiungi alla queue invece di broadcastare immediatamente
+          if (!positionUpdateQueue.has(data.clientId)) {
+            positionUpdateQueue.set(data.clientId, []);
+          }
+
+          positionUpdateQueue.get(data.clientId).push({
             position: data.position,
             rotation: data.rotation,
             tick: data.tick,
             nickname: playerData.nickname,
-            playerId: playerData.playerId
-          };
-
-          // Invia a tutti i client connessi tranne quello che ha inviato l'aggiornamento
-          wss.clients.forEach(client => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify(positionBroadcast));
-            }
+            playerId: playerData.playerId,
+            senderWs: ws,
+            timestamp: Date.now()
           });
 
-          console.log(`📡 [SERVER] Broadcasted position to ${wss.clients.size - 1} clients`);
+          // Limita la dimensione della queue per client (max 5 aggiornamenti recenti)
+          const clientQueue = positionUpdateQueue.get(data.clientId);
+          if (clientQueue.length > 5) {
+            clientQueue.shift(); // Rimuovi il più vecchio
+          }
         }
 
         // Echo back acknowledgment
@@ -168,6 +218,10 @@ wss.on('connection', (ws) => {
       });
 
       connectedPlayers.delete(playerData.clientId);
+
+      // Rimuovi anche dalla queue degli aggiornamenti posizione
+      positionUpdateQueue.delete(playerData.clientId);
+
       console.log(`👥 [SERVER] Remaining players: ${connectedPlayers.size}`);
     } else {
       console.log('❌ [SERVER] Unknown client disconnected');

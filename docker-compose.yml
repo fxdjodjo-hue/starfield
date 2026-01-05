@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  # Game Client (Development)
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    command: npm run dev
+
+  # Game Server
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=production
+    command: npm run server
+    depends_on:
+      - postgres
+      - redis
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: starfield
+      POSTGRES_USER: starfield_user
+      POSTGRES_PASSWORD: starfield_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./supabase/migrations:/docker-entrypoint-initdb.d
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Supabase (Optional - for local development)
+  supabase:
+    image: supabase/supabase:latest
+    ports:
+      - "54321:54321"  # Supabase Studio
+      - "9999:9999"    # Supabase API
+    environment:
+      - POSTGRES_PASSWORD=starfield_pass
+    volumes:
+      - ./supabase/config.toml:/etc/supabase/config.toml
+      - supabase_data:/var/lib/supabase
+
+volumes:
+  postgres_data:
+  redis_data:
+  supabase_data:

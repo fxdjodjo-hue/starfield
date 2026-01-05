@@ -118,6 +118,7 @@ export class RemotePlayerSystem extends BaseSystem {
   updateRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): void {
     const playerData = this.remotePlayers.get(clientId);
     if (!playerData) {
+      console.warn(`[REMOTE_PLAYER] Attempted to update non-existent remote player: ${clientId}`);
       return;
     }
 
@@ -125,12 +126,24 @@ export class RemotePlayerSystem extends BaseSystem {
     if (entity) {
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
       if (interpolation) {
+        // Log aggiornamenti posizione ogni 5 secondi per evitare spam
+        if (Math.floor(Date.now() / 5000) % 2 === 0 && !this.lastUpdateLog[clientId] || Date.now() - this.lastUpdateLog[clientId] > 5000) {
+          console.log(`[REMOTE_PLAYER] Updated ${clientId}: (${x.toFixed(1)}, ${y.toFixed(1)}) -> entity ${playerData.entityId}`);
+          this.lastUpdateLog[clientId] = Date.now();
+        }
+
         // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
         // Eliminazione completa degli scatti attraverso interpolazione continua
         interpolation.updateTarget(x, y, rotation);
+      } else {
+        console.warn(`[REMOTE_PLAYER] No interpolation component found for ${clientId} entity ${playerData.entityId}`);
       }
+    } else {
+      console.error(`[REMOTE_PLAYER] Entity ${playerData.entityId} not found for remote player ${clientId}`);
     }
   }
+
+  private lastUpdateLog: { [clientId: string]: number } = {};
 
   /**
    * Rimuove un giocatore remoto

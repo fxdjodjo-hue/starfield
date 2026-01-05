@@ -248,10 +248,17 @@ export class ClientNetworkSystem extends BaseSystem {
 
 
   /**
-   * Updates the network system
+   * Updates the network system with detailed logging
    */
   update(deltaTime: number): void {
-    if (!this.connectionManager.isConnectionActive()) return;
+    if (!this.connectionManager.isConnectionActive()) {
+      // Log disconnessione ogni 5 secondi per evitare spam
+      if (Math.floor(Date.now() / 5000) % 2 === 0 && !this.lastConnectionLog || Date.now() - this.lastConnectionLog > 5000) {
+        console.log(`[NETWORK] Not connected. Connection state: ${this.connectionManager.getConnectionState()}`);
+        this.lastConnectionLog = Date.now();
+      }
+      return;
+    }
 
     // Buffer current position for potential batching
     const currentPosition = this.positionTracker.getLocalPlayerPosition();
@@ -259,7 +266,18 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Delegate periodic operations to tick manager
     this.tickManager.update(deltaTime);
+
+    // Log dettagliato dello stato ogni 10 secondi
+    if (Math.floor(Date.now() / 10000) % 2 === 0 && !this.lastStatusLog || Date.now() - this.lastStatusLog > 10000) {
+      const stats = this.tickManager.getTimingStats();
+      const connStats = this.connectionManager.getStats();
+      console.log(`[NETWORK] Status - Buffer: ${stats.bufferSize}/${stats.bufferDrops} drops, Connected: ${connStats.isConnected}, State: ${connStats.state}`);
+      this.lastStatusLog = Date.now();
+    }
   }
+
+  private lastConnectionLog = 0;
+  private lastStatusLog = 0;
 
   /**
    * Sends heartbeat to keep connection alive

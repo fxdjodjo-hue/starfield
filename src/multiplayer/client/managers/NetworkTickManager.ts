@@ -12,8 +12,9 @@ export class NetworkTickManager {
 
   // Message buffering for high-latency scenarios
   private positionBuffer: Array<{ position: { x: number; y: number; rotation: number }; timestamp: number }> = [];
-  private maxBufferSize = 5; // Maximum buffered position updates
-  private bufferFlushThreshold = 3; // Flush buffer when it reaches this size
+  private maxBufferSize = 10; // Maximum buffered position updates (increased for stability)
+  private bufferFlushThreshold = 5; // Flush buffer when it reaches this size
+  private bufferDropCount = 0; // Track how many updates we've dropped
 
   // Callbacks for network operations
   private sendHeartbeatCallback?: () => void;
@@ -52,10 +53,22 @@ export class NetworkTickManager {
   }
 
   /**
-   * Buffers a position update for potential batching
+   * Buffers a position update for potential batching with size limits
    */
   bufferPositionUpdate(position: { x: number; y: number; rotation: number }): void {
     const now = Date.now();
+
+    // Check if buffer is at maximum capacity
+    if (this.positionBuffer.length >= this.maxBufferSize) {
+      // Remove oldest update to make room for new one
+      const dropped = this.positionBuffer.shift();
+      this.bufferDropCount++;
+
+      // Log buffer overflow periodically (not every time to avoid spam)
+      if (this.bufferDropCount % 10 === 0) {
+        console.warn(`[NETWORK] Position buffer overflow! Dropped ${this.bufferDropCount} updates. Buffer size: ${this.positionBuffer.length}/${this.maxBufferSize}`);
+      }
+    }
 
     // Add to buffer
     this.positionBuffer.push({
@@ -103,6 +116,7 @@ export class NetworkTickManager {
     this.tickCounter = 0;
     this.lastSentPosition = null;
     this.positionBuffer = [];
+    this.bufferDropCount = 0;
   }
 
   /**
@@ -114,6 +128,8 @@ export class NetworkTickManager {
     timeSinceLastHeartbeat: number;
     nextPositionSyncIn: number;
     nextHeartbeatIn: number;
+    bufferSize: number;
+    bufferDrops: number;
   } {
     const now = Date.now();
     return {
@@ -121,7 +137,9 @@ export class NetworkTickManager {
       timeSinceLastPositionSync: now - this.lastPositionSyncTime,
       timeSinceLastHeartbeat: now - this.lastHeartbeatTime,
       nextPositionSyncIn: Math.max(0, NETWORK_CONFIG.POSITION_SYNC_INTERVAL - (now - this.lastPositionSyncTime)),
-      nextHeartbeatIn: Math.max(0, NETWORK_CONFIG.HEARTBEAT_INTERVAL - (now - this.lastHeartbeatTime))
+      nextHeartbeatIn: Math.max(0, NETWORK_CONFIG.HEARTBEAT_INTERVAL - (now - this.lastHeartbeatTime)),
+      bufferSize: this.positionBuffer.length,
+      bufferDrops: this.bufferDropCount
     };
   }
 

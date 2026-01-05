@@ -141,21 +141,45 @@ export class ECS {
   }
 
   /**
-   * Aggiorna tutti i sistemi
+   * Aggiorna tutti i sistemi con error boundary
    */
   update(deltaTime: number): void {
     for (const system of this.systems) {
-      system.update(deltaTime);
+      try {
+        system.update(deltaTime);
+      } catch (error) {
+        // Log dell'errore ma continua con gli altri sistemi
+        console.error(`[ECS] System ${system.constructor.name} failed during update:`, error);
+
+        // In development, possiamo anche loggare lo stack trace
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
+        }
+
+        // Continua con il prossimo sistema invece di bloccare tutto
+      }
     }
   }
 
   /**
-   * Render di tutti i sistemi che supportano il rendering
+   * Render di tutti i sistemi che supportano il rendering con error boundary
    */
   render(ctx: CanvasRenderingContext2D): void {
     for (const system of this.systems) {
       if (system.render) {
-        system.render(ctx);
+        try {
+          system.render(ctx);
+        } catch (error) {
+          // Log dell'errore ma continua con gli altri sistemi
+          console.error(`[ECS] System ${system.constructor.name} failed during render:`, error);
+
+          // In development, possiamo anche loggare lo stack trace
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
+          }
+
+          // Continua con il prossimo sistema invece di bloccare tutto il rendering
+        }
       }
     }
   }

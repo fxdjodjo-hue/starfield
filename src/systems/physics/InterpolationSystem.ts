@@ -24,6 +24,12 @@ export class InterpolationSystem extends BaseSystem {
 
     this.debugStats.activePredictions = entities.length;
 
+    // Log numero di entità interpolate ogni 10 secondi
+    if (Math.floor(Date.now() / 10000) % 2 === 0 && Date.now() - this.debugStats.lastDebugTime > 10000) {
+      console.log(`[INTERPOLATION] Active interpolations: ${entities.length}`);
+      this.debugStats.lastDebugTime = Date.now();
+    }
+
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
@@ -31,6 +37,14 @@ export class InterpolationSystem extends BaseSystem {
       if (transform && interpolation) {
         // UPDATE RENDER con exponential smoothing adattivo
         interpolation.updateRender(deltaTime);
+
+        // Log valori sospetti ogni 30 secondi per debug
+        if (Math.floor(Date.now() / 30000) % 2 === 0 && Date.now() - this.lastValueLog > 30000) {
+          if (!Number.isFinite(interpolation.renderX) || !Number.isFinite(interpolation.renderY)) {
+            console.error(`[INTERPOLATION] Invalid render values for entity ${entity.id}: (${interpolation.renderX}, ${interpolation.renderY})`);
+          }
+          this.lastValueLog = Date.now();
+        }
 
         // APPLICA POSIZIONE INTERPOLATA al Transform per rendering
         transform.x = interpolation.renderX;
@@ -42,4 +56,6 @@ export class InterpolationSystem extends BaseSystem {
       }
     }
   }
+
+  private lastValueLog = 0;
 }
