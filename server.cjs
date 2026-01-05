@@ -329,20 +329,25 @@ class ServerProjectileManager {
       projectileType: projectile.projectileType
     };
 
-    this.mapServer.broadcastToMap(message, excludeClientId);
+    // Interest radius: 1500 unità per proiettili
+    this.mapServer.broadcastNear(projectile.position, 1500, message, excludeClientId);
   }
 
   /**
    * Broadcast distruzione proiettile
    */
   broadcastProjectileDestroyed(projectileId, reason) {
+    const projectile = this.projectiles.get(projectileId);
+    if (!projectile) return;
+
     const message = {
       type: 'projectile_destroyed',
       projectileId,
       reason
     };
 
-    this.mapServer.broadcastToMap(message);
+    // Interest radius: 1500 unità per distruzione proiettili
+    this.mapServer.broadcastNear(projectile.position, 1500, message);
   }
 
   /**
@@ -360,7 +365,8 @@ class ServerProjectileManager {
       position: npc.position
     };
 
-    this.mapServer.broadcastToMap(message);
+    // Interest radius: 1500 unità per danni
+    this.mapServer.broadcastNear(npc.position, 1500, message);
   }
 
   /**
@@ -376,7 +382,8 @@ class ServerProjectileManager {
       rewards: this.calculateRewards(npc)
     };
 
-    this.mapServer.broadcastToMap(message);
+    // Interest radius: 2000 unità per distruzioni (più ampio per effetti visivi)
+    this.mapServer.broadcastNear(npc.position, 2000, message);
   }
 
   /**
@@ -494,6 +501,27 @@ class MapServer {
       }
     }
   }
+
+  // Broadcasting con interest radius (solo giocatori entro il raggio)
+  broadcastNear(position, radius, message, excludeClientId = null) {
+    const payload = JSON.stringify(message);
+    const radiusSq = radius * radius; // Evita sqrt per performance
+
+    for (const [clientId, playerData] of this.players.entries()) {
+      if (excludeClientId && clientId === excludeClientId) continue;
+      if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
+
+      // Calcola distanza quadrata
+      const dx = playerData.position.x - position.x;
+      const dy = playerData.position.y - position.y;
+      const distSq = dx * dx + dy * dy;
+
+      // Invia solo se entro il raggio
+      if (distSq <= radiusSq) {
+        playerData.ws.send(payload);
+      }
+    }
+  }
 }
 
 // Istanza della mappa principale
@@ -529,19 +557,23 @@ function broadcastNpcUpdates() {
   const npcs = mapServer.npcManager.getAllNpcs();
   if (npcs.length === 0) return;
 
-  const message = {
-    type: 'npc_bulk_update',
-    npcs: npcs.map(npc => ({
-      id: npc.id,
-      position: npc.position,
-      health: { current: npc.health, max: npc.maxHealth },
-      shield: { current: npc.shield, max: npc.maxShield },
-      behavior: npc.behavior
-    })),
-    timestamp: Date.now()
-  };
+  // Broadcast ogni NPC individualmente con interest radius
+  for (const npc of npcs) {
+    const message = {
+      type: 'npc_update',
+      npc: {
+        id: npc.id,
+        position: npc.position,
+        health: { current: npc.health, max: npc.maxHealth },
+        shield: { current: npc.shield, max: npc.maxShield },
+        behavior: npc.behavior
+      },
+      timestamp: Date.now()
+    };
 
-  mapServer.broadcastToMap(message);
+    // Interest radius: 1000 unità (regolabile)
+    mapServer.broadcastNear(npc.position, 1000, message);
+  }
 }
 
 // Sistema di movimento NPC semplice (server-side)
@@ -790,8 +822,8 @@ wss.on('connection', (ws) => {
           explosionType: data.explosionType
         };
 
-        // Broadcast a tutti i client (incluso quello che ha creato l'esplosione per conferma)
-        mapServer.broadcastToMap(message);
+        // Broadcast con interest radius: 2000 unità per esplosioni
+        mapServer.broadcastNear(data.position, 2000, message);
       }
 
     } catch (error) {
