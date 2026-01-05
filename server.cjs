@@ -588,11 +588,13 @@ function updateNpcMovements() {
     const newY = npc.position.y + deltaY;
 
     // Controlla confini del mondo e applica movimento solo se entro i limiti
+    let bounced = false;
     if (newX >= npcManager.WORLD_LEFT && newX <= npcManager.WORLD_RIGHT) {
       npc.position.x = newX;
     } else {
       // Se uscirebbe dai confini, cambia direzione
       npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
+      bounced = true;
     }
 
     if (newY >= npcManager.WORLD_TOP && newY <= npcManager.WORLD_BOTTOM) {
@@ -600,13 +602,14 @@ function updateNpcMovements() {
     } else {
       // Se uscirebbe dai confini, cambia direzione
       npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
+      bounced = true;
     }
 
-    // Calcola rotazione basata sulla direzione del movimento (più realistico!)
-    if (deltaX !== 0 || deltaY !== 0) {
-      // Se l'NPC si sta muovendo, aggiorna la rotazione per puntare nella direzione del movimento
+    // Se NON abbiamo colpito un bordo, aggiorna rotazione basata sul movimento attuale
+    // Se abbiamo colpito un bordo, mantieni la rotazione appena cambiata
+    if (!bounced && (deltaX !== 0 || deltaY !== 0)) {
+      // Se l'NPC si sta muovendo normalmente, aggiorna la rotazione per puntare nella direzione del movimento
       npc.position.rotation = Math.atan2(deltaY, deltaX);
-
     }
 
     // Rotazione casuale occasionale per rendere il movimento più naturale (meno frequente)
