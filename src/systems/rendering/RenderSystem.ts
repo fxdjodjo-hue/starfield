@@ -42,6 +42,40 @@ export class RenderSystem extends BaseSystem {
     this.frigateProjectileImage.src = 'assets/npc_ships/frigate/npc_frigate_projectile.png';
   }
 
+  /**
+   * Renderizza entità di gioco unificate (NPC, Player, Esplosioni)
+   */
+  private renderGameEntity(
+    ctx: CanvasRenderingContext2D,
+    entity: any,
+    transform: Transform,
+    screenX: number,
+    screenY: number,
+    components: {
+      explosion?: Explosion,
+      npc?: Npc,
+      sprite?: Sprite,
+      selected?: SelectedNpc,
+      velocity?: Velocity
+    }
+  ): void {
+    const { explosion, npc, sprite, selected, velocity } = components;
+
+    // Priorità: Esplosioni > NPC > Player
+    if (explosion) {
+      this.renderExplosion(ctx, transform, explosion, screenX, screenY);
+    } else if (npc) {
+      // Renderizza come NPC
+      const entitySprite = this.ecs.getComponent(entity, Sprite);
+      this.renderNpc(ctx, transform, npc, screenX, screenY, selected !== undefined, entitySprite, velocity);
+    } else {
+      // Renderizza come player (con sprite se disponibile)
+      // Aggiungi leggera fluttuazione al player
+      const floatOffsetY = Math.sin(Date.now() * 0.003) * 2; // Fluttuazione verticale di ±2 pixel
+      this.renderEntity(ctx, transform, screenX, screenY + floatOffsetY, sprite);
+    }
+  }
+
   update(deltaTime: number): void {
     // Il rendering avviene nel metodo render()
   }
@@ -75,24 +109,11 @@ export class RenderSystem extends BaseSystem {
         // Converte le coordinate world in coordinate schermo usando la camera
         const screenPos = camera.worldToScreen(transform.x, transform.y, ctx.canvas.width, ctx.canvas.height);
 
-        // Controlla se è un'esplosione
-        if (explosion) {
-          this.renderExplosion(ctx, transform, explosion, screenPos.x, screenPos.y);
-        } else if (npc) {
-          // Renderizza come NPC
-          const entitySprite = this.ecs.getComponent(entity, Sprite);
-          const entityVelocity = this.ecs.getComponent(entity, Velocity);
-          this.renderNpc(ctx, transform, npc, screenPos.x, screenPos.y, selected !== undefined, entitySprite, entityVelocity);
-
-          // Range di attacco NPC rimosso (era debug)
-        } else {
-          // Renderizza come player (con sprite se disponibile)
-          // Aggiungi leggera fluttuazione al player
-          const floatOffsetY = Math.sin(Date.now() * 0.003) * 2; // Fluttuazione verticale di ±2 pixel
-          this.renderEntity(ctx, transform, screenPos.x, screenPos.y + floatOffsetY, sprite);
-
-          // Range di attacco player rimosso (era debug)
-        }
+        // Usa metodo unificato per il rendering delle entità di gioco
+        const entityVelocity = this.ecs.getComponent(entity, Velocity);
+        this.renderGameEntity(ctx, entity, transform, screenPos.x, screenPos.y, {
+          explosion, npc, sprite, selected, velocity: entityVelocity
+        });
 
         // Renderizza le barre salute/shield se l'entità ha componenti
         const health = this.ecs.getComponent(entity, Health);
