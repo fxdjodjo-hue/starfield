@@ -2,6 +2,7 @@
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { World } from '../../infrastructure/engine/World';
 import { MovementSystem } from '../../systems/physics/MovementSystem';
+import { InterpolationSystem } from '../../systems/physics/InterpolationSystem';
 import { QuestManager } from '../../systems/quest/QuestManager';
 import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
@@ -28,6 +29,7 @@ export class PlayState extends GameState {
   private questSystem: QuestSystem | null = null;
   private questManager: QuestManager | null = null;
   private movementSystem: MovementSystem | null = null;
+  private interpolationSystem: InterpolationSystem | null = null;
   private audioSystem: AudioSystem | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private remotePlayerSystem: RemotePlayerSystem | null = null;
@@ -231,8 +233,9 @@ export class PlayState extends GameState {
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
   }
 
+
   /**
-   * Inizializza il mondo di gioco e crea entitÃ 
+   * Inizializza il mondo di gioco e crea entitÃ
    */
   private async initializeGame(): Promise<void> {
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
@@ -244,6 +247,10 @@ export class PlayState extends GameState {
     this.uiSystem = systems.uiSystem;
     this.questManager = systems.questManager;
     this.movementSystem = systems.movementSystem;
+
+    // Inizializza il sistema di interpolazione per movimenti fluidi
+    this.interpolationSystem = new InterpolationSystem(this.world.getECS());
+    this.world.getECS().addSystem(this.interpolationSystem);
     this.audioSystem = systems.audioSystem;
 
     // Collega l'EconomySystem all'UiSystem

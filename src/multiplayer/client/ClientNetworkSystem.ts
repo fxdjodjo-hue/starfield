@@ -29,7 +29,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private lastPositionSyncTime = 0;
   private lastHeartbeatTime = 0;
   private readonly HEARTBEAT_INTERVAL = 5000; // 5 secondi
-  private readonly POSITION_SYNC_INTERVAL = 100; // 10 FPS per posizione
+  private readonly POSITION_SYNC_INTERVAL = 50; // 20 FPS per posizione - Ottimizzato per fluidità
 
   constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem | null, serverUrl: string = 'ws://localhost:3000') {
     super(ecs);
@@ -179,14 +179,14 @@ export class ClientNetworkSystem extends BaseSystem {
     if (this.remotePlayerSystem) {
     if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
       // Crea nuovo giocatore remoto
-      this.remotePlayerSystem.addRemotePlayer(clientId, position, rotation || 0);
+      this.remotePlayerSystem.addRemotePlayer(clientId, position.x, position.y, rotation || 0);
         // Imposta info nickname se presente
         if (nickname) {
           this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
         }
       } else {
         // Aggiorna posizione giocatore remoto esistente
-        this.remotePlayerSystem.updateRemotePlayer(clientId, position, rotation || 0);
+        this.remotePlayerSystem.updateRemotePlayer(clientId, position.x, position.y, rotation || 0);
         // Aggiorna info nickname se presente
         if (nickname) {
           this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
