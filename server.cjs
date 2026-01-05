@@ -588,10 +588,6 @@ function updateNpcMovements() {
         break;
     }
 
-    // Debug log per il primo NPC
-    if (npc.id === 'npc_0') {
-      console.log(`[DEBUG] NPC ${npc.id} (${npc.behavior}): pos=(${npc.position.x.toFixed(1)}, ${npc.position.y.toFixed(1)}), rot=${npc.position.rotation.toFixed(2)}, delta=(${deltaX.toFixed(2)}, ${deltaY.toFixed(2)}), speed=${speed}`);
-    }
 
     // Calcola nuova posizione
     const newX = npc.position.x + deltaX;
