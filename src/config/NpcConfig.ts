@@ -1,6 +1,6 @@
 /**
- * Configurazione degli NPC - definisce statistiche e ricompense per ogni tipo di NPC
- * Questo permette di aggiungere facilmente nuovi tipi di NPC in futuro
+ * Configurazione degli NPC - carica da file JSON condiviso per single source of truth
+ * Questo garantisce coerenza tra client e server
  */
 
 export interface NpcStats {
@@ -27,49 +27,19 @@ export interface NpcDefinition {
   description?: string;
 }
 
+// Carica configurazione condivisa
+import npcConfigData from '../../shared/npc-config.json';
+
+// Dichiarazione per import JSON
+declare module '*.json' {
+  const value: any;
+  export default value;
+}
+
 /**
- * Definizioni di tutti gli NPC del gioco
+ * Definizioni di tutti gli NPC del gioco - caricate da file condiviso
  */
-export const NPC_DEFINITIONS: Record<string, NpcDefinition> = {
-  'Scouter': {
-    type: 'Scouter',
-    defaultBehavior: 'cruise',
-    stats: {
-      health: 800,
-      shield: 560,
-      damage: 500,
-      range: 300, // Allineato al range del player
-      cooldown: 1200, // 1.2 secondi
-      speed: 200
-    },
-    rewards: {
-      credits: 824,
-      cosmos: 3,
-      experience: 412,
-      honor: 2
-    },
-    description: 'Nemico base dello spazio profondo'
-  },
-  'Frigate': {
-    type: 'Frigate',
-    defaultBehavior: 'cruise',
-    stats: {
-      health: 1200,
-      shield: 840,
-      damage: 750,
-      range: 300, // Allineato al range del player
-      cooldown: 1500, // 1.5 secondi
-      speed: 150
-    },
-    rewards: {
-      credits: 1236,
-      cosmos: 5,
-      experience: 618,
-      honor: 3
-    },
-    description: 'Nave da guerra di medie dimensioni'
-  }
-};
+export const NPC_DEFINITIONS: Record<string, NpcDefinition> = npcConfigData as Record<string, NpcDefinition>;
 
 /**
  * Ottiene la definizione di un NPC per tipo

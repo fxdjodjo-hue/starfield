@@ -1,18 +1,25 @@
 const WebSocket = require('ws');
+const fs = require('fs');
+const path = require('path');
+
+// Carica configurazione NPC condivisa
+const npcConfigPath = path.join(__dirname, 'shared', 'npc-config.json');
+const NPC_CONFIG = JSON.parse(fs.readFileSync(npcConfigPath, 'utf8'));
 
 // ServerNpcManager - Gestione centralizzata degli NPC
 class ServerNpcManager {
-  constructor() {
+  constructor(mapServer) {
+    this.mapServer = mapServer;
     this.npcs = new Map();
     this.npcIdCounter = 0;
 
-    // Confini del mondo (coerenti con CONFIG nel client)
-    this.WORLD_WIDTH = 21000;
-    this.WORLD_HEIGHT = 13100;
-    this.WORLD_LEFT = -this.WORLD_WIDTH / 2;    // -10500
-    this.WORLD_RIGHT = this.WORLD_WIDTH / 2;    // +10500
-    this.WORLD_TOP = -this.WORLD_HEIGHT / 2;    // -6550
-    this.WORLD_BOTTOM = this.WORLD_HEIGHT / 2;  // +6550
+    // Usa le dimensioni dalla mappa
+    this.WORLD_WIDTH = mapServer.WORLD_WIDTH;
+    this.WORLD_HEIGHT = mapServer.WORLD_HEIGHT;
+    this.WORLD_LEFT = -this.WORLD_WIDTH / 2;
+    this.WORLD_RIGHT = this.WORLD_WIDTH / 2;
+    this.WORLD_TOP = -this.WORLD_HEIGHT / 2;
+    this.WORLD_BOTTOM = this.WORLD_HEIGHT / 2;
   }
 
   /**
@@ -25,16 +32,17 @@ class ServerNpcManager {
     const finalX = x ?? (Math.random() * (this.WORLD_RIGHT - this.WORLD_LEFT) + this.WORLD_LEFT);
     const finalY = y ?? (Math.random() * (this.WORLD_BOTTOM - this.WORLD_TOP) + this.WORLD_TOP);
 
-    // Statistiche base per tipo
-    const stats = type === 'Scouter'
-      ? { health: 800, shield: 560, damage: 500, speed: 200 }
-      : { health: 1200, shield: 840, damage: 750, speed: 150 };
+    // Statistiche base per tipo dal config condiviso
+    const stats = NPC_CONFIG[type].stats;
 
     const npc = {
       id: npcId,
       type,
-      position: { x: finalX, y: finalY, rotation: 0 },
-      velocity: { x: 0, y: 0 },
+      position: { x: finalX, y: finalY, rotation: Math.random() * Math.PI * 2 },
+      velocity: {
+        x: (Math.random() - 0.5) * 200,
+        y: (Math.random() - 0.5) * 200
+      },
       health: stats.health,
       maxHealth: stats.health,
       shield: stats.shield,
@@ -175,16 +183,9 @@ class ServerNpcManager {
 
 // Crea server WebSocket sulla porta 3000
 const wss = new WebSocket.Server({ port: 3000 });
-
-// Stato dei giocatori connessi
-const connectedPlayers = new Map();
-
-// Gestione NPC centralizzata
-const npcManager = new ServerNpcManager();
-
-// Gestione proiettili per combattimento multiplayer
 class ServerProjectileManager {
-  constructor() {
+  constructor(mapServer) {
+    this.mapServer = mapServer;
     this.projectiles = new Map(); // projectileId -> projectile data
     this.collisionChecks = new Map(); // clientId -> last collision check time
   }
@@ -254,7 +255,7 @@ class ServerProjectileManager {
       const hitNpc = this.checkNpcCollision(projectile);
       if (hitNpc) {
         // Applica danno all'NPC
-        const npcDead = npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
+        const npcDead = this.mapServer.npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
 
         // Notifica danno
         this.broadcastEntityDamaged(hitNpc, projectile);
@@ -291,7 +292,7 @@ class ServerProjectileManager {
    * Verifica collisione con NPC
    */
   checkNpcCollision(projectile) {
-    const npcs = npcManager.getAllNpcs();
+    const npcs = this.mapServer.npcManager.getAllNpcs();
     for (const npc of npcs) {
       const distance = Math.sqrt(
         Math.pow(projectile.position.x - npc.position.x, 2) +
@@ -328,7 +329,7 @@ class ServerProjectileManager {
       projectileType: projectile.projectileType
     };
 
-    this.broadcastToAll(message, excludeClientId);
+    this.mapServer.broadcastToMap(message, excludeClientId);
   }
 
   /**
@@ -390,20 +391,6 @@ class ServerProjectileManager {
     return baseRewards[npc.type] || { credits: 25, experience: 5, honor: 2 };
   }
 
-  /**
-   * Broadcast messaggio a tutti i client (opzionalmente escludendo uno)
-   */
-  broadcastToAll(message, excludeClientId = null) {
-    for (const [clientId, client] of connectedPlayers.entries()) {
-      if (excludeClientId && clientId === excludeClientId) continue;
-
-      try {
-        client.ws.send(JSON.stringify(message));
-      } catch (error) {
-        console.error(`[SERVER] Error broadcasting to ${clientId}:`, error);
-      }
-    }
-  }
 
   /**
    * Statistiche proiettili attivi
@@ -419,9 +406,6 @@ class ServerProjectileManager {
   }
 }
 
-// Gestione proiettili
-const projectileManager = new ServerProjectileManager();
-
 // Queue per aggiornamenti posizione per ridurre race conditions
 const positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
 const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
@@ -429,7 +413,7 @@ const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
 // Processa collisioni proiettili ogni 100ms
 setInterval(() => {
   try {
-    projectileManager.checkCollisions();
+    mapServer.projectileManager.checkCollisions();
   } catch (error) {
     console.error('❌ [SERVER] Error checking projectile collisions:', error);
   }
@@ -443,7 +427,7 @@ setInterval(() => {
 
     // Broadcast aggiornamenti NPC se necessario
     const now = Date.now();
-    const npcsNeedingUpdate = npcManager.getNpcsNeedingUpdate(now - 1000); // Ultimo secondo
+    const npcsNeedingUpdate = mapServer.npcManager.getNpcsNeedingUpdate(now - 1000); // Ultimo secondo
 
     if (npcsNeedingUpdate.length > 0) {
       const message = {
@@ -461,13 +445,7 @@ setInterval(() => {
       };
 
       // Broadcast a tutti i client
-      for (const [clientId, client] of connectedPlayers.entries()) {
-        try {
-          client.ws.send(JSON.stringify(message));
-        } catch (error) {
-          console.error(`[SERVER] Error broadcasting NPC updates to ${clientId}:`, error);
-        }
-      }
+      mapServer.broadcastToMap(message);
     }
   } catch (error) {
     console.error('❌ [SERVER] Error updating NPCs:', error);
@@ -481,11 +459,72 @@ setInterval(() => {
 
 console.log('🚀 WebSocket server started on ws://localhost:3000');
 
+// MapServer - Contesto per ogni mappa del gioco
+class MapServer {
+  constructor(mapId, config = {}) {
+    this.mapId = mapId;
+
+    // Dimensioni mappa (configurabili per mappe diverse)
+    this.WORLD_WIDTH = config.WORLD_WIDTH || 21000;
+    this.WORLD_HEIGHT = config.WORLD_HEIGHT || 13100;
+
+    // Managers specifici della mappa
+    this.npcManager = new ServerNpcManager(this);
+    this.projectileManager = new ServerProjectileManager(this);
+
+    // Players connessi a questa mappa
+    this.players = new Map();
+
+    // Configurazione NPC per questa mappa
+    this.npcConfig = config.npcConfig || { scouterCount: 25, frigateCount: 25 };
+  }
+
+  // Inizializzazione della mappa
+  initialize() {
+    console.log(`🗺️ [MapServer:${this.mapId}] Initializing map...`);
+    this.npcManager.initializeWorldNpcs(
+      this.npcConfig.scouterCount,
+      this.npcConfig.frigateCount
+    );
+  }
+
+  // Gestione giocatori
+  addPlayer(clientId, playerData) {
+    this.players.set(clientId, playerData);
+    console.log(`👤 [MapServer:${this.mapId}] Player ${clientId} joined map`);
+  }
+
+  removePlayer(clientId) {
+    this.players.delete(clientId);
+    console.log(`👋 [MapServer:${this.mapId}] Player ${clientId} left map`);
+  }
+
+  // Metodi delegati ai managers
+  getAllNpcs() { return this.npcManager.getAllNpcs(); }
+  getNpc(npcId) { return this.npcManager.getNpc(npcId); }
+  createNpc(type, x, y) { return this.npcManager.createNpc(type, x, y); }
+
+  // Broadcasting specifico della mappa
+  broadcastToMap(message, excludeClientId = null) {
+    for (const [clientId, playerData] of this.players.entries()) {
+      if (excludeClientId && clientId === excludeClientId) continue;
+
+      try {
+        playerData.ws.send(JSON.stringify(message));
+      } catch (error) {
+        console.error(`[MapServer:${this.mapId}] Error broadcasting to ${clientId}:`, error);
+      }
+    }
+  }
+}
+
+// Istanza della mappa principale
+const mapServer = new MapServer('default_map');
+mapServer.initialize();
+
 /**
  * Processa la queue degli aggiornamenti posizione per ridurre race conditions
  */
-// Inizializza NPC del mondo
-npcManager.initializeWorldNpcs(25, 25); // 25 Scouter + 25 Frigate
 
 function processPositionUpdates() {
   // Per ogni client che ha aggiornamenti in queue
@@ -526,7 +565,7 @@ function processPositionUpdates() {
 
 // Broadcasting NPC periodico (ogni 200ms)
 function broadcastNpcUpdates() {
-  const npcsToUpdate = npcManager.getNpcsNeedingUpdate(Date.now() - 1000); // NPC aggiornati negli ultimi 1s
+  const npcsToUpdate = mapServer.npcManager.getAllNpcs(); // Tutti gli NPC sempre
 
   if (npcsToUpdate.length === 0) return;
 
@@ -559,34 +598,25 @@ function broadcastNpcUpdates() {
 
 // Sistema di movimento NPC semplice (server-side)
 function updateNpcMovements() {
-  const allNpcs = npcManager.getAllNpcs();
+  const allNpcs = mapServer.npcManager.getAllNpcs();
 
   for (const npc of allNpcs) {
-    let deltaX = 0;
-    let deltaY = 0;
-
-    // Usa la velocità dalle statistiche dell'NPC invece di valori hard-coded
-    const speed = npc.type === 'Scouter' ? 200 : 150; // Velocità base dalle statistiche
     const deltaTime = 1000 / 60; // Fixed timestep per fisica server
 
-    // Movimento semplice basato sul comportamento
+    // Movimento semplice con velocity
+    let deltaX = npc.velocity.x * (deltaTime / 1000);
+    let deltaY = npc.velocity.y * (deltaTime / 1000);
+
+    // Modifica velocità basata sul comportamento
+    const speed = NPC_CONFIG[npc.type].stats.speed;
     switch (npc.behavior) {
-      case 'cruise':
-        // Movimento lineare semplice
-        deltaX = Math.cos(npc.position.rotation) * speed * (deltaTime / 1000);
-        deltaY = Math.sin(npc.position.rotation) * speed * (deltaTime / 1000);
-        break;
-
       case 'aggressive':
-        // Movimento più veloce quando aggressivi
-        deltaX = Math.cos(npc.position.rotation) * (speed * 2) * (deltaTime / 1000);
-        deltaY = Math.sin(npc.position.rotation) * (speed * 2) * (deltaTime / 1000);
+        deltaX *= 2;
+        deltaY *= 2;
         break;
-
       case 'flee':
-        // Movimento di fuga (indietro)
-        deltaX = -Math.cos(npc.position.rotation) * (speed * 1.5) * (deltaTime / 1000);
-        deltaY = -Math.sin(npc.position.rotation) * (speed * 1.5) * (deltaTime / 1000);
+        deltaX *= -1.5;
+        deltaY *= -1.5;
         break;
     }
 
@@ -597,52 +627,30 @@ function updateNpcMovements() {
     const newY = npc.position.y + deltaY;
 
 
-    // Controlla confini del mondo e applica movimento solo se entro i limiti
-    let bounced = false;
-    if (newX >= npcManager.WORLD_LEFT && newX <= npcManager.WORLD_RIGHT) {
+    // Applica movimento e controlla confini
+    if (newX >= mapServer.npcManager.WORLD_LEFT && newX <= mapServer.npcManager.WORLD_RIGHT) {
       npc.position.x = newX;
     } else {
-      // Se uscirebbe dai confini, cambia direzione SOLO se non abbiamo già cambiato recentemente
-      if (!npc.lastBounce || Date.now() - npc.lastBounce > 1000) { // 1 secondo cooldown
-        npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
-        npc.lastBounce = Date.now();
-      }
-      bounced = true;
+      // Rimbalza sui confini X
+      npc.velocity.x = -npc.velocity.x;
+      npc.position.x = Math.max(mapServer.npcManager.WORLD_LEFT, Math.min(mapServer.npcManager.WORLD_RIGHT, newX));
     }
 
-    if (newY >= npcManager.WORLD_TOP && newY <= npcManager.WORLD_BOTTOM) {
+    if (newY >= mapServer.npcManager.WORLD_TOP && newY <= mapServer.npcManager.WORLD_BOTTOM) {
       npc.position.y = newY;
     } else {
-      // Se uscirebbe dai confini, cambia direzione SOLO se non abbiamo già cambiato recentemente
-      if (!npc.lastBounce || Date.now() - npc.lastBounce > 1000) { // 1 secondo cooldown
-        npc.position.rotation += Math.PI; // 180 gradi, direzione opposta
-        npc.lastBounce = Date.now();
-      }
-      bounced = true;
+      // Rimbalza sui confini Y
+      npc.velocity.y = -npc.velocity.y;
+      npc.position.y = Math.max(mapServer.npcManager.WORLD_TOP, Math.min(mapServer.npcManager.WORLD_BOTTOM, newY));
     }
 
-    // Per movimento cruise-like: mantieni direzione stabile, cambia occasionalmente
-    // Ma aggiorna sempre la rotazione dello sprite per riflettere la direzione del movimento
-
-    // Aggiorna rotazione dello sprite per puntare nella direzione del movimento
+    // Aggiorna rotazione dello sprite per riflettere la direzione del movimento
     if (deltaX !== 0 || deltaY !== 0) {
       npc.position.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
     }
 
-    // Rotazione casuale più frequente per movimento naturale cruise-like
-    // NOTA: questo influenza il movimento futuro, non la rotazione dello sprite
-    if (Math.random() < 0.002) { // 0.2% probabilità ogni frame (~ogni 5 secondi in media)
-      npc.position.rotation += (Math.random() - 0.5) * 0.3; // ±0.15 radianti, cambi moderati
-    }
-
-    // Mantieni rotazione in range [0, 2π]
-    npc.position.rotation = ((npc.position.rotation % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-
-    // Aggiorna lastSignificantMove SOLO se l'NPC si è effettivamente mosso
-    // Questo evita di trasmettere NPC che non si muovono
-    if (deltaX !== 0 || deltaY !== 0) {
-      npc.lastSignificantMove = Date.now();
-    }
+    // Aggiorna lastSignificantMove - gli NPC si muovono sempre ora
+    npc.lastSignificantMove = Date.now();
     npc.lastUpdate = Date.now();
   }
 }
@@ -651,7 +659,7 @@ function updateNpcMovements() {
 setInterval(updateNpcMovements, 1000 / 60);
 
 // Avvia broadcasting NPC
-setInterval(broadcastNpcUpdates, 200);
+setInterval(broadcastNpcUpdates, 50);
 
 wss.on('connection', (ws) => {
   console.log('✅ New client connected');
@@ -673,13 +681,13 @@ wss.on('connection', (ws) => {
           lastInputAt: null
         };
 
-        connectedPlayers.set(data.clientId, playerData);
+        mapServer.addPlayer(data.clientId, playerData);
 
         console.log(`🎮 [SERVER] Player joined: ${data.clientId}`);
         console.log(`   📝 Nickname: ${data.nickname}`);
         console.log(`   🔢 Player ID: ${data.playerId}`);
         console.log(`   👤 User ID: ${data.userId}`);
-        console.log(`👥 [SERVER] Total connected players: ${connectedPlayers.size}`);
+        console.log(`👥 [SERVER] Total connected players: ${mapServer.players.size}`);
 
         // Notifica a tutti gli altri giocatori che è arrivato un nuovo player
         const newPlayerBroadcast = {
@@ -696,7 +704,7 @@ wss.on('connection', (ws) => {
         });
 
         // Invia le posizioni di tutti i giocatori già connessi al nuovo giocatore
-        connectedPlayers.forEach((playerData, existingClientId) => {
+        mapServer.players.forEach((playerData, existingClientId) => {
           if (existingClientId !== data.clientId && playerData.position) {
             const existingPlayerBroadcast = {
               type: 'remote_player_update',
@@ -713,7 +721,7 @@ wss.on('connection', (ws) => {
         });
 
         // Invia tutti gli NPC esistenti al nuovo giocatore
-        const allNpcs = npcManager.getAllNpcs();
+        const allNpcs = mapServer.npcManager.getAllNpcs();
         if (allNpcs.length > 0) {
           const initialNpcsMessage = {
             type: 'initial_npcs',
@@ -816,7 +824,7 @@ wss.on('connection', (ws) => {
         console.log(`🔫 [SERVER] Projectile fired: ${data.projectileId} by ${data.playerId}`);
 
         // Registra il proiettile nel server
-        projectileManager.addProjectile(
+        mapServer.projectileManager.addProjectile(
           data.projectileId,
           data.playerId,
           data.position,
@@ -841,13 +849,7 @@ wss.on('connection', (ws) => {
         };
 
         // Broadcast a tutti i client (incluso quello che ha creato l'esplosione per conferma)
-        for (const [clientId, client] of connectedPlayers.entries()) {
-          try {
-            client.ws.send(JSON.stringify(message));
-          } catch (error) {
-            console.error(`[SERVER] Error broadcasting explosion to ${clientId}:`, error);
-          }
-        }
+        mapServer.broadcastToMap(message);
       }
 
     } catch (error) {
@@ -871,12 +873,12 @@ wss.on('connection', (ws) => {
         }
       });
 
-      connectedPlayers.delete(playerData.clientId);
+      mapServer.removePlayer(playerData.clientId);
 
       // Rimuovi anche dalla queue degli aggiornamenti posizione
       positionUpdateQueue.delete(playerData.clientId);
 
-      console.log(`👥 [SERVER] Remaining players: ${connectedPlayers.size}`);
+      console.log(`👥 [SERVER] Remaining players: ${mapServer.players.size}`);
     } else {
       console.log('❌ [SERVER] Unknown client disconnected');
     }

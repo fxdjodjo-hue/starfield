@@ -1,0 +1,40 @@
+{
+  "Scouter": {
+    "type": "Scouter",
+    "defaultBehavior": "cruise",
+    "stats": {
+      "health": 800,
+      "shield": 560,
+      "damage": 500,
+      "range": 300,
+      "cooldown": 1200,
+      "speed": 200
+    },
+    "rewards": {
+      "credits": 824,
+      "cosmos": 3,
+      "experience": 412,
+      "honor": 2
+    },
+    "description": "Nemico base dello spazio profondo"
+  },
+  "Frigate": {
+    "type": "Frigate",
+    "defaultBehavior": "cruise",
+    "stats": {
+      "health": 1200,
+      "shield": 840,
+      "damage": 750,
+      "range": 300,
+      "cooldown": 1500,
+      "speed": 150
+    },
+    "rewards": {
+      "credits": 1236,
+      "cosmos": 5,
+      "experience": 618,
+      "honor": 3
+    },
+    "description": "Nave da guerra di medie dimensioni"
+  }
+}

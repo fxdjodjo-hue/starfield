@@ -483,7 +483,7 @@ export class UiSystem extends System {
       element.id = `npc-nickname-${entityId}`;
       element.style.cssText = `
         position: fixed;
-        color: rgba(255, 255, 255, 0.8);
+        color: rgba(255, 0, 0, 0.9);
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         font-weight: 400;
         font-size: 12px;
@@ -514,9 +514,9 @@ export class UiSystem extends System {
       // Forza la visibilità e ricalcola dimensioni
       element.style.display = 'block';
 
-      // Posiziona il nickname centrato orizzontalmente sopra l'NPC
+      // Posiziona il nickname centrato orizzontalmente sotto l'NPC (come player)
       const nicknameX = screenX - element.offsetWidth / 2;
-      const nicknameY = screenY - 50; // Sopra l'NPC
+      const nicknameY = screenY + 45; // Sotto l'NPC
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;
