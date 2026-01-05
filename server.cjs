@@ -557,10 +557,11 @@ function broadcastNpcUpdates() {
   const npcs = mapServer.npcManager.getAllNpcs();
   if (npcs.length === 0) return;
 
-  const radius = 2500; // Interest radius per NPC updates (aumentato per evitare teletrasporto)
+  const radius = 4000; // Interest radius per NPC updates
   const radiusSq = radius * radius;
 
-  // Per ogni giocatore connesso, invia solo gli NPC nel suo raggio di interesse
+  // Per ogni giocatore connesso, invia TUTTI gli NPC nel suo raggio di interesse
+  // (non filtriamo per significant move per evitare NPC "fermi" o teletrasporti)
   for (const [clientId, playerData] of mapServer.players.entries()) {
     if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
 
