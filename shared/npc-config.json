@@ -8,7 +8,7 @@
       "damage": 500,
       "range": 300,
       "cooldown": 1200,
-      "speed": 200
+      "speed": 240
     },
     "rewards": {
       "credits": 824,
@@ -27,7 +27,7 @@
       "damage": 750,
       "range": 300,
       "cooldown": 1500,
-      "speed": 150
+      "speed": 180
     },
     "rewards": {
       "credits": 1236,
