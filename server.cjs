@@ -608,8 +608,8 @@ function updateNpcMovements() {
     // Se NON abbiamo colpito un bordo, aggiorna rotazione basata sul movimento attuale
     // Se abbiamo colpito un bordo, mantieni la rotazione appena cambiata
     if (!bounced && (deltaX !== 0 || deltaY !== 0)) {
-      // Se l'NPC si sta muovendo normalmente, aggiorna la rotazione per puntare nella direzione del movimento
-      npc.position.rotation = Math.atan2(deltaY, deltaX);
+      // Usa la stessa formula dei player: Math.atan2 + Math.PI/2 per orientamento sprite corretto
+      npc.position.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
     }
 
     // Rotazione casuale occasionale per rendere il movimento più naturale (meno frequente)
