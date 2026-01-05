@@ -3,23 +3,20 @@ import { MovementSystem } from '../../../systems/physics/MovementSystem';
 
 describe('MovementSystem', () => {
   it('should create instance', () => {
-    // TODO: Add constructor parameters
-    const instance = new MovementSystem(null as any);
+    const mockCameraSystem = { getCamera: () => ({}) } as any;
+    const instance = new MovementSystem(null as any, mockCameraSystem);
     expect(instance).toBeDefined();
   });
 
-  it('should have getCamera method', () => {
-    const instance = new MovementSystem(null as any);
-    expect(typeof instance.getCamera).toBe('function');
-  });
-
   it('should have update method', () => {
-    const instance = new MovementSystem(null as any);
+    const mockCameraSystem = { getCamera: () => ({}) } as any;
+    const instance = new MovementSystem(null as any, mockCameraSystem);
     expect(typeof instance.update).toBe('function');
   });
 
   it('should have updatePosition method', () => {
-    const instance = new MovementSystem(null as any);
+    const mockCameraSystem = { getCamera: () => ({}) } as any;
+    const instance = new MovementSystem(null as any, mockCameraSystem);
     expect(typeof instance.updatePosition).toBe('function');
   });
 

@@ -9,7 +9,7 @@ import { Shield } from '../../entities/combat/Shield';
 import { Explosion } from '../../entities/combat/Explosion';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Camera } from '../../entities/spatial/Camera';
-import { MovementSystem } from '../physics/MovementSystem';
+import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
@@ -31,14 +31,14 @@ import type { RenderableTransform } from '../../utils/helpers/SpriteRenderer';
  * Renderizza tutte le entità con componente Transform applicando la camera
  */
 export class RenderSystem extends BaseSystem {
-  private movementSystem: MovementSystem;
+  private cameraSystem: CameraSystem;
   private playerSystem: PlayerSystem;
   private assetManager: AssetManager;
   private projectileRenderer: ProjectileRenderer;
 
-  constructor(ecs: ECS, movementSystem: MovementSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
+  constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
-    this.movementSystem = movementSystem;
+    this.cameraSystem = cameraSystem;
     this.playerSystem = playerSystem;
     this.assetManager = assetManager;
     this.projectileRenderer = new ProjectileRenderer(ecs, playerSystem, assetManager);
@@ -93,7 +93,7 @@ export class RenderSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    const camera = this.movementSystem.getCamera();
+    const camera = this.cameraSystem.getCamera();
 
     // Render entities and health/shield bars
     this.renderEntities(ctx, camera);

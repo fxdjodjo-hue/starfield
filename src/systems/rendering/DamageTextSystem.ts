@@ -8,24 +8,24 @@ import { Transform } from '../../entities/spatial/Transform';
  * Gestisce animazione e visualizzazione dei numeri danno
  */
 export class DamageTextSystem extends BaseSystem {
-  private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
+  private cameraSystem: any = null; // Cache del sistema camera
   private combatSystem: any = null; // Riferimento al CombatSystem per gestire i contatori dei testi
 
-  constructor(ecs: ECS, movementSystem?: any, combatSystem?: any) {
+  constructor(ecs: ECS, cameraSystem?: any, combatSystem?: any) {
     super(ecs);
-    // Usa il movementSystem passato o cercalo
-    this.movementSystem = movementSystem || this.findMovementSystem();
+    // Usa il cameraSystem passato o cercalo
+    this.cameraSystem = cameraSystem || this.findCameraSystem();
     // Salva il riferimento al CombatSystem
     this.combatSystem = combatSystem;
   }
 
   /**
-   * Trova il sistema movimento per accesso alla camera
+   * Trova il sistema camera
    */
-  private findMovementSystem(): any {
+  private findCameraSystem(): any {
     // Cerca nei sistemi registrati
     if (this.ecs && (this.ecs as any).systems) {
-      return (this.ecs as any).systems.find((system: any) => system.getCamera);
+      return (this.ecs as any).systems.find((system: any) => system.constructor?.name === 'CameraSystem');
     }
     return null;
   }
@@ -84,7 +84,7 @@ export class DamageTextSystem extends BaseSystem {
       return; // Silenziosamente senza log per evitare spam
     }
 
-    const camera = this.movementSystem.getCamera();
+    const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
     const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };

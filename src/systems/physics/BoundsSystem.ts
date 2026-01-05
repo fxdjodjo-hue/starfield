@@ -3,7 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Health } from '../../entities/combat/Health';
 import { CONFIG } from '../../utils/config/Config';
-import { MovementSystem } from './MovementSystem';
+import { CameraSystem } from '../rendering/CameraSystem';
 
 /**
  * Sistema Bounds - Gestisce i limiti della mappa
@@ -30,11 +30,11 @@ export class BoundsSystem extends BaseSystem {
 
   // Riferimenti ai sistemi
   private playerEntity: any = null;
-  private movementSystem: MovementSystem;
+  private cameraSystem: CameraSystem;
 
-  constructor(ecs: ECS, movementSystem: MovementSystem) {
+  constructor(ecs: ECS, cameraSystem: CameraSystem) {
     super(ecs);
-    this.movementSystem = movementSystem;
+    this.cameraSystem = cameraSystem;
   }
 
   /**
@@ -134,8 +134,8 @@ export class BoundsSystem extends BaseSystem {
     ctx.setLineDash([]); // Linea continua
     ctx.globalAlpha = 0.8;
 
-    // Ottieni la camera dal movement system
-    const camera = this.movementSystem.getCamera();
+    // Ottieni la camera dal camera system
+    const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
     // Converti coordinate mondo in coordinate schermo

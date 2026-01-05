@@ -12,7 +12,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Npc } from '../../entities/ai/Npc';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Sprite } from '../../entities/Sprite';
-import { MovementSystem } from '../physics/MovementSystem';
+import { CameraSystem } from '../rendering/CameraSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { PlayerSystem } from '../player/PlayerSystem';
@@ -23,7 +23,7 @@ import { PlayerSystem } from '../player/PlayerSystem';
  */
 export class CombatSystem extends BaseSystem {
   private lastUpdateTime: number = Date.now();
-  private movementSystem: MovementSystem;
+  private cameraSystem: CameraSystem;
   private logSystem: LogSystem | null = null;
   private gameContext: GameContext;
   private playerSystem: PlayerSystem;
@@ -34,9 +34,9 @@ export class CombatSystem extends BaseSystem {
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
   private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
 
-  constructor(ecs: ECS, movementSystem: MovementSystem, gameContext: GameContext, playerSystem: PlayerSystem) {
+  constructor(ecs: ECS, cameraSystem: CameraSystem, gameContext: GameContext, playerSystem: PlayerSystem) {
     super(ecs);
-    this.movementSystem = movementSystem;
+    this.cameraSystem = cameraSystem;
     this.gameContext = gameContext;
     this.playerSystem = playerSystem;
   }
@@ -334,8 +334,8 @@ export class CombatSystem extends BaseSystem {
                       { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
                       { width: window.innerWidth, height: window.innerHeight };
 
-    // Usa la camera dal MovementSystem
-    const camera = this.movementSystem.getCamera();
+    // Usa la camera dal CameraSystem
+    const camera = this.cameraSystem.getCamera();
     const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
 
     // Margine di sicurezza per considerare "fuori schermo"

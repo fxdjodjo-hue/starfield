@@ -2,31 +2,23 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
-import { Camera } from '../../entities/spatial/Camera';
+import { CameraSystem } from '../rendering/CameraSystem';
 import { Npc } from '../../entities/ai/Npc';
 
 /**
- * Sistema di movimento che aggiorna le posizioni basandosi sulla velocity
- * Gestisce anche la camera per mantenere il player al centro
+ * Sistema di movimento che aggiorna le posizioni delle entità basandosi sulla velocity
+ * Collabora con CameraSystem per mantenere la camera centrata sul player
  */
 export class MovementSystem extends BaseSystem {
-  private camera: Camera;
+  private cameraSystem: CameraSystem;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, cameraSystem: CameraSystem) {
     super(ecs);
-    // Crea una camera globale che segue il player
-    this.camera = new Camera(0, 0, 1);
-  }
-
-  /**
-   * Restituisce la camera corrente
-   */
-  getCamera(): Camera {
-    return this.camera;
+    this.cameraSystem = cameraSystem;
   }
 
   update(deltaTime: number): void {
-    // Prima aggiorna le posizioni, poi centra la camera sul player
+    // Prima aggiorna le posizioni delle entità
     const entities = this.ecs.getEntitiesWithComponents(Transform, Velocity);
 
     for (const entity of entities) {
@@ -42,10 +34,11 @@ export class MovementSystem extends BaseSystem {
     const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Velocity)
       .filter(entity => !this.ecs.hasComponent(entity, Npc));
 
+    // Comunica al CameraSystem di centrarsi sul player
     if (playerEntities.length > 0) {
       const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
       if (playerTransform) {
-        this.camera.centerOn(playerTransform.x, playerTransform.y);
+        this.cameraSystem.centerOn(playerTransform.x, playerTransform.y);
       }
     }
   }

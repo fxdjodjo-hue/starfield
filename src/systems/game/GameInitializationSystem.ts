@@ -110,30 +110,32 @@ export class GameInitializationSystem extends System {
 
     // Crea sistemi
     this.audioSystem = new AudioSystem(AUDIO_CONFIG);
-    this.movementSystem = new MovementSystem(this.ecs);
-    const parallaxSystem = new ParallaxSystem(this.ecs, this.movementSystem);
+    const cameraSystem = new CameraSystem(this.ecs);
+    this.movementSystem = new MovementSystem(this.ecs, cameraSystem);
+    const parallaxSystem = new ParallaxSystem(this.ecs, cameraSystem);
     const inputSystem = new InputSystem(this.ecs, this.context.canvas);
     const playerControlSystem = new PlayerControlSystem(this.ecs);
     const npcBehaviorSystem = new NpcBehaviorSystem(this.ecs);
     const npcSelectionSystem = new NpcSelectionSystem(this.ecs);
     const explosionSystem = new ExplosionSystem(this.ecs);
-    const chatTextSystem = new ChatTextSystem(this.ecs, this.movementSystem);
+    const chatTextSystem = new ChatTextSystem(this.ecs, cameraSystem);
     const minimapSystem = new MinimapSystem(this.ecs, this.context.canvas);
     const logSystem = new LogSystem(this.ecs);
     this.economySystem = new EconomySystem(this.ecs);
     const rankSystem = new RankSystem(this.ecs);
     const rewardSystem = new RewardSystem(this.ecs, this.playState);
-    const boundsSystem = new BoundsSystem(this.ecs, this.movementSystem);
+    const boundsSystem = new BoundsSystem(this.ecs, cameraSystem);
     const respawnSystem = new NpcRespawnSystem(this.ecs, this.context);
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager, this.playState);
     this.playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
     this.playerSystem = new PlayerSystem(this.ecs);
-    const renderSystem = new RenderSystem(this.ecs, this.movementSystem, this.playerSystem, this.context.assetManager);
-    const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context, this.playerSystem);
-    const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
+    const renderSystem = new RenderSystem(this.ecs, cameraSystem, this.playerSystem, this.context.assetManager);
+    const combatSystem = new CombatSystem(this.ecs, cameraSystem, this.context, this.playerSystem);
+    const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, combatSystem);
     const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem);
 
     const result = {
+      cameraSystem,
       movementSystem: this.movementSystem,
       parallaxSystem,
       renderSystem,
@@ -170,7 +172,7 @@ export class GameInitializationSystem extends System {
    */
   private addSystemsToECS(systems: any): void {
     const { inputSystem, npcSelectionSystem, playerControlSystem, combatSystem,
-            explosionSystem, projectileSystem, npcBehaviorSystem, movementSystem,
+            cameraSystem, explosionSystem, projectileSystem, npcBehaviorSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
             respawnSystem, rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
@@ -184,6 +186,7 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(combatSystem);
     this.ecs.addSystem(explosionSystem);
     this.ecs.addSystem(projectileSystem);
+    this.ecs.addSystem(cameraSystem);
     this.ecs.addSystem(npcBehaviorSystem);
     this.ecs.addSystem(movementSystem);
     this.ecs.addSystem(parallaxSystem);
@@ -214,9 +217,9 @@ export class GameInitializationSystem extends System {
     } = systems;
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
-    playerControlSystem.setCamera(this.movementSystem.getCamera());
+    playerControlSystem.setCamera(cameraSystem.getCamera());
     playerControlSystem.setAudioSystem(this.audioSystem);
-    minimapSystem.setCamera(this.movementSystem.getCamera());
+    minimapSystem.setCamera(cameraSystem.getCamera());
 
     // Collega AudioSystem ai sistemi di combattimento
     if (combatSystem && typeof combatSystem.setAudioSystem === 'function') {

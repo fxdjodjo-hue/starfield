@@ -3,25 +3,25 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
-import { MovementSystem } from '../physics/MovementSystem';
+import { CameraSystem } from './CameraSystem';
 
 /**
  * Sistema Parallax - gestisce elementi con effetto parallax
  * Gli elementi si muovono a velocità diverse per creare profondità
  */
 export class ParallaxSystem extends BaseSystem {
-  private movementSystem: MovementSystem;
+  private cameraSystem: CameraSystem;
   private lastCameraX: number = 0;
   private lastCameraY: number = 0;
   private initialized: boolean = false;
 
-  constructor(ecs: ECS, movementSystem: MovementSystem) {
+  constructor(ecs: ECS, cameraSystem: CameraSystem) {
     super(ecs);
-    this.movementSystem = movementSystem;
+    this.cameraSystem = cameraSystem;
   }
 
   update(deltaTime: number): void {
-    const camera = this.movementSystem.getCamera();
+    const camera = this.cameraSystem.getCamera();
 
     // Inizializza la posizione precedente della camera
     if (!this.initialized) {
@@ -46,7 +46,7 @@ export class ParallaxSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    const camera = this.movementSystem.getCamera();
+    const camera = this.cameraSystem.getCamera();
 
     // Ottiene tutti gli elementi parallax
     const parallaxEntities = this.ecs.getEntitiesWithComponents(Transform, ParallaxLayer);

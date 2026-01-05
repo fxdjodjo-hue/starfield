@@ -2,6 +2,7 @@
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { World } from '../../infrastructure/engine/World';
 import { MovementSystem } from '../../systems/physics/MovementSystem';
+import { CameraSystem } from '../../systems/rendering/CameraSystem';
 import { InterpolationSystem } from '../../systems/physics/InterpolationSystem';
 import { QuestManager } from '../../systems/quest/QuestManager';
 import { QuestSystem } from '../../systems/quest/QuestSystem';
@@ -28,6 +29,7 @@ export class PlayState extends GameState {
   private economySystem: any = null;
   private questSystem: QuestSystem | null = null;
   private questManager: QuestManager | null = null;
+  private cameraSystem: CameraSystem | null = null;
   private movementSystem: MovementSystem | null = null;
   private interpolationSystem: InterpolationSystem | null = null;
   private audioSystem: AudioSystem | null = null;
@@ -246,6 +248,7 @@ export class PlayState extends GameState {
     this.questSystem = systems.questSystem;
     this.uiSystem = systems.uiSystem;
     this.questManager = systems.questManager;
+    this.cameraSystem = systems.cameraSystem;
     this.movementSystem = systems.movementSystem;
 
     // Inizializza il sistema di interpolazione per movimenti fluidi
@@ -288,7 +291,7 @@ export class PlayState extends GameState {
       this.nicknameCreated = true; // Flag per evitare ricreazione
     }
 
-    const camera = this.movementSystem.getCamera();
+    const camera = this.cameraSystem!.getCamera();
     const canvasSize = this.world.getCanvasSize();
 
     // Delega all'UiSystem
@@ -301,7 +304,7 @@ export class PlayState extends GameState {
   private updateNpcNicknames(): void {
     if (!this.movementSystem || !this.uiSystem) return;
 
-    const camera = this.movementSystem.getCamera();
+    const camera = this.cameraSystem!.getCamera();
     const canvasSize = this.world.getCanvasSize();
     const ecs = this.world.getECS();
 

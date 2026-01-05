@@ -7,21 +7,21 @@ import { Transform } from '../../entities/spatial/Transform';
  * Sistema per il rendering dei testi dei messaggi di chat
  */
 export class ChatTextSystem extends BaseSystem {
-  private movementSystem: any = null; // Cache del sistema movimento per accesso alla camera
+  private cameraSystem: any = null; // Cache del sistema camera
 
-  constructor(ecs: ECS, movementSystem?: any) {
+  constructor(ecs: ECS, cameraSystem?: any) {
     super(ecs);
-    // Usa il movementSystem passato o cercalo
-    this.movementSystem = movementSystem || this.findMovementSystem();
+    // Usa il cameraSystem passato o cercalo
+    this.cameraSystem = cameraSystem || this.findCameraSystem();
   }
 
   /**
-   * Trova il sistema movimento per accesso alla camera
+   * Trova il sistema camera
    */
-  private findMovementSystem(): any {
+  private findCameraSystem(): any {
     // Cerca nei sistemi registrati
     if (this.ecs && (this.ecs as any).systems) {
-      return (this.ecs as any).systems.find((system: any) => system.getCamera);
+      return (this.ecs as any).systems.find((system: any) => system.constructor?.name === 'CameraSystem');
     }
     return null;
   }
@@ -72,7 +72,7 @@ export class ChatTextSystem extends BaseSystem {
       return; // Silenziosamente senza log per evitare spam
     }
 
-    const camera = this.movementSystem.getCamera();
+    const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
     const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
