@@ -73,6 +73,29 @@ export class AssetManager {
     const promises = paths.map(path => this.loadImage(path));
     await Promise.all(promises);
   }
+
+  /**
+   * Load an image synchronously (for immediate use)
+   */
+  loadImageSync(path: string): HTMLImageElement {
+    // Check if already loaded
+    if (this.images.has(path)) {
+      return this.images.get(path)!;
+    }
+
+    // Create and load synchronously
+    const img = new Image();
+    img.src = path;
+    this.images.set(path, img);
+    return img;
+  }
+
+  /**
+   * Get or create a cached image synchronously
+   */
+  getOrLoadImage(path: string): HTMLImageElement {
+    return this.images.get(path) || this.loadImageSync(path);
+  }
 }
 
 

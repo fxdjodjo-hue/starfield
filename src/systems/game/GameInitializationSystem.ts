@@ -128,7 +128,7 @@ export class GameInitializationSystem extends System {
     const questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager, this.playState);
     this.playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
     this.playerSystem = new PlayerSystem(this.ecs);
-    const renderSystem = new RenderSystem(this.ecs, this.movementSystem, this.playerSystem);
+    const renderSystem = new RenderSystem(this.ecs, this.movementSystem, this.playerSystem, this.context.assetManager);
     const combatSystem = new CombatSystem(this.ecs, this.movementSystem, this.context, this.playerSystem);
     const damageTextSystem = new DamageTextSystem(this.ecs, this.movementSystem, combatSystem);
     const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem);
