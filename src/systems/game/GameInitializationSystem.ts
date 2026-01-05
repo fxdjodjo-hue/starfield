@@ -133,8 +133,8 @@ export class GameInitializationSystem extends System {
 
     // Sistema NPC remoti per multiplayer
     const npcSprites = new Map<string, HTMLImageElement>();
-    if (assets.scouterImage) npcSprites.set('scouter', assets.scouterImage);
-    if (assets.frigateImage) npcSprites.set('frigate', assets.frigateImage);
+    if (scouterImage) npcSprites.set('scouter', scouterImage);
+    if (frigateImage) npcSprites.set('frigate', frigateImage);
     const remoteNpcSystem = new RemoteNpcSystem(this.ecs, npcSprites);
 
     const result = {
