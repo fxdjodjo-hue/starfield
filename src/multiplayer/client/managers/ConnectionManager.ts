@@ -1,0 +1,201 @@
+import { NETWORK_CONFIG } from '../../../config/NetworkConfig';
+
+/**
+ * Manages WebSocket connection lifecycle and events
+ * Provides a clean abstraction over raw WebSocket API
+ */
+export class ConnectionManager {
+  private socket: WebSocket | null = null;
+  private isConnected = false;
+  private reconnectAttempts = 0;
+  private reconnectTimeout: NodeJS.Timeout | null = null;
+
+  // Event callbacks
+  private onConnected?: (socket: WebSocket) => void;
+  private onMessage?: (data: string) => void;
+  private onDisconnected?: () => void;
+  private onError?: (error: Event) => void;
+  private onReconnecting?: () => void;
+
+  constructor(
+    private serverUrl: string,
+    onConnected?: (socket: WebSocket) => void,
+    onMessage?: (data: string) => void,
+    onDisconnected?: () => void,
+    onError?: (error: Event) => void,
+    onReconnecting?: () => void
+  ) {
+    this.onConnected = onConnected;
+    this.onMessage = onMessage;
+    this.onDisconnected = onDisconnected;
+    this.onError = onError;
+    this.onReconnecting = onReconnecting;
+  }
+
+  /**
+   * Establishes connection to the server
+   */
+  async connect(): Promise<WebSocket> {
+    return new Promise((resolve, reject) => {
+      try {
+        console.log(`🔌 Connecting to ${this.serverUrl}...`);
+        this.socket = new WebSocket(this.serverUrl);
+
+        // Set up event handlers
+        this.socket.onopen = () => {
+          console.log('✅ Connected to server');
+          this.isConnected = true;
+          this.reconnectAttempts = 0; // Reset on successful connection
+
+          if (this.onConnected) {
+            this.onConnected(this.socket!);
+          }
+
+          resolve(this.socket!);
+        };
+
+        this.socket.onmessage = (event) => {
+          if (this.onMessage) {
+            this.onMessage(event.data);
+          }
+        };
+
+        this.socket.onclose = () => {
+          console.log('❌ Disconnected from server');
+          this.isConnected = false;
+
+          if (this.onDisconnected) {
+            this.onDisconnected();
+          }
+
+          // Attempt reconnection if not manually disconnected
+          this.scheduleReconnect();
+        };
+
+        this.socket.onerror = (error) => {
+          console.error('🔌 WebSocket error:', error);
+
+          if (this.onError) {
+            this.onError(error);
+          }
+
+          reject(error);
+        };
+
+      } catch (error) {
+        console.error('Failed to create WebSocket connection:', error);
+        reject(error);
+      }
+    });
+  }
+
+  /**
+   * Closes the connection gracefully
+   */
+  disconnect(): void {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
+    if (this.socket) {
+      console.log('🔌 Disconnecting from server...');
+      this.socket.close();
+      this.socket = null;
+      this.isConnected = false;
+    }
+  }
+
+  /**
+   * Sends data through the WebSocket connection
+   */
+  send(data: string | ArrayBuffer | Blob | ArrayBufferView): void {
+    if (this.socket && this.isConnected && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(data);
+    } else {
+      console.warn('⚠️ Cannot send data: WebSocket not connected');
+    }
+  }
+
+  /**
+   * Checks if the connection is currently active
+   */
+  isConnectionActive(): boolean {
+    return this.isConnected &&
+           this.socket !== null &&
+           this.socket.readyState === WebSocket.OPEN;
+  }
+
+  /**
+   * Gets current connection state
+   */
+  getConnectionState(): string {
+    if (!this.socket) return 'disconnected';
+
+    switch (this.socket.readyState) {
+      case WebSocket.CONNECTING: return 'connecting';
+      case WebSocket.OPEN: return 'connected';
+      case WebSocket.CLOSING: return 'closing';
+      case WebSocket.CLOSED: return 'closed';
+      default: return 'unknown';
+    }
+  }
+
+  /**
+   * Schedules a reconnection attempt with exponential backoff
+   */
+  private scheduleReconnect(): void {
+    if (this.reconnectAttempts >= NETWORK_CONFIG.RECONNECT_ATTEMPTS) {
+      console.log('🚫 Max reconnection attempts reached, giving up');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    const delay = NETWORK_CONFIG.RECONNECT_DELAY * Math.pow(2, this.reconnectAttempts - 1);
+
+    console.log(`🔄 Scheduling reconnection attempt ${this.reconnectAttempts}/${NETWORK_CONFIG.RECONNECT_ATTEMPTS} in ${delay}ms`);
+
+    // Notify that reconnection is starting
+    if (this.onReconnecting) {
+      this.onReconnecting();
+    }
+
+    this.reconnectTimeout = setTimeout(() => {
+      this.connect().catch(error => {
+        console.error(`Reconnection attempt ${this.reconnectAttempts} failed:`, error);
+      });
+    }, delay);
+  }
+
+  /**
+   * Updates event callbacks (useful for dynamic reconfiguration)
+   */
+  updateCallbacks(
+    onConnected?: (socket: WebSocket) => void,
+    onMessage?: (data: string) => void,
+    onDisconnected?: () => void,
+    onError?: (error: Event) => void
+  ): void {
+    this.onConnected = onConnected ?? this.onConnected;
+    this.onMessage = onMessage ?? this.onMessage;
+    this.onDisconnected = onDisconnected ?? this.onDisconnected;
+    this.onError = onError ?? this.onError;
+  }
+
+  /**
+   * Gets connection statistics for debugging
+   */
+  getStats(): {
+    isConnected: boolean;
+    state: string;
+    reconnectAttempts: number;
+    serverUrl: string;
+  } {
+    return {
+      isConnected: this.isConnected,
+      state: this.getConnectionState(),
+      reconnectAttempts: this.reconnectAttempts,
+      serverUrl: this.serverUrl
+    };
+  }
+}

@@ -1,44 +1,200 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-import { Transform } from '../../entities/spatial/Transform';
-import { Sprite } from '../../entities/Sprite';
-import { Health } from '../../entities/combat/Health';
-import { Velocity } from '../../entities/spatial/Velocity';
-import { Npc } from '../../entities/ai/Npc';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
 
+// New modular components
+import { MessageRouter } from './handlers/MessageRouter';
+import { WelcomeHandler } from './handlers/WelcomeHandler';
+import { RemotePlayerUpdateHandler } from './handlers/RemotePlayerUpdateHandler';
+import { PlayerJoinedHandler } from './handlers/PlayerJoinedHandler';
+import { PlayerLeftHandler } from './handlers/PlayerLeftHandler';
+import { RemotePlayerManager } from './managers/RemotePlayerManager';
+import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
+import { ConnectionManager } from './managers/ConnectionManager';
+import { NetworkTickManager } from './managers/NetworkTickManager';
+
+// Types and Configuration
+import type { NetMessage } from './types/MessageTypes';
+import { NETWORK_CONFIG, MESSAGE_TYPES } from '../../config/NetworkConfig';
+
 /**
- * Sistema di rete client semplificato per multiplayer funzionante
- * Invia input al server e riceve aggiornamenti di stato
+ * Sistema di rete client modulare per multiplayer
+ * Utilizza architettura a componenti per gestire connessioni, messaggi e giocatori remoti
  */
 export class ClientNetworkSystem extends BaseSystem {
-  private gameContext: GameContext;
-  private remotePlayerSystem: RemotePlayerSystem;
-  private socket: WebSocket | null = null;
-  private clientId: string = '';
-  private connected = false;
-  private tickCounter = 0;
+  // Core dependencies
+  public readonly gameContext: GameContext;
+  public readonly clientId: string;
 
-  // Informazioni player
+  // Network components
+  private readonly connectionManager: ConnectionManager;
+  private readonly tickManager: NetworkTickManager;
+  private socket: WebSocket | null = null;
+
+  // Player info
   private playerNickname: string = 'Player';
   private playerId?: number;
 
-  // Stato sincronizzazione posizione
+  // Position sync state
   private lastSentPosition: { x: number; y: number } | null = null;
-  private lastPositionSyncTime = 0;
-  private lastHeartbeatTime = 0;
-  private readonly HEARTBEAT_INTERVAL = 5000; // 5 secondi
-  private readonly POSITION_SYNC_INTERVAL = 50; // 20 FPS per posizione - Ottimizzato per fluidità
 
-  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem | null, serverUrl: string = 'ws://localhost:3000') {
+  // New modular components
+  private readonly messageRouter: MessageRouter;
+  public readonly remotePlayerManager: RemotePlayerManager;
+  private readonly positionTracker: PlayerPositionTracker;
+
+  // Error handling callbacks
+  private onDisconnectedCallback?: () => void;
+  private onConnectionErrorCallback?: (error: Event) => void;
+  private onReconnectingCallback?: () => void;
+  private onReconnectedCallback?: () => void;
+
+  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL) {
     super(ecs);
     this.gameContext = gameContext;
-    this.remotePlayerSystem = remotePlayerSystem;
 
-    // Genera un client ID univoco
+    // Generate unique client ID
     this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
-    this.connect(serverUrl);
+
+    // Initialize modular components
+    this.messageRouter = new MessageRouter();
+    this.remotePlayerManager = new RemotePlayerManager(ecs, remotePlayerSystem);
+    this.positionTracker = new PlayerPositionTracker(ecs);
+
+    // Initialize network tick manager
+    this.tickManager = new NetworkTickManager(
+      this.sendHeartbeat.bind(this),
+      this.sendPlayerPosition.bind(this)
+    );
+
+    // Initialize connection manager with callbacks
+    this.connectionManager = new ConnectionManager(
+      serverUrl,
+      this.handleConnected.bind(this),
+      this.handleMessage.bind(this),
+      this.handleDisconnected.bind(this),
+      this.handleConnectionError.bind(this),
+      this.handleReconnecting.bind(this)
+    );
+
+    // Register message handlers
+    this.registerMessageHandlers();
+
+    // Connect to server
+    this.connect();
+  }
+
+  /**
+   * Registers all message handlers with the message router
+   */
+  private registerMessageHandlers(): void {
+    this.messageRouter.registerHandlers([
+      new WelcomeHandler(),
+      new RemotePlayerUpdateHandler(),
+      new PlayerJoinedHandler(),
+      new PlayerLeftHandler()
+    ]);
+  }
+
+  /**
+   * Handles successful connection establishment
+   */
+  private async handleConnected(socket: WebSocket): Promise<void> {
+    this.socket = socket;
+
+    // Reset tick manager timing on (re)connection
+    this.tickManager.reset();
+
+    // Notify external systems of successful (re)connection
+    if (this.onReconnectedCallback) {
+      this.onReconnectedCallback();
+    }
+
+    // Send join message with player info
+    const currentPosition = this.getLocalPlayerPosition();
+    this.sendMessage({
+      type: MESSAGE_TYPES.JOIN,
+      clientId: this.clientId,
+      nickname: this.playerNickname,
+      playerId: this.playerId,
+      userId: this.gameContext.localClientId,
+      position: currentPosition
+    });
+  }
+
+  /**
+   * Handles incoming messages from the connection manager
+   */
+  private handleMessage(data: string): void {
+    try {
+      const message: NetMessage = JSON.parse(data);
+
+      // Handle simple messages that don't need dedicated handlers
+      switch (message.type) {
+        case MESSAGE_TYPES.POSITION_ACK:
+          // Position acknowledgment - no action needed
+          break;
+
+        case MESSAGE_TYPES.HEARTBEAT_ACK:
+          // Heartbeat acknowledgment - connection is alive
+          break;
+
+        case MESSAGE_TYPES.WORLD_UPDATE:
+          // World update - could be handled by dedicated system in future
+          break;
+
+        case MESSAGE_TYPES.ERROR:
+          console.error('🚨 Server error:', (message as any).message);
+          break;
+
+        default:
+          // Route to appropriate handler
+          this.messageRouter.route(message, this);
+          break;
+      }
+    } catch (error) {
+      console.error('Failed to parse message:', error);
+    }
+  }
+
+  /**
+   * Handles disconnection events
+   */
+  private handleDisconnected(): void {
+    console.log('❌ Disconnected from server');
+    this.socket = null;
+
+    // Notify external systems
+    if (this.onDisconnectedCallback) {
+      this.onDisconnectedCallback();
+    }
+
+    // Additional cleanup if needed
+  }
+
+  /**
+   * Handles connection errors
+   */
+  private handleConnectionError(error: Event): void {
+    console.error('🔌 Connection error:', error);
+
+    // Notify external systems
+    if (this.onConnectionErrorCallback) {
+      this.onConnectionErrorCallback(error);
+    }
+  }
+
+  /**
+   * Handles reconnection attempts
+   */
+  private handleReconnecting(): void {
+    console.log('🔄 Attempting to reconnect...');
+
+    // Notify external systems
+    if (this.onReconnectingCallback) {
+      this.onReconnectingCallback();
+    }
   }
 
   /**
@@ -50,307 +206,119 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
-   * Connette al server
+   * Registers callback for disconnection events
+   * Allows other systems (UI, ECS) to react to disconnections
    */
-  connect(serverUrl: string): void {
+  onDisconnected(callback: () => void): void {
+    this.onDisconnectedCallback = callback;
+  }
+
+  /**
+   * Registers callback for connection error events
+   */
+  onConnectionError(callback: (error: Event) => void): void {
+    this.onConnectionErrorCallback = callback;
+  }
+
+  /**
+   * Registers callback for reconnection attempts
+   */
+  onReconnecting(callback: () => void): void {
+    this.onReconnectingCallback = callback;
+  }
+
+  /**
+   * Registers callback for successful reconnection
+   */
+  onReconnected(callback: () => void): void {
+    this.onReconnectedCallback = callback;
+  }
+
+  /**
+   * Connects to the server using the connection manager
+   */
+  async connect(): Promise<void> {
     try {
-      this.socket = new WebSocket(serverUrl);
-
-      this.socket.onopen = () => {
-        console.log('✅ Connected to server');
-        this.connected = true;
-
-        // Prima ottieni la posizione corrente del player locale
-        const currentPosition = this.getLocalPlayerPosition();
-
-        // Invia messaggio di join con informazioni complete del player
-        this.sendMessage({
-          type: 'join',
-          clientId: this.clientId,
-          nickname: this.playerNickname,
-          playerId: this.playerId,
-          userId: this.gameContext.localClientId, // Supabase auth ID
-          position: currentPosition // Posizione iniziale del player
-        });
-      };
-
-      this.socket.onmessage = (event) => {
-        this.handleMessage(event.data);
-      };
-
-      this.socket.onclose = () => {
-        console.log('❌ Disconnected from server');
-        this.connected = false;
-      };
-
-      this.socket.onerror = (error) => {
-        console.error('🔌 WebSocket error:', error);
-      };
-
+      this.socket = await this.connectionManager.connect();
     } catch (error) {
-      console.error('Failed to connect to server:', error);
+      console.error('Failed to establish connection:', error);
+      throw error;
     }
   }
 
 
   /**
-   * Aggiorna il sistema di rete
+   * Updates the network system
    */
   update(deltaTime: number): void {
-    if (!this.connected || !this.socket) return;
+    if (!this.connectionManager.isConnectionActive()) return;
 
-    this.tickCounter++;
+    // Buffer current position for potential batching
+    const currentPosition = this.positionTracker.getLocalPlayerPosition();
+    this.tickManager.bufferPositionUpdate(currentPosition);
 
-    // Sincronizza posizione del player a intervalli regolari
-    const now = Date.now();
-    if (now - this.lastPositionSyncTime > this.POSITION_SYNC_INTERVAL) {
-      this.sendPlayerPosition();
-      this.lastPositionSyncTime = now;
-    }
-
-    // Invia heartbeat periodico per mantenere connessione viva
-    if (now - this.lastHeartbeatTime > this.HEARTBEAT_INTERVAL) {
-      this.sendHeartbeat();
-      this.lastHeartbeatTime = now;
-    }
+    // Delegate periodic operations to tick manager
+    this.tickManager.update(deltaTime);
   }
 
   /**
-   * Invia heartbeat per mantenere connessione viva
+   * Sends heartbeat to keep connection alive
    */
   private sendHeartbeat(): void {
     if (!this.socket) return;
 
     this.sendMessage({
-      type: 'heartbeat',
+      type: MESSAGE_TYPES.HEARTBEAT,
       clientId: this.clientId,
       timestamp: Date.now()
     });
   }
 
   /**
-   * Ottiene la posizione corrente del player locale
+   * Gets the current local player position using the position tracker
    */
   private getLocalPlayerPosition(): { x: number; y: number; rotation: number } {
-    // Trova il player locale (assumiamo sia l'unico senza componente NPC)
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
-      .filter(entity => !this.ecs.hasComponent(entity, Npc));
-
-    if (playerEntities.length > 0) {
-      const playerEntity = playerEntities[0];
-      const transform = this.ecs.getComponent(playerEntity, Transform);
-
-      if (transform) {
-        return {
-          x: transform.x,
-          y: transform.y,
-          rotation: transform.rotation || 0
-        };
-      }
-    }
-
-    // Fallback: posizione default
-    console.warn('[CLIENT] Could not find local player position, using default');
-    return { x: 400, y: 300, rotation: 0 };
+    return this.positionTracker.getLocalPlayerPosition();
   }
 
-  /**
-   * Determina il rank del giocatore basato sul playerId
-   */
-  private determineRankFromPlayerId(playerId?: number): string {
-    // Per ora usa logica semplice basata su playerId
-    // In futuro potrebbe venire dal server
-    if (!playerId) return 'Recruit';
 
-    // Esempio: playerId più bassi = rank più alto (primi giocatori)
-    if (playerId <= 10) return 'Captain';
-    if (playerId <= 50) return 'Lieutenant';
-    if (playerId <= 100) return 'Sergeant';
 
-    return 'Recruit';
-  }
 
   /**
-   * Gestisce aggiornamenti posizione di giocatori remoti
+   * Synchronizes the player position to the server (called by tick manager)
    */
-  private handleRemotePlayerUpdate(message: any): void {
-    const { clientId, position, rotation, nickname, rank } = message;
-
-    if (this.remotePlayerSystem) {
-    if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
-      // Crea nuovo giocatore remoto
-      this.remotePlayerSystem.addRemotePlayer(clientId, position.x, position.y, rotation || 0);
-        // Imposta info nickname se presente
-        if (nickname) {
-          this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
-        }
-      } else {
-        // Aggiorna posizione giocatore remoto esistente
-        this.remotePlayerSystem.updateRemotePlayer(clientId, position.x, position.y, rotation || 0);
-        // Aggiorna info nickname se presente
-        if (nickname) {
-          this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank || 'Recruit');
-        }
-      }
-    }
-  }
-
-  /**
-   * Crea un nuovo giocatore remoto
-   */
-  private createRemotePlayer(clientId: string, position: any, rotation: number): number {
-    // Crea una nuova entity per il giocatore remoto
-    const entity = this.ecs.createEntity();
-
-    // Aggiungi componenti base
-    const transform = new Transform(position.x, position.y, rotation || 0);
-    this.ecs.addComponent(entity, Transform, transform);
-
-    // Aggiungi velocità (anche se non si muove attivamente, serve per rendering)
-    const velocity = new Velocity(0, 0, 0);
-    this.ecs.addComponent(entity, Velocity, velocity);
-
-    // Aggiungi salute per mostrare le barre e confermare che è renderizzato
-    const health = new Health(100, 100); // 100/100 HP
-    this.ecs.addComponent(entity, Health, health);
-
-    // Aggiungi sprite per il giocatore remoto (stesso del player locale per ora)
-    const sprite = new Sprite(null, 32, 32); // null significa usa colore invece di immagine
-    this.ecs.addComponent(entity, Sprite, sprite);
-
-    return entity.id;
-  }
-
-  /**
-   * Gestisce disconnessione di un giocatore remoto
-   */
-  public handleRemotePlayerDisconnected(clientId: string): void {
-    if (this.remotePlayerSystem) {
-      this.remotePlayerSystem.removeRemotePlayer(clientId);
-    }
-  }
-
-  /**
-   * Sincronizza la posizione del player al server
-   */
-  private sendPlayerPosition(): void {
+  private sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
     if (!this.socket) return;
 
-    // Trova l'entità del player locale
-    // Per ora assumiamo che il player sia l'unico entity con Transform e Velocity
-    // TODO: Implementare identificazione più robusta del player locale
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
-
-    if (playerEntities.length === 0) return;
-
-    // Prendi il primo player (in single-player è l'unico)
-    const playerEntity = playerEntities[0];
-    const transform = this.ecs.getComponent(playerEntity, Transform);
-
-    if (!transform) return;
-
-    // Invia posizione solo se cambiata significativamente
-    const currentPosition = { x: transform.x, y: transform.y };
-    const positionChanged = !this.lastSentPosition ||
-      Math.abs(currentPosition.x - this.lastSentPosition.x) > 5 ||
-      Math.abs(currentPosition.y - this.lastSentPosition.y) > 5;
-
-    if (positionChanged) {
       this.sendMessage({
-        type: 'position_update',
+        type: MESSAGE_TYPES.POSITION_UPDATE,
         clientId: this.clientId,
-        position: currentPosition,
-        rotation: transform.rotation || 0,
-        tick: this.tickCounter
+        position: { x: position.x, y: position.y },
+        rotation: position.rotation,
+        tick: this.tickManager.getTickCounter()
       });
-      this.lastSentPosition = { ...currentPosition };
-    }
   }
 
+
   /**
-   * Gestisce i messaggi ricevuti dal server
+   * Sends a message to the server
    */
-  private handleMessage(data: string): void {
-    try {
-      const message = JSON.parse(data);
-
-      switch (message.type) {
-        case 'welcome':
-          this.gameContext.localClientId = message.clientId || this.clientId;
-          break;
-
-        case 'position_ack':
-          // Position acknowledgment - non richiede elaborazione
-          break;
-
-        case 'remote_player_update':
-          // Aggiornamento posizione di un altro giocatore
-          this.handleRemotePlayerUpdate(message);
-          break;
-
-        case 'player_joined':
-          // Un nuovo giocatore si è connesso
-          console.log(`👋 [CLIENT] New player joined: ${message.clientId} (${message.nickname})`);
-          // Imposta info nickname per il remote player
-          if (this.remotePlayerSystem && message.nickname) {
-            // Per ora usa rank fisso, in futuro potrebbe venire dal server
-            this.remotePlayerSystem.setRemotePlayerInfo(message.clientId, message.nickname, 'Recruit');
-          }
-          break;
-
-        case 'player_left':
-          // Un giocatore si è disconnesso
-          console.log(`👋 [CLIENT] Player left: ${message.clientId}`);
-          this.handleRemotePlayerDisconnected(message.clientId);
-          break;
-
-        case 'heartbeat_ack':
-          // Heartbeat acknowledgment - connessione viva
-          break;
-
-        case 'world_update':
-          // Qui gestiremmo gli aggiornamenti del mondo
-          break;
-
-        case 'error':
-          console.error('🚨 Server error:', message.message);
-          break;
-
-        default:
-          // Log unknown messages in development only
-          if (import.meta.env.DEV) {
-            console.log('📨 Unknown message type:', message.type);
-          }
-      }
-    } catch (error) {
-      console.error('Failed to parse message:', error);
-    }
+  private sendMessage(message: NetMessage): void {
+    this.connectionManager.send(JSON.stringify(message));
   }
 
   /**
-   * Invia un messaggio al server
-   */
-  private sendMessage(message: any): void {
-    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify(message));
-    }
-  }
-
-  /**
-   * Verifica se è connesso
+   * Checks if connected
    */
   isConnected(): boolean {
-    return this.connected;
+    return this.connectionManager.isConnectionActive();
   }
 
   /**
-   * Disconnette dal server
+   * Disconnects from the server
    */
   disconnect(): void {
-    if (this.socket) {
-      this.socket.close();
-      this.socket = null;
-      this.connected = false;
-    }
+    this.connectionManager.disconnect();
+    this.socket = null;
   }
 }
