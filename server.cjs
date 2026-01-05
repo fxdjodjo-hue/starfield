@@ -530,6 +530,8 @@ function broadcastNpcUpdates() {
 
   if (npcsToUpdate.length === 0) return;
 
+  console.log(`📡 [SERVER] Broadcasting ${npcsToUpdate.length} NPCs`);
+
   const npcBulkUpdate = {
     type: 'npc_bulk_update',
     npcs: npcsToUpdate.map(npc => ({
@@ -589,6 +591,7 @@ function updateNpcMovements() {
     }
 
 
+
     // Calcola nuova posizione
     const newX = npc.position.x + deltaX;
     const newY = npc.position.y + deltaY;
@@ -632,9 +635,11 @@ function updateNpcMovements() {
     // Mantieni rotazione in range [0, 2π]
     npc.position.rotation = ((npc.position.rotation % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
 
-    // Aggiorna lastSignificantMove per ogni movimento (anche piccolo)
-    // Questo assicura che gli NPC in movimento vengano trasmessi regolarmente
-    npc.lastSignificantMove = Date.now();
+    // Aggiorna lastSignificantMove SOLO se l'NPC si è effettivamente mosso
+    // Questo evita di trasmettere NPC che non si muovono
+    if (deltaX !== 0 || deltaY !== 0) {
+      npc.lastSignificantMove = Date.now();
+    }
     npc.lastUpdate = Date.now();
   }
 }
