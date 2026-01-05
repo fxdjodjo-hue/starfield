@@ -22,13 +22,7 @@ export class InterpolationSystem extends BaseSystem {
     // Trova tutti i remote player con interpolazione
     const entities = this.ecs.getEntitiesWithComponents(Transform, InterpolationTarget);
 
-    // Debug logging periodico
     this.debugStats.activePredictions = entities.length;
-    const now = Date.now();
-    if (now - this.debugStats.lastDebugTime > 3000) {
-      console.log(`🎯 [Interpolation] Active remote players: ${this.debugStats.activePredictions}`);
-      this.debugStats.lastDebugTime = now;
-    }
 
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);

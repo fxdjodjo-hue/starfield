@@ -173,6 +173,25 @@ export class RemotePlayerSystem extends BaseSystem {
   }
 
   /**
+   * Ottiene le posizioni di tutti i giocatori remoti per la minimappa
+   */
+  getRemotePlayerPositions(): Array<{x: number, y: number}> {
+    const positions: Array<{x: number, y: number}> = [];
+
+    for (const [clientId, playerData] of this.remotePlayers) {
+      const entity = this.ecs.getEntity(playerData.entityId);
+      if (entity) {
+        const transform = this.ecs.getComponent(entity, Transform);
+        if (transform) {
+          positions.push({ x: transform.x, y: transform.y });
+        }
+      }
+    }
+
+    return positions;
+  }
+
+  /**
    * Ottiene tutti i client IDs dei giocatori remoti attivi
    */
   getActiveRemotePlayers(): string[] {

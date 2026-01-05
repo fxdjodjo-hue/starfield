@@ -157,6 +157,7 @@ export class MinimapSystem extends BaseSystem {
 
     this.renderMinimapBackground(ctx, playerPos);
     this.renderEntities(ctx);
+    this.renderRemotePlayers(ctx);
     this.renderPlayerIndicator(ctx);
   }
 
@@ -331,6 +332,28 @@ export class MinimapSystem extends BaseSystem {
         const color = isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor;
         this.renderEntityDot(ctx, transform.x, transform.y, color);
       }
+    });
+  }
+
+  /**
+   * Renderizza i giocatori remoti sulla minimappa
+   */
+  private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
+    // Trova il RemotePlayerSystem nell'ECS
+    const systems = (this.ecs as any).systems || [];
+    const remotePlayerSystem = systems.find((system: any) => system.constructor.name === 'RemotePlayerSystem');
+
+    if (!remotePlayerSystem) {
+      console.warn("[Minimap] RemotePlayerSystem not found, cannot render remote players.");
+      return;
+    }
+
+    // Ottieni le posizioni di tutti i giocatori remoti
+    const remotePlayerPositions = remotePlayerSystem.getRemotePlayerPositions();
+
+    // Renderizza ogni giocatore remoto come pallino giallo
+    remotePlayerPositions.forEach((position: {x: number, y: number}) => {
+      this.renderEntityDot(ctx, position.x, position.y, '#FFFF00'); // Giallo per giocatori remoti
     });
   }
 
