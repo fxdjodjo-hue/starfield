@@ -61,6 +61,7 @@ export class GameInitializationSystem extends System {
   private playerSystem!: PlayerSystem;
   private audioSystem!: AudioSystem;
   private playerStatusDisplaySystem!: PlayerStatusDisplaySystem;
+  private clientNetworkSystem: any = null; // Sistema di rete per notifiche multiplayer
   private systemsCache: any = null;
 
   private playState: any = null; // Reference to PlayState for saving
@@ -75,6 +76,13 @@ export class GameInitializationSystem extends System {
     this.playState = playState;
     // L'economySystem verrà creato in createSystems()
     this.economySystem = null;
+  }
+
+  /**
+   * Imposta il sistema di rete per notifiche multiplayer
+   */
+  setClientNetworkSystem(clientNetworkSystem: any): void {
+    this.clientNetworkSystem = clientNetworkSystem;
   }
 
   /**
@@ -241,9 +249,7 @@ export class GameInitializationSystem extends System {
 
     // Collega ClientNetworkSystem al CombatSystem per notifiche multiplayer
     if (combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
-      // Il ClientNetworkSystem sarà impostato più tardi nel PlayState
-      // Per ora impostiamo un placeholder che sarà sostituito
-      combatSystem.setClientNetworkSystem(null);
+      combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
     }
 
     // Collega AudioSystem al sistema bounds

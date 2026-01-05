@@ -250,9 +250,6 @@ export class PlayState extends GameState {
 
     // Imposta informazioni del player nel sistema di rete
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
-
-    // Collega ClientNetworkSystem ai sistemi che ne hanno bisogno
-    this.configureNetworkSystemConnections();
   }
 
 
@@ -260,6 +257,9 @@ export class PlayState extends GameState {
    * Inizializza il mondo di gioco e crea entitÃ
    */
   private async initializeGame(): Promise<void> {
+    // PASSA il ClientNetworkSystem al GameInitializationSystem PRIMA dell'inizializzazione
+    this.gameInitSystem.setClientNetworkSystem(this.clientNetworkSystem);
+
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
     this.playerEntity = await this.gameInitSystem.initialize();
 
@@ -440,19 +440,6 @@ export class PlayState extends GameState {
 
 
 
-  /**
-   * Configura le connessioni tra sistemi e ClientNetworkSystem
-   */
-  private configureNetworkSystemConnections(): void {
-    // Collega ClientNetworkSystem al CombatSystem per notifiche di spari
-    const systems = this.world.getECS().getSystems ? this.world.getECS().getSystems() : [];
-    const combatSystem = systems.find((system: any) =>
-      system.constructor.name === 'CombatSystem'
-    );
-    if (combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
-      combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
-    }
-  }
 
   /**
    * Restituisce il mondo di gioco per accesso esterno
