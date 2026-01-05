@@ -557,22 +557,35 @@ function broadcastNpcUpdates() {
   const npcs = mapServer.npcManager.getAllNpcs();
   if (npcs.length === 0) return;
 
-  // Broadcast ogni NPC individualmente con interest radius
-  for (const npc of npcs) {
+  const radius = 1500; // Interest radius per NPC updates
+  const radiusSq = radius * radius;
+
+  // Per ogni giocatore connesso, invia solo gli NPC nel suo raggio di interesse
+  for (const [clientId, playerData] of mapServer.players.entries()) {
+    if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
+
+    // Filtra NPC entro il raggio di interesse del giocatore
+    const relevantNpcs = npcs.filter(npc => {
+      const dx = npc.position.x - playerData.position.x;
+      const dy = npc.position.y - playerData.position.y;
+      return (dx * dx + dy * dy) <= radiusSq;
+    });
+
+    if (relevantNpcs.length === 0) continue;
+
     const message = {
-      type: 'npc_update',
-      npc: {
+      type: 'npc_bulk_update',
+      npcs: relevantNpcs.map(npc => ({
         id: npc.id,
         position: npc.position,
         health: { current: npc.health, max: npc.maxHealth },
         shield: { current: npc.shield, max: npc.maxShield },
         behavior: npc.behavior
-      },
+      })),
       timestamp: Date.now()
     };
 
-    // Interest radius: 1000 unità (regolabile)
-    mapServer.broadcastNear(npc.position, 1000, message);
+    playerData.ws.send(JSON.stringify(message));
   }
 }
 
