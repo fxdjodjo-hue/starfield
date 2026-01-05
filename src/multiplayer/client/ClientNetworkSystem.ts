@@ -311,12 +311,16 @@ export class ClientNetworkSystem extends BaseSystem {
     // Delegate periodic operations to tick manager
     this.tickManager.update(deltaTime);
 
-    // Log dettagliato dello stato ogni 10 secondi
-    if (Math.floor(Date.now() / 10000) % 2 === 0 && !this.lastStatusLog || Date.now() - this.lastStatusLog > 10000) {
+    // Log dettagliato dello stato ogni 60 secondi (solo se ci sono problemi)
+    const now = Date.now();
+    if (!this.lastStatusLog || now - this.lastStatusLog > 60000) {
       const stats = this.tickManager.getTimingStats();
       const connStats = this.connectionManager.getStats();
-      console.log(`[NETWORK] Status - Buffer: ${stats.bufferSize}/${stats.bufferDrops} drops, Connected: ${connStats.isConnected}, State: ${connStats.state}`);
-      this.lastStatusLog = Date.now();
+      // Log solo se ci sono problemi (drops > 0 o non connesso)
+      if (stats.bufferDrops > 0 || !connStats.isConnected) {
+        console.log(`[NETWORK] Status - Buffer: ${stats.bufferSize}/${stats.bufferDrops} drops, Connected: ${connStats.isConnected}, State: ${connStats.state}`);
+      }
+      this.lastStatusLog = now;
     }
   }
 

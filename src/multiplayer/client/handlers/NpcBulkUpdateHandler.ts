@@ -7,6 +7,9 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
  * Ottimizzato per performance con aggiornamenti batch
  */
 export class NpcBulkUpdateHandler extends BaseMessageHandler {
+  private lastNpcLog = 0;
+  private lastNpcCount = 0;
+
   constructor() {
     super(MESSAGE_TYPES.NPC_BULK_UPDATE);
   }
@@ -18,9 +21,15 @@ export class NpcBulkUpdateHandler extends BaseMessageHandler {
       return;
     }
 
-    // Log aggiornamenti significativi (ogni 10 secondi per evitare spam)
-    if (Math.floor(Date.now() / 10000) % 2 === 0 && message.npcs.length > 0) {
-      console.log(`🔄 [CLIENT] Received bulk update for ${message.npcs.length} NPCs`);
+    // Log aggiornamenti significativi (ogni 30 secondi per evitare spam)
+    if (Math.floor(Date.now() / 30000) === Math.floor(Date.now() / 30000) && message.npcs.length > 0) {
+      // Log solo se è cambiato il numero di NPC o se è passato abbastanza tempo
+      const now = Date.now();
+      if (!this.lastNpcLog || now - this.lastNpcLog > 30000 || this.lastNpcCount !== message.npcs.length) {
+        console.log(`🔄 [CLIENT] Received bulk update for ${message.npcs.length} NPCs`);
+        this.lastNpcLog = now;
+        this.lastNpcCount = message.npcs.length;
+      }
     }
 
     // Applica aggiornamenti bulk

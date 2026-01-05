@@ -24,10 +24,11 @@ export class InterpolationSystem extends BaseSystem {
 
     this.debugStats.activePredictions = entities.length;
 
-    // Log numero di entità interpolate ogni 10 secondi
-    if (Math.floor(Date.now() / 10000) % 2 === 0 && Date.now() - this.debugStats.lastDebugTime > 10000) {
+    // Log numero di entità interpolate ogni 30 secondi
+    const now = Date.now();
+    if (!this.debugStats.lastDebugTime || now - this.debugStats.lastDebugTime > 30000) {
       console.log(`[INTERPOLATION] Active interpolations: ${entities.length}`);
-      this.debugStats.lastDebugTime = Date.now();
+      this.debugStats.lastDebugTime = now;
     }
 
     for (const entity of entities) {

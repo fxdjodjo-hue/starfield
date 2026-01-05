@@ -22,6 +22,9 @@ export class RemoteNpcSystem extends BaseSystem {
   // Cache degli sprite NPC per tipo (più efficiente)
   private npcSprites: Map<string, Sprite> = new Map();
 
+  // Tracking per logging ridotto
+  private lastBulkUpdateLog = 0;
+
   constructor(ecs: ECS, npcSprites: Map<string, HTMLImageElement>) {
     super(ecs);
     this.initializeNpcSprites(npcSprites);
@@ -179,7 +182,12 @@ export class RemoteNpcSystem extends BaseSystem {
 
     const duration = Date.now() - startTime;
     if (updates.length > 0) {
-      console.log(`🔄 [REMOTE_NPC] Bulk updated ${updates.length} NPCs in ${duration}ms`);
+      // Log solo occasionalmente per evitare spam (ogni 10 secondi circa)
+      const now = Date.now();
+      if (!this.lastBulkUpdateLog || now - this.lastBulkUpdateLog > 10000) {
+        console.log(`🔄 [REMOTE_NPC] Bulk updated ${updates.length} NPCs in ${duration}ms`);
+        this.lastBulkUpdateLog = now;
+      }
     }
   }
 
