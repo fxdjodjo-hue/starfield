@@ -342,7 +342,7 @@ class ServerProjectileManager {
       reason
     };
 
-    this.broadcastToAll(message);
+    this.mapServer.broadcastToMap(message);
   }
 
   /**
@@ -360,7 +360,7 @@ class ServerProjectileManager {
       position: npc.position
     };
 
-    this.broadcastToAll(message);
+    this.mapServer.broadcastToMap(message);
   }
 
   /**
@@ -376,7 +376,7 @@ class ServerProjectileManager {
       rewards: this.calculateRewards(npc)
     };
 
-    this.broadcastToAll(message);
+    this.mapServer.broadcastToMap(message);
   }
 
   /**
@@ -506,13 +506,13 @@ class MapServer {
 
   // Broadcasting specifico della mappa
   broadcastToMap(message, excludeClientId = null) {
+    const payload = JSON.stringify(message);
+
     for (const [clientId, playerData] of this.players.entries()) {
       if (excludeClientId && clientId === excludeClientId) continue;
 
-      try {
-        playerData.ws.send(JSON.stringify(message));
-      } catch (error) {
-        console.error(`[MapServer:${this.mapId}] Error broadcasting to ${clientId}:`, error);
+      if (playerData.ws.readyState === WebSocket.OPEN) {
+        playerData.ws.send(payload);
       }
     }
   }
@@ -527,17 +527,14 @@ mapServer.initialize();
  */
 
 function processPositionUpdates() {
-  // Per ogni client che ha aggiornamenti in queue
   for (const [clientId, updates] of positionUpdateQueue) {
     if (updates.length === 0) continue;
 
-    // Prendi l'ultimo aggiornamento (più recente)
     const latestUpdate = updates[updates.length - 1];
 
-    // Broadcasting: inoltra l'ultimo aggiornamento a tutti gli altri client
     const positionBroadcast = {
       type: 'remote_player_update',
-      clientId: clientId,
+      clientId,
       position: latestUpdate.position,
       rotation: latestUpdate.rotation,
       tick: latestUpdate.tick,
@@ -545,55 +542,28 @@ function processPositionUpdates() {
       playerId: latestUpdate.playerId
     };
 
-    // Invia a tutti i client connessi tranne quello che ha inviato l'aggiornamento
-    let broadcastCount = 0;
-    wss.clients.forEach(client => {
-      if (client !== latestUpdate.senderWs && client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(positionBroadcast));
-        broadcastCount++;
-      }
-    });
-
-    if (broadcastCount > 0) {
-      console.log(`📡 [SERVER] Broadcasted position update from ${clientId} to ${broadcastCount} clients`);
-    }
-
-    // Svuota la queue per questo client
+    mapServer.broadcastToMap(positionBroadcast, clientId);
     positionUpdateQueue.delete(clientId);
   }
 }
 
-// Broadcasting NPC periodico (ogni 200ms)
 function broadcastNpcUpdates() {
-  const npcsToUpdate = mapServer.npcManager.getAllNpcs(); // Tutti gli NPC sempre
+  const npcs = mapServer.npcManager.getAllNpcs();
+  if (npcs.length === 0) return;
 
-  if (npcsToUpdate.length === 0) return;
-
-  console.log(`📡 [SERVER] Broadcasting ${npcsToUpdate.length} NPCs`);
-
-  const npcBulkUpdate = {
+  const message = {
     type: 'npc_bulk_update',
-    npcs: npcsToUpdate.map(npc => ({
+    npcs: npcs.map(npc => ({
       id: npc.id,
       position: npc.position,
       health: { current: npc.health, max: npc.maxHealth },
+      shield: { current: npc.shield, max: npc.maxShield },
       behavior: npc.behavior
     })),
     timestamp: Date.now()
   };
 
-  // Broadcast a tutti i client connessi
-  let broadcastCount = 0;
-  wss.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(npcBulkUpdate));
-      broadcastCount++;
-    }
-  });
-
-  if (broadcastCount > 0) {
-    console.log(`🌍 [SERVER] Broadcasted ${npcsToUpdate.length} NPC updates to ${broadcastCount} clients`);
-  }
+  mapServer.broadcastToMap(message);
 }
 
 // Sistema di movimento NPC semplice (server-side)
@@ -689,19 +659,12 @@ wss.on('connection', (ws) => {
         console.log(`   👤 User ID: ${data.userId}`);
         console.log(`👥 [SERVER] Total connected players: ${mapServer.players.size}`);
 
-        // Notifica a tutti gli altri giocatori che è arrivato un nuovo player
-        const newPlayerBroadcast = {
+        mapServer.broadcastToMap({
           type: 'player_joined',
           clientId: data.clientId,
           nickname: data.nickname,
           playerId: data.playerId
-        };
-
-        wss.clients.forEach(client => {
-          if (client !== ws && client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify(newPlayerBroadcast));
-          }
-        });
+        }, data.clientId);
 
         // Invia le posizioni di tutti i giocatori già connessi al nuovo giocatore
         mapServer.players.forEach((playerData, existingClientId) => {
@@ -747,7 +710,7 @@ wss.on('connection', (ws) => {
 
         // Invia la posizione del nuovo giocatore a tutti gli altri giocatori
         if (data.position) {
-          const newPlayerPositionBroadcast = {
+          mapServer.broadcastToMap({
             type: 'remote_player_update',
             clientId: data.clientId,
             position: data.position,
@@ -755,14 +718,7 @@ wss.on('connection', (ws) => {
             tick: 0,
             nickname: data.nickname,
             playerId: data.playerId
-          };
-
-          wss.clients.forEach(client => {
-            if (client !== ws && client.readyState === WebSocket.OPEN) {
-              client.send(JSON.stringify(newPlayerPositionBroadcast));
-              console.log(`📍 [SERVER] Sent initial position of ${data.clientId} to existing player`);
-            }
-          });
+          }, data.clientId);
         }
 
         console.log(`👋 [SERVER] Sent welcome to ${data.clientId}`);
@@ -861,16 +817,9 @@ wss.on('connection', (ws) => {
     if (playerData) {
       console.log(`❌ [SERVER] Player disconnected: ${playerData.clientId} (${playerData.nickname})`);
 
-      // Notifica a tutti gli altri giocatori che questo player se n'è andato
-      const playerLeftBroadcast = {
+      mapServer.broadcastToMap({
         type: 'player_left',
         clientId: playerData.clientId
-      };
-
-      wss.clients.forEach(client => {
-        if (client !== ws && client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(playerLeftBroadcast));
-        }
       });
 
       mapServer.removePlayer(playerData.clientId);
