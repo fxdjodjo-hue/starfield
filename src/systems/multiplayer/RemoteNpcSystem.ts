@@ -1,6 +1,7 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Sprite } from '../../entities/Sprite';
 import { Health } from '../../entities/combat/Health';
@@ -80,6 +81,12 @@ export class RemoteNpcSystem extends BaseSystem {
     this.ecs.addComponent(entity, Transform, new Transform(x, y, 0));
     this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, 0));
 
+    // Velocity component per compatibilità con NpcRenderer
+    // Calcola velocity basata sulla rotazione (direzione di movimento)
+    const velocityX = Math.cos(0) * 50; // 50 è la velocità tipica degli NPC
+    const velocityY = Math.sin(0) * 50;
+    this.ecs.addComponent(entity, Velocity, new Velocity(velocityX, velocityY, 0));
+
     // Componenti visivi
     this.ecs.addComponent(entity, Sprite, sprite.clone()); // Clone per evitare condivisione
 
@@ -126,6 +133,14 @@ export class RemoteNpcSystem extends BaseSystem {
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
       if (interpolation) {
         interpolation.updateTarget(position.x, position.y, position.rotation || 0);
+      }
+
+      // Aggiorna Velocity per riflettere la direzione corrente
+      const velocity = this.ecs.getComponent(entity, Velocity);
+      if (velocity) {
+        const speed = 50; // Velocità tipica degli NPC
+        velocity.x = Math.cos(position.rotation || 0) * speed;
+        velocity.y = Math.sin(position.rotation || 0) * speed;
       }
     }
 
