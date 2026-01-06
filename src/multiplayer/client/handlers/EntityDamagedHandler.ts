@@ -15,6 +15,10 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     console.log(`💥 [DAMAGE_TEXT] Received entity_damaged: ${message.entityType} ${message.entityId}, damage: ${message.damage}, newHealth: ${message.newHealth}, newShield: ${message.newShield}`);
 
+    if (message.entityType === 'npc') {
+      console.log(`🎯 [NPC_DAMAGE] Processing damage for NPC ${message.entityId}`);
+    }
+
     // Crea damage text per il danno ricevuto
     const ecs = networkSystem.getECS();
     if (ecs) {
@@ -104,10 +108,13 @@ export class EntityDamagedHandler extends BaseMessageHandler {
 
           // Aggiorna i componenti con i nuovi valori ricevuti dal server
           if (healthComponent) {
+            console.log(`🔄 [UPDATE] Updating health: ${healthComponent.current} → ${message.newHealth}`);
             healthComponent.current = message.newHealth;
           }
           if (shieldComponent) {
+            console.log(`🔄 [UPDATE] Updating shield: ${shieldComponent.current} → ${message.newShield}`);
             shieldComponent.current = message.newShield;
+            console.log(`📊 [SHIELD] Shield percentage after update: ${shieldComponent.getPercentage()}`);
           }
         } else {
           console.log(`💥 [DAMAGE_TEXT] No valid target entity found for ${message.entityType} ${message.entityId} (targetEntity: ${targetEntity}, id: ${targetEntity?.id})`);

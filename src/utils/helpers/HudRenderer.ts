@@ -58,9 +58,16 @@ export class HudRenderer {
    * Get rendering parameters for shield bar
    */
   static getShieldBarParams(screenX: number, screenY: number, shield: Shield | null): HealthBarRenderParams | null {
-    if (!shield) return null;
+    if (!shield) {
+      console.log(`❌ [SHIELD_BAR] No shield component`);
+      return null;
+    }
 
     const barY = screenY - this.BAR_OFFSET_Y;
+    const percentage = shield.getPercentage();
+    const width = this.BAR_WIDTH * percentage;
+
+    console.log(`📊 [SHIELD_BAR] Rendering shield bar - current: ${shield.current}, max: ${shield.max}, percentage: ${percentage}, width: ${width}`);
 
     return {
       backgroundColor: '#001133', // Dark blue background
@@ -68,7 +75,7 @@ export class HudRenderer {
       borderColor: this.BORDER_COLOR,
       x: screenX - this.BAR_WIDTH / 2,
       y: barY,
-      width: this.BAR_WIDTH * shield.getPercentage(),
+      width: width,
       height: this.BAR_HEIGHT,
       borderWidth: this.BORDER_WIDTH
     };
