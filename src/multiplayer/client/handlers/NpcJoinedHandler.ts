@@ -11,9 +11,11 @@ export class NpcJoinedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    console.log(`🚀 [NPC_JOINED] Creating NPC ${message.npcId} (${message.npcType}) at (${message.position.x}, ${message.position.y})`);
+
     const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
     if (!remoteNpcSystem) {
-      console.error('[CLIENT] RemoteNpcSystem not available for NPC joined');
+      console.error('❌ [NPC_JOINED] RemoteNpcSystem not available for NPC joined');
       return;
     }
 
@@ -30,7 +32,9 @@ export class NpcJoinedHandler extends BaseMessageHandler {
     );
 
     if (entityId === -1) {
-      console.error(`❌ [CLIENT] Failed to create NPC ${message.npcId}`);
+      console.error(`❌ [NPC_JOINED] Failed to create NPC ${message.npcId}`);
+    } else {
+      console.log(`✅ [NPC_JOINED] Created NPC ${message.npcId} with entity ID ${entityId}`);
     }
   }
 }
