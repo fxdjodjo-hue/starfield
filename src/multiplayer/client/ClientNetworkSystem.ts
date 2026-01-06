@@ -392,6 +392,18 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Gets the EntityDestroyedHandler instance
+   */
+  getEntityDestroyedHandler(): any {
+    // Trova l'handler EntityDestroyedHandler tra quelli registrati
+    if (this.messageRouter) {
+      const handlers = (this.messageRouter as any).handlers || [];
+      return handlers.find((handler: any) => handler.constructor.name === 'EntityDestroyedHandler') || null;
+    }
+    return null;
+  }
+
+  /**
    * Gets the RemoteProjectileSystem instance
    */
   getRemoteProjectileSystem(): RemoteProjectileSystem | null {

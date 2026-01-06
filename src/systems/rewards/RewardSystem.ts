@@ -87,6 +87,81 @@ export class RewardSystem extends BaseSystem {
   }
 
   /**
+   * Assegna ricompense ricevute dal server quando un NPC viene ucciso
+   */
+  assignRewardsFromServer(rewards: any, npcType: string): void {
+    if (!this.economySystem) {
+      console.warn('[RewardSystem] EconomySystem not available for server rewards');
+      return;
+    }
+
+    // Incrementa contatore kills del player
+    if (this.playerEntity) {
+      const playerStats = this.ecs.getComponent(this.playerEntity, PlayerStats);
+      if (playerStats) {
+        playerStats.addKill();
+      }
+    }
+
+    // Assegna ricompense economiche ricevute dal server
+    if (rewards.credits > 0) {
+      this.economySystem.addCredits(rewards.credits, `defeated ${npcType}`);
+    }
+
+    if (rewards.cosmos > 0) {
+      this.economySystem.addCosmos(rewards.cosmos, `defeated ${npcType}`);
+    }
+
+    if (rewards.experience > 0) {
+      this.economySystem.addExperience(rewards.experience, `defeated ${npcType}`);
+    }
+
+    if (rewards.honor > 0) {
+      this.economySystem.addHonor(rewards.honor, `defeated ${npcType}`);
+    }
+
+    // Segnala cambiamento per salvataggio event-driven
+    if (this.playState && this.playState.markAsChanged) {
+      this.playState.markAsChanged();
+    }
+
+    // Crea il messaggio dell'NPC sconfitto
+    if (this.logSystem) {
+      let killMessage = `💀 ${npcType} sconfitto!`;
+
+      // Aggiungi ricompense se presenti
+      const rewardParts: string[] = [];
+      if (rewards.credits > 0) rewardParts.push(`${rewards.credits} crediti`);
+      if (rewards.cosmos > 0) rewardParts.push(`${rewards.cosmos} cosmos`);
+      if (rewards.experience > 0) rewardParts.push(`${rewards.experience} XP`);
+      if (rewards.honor > 0) rewardParts.push(`${rewards.honor} onore`);
+
+      if (rewardParts.length > 0) {
+        killMessage += `\n🎁 Ricompense: ${rewardParts.join(', ')}`;
+      }
+
+      this.logSystem.addLogMessage(killMessage, LogType.NPC_KILLED, 4000);
+    }
+
+    // Notifica il sistema quest per aggiornare il progresso
+    if (this.questTrackingSystem) {
+      const event = {
+        type: QuestEventType.NPC_KILLED,
+        targetId: npcType,
+        targetType: npcType.toLowerCase(),
+        amount: 1
+      };
+
+      this.questTrackingSystem.triggerEvent(event);
+    }
+
+    // Pianifica il respawn dell'NPC morto
+    if (this.respawnSystem) {
+      this.respawnSystem.scheduleRespawn(npcType, Date.now());
+    }
+  }
+
+  /**
    * Assegna le ricompense per aver ucciso un NPC
    */
   private assignNpcRewards(npcEntity: any): void {

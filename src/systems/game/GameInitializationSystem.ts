@@ -91,6 +91,15 @@ export class GameInitializationSystem extends System {
     } else {
       console.warn('[INIT] CombatSystem not available or setClientNetworkSystem method missing');
     }
+
+    // Collega RewardSystem all'EntityDestroyedHandler per processare ricompense da server
+    if (clientNetworkSystem && typeof clientNetworkSystem.getEntityDestroyedHandler === 'function') {
+      const entityDestroyedHandler = clientNetworkSystem.getEntityDestroyedHandler();
+      if (entityDestroyedHandler && this.systemsCache?.rewardSystem) {
+        entityDestroyedHandler.setRewardSystem(this.systemsCache.rewardSystem);
+        console.log('[INIT] RewardSystem collegato a EntityDestroyedHandler');
+      }
+    }
   }
 
   /**
