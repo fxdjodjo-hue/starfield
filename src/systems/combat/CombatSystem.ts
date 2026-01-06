@@ -80,12 +80,11 @@ export class CombatSystem extends BaseSystem {
     // Combattimento automatico per NPC selezionati
     this.processPlayerCombat();
 
-    // NPC attaccano automaticamente il player quando nel range (tutti gli NPC, non solo selezionati)
-    const allNpcs = this.ecs.getEntitiesWithComponents(Npc, Damage, Transform);
-
-    for (const attackerEntity of allNpcs) {
-      this.processNpcCombat(attackerEntity);
-    }
+    // NPC combat disabilitato - tutto gestito lato server automaticamente
+    // const allNpcs = this.ecs.getEntitiesWithComponents(Npc, Damage, Transform);
+    // for (const attackerEntity of allNpcs) {
+    //   this.processNpcCombat(attackerEntity);
+    // }
 
     // Elabora il combattimento per un NPC selezionato (player combatte automaticamente)
   }
@@ -94,6 +93,8 @@ export class CombatSystem extends BaseSystem {
    * Elabora il combattimento per un NPC che attacca il player quando nel range
    */
   private processNpcCombat(attackerEntity: any): void {
+    console.warn(`⚠️ [COMBAT] NPC combat called for entity ${attackerEntity.id} - THIS SHOULD NOT HAPPEN in automatic combat!`);
+
     const attackerTransform = this.ecs.getComponent(attackerEntity, Transform);
     const attackerDamage = this.ecs.getComponent(attackerEntity, Damage);
 
@@ -165,12 +166,8 @@ export class CombatSystem extends BaseSystem {
       // (poiché l'attacco è completamente automatico senza input manuale)
       this.createSingleLaser(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     } else {
-      // Riproduci suono laser degli scouter
-      if (this.audioSystem) {
-        this.audioSystem.playSound('scouterLaser', 0.25, false, true); // Volume leggermente ridotto
-      }
-
       // NPC: non creare proiettile locale - il server gestisce tutti i proiettili NPC
+      // Nota: tutti i suoni NPC vengono riprodotti in ProjectileFiredHandler quando arrivano dal server
       // Registra solo il cooldown per evitare spam di suoni
       attackerDamage.performAttack(Date.now());
     }
