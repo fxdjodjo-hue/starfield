@@ -1,11 +1,60 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Supabase configuration
+// Supabase configuration - Temporaneamente disabilitato per multiplayer
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+// Mock Supabase client per permettere il gioco senza autenticazione
+const createMockClient = () => ({
+  auth: {
+    signInAnonymously: async () => ({
+      data: {
+        user: { id: `player_${Date.now()}`, email: 'anonymous@starfield.local' },
+        session: { access_token: 'mock_token' }
+      },
+      error: null
+    }),
+    signUp: async () => ({ data: null, error: null }),
+    signInWithPassword: async () => ({ data: null, error: null }),
+    signOut: async () => ({ error: null }),
+    getUser: async () => ({ data: { user: null }, error: null }),
+    onAuthStateChange: (callback: any) => ({
+      data: { subscription: { unsubscribe: () => {} } }
+    })
+  },
+  rpc: async (name: string) => {
+    if (name === 'get_next_player_id') {
+      return { data: Math.floor(Math.random() * 10000), error: null }
+    }
+    return { data: null, error: null }
+  },
+  from: (table: string) => ({
+    select: () => ({
+      eq: () => ({
+        maybeSingle: async () => ({ data: null, error: null }),
+        order: () => ({ data: [], error: null })
+      })
+    }),
+    insert: async () => ({ data: null, error: null }),
+    upsert: async () => ({ data: null, error: null }),
+    update: async () => ({ data: null, error: null })
+  })
+})
+
+// Usa mock se Supabase non è configurato correttamente
+const useMock = !import.meta.env.VITE_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL.includes('your-project')
+export const supabase = useMock ? createMockClient() : createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
+  }
+})
   auth: {
     autoRefreshToken: true,
     persistSession: true,
