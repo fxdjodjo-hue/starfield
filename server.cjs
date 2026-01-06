@@ -740,14 +740,16 @@ class ServerCombatManager {
    * Esegue un attacco NPC contro un player
    */
   performNpcAttack(npc, targetPlayer, now) {
-    // Ruota NPC verso il target
+    // Calcola direzione diretta verso il player per il proiettile
     const dx = targetPlayer.position.x - npc.position.x;
     const dy = targetPlayer.position.y - npc.position.y;
-    npc.position.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+    const angle = Math.atan2(dy, dx);
+
+    // Ruota NPC verso il target (per rendering visivo)
+    npc.position.rotation = angle + Math.PI / 2;
 
     // Crea proiettile NPC
     const projectileId = `npc_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const angle = npc.position.rotation - Math.PI / 2; // Correggi rotazione
     const speed = SERVER_CONSTANTS.PROJECTILE.SPEED; // Velocità proiettile
 
     const velocity = {
@@ -755,7 +757,7 @@ class ServerCombatManager {
       y: Math.sin(angle) * speed
     };
 
-    // Posizione leggermente avanti all'NPC
+    // Posizione leggermente avanti all'NPC nella direzione del proiettile
     const offset = 25; // Dimensione nave
     const projectilePos = {
       x: npc.position.x + Math.cos(angle) * offset,
