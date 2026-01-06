@@ -154,6 +154,8 @@ export class PlayerControlSystem extends BaseSystem {
     }
 
     // Se c'è un NPC selezionato, ruota il player verso di esso (ha priorità)
+    // Questa chiamata viene sempre fatta per garantire che la rotazione sia corretta
+    // anche quando il player rimane fermo durante il combattimento
     this.faceSelectedNpc();
   }
 

@@ -37,7 +37,6 @@ class NetworkCircuitBreaker {
    */
   recordSuccess(): void {
     this.failureCount = 0;
-    console.log(`[CIRCUIT_BREAKER] Connection successful, reset failure count`);
   }
 
   /**

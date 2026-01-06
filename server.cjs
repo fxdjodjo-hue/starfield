@@ -145,6 +145,38 @@ class ServerNpcManager {
   }
 
   /**
+   * Applica danno a un giocatore (server authoritative)
+   */
+  damagePlayer(clientId, damage, attackerId) {
+    const playerData = this.mapServer.players.get(clientId);
+    if (!playerData || playerData.isDead) return false;
+
+    // Prima danneggia lo scudo
+    if (playerData.shield > 0) {
+      const shieldDamage = Math.min(damage, playerData.shield);
+      playerData.shield -= shieldDamage;
+      damage -= shieldDamage;
+    }
+
+    // Poi danneggia la salute
+    if (damage > 0) {
+      playerData.health = Math.max(0, playerData.health - damage);
+    }
+
+    playerData.lastDamage = Date.now();
+
+    console.log(`💥 [SERVER] Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`);
+
+    // Se morto, gestisci la morte
+    if (playerData.health <= 0) {
+      this.handlePlayerDeath(clientId, attackerId);
+      return true; // Player morto
+    }
+
+    return false; // Player sopravvissuto
+  }
+
+  /**
    * Rimuove un NPC dal mondo
    */
   removeNpc(npcId) {
@@ -280,7 +312,23 @@ class ServerProjectileManager {
         continue;
       }
 
-      // Verifica collisioni con giocatori (TODO: implementare quando aggiunto health dei giocatori)
+      // Verifica collisioni con giocatori
+      const hitPlayer = this.checkPlayerCollision(projectile);
+      if (hitPlayer) {
+        // Applica danno al giocatore
+        const playerDead = this.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
+
+        // Notifica danno
+        this.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
+
+        // Se giocatore morto, gestione già in damagePlayer
+        if (playerDead) {
+          console.log(`☠️ [SERVER] Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
+        }
+
+        projectilesToRemove.push(projectileId);
+        continue;
+      }
 
       // Verifica se proiettile è fuori dai confini del mondo
       if (this.isOutOfBounds(projectile.position)) {
@@ -313,6 +361,30 @@ class ServerProjectileManager {
       // Collisione se distanza < 50 pixel (dimensione nave)
       if (distance < 50) {
         return npc;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Verifica collisione proiettile con giocatori
+   */
+  checkPlayerCollision(projectile) {
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      // Salta il giocatore che ha sparato il proiettile
+      if (clientId === projectile.playerId) continue;
+
+      // Salta giocatori morti o senza posizione
+      if (!playerData.position || playerData.isDead) continue;
+
+      const distance = Math.sqrt(
+        Math.pow(projectile.position.x - playerData.position.x, 2) +
+        Math.pow(projectile.position.y - playerData.position.y, 2)
+      );
+
+      // Collisione se distanza < 50 pixel (dimensione nave)
+      if (distance < 50) {
+        return { playerData, clientId };
       }
     }
     return null;
@@ -364,39 +436,103 @@ class ServerProjectileManager {
   }
 
   /**
+   * Gestisce la morte di un giocatore
+   */
+  handlePlayerDeath(clientId, killerId) {
+    const playerData = this.mapServer.players.get(clientId);
+    if (!playerData) return;
+
+    console.log(`💀 [SERVER] Player ${clientId} died! Killer: ${killerId}`);
+
+    playerData.isDead = true;
+    playerData.respawnTime = Date.now() + 3000; // 3 secondi di respawn
+
+    // Broadcast morte
+    this.broadcastEntityDestroyed(playerData, killerId);
+
+    // Respawn dopo delay
+    setTimeout(() => {
+      this.respawnPlayer(clientId);
+    }, 3000);
+  }
+
+  /**
+   * Fai respawnare un giocatore
+   */
+  respawnPlayer(clientId) {
+    const playerData = this.mapServer.players.get(clientId);
+    if (!playerData) return;
+
+    // Reset stats
+    playerData.health = playerData.maxHealth;
+    playerData.shield = playerData.maxShield;
+    playerData.isDead = false;
+    playerData.respawnTime = null;
+
+    // Spawn in posizione sicura (vicino al centro per ora)
+    playerData.position = {
+      x: (Math.random() - 0.5) * 1000, // ±500 dal centro
+      y: (Math.random() - 0.5) * 1000
+    };
+
+    console.log(`🔄 [SERVER] Player ${clientId} respawned at (${playerData.position.x.toFixed(0)}, ${playerData.position.y.toFixed(0)})`);
+
+    // Broadcast respawn
+    this.broadcastPlayerRespawn(playerData);
+  }
+
+  /**
    * Broadcast danno a entità
    */
-  broadcastEntityDamaged(npc, projectile) {
+  broadcastEntityDamaged(entity, projectile, entityType = 'npc') {
     const message = {
       type: 'entity_damaged',
-      entityId: npc.id,
-      entityType: 'npc',
+      entityId: entityType === 'npc' ? entity.id : entity.clientId,
+      entityType: entityType,
       damage: projectile.damage,
       attackerId: projectile.playerId,
-      newHealth: npc.health,
-      newShield: npc.shield,
-      position: npc.position
+      newHealth: entity.health,
+      newShield: entity.shield,
+      position: entity.position
     };
 
     // Interest radius per danni
-    this.mapServer.broadcastNear(npc.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
+    this.mapServer.broadcastNear(entity.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
   }
 
   /**
    * Broadcast distruzione entità
    */
-  broadcastEntityDestroyed(npc, destroyerId) {
+  broadcastEntityDestroyed(entity, destroyerId, entityType = 'npc') {
     const message = {
       type: 'entity_destroyed',
-      entityId: npc.id,
-      entityType: 'npc',
+      entityId: entityType === 'npc' ? entity.id : entity.clientId,
+      entityType: entityType,
       destroyerId,
-      position: npc.position,
-      rewards: this.calculateRewards(npc)
+      position: entity.position,
+      rewards: entityType === 'npc' ? this.calculateRewards(entity) : undefined
     };
 
     // Interest radius: 2000 unità per distruzioni (più ampio per effetti visivi)
-    this.mapServer.broadcastNear(npc.position, 2000, message);
+    this.mapServer.broadcastNear(entity.position, 2000, message);
+  }
+
+  /**
+   * Broadcast respawn giocatore
+   */
+  broadcastPlayerRespawn(playerData) {
+    const message = {
+      type: 'player_respawn',
+      clientId: playerData.clientId,
+      position: playerData.position,
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield
+    };
+
+    // Broadcast a tutti i giocatori
+    this.mapServer.broadcast(message);
   }
 
   /**
@@ -570,12 +706,19 @@ class ServerCombatManager {
    * Inizia combattimento player contro NPC
    */
   startPlayerCombat(playerId, npcId) {
-    console.log(`⚔️ [SERVER] Starting player combat: ${playerId} vs ${npcId}`);
+    console.log(`⚔️ [SERVER] startPlayerCombat called: ${playerId} vs ${npcId}`);
 
-    // Evita combattimenti duplicati per lo stesso player
+    // Se il player sta già combattendo un NPC diverso, ferma il combattimento precedente
     if (this.playerCombats.has(playerId)) {
-      console.log(`⚠️ [SERVER] Player ${playerId} already in combat, ignoring duplicate request`);
-      return;
+      const existingCombat = this.playerCombats.get(playerId);
+      if (existingCombat.npcId !== npcId) {
+        console.log(`🔄 [SERVER] Player ${playerId} switching from NPC ${existingCombat.npcId} to ${npcId}, stopping previous combat`);
+        this.playerCombats.delete(playerId);
+        // Non chiamare stopPlayerCombat qui per evitare loop
+      } else {
+        console.log(`⚠️ [SERVER] Player ${playerId} already attacking NPC ${npcId}, ignoring duplicate request`);
+        return;
+      }
     }
 
     // Verifica che l'NPC esista
@@ -589,7 +732,8 @@ class ServerCombatManager {
     this.playerCombats.set(playerId, {
       npcId: npcId,
       lastAttackTime: 0,
-      attackCooldown: 1000 // 1 sparo al secondo
+      attackCooldown: 1000, // 1 sparo al secondo
+      combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
   }
 
@@ -639,16 +783,24 @@ class ServerCombatManager {
       return;
     }
 
-    // Verifica che il player sia nel range
+    // Verifica che il player sia nel range (con periodo di grazia iniziale)
     const distance = Math.sqrt(
       Math.pow(playerData.position.x - npc.position.x, 2) +
       Math.pow(playerData.position.y - npc.position.y, 2)
     );
 
-    if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_RANGE) { // Range del player
-      console.log(`📏 [SERVER] Player ${playerId} out of range (${distance.toFixed(0)}), stopping combat`);
+    // Periodo di grazia: non verificare range nei primi 2 secondi dopo inizio combattimento
+    const timeSinceCombatStart = now - (combat.combatStartTime || 0);
+    const inGracePeriod = timeSinceCombatStart < 2000; // 2 secondi di grazia
+
+    if (!inGracePeriod && distance > SERVER_CONSTANTS.COMBAT.PLAYER_RANGE) { // Range del player
+      console.log(`📏 [SERVER] Player ${playerId} out of range (${distance.toFixed(0)}) after ${timeSinceCombatStart}ms, stopping combat (was attacking NPC ${combat.npcId})`);
       this.playerCombats.delete(playerId);
       return;
+    }
+
+    if (inGracePeriod) {
+      console.log(`🛡️ [SERVER] Player ${playerId} in grace period (${timeSinceCombatStart}ms), skipping range check`);
     }
 
     // Verifica cooldown
@@ -658,7 +810,7 @@ class ServerCombatManager {
     }
 
     // Esegui attacco
-    console.log(`🔫 [SERVER] Player ${playerId} attacking NPC ${combat.npcId} (distance: ${distance.toFixed(0)})`);
+    console.log(`🔫 [SERVER] Player ${playerId} attacking NPC ${combat.npcId} (distance: ${distance.toFixed(0)}, range: ${SERVER_CONSTANTS.COMBAT.PLAYER_RANGE})`);
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
   }
@@ -948,7 +1100,16 @@ wss.on('connection', (ws) => {
           userId: data.userId,
           connectedAt: new Date().toISOString(),
           lastInputAt: null,
-          ws: ws
+          ws: ws,
+          // Health and shield system (server authoritative)
+          health: 100000,
+          maxHealth: 100000,
+          shield: 50000,
+          maxShield: 50000,
+          // Combat state
+          lastDamage: null,
+          isDead: false,
+          respawnTime: null
         };
 
         mapServer.addPlayer(data.clientId, playerData);
@@ -1126,12 +1287,20 @@ wss.on('connection', (ws) => {
           return;
         }
 
+        console.log(`📡 [SERVER] Received START_COMBAT: player=${data.playerId}, npc=${data.npcId}`);
+
         // Inizia il combattimento server-side
         mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);
 
         // Spara immediatamente il primo proiettile per ridurre il delay percepito
         // Nota: rimuoviamo il setTimeout per evitare race conditions
-        mapServer.combatManager.processPlayerCombat(data.playerId);
+        const combat = mapServer.combatManager.playerCombats.get(data.playerId);
+        if (combat) {
+          console.log(`📡 [SERVER] Processing initial combat for ${data.playerId} vs ${data.npcId}`);
+          mapServer.combatManager.processPlayerCombat(data.playerId, combat, Date.now());
+        } else {
+          console.error(`❌ [SERVER] Combat not found after startPlayerCombat for ${data.playerId}`);
+        }
 
         // Broadcast stato combattimento a tutti i client
         const combatUpdate = {

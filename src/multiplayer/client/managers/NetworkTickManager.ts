@@ -8,7 +8,7 @@ export class NetworkTickManager {
   private lastPositionSyncTime = 0;
   private lastHeartbeatTime = 0;
   private tickCounter = 0;
-  private lastSentPosition: { x: number; y: number } | null = null;
+  private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
 
   // Message buffering for high-latency scenarios
   private positionBuffer: Array<{ position: { x: number; y: number; rotation: number }; timestamp: number }> = [];
@@ -93,14 +93,19 @@ export class NetworkTickManager {
     // Send the most recent position update
     const latestUpdate = this.positionBuffer[this.positionBuffer.length - 1];
 
-    // Check if position actually changed since last sent
+    // Check if position OR rotation actually changed since last sent
     const shouldSend = !this.lastSentPosition ||
       Math.abs(latestUpdate.position.x - this.lastSentPosition.x) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
-      Math.abs(latestUpdate.position.y - this.lastSentPosition.y) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD;
+      Math.abs(latestUpdate.position.y - this.lastSentPosition.y) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
+      Math.abs(latestUpdate.position.rotation - this.lastSentPosition.rotation) > NETWORK_CONFIG.ROTATION_CHANGE_THRESHOLD;
 
     if (shouldSend) {
       this.sendPositionCallback(latestUpdate.position);
-      this.lastSentPosition = { x: latestUpdate.position.x, y: latestUpdate.position.y };
+      this.lastSentPosition = {
+        x: latestUpdate.position.x,
+        y: latestUpdate.position.y,
+        rotation: latestUpdate.position.rotation
+      };
     }
 
     // Clear buffer after sending

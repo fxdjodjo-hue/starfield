@@ -46,7 +46,6 @@ export class RemoteNpcSystem extends BaseSystem {
       this.npcSprites.set('Frigate', new Sprite(frigateImage, frigateImage.width * 0.16, frigateImage.height * 0.16));
     }
 
-    console.log(`🎨 [REMOTE_NPC] Initialized ${this.npcSprites.size} NPC sprite types`);
   }
 
   /**
@@ -55,7 +54,6 @@ export class RemoteNpcSystem extends BaseSystem {
   updateNpcSprite(type: string, image: HTMLImageElement): void {
     const scale = type === 'Scouter' ? 0.15 : 0.16;
     this.npcSprites.set(type, new Sprite(image, image.width * scale, image.height * scale));
-    console.log(`🔄 [REMOTE_NPC] Updated sprite for ${type} NPC type`);
   }
 
   /**
@@ -103,7 +101,6 @@ export class RemoteNpcSystem extends BaseSystem {
     // Registra l'NPC
     this.remoteNpcs.set(npcId, { entityId: entity.id, type });
 
-    console.log(`🆕 [REMOTE_NPC] Created remote NPC ${npcId} (${type}) at (${x.toFixed(1)}, ${y.toFixed(1)})`);
     return entity.id;
   }
 
@@ -163,7 +160,6 @@ export class RemoteNpcSystem extends BaseSystem {
     const entity = this.ecs.getEntity(npcData.entityId);
     if (entity) {
       this.ecs.removeEntity(entity);
-      console.log(`💥 [REMOTE_NPC] Removed remote NPC ${npcId}`);
     }
 
     this.remoteNpcs.delete(npcId);
@@ -180,14 +176,10 @@ export class RemoteNpcSystem extends BaseSystem {
       this.updateRemoteNpc(update.id, update.position, update.health, update.behavior);
     }
 
+    // Only log performance issues
     const duration = Date.now() - startTime;
-    if (updates.length > 0) {
-      // Log solo occasionalmente per evitare spam (ogni 10 secondi circa)
-      const now = Date.now();
-      if (!this.lastBulkUpdateLog || now - this.lastBulkUpdateLog > 10000) {
-        console.log(`🔄 [REMOTE_NPC] Bulk updated ${updates.length} NPCs in ${duration}ms`);
-        this.lastBulkUpdateLog = now;
-      }
+    if (updates.length > 0 && duration > 50) { // Only log if it takes more than 50ms
+      console.log(`[REMOTE_NPC] Bulk update took ${duration}ms for ${updates.length} NPCs`);
     }
   }
 
@@ -195,8 +187,6 @@ export class RemoteNpcSystem extends BaseSystem {
    * Inizializza NPC dal messaggio initial_npcs
    */
   initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Frigate', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
-    console.log(`🌍 [REMOTE_NPC] Initializing ${npcs.length} NPCs from server`);
-
     for (const npcData of npcs) {
       this.addRemoteNpc(
         npcData.id,
@@ -209,8 +199,6 @@ export class RemoteNpcSystem extends BaseSystem {
         npcData.behavior
       );
     }
-
-    console.log(`✅ [REMOTE_NPC] Successfully initialized ${this.remoteNpcs.size} remote NPCs`);
   }
 
   /**
@@ -258,19 +246,13 @@ export class RemoteNpcSystem extends BaseSystem {
     for (const npcId of npcIds) {
       this.removeRemoteNpc(npcId);
     }
-    console.log(`🧹 [REMOTE_NPC] Cleaned up all ${npcIds.length} remote NPCs`);
   }
 
   /**
    * Update periodico (principalmente per logging)
    */
   update(deltaTime: number): void {
-    // Logging periodico dello stato ogni 30 secondi
-    if (Math.floor(Date.now() / 30000) % 2 === 0 && !this.lastStatusLog) {
-      const stats = this.getStats();
-      console.log(`📊 [REMOTE_NPC] Status: ${stats.totalNpcs} NPCs (${stats.scouters} Scouters, ${stats.frigates} Frigates)`);
-      this.lastStatusLog = Date.now();
-    }
+    // No periodic logging needed
   }
 
   private lastStatusLog = 0;

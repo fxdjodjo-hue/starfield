@@ -11,7 +11,8 @@ export const NETWORK_CONFIG = {
   POSITION_SYNC_INTERVAL: 50, // 20 FPS for position updates
 
   // Position sync thresholds
-  POSITION_CHANGE_THRESHOLD: 5, // Minimum position change to trigger sync
+  POSITION_CHANGE_THRESHOLD: 5, // Minimum position change to trigger sync (pixels)
+  ROTATION_CHANGE_THRESHOLD: 0.05, // Minimum rotation change to trigger sync (radians) - ridotto per più fluidità
 
   // Connection management
   RECONNECT_ATTEMPTS: 3,
@@ -59,6 +60,9 @@ export const MESSAGE_TYPES = {
   INITIAL_NPCS: 'initial_npcs',
   NPC_LEFT: 'npc_left',
   NPC_DAMAGED: 'npc_damaged',
+
+  // Player messages
+  PLAYER_RESPAWN: 'player_respawn',
 
   // Combat messages
   START_COMBAT: 'start_combat',
@@ -263,6 +267,19 @@ export interface ExplosionCreatedMessage {
   explosionType: 'entity_death' | 'projectile_impact' | 'special';
 }
 
+/**
+ * Respawn di un giocatore
+ */
+export interface PlayerRespawnMessage {
+  type: typeof MESSAGE_TYPES.PLAYER_RESPAWN;
+  clientId: string;
+  position: { x: number; y: number };
+  health: number;
+  maxHealth: number;
+  shield: number;
+  maxShield: number;
+}
+
 // Type union per tutti i messaggi NPC
 export type NpcMessage =
   | NpcJoinedMessage
@@ -283,6 +300,10 @@ export type CombatMessage =
   | EntityDamagedMessage
   | EntityDestroyedMessage
   | ExplosionCreatedMessage;
+
+// Type union per tutti i messaggi dei giocatori
+export type PlayerMessage =
+  | PlayerRespawnMessage;
 
 // Type union per tutti i messaggi di rete
 export type NetworkMessageUnion =

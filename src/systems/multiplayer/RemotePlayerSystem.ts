@@ -8,6 +8,7 @@ import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
@@ -38,7 +39,9 @@ export class RemotePlayerSystem extends BaseSystem {
 
 
   update(_deltaTime: number): void {
-    // Per ora non abbiamo logica di update specifica
+    // Gestisci orientamento dei remote player verso NPC selezionati
+    this.faceSelectedNpcsForRemotePlayers();
+
     // I componenti Velocity vengono gestiti dal MovementSystem
   }
 
@@ -135,8 +138,6 @@ export class RemotePlayerSystem extends BaseSystem {
     const interpolation = new InterpolationTarget(x, y, rotation);
     this.ecs.addComponent(entity, InterpolationTarget, interpolation);
 
-    console.log(`[REMOTE_PLAYER] Created new remote player ${clientId} -> entity ${entity.id}`);
-
     return entity.id;
   }
 
@@ -154,11 +155,6 @@ export class RemotePlayerSystem extends BaseSystem {
     const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
     if (interpolation) {
       // Log aggiornamenti posizione ogni 5 secondi per evitare spam
-      const now = Date.now();
-      if (!this.lastUpdateLog[clientId] || now - this.lastUpdateLog[clientId] > 5000) {
-        console.log(`[REMOTE_PLAYER] Updated ${clientId}: (${x.toFixed(1)}, ${y.toFixed(1)}) -> entity ${entity.id}`);
-        this.lastUpdateLog[clientId] = now;
-      }
 
       // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
       // Eliminazione completa degli scatti attraverso interpolazione continua
@@ -175,7 +171,6 @@ export class RemotePlayerSystem extends BaseSystem {
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       this.ecs.removeEntity(entity);
-      console.log(`[REMOTE_PLAYER] Removed remote player ${clientId} -> entity ${entity.id}`);
     }
   }
 
@@ -188,7 +183,6 @@ export class RemotePlayerSystem extends BaseSystem {
     for (const entity of remotePlayerEntities) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
       if (remotePlayerComponent) {
-        console.log(`[REMOTE_PLAYER] Removing all remote players: ${remotePlayerComponent.clientId} -> entity ${entity.id}`);
         this.ecs.removeEntity(entity);
       }
     }
@@ -244,5 +238,95 @@ export class RemotePlayerSystem extends BaseSystem {
    */
   getRemotePlayerCount(): number {
     return this.ecs.getEntitiesWithComponents(RemotePlayer).length;
+  }
+
+  /**
+   * Fa ruotare i remote player verso i loro NPC selezionati
+   * Simile a faceSelectedNpc() nel PlayerControlSystem, ma per remote player
+   */
+  private faceSelectedNpcsForRemotePlayers(): void {
+    // Trova tutti i remote player
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer, Transform);
+
+    for (const remotePlayerEntity of remotePlayerEntities) {
+      // Verifica se questo remote player ha un NPC selezionato
+      // Nota: I remote player potrebbero non avere il componente SelectedNpc localmente
+      // perché questo viene gestito lato server. Tuttavia, possiamo assumere che se
+      // un remote player sta attaccando (riceve aggiornamenti di combattimento),
+      // dovrebbe essere orientato verso il suo target.
+
+      // Per ora, implementiamo una soluzione più semplice:
+      // Se il remote player ha un'interpolazione attiva e non si sta muovendo velocemente,
+      // potrebbe essere in combattimento e dovrebbe essere orientato verso un target.
+      // Questa è una soluzione temporanea - idealmente servirebbe info dal server.
+
+      // TODO: Il server dovrebbe inviare info sui target selezionati dei remote player
+      // Per ora, lasciamo questo come placeholder per future implementazioni
+
+      // Esempio di logica futura:
+      /*
+      const selectedNpcs = this.getSelectedNpcsForRemotePlayer(remotePlayerEntity);
+      if (selectedNpcs.length > 0) {
+        const selectedNpc = selectedNpcs[0];
+        const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
+        const playerTransform = this.ecs.getComponent(remotePlayerEntity, Transform);
+
+        if (npcTransform && playerTransform) {
+          const dx = npcTransform.x - playerTransform.x;
+          const dy = npcTransform.y - playerTransform.y;
+          const angle = Math.atan2(dy, dx) + Math.PI / 2;
+          playerTransform.rotation = angle;
+        }
+      }
+      */
+    }
+  }
+
+  /**
+   * Aggiorna la posizione di un giocatore remoto (usato per respawn)
+   */
+  updatePlayerPosition(clientId: string, x: number, y: number, rotation: number = 0): void {
+    const entity = this.findRemotePlayerEntity(clientId);
+    if (!entity) {
+      console.warn(`[REMOTE_PLAYER] Cannot update position for unknown player ${clientId}`);
+      return;
+    }
+
+    const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
+    if (interpolation) {
+      // Forza la posizione immediatamente per il respawn
+      interpolation.updateTarget(x, y, rotation);
+      // Anche aggiorna la posizione renderizzata per un respawn istantaneo
+      const transform = this.ecs.getComponent(entity, Transform);
+      if (transform) {
+        transform.x = x;
+        transform.y = y;
+        transform.rotation = rotation;
+      }
+    }
+  }
+
+  /**
+   * Aggiorna le statistiche di salute e scudo di un giocatore remoto
+   */
+  updatePlayerStats(clientId: string, health: number, maxHealth: number, shield: number, maxShield: number): void {
+    const entity = this.findRemotePlayerEntity(clientId);
+    if (!entity) {
+      console.warn(`[REMOTE_PLAYER] Cannot update stats for unknown player ${clientId}`);
+      return;
+    }
+
+    const healthComponent = this.ecs.getComponent(entity, Health);
+    const shieldComponent = this.ecs.getComponent(entity, Shield);
+
+    if (healthComponent) {
+      healthComponent.current = health;
+      healthComponent.max = maxHealth;
+    }
+
+    if (shieldComponent) {
+      shieldComponent.current = shield;
+      shieldComponent.max = maxShield;
+    }
   }
 }

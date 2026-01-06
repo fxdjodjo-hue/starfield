@@ -11,8 +11,6 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`💀 [CLIENT] Entity destroyed: ${message.entityType} ${message.entityId} by ${message.destroyerId}`);
-
     if (message.entityType === 'npc') {
       // NPC distrutto
       const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
@@ -24,13 +22,12 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
       const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
       if (remotePlayerSystem) {
         remotePlayerSystem.removeRemotePlayer(message.entityId);
-        console.log(`💀 [CLIENT] Player ${message.entityId} has been defeated!`);
       }
     }
 
     // Gestisci ricompense se presenti
     if (message.rewards) {
-      console.log(`🎁 [CLIENT] Rewards gained: ${message.rewards.credits} credits, ${message.rewards.experience} XP, ${message.rewards.honor} honor`);
+      // Rewards are handled by the reward system
     }
 
     // TODO: Aggiungere effetti visivi di distruzione (esplosioni, particle effects, etc.)

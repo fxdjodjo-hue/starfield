@@ -11,8 +11,6 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`💔 [CLIENT] Entity damaged: ${message.entityType} ${message.entityId} (-${message.damage} HP)`);
-
     if (message.entityType === 'npc') {
       // Danno a NPC
       const remoteNpcSystem = networkSystem.getRemoteNpcSystem();

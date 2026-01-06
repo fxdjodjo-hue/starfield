@@ -12,8 +12,6 @@ export class InitialNpcsHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`🌍 [CLIENT] Received ${message.npcs.length} initial NPCs from server`);
-
     const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
     if (!remoteNpcSystem) {
       console.error('[CLIENT] RemoteNpcSystem not available for initial NPCs');
@@ -25,7 +23,5 @@ export class InitialNpcsHandler extends BaseMessageHandler {
 
     // Inizializza tutti gli NPC ricevuti dal server
     remoteNpcSystem.initializeNpcsFromServer(message.npcs);
-
-    console.log(`✅ [CLIENT] Successfully initialized ${message.npcs.length} NPCs from server`);
   }
 }

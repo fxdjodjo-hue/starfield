@@ -11,8 +11,6 @@ export class ExplosionCreatedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`💥 [CLIENT] Explosion created: ${message.explosionType} at (${message.position.x.toFixed(0)}, ${message.position.y.toFixed(0)})`);
-
     // Delega la creazione dell'esplosione al ClientNetworkSystem
     // che ha accesso diretto all'ECS
     networkSystem.createRemoteExplosion(message);

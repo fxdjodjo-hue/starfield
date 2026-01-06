@@ -11,6 +11,7 @@ import { WelcomeHandler } from './handlers/WelcomeHandler';
 import { RemotePlayerUpdateHandler } from './handlers/RemotePlayerUpdateHandler';
 import { PlayerJoinedHandler } from './handlers/PlayerJoinedHandler';
 import { PlayerLeftHandler } from './handlers/PlayerLeftHandler';
+import { PlayerRespawnHandler } from './handlers/PlayerRespawnHandler';
 // NPC handlers
 import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
 import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
@@ -114,7 +115,8 @@ export class ClientNetworkSystem extends BaseSystem {
       new WelcomeHandler(),
       new RemotePlayerUpdateHandler(),
       new PlayerJoinedHandler(),
-      new PlayerLeftHandler()
+      new PlayerLeftHandler(),
+      new PlayerRespawnHandler()
     ];
 
     // Aggiungi handlers NPC se il sistema è disponibile

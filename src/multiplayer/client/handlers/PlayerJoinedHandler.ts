@@ -14,8 +14,6 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     const { clientId, nickname, playerId } = message;
 
-    console.log(`👋 [CLIENT] New player joined: ${clientId} (${nickname})`);
-
     // Set up remote player info if RemotePlayerSystem is available
     if (networkSystem.remotePlayerManager && nickname) {
       // For now, use a default rank. In the future, this could come from the server

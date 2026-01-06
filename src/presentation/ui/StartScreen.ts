@@ -211,12 +211,8 @@ export class StartScreen {
     this.playButton.disabled = true;
     this.nicknameInput.disabled = true;
 
-    console.log('👤 [StartScreen] Creando utente per nickname:', nickname);
-
     try {
       // Usa autenticazione anonima per evitare rate limits di signup
-      console.log('🔐 [StartScreen] Tentando autenticazione anonima...');
-
       const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
 
       if (authError) {
@@ -227,9 +223,6 @@ export class StartScreen {
       if (!authData.user) {
         throw new Error('No user data returned from anonymous auth');
       }
-
-      console.log('✅ [StartScreen] Autenticazione anonima riuscita');
-      console.log('👤 [StartScreen] User ID (Supabase):', authData.user.id);
 
       // Salva l'ID utente nel context
       this.context.localClientId = authData.user.id;
@@ -243,7 +236,6 @@ export class StartScreen {
       }
 
       const numericPlayerId = nextId;
-      console.log('🔢 [StartScreen] Player ID (Sequenziale):', numericPlayerId);
 
       // Verifica se esiste già un profilo per questo auth_id
       const { data: existingProfile } = await supabase
@@ -257,7 +249,6 @@ export class StartScreen {
       if (existingProfile) {
         // Usa il player_id esistente
         finalPlayerId = existingProfile.player_id;
-        console.log('✅ [StartScreen] Profilo esistente trovato, uso player_id:', finalPlayerId);
 
         // Aggiorna il profilo esistente
         const { error: updateError } = await supabase
@@ -286,12 +277,9 @@ export class StartScreen {
         if (profileError) {
           console.error('❌ [StartScreen] Errore creazione profilo:', profileError.message);
           throw new Error(`Profile creation failed: ${profileError.message}`);
-        } else {
-          console.log('✅ [StartScreen] Nuovo profilo utente creato');
         }
 
         // Inizializza i dati di default per il nuovo giocatore
-        console.log('🎮 [StartScreen] Inizializzazione dati giocatore di default...');
 
         const defaultDataPromises = [
           // Statistiche iniziali
@@ -332,8 +320,6 @@ export class StartScreen {
         if (failedInitializations.length > 0) {
           console.warn('⚠️ [StartScreen] Alcuni dati di default non sono stati inizializzati:', failedInitializations);
           // Non blocchiamo il gioco per errori di inizializzazione, proseguiamo comunque
-        } else {
-          console.log('✅ [StartScreen] Tutti i dati giocatore inizializzati con successo');
         }
       }
 

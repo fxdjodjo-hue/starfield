@@ -14,8 +14,6 @@ export class PlayerLeftHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     const { clientId } = message;
 
-    console.log(`👋 [CLIENT] Player left: ${clientId}`);
-
     // Remove the disconnected player
     if (networkSystem.remotePlayerManager) {
       networkSystem.remotePlayerManager.removePlayer(clientId);

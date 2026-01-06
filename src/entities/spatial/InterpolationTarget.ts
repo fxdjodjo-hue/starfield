@@ -51,7 +51,7 @@ export class InterpolationTarget {
   // SMOOTHING SEMPLIFICATO
   // ==========================================
   private smoothingFactor: number = 0.3;   // Smoothing fisso (30% per frame)
-  private angularSmoothing: number = 0.4;  // Smoothing separato per rotazione
+  private angularSmoothing: number = 0.6;  // Smoothing separato per rotazione - aumentato per più fluidità
 
   constructor(initialX: number, initialY: number, initialRotation: number) {
     // Inizializza render = target

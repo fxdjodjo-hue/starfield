@@ -11,8 +11,6 @@ export class ProjectileDestroyedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`💥 [CLIENT] Projectile destroyed: ${message.projectileId} (${message.reason})`);
-
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) {
       return;

@@ -403,24 +403,39 @@ export class CombatSystem extends BaseSystem {
     }
 
     // Controlla se il player è nel range di attacco
-    const inRange = playerDamage.isInRange(
-      playerTransform.x, playerTransform.y,
-      npcTransform.x, npcTransform.y
+    const distance = Math.sqrt(
+      Math.pow(playerTransform.x - npcTransform.x, 2) +
+      Math.pow(playerTransform.y - npcTransform.y, 2)
     );
 
+    // Usa hysteresis per ridurre il flickering: range di entrata 300px, uscita 320px
+    const enterRange = playerDamage.attackRange; // 300px
+    const exitRange = playerDamage.attackRange + 20; // 320px per hysteresis
+
+    const inRange = this.currentAttackTarget === selectedNpc.id
+      ? distance <= exitRange  // Se già stiamo combattendo, usa range più ampio per uscita
+      : distance <= enterRange; // Se non combattiamo, usa range normale per entrata
+
+    console.log(`📏 [COMBAT] Distance to NPC ${selectedNpc.id}: ${distance.toFixed(1)}px (enter: ${enterRange}px, exit: ${exitRange}px), inRange: ${inRange}, currentTarget: ${this.currentAttackTarget}`);
+
     if (inRange) {
-      // Nel range - inizia/continua il combattimento
+      // Nel range - assicurati che stiamo combattendo questo NPC
       if (this.currentAttackTarget !== selectedNpc.id) {
-        // Nuovo target - inizia combattimento
+        // Nuovo target o rientro nel range - inizia combattimento
+        console.log(`🎯 [COMBAT] Starting combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px) - switching from ${this.currentAttackTarget}`);
         this.sendStartCombat(selectedNpc);
         this.startAttackLogging(selectedNpc);
         this.currentAttackTarget = selectedNpc.id;
         this.attackStartedLogged = true;
+      } else {
+        // Comment out the continuing log to reduce spam
+        // console.log(`🎯 [COMBAT] Continuing combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px)`);
       }
       // Il server gestisce automaticamente gli attacchi - non combattiamo localmente
     } else {
       // Fuori range - ferma il combattimento se stavamo attaccando questo NPC
       if (this.currentAttackTarget === selectedNpc.id) {
+        console.log(`📏 [COMBAT] Out of range (${distance.toFixed(1)}px > ${exitRange}px), stopping combat with NPC ${selectedNpc.id}`);
         this.sendStopCombat();
         this.endAttackLogging();
         this.currentAttackTarget = null;
@@ -433,17 +448,26 @@ export class CombatSystem extends BaseSystem {
    * Invia richiesta di inizio combattimento al server
    */
   private sendStartCombat(npcEntity: any): void {
+    console.log(`📡 [CLIENT] Sending START_COMBAT request for NPC ${npcEntity.id}`);
+
     if (!this.clientNetworkSystem) {
       // Aggiungi alla coda delle richieste pendenti
       this.pendingCombatRequests.push(npcEntity);
+      console.log(`📡 [CLIENT] No network system, queued request for NPC ${npcEntity.id}`);
       return;
     }
 
     const npc = this.ecs.getComponent(npcEntity, Npc);
-    if (!npc) return;
+    if (!npc) {
+      console.error(`📡 [CLIENT] Cannot send startCombat: NPC component not found for entity ${npcEntity.id}`);
+      return;
+    }
 
     // Usa l'ID server se disponibile, altrimenti l'ID entità locale
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
+    const playerId = this.clientNetworkSystem.getLocalClientId();
+
+    console.log(`📡 [CLIENT] START_COMBAT: player=${playerId}, npc=${npcIdToSend} (serverId: ${npc.serverId}, entityId: ${npcEntity.id})`);
 
     // Riproduci suono di attivazione combattimento per feedback immediato
     if (this.audioSystem) {
@@ -453,10 +477,15 @@ export class CombatSystem extends BaseSystem {
       console.warn(`🔊 [AUDIO] No audio system available for combat activation`);
     }
 
-    this.clientNetworkSystem.sendStartCombat({
-      npcId: npcIdToSend,
-      playerId: this.clientNetworkSystem.getLocalClientId()
-    });
+    try {
+      this.clientNetworkSystem.sendStartCombat({
+        npcId: npcIdToSend,
+        playerId: playerId
+      });
+      console.log(`✅ [CLIENT] START_COMBAT request sent successfully`);
+    } catch (error) {
+      console.error(`❌ [CLIENT] Failed to send START_COMBAT request:`, error);
+    }
   }
 
   /**

@@ -11,8 +11,6 @@ export class CombatUpdateHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`⚔️ [CLIENT] Combat update: player ${message.playerId} attacking=${message.isAttacking}`);
-
     // Per ora, il client non ha bisogno di fare molto con questi aggiornamenti
     // Il combattimento è gestito dal server e i proiettili vengono creati tramite ProjectileFiredHandler
 

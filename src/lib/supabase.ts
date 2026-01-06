@@ -252,12 +252,9 @@ export const gameAPI = {
       };
 
       if (profile.data && (!stats.data || !upgrades.data || !currencies.data)) {
-        console.log('🔧 [gameAPI] Creazione dati mancanti per utente esistente...');
-
         const missingDataPromises = [];
 
         if (!stats.data) {
-          console.log('📊 [gameAPI] Creazione statistiche mancanti...');
           missingDataPromises.push(
             supabase.from('player_stats').insert({
               player_id: playerId,
@@ -270,7 +267,6 @@ export const gameAPI = {
         }
 
         if (!upgrades.data) {
-          console.log('⬆️ [gameAPI] Creazione upgrade mancanti...');
           missingDataPromises.push(
             supabase.from('player_upgrades').insert({
               player_id: playerId,
@@ -283,7 +279,6 @@ export const gameAPI = {
         }
 
         if (!currencies.data) {
-          console.log('💰 [gameAPI] Creazione valute mancanti...');
           missingDataPromises.push(
             supabase.from('player_currencies').insert({
               player_id: playerId,
@@ -316,8 +311,6 @@ export const gameAPI = {
             currencies: newCurrencies.data || currencies.data,
             quests: newQuests.data || quests.data || []
           };
-
-          console.log('✅ [gameAPI] Dati mancanti creati e ricaricati');
         }
       }
 

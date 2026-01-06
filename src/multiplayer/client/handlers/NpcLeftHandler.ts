@@ -11,8 +11,6 @@ export class NpcLeftHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`💥 [CLIENT] NPC left: ${message.npcId} (reason: ${message.reason})`);
-
     const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
     if (!remoteNpcSystem) {
       console.error('[CLIENT] RemoteNpcSystem not available for NPC left');
@@ -20,12 +18,6 @@ export class NpcLeftHandler extends BaseMessageHandler {
     }
 
     // Rimuovi l'NPC remoto
-    const removed = remoteNpcSystem.removeRemoteNpc(message.npcId);
-
-    if (removed) {
-      console.log(`✅ [CLIENT] Successfully removed NPC ${message.npcId}`);
-    } else {
-      console.warn(`⚠️ [CLIENT] NPC ${message.npcId} was not found or already removed`);
-    }
+    remoteNpcSystem.removeRemoteNpc(message.npcId);
   }
 }
