@@ -496,8 +496,13 @@ class ServerProjectileManager {
       position: entity.position
     };
 
-    // Interest radius per danni
-    this.mapServer.broadcastNear(entity.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
+    if (entityType === 'player') {
+      // Per danni ai giocatori, broadcast globale - tutti devono sapere se un giocatore viene danneggiato
+      this.mapServer.broadcast(message);
+    } else {
+      // Per danni agli NPC, usa interest radius
+      this.mapServer.broadcastNear(entity.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
+    }
   }
 
   /**
