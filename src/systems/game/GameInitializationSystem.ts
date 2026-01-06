@@ -317,14 +317,6 @@ export class GameInitializationSystem extends System {
       }
     });
 
-    // Configura key handlers
-    inputSystem.setKeyPressCallback((key: string) => {
-      if (key === 'Space') {
-        // Barra spaziatrice: attacca l'NPC selezionato
-        combatSystem.attackSelectedNpc();
-      }
-    });
-
     // Configura selezione NPC
     npcSelectionSystem.setOnNpcClickCallback((npcEntity) => {
       // Per ora semplice log, in futuro potremmo aggiungere feedback visivo
