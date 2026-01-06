@@ -56,7 +56,6 @@ export class NpcStatsManager {
       this.npcStats.set(type, NPC_CONFIG[type]);
     }
 
-    console.log(`[NPC_STATS] Loaded ${this.npcStats.size} NPC configurations`);
   }
 
   // Accesso diretto ai valori base

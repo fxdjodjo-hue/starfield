@@ -204,7 +204,7 @@ export class ClientNetworkSystem extends BaseSystem {
           break;
 
         case MESSAGE_TYPES.ERROR:
-          console.error('🚨 Server error:', (message as any).message);
+          // console.error('🚨 Server error:', (message as any).message);
           break;
 
         default:
@@ -213,7 +213,6 @@ export class ClientNetworkSystem extends BaseSystem {
           break;
       }
     } catch (error) {
-      console.error('Failed to parse message:', error);
     }
   }
 
@@ -221,7 +220,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Handles disconnection events
    */
   private handleDisconnected(): void {
-    console.log('❌ Disconnected from server');
     this.socket = null;
 
     // Notify external systems
@@ -236,7 +234,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Handles connection errors
    */
   private handleConnectionError(error: Event): void {
-    console.error('🔌 Connection error:', error);
 
     // Notify external systems
     if (this.onConnectionErrorCallback) {
@@ -248,7 +245,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Handles reconnection attempts
    */
   private handleReconnecting(): void {
-    console.log('🔄 Attempting to reconnect...');
 
     // Notify external systems
     if (this.onReconnectingCallback) {
@@ -300,7 +296,6 @@ export class ClientNetworkSystem extends BaseSystem {
     try {
       this.socket = await this.connectionManager.connect();
     } catch (error) {
-      console.error('Failed to establish connection:', error);
       throw error;
     }
   }
@@ -313,7 +308,6 @@ export class ClientNetworkSystem extends BaseSystem {
     if (!this.connectionManager.isConnectionActive()) {
       // Log disconnessione ogni 5 secondi per evitare spam
       if (Math.floor(Date.now() / 5000) % 2 === 0 && !this.lastConnectionLog || Date.now() - this.lastConnectionLog > 5000) {
-        console.log(`[NETWORK] Not connected. Connection state: ${this.connectionManager.getConnectionState()}`);
         this.lastConnectionLog = Date.now();
       }
       return;
@@ -333,7 +327,6 @@ export class ClientNetworkSystem extends BaseSystem {
       const connStats = this.connectionManager.getStats();
       // Log solo se ci sono problemi (drops > 0 o non connesso)
       if (stats.bufferDrops > 0 || !connStats.isConnected) {
-        console.log(`[NETWORK] Status - Buffer: ${stats.bufferSize}/${stats.bufferDrops} drops, Connected: ${connStats.isConnected}, State: ${connStats.state}`);
       }
       this.lastStatusLog = now;
     }
@@ -439,7 +432,6 @@ export class ClientNetworkSystem extends BaseSystem {
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): void {
     if (!this.socket || !this.isConnected) {
-      console.warn('[CLIENT] Cannot send explosion created: not connected');
       return;
     }
 
@@ -465,11 +457,9 @@ export class ClientNetworkSystem extends BaseSystem {
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
-    console.log(`🎆 [CLIENT] Creating remote explosion for ${message.entityType} entity ${message.entityId} at (${message.position.x.toFixed(0)}, ${message.position.y.toFixed(0)})`);
 
     try {
       if (!this.ecs) {
-        console.warn('[CLIENT] Cannot create remote explosion: ECS not available');
         return;
       }
 
@@ -498,14 +488,12 @@ export class ClientNetworkSystem extends BaseSystem {
       // Riproduci suono esplosione sincronizzato su tutti i client
       if (this.audioSystem) {
         this.audioSystem.playSound('explosion', 0.1, false, true); // Volume più basso per equilibrio sonoro
-        console.log(`🔊 [CLIENT] Explosion sound played for ${message.entityType} ${message.entityId}`);
       }
 
       // L'ExplosionSystem esistente gestirà automaticamente questa entità
       // perché cerca tutte le entità con componente Explosion
 
     } catch (error) {
-      console.error('[CLIENT] Error creating remote explosion:', error);
     }
   }
 
@@ -544,7 +532,6 @@ export class ClientNetworkSystem extends BaseSystem {
           frames.push(img);
         }
       } catch (error) {
-        console.warn(`[CLIENT] Could not load explosion frame ${framePath}:`, error);
         // Continua senza questo frame invece di fallire completamente
       }
     }
@@ -563,7 +550,6 @@ export class ClientNetworkSystem extends BaseSystem {
     playerId: string;
   }): void {
     if (!this.socket || !this.isConnected) {
-      console.warn('[CLIENT] Cannot send start combat: not connected');
       return;
     }
 
@@ -583,7 +569,6 @@ export class ClientNetworkSystem extends BaseSystem {
     playerId: string;
   }): void {
     if (!this.socket || !this.isConnected) {
-      console.warn('[CLIENT] Cannot send stop combat: not connected');
       return;
     }
 
@@ -607,7 +592,6 @@ export class ClientNetworkSystem extends BaseSystem {
     projectileType: string;
   }): void {
     if (!this.socket || !this.isConnected) {
-      console.warn('[CLIENT] Cannot send projectile fired: not connected');
       return;
     }
 

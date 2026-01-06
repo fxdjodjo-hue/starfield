@@ -62,7 +62,6 @@ export class RemoteNpcSystem extends BaseSystem {
   addRemoteNpc(npcId: string, type: 'Scouter' | 'Frigate', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
     // Verifica se l'NPC esiste già
     if (this.remoteNpcs.has(npcId)) {
-      console.warn(`[REMOTE_NPC] NPC ${npcId} already exists, updating instead`);
       this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, behavior);
       return this.remoteNpcs.get(npcId)!.entityId;
     }
@@ -70,7 +69,6 @@ export class RemoteNpcSystem extends BaseSystem {
     // Ottieni lo sprite per questo tipo di NPC
     const sprite = this.npcSprites.get(type);
     if (!sprite) {
-      console.error(`[REMOTE_NPC] No sprite available for NPC type: ${type}`);
       return -1;
     }
 
@@ -116,7 +114,6 @@ export class RemoteNpcSystem extends BaseSystem {
 
     const entity = this.ecs.getEntity(npcData.entityId);
     if (!entity) {
-      console.error(`[REMOTE_NPC] Entity ${npcData.entityId} not found for NPC ${npcId}`);
       this.remoteNpcs.delete(npcId); // Cleanup
       return;
     }
@@ -153,7 +150,6 @@ export class RemoteNpcSystem extends BaseSystem {
   removeRemoteNpc(npcId: string): boolean {
     const npcData = this.remoteNpcs.get(npcId);
     if (!npcData) {
-      console.warn(`[REMOTE_NPC] Attempted to remove non-existent NPC: ${npcId}`);
       return false;
     }
 
@@ -186,7 +182,6 @@ export class RemoteNpcSystem extends BaseSystem {
 
     // Log summary of bulk update
     const duration = Date.now() - startTime;
-    console.log(`[REMOTE_NPC] Bulk update: ${updates.length} total, ${successCount} updated, ${failCount} skipped (${duration}ms)`);
   }
 
   /**

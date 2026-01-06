@@ -90,14 +90,12 @@ export class GameInitializationSystem extends System {
     if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
       this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
-      console.warn('[INIT] CombatSystem not available or setClientNetworkSystem method missing');
     }
 
     // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
     if (this.minimapSystem && typeof this.minimapSystem.setClientNetworkSystem === 'function') {
       this.minimapSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
-      console.warn('[INIT] MinimapSystem not available or setClientNetworkSystem method missing');
     }
 
     // Collega RewardSystem all'EntityDestroyedHandler per processare ricompense da server
@@ -105,7 +103,6 @@ export class GameInitializationSystem extends System {
       const entityDestroyedHandler = clientNetworkSystem.getEntityDestroyedHandler();
       if (entityDestroyedHandler && this.systemsCache?.rewardSystem) {
         entityDestroyedHandler.setRewardSystem(this.systemsCache.rewardSystem);
-        console.log('[INIT] RewardSystem collegato a EntityDestroyedHandler');
       }
     }
   }
@@ -339,7 +336,6 @@ export class GameInitializationSystem extends System {
     // Configura selezione NPC
     npcSelectionSystem.setOnNpcClickCallback((npcEntity) => {
       // Per ora semplice log, in futuro potremmo aggiungere feedback visivo
-      console.log(`🎯 [NPC SELECTION] NPC selezionato: ${npcEntity.id}`);
     });
   }
 
@@ -472,7 +468,6 @@ export class GameInitializationSystem extends System {
       const npcDef = getNpcDefinition('Scouter');
 
       if (!npcDef) {
-        console.error('NPC definition not found for Scouter');
         continue;
       }
 
@@ -558,7 +553,6 @@ export class GameInitializationSystem extends System {
       const npcDef = getNpcDefinition('Frigate');
 
       if (!npcDef) {
-        console.error('NPC definition not found for Frigate');
         continue;
       }
 

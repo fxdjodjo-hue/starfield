@@ -30,19 +30,16 @@ export class NpcSelectionSystem extends BaseSystem {
    * @returns true se ha selezionato un NPC, false altrimenti
    */
   handleMouseClick(worldX: number, worldY: number): boolean {
-    console.log(`👆 [NPC_SELECTION] Mouse click at world position: (${worldX.toFixed(1)}, ${worldY.toFixed(1)})`);
 
     // Trova l'NPC più vicino al punto di click (se entro una certa distanza)
     const clickedNpc = this.findNpcAtWorldPosition(worldX, worldY);
 
     if (clickedNpc) {
-      console.log(`🎯 [NPC_SELECTION] Selected NPC: ${clickedNpc.id}`);
       this.selectNpc(clickedNpc);
       this.onNpcClick?.(clickedNpc);
       return true; // Ha selezionato un NPC
     }
 
-    console.log(`❌ [NPC_SELECTION] No NPC found at click position`);
     return false; // Non ha selezionato nulla
   }
 

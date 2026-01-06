@@ -57,7 +57,6 @@ export class MinimapSystem extends BaseSystem {
 
     // Gestione errori di caricamento
     this.mapBackgroundImage.onerror = () => {
-      console.warn(`Minimap: Could not load map background image for ${mapName}`);
       this.mapBackgroundImage = null;
     };
   }
@@ -354,7 +353,6 @@ export class MinimapSystem extends BaseSystem {
 
     const remotePlayerSystem = this.clientNetworkSystem.getRemotePlayerSystem();
     if (!remotePlayerSystem) {
-      console.warn("[Minimap] RemotePlayerSystem not accessible, cannot render remote players.");
       return;
     }
 
