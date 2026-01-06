@@ -769,7 +769,7 @@ class ServerCombatManager {
     // Registra proiettile
     this.mapServer.projectileManager.addProjectile(
       projectileId,
-      `npc_${npc.id}`, // Attaccante NPC
+      npc.id, // Attaccante NPC (già include "npc_")
       projectilePos,
       velocity,
       npc.damage || NPC_CONFIG[npc.type].stats.damage,
