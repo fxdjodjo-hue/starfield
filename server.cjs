@@ -934,7 +934,8 @@ wss.on('connection', (ws) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
-      console.log(`📨 [SERVER] Received message from ${playerData?.clientId || 'unknown'}: ${data.type}`);
+      const clientId = playerData?.clientId || 'unknown';
+      console.log(`📨 [SERVER] Received message from ${clientId}: ${data.type}`, data);
 
       // Risponde ai messaggi di join
       if (data.type === 'join') {
@@ -1122,6 +1123,8 @@ wss.on('connection', (ws) => {
         // Valida che l'NPC esista
         const npc = mapServer.npcManager.getNpc(data.npcId);
         if (!npc) {
+          console.log(`❌ [SERVER] NPC ${data.npcId} not found for combat request`);
+        }
           console.warn(`⚠️ [SERVER] NPC ${data.npcId} not found for combat start`);
           return;
         }
