@@ -160,12 +160,8 @@ export class CombatSystem extends BaseSystem {
     }
 
     if (isPlayer) {
-      // Riproduci suono laser del player
-      if (this.audioSystem) {
-        this.audioSystem.playSound('laser', 0.4, false, true); // allowMultiple=true per affidabilità
-      }
-
       // Player: crea singolo laser
+      // Nota: l'audio viene riprodotto in ProjectileFiredHandler quando arriva il proiettile dal server
       this.createSingleLaser(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     } else {
       // Riproduci suono laser degli scouter
@@ -485,10 +481,15 @@ export class CombatSystem extends BaseSystem {
       const isDead = health && health.isDead() && (!shield || !shield.isActive());
 
       if (isDead && !this.ecs.hasComponent(entity, Explosion) && !this.explodingEntities.has(entity.id)) {
+        // Log per debug esplosioni
+        const npc = this.ecs.getComponent(entity, Npc);
+        const entityType = npc ? `NPC-${npc.type}` : 'Player';
+        console.log(`💥 [EXPLOSION] Creating explosion for ${entityType} entity ${entity.id}`);
+
         // Crea l'effetto esplosione invece di rimuovere immediatamente
         this.explodingEntities.add(entity.id);
         this.createExplosion(entity).catch(error => {
-          console.error('Error creating explosion:', error);
+          console.error(`💥 [EXPLOSION] Error creating explosion for ${entityType} entity ${entity.id}:`, error);
           // Rimuovi dall'insieme in caso di errore
           this.explodingEntities.delete(entity.id);
         });
@@ -501,9 +502,13 @@ export class CombatSystem extends BaseSystem {
    */
   private async createExplosion(entity: any): Promise<void> {
     try {
+      const npc = this.ecs.getComponent(entity, Npc);
+      const entityType = npc ? `NPC-${npc.type}` : 'Player';
+      console.log(`🎆 [EXPLOSION] Starting explosion creation for ${entityType} entity ${entity.id}`);
+
       // Verifica che l'entità esista ancora (potrebbe essere stata rimossa dal ProjectileSystem)
       if (!this.ecs.entityExists(entity.id)) {
-        console.warn(`Cannot create explosion for entity ${entity.id}: entity no longer exists`);
+        console.warn(`💥 [EXPLOSION] Cannot create explosion for ${entityType} entity ${entity.id}: entity no longer exists`);
         this.explodingEntities.delete(entity.id);
         return;
       }
@@ -546,6 +551,8 @@ export class CombatSystem extends BaseSystem {
           const hasNpc = this.ecs.hasComponent(entity, Npc);
           const entityType = hasNpc ? 'npc' : 'player';
 
+          console.log(`📡 [EXPLOSION] Sending explosion notification for ${entityType} entity ${entity.id}`);
+
           // Genera ID univoco per l'esplosione
           const explosionId = `expl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -559,6 +566,8 @@ export class CombatSystem extends BaseSystem {
           });
         }
       }
+
+      console.log(`✅ [EXPLOSION] Explosion created successfully for ${entityType} entity ${entity.id}`);
 
       // Pulisci il Set dopo che l'esplosione è finita (10 frame * 80ms = 800ms + margine)
       setTimeout(() => {

@@ -438,6 +438,8 @@ export class ClientNetworkSystem extends BaseSystem {
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
+    console.log(`🎆 [CLIENT] Creating remote explosion for ${message.entityType} entity ${message.entityId} at (${message.position.x.toFixed(0)}, ${message.position.y.toFixed(0)})`);
+
     try {
       if (!this.ecs) {
         console.warn('[CLIENT] Cannot create remote explosion: ECS not available');
@@ -490,9 +492,9 @@ export class ClientNetworkSystem extends BaseSystem {
     const frames: HTMLImageElement[] = [];
     const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
 
-    // Carica tutti i frame (da 1 a 16, assumendo che esistano)
-    for (let i = 1; i <= 16; i++) {
-      const framePath = `${basePath}${i.toString().padStart(3, '0')}.png`;
+    // Carica i 10 frame disponibili
+    for (let i = 1; i <= 10; i++) {
+      const framePath = `${basePath}${i}.png`;
       try {
         // Usa il sistema di asset loading del context se disponibile
         if (this.gameContext?.assetManager) {
@@ -510,9 +512,12 @@ export class ClientNetworkSystem extends BaseSystem {
         }
       } catch (error) {
         console.warn(`[CLIENT] Could not load explosion frame ${framePath}:`, error);
+        // Continua senza questo frame invece di fallire completamente
       }
     }
 
+    // Se non abbiamo caricato nessun frame, restituisci un array vuoto
+    // Le esplosioni non verranno mostrate ma il gioco continuerà
     this.explosionFramesCache = frames;
     return frames;
   }
@@ -591,6 +596,13 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getLocalClientId(): string {
     return this.clientId;
+  }
+
+  /**
+   * Gets the audio system for playing sounds
+   */
+  getAudioSystem(): any {
+    return this.gameContext?.audioSystem || null;
   }
 
   /**
