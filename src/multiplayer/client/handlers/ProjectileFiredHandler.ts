@@ -20,12 +20,16 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       if (isLocalPlayer) {
         // Suono laser del player
         audioSystem.playSound('laser', 0.4, false, true);
-        console.log(`🔊 [AUDIO] Player laser sound played for projectile ${message.projectileId}`);
+        console.log(`🔊 [AUDIO] Player laser sound played for projectile ${message.projectileId} at ${Date.now()}`);
       } else if (message.playerId.startsWith('npc_')) {
         // Suono laser degli NPC
         audioSystem.playSound('scouterLaser', 0.25, false, true);
-        console.log(`🔊 [AUDIO] NPC laser sound played for projectile ${message.projectileId} from ${message.playerId}`);
+        console.log(`🔊 [AUDIO] NPC laser sound played for projectile ${message.projectileId} from ${message.playerId} at ${Date.now()}`);
+      } else {
+        console.log(`🔊 [AUDIO] Other projectile sound for ${message.playerId} - not playing audio`);
       }
+    } else {
+      console.warn(`🔊 [AUDIO] No audio system available for projectile ${message.projectileId}`);
     }
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();

@@ -746,6 +746,7 @@ class ServerCombatManager {
    * Esegue un attacco NPC contro un player
    */
   performNpcAttack(npc, targetPlayer, now) {
+    console.log(`🚫 [SERVER] NPC ${npc.id} trying to attack - THIS SHOULD NOT HAPPEN!`);
     // Calcola direzione diretta verso il player per il proiettile
     const dx = targetPlayer.position.x - npc.position.x;
     const dy = targetPlayer.position.y - npc.position.y;

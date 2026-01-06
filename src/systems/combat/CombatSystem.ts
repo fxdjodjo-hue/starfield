@@ -451,7 +451,9 @@ export class CombatSystem extends BaseSystem {
     // Riproduci suono di attivazione combattimento per feedback immediato
     if (this.audioSystem) {
       this.audioSystem.playSound('laser', 0.2, false, true); // Volume ridotto per attivazione
-      console.log(`🔊 [AUDIO] Combat activation sound played`);
+      console.log(`🔊 [AUDIO] Combat activation sound played at ${Date.now()}`);
+    } else {
+      console.warn(`🔊 [AUDIO] No audio system available for combat activation`);
     }
 
     this.clientNetworkSystem.sendStartCombat({
