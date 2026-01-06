@@ -116,7 +116,9 @@ export class RemoteProjectileSystem extends BaseSystem {
       type: projectileType
     });
 
-    console.log(`🚀 [REMOTE_PROJECTILE] Added remote projectile ${projectileId} from ${playerId} (${projectileType})`);
+    const isLocalPlayer = playerId === 'client_f7899v33w'; // TODO: get from networkSystem
+    console.log(`🚀 [REMOTE_PROJECTILE] Added remote projectile ${projectileId} from ${playerId} (${projectileType})${isLocalPlayer ? ' (LOCAL PLAYER)' : ''}`);
+    console.log(`   Owner: ${ownerId}, Target: ${actualTargetId}`);
     return entity.id;
   }
 

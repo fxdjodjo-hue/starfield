@@ -11,7 +11,8 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`🔫 [CLIENT] Projectile fired: ${message.projectileId} by ${message.playerId}`);
+    const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
+    console.log(`🔫 [CLIENT] Projectile fired: ${message.projectileId} by ${message.playerId}${isLocalPlayer ? ' (LOCAL)' : ''}`);
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) {
