@@ -246,7 +246,8 @@ export class PlayState extends GameState {
       this.remotePlayerSystem,
       undefined, // Usa URL di default
       this.remoteNpcSystem, // Sistema NPC
-      this.remoteProjectileSystem // Sistema proiettili
+      this.remoteProjectileSystem, // Sistema proiettili
+      this.audioSystem // Sistema audio
     );
     this.world.getECS().addSystem(this.clientNetworkSystem);
 

@@ -41,6 +41,7 @@ export class ClientNetworkSystem extends BaseSystem {
   // Core dependencies
   public readonly gameContext: GameContext;
   public readonly clientId: string;
+  private audioSystem: any = null;
 
   // Network components
   private readonly connectionManager: ConnectionManager;
@@ -67,9 +68,10 @@ export class ClientNetworkSystem extends BaseSystem {
   private onReconnectingCallback?: () => void;
   private onReconnectedCallback?: () => void;
 
-  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem) {
+  constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem, audioSystem?: any) {
     super(ecs);
     this.gameContext = gameContext;
+    this.audioSystem = audioSystem || null;
     this.remoteNpcSystem = remoteNpcSystem || null;
     this.remoteProjectileSystem = remoteProjectileSystem || null;
 
@@ -602,7 +604,7 @@ export class ClientNetworkSystem extends BaseSystem {
    * Gets the audio system for playing sounds
    */
   getAudioSystem(): any {
-    return this.gameContext?.audioSystem || null;
+    return this.audioSystem || this.gameContext?.audioSystem || null;
   }
 
   /**
