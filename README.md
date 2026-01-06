@@ -196,7 +196,7 @@ npm run server
 ```
 
 **Per gli amici:**
-Apri il link del gioco web: `https://starfield-game.vercel.app`
+Apri il link del gioco web: `https://starfield-3sdm.vercel.app`
 
 **Caratteristiche:**
 - ✅ Server WebSocket completo
