@@ -4,6 +4,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Sprite } from '../../entities/Sprite';
+import { Npc } from '../../entities/ai/Npc';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { ProjectileFactory } from '../../factories/ProjectileFactory';
 import { logger } from '../../utils/Logger';
@@ -29,7 +30,8 @@ export class RemoteProjectileSystem extends BaseSystem {
     position: { x: number; y: number },
     velocity: { x: number; y: number },
     damage: number,
-    projectileType: string = 'laser'
+    projectileType: string = 'laser',
+    targetId: string | number | null = null
   ): number {
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
@@ -51,13 +53,40 @@ export class RemoteProjectileSystem extends BaseSystem {
     const directionX = speed > 0 ? velocity.x / speed : 0;
     const directionY = speed > 0 ? velocity.y / speed : 0;
 
-    // Per i proiettili remoti, usa valori dummy per ownerId e targetId
-    // ownerId sarà l'entity ID creato, targetId = -1 (nessun target specifico)
-    const ownerId = entity.id; // Usa l'entity ID stesso come owner
-    const targetId = -1; // Nessun target specifico per proiettili remoti
+    // Determina ownerId e targetId corretti per homing
+    let ownerId: number;
+    let actualTargetId: number = -1; // Default: nessun target
+
+    // Se playerId inizia con "npc_", è un proiettile NPC
+    if (typeof playerId === 'string' && playerId.startsWith('npc_')) {
+      // Proiettile NPC: owner è l'NPC, target è il player
+      const npcId = parseInt(playerId.replace('npc_', ''));
+      ownerId = npcId;
+
+      // Trova l'entità player locale come target
+      if (targetId) {
+        // Cerca il player con il clientId corrispondente
+        // Per ora semplificato: assumiamo che il player locale sia il target
+        // TODO: Implementare mapping corretto clientId -> entityId
+        const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
+        for (const playerEntity of playerEntities) {
+          // Controlla se è un'entità player (non NPC)
+          if (!this.ecs.hasComponent(playerEntity, Npc)) {
+            actualTargetId = playerEntity.id;
+            break;
+          }
+        }
+      }
+    } else {
+      // Proiettile player: owner è il player, target potrebbe essere un NPC
+      ownerId = entity.id; // Per ora usa entity ID, potrebbe essere migliorato
+      if (targetId) {
+        actualTargetId = typeof targetId === 'string' ? parseInt(targetId) : targetId;
+      }
+    }
 
     // Componente proiettile
-    const projectile = new Projectile(damage, speed, directionX, directionY, ownerId, targetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
+    const projectile = new Projectile(damage, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
     this.ecs.addComponent(entity, Projectile, projectile);
 
     // Sprite per rendering (se necessario)

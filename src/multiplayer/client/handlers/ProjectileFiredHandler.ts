@@ -27,7 +27,8 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       message.position,
       message.velocity,
       message.damage,
-      message.projectileType
+      message.projectileType,
+      message.targetId
     );
 
     // Log per debug

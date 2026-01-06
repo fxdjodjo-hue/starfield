@@ -202,7 +202,7 @@ class ServerProjectileManager {
   /**
    * Registra un nuovo proiettile sparato da un giocatore
    */
-  addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser', excludeSender = true) {
+  addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser', targetId = null, excludeSender = true) {
     const projectile = {
       id: projectileId,
       playerId,
@@ -210,6 +210,7 @@ class ServerProjectileManager {
       velocity: { ...velocity },
       damage,
       projectileType,
+      targetId, // ID del bersaglio (per homing projectiles)
       createdAt: Date.now(),
       lastUpdate: Date.now()
     };
@@ -336,7 +337,8 @@ class ServerProjectileManager {
       position: projectile.position,
       velocity: projectile.velocity,
       damage: projectile.damage,
-      projectileType: projectile.projectileType
+      projectileType: projectile.projectileType,
+      targetId: projectile.targetId
     };
 
     // Interest radius per proiettili
@@ -771,7 +773,8 @@ class ServerCombatManager {
       projectilePos,
       velocity,
       npc.damage || NPC_CONFIG[npc.type].stats.damage,
-      'scouter_laser'
+      'scouter_laser',
+      targetPlayer.clientId // Target è il player che viene attaccato
     );
 
     // Il broadcast viene già fatto automaticamente da addProjectile()
@@ -1088,7 +1091,8 @@ wss.on('connection', (ws) => {
           position: data.position,
           velocity: data.velocity,
           damage: data.damage,
-          projectileType: data.projectileType || 'laser'
+          projectileType: data.projectileType || 'laser',
+          targetId: data.targetId || null // Per ora null per proiettili player
         };
 
         // Invia a tutti i client tranne quello che ha sparato
