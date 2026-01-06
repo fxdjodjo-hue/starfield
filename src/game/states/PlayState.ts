@@ -234,14 +234,19 @@ export class PlayState extends GameState {
     this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, shipWidth, shipHeight);
     this.world.getECS().addSystem(this.remotePlayerSystem);
 
-    // Inizializza il sistema di rete multiplayer (senza NPC/proiettili remoti per ora)
+    // Prova a ottenere i sistemi remoti (potrebbero essere null se initialize() non è stato chiamato)
+    const systems = this.gameInitSystem.getSystems();
+    this.remoteNpcSystem = systems.remoteNpcSystem || null;
+    this.remoteProjectileSystem = systems.remoteProjectileSystem || null;
+
+    // Inizializza il sistema di rete multiplayer
     this.clientNetworkSystem = new ClientNetworkSystem(
       this.world.getECS(),
       this.context,
       this.remotePlayerSystem,
       undefined, // Usa URL di default
-      null, // Sistema NPC - sarà impostato dopo
-      null, // Sistema proiettili - sarà impostato dopo
+      this.remoteNpcSystem, // Sistema NPC (potrebbe essere null inizialmente)
+      this.remoteProjectileSystem, // Sistema proiettili (potrebbe essere null inizialmente)
       this.audioSystem // Sistema audio
     );
     this.world.getECS().addSystem(this.clientNetworkSystem);
@@ -297,6 +302,11 @@ export class PlayState extends GameState {
       if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setRemoteProjectileSystem === 'function') {
         this.clientNetworkSystem.setRemoteProjectileSystem(this.remoteProjectileSystem);
       }
+    }
+
+    // Ora che tutti i sistemi sono impostati, connetti al server
+    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
+      this.clientNetworkSystem.connectToServer();
     }
 
     // Inizializza il sistema di interpolazione per movimenti fluidi

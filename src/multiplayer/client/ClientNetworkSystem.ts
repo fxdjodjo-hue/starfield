@@ -106,8 +106,7 @@ export class ClientNetworkSystem extends BaseSystem {
     // Register message handlers
     this.registerMessageHandlers();
 
-    // Connect to server
-    this.connect();
+    // Don't connect automatically - will be called manually after systems are set up
   }
 
   /**
@@ -407,6 +406,13 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setRemoteProjectileSystem(remoteProjectileSystem: RemoteProjectileSystem): void {
     this.remoteProjectileSystem = remoteProjectileSystem;
+  }
+
+  /**
+   * Manually connect to the server (called after systems are set up)
+   */
+  connectToServer(): void {
+    this.connect();
   }
 
   /**
