@@ -10,6 +10,7 @@ import { Npc } from '../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { CONFIG } from '../../utils/config/Config';
 import { getNpcDefinition } from '../../config/NpcConfig';
+import { NpcStatsManager } from '../../managers/NpcStatsManager';
 
 /**
  * Sistema Respawn NPC - Gestisce la rigenerazione degli NPC morti
@@ -22,10 +23,12 @@ export class NpcRespawnSystem extends BaseSystem {
   // Riferimento ai sistemi necessari
   private playerEntity: any = null;
   private gameContext: any = null;
+  private npcStatsManager: NpcStatsManager;
 
   constructor(ecs: ECS, gameContext?: any) {
     super(ecs);
     this.gameContext = gameContext;
+    this.npcStatsManager = NpcStatsManager.getInstance();
   }
 
   /**
@@ -165,12 +168,13 @@ export class NpcRespawnSystem extends BaseSystem {
       // Crea l'entità NPC
       const npcEntity = this.ecs.createEntity();
 
-      // Aggiungi componenti usando la configurazione
+      // Aggiungi componenti usando il NpcStatsManager
       this.ecs.addComponent(npcEntity, Transform, new Transform(x, y, 0));
       this.ecs.addComponent(npcEntity, Velocity, new Velocity(0, 0, 0));
-      this.ecs.addComponent(npcEntity, Health, new Health(npcDef.stats.health, npcDef.stats.health));
-      this.ecs.addComponent(npcEntity, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
-      this.ecs.addComponent(npcEntity, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
+      this.ecs.addComponent(npcEntity, Health, new Health(this.npcStatsManager.getHealth(npcType), this.npcStatsManager.getHealth(npcType)));
+      this.ecs.addComponent(npcEntity, Shield, new Shield(this.npcStatsManager.getShield(npcType), this.npcStatsManager.getShield(npcType)));
+      const stats = this.npcStatsManager.getStats(npcType)!;
+      this.ecs.addComponent(npcEntity, Damage, new Damage(stats.damage, stats.range, stats.cooldown));
       this.ecs.addComponent(npcEntity, Sprite, sprite); // AGGIUNGI LO SPRITE MANCANTE!
       this.ecs.addComponent(npcEntity, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
 

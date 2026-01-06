@@ -13,6 +13,7 @@ import { ChatTextSystem } from '../rendering/ChatTextSystem';
 import { ProjectileSystem } from '../combat/ProjectileSystem';
 import { MinimapSystem } from '../rendering/MinimapSystem';
 import { LogSystem } from '../rendering/LogSystem';
+import { NpcStatsManager } from '../../managers/NpcStatsManager';
 import { EconomySystem } from '../economy/EconomySystem';
 import { RankSystem } from '../rewards/RankSystem';
 import { RewardSystem } from '../rewards/RewardSystem';
@@ -61,6 +62,7 @@ export class GameInitializationSystem extends System {
   private clientNetworkSystem: any = null; // Sistema di rete per notifiche multiplayer
   private combatSystem: any = null; // Riferimento al sistema di combattimento
   private systemsCache: any = null;
+  private npcStatsManager: NpcStatsManager;
 
   private playState: any = null; // Reference to PlayState for saving
 
@@ -72,6 +74,7 @@ export class GameInitializationSystem extends System {
     this.questSystem = questSystem;
     this.uiSystem = uiSystem;
     this.playState = playState;
+    this.npcStatsManager = NpcStatsManager.getInstance();
     // L'economySystem verrà creato in createSystems()
     this.economySystem = null;
   }
@@ -80,12 +83,10 @@ export class GameInitializationSystem extends System {
    * Imposta il sistema di rete per notifiche multiplayer
    */
   setClientNetworkSystem(clientNetworkSystem: any): void {
-    console.log('[INIT] GameInitializationSystem.setClientNetworkSystem called:', !!clientNetworkSystem);
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Ora che abbiamo il ClientNetworkSystem, impostalo anche nel CombatSystem
     if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
-      console.log('[INIT] Setting ClientNetworkSystem in CombatSystem (via setClientNetworkSystem)');
       this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
       console.warn('[INIT] CombatSystem not available or setClientNetworkSystem method missing');
@@ -356,7 +357,6 @@ export class GameInitializationSystem extends System {
 
     // Nota: Gli NPC ora vengono creati e gestiti dal server
     // Non creiamo più NPC locali per garantire consistenza multiplayer
-    console.log('🌍 [INIT] NPC creation delegated to server for multiplayer consistency');
 
     return playerEntity;
   }
@@ -461,9 +461,10 @@ export class GameInitializationSystem extends System {
       // Aggiungi componenti allo Scouter
       this.ecs.addComponent(streuner, Transform, new Transform(x, y, 0));
       this.ecs.addComponent(streuner, Velocity, new Velocity(0, 0, 0));
-      this.ecs.addComponent(streuner, Health, new Health(npcDef.stats.health, npcDef.stats.health));
-      this.ecs.addComponent(streuner, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
-      this.ecs.addComponent(streuner, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
+      this.ecs.addComponent(streuner, Health, new Health(this.npcStatsManager.getHealth('Scouter'), this.npcStatsManager.getHealth('Scouter')));
+      this.ecs.addComponent(streuner, Shield, new Shield(this.npcStatsManager.getShield('Scouter'), this.npcStatsManager.getShield('Scouter')));
+      const scouterStats = this.npcStatsManager.getStats('Scouter')!;
+      this.ecs.addComponent(streuner, Damage, new Damage(scouterStats.damage, scouterStats.range, scouterStats.cooldown));
       this.ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
 
       if (sprite) {
@@ -546,9 +547,10 @@ export class GameInitializationSystem extends System {
       // Aggiungi componenti alla Frigate
       this.ecs.addComponent(frigate, Transform, new Transform(x, y, 0));
       this.ecs.addComponent(frigate, Velocity, new Velocity(0, 0, 0));
-      this.ecs.addComponent(frigate, Health, new Health(npcDef.stats.health, npcDef.stats.health));
-      this.ecs.addComponent(frigate, Shield, new Shield(npcDef.stats.shield, npcDef.stats.shield));
-      this.ecs.addComponent(frigate, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
+      this.ecs.addComponent(frigate, Health, new Health(this.npcStatsManager.getHealth('Frigate'), this.npcStatsManager.getHealth('Frigate')));
+      this.ecs.addComponent(frigate, Shield, new Shield(this.npcStatsManager.getShield('Frigate'), this.npcStatsManager.getShield('Frigate')));
+      const frigateStats = this.npcStatsManager.getStats('Frigate')!;
+      this.ecs.addComponent(frigate, Damage, new Damage(frigateStats.damage, frigateStats.range, frigateStats.cooldown));
       this.ecs.addComponent(frigate, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
 
       if (sprite) {
