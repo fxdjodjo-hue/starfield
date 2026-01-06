@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "server": "node server.cjs",
-    "server:online": "node tools/start-online.js",
+    "server:online": "node tools/start-online.cjs",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
