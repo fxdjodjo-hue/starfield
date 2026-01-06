@@ -120,6 +120,7 @@ export class ClientNetworkSystem extends BaseSystem {
    * Registers all message handlers with the message router
    */
   private registerMessageHandlers(): void {
+    // Crea lista base di handler sempre presenti
     const handlers = [
       new WelcomeHandler(),
       new RemotePlayerUpdateHandler(),
@@ -130,6 +131,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Aggiungi handlers NPC se il sistema è disponibile
     if (this.remoteNpcSystem) {
+      console.log(`🎯 [CLIENT] Registering NPC handlers`);
       handlers.push(
         new InitialNpcsHandler(),
         new NpcJoinedHandler(),
@@ -141,6 +143,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Aggiungi handlers di combattimento se il sistema è disponibile
     if (this.remoteProjectileSystem) {
+      console.log(`⚔️ [CLIENT] Registering combat handlers`);
       handlers.push(
         new CombatUpdateHandler(),
         new ProjectileFiredHandler(),
@@ -152,7 +155,9 @@ export class ClientNetworkSystem extends BaseSystem {
       );
     }
 
+    // Registra tutti gli handler (questo sovrascrive quelli precedenti)
     this.messageRouter.registerHandlers(handlers);
+    console.log(`📡 [CLIENT] Registered ${handlers.length} message handlers`);
   }
 
   /**
@@ -398,7 +403,13 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sets the RemoteNpcSystem instance
    */
   setRemoteNpcSystem(remoteNpcSystem: RemoteNpcSystem): void {
+    console.log(`🔧 [CLIENT] Setting RemoteNpcSystem: ${!!remoteNpcSystem}`);
     this.remoteNpcSystem = remoteNpcSystem;
+
+    // Ri-registra gli handler per includere quelli NPC ora che il sistema è disponibile
+    if (remoteNpcSystem) {
+      this.registerMessageHandlers();
+    }
   }
 
   /**
@@ -406,6 +417,11 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setRemoteProjectileSystem(remoteProjectileSystem: RemoteProjectileSystem): void {
     this.remoteProjectileSystem = remoteProjectileSystem;
+
+    // Ri-registra gli handler per includere quelli di combattimento ora che il sistema è disponibile
+    if (remoteProjectileSystem) {
+      this.registerMessageHandlers();
+    }
   }
 
   /**
