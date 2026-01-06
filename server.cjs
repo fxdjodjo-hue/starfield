@@ -405,7 +405,10 @@ class ServerNpcManager {
 
 // Crea server WebSocket sulla porta configurata (Railway usa PORT env var)
 const PORT = process.env.PORT || 3000;
-const wss = new WebSocket.Server({ port: parseInt(PORT) });
+const wss = new WebSocket.Server({
+  port: parseInt(PORT),
+  host: '0.0.0.0'  // Necessario per Railway - bind su tutte le interfacce
+});
 class ServerProjectileManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
