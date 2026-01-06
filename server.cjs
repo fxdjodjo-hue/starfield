@@ -1128,9 +1128,8 @@ wss.on('connection', (ws) => {
         mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);
 
         // Spara immediatamente il primo proiettile per ridurre il delay percepito
-        setTimeout(() => {
-          mapServer.combatManager.processPlayerCombat(data.playerId);
-        }, 100); // Piccolo delay per assicurarsi che il combattimento sia inizializzato
+        // Nota: rimuoviamo il setTimeout per evitare race conditions
+        mapServer.combatManager.processPlayerCombat(data.playerId);
 
         // Broadcast stato combattimento a tutti i client
         const combatUpdate = {
