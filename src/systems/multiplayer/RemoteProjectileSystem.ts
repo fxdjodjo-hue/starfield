@@ -79,9 +79,25 @@ export class RemoteProjectileSystem extends BaseSystem {
       }
     } else {
       // Proiettile player: owner è il player, target potrebbe essere un NPC
-      ownerId = entity.id; // Per ora usa entity ID, potrebbe essere migliorato
+      // Cerca l'entità player locale come owner
+      const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
+      for (const playerEntity of playerEntities) {
+        if (!this.ecs.hasComponent(playerEntity, Npc)) {
+          ownerId = playerEntity.id;
+          break;
+        }
+      }
+
+      // Se c'è un targetId, cerca l'NPC con serverId corrispondente
       if (targetId) {
-        actualTargetId = typeof targetId === 'string' ? parseInt(targetId) : targetId;
+        const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
+        for (const npcEntity of npcEntities) {
+          const npc = this.ecs.getComponent(npcEntity, Npc);
+          if (npc && npc.serverId === targetId.toString()) {
+            actualTargetId = npcEntity.id;
+            break;
+          }
+        }
       }
     }
 

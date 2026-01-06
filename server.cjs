@@ -1073,6 +1073,16 @@ wss.on('connection', (ws) => {
       if (data.type === 'projectile_fired') {
         console.log(`🔫 [SERVER] Projectile fired: ${data.projectileId} by ${data.playerId}`);
 
+        // Determina il target per i proiettili del player (NPC che sta attaccando)
+        let targetId = data.targetId || null;
+        if (!targetId) {
+          // Controlla se il player sta combattendo contro un NPC
+          const playerCombat = mapServer.combatManager.playerCombats.get(data.playerId);
+          if (playerCombat) {
+            targetId = playerCombat.npcId;
+          }
+        }
+
         // Registra il proiettile nel server
         mapServer.projectileManager.addProjectile(
           data.projectileId,
@@ -1080,7 +1090,8 @@ wss.on('connection', (ws) => {
           data.position,
           data.velocity,
           data.damage,
-          data.projectileType || 'laser'
+          data.projectileType || 'laser',
+          targetId
         );
 
         // Broadcast il proiettile a tutti gli altri client
@@ -1092,7 +1103,7 @@ wss.on('connection', (ws) => {
           velocity: data.velocity,
           damage: data.damage,
           projectileType: data.projectileType || 'laser',
-          targetId: data.targetId || null // Per ora null per proiettili player
+          targetId: targetId
         };
 
         // Invia a tutti i client tranne quello che ha sparato
