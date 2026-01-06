@@ -501,6 +501,13 @@ export class CombatSystem extends BaseSystem {
    */
   private async createExplosion(entity: any): Promise<void> {
     try {
+      // Verifica che l'entità esista ancora (potrebbe essere stata rimossa dal ProjectileSystem)
+      if (!this.ecs.entityExists(entity.id)) {
+        console.warn(`Cannot create explosion for entity ${entity.id}: entity no longer exists`);
+        this.explodingEntities.delete(entity.id);
+        return;
+      }
+
       // Riproduci suono esplosione
       if (this.audioSystem) {
         this.audioSystem.playSound('explosion', 0.1, false, true); // Volume più basso per equilibrio sonoro
@@ -509,6 +516,13 @@ export class CombatSystem extends BaseSystem {
       // Carica i frame dell'esplosione se non già caricati
       if (!this.explosionFrames) {
         this.explosionFrames = await this.loadExplosionFrames();
+      }
+
+      // Verifica nuovamente che l'entità esista dopo il caricamento async
+      if (!this.ecs.entityExists(entity.id)) {
+        console.warn(`Cannot create explosion for entity ${entity.id}: entity removed during async operation`);
+        this.explodingEntities.delete(entity.id);
+        return;
       }
 
       // Rimuovi componenti non necessari per l'esplosione (mantieni Transform per la posizione)
