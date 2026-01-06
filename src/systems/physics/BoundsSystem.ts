@@ -21,8 +21,8 @@ export class BoundsSystem extends BaseSystem {
   private readonly DAMAGE_INTERVAL = 1000; // 1 secondo
   private readonly DAMAGE_AMOUNT = 10;
 
-  // Timer per warning vocale periodico
-  private warningTimer = 0;
+  // Timer atomico per warning vocale periodico (basato su timestamp assoluti)
+  private lastWarningTime = 0;
   private readonly WARNING_INTERVAL = 3000; // 3 secondi
 
   // Sistema audio
@@ -66,15 +66,13 @@ export class BoundsSystem extends BaseSystem {
       // Accumula tempo per il danno periodico
       this.damageTimer += deltaTime;
 
-      // Accumula tempo per il warning vocale periodico
-      this.warningTimer += deltaTime;
-
-      // Riproduci warning vocale ogni 3 secondi
-      if (this.warningTimer >= this.WARNING_INTERVAL) {
+      // Riproduci warning vocale ogni 3 secondi (controllo atomico)
+      const now = Date.now();
+      if (now - this.lastWarningTime >= this.WARNING_INTERVAL) {
         if (this.audioSystem) {
-          this.audioSystem.playSound('warning', 0.7, false, true, 'voice');
+          this.audioSystem.playSound('warning', 0.7, false, false, 'voice'); // Cambiato allowMultiple a false
         }
-        this.warningTimer = 0; // Reset del timer warning
+        this.lastWarningTime = now;
       }
 
       // Applica danno periodico quando accumulato abbastanza tempo
@@ -88,7 +86,7 @@ export class BoundsSystem extends BaseSystem {
     } else {
       // Reset di tutti i timer quando torna dentro i bounds
       this.damageTimer = 0;
-      this.warningTimer = 0;
+      this.lastWarningTime = 0;
     }
   }
 

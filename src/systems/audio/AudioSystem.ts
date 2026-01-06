@@ -20,6 +20,10 @@ export default class AudioSystem extends System {
   private musicInstance: HTMLAudioElement | null = null;
   private gainNodes: Map<string, GainNode> = new Map();
 
+  // Debouncing system to prevent sound duplication
+  private lastPlayedTimes: Map<string, number> = new Map();
+  private debounceTimeouts: Map<string, NodeJS.Timeout> = new Map();
+
   constructor(config: Partial<AudioConfig> = {}) {
     super();
     this.config = {
@@ -55,6 +59,11 @@ export default class AudioSystem extends System {
       this.musicInstance = null;
     }
 
+    // Cancella tutti i timeout di debouncing
+    this.debounceTimeouts.forEach(timeout => clearTimeout(timeout));
+    this.debounceTimeouts.clear();
+    this.lastPlayedTimes.clear();
+
     if (this.audioContext && this.audioContext.state !== 'closed') {
       this.audioContext.close();
     }
@@ -71,9 +80,35 @@ export default class AudioSystem extends System {
 
   // Metodi pubblici per gestione audio
 
-  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false, allowMultiple: boolean = false, category: keyof typeof AUDIO_ASSETS = 'effects'): void {
+  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false, allowMultiple: boolean = false, category: keyof typeof AUDIO_ASSETS = 'effects', debounceMs: number = 50): void {
     if (!this.config.enabled) return;
 
+    const now = Date.now();
+    const lastPlayed = this.lastPlayedTimes.get(key) || 0;
+
+    // Per suoni non-loop senza allowMultiple, applica debouncing
+    if (!loop && !allowMultiple && (now - lastPlayed) < debounceMs) {
+      // Cancella eventuali timeout precedenti e schedula una nuova riproduzione
+      const existingTimeout = this.debounceTimeouts.get(key);
+      if (existingTimeout) {
+        clearTimeout(existingTimeout);
+      }
+
+      this.debounceTimeouts.set(key, setTimeout(() => {
+        this.debounceTimeouts.delete(key);
+        this._playSoundInternal(key, volume, loop, allowMultiple, category);
+        this.lastPlayedTimes.set(key, Date.now());
+      }, debounceMs - (now - lastPlayed)));
+
+      return;
+    }
+
+    // Riproduzione immediata
+    this._playSoundInternal(key, volume, loop, allowMultiple, category);
+    this.lastPlayedTimes.set(key, now);
+  }
+
+  private _playSoundInternal(key: string, volume: number, loop: boolean, allowMultiple: boolean, category: keyof typeof AUDIO_ASSETS): void {
     try {
       // Crea una chiave unica per suoni multipli ravvicinati
       const soundKey = allowMultiple ? `${key}_${Date.now()}_${Math.random()}` : key;
