@@ -20,53 +20,40 @@ export class EntityDamagedHandler extends BaseMessageHandler {
     if (ecs) {
       // Trova il CombatSystem per creare i damage text
       const combatSystem = this.findCombatSystem(ecs);
-      console.log(`💥 [DAMAGE_TEXT] Found CombatSystem: ${!!combatSystem}, has createDamageText: ${!!(combatSystem && combatSystem.createDamageText)}`);
 
       if (combatSystem && combatSystem.createDamageText) {
         // Trova l'entità danneggiata
         let targetEntity = null;
 
         if (message.entityType === 'npc') {
-          console.log(`💥 [DAMAGE_TEXT] Looking for NPC entity ${message.entityId}`);
           // Usa il RemoteNpcSystem per trovare l'entità dell'NPC remoto
           const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
           if (remoteNpcSystem) {
-            const entityId = remoteNpcSystem.getRemoteNpcEntity(message.entityId);
-            if (entityId !== undefined) {
-              targetEntity = entityId;
-              console.log(`💥 [DAMAGE_TEXT] Found NPC entity ${entityId} for server ID ${message.entityId}`);
-            } else {
-              console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem returned undefined for NPC ${message.entityId}`);
+            targetEntity = remoteNpcSystem.getRemoteNpcEntity(message.entityId);
+            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem lookup for ${message.entityId}: ${targetEntity}`);
+            if (targetEntity === undefined) {
+              console.log(`💥 [DAMAGE_TEXT] Available NPCs: ${remoteNpcSystem.getActiveRemoteNpcs().join(', ')}`);
             }
           } else {
             console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem not available`);
           }
         } else if (message.entityType === 'player') {
-          console.log(`💥 [DAMAGE_TEXT] Looking for player entity ${message.entityId}, local client: ${networkSystem.getLocalClientId()}`);
           if (message.entityId === networkSystem.getLocalClientId()) {
-            console.log(`💥 [DAMAGE_TEXT] This is local player damage`);
             // Giocatore locale - trova l'entità locale
             const allEntities = ecs.getEntitiesWithComponents(Health, Shield);
-            console.log(`💥 [DAMAGE_TEXT] Found ${allEntities.length} local entities with Health+Shield`);
             for (const entity of allEntities) {
-              console.log(`💥 [DAMAGE_TEXT] Checking local entity ${entity}, has RemotePlayer: ${ecs.hasComponent(entity, 'RemotePlayer')}`);
               if (!ecs.hasComponent(entity, 'RemotePlayer')) {
                 targetEntity = entity;
-                console.log(`💥 [DAMAGE_TEXT] Found local player entity ${entity}`);
                 break;
               }
             }
           } else {
-            console.log(`💥 [DAMAGE_TEXT] This is remote player damage`);
             // Giocatore remoto - trova l'entità remota
             const allEntities = ecs.getEntitiesWithComponents(Health);
-            console.log(`💥 [DAMAGE_TEXT] Found ${allEntities.length} entities with Health for remote players`);
             for (const entity of allEntities) {
               const remotePlayer = ecs.getComponent(entity, 'RemotePlayer');
-              console.log(`💥 [DAMAGE_TEXT] Checking remote entity ${entity}, RemotePlayer component: ${!!remotePlayer}, clientId: ${remotePlayer?.clientId}`);
               if (remotePlayer && remotePlayer.clientId === message.entityId) {
                 targetEntity = entity;
-                console.log(`💥 [DAMAGE_TEXT] Found remote player entity ${entity}`);
                 break;
               }
             }
@@ -74,27 +61,12 @@ export class EntityDamagedHandler extends BaseMessageHandler {
         }
 
         // Crea il damage text se abbiamo trovato l'entità
-        console.log(`💥 [DAMAGE_TEXT] Target entity found: ${!!targetEntity} (entity ID: ${targetEntity})`);
-        if (targetEntity) {
-          // Determina se è danno a shield o HP
-          const oldHealth = message.newHealth + message.damage; // Ricostruisci il valore precedente
-          const oldShield = message.newShield; // Assumiamo che il danno sia andato prima allo shield
-
-          console.log(`💥 [DAMAGE_TEXT] Damage calculation - oldHealth: ${oldHealth}, newHealth: ${message.newHealth}, oldShield: ${oldShield}, newShield: ${message.newShield}`);
-
-          if (message.newShield < oldShield) {
-            // Danno a shield
-            const shieldDamage = oldShield - message.newShield;
-            console.log(`💥 [DAMAGE_TEXT] Creating shield damage text: ${shieldDamage}`);
-            combatSystem.createDamageText(targetEntity, shieldDamage, true); // true = shield damage
-          }
-
-          if (message.newHealth < oldHealth) {
-            // Danno a HP
-            const healthDamage = oldHealth - message.newHealth;
-            console.log(`💥 [DAMAGE_TEXT] Creating HP damage text: ${healthDamage}`);
-            combatSystem.createDamageText(targetEntity, healthDamage, false); // false = HP damage
-          }
+        console.log(`💥 [DAMAGE_TEXT] Target entity: ${targetEntity} for ${message.entityType} ${message.entityId}`);
+        if (targetEntity !== undefined && targetEntity !== null) {
+          // Mostra il danno totale come testo rosso (HP damage)
+          // Il server ha già applicato correttamente la logica shield→HP
+          console.log(`💥 [DAMAGE_TEXT] Creating damage text: ${message.damage} for ${message.entityType} ${message.entityId}`);
+          combatSystem.createDamageText(targetEntity, message.damage, false); // false = HP damage (rosso)
         } else {
           console.log(`💥 [DAMAGE_TEXT] No target entity found for ${message.entityType} ${message.entityId}`);
         }
