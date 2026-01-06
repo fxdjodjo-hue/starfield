@@ -189,22 +189,25 @@ Tutte le configurazioni sono centralizzate in `src/utils/config/Config.ts`:
 ### 🎮 Multiplayer Online
 Gioca con amici da qualsiasi parte del mondo!
 
+**Per l'host (tu):**
 ```bash
-# Avvia server con tunnel pubblico automatico
-npm run server:online
+# Avvia il server locale
+npm run server
 ```
+
+**Per gli amici:**
+Apri il link del gioco web: `https://starfield-game.vercel.app`
 
 **Caratteristiche:**
 - ✅ Server WebSocket completo
-- ✅ Tunnel sicuro con ngrok
+- ✅ Client web accessibile da tutti
 - ✅ Multiplayer in tempo reale
 - ✅ NPC condivisi tra giocatori
 - ✅ Combattimento sincronizzato
 
 **Come giocare:**
-1. `npm run server:online`
-2. Condividi l'URL pubblico generato
-3. Gli amici aprono l'URL e giocano insieme!
+1. Tu avvii il server con `npm run server`
+2. Gli amici aprono il link Vercel e giocano insieme!
 
 📖 **Guida completa:** `tools/README-online.md`
 

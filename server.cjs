@@ -405,6 +405,8 @@ class ServerNpcManager {
 
 // Crea server WebSocket sulla porta 3000
 const wss = new WebSocket.Server({ port: 3000 });
+
+console.log('🚀 WebSocket server started on ws://localhost:3000');
 class ServerProjectileManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
@@ -856,7 +858,7 @@ setInterval(() => {
   mapServer.tick();
 }, 50);
 
-console.log('🚀 WebSocket server started on ws://localhost:3000');
+// Il messaggio di avvio è già nel callback di server.listen()
 
 // MapServer - Contesto per ogni mappa del gioco
 class MapServer {
@@ -1676,5 +1678,8 @@ process.on('SIGINT', () => {
   }
 
   wss.close();
-  process.exit(0);
+  server.close(() => {
+    console.log('✅ Server shut down gracefully');
+    process.exit(0);
+  });
 });
