@@ -101,11 +101,7 @@ export class PlayState extends GameState {
       }, 100);
     }
 
-    // Imposta il ClientNetworkSystem nel GameInitializationSystem dopo un breve delay
-    // per assicurarsi che la connessione sia stata stabilita
-    setTimeout(() => {
-      this.setupClientNetworkSystem();
-    }, 1000); // 1 secondo dovrebbe essere sufficiente per la connessione
+    // Il ClientNetworkSystem verrà impostato automaticamente quando inizializzato
 
     // Messaggio di benvenuto nella chat
     setTimeout(() => {
@@ -256,6 +252,9 @@ export class PlayState extends GameState {
 
     // Imposta informazioni del player nel sistema di rete
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
+
+    // Ora che il ClientNetworkSystem è inizializzato, passalo al GameInitializationSystem
+    this.setupClientNetworkSystem();
   }
 
 
@@ -264,7 +263,6 @@ export class PlayState extends GameState {
    */
   private setupClientNetworkSystem(): void {
     if (this.clientNetworkSystem && this.gameInitSystem) {
-      console.log('[PLAYSTATE] Setting up ClientNetworkSystem in GameInitializationSystem');
       this.gameInitSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
       console.warn('[PLAYSTATE] ClientNetworkSystem or GameInitializationSystem not available');
@@ -278,9 +276,8 @@ export class PlayState extends GameState {
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
     this.playerEntity = await this.gameInitSystem.initialize();
 
-    // PASSA il ClientNetworkSystem al GameInitializationSystem DOPO l'inizializzazione
-    // (verrà chiamato dopo che la connessione è stata stabilita)
-    this.setupClientNetworkSystem();
+    // Il ClientNetworkSystem verrà passato al GameInitializationSystem dopo la connessione
+    // (viene chiamato automaticamente dal setTimeout nel metodo di connessione)
 
     // Ottieni riferimenti ai sistemi creati
     const systems = this.gameInitSystem.getSystems();
