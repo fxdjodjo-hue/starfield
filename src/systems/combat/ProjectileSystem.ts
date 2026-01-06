@@ -152,15 +152,13 @@ export class ProjectileSystem extends BaseSystem {
       // Se la distanza è minore di una soglia (hitbox), colpisce
       const hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
       if (distance < hitDistance) {
-        // Applica danno (prima shield, poi HP)
-        const damageDealt = projectile.damage;
-        this.applyDamage(targetEntity, damageDealt);
+        // RIMOSSO: Applicazione danni locali
+        // I danni vengono applicati SOLO dal server attraverso messaggi entity_damaged
+        // Questo previene desincronizzazioni e danni locali non autorizzati
 
-        // Notifica il CombatSystem per creare i testi danno
-        this.notifyCombatSystemOfDamage(targetEntity, damageDealt);
-
-
-        // Rimuovi il proiettile dopo l'impatto
+        // Rimuovi il proiettile dopo l'impatto (il server decide quando)
+        // Nota: In un sistema completamente server authoritative, anche la rimozione
+        // dei proiettili dovrebbe essere gestita dal server
         this.ecs.removeEntity(projectileEntity);
         return; // Un proiettile colpisce solo un bersaglio
       }
