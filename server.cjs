@@ -403,8 +403,9 @@ class ServerNpcManager {
   }
 }
 
-// Crea server WebSocket sulla porta 3000
-const wss = new WebSocket.Server({ port: 3000 });
+// Crea server WebSocket sulla porta configurata (Railway usa PORT env var)
+const PORT = process.env.PORT || 3000;
+const wss = new WebSocket.Server({ port: parseInt(PORT) });
 class ServerProjectileManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
@@ -856,7 +857,7 @@ setInterval(() => {
   mapServer.tick();
 }, 50);
 
-console.log('🚀 WebSocket server started on ws://localhost:3000');
+console.log(`🚀 WebSocket server started on ws://localhost:${PORT}`);
 
 // MapServer - Contesto per ogni mappa del gioco
 class MapServer {
