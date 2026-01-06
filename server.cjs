@@ -736,6 +736,7 @@ class ServerCombatManager {
 
       if (distanceSq <= attackRangeSq) {
         // Player nel range - NPC attacca (TEMPORANEAMENTE DISABILITATO)
+        console.log(`🚫 [SERVER] NPC ${npc.id} could attack player ${clientId} but attacks are DISABLED`);
         // this.performNpcAttack(npc, playerData, now);
         break; // Un attacco per tick
       }
