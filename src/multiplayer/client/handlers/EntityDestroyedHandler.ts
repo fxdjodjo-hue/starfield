@@ -31,5 +31,6 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
     }
 
     // TODO: Aggiungere effetti visivi di distruzione (esplosioni, particle effects, etc.)
+    // Per ora, le esplosioni vengono gestite dal server attraverso messaggi separati
   }
 }

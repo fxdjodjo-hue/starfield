@@ -508,28 +508,9 @@ export class CombatSystem extends BaseSystem {
     // Trova tutte le entità con componente Health
     const entitiesWithHealth = this.ecs.getEntitiesWithComponents(Health);
 
-    for (const entity of entitiesWithHealth) {
-      const health = this.ecs.getComponent(entity, Health);
-      const shield = this.ecs.getComponent(entity, Shield);
-
-      // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
-      const isDead = health && health.isDead() && (!shield || !shield.isActive());
-
-      if (isDead && !this.ecs.hasComponent(entity, Explosion) && !this.explodingEntities.has(entity.id)) {
-        // Log per debug esplosioni
-        const npc = this.ecs.getComponent(entity, Npc);
-        const entityType = npc ? `NPC-${npc.type}` : 'Player';
-        console.log(`💥 [EXPLOSION] Creating explosion for ${entityType} entity ${entity.id}`);
-
-        // Crea l'effetto esplosione invece di rimuovere immediatamente
-        this.explodingEntities.add(entity.id);
-        this.createExplosion(entity).catch(error => {
-          console.error(`💥 [EXPLOSION] Error creating explosion for ${entityType} entity ${entity.id}:`, error);
-          // Rimuovi dall'insieme in caso di errore
-          this.explodingEntities.delete(entity.id);
-        });
-      }
-    }
+    // RIMOSSO: Check locale della morte
+    // Le morti vengono ora gestite SOLO dal server attraverso messaggi entity_destroyed
+    // Questo previene desincronizzazioni e danni locali non autorizzati
   }
 
   /**
