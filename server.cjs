@@ -403,10 +403,13 @@ class ServerNpcManager {
   }
 }
 
-// Crea server WebSocket sulla porta 3000
-const wss = new WebSocket.Server({ port: 3000 });
+// Crea server WebSocket sulla porta 3000 - accessibile da tutti gli IP
+const wss = new WebSocket.Server({
+  port: 3000,
+  host: '0.0.0.0'  // Accetta connessioni da qualsiasi IP
+});
 
-console.log('🚀 WebSocket server started on ws://localhost:3000');
+console.log('🚀 WebSocket server started on 0.0.0.0:3000');
 class ServerProjectileManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
