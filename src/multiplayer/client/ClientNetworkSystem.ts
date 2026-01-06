@@ -472,6 +472,12 @@ export class ClientNetworkSystem extends BaseSystem {
       this.ecs.addComponent(explosionEntity, Transform, transform);
       this.ecs.addComponent(explosionEntity, Explosion, explosion);
 
+      // Riproduci suono esplosione sincronizzato su tutti i client
+      if (this.audioSystem) {
+        this.audioSystem.playSound('explosion', 0.1, false, true); // Volume più basso per equilibrio sonoro
+        console.log(`🔊 [CLIENT] Explosion sound played for ${message.entityType} ${message.entityId}`);
+      }
+
       // L'ExplosionSystem esistente gestirà automaticamente questa entità
       // perché cerca tutte le entità con componente Explosion
 
