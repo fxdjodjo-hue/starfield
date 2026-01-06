@@ -193,6 +193,8 @@ export class ClientNetworkSystem extends BaseSystem {
     try {
       const message: NetMessage = JSON.parse(data);
 
+      console.log(`📨 [CLIENT] Received message: ${message.type}`);
+
       // Handle simple messages that don't need dedicated handlers
       switch (message.type) {
         case MESSAGE_TYPES.POSITION_ACK:
