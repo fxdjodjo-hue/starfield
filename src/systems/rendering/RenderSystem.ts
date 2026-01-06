@@ -9,6 +9,7 @@ import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Explosion } from '../../entities/combat/Explosion';
 import { Projectile } from '../../entities/combat/Projectile';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Camera } from '../../entities/spatial/Camera';
 import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
@@ -88,6 +89,12 @@ export class RenderSystem extends BaseSystem {
             x: screenX, y: screenY, rotation: 0, scaleX: transform.scaleX, scaleY: transform.scaleY
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
+        }
+
+        // Disegna cerchio di selezione rosso attorno agli NPC selezionati
+        const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
+        if (isSelected) {
+          this.renderSelectionCircle(ctx, screenX, screenY);
         }
       }
     } else {
@@ -280,6 +287,36 @@ export class RenderSystem extends BaseSystem {
       ctx.drawImage(params.image, params.x, params.y, params.width, params.height);
       ctx.restore();
     }
+  }
+
+  /**
+   * Render selection circle around selected NPCs
+   */
+  private renderSelectionCircle(ctx: CanvasRenderingContext2D, screenX: number, screenY: number): void {
+    const radius = 35; // Raggio del cerchio di selezione
+    const lineWidth = 3; // Spessore del bordo
+
+    ctx.save();
+
+    // Cerchio esterno (bordo rosso)
+    ctx.strokeStyle = '#ff0000'; // Rosso
+    ctx.lineWidth = lineWidth;
+    ctx.globalAlpha = 0.8; // Semi-trasparente
+
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cerchio interno più sottile per effetto visivo
+    ctx.strokeStyle = '#ff4444'; // Rosso più chiaro
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.6;
+
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, radius - 2, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
   }
 
 }
