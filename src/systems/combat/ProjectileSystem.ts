@@ -93,17 +93,8 @@ export class ProjectileSystem extends BaseSystem {
     const projectile = this.ecs.getComponent(projectileEntity, Projectile);
     if (!projectile) return false;
 
-    // Trova il player
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    if (!playerEntity) return false;
-
-    // I proiettili homing sono:
-    // 1. Quelli sparati DA NPC verso il player
-    // 2. Quelli sparati DAL player verso NPC selezionati
-    const isNpcProjectile = projectile.ownerId !== playerEntity.id;
-    const isPlayerProjectileToNpc = projectile.ownerId === playerEntity.id && projectile.targetId !== playerEntity.id;
-
-    return isNpcProjectile || isPlayerProjectileToNpc;
+    // Un proiettile è homing se ha un targetId valido (diverso da -1)
+    return projectile.targetId !== -1;
   }
 
   /**

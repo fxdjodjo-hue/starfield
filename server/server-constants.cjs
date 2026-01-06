@@ -7,7 +7,9 @@
 const SERVER_CONSTANTS = {
   PROJECTILE: {
     SPEED: 400,
-    LIFETIME: 3000
+    LIFETIME: 3000,
+    SPAWN_OFFSET: 25,
+    HIT_RADIUS: 15
   },
 
   COMBAT: {

@@ -686,7 +686,7 @@ class ServerCombatManager {
     };
 
     // Posizione leggermente avanti al player
-    const offset = 25;
+    const offset = SERVER_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
     const projectilePos = {
       x: playerData.position.x + directionX * offset,
       y: playerData.position.y + directionY * offset
@@ -760,7 +760,7 @@ class ServerCombatManager {
     };
 
     // Posizione leggermente avanti all'NPC nella direzione del proiettile
-    const offset = 25; // Dimensione nave
+    const offset = SERVER_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
     const projectilePos = {
       x: npc.position.x + Math.cos(angle) * offset,
       y: npc.position.y + Math.sin(angle) * offset
@@ -1108,7 +1108,7 @@ wss.on('connection', (ws) => {
 
         // Invia a tutti i client, incluso quello che ha sparato (per coerenza con NPC)
         mapServer.clients.forEach((client, clientId) => {
-          client.send(JSON.stringify(projectileMessage));
+            client.send(JSON.stringify(projectileMessage));
         });
       }
 

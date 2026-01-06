@@ -26,7 +26,6 @@ import { ProjectileFactory } from '../../factories/ProjectileFactory';
  * Gestisce attacchi, danni e logica di combattimento
  */
 export class CombatSystem extends BaseSystem {
-  private lastUpdateTime: number = Date.now();
   private cameraSystem: CameraSystem;
   private logSystem: LogSystem | null = null;
   private gameContext: GameContext;
@@ -52,12 +51,10 @@ export class CombatSystem extends BaseSystem {
    * Imposta il sistema di rete per notifiche multiplayer (fallback)
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
-    console.log('[COMBAT] ClientNetworkSystem set:', !!clientNetworkSystem);
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Processa le richieste di combattimento pendenti
     if (this.pendingCombatRequests.length > 0) {
-      console.log(`[COMBAT] Processing ${this.pendingCombatRequests.length} pending combat requests`);
       const pendingRequests = [...this.pendingCombatRequests];
       this.pendingCombatRequests = [];
 
@@ -76,7 +73,6 @@ export class CombatSystem extends BaseSystem {
 
 
   update(deltaTime: number): void {
-    this.lastUpdateTime = Date.now();
 
     // Rimuovi tutte le entità morte
     this.removeDeadEntities();
@@ -131,7 +127,7 @@ export class CombatSystem extends BaseSystem {
 
     // Verifica se l'NPC può attaccare (cooldown e range)
     if (attackerDamage.isInRange(attackerTransform.x, attackerTransform.y, targetTransform.x, targetTransform.y) &&
-        attackerDamage.canAttack(this.lastUpdateTime)) {
+        attackerDamage.canAttack(Date.now())) {
       // Esegui l'attacco
       this.performAttack(attackerEntity, attackerTransform, attackerDamage, targetTransform, playerEntity);
     }
@@ -179,7 +175,7 @@ export class CombatSystem extends BaseSystem {
 
       // NPC: non creare proiettile locale - il server gestisce tutti i proiettili NPC
       // Registra solo il cooldown per evitare spam di suoni
-      attackerDamage.performAttack(this.lastUpdateTime);
+      attackerDamage.performAttack(Date.now());
     }
   }
 
@@ -202,12 +198,11 @@ export class CombatSystem extends BaseSystem {
     const rightDirectionX = baseDirectionX * cos + baseDirectionY * sin;
     const rightDirectionY = -baseDirectionX * sin + baseDirectionY * cos;
 
-    // Crea i due laser visivi: uno con danno completo (500), l'altro puramente visivo (0)
-    const fullDamage = attackerDamage.damage; // 500 danni
-    const visualOnlyDamage = 0; // Solo effetto visivo
+    // Crea i due laser: entrambi fanno danno completo per semplicità
+    const laserDamage = attackerDamage.damage; // Entrambi fanno danno completo
 
-    this.createProjectileAt(attackerEntity, attackerTransform, fullDamage, leftDirectionX, leftDirectionY, targetEntity);
-    this.createProjectileAt(attackerEntity, attackerTransform, visualOnlyDamage, rightDirectionX, rightDirectionY, targetEntity);
+    this.createProjectileAt(attackerEntity, attackerTransform, laserDamage, leftDirectionX, leftDirectionY, targetEntity);
+    this.createProjectileAt(attackerEntity, attackerTransform, laserDamage, rightDirectionX, rightDirectionY, targetEntity);
 
     // Registra l'attacco per il cooldown
     attackerDamage.performAttack(this.lastUpdateTime);
@@ -259,14 +254,11 @@ export class CombatSystem extends BaseSystem {
 
     // Notifica il sistema di rete per sincronizzazione multiplayer
     if (this.clientNetworkSystem) {
-      console.log(`🔫 [COMBAT] Creating projectile ${projectileId} from ${isLocalPlayer ? 'PLAYER' : 'NPC'} ${attackerEntity.id}`);
-
       // Invia SOLO i proiettili del giocatore locale al server
       // Gli NPC vengono gestiti direttamente dal server
       if (isLocalPlayer) {
         const transform = this.ecs.getComponent(projectileEntity, Transform);
         if (transform) {
-          console.log(`📡 [COMBAT] Sending projectile_fired to server: ${projectileId}`);
           this.clientNetworkSystem.sendProjectileFired({
             projectileId,
             playerId: this.clientNetworkSystem.getLocalClientId(),
@@ -464,7 +456,6 @@ export class CombatSystem extends BaseSystem {
    */
   private sendStartCombat(npcEntity: any): void {
     if (!this.clientNetworkSystem) {
-      console.log('[COMBAT] ClientNetworkSystem not available yet, queuing request');
       // Aggiungi alla coda delle richieste pendenti
       this.pendingCombatRequests.push(npcEntity);
       return;
@@ -476,7 +467,6 @@ export class CombatSystem extends BaseSystem {
     // Usa l'ID server se disponibile, altrimenti l'ID entità locale
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
 
-    console.log(`[COMBAT] Sending START_COMBAT for NPC ${npcIdToSend} (entity: ${npcEntity.id}, serverId: ${npc.serverId})`);
     this.clientNetworkSystem.sendStartCombat({
       npcId: npcIdToSend,
       playerId: this.clientNetworkSystem.getLocalClientId()
@@ -489,55 +479,12 @@ export class CombatSystem extends BaseSystem {
   private sendStopCombat(): void {
     if (!this.clientNetworkSystem) return;
 
-    console.log(`🛑 [COMBAT] Stopping combat`);
-
     this.clientNetworkSystem.sendStopCombat({
       playerId: this.clientNetworkSystem.getLocalClientId()
     });
   }
 
 
-  /**
-   * Permette al player di attaccare un NPC selezionato (per uso futuro)
-   */
-  attackSelectedNpc(): void {
-    // Trova l'NPC selezionato
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    if (selectedNpcs.length === 0) return;
-
-    const selectedNpc = selectedNpcs[0];
-
-    // Trova il player (entità senza SelectedNpc ma con Damage e Health)
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Health, Damage);
-    const playerEntity = playerEntities.find(entity => {
-      return !this.ecs.hasComponent(entity, SelectedNpc);
-    });
-
-    if (!playerEntity) return;
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    const playerDamage = this.ecs.getComponent(playerEntity, Damage);
-    const npcHealth = this.ecs.getComponent(selectedNpc, Health);
-
-    if (!playerTransform || !playerDamage || !npcHealth) return;
-
-    // Controlla se il player è nel range di attacco
-    const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
-    if (!npcTransform) return;
-
-    if (playerDamage.isInRange(
-      playerTransform.x, playerTransform.y,
-      npcTransform.x, npcTransform.y
-    )) {
-      if (playerDamage.canAttack(this.lastUpdateTime)) {
-        // Ruota il player verso l'NPC prima di attaccare
-        this.faceTarget(playerTransform, npcTransform);
-
-        // Il player spara un proiettile verso l'NPC
-        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
-      }
-    }
-  }
 
   /**
    * Rimuove tutte le entità morte dal mondo (ora crea esplosione invece di rimuovere immediatamente)
