@@ -31,11 +31,5 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       message.projectileType,
       message.targetId
     );
-
-    // Log per debug
-    const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
-    if (isLocalPlayer) {
-      console.log(`🔫 [CLIENT] Local player projectile ${message.projectileId} added for rendering`);
-    }
   }
 }
