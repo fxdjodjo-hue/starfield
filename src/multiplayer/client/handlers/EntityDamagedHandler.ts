@@ -29,8 +29,10 @@ export class EntityDamagedHandler extends BaseMessageHandler {
           // Usa il RemoteNpcSystem per trovare l'entità dell'NPC remoto
           const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
           if (remoteNpcSystem) {
-            const entityId = remoteNpcSystem.getRemoteNpcEntity(message.entityId);
-            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem lookup for ${message.entityId}: ${entityId}`);
+            // FIX: Converti message.entityId a stringa per gli NPC
+            const npcId = message.entityId.toString();
+            const entityId = remoteNpcSystem.getRemoteNpcEntity(npcId);
+            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem lookup for ${npcId} (converted from ${message.entityId}): ${entityId}`);
             if (entityId !== undefined) {
               // Ottieni l'entità effettiva dall'ECS usando l'entity ID
               targetEntity = ecs.getEntity(entityId);
