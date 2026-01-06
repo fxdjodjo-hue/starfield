@@ -160,8 +160,13 @@ export class CombatSystem extends BaseSystem {
     }
 
     if (isPlayer) {
+      // Riproduci suono laser del player immediatamente per responsività
+      if (this.audioSystem) {
+        this.audioSystem.playSound('laser', 0.4, false, true);
+        console.log(`🔊 [AUDIO] Player laser sound played immediately on attack`);
+      }
+
       // Player: crea singolo laser
-      // Nota: l'audio viene riprodotto in ProjectileFiredHandler quando arriva il proiettile dal server
       this.createSingleLaser(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     } else {
       // Riproduci suono laser degli scouter

@@ -14,14 +14,15 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
     console.log(`🔫 [CLIENT] Projectile fired: ${message.projectileId} by ${message.playerId}${isLocalPlayer ? ' (LOCAL)' : ''} - Target: ${message.targetId}`);
 
-    // Riproduci suono sparo sincronizzato per proiettili del player locale
-    if (isLocalPlayer) {
-      const audioSystem = networkSystem.getAudioSystem();
-      if (audioSystem) {
-        audioSystem.playSound('laser', 0.4, false, true);
-        console.log(`🔊 [AUDIO] Player laser sound played for projectile ${message.projectileId}`);
-      }
-    }
+    // Nota: l'audio del player viene riprodotto immediatamente nel CombatSystem
+    // Qui riproduciamo solo audio per NPC o altri giocatori remoti (se necessario)
+    // if (isLocalPlayer) {
+    //   const audioSystem = networkSystem.getAudioSystem();
+    //   if (audioSystem) {
+    //     audioSystem.playSound('laser', 0.4, false, true);
+    //     console.log(`🔊 [AUDIO] Player laser sound played for projectile ${message.projectileId}`);
+    //   }
+    // }
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) {
