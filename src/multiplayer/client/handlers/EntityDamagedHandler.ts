@@ -29,13 +29,18 @@ export class EntityDamagedHandler extends BaseMessageHandler {
           // Usa il RemoteNpcSystem per trovare l'entità dell'NPC remoto
           const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
           if (remoteNpcSystem) {
-            targetEntity = remoteNpcSystem.getRemoteNpcEntity(message.entityId);
-            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem lookup for ${message.entityId}: ${targetEntity}`);
-            if (targetEntity === undefined) {
-              console.log(`💥 [DAMAGE_TEXT] Available NPCs: ${remoteNpcSystem.getActiveRemoteNpcs().join(', ')}`);
+            const entityId = remoteNpcSystem.getRemoteNpcEntity(message.entityId);
+            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem lookup for ${message.entityId}: ${entityId}`);
+            if (entityId !== undefined) {
+              // Ottieni l'entità effettiva dall'ECS usando l'entity ID
+              targetEntity = ecs.getEntity(entityId);
+              console.log(`💥 [DAMAGE_TEXT] ECS entity lookup result: ${targetEntity}, type: ${typeof targetEntity}`);
+              if (targetEntity) {
+                console.log(`💥 [DAMAGE_TEXT] Entity found with id: ${targetEntity.id}`);
+              } else {
+                console.log(`💥 [DAMAGE_TEXT] Entity ${entityId} not found in ECS, available entities: ${Array.from(ecs.getEntitiesWithComponents(Transform)).map(e => e.id).join(', ')}`);
+              }
             }
-          } else {
-            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem not available`);
           }
         } else if (message.entityType === 'player') {
           if (message.entityId === networkSystem.getLocalClientId()) {
@@ -62,13 +67,13 @@ export class EntityDamagedHandler extends BaseMessageHandler {
 
         // Crea il damage text se abbiamo trovato l'entità
         console.log(`💥 [DAMAGE_TEXT] Target entity: ${targetEntity} for ${message.entityType} ${message.entityId}`);
-        if (targetEntity !== undefined && targetEntity !== null) {
+        if (targetEntity !== undefined && targetEntity !== null && typeof targetEntity.id === 'number' && targetEntity.id >= 0) {
           // Mostra il danno totale come testo rosso (HP damage)
           // Il server ha già applicato correttamente la logica shield→HP
-          console.log(`💥 [DAMAGE_TEXT] Creating damage text: ${message.damage} for ${message.entityType} ${message.entityId}`);
+          console.log(`💥 [DAMAGE_TEXT] Creating damage text: ${message.damage} for ${message.entityType} ${message.entityId}, entity ID: ${targetEntity.id}`);
           combatSystem.createDamageText(targetEntity, message.damage, false); // false = HP damage (rosso)
         } else {
-          console.log(`💥 [DAMAGE_TEXT] No target entity found for ${message.entityType} ${message.entityId}`);
+          console.log(`💥 [DAMAGE_TEXT] No valid target entity found for ${message.entityType} ${message.entityId} (targetEntity: ${targetEntity}, id: ${targetEntity?.id})`);
         }
       }
     }
