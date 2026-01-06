@@ -110,7 +110,7 @@ export class RemoteNpcSystem extends BaseSystem {
   updateRemoteNpc(npcId: string, position?: { x: number, y: number, rotation: number }, health?: { current: number, max: number }, behavior?: string): void {
     const npcData = this.remoteNpcs.get(npcId);
     if (!npcData) {
-      console.warn(`[REMOTE_NPC] Attempted to update non-existent NPC: ${npcId}`);
+      // NPC distrutto/respawnato - silenziosamente ignora (normale durante il gameplay)
       return;
     }
 
@@ -171,16 +171,22 @@ export class RemoteNpcSystem extends BaseSystem {
    */
   bulkUpdateNpcs(updates: Array<{ id: string, position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, behavior: string }>): void {
     const startTime = Date.now();
+    let successCount = 0;
+    let failCount = 0;
 
     for (const update of updates) {
+      const existed = this.remoteNpcs.has(update.id);
       this.updateRemoteNpc(update.id, update.position, update.health, update.behavior);
+      if (existed) {
+        successCount++;
+      } else {
+        failCount++;
+      }
     }
 
-    // Only log performance issues
+    // Log summary of bulk update
     const duration = Date.now() - startTime;
-    if (updates.length > 0 && duration > 50) { // Only log if it takes more than 50ms
-      console.log(`[REMOTE_NPC] Bulk update took ${duration}ms for ${updates.length} NPCs`);
-    }
+    console.log(`[REMOTE_NPC] Bulk update: ${updates.length} total, ${successCount} updated, ${failCount} skipped (${duration}ms)`);
   }
 
   /**

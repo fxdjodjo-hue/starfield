@@ -33,7 +33,7 @@ Ogni sistema è:
 - **EconomySystem**: Gestione risorse economiche
 - **NpcBehaviorSystem**: AI e comportamenti NPC
 - **NpcSelectionSystem**: Selezione e targeting NPC
-- **NpcRespawnSystem**: Rigenerazione NPC morti in posizioni sicure
+- **ServerNpcManager**: Rigenerazione NPC morti lato server (server-authoritative)
 - **PlayerControlSystem**: Controlli movimento player
 - **RankSystem**: Sistema progressione e gradi
 - **RewardSystem**: Assegnazione ricompense sconfitte
@@ -92,59 +92,58 @@ private readonly BOUNDS_MARGIN = 0;      // Margine dai bordi (attualmente 0)
 - **Penalità chiara**: Danno prevedibile incoraggia ritorno in area sicura
 - **Balance**: 10 HP/s permette sopravvivenza ma scoraggia esplorazione oltre confini
 
-## 🔄 Sistema NpcRespawnSystem
+## 🔄 Sistema ServerNpcManager (Server-Authoritative Respawn)
 
 ### 📋 Descrizione
-Il **NpcRespawnSystem** mantiene il gameplay dinamico rigenerando gli NPC morti in posizioni sicure lontane dal player, garantendo un mondo sempre popolato.
+Il **ServerNpcManager** gestisce completamente il respawn degli NPC lato server, mantenendo il gameplay dinamico con rigenerazione automatica degli NPC morti in posizioni sicure.
 
 ### 🎯 Funzionalità
-- **Respawn automatico**: 10 secondi dopo la morte dell'NPC
-- **Posizioni dinamiche**: Spawn sicuro 800-2000px dal player
-- **Anti-sovrapposizione**: Evita spawn vicino ad altri NPC
-- **Event-driven**: Integrato con RewardSystem per cattura morti
+- **Respawn server-authoritative**: Gestione completa lato server
+- **Respawn automatico**: Dopo un delay configurabile dalla morte dell'NPC
+- **Posizioni dinamiche**: Spawn sicuro lontano dai giocatori attivi
+- **Bilanciamento popolazione**: Mantiene numero costante di NPC nel mondo
+- **Broadcast automatico**: Notifica tutti i client dei nuovi NPC
 
 ### 🔧 Implementazione
 ```typescript
-// Creazione e configurazione
-const respawnSystem = new NpcRespawnSystem(ecs);
-respawnSystem.setPlayerEntity(playerShip);
+// Server-side NPC management
+const npcManager = new ServerNpcManager(mapServer);
+npcManager.initializeWorldNpcs(25, 25); // 25 Scouters, 25 Frigates
 
-// Integrazione con RewardSystem
-rewardSystem.setRespawnSystem(respawnSystem);
-
-// Sistema cattura automaticamente morti NPC
+// Respawn automatico integrato in damageNpc()
+if (npc.health <= 0) {
+  this.removeNpc(npcId);
+  this.scheduleRespawn(npc.type); // Nuovo metodo
+}
 ```
 
 ### ⚙️ Configurazione
 ```typescript
-// Parametri in CONFIG.ts
-NPC_RESPAWN_DELAY: 10000,        // 10 secondi attesa
-NPC_RESPAWN_DISTANCE_MIN: 800,   // Distanza minima dal player
-NPC_RESPAWN_DISTANCE_MAX: 2000,  // Distanza massima dal player
-NPC_RESPAWN_ANGLE_VARIATION: Math.PI * 0.5  // ±90° variazione
+// Parametri lato server
+NPC_RESPAWN_DELAY: 10000,        // 10 secondi dopo la morte
 ```
 
 ### 🔄 Flusso Operativo
 ```
-1. NPC muore → RewardSystem cattura evento
-2. Pianifica respawn: morte_time + 10s
+1. NPC muore → ServerNpcManager.removeNpc()
+2. Pianifica automaticamente respawn in coda
 3. Timer scaduto → Calcola posizione sicura
-4. Verifica distanza da player (>800px)
-5. Verifica distanza da altri NPC (>200px)
-6. Crea nuovo NPC con stesse caratteristiche
-7. Respawn completato! ✨
+4. Crea nuovo NPC con ServerNpcManager.createNpc()
+5. Broadcast a tutti i client → npc_spawn
+6. Respawn completato! ✨
 ```
 
 ### 🎮 Gameplay Impact
-- **Gameplay infinito**: NPC si rigenerano continuamente
-- **Mondo vivo**: Popolazione costante di nemici
-- **Posizioni casuali**: Mai spawn prevedibili
-- **Bilanciamento**: Mantiene difficoltà costante
+- **Server-authoritative**: Nessuna discrepanza tra client
+- **Gameplay infinito**: Ogni NPC morto respawna dopo 10 secondi
+- **Semplicità**: Logica diretta e prevedibile
+- **Performance ottimizzata**: Gestione centralizzata
 
 ### 🛡️ Sicurezza
-- **Fallback position**: Se non trova posizione sicura, usa posizione di backup
-- **Massimo 20 tentativi**: Per evitare loop infiniti
-- **Validazione**: Solo posizioni entro bounds della mappa
+- **Validazione server**: Solo posizioni entro world bounds
+- **Anti-exploit**: Nessuna manipolazione client-side
+- **Posizioni sicure**: Lontano dai giocatori attivi
+- **Fallback sicuro**: Posizioni alternative se calcolo fallisce
 
 ## 🧪 Testing
 ```bash

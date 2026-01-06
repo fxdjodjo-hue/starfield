@@ -68,26 +68,55 @@ export class EntityDamagedHandler extends BaseMessageHandler {
         // Crea il damage text se abbiamo trovato l'entità
         console.log(`💥 [DAMAGE_TEXT] Target entity: ${targetEntity} for ${message.entityType} ${message.entityId}`);
         if (targetEntity !== undefined && targetEntity !== null && typeof targetEntity.id === 'number' && targetEntity.id >= 0) {
-          // Mostra il danno totale come testo rosso (HP damage)
-          // Il server ha già applicato correttamente la logica shield→HP
-          console.log(`💥 [DAMAGE_TEXT] Creating damage text: ${message.damage} for ${message.entityType} ${message.entityId}, entity ID: ${targetEntity.id}`);
-          combatSystem.createDamageText(targetEntity, message.damage, false); // false = HP damage (rosso)
+          // Calcola i danni effettivi allo shield e agli HP confrontando i valori precedenti con quelli nuovi
+          const healthComponent = ecs.getComponent(targetEntity, Health);
+          const shieldComponent = ecs.getComponent(targetEntity, Shield);
+
+          let shieldDamage = 0;
+          let healthDamage = 0;
+
+          if (shieldComponent) {
+            const oldShield = shieldComponent.current;
+            const newShield = message.newShield;
+            shieldDamage = Math.max(0, oldShield - newShield);
+            console.log(`💥 [DAMAGE_TEXT] Shield damage: ${shieldDamage} (${oldShield} → ${newShield})`);
+          }
+
+          if (healthComponent) {
+            const oldHealth = healthComponent.current;
+            const newHealth = message.newHealth;
+            healthDamage = Math.max(0, oldHealth - newHealth);
+            console.log(`💥 [DAMAGE_TEXT] Health damage: ${healthDamage} (${oldHealth} → ${newHealth})`);
+          }
+
+          // Crea testi di danno separati per shield e HP
+          if (shieldDamage > 0) {
+            console.log(`💥 [DAMAGE_TEXT] Creating shield damage text: ${shieldDamage}`);
+            combatSystem.createDamageText(targetEntity, shieldDamage, true); // true = shield damage (blu)
+          }
+
+          if (healthDamage > 0) {
+            console.log(`💥 [DAMAGE_TEXT] Creating health damage text: ${healthDamage}`);
+            combatSystem.createDamageText(targetEntity, healthDamage, false); // false = HP damage (rosso)
+          }
+
+          // Aggiorna i componenti con i nuovi valori ricevuti dal server
+          if (healthComponent) {
+            healthComponent.current = message.newHealth;
+          }
+          if (shieldComponent) {
+            shieldComponent.current = message.newShield;
+          }
         } else {
           console.log(`💥 [DAMAGE_TEXT] No valid target entity found for ${message.entityType} ${message.entityId} (targetEntity: ${targetEntity}, id: ${targetEntity?.id})`);
         }
       }
     }
 
-    if (message.entityType === 'npc') {
-      // Danno a NPC
-      const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
-      if (remoteNpcSystem) {
-        remoteNpcSystem.updateRemoteNpc(message.entityId, undefined, {
-          current: message.newHealth,
-          max: message.newHealth // TODO: gestire max health correttamente
-        });
-      }
-    } else if (message.entityType === 'player') {
+    // Nota: l'aggiornamento dei valori health/shield è già stato fatto sopra
+    // nella sezione di creazione dei damage text per evitare duplicazioni
+
+    if (message.entityType === 'player') {
       // Controlla se il danno è per il giocatore locale
       if (message.entityId === networkSystem.getLocalClientId()) {
         // Danno al giocatore LOCALE - aggiorna i propri componenti

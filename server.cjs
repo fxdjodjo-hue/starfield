@@ -16,6 +16,10 @@ class ServerNpcManager {
     this.npcs = new Map();
     this.npcIdCounter = 0;
 
+    // Sistema di respawn server-authoritative
+    this.respawnQueue = []; // Coda di NPC da respawnare
+    this.respawnCheckInterval = null; // Timer per controllare la coda
+
     // Usa le dimensioni dalla mappa
     this.WORLD_WIDTH = mapServer.WORLD_WIDTH;
     this.WORLD_HEIGHT = mapServer.WORLD_HEIGHT;
@@ -23,6 +27,31 @@ class ServerNpcManager {
     this.WORLD_RIGHT = this.WORLD_WIDTH / 2;
     this.WORLD_TOP = -this.WORLD_HEIGHT / 2;
     this.WORLD_BOTTOM = this.WORLD_HEIGHT / 2;
+
+    // Avvia il controllo periodico della coda respawn
+    this.startRespawnTimer();
+  }
+
+  /**
+   * Avvia il timer per controllare la coda di respawn
+   */
+  startRespawnTimer() {
+    // Controlla la coda ogni secondo
+    this.respawnCheckInterval = setInterval(() => {
+      this.processRespawnQueue();
+    }, 1000);
+    console.log('⏰ [SERVER] NPC respawn timer started');
+  }
+
+  /**
+   * Ferma il timer di respawn (per cleanup)
+   */
+  stopRespawnTimer() {
+    if (this.respawnCheckInterval) {
+      clearInterval(this.respawnCheckInterval);
+      this.respawnCheckInterval = null;
+      console.log('⏰ [SERVER] NPC respawn timer stopped');
+    }
   }
 
   /**
@@ -177,14 +206,166 @@ class ServerNpcManager {
   }
 
   /**
-   * Rimuove un NPC dal mondo
+   * Rimuove un NPC dal mondo e pianifica il respawn
    */
   removeNpc(npcId) {
+    const npc = this.npcs.get(npcId);
+    if (!npc) return false;
+
+    const npcType = npc.type;
     const existed = this.npcs.delete(npcId);
+
     if (existed) {
-      console.log(`💥 [SERVER] Removed NPC ${npcId}`);
+      console.log(`💥 [SERVER] Removed NPC ${npcId} (${npcType})`);
+
+      // Pianifica automaticamente il respawn per mantenere la popolazione
+      console.log(`🔄 [SERVER] About to call scheduleRespawn for ${npcType}`);
+      this.scheduleRespawn(npcType);
+      console.log(`✅ [SERVER] scheduleRespawn called for ${npcType}`);
     }
+
     return existed;
+  }
+
+  /**
+   * Pianifica il respawn di un NPC morto
+   */
+  scheduleRespawn(npcType) {
+    const respawnDelay = 10000; // 10 secondi
+
+    const respawnEntry = {
+      npcType: npcType,
+      respawnTime: Date.now() + respawnDelay,
+      scheduledAt: Date.now()
+    };
+
+    this.respawnQueue.push(respawnEntry);
+    console.log(`🔄 [SERVER] Scheduled respawn for ${npcType} in ${respawnDelay/1000}s`);
+  }
+
+  /**
+   * Processa la coda di respawn
+   */
+  processRespawnQueue() {
+    const now = Date.now();
+    const readyForRespawn = [];
+
+    // Trova tutti gli NPC pronti per il respawn
+    this.respawnQueue = this.respawnQueue.filter(entry => {
+      if (now >= entry.respawnTime) {
+        readyForRespawn.push(entry);
+        return false; // Rimuovi dalla coda
+      }
+      return true; // Mantieni in coda
+    });
+
+    // Respawna gli NPC pronti
+    for (const entry of readyForRespawn) {
+      this.respawnNpc(entry.npcType);
+    }
+  }
+
+
+  /**
+   * Respawna un NPC in una posizione sicura
+   */
+  respawnNpc(npcType) {
+    try {
+      // Trova una posizione sicura per il respawn
+      const safePosition = this.findSafeRespawnPosition();
+
+      // Crea il nuovo NPC
+      const npcId = this.createNpc(npcType, safePosition.x, safePosition.y);
+
+      if (npcId) {
+        console.log(`🔄 [SERVER] Successfully respawned ${npcType} at (${safePosition.x.toFixed(0)}, ${safePosition.y.toFixed(0)})`);
+
+        // Broadcast il nuovo NPC a tutti i client
+        this.broadcastNpcSpawn(npcId);
+      }
+    } catch (error) {
+      console.error(`❌ [SERVER] Failed to respawn ${npcType}:`, error);
+    }
+  }
+
+  /**
+   * Trova una posizione sicura per il respawn lontana dai giocatori
+   */
+  findSafeRespawnPosition() {
+    const attempts = 10; // Numero massimo di tentativi
+
+    for (let i = 0; i < attempts; i++) {
+      // Genera posizione casuale nel mondo
+      const x = (Math.random() * (this.WORLD_RIGHT - this.WORLD_LEFT) + this.WORLD_LEFT);
+      const y = (Math.random() * (this.WORLD_BOTTOM - this.WORLD_TOP) + this.WORLD_TOP);
+
+      // Verifica che sia abbastanza lontana dai giocatori
+      if (this.isPositionSafeFromPlayers(x, y)) {
+        return { x, y };
+      }
+    }
+
+    // Fallback: posizione casuale semplice se non trova posizione sicura
+    console.warn('⚠️ [SERVER] Could not find safe respawn position, using fallback');
+    const fallbackX = (Math.random() - 0.5) * (this.WORLD_WIDTH * 0.8); // 80% del mondo
+    const fallbackY = (Math.random() - 0.5) * (this.WORLD_HEIGHT * 0.8);
+    return { x: fallbackX, y: fallbackY };
+  }
+
+  /**
+   * Verifica se una posizione è sicura (lontana dai giocatori)
+   */
+  isPositionSafeFromPlayers(x, y) {
+    const minDistanceFromPlayers = 1000; // Distanza minima dai giocatori (pixel)
+    const minDistanceSq = minDistanceFromPlayers * minDistanceFromPlayers;
+
+    // Controlla tutti i giocatori connessi
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      if (!playerData.position) continue;
+
+      const dx = x - playerData.position.x;
+      const dy = y - playerData.position.y;
+      const distanceSq = dx * dx + dy * dy;
+
+      if (distanceSq < minDistanceSq) {
+        return false; // Troppo vicino a un giocatore
+      }
+    }
+
+    return true; // Posizione sicura
+  }
+
+  /**
+   * Broadcast la creazione di un nuovo NPC a tutti i client
+   */
+  broadcastNpcSpawn(npcId) {
+    const npc = this.npcs.get(npcId);
+    if (!npc) return;
+
+    const message = {
+      type: 'npc_spawn',
+      npc: {
+        id: npc.id,
+        type: npc.type,
+        position: npc.position,
+        health: { current: npc.health, max: npc.maxHealth },
+        shield: { current: npc.shield, max: npc.maxShield },
+        behavior: npc.behavior
+      }
+    };
+
+    // Broadcast a tutti i client nel raggio di interesse
+    this.mapServer.broadcastNear(npc.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
+    console.log(`📡 [SERVER] Broadcasted NPC spawn: ${npcId} (${npc.type}) at (${npc.position.x.toFixed(0)}, ${npc.position.y.toFixed(0)})`);
+  }
+
+  /**
+   * Cleanup risorse del manager
+   */
+  destroy() {
+    this.stopRespawnTimer();
+    this.respawnQueue = [];
+    console.log('🧹 [SERVER] ServerNpcManager cleanup completed');
   }
 
   /**
@@ -1342,7 +1523,7 @@ wss.on('connection', (ws) => {
 
       // Gestisce spari di proiettili
       if (data.type === 'projectile_fired') {
-        console.log(`🔫 [SERVER] Projectile fired: ${data.projectileId} by ${data.playerId}`);
+        console.log(`🔫 [SERVER] Projectile fired: ${data.projectileId} by ${data.playerId} (RECEIVED FROM CLIENT)`);
 
         // Determina il target per i proiettili del player (NPC che sta attaccando)
         let targetId = data.targetId || null;
@@ -1488,6 +1669,12 @@ wss.on('connection', (ws) => {
 // Gestisce chiusura server
 process.on('SIGINT', () => {
   console.log('🛑 Shutting down server...');
+
+  // Cleanup risorse
+  if (mapServer.npcManager) {
+    mapServer.npcManager.destroy();
+  }
+
   wss.close();
   process.exit(0);
 });

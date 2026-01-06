@@ -55,6 +55,7 @@ export const MESSAGE_TYPES = {
 
   // NPC messages
   NPC_JOINED: 'npc_joined',
+  NPC_SPAWN: 'npc_spawn',
   NPC_UPDATE: 'npc_update',
   NPC_BULK_UPDATE: 'npc_bulk_update',
   INITIAL_NPCS: 'initial_npcs',
@@ -100,6 +101,21 @@ export interface NpcJoinedMessage {
   health: { current: number; max: number };
   shield: { current: number; max: number };
   behavior: string;
+}
+
+/**
+ * NPC respawnato dal server
+ */
+export interface NpcSpawnMessage {
+  type: typeof MESSAGE_TYPES.NPC_SPAWN;
+  npc: {
+    id: string;
+    type: 'Scouter' | 'Frigate';
+    position: { x: number; y: number; rotation: number };
+    health: { current: number; max: number };
+    shield: { current: number; max: number };
+    behavior: string;
+  };
 }
 
 /**
@@ -283,6 +299,7 @@ export interface PlayerRespawnMessage {
 // Type union per tutti i messaggi NPC
 export type NpcMessage =
   | NpcJoinedMessage
+  | NpcSpawnMessage
   | InitialNpcsMessage
   | NpcUpdateMessage
   | NpcBulkUpdateMessage

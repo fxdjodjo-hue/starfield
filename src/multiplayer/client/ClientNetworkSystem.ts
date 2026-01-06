@@ -15,6 +15,7 @@ import { PlayerRespawnHandler } from './handlers/PlayerRespawnHandler';
 // NPC handlers
 import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
 import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
+import { NpcSpawnHandler } from './handlers/NpcSpawnHandler';
 import { NpcBulkUpdateHandler } from './handlers/NpcBulkUpdateHandler';
 import { NpcLeftHandler } from './handlers/NpcLeftHandler';
 // Combat handlers
@@ -124,6 +125,7 @@ export class ClientNetworkSystem extends BaseSystem {
       handlers.push(
         new InitialNpcsHandler(),
         new NpcJoinedHandler(),
+        new NpcSpawnHandler(),
         new NpcBulkUpdateHandler(),
         new NpcLeftHandler()
       );

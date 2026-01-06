@@ -21,6 +21,8 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    console.log(`💥 [CLIENT] Entity destroyed: ${message.entityId} (${message.entityType})`);
+
     if (message.entityType === 'npc') {
       // NPC distrutto - assegna ricompense se presenti
       if (message.rewards && this.rewardSystem) {
@@ -33,7 +35,8 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
       // Rimuovi l'NPC dal sistema remoto
       const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
       if (remoteNpcSystem) {
-        remoteNpcSystem.removeRemoteNpc(message.entityId);
+        const removed = remoteNpcSystem.removeRemoteNpc(message.entityId);
+        console.log(`🗑️ [CLIENT] NPC ${message.entityId} removed from RemoteNpcSystem: ${removed}`);
       }
     } else if (message.entityType === 'player') {
       // Giocatore remoto morto

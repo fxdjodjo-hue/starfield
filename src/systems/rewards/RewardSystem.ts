@@ -7,7 +7,6 @@ import { PlayerStats } from '../../entities/player/PlayerStats';
 import { getNpcDefinition } from '../../config/NpcConfig';
 import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
-import { NpcRespawnSystem } from '../npc/NpcRespawnSystem';
 import { QuestEventType } from '../../config/QuestConfig';
 import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
@@ -26,7 +25,6 @@ export class RewardSystem extends BaseSystem {
   private economySystem: any = null;
   private playerEntity: any = null;
   private logSystem: LogSystem | null = null;
-  private respawnSystem: NpcRespawnSystem | null = null;
   private questTrackingSystem: QuestTrackingSystem | null = null;
   private playState: any = null; // Reference to PlayState for saving
 
@@ -56,12 +54,6 @@ export class RewardSystem extends BaseSystem {
     this.logSystem = logSystem;
   }
 
-  /**
-   * Imposta il riferimento al RespawnSystem per la rigenerazione degli NPC
-   */
-  setRespawnSystem(respawnSystem: NpcRespawnSystem): void {
-    this.respawnSystem = respawnSystem;
-  }
 
   /**
    * Imposta il riferimento al QuestTrackingSystem per aggiornare le quest
@@ -240,10 +232,7 @@ export class RewardSystem extends BaseSystem {
       this.questTrackingSystem.triggerEvent(event);
     }
 
-    // Pianifica il respawn dell'NPC morto
-    if (this.respawnSystem) {
-      this.respawnSystem.scheduleRespawn(npc.npcType, Date.now());
-    }
+    // Nota: Il respawn degli NPC è ora gestito lato server
 
     // Marca l'NPC come processato per le ricompense (verrà rimosso dall'ExplosionSystem)
     this.ecs.addComponent(npcEntity, RewardProcessed, new RewardProcessed());
