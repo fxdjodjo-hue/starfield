@@ -59,6 +59,7 @@ export class GameInitializationSystem extends System {
   private audioSystem!: AudioSystem;
   private playerStatusDisplaySystem!: PlayerStatusDisplaySystem;
   private clientNetworkSystem: any = null; // Sistema di rete per notifiche multiplayer
+  private combatSystem: any = null; // Riferimento al sistema di combattimento
   private systemsCache: any = null;
 
   private playState: any = null; // Reference to PlayState for saving
@@ -79,7 +80,16 @@ export class GameInitializationSystem extends System {
    * Imposta il sistema di rete per notifiche multiplayer
    */
   setClientNetworkSystem(clientNetworkSystem: any): void {
+    console.log('[INIT] GameInitializationSystem.setClientNetworkSystem called:', !!clientNetworkSystem);
     this.clientNetworkSystem = clientNetworkSystem;
+
+    // Ora che abbiamo il ClientNetworkSystem, impostalo anche nel CombatSystem
+    if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
+      console.log('[INIT] Setting ClientNetworkSystem in CombatSystem (via setClientNetworkSystem)');
+      this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    } else {
+      console.warn('[INIT] CombatSystem not available or setClientNetworkSystem method missing');
+    }
   }
 
   /**
@@ -131,6 +141,7 @@ export class GameInitializationSystem extends System {
     this.playerSystem = new PlayerSystem(this.ecs);
     const renderSystem = new RenderSystem(this.ecs, cameraSystem, this.playerSystem, this.context.assetManager);
     const combatSystem = new CombatSystem(this.ecs, cameraSystem, this.context, this.playerSystem);
+    this.combatSystem = combatSystem; // Salva riferimento per setClientNetworkSystem
     const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, combatSystem);
     const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem || undefined);
 
@@ -219,7 +230,7 @@ export class GameInitializationSystem extends System {
    */
   private configureSystemInteractions(systems: any): void {
     const {
-      movementSystem, playerControlSystem, minimapSystem, economySystem,
+      movementSystem, playerControlSystem, npcSelectionSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, combatSystem, logSystem, boundsSystem,
       questTrackingSystem, inputSystem,
       chatTextSystem, uiSystem, cameraSystem
@@ -235,10 +246,7 @@ export class GameInitializationSystem extends System {
       combatSystem.setAudioSystem(this.audioSystem);
     }
 
-    // Collega ClientNetworkSystem al CombatSystem per notifiche multiplayer
-    if (combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
-      combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
-    }
+    // ClientNetworkSystem verrà impostato successivamente tramite setClientNetworkSystem()
 
     // Collega AudioSystem al sistema bounds
     if (boundsSystem && typeof boundsSystem.setAudioSystem === 'function') {
@@ -285,7 +293,7 @@ export class GameInitializationSystem extends System {
 
         if (!minimapHandled && !inMinimapGlassPanel && !inPlayerStatusHUD) {
           // Converti coordinate schermo in coordinate mondo per la selezione NPC
-          const worldPos = cameraSystem.screenToWorld(x, y, this.context.canvas.width, this.context.canvas.height);
+          const worldPos = cameraSystem.getCamera().screenToWorld(x, y, this.context.canvas.width, this.context.canvas.height);
 
           // Prova prima la selezione NPC
           const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);

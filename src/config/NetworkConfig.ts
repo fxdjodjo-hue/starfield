@@ -61,6 +61,9 @@ export const MESSAGE_TYPES = {
   NPC_DAMAGED: 'npc_damaged',
 
   // Combat messages
+  START_COMBAT: 'start_combat',
+  STOP_COMBAT: 'stop_combat',
+  COMBAT_UPDATE: 'combat_update',
   PROJECTILE_FIRED: 'projectile_fired',
   PROJECTILE_UPDATE: 'projectile_update',
   PROJECTILE_DESTROYED: 'projectile_destroyed',
@@ -160,6 +163,34 @@ export interface NpcDamagedMessage {
 }
 
 /**
+ * Richiesta di iniziare combattimento contro un NPC
+ */
+export interface StartCombatMessage {
+  type: typeof MESSAGE_TYPES.START_COMBAT;
+  npcId: string;
+  playerId: string;
+}
+
+/**
+ * Richiesta di fermare combattimento
+ */
+export interface StopCombatMessage {
+  type: typeof MESSAGE_TYPES.STOP_COMBAT;
+  playerId: string;
+}
+
+/**
+ * Aggiornamento stato combattimento
+ */
+export interface CombatUpdateMessage {
+  type: typeof MESSAGE_TYPES.COMBAT_UPDATE;
+  playerId: string;
+  npcId: string;
+  isAttacking: boolean;
+  lastAttackTime: number;
+}
+
+/**
  * Proiettile sparato da un giocatore
  */
 export interface ProjectileFiredMessage {
@@ -243,6 +274,9 @@ export type NpcMessage =
 
 // Type union per tutti i messaggi di combattimento
 export type CombatMessage =
+  | StartCombatMessage
+  | StopCombatMessage
+  | CombatUpdateMessage
   | ProjectileFiredMessage
   | ProjectileUpdateMessage
   | ProjectileDestroyedMessage

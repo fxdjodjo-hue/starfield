@@ -19,20 +19,21 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       return;
     }
 
-    // Se il proiettile è del giocatore locale, potrebbe già essere stato creato localmente
-    // In caso contrario, crealo come proiettile remoto
+    // Aggiungi sempre il proiettile al sistema remoto per renderizzarlo
+    // Anche i proiettili del giocatore locale vengono creati dal server
+    remoteProjectileSystem.addRemoteProjectile(
+      message.projectileId,
+      message.playerId,
+      message.position,
+      message.velocity,
+      message.damage,
+      message.projectileType
+    );
+
+    // Log per debug
     const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
-    if (!isLocalPlayer) {
-      remoteProjectileSystem.addRemoteProjectile(
-        message.projectileId,
-        message.playerId,
-        message.position,
-        message.velocity,
-        message.damage,
-        message.projectileType
-      );
-    } else {
-      console.log(`🔫 [CLIENT] Local projectile ${message.projectileId} already handled`);
+    if (isLocalPlayer) {
+      console.log(`🔫 [CLIENT] Local player projectile ${message.projectileId} added for rendering`);
     }
   }
 }

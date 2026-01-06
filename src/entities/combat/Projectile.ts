@@ -12,8 +12,9 @@ export class Projectile extends Component {
   public targetId: number; // ID dell'entità bersaglio
   public lifetime: number; // Tempo di vita rimanente in millisecondi
   public maxLifetime: number; // Tempo di vita massimo
+  public playerId?: string; // ID del giocatore/NPC che ha sparato (per rendering remoto)
 
-  constructor(damage: number, speed: number, directionX: number, directionY: number, ownerId: number, targetId: number, lifetime: number = 5000) {
+  constructor(damage: number, speed: number, directionX: number, directionY: number, ownerId: number, targetId: number, lifetime: number = 5000, playerId?: string) {
     super();
     this.damage = damage;
     this.speed = speed;
@@ -23,5 +24,6 @@ export class Projectile extends Component {
     this.targetId = targetId;
     this.lifetime = lifetime;
     this.maxLifetime = lifetime;
+    this.playerId = playerId;
   }
 }

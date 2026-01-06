@@ -94,7 +94,7 @@ export class RemoteNpcSystem extends BaseSystem {
     const npcDef = getNpcDefinition(type);
     if (npcDef) {
       this.ecs.addComponent(entity, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
-      this.ecs.addComponent(entity, Npc, new Npc(type, behavior));
+      this.ecs.addComponent(entity, Npc, new Npc(type, behavior, npcId)); // npcId è l'ID server
     }
 
     // Authority: NPC controllati SOLO dal server

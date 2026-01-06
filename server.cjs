@@ -6,6 +6,9 @@ const path = require('path');
 const npcConfigPath = path.join(__dirname, 'shared', 'npc-config.json');
 const NPC_CONFIG = JSON.parse(fs.readFileSync(npcConfigPath, 'utf8'));
 
+// Carica costanti server
+const SERVER_CONSTANTS = require('./server/server-constants.cjs');
+
 // ServerNpcManager - Gestione centralizzata degli NPC
 class ServerNpcManager {
   constructor(mapServer) {
@@ -47,14 +50,19 @@ class ServerNpcManager {
       maxHealth: stats.health,
       shield: stats.shield,
       maxShield: stats.shield,
+      damage: stats.damage, // Aggiungi danno per combat
       lastBounce: 0, // Timestamp dell'ultimo rimbalzo ai confini
       behavior: 'cruise',
       lastUpdate: Date.now(),
-      lastSignificantMove: 0 // Non è stato ancora trasmesso, impostiamo a 0
+      lastSignificantMove: 0, // Non è stato ancora trasmesso, impostiamo a 0
+      lastDamage: 0 // Non danneggiato ancora
     };
 
+    // Tutti gli NPC ora hanno comportamento normale (cruise)
+    // Non ci sono più NPC aggressivi automatici
+
     this.npcs.set(npcId, npc);
-    console.log(`🆕 [SERVER] Created NPC ${npcId} (${type}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)})`);
+    console.log(`🆕 [SERVER] Created NPC ${npcId} (${type}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)}) [${npc.behavior}]`);
 
     return npcId;
   }
@@ -123,6 +131,7 @@ class ServerNpcManager {
     }
 
     npc.lastUpdate = Date.now();
+    npc.lastDamage = Date.now(); // Traccia quando è stato danneggiato
 
     console.log(`💥 [SERVER] NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`);
 
@@ -193,7 +202,7 @@ class ServerProjectileManager {
   /**
    * Registra un nuovo proiettile sparato da un giocatore
    */
-  addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser') {
+  addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser', excludeSender = true) {
     const projectile = {
       id: projectileId,
       playerId,
@@ -208,8 +217,9 @@ class ServerProjectileManager {
     this.projectiles.set(projectileId, projectile);
     console.log(`🚀 [SERVER] Projectile ${projectileId} added for player ${playerId}`);
 
-    // Broadcast a tutti i client tranne quello che ha sparato
-    this.broadcastProjectileFired(projectile, playerId);
+    // Broadcast ai client - escludi il mittente solo se richiesto
+    const excludeClientId = excludeSender ? playerId : null;
+    this.broadcastProjectileFired(projectile, excludeClientId);
   }
 
   /**
@@ -329,8 +339,8 @@ class ServerProjectileManager {
       projectileType: projectile.projectileType
     };
 
-    // Interest radius: 1500 unità per proiettili
-    this.mapServer.broadcastNear(projectile.position, 1500, message, excludeClientId);
+    // Interest radius per proiettili
+    this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message, excludeClientId);
   }
 
   /**
@@ -346,8 +356,8 @@ class ServerProjectileManager {
       reason
     };
 
-    // Interest radius: 1500 unità per distruzione proiettili
-    this.mapServer.broadcastNear(projectile.position, 1500, message);
+    // Interest radius per distruzione proiettili
+    this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
   }
 
   /**
@@ -365,8 +375,8 @@ class ServerProjectileManager {
       position: npc.position
     };
 
-    // Interest radius: 1500 unità per danni
-    this.mapServer.broadcastNear(npc.position, 1500, message);
+    // Interest radius per danni
+    this.mapServer.broadcastNear(npc.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
   }
 
   /**
@@ -475,13 +485,18 @@ class MapServer {
       // 1. Movimento NPC
       updateNpcMovements();
 
-      // 2. Collisioni proiettili
+      // 2. Logica di combat NPC (attacchi automatici)
+      if (this.combatManager) {
+        this.combatManager.updateCombat();
+      }
+
+      // 3. Collisioni proiettili
       this.projectileManager.checkCollisions();
 
-      // 3. Broadcast aggiornamenti NPC significativi
+      // 4. Broadcast aggiornamenti NPC significativi
       broadcastNpcUpdates();
 
-      // 4. Processa aggiornamenti posizione giocatori
+      // 5. Processa aggiornamenti posizione giocatori
       processPositionUpdates();
 
     } catch (error) {
@@ -524,9 +539,252 @@ class MapServer {
   }
 }
 
+// ServerCombatManager - Gestione centralizzata del combat lato server
+class ServerCombatManager {
+  constructor(mapServer) {
+    this.mapServer = mapServer;
+    this.npcAttackCooldowns = new Map(); // npcId -> lastAttackTime
+    this.playerCombats = new Map(); // playerId -> { npcId, lastAttackTime, attackCooldown }
+  }
+
+  /**
+   * Aggiorna logica di combat per tutti gli NPC e player
+   */
+  updateCombat() {
+    const allNpcs = this.mapServer.npcManager.getAllNpcs();
+    const now = Date.now();
+
+    // Processa combattimenti NPC
+    for (const npc of allNpcs) {
+      this.processNpcCombat(npc, now);
+    }
+
+    // Processa combattimenti player
+    this.processPlayerCombats(now);
+  }
+
+  /**
+   * Inizia combattimento player contro NPC
+   */
+  startPlayerCombat(playerId, npcId) {
+    console.log(`⚔️ [SERVER] Starting player combat: ${playerId} vs ${npcId}`);
+
+    // Evita combattimenti duplicati per lo stesso player
+    if (this.playerCombats.has(playerId)) {
+      console.log(`⚠️ [SERVER] Player ${playerId} already in combat, ignoring duplicate request`);
+      return;
+    }
+
+    // Verifica che l'NPC esista
+    const npc = this.mapServer.npcManager.getNpc(npcId);
+    if (!npc) {
+      console.warn(`⚠️ [SERVER] Cannot start combat: NPC ${npcId} not found`);
+      return;
+    }
+
+    // Imposta combattimento attivo
+    this.playerCombats.set(playerId, {
+      npcId: npcId,
+      lastAttackTime: 0,
+      attackCooldown: 2000 // Aumentato a 2 secondi per sicurezza
+    });
+  }
+
+  /**
+   * Ferma combattimento player
+   */
+  stopPlayerCombat(playerId) {
+    console.log(`🛑 [SERVER] Stopping player combat: ${playerId}`);
+
+    if (this.playerCombats.has(playerId)) {
+      this.playerCombats.delete(playerId);
+    }
+  }
+
+  /**
+   * Processa tutti i combattimenti attivi dei player
+   */
+  processPlayerCombats(now) {
+    for (const [playerId, combat] of this.playerCombats) {
+      this.processPlayerCombat(playerId, combat, now);
+    }
+  }
+
+  /**
+   * Processa combattimento per un singolo player
+   */
+  processPlayerCombat(playerId, combat, now) {
+    // Verifica che il player sia ancora connesso
+    const playerData = this.mapServer.players.get(playerId);
+    if (!playerData) {
+      console.log(`🛑 [SERVER] Player ${playerId} disconnected, stopping combat`);
+      this.playerCombats.delete(playerId);
+      return;
+    }
+
+    // Verifica che l'NPC esista ancora
+    const npc = this.mapServer.npcManager.getNpc(combat.npcId);
+    if (!npc) {
+      console.log(`🛑 [SERVER] NPC ${combat.npcId} destroyed, stopping combat for ${playerId}`);
+      this.playerCombats.delete(playerId);
+      return;
+    }
+
+    // Verifica che il player abbia una posizione
+    if (!playerData.position) {
+      console.log(`📍 [SERVER] Player ${playerId} has no position, skipping combat`);
+      return;
+    }
+
+    // Verifica che il player sia nel range
+    const distance = Math.sqrt(
+      Math.pow(playerData.position.x - npc.position.x, 2) +
+      Math.pow(playerData.position.y - npc.position.y, 2)
+    );
+
+    if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_RANGE) { // Range del player
+      console.log(`📏 [SERVER] Player ${playerId} out of range (${distance.toFixed(0)}), stopping combat`);
+      this.playerCombats.delete(playerId);
+      return;
+    }
+
+    // Verifica cooldown
+    if (now - combat.lastAttackTime < combat.attackCooldown) {
+      return; // Non ancora tempo di attaccare
+    }
+
+    // Esegui attacco
+    this.performPlayerAttack(playerId, playerData, npc, now);
+    combat.lastAttackTime = now;
+  }
+
+  /**
+   * Esegue attacco del player contro NPC
+   */
+  performPlayerAttack(playerId, playerData, npc, now) {
+    console.log(`🔫 [SERVER] Player ${playerId} attacking NPC ${npc.id}`);
+
+    // Calcola direzione dal player all'NPC
+    const dx = npc.position.x - playerData.position.x;
+    const dy = npc.position.y - playerData.position.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance === 0) return;
+
+    const directionX = dx / distance;
+    const directionY = dy / distance;
+
+    // Crea proiettile singolo (per semplicità, non dual laser per ora)
+    const projectileId = `player_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const speed = SERVER_CONSTANTS.PROJECTILE.SPEED;
+
+    const velocity = {
+      x: directionX * speed,
+      y: directionY * speed
+    };
+
+    // Posizione leggermente avanti al player
+    const offset = 25;
+    const projectilePos = {
+      x: playerData.position.x + directionX * offset,
+      y: playerData.position.y + directionY * offset
+    };
+
+    // Registra proiettile
+    this.mapServer.projectileManager.addProjectile(
+      projectileId,
+      playerId,
+      projectilePos,
+      velocity,
+      500, // damage
+      'laser',
+      false  // Includi il mittente - il client deve vedere i suoi proiettili
+    );
+  }
+
+  /**
+   * Processa logica di combat per un singolo NPC
+   */
+  processNpcCombat(npc, now) {
+    // NPC attaccano solo se danneggiati recentemente O in modalità aggressive
+    const wasRecentlyDamaged = npc.lastDamage && (now - npc.lastDamage) < 10000; // 10 secondi
+    const isAggressive = npc.behavior === 'aggressive';
+
+    if (!wasRecentlyDamaged && !isAggressive) return;
+
+    // Controlla cooldown attacco
+    const lastAttack = this.npcAttackCooldowns.get(npc.id) || 0;
+    const cooldown = NPC_CONFIG[npc.type].stats.cooldown || 1500;
+    if (now - lastAttack < cooldown) return;
+
+    // Trova player nel raggio di attacco
+    const attackRange = NPC_CONFIG[npc.type].stats.range || 300;
+    const attackRangeSq = attackRange * attackRange;
+
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      if (!playerData.position) continue;
+
+      const dx = playerData.position.x - npc.position.x;
+      const dy = playerData.position.y - npc.position.y;
+      const distanceSq = dx * dx + dy * dy;
+
+      if (distanceSq <= attackRangeSq) {
+        // Player nel range - NPC attacca
+        this.performNpcAttack(npc, playerData, now);
+        break; // Un attacco per tick
+      }
+    }
+  }
+
+  /**
+   * Esegue un attacco NPC contro un player
+   */
+  performNpcAttack(npc, targetPlayer, now) {
+    // Ruota NPC verso il target
+    const dx = targetPlayer.position.x - npc.position.x;
+    const dy = targetPlayer.position.y - npc.position.y;
+    npc.position.rotation = Math.atan2(dy, dx) + Math.PI / 2;
+
+    // Crea proiettile NPC
+    const projectileId = `npc_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const angle = npc.position.rotation - Math.PI / 2; // Correggi rotazione
+    const speed = SERVER_CONSTANTS.PROJECTILE.SPEED; // Velocità proiettile
+
+    const velocity = {
+      x: Math.cos(angle) * speed,
+      y: Math.sin(angle) * speed
+    };
+
+    // Posizione leggermente avanti all'NPC
+    const offset = 25; // Dimensione nave
+    const projectilePos = {
+      x: npc.position.x + Math.cos(angle) * offset,
+      y: npc.position.y + Math.sin(angle) * offset
+    };
+
+    // Registra proiettile
+    this.mapServer.projectileManager.addProjectile(
+      projectileId,
+      `npc_${npc.id}`, // Attaccante NPC
+      projectilePos,
+      velocity,
+      npc.damage || NPC_CONFIG[npc.type].stats.damage,
+      'scouter_laser'
+    );
+
+    // Il broadcast viene già fatto automaticamente da addProjectile()
+
+    // Aggiorna cooldown
+    this.npcAttackCooldowns.set(npc.id, now);
+  }
+}
+
 // Istanza della mappa principale
 const mapServer = new MapServer('default_map');
 mapServer.initialize();
+
+// Aggiungi combat manager alla mappa
+mapServer.combatManager = new ServerCombatManager(mapServer);
 
 /**
  * Processa la queue degli aggiornamenti posizione per ridurre race conditions
@@ -557,7 +815,7 @@ function broadcastNpcUpdates() {
   const npcs = mapServer.npcManager.getAllNpcs();
   if (npcs.length === 0) return;
 
-  const radius = 15000; // Raggio molto ampio per coprire praticamente tutta la mappa
+  const radius = SERVER_CONSTANTS.NETWORK.WORLD_RADIUS; // Raggio del mondo
   const radiusSq = radius * radius;
 
   // Per ogni giocatore connesso, invia NPC nel suo raggio di interesse ampio
@@ -819,6 +1077,70 @@ wss.on('connection', (ws) => {
           data.damage,
           data.projectileType || 'laser'
         );
+
+        // Broadcast il proiettile a tutti gli altri client
+        const projectileMessage = {
+          type: 'projectile_fired',
+          projectileId: data.projectileId,
+          playerId: data.playerId,
+          position: data.position,
+          velocity: data.velocity,
+          damage: data.damage,
+          projectileType: data.projectileType || 'laser'
+        };
+
+        // Invia a tutti i client tranne quello che ha sparato
+        mapServer.clients.forEach((client, clientId) => {
+          if (clientId !== senderId) {
+            client.send(JSON.stringify(projectileMessage));
+          }
+        });
+      }
+
+      // Gestisce richiesta di inizio combattimento
+      if (data.type === 'start_combat') {
+        console.log(`⚔️ [SERVER] Start combat request: player ${data.playerId} vs NPC ${data.npcId} (raw: ${JSON.stringify(data)})`);
+
+        // Valida che l'NPC esista
+        const npc = mapServer.npcManager.getNpc(data.npcId);
+        if (!npc) {
+          console.warn(`⚠️ [SERVER] NPC ${data.npcId} not found for combat start`);
+          return;
+        }
+
+        console.log(`✅ [SERVER] NPC ${data.npcId} found, starting combat for player ${data.playerId}`);
+        // Inizia il combattimento server-side
+        mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);
+
+        // Broadcast stato combattimento a tutti i client
+        const combatUpdate = {
+          type: 'combat_update',
+          playerId: data.playerId,
+          npcId: data.npcId,
+          isAttacking: true,
+          lastAttackTime: Date.now()
+        };
+
+        mapServer.broadcastToMap(combatUpdate);
+      }
+
+      // Gestisce richiesta di fine combattimento
+      if (data.type === 'stop_combat') {
+        console.log(`🛑 [SERVER] Stop combat request: player ${data.playerId}`);
+
+        // Ferma il combattimento server-side
+        mapServer.combatManager.stopPlayerCombat(data.playerId);
+
+        // Broadcast stato combattimento a tutti i client
+        const combatUpdate = {
+          type: 'combat_update',
+          playerId: data.playerId,
+          npcId: null,
+          isAttacking: false,
+          lastAttackTime: Date.now()
+        };
+
+        mapServer.broadcastToMap(combatUpdate);
       }
 
       // Gestisce creazione esplosioni

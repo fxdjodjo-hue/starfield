@@ -1,22 +1,23 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Sprite } from '../../entities/Sprite';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
+import { RemotePlayer } from '../../entities/player/RemotePlayer';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
- * Gestisce creazione, aggiornamento e rimozione delle entità remote player
+ * Usa componenti ECS invece di Map manuale per maggiore robustezza
  */
 export class RemotePlayerSystem extends BaseSystem {
-  // Mappa unificata clientId -> {entityId, nickname, rank} per sicurezza e performance
-  private remotePlayers: Map<string, {entityId: number, nickname: string, rank: string}> = new Map();
-
   // Sprite condiviso per tutti i remote player (più efficiente)
   private sharedSprite: Sprite;
+  // Logging per evitare spam di aggiornamenti posizione
+  private lastUpdateLog = new Map<string, number>();
 
   constructor(ecs: ECS, shipImage: HTMLImageElement | null = null, shipWidth?: number, shipHeight?: number) {
     super(ecs);
@@ -42,13 +43,31 @@ export class RemotePlayerSystem extends BaseSystem {
   }
 
   /**
+   * Trova l'entità di un giocatore remoto tramite clientId
+   */
+  private findRemotePlayerEntity(clientId: string): Entity | null {
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
+
+    for (const entity of remotePlayerEntities) {
+      const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
+      if (remotePlayerComponent && remotePlayerComponent.clientId === clientId) {
+        return entity;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Imposta info nickname e rank per un remote player
    */
   setRemotePlayerInfo(clientId: string, nickname: string, rank: string = 'Recruit'): void {
-    const playerData = this.remotePlayers.get(clientId);
-    if (playerData) {
-      playerData.nickname = nickname;
-      playerData.rank = rank;
+    const entity = this.findRemotePlayerEntity(clientId);
+    if (entity) {
+      const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
+      if (remotePlayerComponent) {
+        remotePlayerComponent.updateInfo(nickname, rank);
+      }
     }
   }
 
@@ -56,19 +75,29 @@ export class RemotePlayerSystem extends BaseSystem {
    * Ottiene info di un remote player
    */
   getRemotePlayerInfo(clientId: string): {nickname: string, rank: string} | undefined {
-    const playerData = this.remotePlayers.get(clientId);
-    return playerData ? { nickname: playerData.nickname, rank: playerData.rank } : undefined;
+    const entity = this.findRemotePlayerEntity(clientId);
+    if (entity) {
+      const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
+      if (remotePlayerComponent) {
+        return {
+          nickname: remotePlayerComponent.nickname,
+          rank: remotePlayerComponent.rank
+        };
+      }
+    }
+    return undefined;
   }
 
   /**
    * Aggiunge un nuovo giocatore remoto o aggiorna posizione se già esistente
    */
   addRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): number {
-
-    // Se il giocatore remoto esiste già, aggiorna solo la posizione senza ricreare l'entity
-    if (this.remotePlayers.has(clientId)) {
+    // Verifica se il giocatore remoto esiste già
+    const existingEntity = this.findRemotePlayerEntity(clientId);
+    if (existingEntity) {
+      // Aggiorna posizione del giocatore esistente
       this.updateRemotePlayer(clientId, x, y, rotation);
-      return this.remotePlayers.get(clientId)!.entityId;
+      return existingEntity.id;
     }
 
     // Crea una nuova entity per il giocatore remoto
@@ -77,6 +106,10 @@ export class RemotePlayerSystem extends BaseSystem {
     // Aggiungi componenti base
     const transform = new Transform(x, y, rotation);
     this.ecs.addComponent(entity, Transform, transform);
+
+    // Aggiungi il componente identificativo del giocatore remoto
+    const remotePlayerComponent = new RemotePlayer(clientId, '', 'Recruit');
+    this.ecs.addComponent(entity, RemotePlayer, remotePlayerComponent);
 
     // Nota: Non aggiungiamo Velocity ai remote player per evitare conflitti
     // con il MovementSystem durante l'interpolazione
@@ -102,12 +135,7 @@ export class RemotePlayerSystem extends BaseSystem {
     const interpolation = new InterpolationTarget(x, y, rotation);
     this.ecs.addComponent(entity, InterpolationTarget, interpolation);
 
-    // Registra il giocatore remoto nella mappa unificata
-    this.remotePlayers.set(clientId, {
-      entityId: entity.id,
-      nickname: '',
-      rank: 'Recruit'
-    });
+    console.log(`[REMOTE_PLAYER] Created new remote player ${clientId} -> entity ${entity.id}`);
 
     return entity.id;
   }
@@ -116,46 +144,38 @@ export class RemotePlayerSystem extends BaseSystem {
    * Aggiorna posizione e rotazione di un giocatore remoto esistente
    */
   updateRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): void {
-    const playerData = this.remotePlayers.get(clientId);
-    if (!playerData) {
-      console.warn(`[REMOTE_PLAYER] Attempted to update non-existent remote player: ${clientId}`);
+    const entity = this.findRemotePlayerEntity(clientId);
+    if (!entity) {
+      // Player remoto non trovato - potrebbe essere normale se non ancora creato
+      // Non logghiamo errori per evitare spam, il sistema si autorecupera
       return;
     }
 
-    const entity = this.ecs.getEntity(playerData.entityId);
-    if (entity) {
-      const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
-      if (interpolation) {
-        // Log aggiornamenti posizione ogni 5 secondi per evitare spam
-        if (Math.floor(Date.now() / 5000) % 2 === 0 && !this.lastUpdateLog[clientId] || Date.now() - this.lastUpdateLog[clientId] > 5000) {
-          console.log(`[REMOTE_PLAYER] Updated ${clientId}: (${x.toFixed(1)}, ${y.toFixed(1)}) -> entity ${playerData.entityId}`);
-          this.lastUpdateLog[clientId] = Date.now();
-        }
-
-        // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
-        // Eliminazione completa degli scatti attraverso interpolazione continua
-        interpolation.updateTarget(x, y, rotation);
-      } else {
-        console.warn(`[REMOTE_PLAYER] No interpolation component found for ${clientId} entity ${playerData.entityId}`);
+    const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
+    if (interpolation) {
+      // Log aggiornamenti posizione ogni 5 secondi per evitare spam
+      const now = Date.now();
+      if (!this.lastUpdateLog[clientId] || now - this.lastUpdateLog[clientId] > 5000) {
+        console.log(`[REMOTE_PLAYER] Updated ${clientId}: (${x.toFixed(1)}, ${y.toFixed(1)}) -> entity ${entity.id}`);
+        this.lastUpdateLog[clientId] = now;
       }
+
+      // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
+      // Eliminazione completa degli scatti attraverso interpolazione continua
+      interpolation.updateTarget(x, y, rotation);
     } else {
-      console.error(`[REMOTE_PLAYER] Entity ${playerData.entityId} not found for remote player ${clientId}`);
+      console.warn(`[REMOTE_PLAYER] No interpolation component found for ${clientId} entity ${entity.id}`);
     }
   }
-
-  private lastUpdateLog: { [clientId: string]: number } = {};
 
   /**
    * Rimuove un giocatore remoto
    */
   removeRemotePlayer(clientId: string): void {
-    const playerData = this.remotePlayers.get(clientId);
-    if (playerData) {
-      const entity = this.ecs.getEntity(playerData.entityId);
-      if (entity) {
-        this.ecs.removeEntity(entity);
-        this.remotePlayers.delete(clientId);
-      }
+    const entity = this.findRemotePlayerEntity(clientId);
+    if (entity) {
+      this.ecs.removeEntity(entity);
+      console.log(`[REMOTE_PLAYER] Removed remote player ${clientId} -> entity ${entity.id}`);
     }
   }
 
@@ -163,10 +183,14 @@ export class RemotePlayerSystem extends BaseSystem {
    * Rimuove tutti i giocatori remoti
    */
   removeAllRemotePlayers(): void {
-    // Usa Array.from per iterazione sicura mentre modifichiamo la mappa
-    const clientIds = Array.from(this.remotePlayers.keys());
-    for (const clientId of clientIds) {
-      this.removeRemotePlayer(clientId);
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
+
+    for (const entity of remotePlayerEntities) {
+      const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
+      if (remotePlayerComponent) {
+        console.log(`[REMOTE_PLAYER] Removing all remote players: ${remotePlayerComponent.clientId} -> entity ${entity.id}`);
+        this.ecs.removeEntity(entity);
+      }
     }
   }
 
@@ -174,15 +198,15 @@ export class RemotePlayerSystem extends BaseSystem {
    * Ottiene l'entity ID di un giocatore remoto
    */
   getRemotePlayerEntity(clientId: string): number | undefined {
-    const playerData = this.remotePlayers.get(clientId);
-    return playerData ? playerData.entityId : undefined;
+    const entity = this.findRemotePlayerEntity(clientId);
+    return entity ? entity.id : undefined;
   }
 
   /**
    * Verifica se un clientId corrisponde a un giocatore remoto
    */
   isRemotePlayer(clientId: string): boolean {
-    return this.remotePlayers.has(clientId);
+    return this.findRemotePlayerEntity(clientId) !== null;
   }
 
   /**
@@ -190,14 +214,12 @@ export class RemotePlayerSystem extends BaseSystem {
    */
   getRemotePlayerPositions(): Array<{x: number, y: number}> {
     const positions: Array<{x: number, y: number}> = [];
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer, Transform);
 
-    for (const [clientId, playerData] of this.remotePlayers) {
-      const entity = this.ecs.getEntity(playerData.entityId);
-      if (entity) {
-        const transform = this.ecs.getComponent(entity, Transform);
-        if (transform) {
-          positions.push({ x: transform.x, y: transform.y });
-        }
+    for (const entity of remotePlayerEntities) {
+      const transform = this.ecs.getComponent(entity, Transform);
+      if (transform) {
+        positions.push({ x: transform.x, y: transform.y });
       }
     }
 
@@ -208,13 +230,19 @@ export class RemotePlayerSystem extends BaseSystem {
    * Ottiene tutti i client IDs dei giocatori remoti attivi
    */
   getActiveRemotePlayers(): string[] {
-    return Array.from(this.remotePlayers.keys());
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
+    return remotePlayerEntities
+      .map(entity => {
+        const component = this.ecs.getComponent(entity, RemotePlayer);
+        return component ? component.clientId : null;
+      })
+      .filter(clientId => clientId !== null) as string[];
   }
 
   /**
    * Ottiene il numero di giocatori remoti attivi
    */
   getRemotePlayerCount(): number {
-    return this.remotePlayers.size;
+    return this.ecs.getEntitiesWithComponents(RemotePlayer).length;
   }
 }

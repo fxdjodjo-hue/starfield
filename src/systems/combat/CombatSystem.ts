@@ -16,6 +16,10 @@ import { CameraSystem } from '../rendering/CameraSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
+import { GAME_CONSTANTS } from '../../config/GameConstants';
+import { calculateDirection } from '../../utils/MathUtils';
+import { ProjectileFactory } from '../../factories/ProjectileFactory';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -31,15 +35,36 @@ export class CombatSystem extends BaseSystem {
   private audioSystem: any = null;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
+  private pendingCombatRequests: any[] = []; // Coda richieste combattimento in attesa di ClientNetworkSystem
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
   private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
 
-  constructor(ecs: ECS, cameraSystem: CameraSystem, gameContext: GameContext, playerSystem: PlayerSystem) {
+  constructor(ecs: ECS, cameraSystem: CameraSystem, gameContext: GameContext, playerSystem: PlayerSystem, clientNetworkSystem: ClientNetworkSystem | null = null) {
     super(ecs);
     this.cameraSystem = cameraSystem;
     this.gameContext = gameContext;
     this.playerSystem = playerSystem;
+    this.clientNetworkSystem = clientNetworkSystem;
+  }
+
+  /**
+   * Imposta il sistema di rete per notifiche multiplayer (fallback)
+   */
+  setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
+    console.log('[COMBAT] ClientNetworkSystem set:', !!clientNetworkSystem);
+    this.clientNetworkSystem = clientNetworkSystem;
+
+    // Processa le richieste di combattimento pendenti
+    if (this.pendingCombatRequests.length > 0) {
+      console.log(`[COMBAT] Processing ${this.pendingCombatRequests.length} pending combat requests`);
+      const pendingRequests = [...this.pendingCombatRequests];
+      this.pendingCombatRequests = [];
+
+      for (const npcEntity of pendingRequests) {
+        this.sendStartCombat(npcEntity);
+      }
+    }
   }
 
   /**
@@ -49,12 +74,6 @@ export class CombatSystem extends BaseSystem {
     this.audioSystem = audioSystem;
   }
 
-  /**
-   * Imposta il sistema di rete per notifiche multiplayer
-   */
-  setClientNetworkSystem(clientNetworkSystem: any): void {
-    this.clientNetworkSystem = clientNetworkSystem;
-  }
 
   update(deltaTime: number): void {
     this.lastUpdateTime = Date.now();
@@ -129,12 +148,13 @@ export class CombatSystem extends BaseSystem {
     let directionX: number, directionY: number;
 
     if (isPlayer) {
-      // Player: calcola direzione dal target (come sempre)
-      const dx = targetTransform.x - attackerTransform.x;
-      const dy = targetTransform.y - attackerTransform.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      directionX = dx / distance;
-      directionY = dy / distance;
+      // Player: calcola direzione dal target usando utility centralizzata
+      const { direction } = calculateDirection(
+        attackerTransform.x, attackerTransform.y,
+        targetTransform.x, targetTransform.y
+      );
+      directionX = direction.x;
+      directionY = direction.y;
     } else {
       // NPC: usa la rotazione corrente (stabilita dal comportamento aggressive)
       // Gli NPC aggressive dovrebbero già essere rivolti verso il player
@@ -206,41 +226,58 @@ export class CombatSystem extends BaseSystem {
    * Crea un proiettile in una posizione e direzione specifica
    */
   private createProjectileAt(attackerEntity: any, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: any): void {
-    // Crea il proiettile leggermente avanti all'attaccante per evitare auto-collisione
-    const projectileX = attackerTransform.x + directionX * 25; // 25 pixel avanti (dimensione nave)
-    const projectileY = attackerTransform.y + directionY * 25;
-
     // Genera ID univoco per il proiettile (per sincronizzazione multiplayer)
     const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Crea l'entità proiettile
-    const projectileEntity = this.ecs.createEntity();
+    // Determina se è il player locale
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
 
-    // Aggiungi componenti al proiettile
-    const projectileTransform = new Transform(projectileX, projectileY, 0, 1, 1);
-    const projectile = new Projectile(damage, 400, directionX, directionY, attackerEntity.id, targetEntity.id, 3000);
+    // Calcola posizione target per la factory
+    const targetX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2; // Moltiplica per 2 per compensare
+    const targetY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
+
+    // Crea proiettile usando factory centralizzata
+    const projectileEntity = ProjectileFactory.createProjectile(
+      this.ecs,
+      damage,
+      attackerTransform.x,
+      attackerTransform.y,
+      targetX,
+      targetY,
+      attackerEntity.id,
+      targetEntity.id,
+      isLocalPlayer && this.clientNetworkSystem ? this.clientNetworkSystem.getLocalClientId() : `npc_${attackerEntity.id}`
+    );
 
     // Aggiungi ID univoco al proiettile per tracking multiplayer
-    (projectile as any).id = projectileId;
-
-    this.ecs.addComponent(projectileEntity, Transform, projectileTransform);
-    this.ecs.addComponent(projectileEntity, Projectile, projectile);
+    const projectileComponent = this.ecs.getComponent(projectileEntity, Projectile);
+    if (projectileComponent) {
+      (projectileComponent as any).id = projectileId;
+    }
 
     // Notifica il sistema di rete per sincronizzazione multiplayer
     if (this.clientNetworkSystem) {
-      const playerEntity = this.playerSystem.getPlayerEntity();
-      const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
+      console.log(`🔫 [COMBAT] Creating projectile ${projectileId} from ${isLocalPlayer ? 'PLAYER' : 'NPC'} ${attackerEntity.id}`);
 
+      // Invia SOLO i proiettili del giocatore locale al server
+      // Gli NPC vengono gestiti direttamente dal server
       if (isLocalPlayer) {
-        // Invia notifica di proiettile sparato solo per il giocatore locale
-        this.clientNetworkSystem.sendProjectileFired({
-          projectileId,
-          playerId: this.clientNetworkSystem.getLocalClientId(),
-          position: { x: projectileX, y: projectileY },
-          velocity: { x: directionX * 400, y: directionY * 400 }, // 400 è la velocità del proiettile
-          damage,
-          projectileType: 'laser' // Per ora solo laser
-        });
+        const transform = this.ecs.getComponent(projectileEntity, Transform);
+        if (transform) {
+          console.log(`📡 [COMBAT] Sending projectile_fired to server: ${projectileId}`);
+          this.clientNetworkSystem.sendProjectileFired({
+            projectileId,
+            playerId: this.clientNetworkSystem.getLocalClientId(),
+            position: { x: transform.x, y: transform.y },
+            velocity: {
+              x: directionX * GAME_CONSTANTS.PROJECTILE.SPEED,
+              y: directionY * GAME_CONSTANTS.PROJECTILE.SPEED
+            },
+            damage,
+            projectileType: 'laser'
+          });
+        }
       }
     }
   }
@@ -330,16 +367,18 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
-   * Elabora il combattimento automatico del player contro NPC selezionati
+   * Gestisce le richieste di combattimento al server (server-authoritative combat)
    */
   private processPlayerCombat(): void {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     if (selectedNpcs.length === 0) {
-      // Reset dei flag quando non c'è nessun NPC selezionato
-      this.attackStartedLogged = false;
+      // Se non c'è nessun NPC selezionato, ferma il combattimento
       if (this.currentAttackTarget !== null) {
+        this.sendStopCombat();
         this.endAttackLogging();
+        this.currentAttackTarget = null;
+        this.attackStartedLogged = false;
       }
       return;
     }
@@ -348,18 +387,14 @@ export class CombatSystem extends BaseSystem {
 
     // Trova il player
     const playerEntity = this.playerSystem.getPlayerEntity();
-
     if (!playerEntity) return;
 
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
     const playerDamage = this.ecs.getComponent(playerEntity, Damage);
     const npcHealth = this.ecs.getComponent(selectedNpc, Health);
-
-    if (!playerTransform || !playerDamage || !npcHealth) return;
-
-    // Controlla se il player è nel range di attacco
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
-    if (!npcTransform) return;
+
+    if (!playerTransform || !playerDamage || !npcHealth || !npcTransform) return;
 
     // Controlla se l'NPC selezionato è ancora visibile nella viewport
     const canvasSize = (this.ecs as any).context?.canvas ?
@@ -378,8 +413,9 @@ export class CombatSystem extends BaseSystem {
                        npcScreenPos.y > canvasSize.height + margin;
 
     if (isOffScreen) {
-      // NPC uscito dalla visuale - deseleziona automaticamente
+      // NPC uscito dalla visuale - deseleziona automaticamente e ferma combattimento
       this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      this.sendStopCombat();
 
       // Se stavamo attaccando questo NPC, logga attacco fallito
       if (this.currentAttackTarget === selectedNpc.id && this.logSystem) {
@@ -392,36 +428,71 @@ export class CombatSystem extends BaseSystem {
       // Reset dei flag
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
-
-      return; // Esci dalla funzione, non continuare con la logica di combattimento
+      return;
     }
 
-    if (playerDamage.isInRange(
+    // Controlla se il player è nel range di attacco
+    const inRange = playerDamage.isInRange(
       playerTransform.x, playerTransform.y,
       npcTransform.x, npcTransform.y
-    )) {
-      // Inizia logging attacco se non è stato ancora loggato per questo combattimento
-      if (!this.attackStartedLogged) {
+    );
+
+    if (inRange) {
+      // Nel range - inizia/continua il combattimento
+      if (this.currentAttackTarget !== selectedNpc.id) {
+        // Nuovo target - inizia combattimento
+        this.sendStartCombat(selectedNpc);
         this.startAttackLogging(selectedNpc);
+        this.currentAttackTarget = selectedNpc.id;
         this.attackStartedLogged = true;
       }
-
-      if (playerDamage.canAttack(this.lastUpdateTime)) {
-        // Ruota il player verso l'NPC prima di attaccare
-        this.faceTarget(playerTransform, npcTransform);
-
-        // Il player spara un proiettile verso l'NPC
-        this.performAttack(playerEntity, playerTransform, playerDamage, npcTransform, selectedNpc);
-      }
+      // Il server gestisce automaticamente gli attacchi - non combattiamo localmente
     } else {
-      // Fuori range - se stavamo attaccando questo NPC, l'attacco è finito
+      // Fuori range - ferma il combattimento se stavamo attaccando questo NPC
       if (this.currentAttackTarget === selectedNpc.id) {
+        this.sendStopCombat();
         this.endAttackLogging();
-        this.attackStartedLogged = false; // Reset per permettere nuovi attacchi
+        this.currentAttackTarget = null;
+        this.attackStartedLogged = false;
       }
     }
-    // Nota: L'attacco finisce quando il player si allontana troppo (500px)
-    // ma la selezione rimane attiva finché non superi questa distanza massima
+  }
+
+  /**
+   * Invia richiesta di inizio combattimento al server
+   */
+  private sendStartCombat(npcEntity: any): void {
+    if (!this.clientNetworkSystem) {
+      console.log('[COMBAT] ClientNetworkSystem not available yet, queuing request');
+      // Aggiungi alla coda delle richieste pendenti
+      this.pendingCombatRequests.push(npcEntity);
+      return;
+    }
+
+    const npc = this.ecs.getComponent(npcEntity, Npc);
+    if (!npc) return;
+
+    // Usa l'ID server se disponibile, altrimenti l'ID entità locale
+    const npcIdToSend = npc.serverId || npcEntity.id.toString();
+
+    console.log(`[COMBAT] Sending START_COMBAT for NPC ${npcIdToSend} (entity: ${npcEntity.id}, serverId: ${npc.serverId})`);
+    this.clientNetworkSystem.sendStartCombat({
+      npcId: npcIdToSend,
+      playerId: this.clientNetworkSystem.getLocalClientId()
+    });
+  }
+
+  /**
+   * Invia richiesta di fine combattimento al server
+   */
+  private sendStopCombat(): void {
+    if (!this.clientNetworkSystem) return;
+
+    console.log(`🛑 [COMBAT] Stopping combat`);
+
+    this.clientNetworkSystem.sendStopCombat({
+      playerId: this.clientNetworkSystem.getLocalClientId()
+    });
   }
 
 

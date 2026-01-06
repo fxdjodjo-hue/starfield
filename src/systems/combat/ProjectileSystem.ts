@@ -9,6 +9,8 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { UiSystem } from '../ui/UiSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { GAME_CONSTANTS } from '../../config/GameConstants';
+import { calculateDirection, msToSeconds } from '../../utils/MathUtils';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
@@ -26,8 +28,8 @@ export class ProjectileSystem extends BaseSystem {
   update(deltaTime: number): void {
     const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
 
-    // Converti deltaTime da millisecondi a secondi
-    const deltaTimeSeconds = deltaTime / 1000;
+    // Converti deltaTime da millisecondi a secondi usando utility
+    const deltaTimeSeconds = msToSeconds(deltaTime);
 
     for (const projectileEntity of projectiles) {
       const transform = this.ecs.getComponent(projectileEntity, Transform);
@@ -36,27 +38,30 @@ export class ProjectileSystem extends BaseSystem {
       if (!transform || !projectile) continue;
 
       // Controlla se il bersaglio è ancora vivo (ha HP o shield attivo)
-      const allTargets = this.ecs.getEntitiesWithComponents(Health);
-      const targetExists = allTargets.some(entity => entity.id === projectile.targetId);
+      // Salta questo controllo per proiettili remoti (targetId = -1)
+      if (projectile.targetId !== -1) {
+        const allTargets = this.ecs.getEntitiesWithComponents(Health);
+        const targetExists = allTargets.some(entity => entity.id === projectile.targetId);
 
-      if (targetExists) {
-        const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
-        if (targetEntity) {
-          const targetHealth = this.ecs.getComponent(targetEntity, Health);
-          const targetShield = this.ecs.getComponent(targetEntity, Shield);
+        if (targetExists) {
+          const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
+          if (targetEntity) {
+            const targetHealth = this.ecs.getComponent(targetEntity, Health);
+            const targetShield = this.ecs.getComponent(targetEntity, Shield);
 
-          // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
-          const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
+            // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
+            const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
 
-          if (isDead) {
-            this.ecs.removeEntity(projectileEntity);
-            continue;
+            if (isDead) {
+              this.ecs.removeEntity(projectileEntity);
+              continue;
+            }
           }
+        } else {
+          // Il bersaglio non esiste più (rimosso dal gioco)
+          this.ecs.removeEntity(projectileEntity);
+          continue;
         }
-      } else {
-        // Il bersaglio non esiste più (rimosso dal gioco)
-        this.ecs.removeEntity(projectileEntity);
-        continue;
       }
 
       // Per i proiettili homing (NPC verso player, o player verso NPC), aggiorna direzione verso il bersaglio
@@ -114,16 +119,16 @@ export class ProjectileSystem extends BaseSystem {
     const targetTransform = this.ecs.getComponent(targetEntity, Transform);
     if (!targetTransform) return;
 
-    // Calcola la nuova direzione verso il bersaglio
-    const dx = targetTransform.x - projectileTransform.x;
-    const dy = targetTransform.y - projectileTransform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    // Calcola la nuova direzione verso il bersaglio usando utility centralizzata
+    const { direction } = calculateDirection(
+      projectileTransform.x,
+      projectileTransform.y,
+      targetTransform.x,
+      targetTransform.y
+    );
 
-    if (distance > 0) {
-      // Normalizza la direzione
-      projectile.directionX = dx / distance;
-      projectile.directionY = dy / distance;
-    }
+    projectile.directionX = direction.x;
+    projectile.directionY = direction.y;
   }
 
   /**
@@ -135,7 +140,12 @@ export class ProjectileSystem extends BaseSystem {
 
     for (const targetEntity of targets) {
       // Non colpire il proprietario del proiettile
-      if (targetEntity.id === projectile.ownerId) continue;
+      const playerEntity = this.playerSystem.getPlayerEntity();
+      const isPlayerProjectile = playerEntity &&
+        (projectile.ownerId === playerEntity.id ||
+         projectile.ownerId === this.clientNetworkSystem?.getLocalClientId());
+
+      if (targetEntity.id === playerEntity?.id && isPlayerProjectile) continue;
 
       const targetTransform = this.ecs.getComponent(targetEntity, Transform);
       const targetHealth = this.ecs.getComponent(targetEntity, Health);
@@ -149,7 +159,7 @@ export class ProjectileSystem extends BaseSystem {
       );
 
       // Se la distanza è minore di una soglia (hitbox), colpisce
-      const hitDistance = 15; // Raggio di collisione
+      const hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
       if (distance < hitDistance) {
         // Applica danno (prima shield, poi HP)
         const damageDealt = projectile.damage;

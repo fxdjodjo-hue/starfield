@@ -17,6 +17,7 @@ import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
 import { NpcBulkUpdateHandler } from './handlers/NpcBulkUpdateHandler';
 import { NpcLeftHandler } from './handlers/NpcLeftHandler';
 // Combat handlers
+import { CombatUpdateHandler } from './handlers/CombatUpdateHandler';
 import { ProjectileFiredHandler } from './handlers/ProjectileFiredHandler';
 import { ProjectileUpdateHandler } from './handlers/ProjectileUpdateHandler';
 import { ProjectileDestroyedHandler } from './handlers/ProjectileDestroyedHandler';
@@ -128,6 +129,7 @@ export class ClientNetworkSystem extends BaseSystem {
     // Aggiungi handlers di combattimento se il sistema è disponibile
     if (this.remoteProjectileSystem) {
       handlers.push(
+        new CombatUpdateHandler(),
         new ProjectileFiredHandler(),
         new ProjectileUpdateHandler(),
         new ProjectileDestroyedHandler(),
@@ -520,6 +522,46 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Sends request to start combat against an NPC
+   */
+  sendStartCombat(data: {
+    npcId: string;
+    playerId: string;
+  }): void {
+    if (!this.socket || !this.isConnected) {
+      console.warn('[CLIENT] Cannot send start combat: not connected');
+      return;
+    }
+
+    const message = {
+      type: MESSAGE_TYPES.START_COMBAT,
+      npcId: data.npcId,
+      playerId: data.playerId
+    };
+
+    this.sendMessage(message);
+  }
+
+  /**
+   * Sends request to stop combat
+   */
+  sendStopCombat(data: {
+    playerId: string;
+  }): void {
+    if (!this.socket || !this.isConnected) {
+      console.warn('[CLIENT] Cannot send stop combat: not connected');
+      return;
+    }
+
+    const message = {
+      type: MESSAGE_TYPES.STOP_COMBAT,
+      playerId: data.playerId
+    };
+
+    this.sendMessage(message);
+  }
+
+  /**
    * Sends notification of a fired projectile to the server
    */
   sendProjectileFired(data: {
@@ -528,7 +570,7 @@ export class ClientNetworkSystem extends BaseSystem {
     position: { x: number; y: number };
     velocity: { x: number; y: number };
     damage: number;
-    projectileType: 'laser' | 'plasma' | 'missile';
+    projectileType: string;
   }): void {
     if (!this.socket || !this.isConnected) {
       console.warn('[CLIENT] Cannot send projectile fired: not connected');

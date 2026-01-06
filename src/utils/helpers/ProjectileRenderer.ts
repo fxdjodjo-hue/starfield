@@ -36,17 +36,15 @@ export class ProjectileRenderer {
    */
   getRenderParams(projectile: Projectile): ProjectileRenderParams {
     const playerEntity = this.playerSystem.getPlayerEntity();
-    const isNpcProjectile = playerEntity && projectile.ownerId !== playerEntity.id;
+    const isNpcProjectile = this.isNpcProjectile(projectile, playerEntity);
 
     if (isNpcProjectile) {
       // NPC projectile - try to use image first, fallback to green laser
-      const projectileImage = this.getProjectileImageForOwner(projectile.ownerId);
+      const projectileImage = this.getProjectileImageForProjectile(projectile);
 
       if (projectileImage && projectileImage.complete && projectileImage.width > 0) {
         // Image-based projectile
-        const ownerEntity = this.ecs.getEntity(projectile.ownerId);
-        const npc = ownerEntity ? this.ecs.getComponent(ownerEntity, 'Npc' as any) : null;
-        const imageSize = (npc && (npc as any).npcType === 'Frigate') ? 28 : 36;
+        const imageSize = this.getProjectileImageSize(projectile);
 
         return {
           color: '#00ff00', // Green (fallback)
@@ -79,17 +77,61 @@ export class ProjectileRenderer {
   }
 
   /**
-   * Get projectile image for NPC owner
+   * Determina se un proiettile è di un NPC basandosi sul playerId
    */
-  private getProjectileImageForOwner(ownerId: number): HTMLImageElement | null {
-    const ownerEntity = this.ecs.getEntity(ownerId);
-    if (!ownerEntity) return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
+  private isNpcProjectile(projectile: Projectile, playerEntity: any): boolean {
+    if (!playerEntity) return true; // Se non c'è player locale, assume NPC
 
-    const npc = this.ecs.getComponent(ownerEntity, 'Npc' as any);
-    if (npc && (npc as any).npcType === 'Frigate') {
-      return this.assetManager.getOrLoadImage('assets/npc_ships/frigate/npc_frigate_projectile.png');
+    // Se ha playerId e non inizia con 'client_', è un NPC
+    if (projectile.playerId) {
+      return !projectile.playerId.startsWith('client_');
     }
 
+    // Fallback: controlla ownerId
+    return projectile.ownerId !== playerEntity.id;
+  }
+
+  /**
+   * Get projectile image based on projectile type
+   */
+  private getProjectileImageForProjectile(projectile: Projectile): HTMLImageElement | null {
+    // Determina il tipo di NPC dal playerId
+    if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
+      // È un proiettile NPC
+      const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
+      if (npcType === 'Frigate') {
+        return this.assetManager.getOrLoadImage('assets/npc_ships/frigate/npc_frigate_projectile.png');
+      } else {
+        return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
+      }
+    }
+
+    // Default: scouter projectile
     return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
+  }
+
+  /**
+   * Get NPC type from playerId (e.g., "npc_123" -> cerca l'NPC con id 123)
+   */
+  private getNpcTypeFromPlayerId(playerId: string): string | null {
+    if (!playerId.startsWith('npc_')) return null;
+
+    const npcId = playerId.substring(4); // Rimuovi "npc_"
+    const npcEntity = this.ecs.getEntity(parseInt(npcId));
+    if (!npcEntity) return null;
+
+    const npc = this.ecs.getComponent(npcEntity, 'Npc' as any);
+    return npc ? (npc as any).npcType : null;
+  }
+
+  /**
+   * Get projectile image size based on projectile type
+   */
+  private getProjectileImageSize(projectile: Projectile): number {
+    if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
+      const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
+      return (npcType === 'Frigate') ? 28 : 36;
+    }
+    return 36; // Default size
   }
 }

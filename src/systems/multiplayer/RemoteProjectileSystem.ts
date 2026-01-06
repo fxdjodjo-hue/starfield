@@ -4,6 +4,9 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Sprite } from '../../entities/Sprite';
+import { GAME_CONSTANTS } from '../../config/GameConstants';
+import { ProjectileFactory } from '../../factories/ProjectileFactory';
+import { logger } from '../../utils/Logger';
 
 /**
  * Sistema per la gestione dei proiettili remoti in multiplayer
@@ -26,7 +29,7 @@ export class RemoteProjectileSystem extends BaseSystem {
     position: { x: number; y: number },
     velocity: { x: number; y: number },
     damage: number,
-    projectileType: 'laser' | 'plasma' | 'missile' = 'laser'
+    projectileType: string = 'laser'
   ): number {
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
@@ -41,8 +44,20 @@ export class RemoteProjectileSystem extends BaseSystem {
     this.ecs.addComponent(entity, Transform, new Transform(position.x, position.y, 0));
     this.ecs.addComponent(entity, Velocity, new Velocity(velocity.x, velocity.y, 0));
 
+    // Calcola speed dalla velocity
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+
+    // Calcola direction normalizzata
+    const directionX = speed > 0 ? velocity.x / speed : 0;
+    const directionY = speed > 0 ? velocity.y / speed : 0;
+
+    // Per i proiettili remoti, usa valori dummy per ownerId e targetId
+    // ownerId sarà l'entity ID creato, targetId = -1 (nessun target specifico)
+    const ownerId = entity.id; // Usa l'entity ID stesso come owner
+    const targetId = -1; // Nessun target specifico per proiettili remoti
+
     // Componente proiettile
-    const projectile = new Projectile(damage, projectileType);
+    const projectile = new Projectile(damage, speed, directionX, directionY, ownerId, targetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
     this.ecs.addComponent(entity, Projectile, projectile);
 
     // Sprite per rendering (se necessario)
@@ -155,15 +170,14 @@ export class RemoteProjectileSystem extends BaseSystem {
    * Update periodico (principalmente per logging)
    */
   update(deltaTime: number): void {
-    // Logging periodico dello stato ogni 30 secondi
-    if (Math.floor(Date.now() / 30000) % 2 === 0 && !this.lastStatusLog) {
-      const stats = this.getStats();
-      if (stats.totalProjectiles > 0) {
-        console.log(`🚀 [REMOTE_PROJECTILE] Status: ${stats.totalProjectiles} projectiles`);
-      }
-      this.lastStatusLog = Date.now();
+    // Logging periodico dello stato usando utility centralizzata
+    const stats = this.getStats();
+    if (stats.totalProjectiles > 0) {
+      logger.logIfTime(
+        'remote_projectile_status',
+        `🚀 [REMOTE_PROJECTILE] Status: ${stats.totalProjectiles} projectiles`,
+        GAME_CONSTANTS.UI.LOG_INTERVAL
+      );
     }
   }
-
-  private lastStatusLog = 0;
 }

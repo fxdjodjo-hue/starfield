@@ -8,14 +8,17 @@ import { Component } from '../../infrastructure/ecs/Component';
 export class Npc extends Component {
   public npcType: string;
   public behavior: string;
+  public serverId: string | null = null; // ID usato dal server (es. "npc_0")
 
   constructor(
     npcType: string = 'generic',
-    behavior: string = 'idle'
+    behavior: string = 'idle',
+    serverId: string | null = null
   ) {
     super();
     this.npcType = npcType;
     this.behavior = behavior;
+    this.serverId = serverId;
   }
 
   /**
