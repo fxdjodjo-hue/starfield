@@ -61,6 +61,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private readonly messageRouter: MessageRouter;
   public readonly remotePlayerManager: RemotePlayerManager;
   private readonly positionTracker: PlayerPositionTracker;
+  private readonly remotePlayerSystem: RemotePlayerSystem;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
 
@@ -74,6 +75,7 @@ export class ClientNetworkSystem extends BaseSystem {
     super(ecs);
     this.gameContext = gameContext;
     this.audioSystem = audioSystem || null;
+    this.remotePlayerSystem = remotePlayerSystem;
     this.remoteNpcSystem = remoteNpcSystem || null;
     this.remoteProjectileSystem = remoteProjectileSystem || null;
 
@@ -106,6 +108,13 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Connect to server
     this.connect();
+  }
+
+  /**
+   * Get the RemotePlayerSystem reference
+   */
+  public getRemotePlayerSystem(): RemotePlayerSystem {
+    return this.remotePlayerSystem;
   }
 
   /**

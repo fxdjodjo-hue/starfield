@@ -339,12 +339,18 @@ export class MinimapSystem extends BaseSystem {
    * Renderizza i giocatori remoti sulla minimappa
    */
   private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
-    // Trova il RemotePlayerSystem nell'ECS
+    // Trova il ClientNetworkSystem nell'ECS
     const systems = (this.ecs as any).systems || [];
-    const remotePlayerSystem = systems.find((system: any) => system.constructor.name === 'RemotePlayerSystem');
+    const clientNetworkSystem = systems.find((system: any) => system.constructor.name === 'ClientNetworkSystem');
 
+    if (!clientNetworkSystem) {
+      console.warn("[Minimap] ClientNetworkSystem not found, cannot render remote players.");
+      return;
+    }
+
+    const remotePlayerSystem = clientNetworkSystem.getRemotePlayerSystem();
     if (!remotePlayerSystem) {
-      console.warn("[Minimap] RemotePlayerSystem not found, cannot render remote players.");
+      console.warn("[Minimap] RemotePlayerSystem not accessible, cannot render remote players.");
       return;
     }
 
