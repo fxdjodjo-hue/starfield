@@ -152,15 +152,30 @@ export class ProjectileSystem extends BaseSystem {
       // Se la distanza è minore di una soglia (hitbox), colpisce
       const hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
       if (distance < hitDistance) {
-        // RIMOSSO: Applicazione danni locali
-        // I danni vengono applicati SOLO dal server attraverso messaggi entity_damaged
-        // Questo previene desincronizzazioni e danni locali non autorizzati
+        // GESTIONE DIFFERENZIATA PER TARGETING
 
-        // Rimuovi il proiettile dopo l'impatto (il server decide quando)
-        // Nota: In un sistema completamente server authoritative, anche la rimozione
-        // dei proiettili dovrebbe essere gestita dal server
+        // Per proiettili SENZA target specifico (NPC projectiles):
+        // Rimuovi immediatamente - possono colpire chiunque
+        if (!projectile.targetId || projectile.targetId === -1) {
+          this.ecs.removeEntity(projectileEntity);
+          return; // Un proiettile colpisce solo un bersaglio
+        }
+
+        // Per proiettili CON target specifico (player projectiles):
+        // NON rimuovere localmente se colpiscono qualcun altro che non è il target
+        // Il server decide quando rimuovere questi proiettili
+        // Solo il server può confermare se hanno colpito il target corretto
+        if (projectile.targetId !== targetEntity.id) {
+          // Colpito qualcun altro - continua il volo, lascia che il server decida
+          console.log(`🎯 [CLIENT] Projectile ${projectile.id} hit ${targetEntity.id} but target is ${projectile.targetId} - continuing flight`);
+          continue; // Non rimuovere, continua a volare
+        }
+
+        // Colpito il target corretto - il server dovrebbe averlo già rimosso,
+        // ma per sicurezza rimuoviamo anche localmente
+        console.log(`🎯 [CLIENT] Projectile ${projectile.id} hit intended target ${projectile.targetId} - removing locally`);
         this.ecs.removeEntity(projectileEntity);
-        return; // Un proiettile colpisce solo un bersaglio
+        return;
       }
     }
   }
