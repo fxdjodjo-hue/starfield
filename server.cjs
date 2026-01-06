@@ -1106,11 +1106,9 @@ wss.on('connection', (ws) => {
           targetId: targetId
         };
 
-        // Invia a tutti i client tranne quello che ha sparato
+        // Invia a tutti i client, incluso quello che ha sparato (per coerenza con NPC)
         mapServer.clients.forEach((client, clientId) => {
-          if (clientId !== senderId) {
-            client.send(JSON.stringify(projectileMessage));
-          }
+          client.send(JSON.stringify(projectileMessage));
         });
       }
 
