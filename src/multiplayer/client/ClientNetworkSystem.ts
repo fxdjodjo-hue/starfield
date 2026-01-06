@@ -164,6 +164,7 @@ export class ClientNetworkSystem extends BaseSystem {
    * Handles successful connection establishment
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
+    console.log(`🔌 [CLIENT] WebSocket connected, sending join message`);
     this.socket = socket;
 
     // Reset tick manager timing on (re)connection
@@ -299,9 +300,12 @@ export class ClientNetworkSystem extends BaseSystem {
    * Connects to the server using the connection manager
    */
   async connect(): Promise<void> {
+    console.log(`🔌 [CLIENT] Attempting to connect to server...`);
     try {
       this.socket = await this.connectionManager.connect();
+      console.log(`🔌 [CLIENT] Socket connected successfully`);
     } catch (error) {
+      console.error(`🔌 [CLIENT] Socket connection failed:`, error);
       throw error;
     }
   }
@@ -429,8 +433,14 @@ export class ClientNetworkSystem extends BaseSystem {
   /**
    * Manually connect to the server (called after systems are set up)
    */
-  connectToServer(): void {
-    this.connect();
+  async connectToServer(): Promise<void> {
+    console.log(`🌐 [CLIENT] Connecting to server - RemoteNpcSystem available: ${!!this.remoteNpcSystem}`);
+    try {
+      await this.connect();
+      console.log(`✅ [CLIENT] Connection successful`);
+    } catch (error) {
+      console.error(`❌ [CLIENT] Connection failed:`, error);
+    }
   }
 
   /**

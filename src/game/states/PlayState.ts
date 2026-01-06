@@ -306,7 +306,9 @@ export class PlayState extends GameState {
 
     // Ora che tutti i sistemi sono impostati, connetti al server
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
-      this.clientNetworkSystem.connectToServer();
+      this.clientNetworkSystem.connectToServer().catch(error => {
+        console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
+      });
     }
 
     // Inizializza il sistema di interpolazione per movimenti fluidi
