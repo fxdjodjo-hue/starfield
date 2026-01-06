@@ -55,17 +55,6 @@ export const supabase = useMock ? createMockClient() : createClient(supabaseUrl,
     }
   }
 })
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  },
-  realtime: {
-    params: {
-      eventsPerSecond: 10
-    }
-  }
-})
 
 // Database types (simplified for single-player data only)
 export type Database = {
