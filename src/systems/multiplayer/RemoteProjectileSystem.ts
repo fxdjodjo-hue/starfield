@@ -54,7 +54,7 @@ export class RemoteProjectileSystem extends BaseSystem {
     const directionY = speed > 0 ? velocity.y / speed : 0;
 
     // Determina ownerId e targetId corretti per homing
-    let ownerId: number;
+    let ownerId: number = entity.id; // Default fallback
     let actualTargetId: number = -1; // Default: nessun target
 
     // Se playerId inizia con "npc_", è un proiettile NPC
@@ -81,6 +81,7 @@ export class RemoteProjectileSystem extends BaseSystem {
       // Proiettile player: owner è il player, target potrebbe essere un NPC
       // Cerca l'entità player locale come owner
       const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
+      ownerId = entity.id; // Fallback
       for (const playerEntity of playerEntities) {
         if (!this.ecs.hasComponent(playerEntity, Npc)) {
           ownerId = playerEntity.id;
