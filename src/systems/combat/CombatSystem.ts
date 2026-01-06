@@ -51,17 +51,14 @@ export class CombatSystem extends BaseSystem {
    * Imposta il sistema di rete per notifiche multiplayer (fallback)
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
-    console.log('[COMBAT] ClientNetworkSystem set:', !!clientNetworkSystem);
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Processa le richieste di combattimento pendenti
     if (this.pendingCombatRequests.length > 0) {
-      console.log(`[COMBAT] Processing ${this.pendingCombatRequests.length} pending combat requests`);
       const pendingRequests = [...this.pendingCombatRequests];
       this.pendingCombatRequests = [];
 
       for (const npcEntity of pendingRequests) {
-        console.log(`[COMBAT] Processing pending combat request for NPC ${npcEntity.id}`);
         this.sendStartCombat(npcEntity);
       }
     }
@@ -352,7 +349,6 @@ export class CombatSystem extends BaseSystem {
   private processPlayerCombat(): void {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    console.log(`[COMBAT] processPlayerCombat called, selected NPCs: ${selectedNpcs.length}`);
     if (selectedNpcs.length === 0) {
       // Se non c'è nessun NPC selezionato, ferma il combattimento
       if (this.currentAttackTarget !== null) {
@@ -444,22 +440,17 @@ export class CombatSystem extends BaseSystem {
    */
   private sendStartCombat(npcEntity: any): void {
     if (!this.clientNetworkSystem) {
-      console.log(`[COMBAT] ClientNetworkSystem not available, queuing combat request for NPC ${npcEntity.id}`);
       // Aggiungi alla coda delle richieste pendenti
       this.pendingCombatRequests.push(npcEntity);
       return;
     }
 
     const npc = this.ecs.getComponent(npcEntity, Npc);
-    if (!npc) {
-      console.log(`[COMBAT] No NPC component found for entity ${npcEntity.id}`);
-      return;
-    }
+    if (!npc) return;
 
     // Usa l'ID server se disponibile, altrimenti l'ID entità locale
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
 
-    console.log(`[COMBAT] Sending START_COMBAT for NPC ${npcIdToSend} (entity: ${npcEntity.id}, serverId: ${npc.serverId})`);
     this.clientNetworkSystem.sendStartCombat({
       npcId: npcIdToSend,
       playerId: this.clientNetworkSystem.getLocalClientId()

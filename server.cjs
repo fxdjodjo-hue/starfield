@@ -934,8 +934,6 @@ wss.on('connection', (ws) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
-      const clientId = playerData?.clientId || 'unknown';
-      console.log(`📨 [SERVER] Received message from ${clientId}: ${data.type}`, data);
 
       // Risponde ai messaggi di join
       if (data.type === 'join') {
@@ -1118,18 +1116,12 @@ wss.on('connection', (ws) => {
 
       // Gestisce richiesta di inizio combattimento
       if (data.type === 'start_combat') {
-        console.log(`⚔️ [SERVER] Start combat request: player ${data.playerId} vs NPC ${data.npcId} (raw: ${JSON.stringify(data)})`);
-
         // Valida che l'NPC esista
         const npc = mapServer.npcManager.getNpc(data.npcId);
         if (!npc) {
-          console.log(`❌ [SERVER] NPC ${data.npcId} not found for combat request`);
-        }
-          console.warn(`⚠️ [SERVER] NPC ${data.npcId} not found for combat start`);
           return;
         }
 
-        console.log(`✅ [SERVER] NPC ${data.npcId} found, starting combat for player ${data.playerId}`);
         // Inizia il combattimento server-side
         mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);
 

@@ -370,7 +370,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends a message to the server
    */
   private sendMessage(message: NetMessage): void {
-    console.log(`[CLIENT] Sending message: ${message.type}`, message);
     this.connectionManager.send(JSON.stringify(message));
   }
 
@@ -525,7 +524,6 @@ export class ClientNetworkSystem extends BaseSystem {
     npcId: string;
     playerId: string;
   }): void {
-    console.log(`[CLIENT] Sending START_COMBAT: ${JSON.stringify(data)}`);
     if (!this.socket || !this.isConnected) {
       console.warn('[CLIENT] Cannot send start combat: not connected');
       return;
