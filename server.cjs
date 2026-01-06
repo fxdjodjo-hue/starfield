@@ -326,29 +326,29 @@ class ServerProjectileManager {
         }
       }
 
-      // Fallback: verifica collisioni generiche (per proiettili senza target specifico)
+      // Per proiettili CON target specifico: NON permettere collisioni accidentali
+      // Il proiettile deve colpire ESATTAMENTE il target o continuare il volo
+      if (projectile.targetId && projectile.targetId !== -1) {
+        // Questo proiettile ha un target specifico - ignora collisioni accidentali
+        console.log(`🎯 [SERVER] Projectile ${projectileId} with target ${projectile.targetId} continues flight (no accidental hits)`);
+        // Non rimuovere il proiettile - continua il volo
+        continue;
+      }
+
+      // Fallback: collisioni generiche SOLO per proiettili senza target specifico (NPC projectiles)
       // Verifica collisioni con NPC
       const hitNpc = this.checkNpcCollision(projectile);
       if (hitNpc) {
-        // Verifica che l'NPC colpito sia diverso dal target originale (per evitare danni multipli)
-        const targetId = projectile.targetId;
-        let serverTargetId = targetId;
-        if (typeof targetId === 'string' && targetId.startsWith('npc_')) {
-          serverTargetId = parseInt(targetId.substring(4));
+        const npcDead = this.mapServer.npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
+        this.broadcastEntityDamaged(hitNpc, projectile);
+
+        if (npcDead) {
+          this.broadcastEntityDestroyed(hitNpc, projectile.playerId);
         }
 
-        if (hitNpc.id !== serverTargetId) {
-          const npcDead = this.mapServer.npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
-          this.broadcastEntityDamaged(hitNpc, projectile);
-
-          if (npcDead) {
-            this.broadcastEntityDestroyed(hitNpc, projectile.playerId);
-          }
-
-          projectilesToRemove.push(projectileId);
-          console.log(`💥 [SERVER] Projectile ${projectileId} hit NPC ${hitNpc.id} (generic collision, target was ${serverTargetId})`);
-          continue;
-        }
+        projectilesToRemove.push(projectileId);
+        console.log(`💥 [SERVER] Projectile ${projectileId} hit NPC ${hitNpc.id} (generic collision)`);
+        continue;
       }
 
       // Verifica collisioni con giocatori
