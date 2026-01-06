@@ -252,6 +252,7 @@ export class RenderSystem extends BaseSystem {
    */
   private renderProjectiles(ctx: CanvasRenderingContext2D, camera: Camera): void {
     const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+    console.log(`🎨 [RENDER] Rendering ${projectiles.length} projectiles`);
 
     for (const projectileEntity of projectiles) {
       const transform = this.ecs.getComponent(projectileEntity, Transform);

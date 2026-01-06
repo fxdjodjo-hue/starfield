@@ -116,7 +116,7 @@ export class RemoteProjectileSystem extends BaseSystem {
       type: projectileType
     });
 
-    console.log(`🚀 [REMOTE_PROJECTILE] Added remote projectile ${projectileId} from ${playerId} (${projectileType})`);
+    console.log(`🚀 [REMOTE_PROJECTILE] Added remote projectile ${projectileId} from ${playerId} (${projectileType}) - Entity: ${entity.id}`);
     return entity.id;
   }
 
@@ -155,7 +155,6 @@ export class RemoteProjectileSystem extends BaseSystem {
     const entity = this.ecs.getEntity(projectileData.entityId);
     if (entity) {
       this.ecs.removeEntity(entity);
-      console.log(`💥 [REMOTE_PROJECTILE] Removed remote projectile ${projectileId}`);
     }
 
     this.remoteProjectiles.delete(projectileId);
@@ -209,7 +208,6 @@ export class RemoteProjectileSystem extends BaseSystem {
     for (const projectileId of projectileIds) {
       this.removeRemoteProjectile(projectileId);
     }
-    console.log(`🧹 [REMOTE_PROJECTILE] Cleaned up all ${projectileIds.length} remote projectiles`);
   }
 
   /**
