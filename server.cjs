@@ -343,6 +343,7 @@ class ServerProjectileManager {
 
     // Interest radius per proiettili
     this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message, excludeClientId);
+    console.log(`📡 [SERVER] Broadcast projectile ${projectile.id} from ${projectile.playerId} to clients (exclude: ${excludeClientId})`);
   }
 
   /**
@@ -702,7 +703,8 @@ class ServerCombatManager {
       velocity,
       500, // damage
       'laser',
-      false  // Includi il mittente - il client deve vedere i suoi proiettili
+      npc.id, // targetId - ID dell'NPC bersaglio per homing
+      false // excludeSender - il client deve vedere i suoi proiettili
     );
   }
 
