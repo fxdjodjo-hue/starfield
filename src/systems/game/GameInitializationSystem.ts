@@ -61,6 +61,7 @@ export class GameInitializationSystem extends System {
   private playerStatusDisplaySystem!: PlayerStatusDisplaySystem;
   private clientNetworkSystem: any = null; // Sistema di rete per notifiche multiplayer
   private combatSystem: any = null; // Riferimento al sistema di combattimento
+  private minimapSystem: any = null; // Riferimento al sistema minimappa
   private systemsCache: any = null;
   private npcStatsManager: NpcStatsManager;
 
@@ -90,6 +91,13 @@ export class GameInitializationSystem extends System {
       this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
       console.warn('[INIT] CombatSystem not available or setClientNetworkSystem method missing');
+    }
+
+    // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
+    if (this.minimapSystem && typeof this.minimapSystem.setClientNetworkSystem === 'function') {
+      this.minimapSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    } else {
+      console.warn('[INIT] MinimapSystem not available or setClientNetworkSystem method missing');
     }
 
     // Collega RewardSystem all'EntityDestroyedHandler per processare ricompense da server
@@ -141,6 +149,7 @@ export class GameInitializationSystem extends System {
     const explosionSystem = new ExplosionSystem(this.ecs);
     const chatTextSystem = new ChatTextSystem(this.ecs, cameraSystem);
     const minimapSystem = new MinimapSystem(this.ecs, this.context.canvas);
+    this.minimapSystem = minimapSystem; // Salva riferimento per setClientNetworkSystem
     const logSystem = new LogSystem(this.ecs);
     this.economySystem = new EconomySystem(this.ecs);
     const rankSystem = new RankSystem(this.ecs);

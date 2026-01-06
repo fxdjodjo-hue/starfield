@@ -19,6 +19,7 @@ export class MinimapSystem extends BaseSystem {
   private destinationY: number | null = null;
   private isMouseDownInMinimap: boolean = false;
   private mapBackgroundImage: HTMLImageElement | null = null;
+  private clientNetworkSystem: any = null;
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -38,6 +39,13 @@ export class MinimapSystem extends BaseSystem {
     // Ascolta eventi di resize finestra
     window.addEventListener('resize', () => this.handleResize());
     this.handleResize(); // Imposta posizione iniziale
+  }
+
+  /**
+   * Imposta il riferimento al ClientNetworkSystem per il rendering dei giocatori remoti
+   */
+  public setClientNetworkSystem(clientNetworkSystem: any): void {
+    this.clientNetworkSystem = clientNetworkSystem;
   }
 
   /**
@@ -339,16 +347,12 @@ export class MinimapSystem extends BaseSystem {
    * Renderizza i giocatori remoti sulla minimappa
    */
   private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
-    // Trova il ClientNetworkSystem nell'ECS
-    const systems = (this.ecs as any).systems || [];
-    const clientNetworkSystem = systems.find((system: any) => system.constructor.name === 'ClientNetworkSystem');
-
-    if (!clientNetworkSystem) {
-      console.warn("[Minimap] ClientNetworkSystem not found, cannot render remote players.");
+    if (!this.clientNetworkSystem) {
+      // ClientNetworkSystem non ancora impostato, salta il rendering
       return;
     }
 
-    const remotePlayerSystem = clientNetworkSystem.getRemotePlayerSystem();
+    const remotePlayerSystem = this.clientNetworkSystem.getRemotePlayerSystem();
     if (!remotePlayerSystem) {
       console.warn("[Minimap] RemotePlayerSystem not accessible, cannot render remote players.");
       return;
