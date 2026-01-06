@@ -330,16 +330,25 @@ class ServerProjectileManager {
       // Verifica collisioni con NPC
       const hitNpc = this.checkNpcCollision(projectile);
       if (hitNpc) {
-        const npcDead = this.mapServer.npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
-        this.broadcastEntityDamaged(hitNpc, projectile);
-
-        if (npcDead) {
-          this.broadcastEntityDestroyed(hitNpc, projectile.playerId);
+        // Verifica che l'NPC colpito sia diverso dal target originale (per evitare danni multipli)
+        const targetId = projectile.targetId;
+        let serverTargetId = targetId;
+        if (typeof targetId === 'string' && targetId.startsWith('npc_')) {
+          serverTargetId = parseInt(targetId.substring(4));
         }
 
-        projectilesToRemove.push(projectileId);
-        console.log(`💥 [SERVER] Projectile ${projectileId} hit NPC ${hitNpc.id} (generic collision)`);
-        continue;
+        if (hitNpc.id !== serverTargetId) {
+          const npcDead = this.mapServer.npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
+          this.broadcastEntityDamaged(hitNpc, projectile);
+
+          if (npcDead) {
+            this.broadcastEntityDestroyed(hitNpc, projectile.playerId);
+          }
+
+          projectilesToRemove.push(projectileId);
+          console.log(`💥 [SERVER] Projectile ${projectileId} hit NPC ${hitNpc.id} (generic collision, target was ${serverTargetId})`);
+          continue;
+        }
       }
 
       // Verifica collisioni con giocatori
@@ -423,10 +432,18 @@ class ServerProjectileManager {
   checkSpecificTargetCollision(projectile) {
     const targetId = projectile.targetId;
 
-    // Prima cerca tra gli NPC
+    // Gestisci conversione ID client-server
+    let serverTargetId = targetId;
+
+    // Se targetId è una stringa "npc_X", converti in numero X
+    if (typeof targetId === 'string' && targetId.startsWith('npc_')) {
+      serverTargetId = parseInt(targetId.substring(4)); // Rimuovi "npc_" e converti in numero
+    }
+
+    // Prima cerca tra gli NPC (usando ID numerico)
     const npcs = this.mapServer.npcManager.getAllNpcs();
     for (const npc of npcs) {
-      if (npc.id === targetId) {
+      if (npc.id === serverTargetId) {
         const distance = Math.sqrt(
           Math.pow(projectile.position.x - npc.position.x, 2) +
           Math.pow(projectile.position.y - npc.position.y, 2)
@@ -445,7 +462,7 @@ class ServerProjectileManager {
       if (clientId === projectile.playerId) continue;
 
       // Controlla se questo giocatore è il target
-      if (clientId === targetId || playerData.playerId?.toString() === targetId?.toString()) {
+      if (clientId === serverTargetId || playerData.playerId?.toString() === serverTargetId?.toString()) {
         // Salta giocatori morti o senza posizione
         if (!playerData.position || playerData.isDead) continue;
 
