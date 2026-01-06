@@ -10,9 +10,41 @@ const ngrok = require('ngrok');
 
 const SERVER_PORT = 3000;
 
+async function checkNgrok() {
+  return new Promise((resolve) => {
+    const ngrokProcess = spawn('ngrok', ['version'], { stdio: 'pipe' });
+    ngrokProcess.on('close', (code) => {
+      resolve(code === 0);
+    });
+    ngrokProcess.on('error', () => {
+      resolve(false);
+    });
+  });
+}
+
 async function startOnlineServer() {
   console.log('🚀 Avvio Starfield Online Server...');
-  console.log('🌐 Creazione tunnel pubblico con ngrok...\n');
+
+  // Verifica se ngrok è installato
+  console.log('🔍 Controllo ngrok...');
+  const ngrokAvailable = await checkNgrok();
+
+  if (!ngrokAvailable) {
+    console.log('\n⚠️  ngrok non è installato o non è nel PATH');
+    console.log('\n📋 SOLUZIONE: Installa ngrok e registrati');
+    console.log('   1. Vai su: https://ngrok.com/download');
+    console.log('   2. Scarica ngrok per Windows');
+    console.log('   3. Estrai ngrok.exe in una cartella nel PATH');
+    console.log('   4. Registrati gratuitamente: ngrok config add-authtoken YOUR_TOKEN');
+    console.log('\n🔄 Una volta installato, riesegui: npm run server:online');
+    console.log('\n💡 Nel frattempo puoi giocare localmente con amici nella stessa rete!');
+    console.log('   - Avvia server: npm run server');
+    console.log('   - Gioca su: http://TUO_IP_LOCALE:3000');
+    return;
+  }
+
+  console.log('✅ ngrok trovato!');
+  console.log('🌐 Creazione tunnel pubblico...\n');
 
   try {
     // Avvia il server di gioco
@@ -23,7 +55,7 @@ async function startOnlineServer() {
     });
 
     // Aspetta un po' che il server si avvii
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
 
     // Crea tunnel ngrok
     console.log('🔗 Creazione tunnel ngrok...');
@@ -48,16 +80,24 @@ async function startOnlineServer() {
     process.on('SIGINT', async () => {
       console.log('\n🛑 Chiusura server e tunnel...');
       serverProcess.kill();
-      await ngrok.disconnect();
-      await ngrok.kill();
+      try {
+        await ngrok.disconnect();
+        await ngrok.kill();
+      } catch (e) {
+        // Ignora errori durante la chiusura
+      }
       process.exit(0);
     });
 
     process.on('SIGTERM', async () => {
       console.log('\n🛑 Chiusura server e tunnel...');
       serverProcess.kill();
-      await ngrok.disconnect();
-      await ngrok.kill();
+      try {
+        await ngrok.disconnect();
+        await ngrok.kill();
+      } catch (e) {
+        // Ignora errori durante la chiusura
+      }
       process.exit(0);
     });
 
@@ -67,6 +107,7 @@ async function startOnlineServer() {
     console.log('   1. Assicurati che ngrok sia installato: npm install -g ngrok');
     console.log('   2. Registra un account gratuito su ngrok.com per tunnel stabili');
     console.log('   3. Controlla che la porta 3000 sia libera');
+    console.log('   4. Se hai problemi con ngrok, gioca localmente con amici nella stessa rete');
     process.exit(1);
   }
 }
