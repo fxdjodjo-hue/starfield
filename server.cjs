@@ -403,11 +403,32 @@ class ServerNpcManager {
   }
 }
 
-// Crea server WebSocket sulla porta configurata (Railway usa PORT env var)
+// Crea server HTTP per healthcheck e WebSocket sulla stessa porta
 const PORT = process.env.PORT || 3000;
+const http = require('http');
+
+// Crea server HTTP
+const server = http.createServer((req, res) => {
+  if (req.url === '/health' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+  }
+});
+
+// Crea server WebSocket sullo stesso server HTTP
 const wss = new WebSocket.Server({
-  port: parseInt(PORT),
-  host: '0.0.0.0'  // Necessario per Railway - bind su tutte le interfacce
+  server: server,
+  host: '0.0.0.0'
+});
+
+// Avvia il server sulla porta configurata
+server.listen(parseInt(PORT), '0.0.0.0', () => {
+  console.log(`🚀 Server started on 0.0.0.0:${PORT}`);
+  console.log(`🌐 WebSocket available at ws://0.0.0.0:${PORT}`);
+  console.log(`💚 Health check available at http://0.0.0.0:${PORT}/health`);
 });
 class ServerProjectileManager {
   constructor(mapServer) {
@@ -860,7 +881,7 @@ setInterval(() => {
   mapServer.tick();
 }, 50);
 
-console.log(`🚀 WebSocket server started on ws://localhost:${PORT}`);
+// Il messaggio di avvio è già nel callback di server.listen()
 
 // MapServer - Contesto per ogni mappa del gioco
 class MapServer {
@@ -1680,5 +1701,8 @@ process.on('SIGINT', () => {
   }
 
   wss.close();
-  process.exit(0);
+  server.close(() => {
+    console.log('✅ Server shut down gracefully');
+    process.exit(0);
+  });
 });
