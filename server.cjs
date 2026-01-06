@@ -440,8 +440,13 @@ class ServerProjectileManager {
       serverTargetId = parseInt(targetId.substring(4)); // Rimuovi "npc_" e converti in numero
     }
 
+    // DEBUG: Log per capire il problema
+    console.log(`🎯 [DEBUG] Checking collision for projectile ${projectile.id}, targetId: ${targetId}, serverTargetId: ${serverTargetId}`);
+
     // Prima cerca tra gli NPC (usando ID numerico)
     const npcs = this.mapServer.npcManager.getAllNpcs();
+    console.log(`🎯 [DEBUG] Available NPCs: ${npcs.map(npc => `id:${npc.id} pos:(${npc.position.x.toFixed(0)},${npc.position.y.toFixed(0)})`).join(', ')}`);
+
     for (const npc of npcs) {
       if (npc.id === serverTargetId) {
         const distance = Math.sqrt(
@@ -449,12 +454,19 @@ class ServerProjectileManager {
           Math.pow(projectile.position.y - npc.position.y, 2)
         );
 
+        console.log(`🎯 [DEBUG] Found target NPC ${npc.id} at distance ${distance.toFixed(1)} from projectile at (${projectile.position.x.toFixed(1)}, ${projectile.position.y.toFixed(1)})`);
+
         if (distance < 50) {
+          console.log(`🎯 [DEBUG] HIT! Projectile hit target NPC ${npc.id}`);
           return { entity: npc, type: 'npc' };
+        } else {
+          console.log(`🎯 [DEBUG] Target NPC ${npc.id} too far (${distance.toFixed(1)} > 50)`);
         }
         break; // Trovato l'NPC target, non cercare altri
       }
     }
+
+    console.log(`🎯 [DEBUG] Target NPC ${serverTargetId} not found in available NPCs`);
 
     // Poi cerca tra i giocatori
     for (const [clientId, playerData] of this.mapServer.players.entries()) {
@@ -478,6 +490,7 @@ class ServerProjectileManager {
       }
     }
 
+    console.log(`🎯 [DEBUG] No valid target found for projectile ${projectile.id}`);
     return null; // Target specifico non trovato o non in range
   }
 
