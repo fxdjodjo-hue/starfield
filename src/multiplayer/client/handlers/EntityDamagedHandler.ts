@@ -28,17 +28,18 @@ export class EntityDamagedHandler extends BaseMessageHandler {
 
         if (message.entityType === 'npc') {
           console.log(`💥 [DAMAGE_TEXT] Looking for NPC entity ${message.entityId}`);
-          // Cerca l'NPC remoto con l'ID specificato
-          const allEntities = ecs.getEntitiesWithComponents(Health);
-          console.log(`💥 [DAMAGE_TEXT] Found ${allEntities.length} entities with Health component`);
-          for (const entity of allEntities) {
-            console.log(`💥 [DAMAGE_TEXT] Checking entity ${entity}, has RemotePlayer: ${ecs.hasComponent(entity, 'RemotePlayer')}`);
-            // Per gli NPC, l'entityId nel messaggio corrisponde all'ID entità
-            if (entity === message.entityId) {
-              targetEntity = entity;
-              console.log(`💥 [DAMAGE_TEXT] Found matching NPC entity ${entity}`);
-              break;
+          // Usa il RemoteNpcSystem per trovare l'entità dell'NPC remoto
+          const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
+          if (remoteNpcSystem) {
+            const entityId = remoteNpcSystem.getRemoteNpcEntity(message.entityId);
+            if (entityId !== undefined) {
+              targetEntity = entityId;
+              console.log(`💥 [DAMAGE_TEXT] Found NPC entity ${entityId} for server ID ${message.entityId}`);
+            } else {
+              console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem returned undefined for NPC ${message.entityId}`);
             }
+          } else {
+            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem not available`);
           }
         } else if (message.entityType === 'player') {
           console.log(`💥 [DAMAGE_TEXT] Looking for player entity ${message.entityId}, local client: ${networkSystem.getLocalClientId()}`);
