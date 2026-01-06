@@ -434,7 +434,7 @@ export class ClientNetworkSystem extends BaseSystem {
    * Manually connect to the server (called after systems are set up)
    */
   async connectToServer(): Promise<void> {
-    console.log(`🌐 [CLIENT] Connecting to server - RemoteNpcSystem available: ${!!this.remoteNpcSystem}`);
+    console.log(`🚀 [CONNECT] connectToServer() called - RemoteNpcSystem available: ${!!this.remoteNpcSystem}`);
     try {
       await this.connect();
       console.log(`✅ [CLIENT] Connection successful`);

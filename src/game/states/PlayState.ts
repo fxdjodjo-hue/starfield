@@ -274,6 +274,8 @@ export class PlayState extends GameState {
    * Inizializza il mondo di gioco e crea entitÃ
    */
   private async initializeGame(): Promise<void> {
+    console.log('🚀 [PLAYSTATE] Starting game initialization');
+
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
     this.playerEntity = await this.gameInitSystem.initialize();
 
