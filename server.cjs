@@ -589,7 +589,7 @@ class ServerCombatManager {
     this.playerCombats.set(playerId, {
       npcId: npcId,
       lastAttackTime: 0,
-      attackCooldown: 2000 // Aumentato a 2 secondi per sicurezza
+      attackCooldown: 1000 // 1 sparo al secondo
     });
   }
 
@@ -735,8 +735,8 @@ class ServerCombatManager {
       const distanceSq = dx * dx + dy * dy;
 
       if (distanceSq <= attackRangeSq) {
-        // Player nel range - NPC attacca
-        this.performNpcAttack(npc, playerData, now);
+        // Player nel range - NPC attacca (TEMPORANEAMENTE DISABILITATO)
+        // this.performNpcAttack(npc, playerData, now);
         break; // Un attacco per tick
       }
     }
@@ -1126,6 +1126,11 @@ wss.on('connection', (ws) => {
 
         // Inizia il combattimento server-side
         mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);
+
+        // Spara immediatamente il primo proiettile per ridurre il delay percepito
+        setTimeout(() => {
+          mapServer.combatManager.processPlayerCombat(data.playerId);
+        }, 100); // Piccolo delay per assicurarsi che il combattimento sia inizializzato
 
         // Broadcast stato combattimento a tutti i client
         const combatUpdate = {

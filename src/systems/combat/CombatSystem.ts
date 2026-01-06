@@ -448,6 +448,12 @@ export class CombatSystem extends BaseSystem {
     // Usa l'ID server se disponibile, altrimenti l'ID entità locale
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
 
+    // Riproduci suono di attivazione combattimento per feedback immediato
+    if (this.audioSystem) {
+      this.audioSystem.playSound('laser', 0.2, false, true); // Volume ridotto per attivazione
+      console.log(`🔊 [AUDIO] Combat activation sound played`);
+    }
+
     this.clientNetworkSystem.sendStartCombat({
       npcId: npcIdToSend,
       playerId: this.clientNetworkSystem.getLocalClientId()
