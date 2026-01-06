@@ -15,10 +15,6 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     console.log(`💥 [DAMAGE_TEXT] Received entity_damaged: ${message.entityType} ${message.entityId}, damage: ${message.damage}, newHealth: ${message.newHealth}, newShield: ${message.newShield}`);
 
-    if (message.entityType === 'npc') {
-      console.log(`🎯 [NPC_DAMAGE] Processing damage for NPC ${message.entityId}`);
-    }
-
     // Crea damage text per il danno ricevuto
     const ecs = networkSystem.getECS();
     if (ecs) {
@@ -36,16 +32,9 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             // FIX: Converti message.entityId a stringa per gli NPC
             const npcId = message.entityId.toString();
             const entityId = remoteNpcSystem.getRemoteNpcEntity(npcId);
-            console.log(`💥 [DAMAGE_TEXT] RemoteNpcSystem lookup for ${npcId} (converted from ${message.entityId}): ${entityId}`);
             if (entityId !== undefined) {
               // Ottieni l'entità effettiva dall'ECS usando l'entity ID
               targetEntity = ecs.getEntity(entityId);
-              console.log(`💥 [DAMAGE_TEXT] ECS entity lookup result: ${targetEntity}, type: ${typeof targetEntity}`);
-              if (targetEntity) {
-                console.log(`💥 [DAMAGE_TEXT] Entity found with id: ${targetEntity.id}`);
-              } else {
-                console.log(`💥 [DAMAGE_TEXT] Entity ${entityId} not found in ECS, available entities: ${Array.from(ecs.getEntitiesWithComponents(Transform)).map(e => e.id).join(', ')}`);
-              }
             }
           }
         } else if (message.entityType === 'player') {
@@ -71,53 +60,43 @@ export class EntityDamagedHandler extends BaseMessageHandler {
           }
         }
 
-        // Crea il damage text se abbiamo trovato l'entità
-        console.log(`💥 [DAMAGE_TEXT] Target entity: ${targetEntity} for ${message.entityType} ${message.entityId}`);
-        if (targetEntity !== undefined && targetEntity !== null && typeof targetEntity.id === 'number' && targetEntity.id >= 0) {
-          // Calcola i danni effettivi allo shield e agli HP confrontando i valori precedenti con quelli nuovi
-          const healthComponent = ecs.getComponent(targetEntity, Health);
-          const shieldComponent = ecs.getComponent(targetEntity, Shield);
-
+        // Crea testi di danno separati per shield e HP
+        if (targetEntity) {
           let shieldDamage = 0;
           let healthDamage = 0;
+
+          // Ottieni componenti per calcolare il danno
+          const shieldComponent = ecs.getComponent(targetEntity, Shield);
+          const healthComponent = ecs.getComponent(targetEntity, Health);
 
           if (shieldComponent) {
             const oldShield = shieldComponent.current;
             const newShield = message.newShield;
             shieldDamage = Math.max(0, oldShield - newShield);
-            console.log(`💥 [DAMAGE_TEXT] Shield damage: ${shieldDamage} (${oldShield} → ${newShield})`);
           }
 
           if (healthComponent) {
             const oldHealth = healthComponent.current;
             const newHealth = message.newHealth;
             healthDamage = Math.max(0, oldHealth - newHealth);
-            console.log(`💥 [DAMAGE_TEXT] Health damage: ${healthDamage} (${oldHealth} → ${newHealth})`);
           }
 
           // Crea testi di danno separati per shield e HP
           if (shieldDamage > 0) {
-            console.log(`💥 [DAMAGE_TEXT] Creating shield damage text: ${shieldDamage}`);
             combatSystem.createDamageText(targetEntity, shieldDamage, true); // true = shield damage (blu)
           }
 
           if (healthDamage > 0) {
-            console.log(`💥 [DAMAGE_TEXT] Creating health damage text: ${healthDamage}`);
             combatSystem.createDamageText(targetEntity, healthDamage, false); // false = HP damage (rosso)
           }
 
           // Aggiorna i componenti con i nuovi valori ricevuti dal server
           if (healthComponent) {
-            console.log(`🔄 [UPDATE] Updating health: ${healthComponent.current} → ${message.newHealth}`);
             healthComponent.current = message.newHealth;
           }
           if (shieldComponent) {
-            console.log(`🔄 [UPDATE] Updating shield: ${shieldComponent.current} → ${message.newShield}`);
             shieldComponent.current = message.newShield;
-            console.log(`📊 [SHIELD] Shield percentage after update: ${shieldComponent.getPercentage()}`);
           }
-        } else {
-          console.log(`💥 [DAMAGE_TEXT] No valid target entity found for ${message.entityType} ${message.entityId} (targetEntity: ${targetEntity}, id: ${targetEntity?.id})`);
         }
       }
     }
