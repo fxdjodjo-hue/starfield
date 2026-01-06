@@ -592,6 +592,22 @@ class ServerProjectileManager {
    * Broadcast distruzione entità
    */
   broadcastEntityDestroyed(entity, destroyerId, entityType = 'npc') {
+    // PRIMA: Crea e broadcasta l'esplosione per effetti visivi sincronizzati
+    const explosionId = `expl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const explosionMessage = {
+      type: 'explosion_created',
+      explosionId: explosionId,
+      entityId: entityType === 'npc' ? entity.id : entity.clientId,
+      entityType: entityType,
+      position: entity.position,
+      explosionType: 'entity_death'
+    };
+
+    // Broadcast esplosione con interest radius di 2000 unità
+    this.mapServer.broadcastNear(entity.position, 2000, explosionMessage);
+    console.log(`💥 [SERVER] Explosion created for ${entityType} ${entityType === 'npc' ? entity.id : entity.clientId} death`);
+
+    // POI: Il messaggio entity_destroyed esistente
     const message = {
       type: 'entity_destroyed',
       entityId: entityType === 'npc' ? entity.id : entity.clientId,
