@@ -934,6 +934,7 @@ wss.on('connection', (ws) => {
   ws.on('message', (message) => {
     try {
       const data = JSON.parse(message.toString());
+      console.log(`📨 [SERVER] Received message from ${playerData?.clientId || 'unknown'}: ${data.type}`);
 
       // Risponde ai messaggi di join
       if (data.type === 'join') {

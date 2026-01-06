@@ -123,7 +123,6 @@ export class ClientNetworkSystem extends BaseSystem {
         new NpcBulkUpdateHandler(),
         new NpcLeftHandler()
       );
-      console.log('🎮 [CLIENT] NPC handlers registered');
     }
 
     // Aggiungi handlers di combattimento se il sistema è disponibile
@@ -137,7 +136,6 @@ export class ClientNetworkSystem extends BaseSystem {
         new EntityDestroyedHandler(),
         new ExplosionCreatedHandler()
       );
-      console.log('⚔️ [CLIENT] Combat handlers registered');
     }
 
     this.messageRouter.registerHandlers(handlers);
@@ -372,6 +370,7 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends a message to the server
    */
   private sendMessage(message: NetMessage): void {
+    console.log(`[CLIENT] Sending message: ${message.type}`, message);
     this.connectionManager.send(JSON.stringify(message));
   }
 
@@ -468,8 +467,6 @@ export class ClientNetworkSystem extends BaseSystem {
       this.ecs.addComponent(explosionEntity, Transform, transform);
       this.ecs.addComponent(explosionEntity, Explosion, explosion);
 
-      console.log(`💥 [CLIENT] Created remote explosion entity ${explosionEntity.id} for ${message.entityType} ${message.entityId}`);
-
       // L'ExplosionSystem esistente gestirà automaticamente questa entità
       // perché cerca tutte le entità con componente Explosion
 
@@ -528,6 +525,7 @@ export class ClientNetworkSystem extends BaseSystem {
     npcId: string;
     playerId: string;
   }): void {
+    console.log(`[CLIENT] Sending START_COMBAT: ${JSON.stringify(data)}`);
     if (!this.socket || !this.isConnected) {
       console.warn('[CLIENT] Cannot send start combat: not connected');
       return;
