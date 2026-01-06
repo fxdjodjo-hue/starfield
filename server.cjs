@@ -403,13 +403,33 @@ class ServerNpcManager {
   }
 }
 
-// Crea server WebSocket sulla porta 3000 - accessibile da tutti gli IP
-const wss = new WebSocket.Server({
-  port: 3000,
-  host: '0.0.0.0'  // Accetta connessioni da qualsiasi IP
+// Crea server HTTP per healthcheck e WebSocket sulla stessa porta
+const PORT = process.env.PORT || 3000;
+const http = require('http');
+
+// Crea server HTTP
+const server = http.createServer((req, res) => {
+  if (req.url === '/health' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('Not Found');
+  }
 });
 
-console.log('🚀 WebSocket server started on 0.0.0.0:3000');
+// Crea server WebSocket sullo stesso server HTTP
+const wss = new WebSocket.Server({
+  server: server,
+  host: '0.0.0.0'
+});
+
+// Avvia il server sulla porta configurata
+server.listen(parseInt(PORT), '0.0.0.0', () => {
+  console.log(`🚀 Server started on 0.0.0.0:${PORT}`);
+  console.log(`🌐 WebSocket available at ws://0.0.0.0:${PORT}`);
+  console.log(`💚 Health check available at http://0.0.0.0:${PORT}/health`);
+});
 class ServerProjectileManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
