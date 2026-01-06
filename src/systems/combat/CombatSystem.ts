@@ -165,8 +165,8 @@ export class CombatSystem extends BaseSystem {
         this.audioSystem.playSound('laser', 0.4, false, true); // allowMultiple=true per affidabilità
       }
 
-      // Player: crea due laser laterali
-      this.createDualLasers(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
+      // Player: crea singolo laser
+      this.createSingleLaser(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
     } else {
       // Riproduci suono laser degli scouter
       if (this.audioSystem) {
@@ -180,32 +180,16 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
-   * Crea due laser laterali per il player (modifica visiva, danno invariato)
+   * Crea un singolo laser per il player
    */
-  private createDualLasers(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any, baseDirectionX: number, baseDirectionY: number): void {
-    // Angolo di deviazione per i laser laterali (circa 60 gradi)
-    const deviationAngle = Math.PI / 3; // 60 gradi in radianti
+  private createSingleLaser(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any, directionX: number, directionY: number): void {
+    // Crea singolo laser con danno completo
+    const laserDamage = attackerDamage.damage;
 
-    // Calcola le direzioni deviate
-    const cos = Math.cos(deviationAngle);
-    const sin = Math.sin(deviationAngle);
-
-    // Laser sinistro
-    const leftDirectionX = baseDirectionX * cos - baseDirectionY * sin;
-    const leftDirectionY = baseDirectionX * sin + baseDirectionY * cos;
-
-    // Laser destro
-    const rightDirectionX = baseDirectionX * cos + baseDirectionY * sin;
-    const rightDirectionY = -baseDirectionX * sin + baseDirectionY * cos;
-
-    // Crea i due laser: entrambi fanno danno completo per semplicità
-    const laserDamage = attackerDamage.damage; // Entrambi fanno danno completo
-
-    this.createProjectileAt(attackerEntity, attackerTransform, laserDamage, leftDirectionX, leftDirectionY, targetEntity);
-    this.createProjectileAt(attackerEntity, attackerTransform, laserDamage, rightDirectionX, rightDirectionY, targetEntity);
+    this.createProjectileAt(attackerEntity, attackerTransform, laserDamage, directionX, directionY, targetEntity);
 
     // Registra l'attacco per il cooldown
-    attackerDamage.performAttack(this.lastUpdateTime);
+    attackerDamage.performAttack(Date.now());
   }
 
   /**
