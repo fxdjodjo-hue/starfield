@@ -396,6 +396,20 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Sets the RemoteNpcSystem instance
+   */
+  setRemoteNpcSystem(remoteNpcSystem: RemoteNpcSystem): void {
+    this.remoteNpcSystem = remoteNpcSystem;
+  }
+
+  /**
+   * Sets the RemoteProjectileSystem instance
+   */
+  setRemoteProjectileSystem(remoteProjectileSystem: RemoteProjectileSystem): void {
+    this.remoteProjectileSystem = remoteProjectileSystem;
+  }
+
+  /**
    * Gets the EntityDestroyedHandler instance
    */
   getEntityDestroyedHandler(): any {

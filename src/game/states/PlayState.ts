@@ -234,19 +234,14 @@ export class PlayState extends GameState {
     this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, shipWidth, shipHeight);
     this.world.getECS().addSystem(this.remotePlayerSystem);
 
-    // Ottieni i sistemi remoti creati dal GameInitializationSystem
-    const systems = this.gameInitSystem.getSystems();
-    this.remoteNpcSystem = systems.remoteNpcSystem || null;
-    this.remoteProjectileSystem = systems.remoteProjectileSystem || null;
-
-    // Inizializza il sistema di rete multiplayer con supporto NPC e proiettili
+    // Inizializza il sistema di rete multiplayer (senza NPC/proiettili remoti per ora)
     this.clientNetworkSystem = new ClientNetworkSystem(
       this.world.getECS(),
       this.context,
       this.remotePlayerSystem,
       undefined, // Usa URL di default
-      this.remoteNpcSystem, // Sistema NPC
-      this.remoteProjectileSystem, // Sistema proiettili
+      null, // Sistema NPC - sarà impostato dopo
+      null, // Sistema proiettili - sarà impostato dopo
       this.audioSystem // Sistema audio
     );
     this.world.getECS().addSystem(this.clientNetworkSystem);
@@ -287,6 +282,22 @@ export class PlayState extends GameState {
     this.questManager = systems.questManager;
     this.cameraSystem = systems.cameraSystem;
     this.movementSystem = systems.movementSystem;
+
+    // Ora che i sistemi sono stati creati, imposta NPC e proiettili remoti nel ClientNetworkSystem
+    if (systems.remoteNpcSystem) {
+      this.remoteNpcSystem = systems.remoteNpcSystem;
+      // Imposta il remoteNpcSystem nel ClientNetworkSystem
+      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setRemoteNpcSystem === 'function') {
+        this.clientNetworkSystem.setRemoteNpcSystem(this.remoteNpcSystem);
+      }
+    }
+    if (systems.remoteProjectileSystem) {
+      this.remoteProjectileSystem = systems.remoteProjectileSystem;
+      // Imposta il remoteProjectileSystem nel ClientNetworkSystem
+      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setRemoteProjectileSystem === 'function') {
+        this.clientNetworkSystem.setRemoteProjectileSystem(this.remoteProjectileSystem);
+      }
+    }
 
     // Inizializza il sistema di interpolazione per movimenti fluidi
     this.interpolationSystem = new InterpolationSystem(this.world.getECS());
