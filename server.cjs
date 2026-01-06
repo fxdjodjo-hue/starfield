@@ -294,39 +294,66 @@ class ServerProjectileManager {
       projectile.position.y += projectile.velocity.y * deltaTime;
       projectile.lastUpdate = now;
 
+      // Verifica collisioni con il TARGET SPECIFICO (se presente)
+      if (projectile.targetId && projectile.targetId !== -1) {
+        // Questo proiettile ha un target specifico - verifica solo quel target
+        const targetHit = this.checkSpecificTargetCollision(projectile);
+        if (targetHit) {
+          if (targetHit.type === 'npc') {
+            // Applica danno all'NPC target
+            const npcDead = this.mapServer.npcManager.damageNpc(targetHit.entity.id, projectile.damage, projectile.playerId);
+            this.broadcastEntityDamaged(targetHit.entity, projectile);
+
+            if (npcDead) {
+              this.broadcastEntityDestroyed(targetHit.entity, projectile.playerId);
+            }
+
+            console.log(`🎯 [SERVER] Projectile ${projectileId} hit intended NPC target ${targetHit.entity.id}`);
+          } else if (targetHit.type === 'player') {
+            // Applica danno al giocatore target
+            const playerDead = this.damagePlayer(targetHit.entity.clientId, projectile.damage, projectile.playerId);
+            this.broadcastEntityDamaged(targetHit.entity, projectile, 'player');
+
+            if (playerDead) {
+              console.log(`☠️ [SERVER] Player ${targetHit.entity.clientId} killed by ${projectile.playerId}`);
+            }
+
+            console.log(`🎯 [SERVER] Projectile ${projectileId} hit intended player target ${targetHit.entity.clientId}`);
+          }
+
+          projectilesToRemove.push(projectileId);
+          continue;
+        }
+      }
+
+      // Fallback: verifica collisioni generiche (per proiettili senza target specifico)
       // Verifica collisioni con NPC
       const hitNpc = this.checkNpcCollision(projectile);
       if (hitNpc) {
-        // Applica danno all'NPC
         const npcDead = this.mapServer.npcManager.damageNpc(hitNpc.id, projectile.damage, projectile.playerId);
-
-        // Notifica danno
         this.broadcastEntityDamaged(hitNpc, projectile);
 
-        // Se NPC morto, broadcast distruzione
         if (npcDead) {
           this.broadcastEntityDestroyed(hitNpc, projectile.playerId);
         }
 
         projectilesToRemove.push(projectileId);
+        console.log(`💥 [SERVER] Projectile ${projectileId} hit NPC ${hitNpc.id} (generic collision)`);
         continue;
       }
 
       // Verifica collisioni con giocatori
       const hitPlayer = this.checkPlayerCollision(projectile);
       if (hitPlayer) {
-        // Applica danno al giocatore
         const playerDead = this.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
-
-        // Notifica danno
         this.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
 
-        // Se giocatore morto, gestione già in damagePlayer
         if (playerDead) {
           console.log(`☠️ [SERVER] Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
         }
 
         projectilesToRemove.push(projectileId);
+        console.log(`💥 [SERVER] Projectile ${projectileId} hit player ${hitPlayer.clientId} (generic collision)`);
         continue;
       }
 
@@ -388,6 +415,53 @@ class ServerProjectileManager {
       }
     }
     return null;
+  }
+
+  /**
+   * Verifica collisione proiettile con il suo target specifico
+   */
+  checkSpecificTargetCollision(projectile) {
+    const targetId = projectile.targetId;
+
+    // Prima cerca tra gli NPC
+    const npcs = this.mapServer.npcManager.getAllNpcs();
+    for (const npc of npcs) {
+      if (npc.id === targetId) {
+        const distance = Math.sqrt(
+          Math.pow(projectile.position.x - npc.position.x, 2) +
+          Math.pow(projectile.position.y - npc.position.y, 2)
+        );
+
+        if (distance < 50) {
+          return { entity: npc, type: 'npc' };
+        }
+        break; // Trovato l'NPC target, non cercare altri
+      }
+    }
+
+    // Poi cerca tra i giocatori
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      // Salta il giocatore che ha sparato il proiettile
+      if (clientId === projectile.playerId) continue;
+
+      // Controlla se questo giocatore è il target
+      if (clientId === targetId || playerData.playerId?.toString() === targetId?.toString()) {
+        // Salta giocatori morti o senza posizione
+        if (!playerData.position || playerData.isDead) continue;
+
+        const distance = Math.sqrt(
+          Math.pow(projectile.position.x - playerData.position.x, 2) +
+          Math.pow(projectile.position.y - playerData.position.y, 2)
+        );
+
+        if (distance < 50) {
+          return { entity: playerData, type: 'player' };
+        }
+        break; // Trovato il giocatore target, non cercare altri
+      }
+    }
+
+    return null; // Target specifico non trovato o non in range
   }
 
   /**
