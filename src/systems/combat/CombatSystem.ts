@@ -177,8 +177,9 @@ export class CombatSystem extends BaseSystem {
         this.audioSystem.playSound('scouterLaser', 0.25, false, true); // Volume leggermente ridotto
       }
 
-      // NPC: crea singolo proiettile come prima
-      this.createSingleProjectile(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
+      // NPC: non creare proiettile locale - il server gestisce tutti i proiettili NPC
+      // Registra solo il cooldown per evitare spam di suoni
+      attackerDamage.performAttack(this.lastUpdateTime);
     }
   }
 
