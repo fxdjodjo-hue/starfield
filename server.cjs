@@ -652,10 +652,12 @@ class ServerCombatManager {
 
     // Verifica cooldown
     if (now - combat.lastAttackTime < combat.attackCooldown) {
+      // console.log(`⏰ [SERVER] Player ${playerId} cooling down (${((now - combat.lastAttackTime) / 1000).toFixed(1)}s / ${(combat.attackCooldown / 1000).toFixed(1)}s)`);
       return; // Non ancora tempo di attaccare
     }
 
     // Esegui attacco
+    console.log(`🔫 [SERVER] Player ${playerId} attacking NPC ${combat.npcId} (distance: ${distance.toFixed(0)})`);
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
   }
@@ -664,7 +666,7 @@ class ServerCombatManager {
    * Esegue attacco del player contro NPC
    */
   performPlayerAttack(playerId, playerData, npc, now) {
-    console.log(`🔫 [SERVER] Player ${playerId} attacking NPC ${npc.id}`);
+    console.log(`🚀 [SERVER] Player ${playerId} firing projectile at NPC ${npc.id}`);
 
     // Calcola direzione dal player all'NPC
     const dx = npc.position.x - playerData.position.x;
