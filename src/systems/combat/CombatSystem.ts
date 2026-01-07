@@ -460,10 +460,10 @@ export class CombatSystem extends BaseSystem {
       Math.pow(playerTransform.y - npcTransform.y, 2)
     );
 
-    // Hysteresis aumentata per ridurre flickering con movimenti rapidi:
-    // Range entrata: 300px, Range uscita: 450px (differenza 150px invece di 20px)
+    // Hysteresis massima per eliminare completamente flickering:
+    // Range entrata: 300px, Range uscita: 600px (differenza 300px!)
     const enterRange = playerDamage.attackRange; // 300px
-    const exitRange = playerDamage.attackRange + 150; // 450px per hysteresis ampia
+    const exitRange = playerDamage.attackRange + 300; // 600px per hysteresis massima
 
     const inRange = this.currentAttackTarget === selectedNpc.id
       ? distance <= exitRange  // Se già stiamo combattendo, usa range ampio per uscita
@@ -477,16 +477,16 @@ export class CombatSystem extends BaseSystem {
     if (inRange) {
       // Nel range - assicurati che stiamo combattendo questo NPC
       if (this.currentAttackTarget !== selectedNpc.id) {
-        // Nuovo target o rientro nel range - inizia combattimento (con debounce)
-        if (timeSinceLastChange >= 1000) { // Minimo 1 secondo dall'ultimo cambio
-          console.log(`🎯 [COMBAT] Starting combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px, hysteresis: enter=${enterRange})`);
+        // Nuovo target o rientro nel range - inizia combattimento (con debounce ridotto)
+        if (timeSinceLastChange >= 500) { // Minimo 500ms dall'ultimo cambio
+          console.log(`🎯 [COMBAT] Starting combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px, hysteresis: enter=${enterRange}px, exit=${exitRange}px)`);
           this.sendStartCombat(selectedNpc);
           this.startAttackLogging(selectedNpc);
           this.currentAttackTarget = selectedNpc.id;
           this.attackStartedLogged = true;
           this.lastCombatChange = now;
         } else {
-          console.log(`⏳ [COMBAT] Debouncing START_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms since last change)`);
+          console.log(`⏳ [COMBAT] Debouncing START_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms < 500ms debounce)`);
         }
       } else {
         // Comment out the continuing log to reduce spam
@@ -496,16 +496,16 @@ export class CombatSystem extends BaseSystem {
     } else {
       // Fuori range - ferma il combattimento se stavamo attaccando questo NPC
       if (this.currentAttackTarget === selectedNpc.id) {
-        // Ferma combattimento (con debounce)
-        if (timeSinceLastChange >= 1000) { // Minimo 1 secondo dall'ultimo cambio
-          console.log(`🛑 [COMBAT] Stopping combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px > exit=${exitRange})`);
+        // Ferma combattimento (con debounce ridotto)
+        if (timeSinceLastChange >= 500) { // Minimo 500ms dall'ultimo cambio
+          console.log(`🛑 [COMBAT] Stopping combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px > exit=${exitRange}px)`);
           this.sendStopCombat();
           this.endAttackLogging();
           this.currentAttackTarget = null;
           this.attackStartedLogged = false;
           this.lastCombatChange = now;
         } else {
-          console.log(`⏳ [COMBAT] Debouncing STOP_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms since last change)`);
+          console.log(`⏳ [COMBAT] Debouncing STOP_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms < 500ms debounce)`);
         }
       }
     }
