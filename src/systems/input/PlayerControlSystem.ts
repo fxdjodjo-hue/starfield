@@ -22,6 +22,7 @@ export class PlayerControlSystem extends BaseSystem {
   private lastMouseY = 0;
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
+  private attackActivated = false; // Flag per tracciare se l'attacco è stato attivato con SPACE
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
@@ -42,6 +43,45 @@ export class PlayerControlSystem extends BaseSystem {
    */
   setMouseStateCallback(callback: (pressed: boolean, x: number, y: number) => void): void {
     this.onMouseStateCallback = callback;
+  }
+
+  /**
+   * Gestisce la pressione dei tasti
+   */
+  handleKeyPress(key: string): void {
+    if (key === 'Space') {
+      this.handleSpacePress();
+    }
+  }
+
+  /**
+   * Gestisce la pressione del tasto SPACE per attivare/disattivare l'attacco
+   */
+  private handleSpacePress(): void {
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+
+    if (selectedNpcs.length > 0) {
+      // C'è un NPC selezionato
+      if (this.attackActivated) {
+        // Se l'attacco è già attivo, disattivalo
+        this.attackActivated = false;
+        console.log('[PlayerControl] Attack deactivated');
+      } else {
+        // Se l'attacco non è attivo, attivalo
+        this.attackActivated = true;
+        console.log('[PlayerControl] Attack activated');
+      }
+    } else {
+      // Nessun NPC selezionato, reset del flag
+      this.attackActivated = false;
+    }
+  }
+
+  /**
+   * Restituisce se l'attacco è attualmente attivato
+   */
+  isAttackActivated(): boolean {
+    return this.attackActivated;
   }
 
   /**

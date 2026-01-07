@@ -28,6 +28,7 @@ import { ProjectileFactory } from '../../factories/ProjectileFactory';
  */
 export class CombatSystem extends BaseSystem {
   private cameraSystem: CameraSystem;
+  private playerControlSystem: any = null;
   private logSystem: LogSystem | null = null;
   private gameContext: GameContext;
   private playerSystem: PlayerSystem;
@@ -89,6 +90,13 @@ export class CombatSystem extends BaseSystem {
    */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
+  }
+
+  /**
+   * Imposta il riferimento al sistema di controllo del player
+   */
+  setPlayerControlSystem(playerControlSystem: any): void {
+    this.playerControlSystem = playerControlSystem;
   }
 
   /**
@@ -438,11 +446,12 @@ export class CombatSystem extends BaseSystem {
       Math.pow(playerTransform.y - npcTransform.y, 2)
     );
 
-    const inRange = distance <= playerDamage.attackRange; // 300px
+    const inRange = distance <= playerDamage.attackRange; // 600px
+    const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
-    if (inRange && this.currentAttackTarget !== selectedNpc.id) {
-      // Player entrato in range - inizia combattimento
-      console.log(`🎯 [COMBAT] Player in range (${distance.toFixed(1)}px) - starting combat with NPC ${selectedNpc.id}`);
+    if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
+      // Player in range E attacco attivato - inizia combattimento
+      console.log(`🎯 [COMBAT] Player in range (${distance.toFixed(1)}px) and attack activated - starting combat with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
@@ -450,6 +459,13 @@ export class CombatSystem extends BaseSystem {
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
       // Player uscito dal range - ferma combattimento
       console.log(`🛑 [COMBAT] Player out of range (${distance.toFixed(1)}px) - stopping combat with NPC ${selectedNpc.id}`);
+      this.sendStopCombat();
+      this.endAttackLogging();
+      this.currentAttackTarget = null;
+      this.attackStartedLogged = false;
+    } else if (inRange && !attackActivated && this.currentAttackTarget === selectedNpc.id) {
+      // Player ancora in range ma attacco disattivato - ferma combattimento
+      console.log(`🛑 [COMBAT] Attack deactivated while in range - stopping combat with NPC ${selectedNpc.id}`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;

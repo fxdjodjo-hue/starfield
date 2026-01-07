@@ -215,14 +215,22 @@ export class GameInitializationSystem extends System {
     // Sistema proiettili remoti per multiplayer
     const remoteProjectileSystem = new RemoteProjectileSystem(this.ecs);
 
-    // Se abbiamo già un ClientNetworkSystem, impostalo sul CombatSystem appena creato
-    if (this.clientNetworkSystem && combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
-      combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    // Collega sistemi al CombatSystem
+    if (combatSystem) {
+      // Collega PlayerControlSystem per gestione attacco con SPACE
+      if (typeof combatSystem.setPlayerControlSystem === 'function') {
+        combatSystem.setPlayerControlSystem(playerControlSystem);
+      }
 
-      // Imposta anche i frame precaricati nel ClientNetworkSystem se disponibili
-      if (combatSystem.explosionFrames && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
-        this.clientNetworkSystem.setPreloadedExplosionFrames(combatSystem.explosionFrames);
-        console.log(`💥 [GAME_INIT] Explosion frames condivisi con ClientNetworkSystem: ${combatSystem.explosionFrames.length} frame`);
+      // Se abbiamo già un ClientNetworkSystem, impostalo sul CombatSystem appena creato
+      if (this.clientNetworkSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
+        combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+
+        // Imposta anche i frame precaricati nel ClientNetworkSystem se disponibili
+        if (combatSystem.explosionFrames && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
+          this.clientNetworkSystem.setPreloadedExplosionFrames(combatSystem.explosionFrames);
+          console.log(`💥 [GAME_INIT] Explosion frames condivisi con ClientNetworkSystem: ${combatSystem.explosionFrames.length} frame`);
+        }
       }
     }
 
@@ -388,6 +396,11 @@ export class GameInitializationSystem extends System {
       if (!minimapHandled) {
         playerControlSystem.handleMouseMoveWhilePressed(x, y);
       }
+    });
+
+    // Configura gestione tasti
+    inputSystem.setKeyPressCallback((key: string) => {
+      playerControlSystem.handleKeyPress(key);
     });
 
     // Configura selezione NPC
