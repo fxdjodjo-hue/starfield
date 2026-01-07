@@ -38,6 +38,7 @@ export class CombatSystem extends BaseSystem {
   private pendingCombatRequests: any[] = []; // Coda richieste combattimento in attesa di ClientNetworkSystem
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
   private lastCombatChange: number = 0; // Timestamp ultimo cambio stato combattimento
+  private combatLockTime: number = 0; // Timestamp quando è iniziato il combattimento corrente
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
   private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
 
@@ -139,7 +140,7 @@ export class CombatSystem extends BaseSystem {
     }
 
     // NPC che attaccano devono sempre puntare verso il player (MA NON quelli in fuga!)
-    if ((canAttackAggressively || (damageTaken && damageTaken.wasDamagedRecently(Date.now(), 10000))) && npc.behavior !== 'flee') {
+    if (npc && (canAttackAggressively || (damageTaken && damageTaken.wasDamagedRecently(Date.now(), 10000))) && npc.behavior !== 'flee') {
       this.facePlayer(attackerTransform, attackerEntity);
     }
 
@@ -221,7 +222,7 @@ export class CombatSystem extends BaseSystem {
     this.createProjectileAt(attackerEntity, attackerTransform, attackerDamage.damage, directionX, directionY, targetEntity);
 
     // Registra l'attacco per il cooldown
-    attackerDamage.performAttack(this.lastUpdateTime);
+    attackerDamage.performAttack(Date.now());
   }
 
   /**
@@ -343,7 +344,7 @@ export class CombatSystem extends BaseSystem {
     // Per ora semplificato - controlla se ha uno shield attivo con danni recenti
     // In futuro potrebbe usare un timestamp più sofisticato
     const shield = this.ecs.getComponent(targetEntity, Shield);
-    return shield && shield.isActive() === true && shield.current < shield.max;
+    return !!(shield && (shield.isActive() ?? false) && shield.current < shield.max);
   }
 
   /**
@@ -382,13 +383,8 @@ export class CombatSystem extends BaseSystem {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
-    // Log solo se ci sono NPC selezionati per evitare spam
-    if (selectedNpcs.length > 0) {
-      console.log(`⚔️ [COMBAT] processPlayerCombat called at ${Date.now()} - ${selectedNpcs.length} NPCs selected`);
-    }
-
     if (selectedNpcs.length === 0) {
-      // Se non c'è nessun NPC selezionato, ferma il combattimento
+      // Se non c'è nessun NPC selezionato, ferma il combattimento se attivo
       if (this.currentAttackTarget !== null) {
         this.sendStopCombat();
         this.endAttackLogging();
@@ -406,25 +402,15 @@ export class CombatSystem extends BaseSystem {
 
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
     const playerDamage = this.ecs.getComponent(playerEntity, Damage);
-    const npcHealth = this.ecs.getComponent(selectedNpc, Health);
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
-    if (!playerTransform || !playerDamage || !npcHealth || !npcTransform) return;
+    if (!playerTransform || !playerDamage || !npcTransform) return;
 
-    // Il combattimento è ora GESTITO DAL SERVER (Server Authoritative)
-    // Il client NON deve sparare automaticamente - solo il server lo fa
-    // Questo previene la duplicazione di proiettili
-
-    // Se siamo qui, significa che c'è un NPC selezionato ma il combattimento
-    // dovrebbe essere già stato avviato dal server quando è stato selezionato l'NPC
-    // Non sparare dal client per evitare duplicazioni
-
-    // Controlla se l'NPC selezionato è ancora visibile nella viewport
+    // Controlla se l'NPC è ancora visibile nella viewport
     const canvasSize = (this.ecs as any).context?.canvas ?
                       { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
                       { width: window.innerWidth, height: window.innerHeight };
 
-    // Usa la camera dal CameraSystem
     const camera = this.cameraSystem.getCamera();
     const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
 
@@ -436,78 +422,38 @@ export class CombatSystem extends BaseSystem {
                        npcScreenPos.y > canvasSize.height + margin;
 
     if (isOffScreen) {
-      // NPC uscito dalla visuale - deseleziona automaticamente e ferma combattimento
+      // NPC uscito dalla visuale - ferma il combattimento e deseleziona l'NPC
+      console.log(`👁️ [COMBAT] NPC ${selectedNpc.id} out of screen - stopping combat and deselecting`);
       this.ecs.removeComponent(selectedNpc, SelectedNpc);
       this.sendStopCombat();
-
-      // Se stavamo attaccando questo NPC, logga attacco fallito
-      if (this.currentAttackTarget === selectedNpc.id && this.logSystem) {
-        const npc = this.ecs.getComponent(selectedNpc, Npc);
-        if (npc) {
-          this.logSystem.logAttackFailed(npc.npcType);
-        }
-      }
-
-      // Reset dei flag
+      this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
-      return;
+      return; // Non continuare con la logica di range
     }
 
-    // Controlla se il player è nel range di attacco
+    // Calcola la distanza semplice
     const distance = Math.sqrt(
       Math.pow(playerTransform.x - npcTransform.x, 2) +
       Math.pow(playerTransform.y - npcTransform.y, 2)
     );
 
-    // Hysteresis massima per eliminare completamente flickering:
-    // Range entrata: 300px, Range uscita: 600px (differenza 300px!)
-    const enterRange = playerDamage.attackRange; // 300px
-    const exitRange = playerDamage.attackRange + 300; // 600px per hysteresis massima
+    const inRange = distance <= playerDamage.attackRange; // 300px
 
-    const inRange = this.currentAttackTarget === selectedNpc.id
-      ? distance <= exitRange  // Se già stiamo combattendo, usa range ampio per uscita
-      : distance <= enterRange; // Se non combattiamo, usa range normale per entrata
-
-    // Debounce: evita cambi di stato combattimento più frequenti di 1 secondo
-    const now = Date.now();
-    const timeSinceLastChange = now - this.lastCombatChange;
-
-
-    if (inRange) {
-      // Nel range - assicurati che stiamo combattendo questo NPC
-      if (this.currentAttackTarget !== selectedNpc.id) {
-        // Nuovo target o rientro nel range - inizia combattimento (con debounce ridotto)
-        if (timeSinceLastChange >= 500) { // Minimo 500ms dall'ultimo cambio
-          console.log(`🎯 [COMBAT] Starting combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px, hysteresis: enter=${enterRange}px, exit=${exitRange}px)`);
-          this.sendStartCombat(selectedNpc);
-          this.startAttackLogging(selectedNpc);
-          this.currentAttackTarget = selectedNpc.id;
-          this.attackStartedLogged = true;
-          this.lastCombatChange = now;
-        } else {
-          console.log(`⏳ [COMBAT] Debouncing START_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms < 500ms debounce)`);
-        }
-      } else {
-        // Comment out the continuing log to reduce spam
-        // console.log(`🎯 [COMBAT] Continuing combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px)`);
-      }
-      // Il server gestisce automaticamente gli attacchi - non combattiamo localmente
-    } else {
-      // Fuori range - ferma il combattimento se stavamo attaccando questo NPC
-      if (this.currentAttackTarget === selectedNpc.id) {
-        // Ferma combattimento (con debounce ridotto)
-        if (timeSinceLastChange >= 500) { // Minimo 500ms dall'ultimo cambio
-          console.log(`🛑 [COMBAT] Stopping combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px > exit=${exitRange}px)`);
-          this.sendStopCombat();
-          this.endAttackLogging();
-          this.currentAttackTarget = null;
-          this.attackStartedLogged = false;
-          this.lastCombatChange = now;
-        } else {
-          console.log(`⏳ [COMBAT] Debouncing STOP_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms < 500ms debounce)`);
-        }
-      }
+    if (inRange && this.currentAttackTarget !== selectedNpc.id) {
+      // Player entrato in range - inizia combattimento
+      console.log(`🎯 [COMBAT] Player in range (${distance.toFixed(1)}px) - starting combat with NPC ${selectedNpc.id}`);
+      this.sendStartCombat(selectedNpc);
+      this.startAttackLogging(selectedNpc);
+      this.currentAttackTarget = selectedNpc.id;
+      this.attackStartedLogged = true;
+    } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
+      // Player uscito dal range - ferma combattimento
+      console.log(`🛑 [COMBAT] Player out of range (${distance.toFixed(1)}px) - stopping combat with NPC ${selectedNpc.id}`);
+      this.sendStopCombat();
+      this.endAttackLogging();
+      this.currentAttackTarget = null;
+      this.attackStartedLogged = false;
     }
   }
 
@@ -584,7 +530,7 @@ export class CombatSystem extends BaseSystem {
   private async createExplosion(entity: any): Promise<void> {
     try {
       const npc = this.ecs.getComponent(entity, Npc);
-      const entityType = npc ? `NPC-${npc.type}` : 'Player';
+      const entityType = npc ? `NPC-${npc.npcType}` : 'Player';
 
       // Verifica che l'entità esista ancora (potrebbe essere stata rimossa dal ProjectileSystem)
       if (!this.ecs.entityExists(entity.id)) {
@@ -598,8 +544,7 @@ export class CombatSystem extends BaseSystem {
 
       // Carica i frame dell'esplosione se non già caricati
       if (!this.explosionFrames) {
-        const explosionType = this.getExplosionTypeForEntity(entity);
-        this.explosionFrames = await this.loadExplosionFrames(explosionType);
+        this.explosionFrames = await this.loadExplosionFrames();
       }
 
       // Verifica nuovamente che l'entità esista dopo il caricamento async
@@ -664,7 +609,7 @@ export class CombatSystem extends BaseSystem {
    */
   private async loadExplosionFrames(explosionType?: string): Promise<HTMLImageElement[]> {
     try {
-      // Usa il file atlas originale con l'immagine explosion.png
+      // Usa sempre la stessa esplosione per tutti gli entity
       const atlasPath = `/assets/explosions/explosions_npc/explosion.atlas`;
 
       const atlasData = await AtlasParser.parseAtlas(atlasPath);
@@ -672,7 +617,7 @@ export class CombatSystem extends BaseSystem {
       // Estrai tutti i frame definiti nell'atlas
       const frames = await AtlasParser.extractFrames(atlasData);
 
-      console.log(`💥 [EXPLOSION] Loaded ${frames.length} frames from atlas: ${atlasPath}`);
+      console.log(`💥 [EXPLOSION] Loaded ${frames.length} frames from atlas`);
       return frames;
     } catch (error) {
       console.error('Failed to load explosion frames from atlas:', error);
@@ -733,25 +678,4 @@ export class CombatSystem extends BaseSystem {
     }
   }
 
-  /**
-   * Restituisce il tipo di esplosione appropriato per l'entità
-   */
-  private getExplosionTypeForEntity(entity: any): string {
-    const npc = this.ecs.getComponent(entity, Npc);
-
-    if (npc) {
-      // Assegna esplosioni diverse per tipi di NPC (sequenziale/progressiva)
-      switch (npc.type) {
-        case 'Scouter':
-          return 'explosion2'; // Esplosione più piccola e rapida
-        case 'Frigate':
-          return 'explosion3'; // Esplosione più grande e spettacolare
-        default:
-          return 'explosion'; // Default
-      }
-    }
-
-    // Per il player usa esplosione base
-    return 'explosion';
-  }
 }
