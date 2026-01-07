@@ -38,9 +38,7 @@ export class CombatSystem extends BaseSystem {
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private pendingCombatRequests: any[] = []; // Coda richieste combattimento in attesa di ClientNetworkSystem
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
-  private wasInCombat: boolean = false; // Flag per tracciare se eravamo in combattimento prima di uscire dal range
-  private lastCombatChange: number = 0; // Timestamp ultimo cambio stato combattimento
-  private combatLockTime: number = 0; // Timestamp quando è iniziato il combattimento corrente
+  private lastCombatTarget: number | null = null; // ID dell'ultimo NPC con cui si è combattuto (per riprendere)
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
   private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
 
@@ -456,20 +454,21 @@ export class CombatSystem extends BaseSystem {
     const inRange = distance <= playerDamage.attackRange; // 600px
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
-    if (inRange && (attackActivated || this.wasInCombat) && this.currentAttackTarget !== selectedNpc.id) {
-      // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento
-      console.log(`🎯 [COMBAT] Player in range (${distance.toFixed(1)}px) - resuming/staring combat with NPC ${selectedNpc.id}`);
+    if (inRange && (attackActivated || this.lastCombatTarget === selectedNpc.id) && this.currentAttackTarget !== selectedNpc.id) {
+      // Player in range E (attacco attivato O era l'ultimo NPC combattuto) - inizia/riprendi combattimento
+      const reason = attackActivated ? "attack activated" : "returning to previous combat";
+      console.log(`🎯 [COMBAT] Player in range (${distance.toFixed(1)}px) - ${reason} with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
-      this.wasInCombat = false; // Reset flag
+      this.lastCombatTarget = null; // Reset - ora stiamo combattendo
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
-      // Player uscito dal range - ferma combattimento ma segna che eravamo in combattimento
-      console.log(`🛑 [COMBAT] Player out of range (${distance.toFixed(1)}px) - pausing combat with NPC ${selectedNpc.id} (will resume on re-entry)`);
+      // Player uscito dal range - ferma combattimento e salva l'NPC per eventuale ripresa
+      console.log(`🛑 [COMBAT] Player out of range (${distance.toFixed(1)}px) - pausing combat with NPC ${selectedNpc.id}`);
       this.sendStopCombat();
       this.endAttackLogging();
-      this.wasInCombat = true; // Segna che eravamo in combattimento
+      this.lastCombatTarget = this.currentAttackTarget; // Salva per ripresa
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
     } else if (!attackActivated && this.currentAttackTarget !== null) {
@@ -479,7 +478,6 @@ export class CombatSystem extends BaseSystem {
       this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
-      this.wasInCombat = false; // Reset flag
     }
   }
 
