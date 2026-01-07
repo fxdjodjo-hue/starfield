@@ -14,20 +14,39 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    if (import.meta.env.DEV) {
+      console.log('[EntityDamagedHandler] Processing damage message:', message);
+    }
 
     // Crea damage text per il danno ricevuto
     const ecs = networkSystem.getECS();
-    if (ecs) {
-      // Trova il CombatSystem per creare i damage text
-      const combatSystem = this.findCombatSystem(ecs);
+    if (!ecs) {
+      console.error('[EntityDamagedHandler] ECS not available!');
+      return;
+    }
 
-      if (!combatSystem) {
-      } else if (!combatSystem.createDamageText) {
-      }
+    // Trova il CombatSystem per creare i damage text
+    const combatSystem = this.findCombatSystem(ecs);
 
-      if (combatSystem && combatSystem.createDamageText) {
-        // Trova l'entità danneggiata
-        let targetEntity = null;
+    if (import.meta.env.DEV) {
+      console.log('[EntityDamagedHandler] CombatSystem found:', !!combatSystem);
+    }
+
+    if (!combatSystem) {
+      console.error('[EntityDamagedHandler] CombatSystem not found in ECS!');
+      console.error('[EntityDamagedHandler] Available systems:', ecs.getSystems ? ecs.getSystems().map((s: any) => s.constructor.name) : 'No getSystems method');
+      return;
+    }
+
+    if (!combatSystem.createDamageText) {
+      console.error('[EntityDamagedHandler] CombatSystem.createDamageText method not found!');
+      return;
+    }
+
+    // CombatSystem trovato e valido, procedi con la creazione dei damage text
+    if (combatSystem && combatSystem.createDamageText) {
+      // Trova l'entità danneggiata
+      let targetEntity = null;
 
         if (message.entityType === 'npc') {
           // Usa il RemoteNpcSystem per trovare l'entità dell'NPC remoto
@@ -39,7 +58,14 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             if (entityId !== undefined) {
               // Ottieni l'entità effettiva dall'ECS usando l'entity ID
               targetEntity = ecs.getEntity(entityId);
+              if (import.meta.env.DEV) {
+                console.log(`[EntityDamagedHandler] Found NPC entity ${entityId} for NPC ${npcId}`);
+              }
+            } else {
+              console.warn(`[EntityDamagedHandler] NPC entity not found for NPC ${npcId}`);
             }
+          } else {
+            console.error('[EntityDamagedHandler] RemoteNpcSystem not available!');
           }
         } else if (message.entityType === 'player') {
           if (message.entityId === networkSystem.getLocalClientId()) {
@@ -72,12 +98,13 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             // In futuro potremmo migliorare la logica per distinguere shield vs HP
             const isShieldDamage = false;
             combatSystem.createDamageText({ id: targetEntity.id }, message.damage, isShieldDamage);
+            if (import.meta.env.DEV) {
+              console.log(`[EntityDamagedHandler] Created damage text: ${message.damage} damage to ${message.entityType} ${message.entityId}`);
+            }
           }
-
-          // NOTA: Non aggiorniamo più i componenti qui perché ora vengono gestiti
-          // dai bulk updates in tempo reale. Questo messaggio serve solo per i damage text.
+        } else {
+          console.warn(`[EntityDamagedHandler] Target entity not found for ${message.entityType} ${message.entityId}`);
         }
-      }
     }
 
     // Nota: l'aggiornamento dei valori health/shield è già stato fatto sopra
