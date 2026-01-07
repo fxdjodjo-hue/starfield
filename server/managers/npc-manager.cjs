@@ -240,12 +240,12 @@ class ServerNpcManager {
       return;
     }
 
-    // SkillPoints drop casuale (5-10% probabilità di 1-3 punti)
+    // SkillPoints drop casuale (25-50% probabilità di 1-3 punti)
     let skillPointsDrop = 0;
     const dropChance = Math.random();
-    if (dropChance < 0.05) { // 5% probabilità
+    if (dropChance < 0.25) { // 25% probabilità
       skillPointsDrop = 1;
-    } else if (dropChance < 0.10) { // Altri 5% probabilità (totale 10%)
+    } else if (dropChance < 0.50) { // Altri 25% probabilità (totale 50%)
       skillPointsDrop = Math.floor(Math.random() * 3) + 1; // 1-3 punti
     }
 
