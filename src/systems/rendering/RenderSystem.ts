@@ -131,8 +131,12 @@ export class RenderSystem extends BaseSystem {
     this.renderProjectiles(ctx, camera);
 
     // Render damage text (floating numbers)
+    console.log('🎯 RenderSystem: checking damageTextSystem', !!this.damageTextSystem); // TEMP DEBUG
     if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
+      console.log('✅ RenderSystem: calling damageTextSystem.render()'); // TEMP DEBUG
       this.damageTextSystem.render(ctx);
+    } else {
+      console.log('❌ RenderSystem: damageTextSystem not available'); // TEMP DEBUG
     }
   }
 
