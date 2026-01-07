@@ -19,6 +19,10 @@ export class RewardsEarnedHandler extends BaseMessageHandler {
     const logSystem = networkSystem.getLogSystem();
     if (logSystem) {
       logSystem.logReward(rewards.credits, rewards.cosmos, rewards.experience, rewards.honor);
+      if (rewards.skillPoints && rewards.skillPoints > 0) {
+        // Log separato per SkillPoints
+        console.log(`🎯 Guadagnati ${rewards.skillPoints} SkillPoints!`);
+      }
     }
 
     // AGGIORNA L'ECONOMY SYSTEM DEL CLIENT con le ricompense ricevute
@@ -36,6 +40,9 @@ export class RewardsEarnedHandler extends BaseMessageHandler {
       }
       if (rewards.honor && rewards.honor > 0) {
         economySystem.addHonor(rewards.honor, 'npc_kill');
+      }
+      if (rewards.skillPoints && rewards.skillPoints > 0) {
+        economySystem.addSkillPoints(rewards.skillPoints, 'npc_kill');
       }
       console.log('✅ [ECONOMY] EconomySystem aggiornato con ricompense');
     }
@@ -61,8 +68,8 @@ export class RewardsEarnedHandler extends BaseMessageHandler {
     }
 
     // Mantieni console.log per debug sviluppatori
-    console.log(`🎁 Ricompense guadagnate! ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor`);
-    console.log(`📊 Inventario totale: ${totalInventory.credits} credits, ${totalInventory.cosmos} cosmos, ${totalInventory.experience} XP, ${totalInventory.honor} honor`);
+    console.log(`🎁 Ricompense guadagnate! ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor, ${rewards.skillPoints} skillPoints`);
+    console.log(`📊 Inventario totale: ${totalInventory.credits} credits, ${totalInventory.cosmos} cosmos, ${totalInventory.experience} XP, ${totalInventory.honor} honor, ${totalInventory.skillPoints} skillPoints`);
 
     // Il LogSystem mostra già la notifica, ma puoi aggiungere logica aggiuntiva qui
     // per aggiornare HUD, suonare effetti, ecc.

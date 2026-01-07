@@ -240,16 +240,32 @@ class ServerNpcManager {
       return;
     }
 
+    // SkillPoints drop casuale (5-10% probabilità di 1-3 punti)
+    let skillPointsDrop = 0;
+    const dropChance = Math.random();
+    if (dropChance < 0.05) { // 5% probabilità
+      skillPointsDrop = 1;
+    } else if (dropChance < 0.10) { // Altri 5% probabilità (totale 10%)
+      skillPointsDrop = Math.floor(Math.random() * 3) + 1; // 1-3 punti
+    }
+
     // Aggiungi ricompense all'inventario del giocatore
     playerData.inventory.credits += rewards.credits || 0;
     playerData.inventory.cosmos += rewards.cosmos || 0;
     playerData.inventory.experience += rewards.experience || 0;
     playerData.inventory.honor += rewards.honor || 0;
+    playerData.inventory.skillPoints += skillPointsDrop;
 
-    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor for killing ${npcType}`);
+    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor, ${skillPointsDrop} skillPoints for killing ${npcType}`);
+
+    // Crea oggetto rewards completo includendo drop casuali
+    const finalRewards = {
+      ...rewards,
+      skillPoints: skillPointsDrop
+    };
 
     // Invia notifica delle ricompense al client
-    this.sendRewardsNotification(playerId, rewards, npcType);
+    this.sendRewardsNotification(playerId, finalRewards, npcType);
   }
 
   /**

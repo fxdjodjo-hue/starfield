@@ -17,6 +17,7 @@ export class EconomySystem extends BaseSystem {
   private onCosmosChanged?: (newAmount: number, change: number) => void;
   private onExperienceChanged?: (newAmount: number, change: number, leveledUp: boolean) => void;
   private onHonorChanged?: (newAmount: number, change: number, newRank?: string) => void;
+  private onSkillPointsChanged?: (newAmount: number, change: number) => void;
 
 
   constructor(ecs: ECS) {
@@ -541,10 +542,10 @@ export class EconomySystem extends BaseSystem {
 
     // Callback per assegnare skill points quando si sale di livello
     const leveledUp = experience.addExp(amount, (newLevel) => {
-      // Assegna 1 skill point per livello salito
+      // Assegna 10 skill points per livello salito
       const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
       if (skillPoints) {
-        skillPoints.addPoints(1);
+        skillPoints.addPoints(10);
       }
     });
 
@@ -602,6 +603,26 @@ export class EconomySystem extends BaseSystem {
     if (honor) {
       honor.addHonor(amount);
     }
+  }
+
+  /**
+   * Aggiunge SkillPoints al giocatore
+   */
+  addSkillPoints(amount: number, reason: string = 'unknown'): number {
+    const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
+    if (!skillPoints) return 0;
+
+    const oldAmount = skillPoints.current;
+    skillPoints.addPoints(amount);
+    const newAmount = skillPoints.current;
+    const added = newAmount - oldAmount;
+
+    if (added > 0) {
+      this.onSkillPointsChanged?.(newAmount, added);
+      console.log(`🎯 [ECONOMY] Added ${added} SkillPoints (${reason}): ${oldAmount} → ${newAmount}`);
+    }
+
+    return added;
   }
 
   /**

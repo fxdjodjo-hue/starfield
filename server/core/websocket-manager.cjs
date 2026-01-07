@@ -52,7 +52,8 @@ class WebSocketConnectionManager {
                 credits: 0,
                 cosmos: 0,
                 experience: 0,
-                honor: 0
+                honor: 0,
+                skillPoints: 0
               }
             };
 
