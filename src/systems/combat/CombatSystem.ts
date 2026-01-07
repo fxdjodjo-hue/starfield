@@ -38,10 +38,8 @@ export class CombatSystem extends BaseSystem {
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private pendingCombatRequests: any[] = []; // Coda richieste combattimento in attesa di ClientNetworkSystem
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
-  private lastCombatTarget: number | null = null; // ID dell'ultimo NPC con cui si è combattuto (per riprendere)
-  private wasInCombat: boolean = false; // Traccia se eravamo in combattimento prima di uscire dal range
-  private lastCombatPosition: { x: number, y: number } | null = null;
-  private _lastAutoReselectLog: number = 0; // Timestamp for throttling auto-reselect logs // Posizione dove è avvenuto l'ultimo combattimento
+  private wasInCombat: boolean = false; // Traccia se siamo attualmente in combattimento
+ // Posizione dove è avvenuto l'ultimo combattimento
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
   private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
 
@@ -201,7 +199,6 @@ export class CombatSystem extends BaseSystem {
 
     if (isPlayer) {
       // Player: crea singolo laser
-      console.log(`🔫 [COMBAT] Creating player laser projectile (cooldown: ${attackerDamage.getCooldownRemaining(Date.now())}ms remaining)`);
       // Nota: l'audio viene riprodotto in ProjectileFiredHandler quando arriva il proiettile dal server
       // (poiché l'attacco è completamente automatico senza input manuale)
       this.createSingleLaser(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
@@ -402,59 +399,16 @@ export class CombatSystem extends BaseSystem {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     if (selectedNpcs.length === 0) {
-      // Log ridotto per evitare spam - solo ogni 60 frame (1 secondo a 60fps)
-      if (!this._lastAutoReselectLog || Date.now() - this._lastAutoReselectLog > 1000) {
-        console.log(`👀 [COMBAT] No NPC selected - checking auto-reselect (${this.wasInCombat ? 'can retry' : 'no combat history'})`);
-        this._lastAutoReselectLog = Date.now();
+      // Se non ci sono NPC selezionati, ferma qualsiasi combattimento attivo
+      if (this.currentAttackTarget !== null) {
+        this.sendStopCombat();
+        this.endAttackLogging();
+        this.currentAttackTarget = null;
+        this.attackStartedLogged = false;
+        this.wasInCombat = false;
       }
-      // Se non c'è nessun NPC selezionato, prova a riselezionare l'ultimo NPC combattuto se nelle vicinanze
-      if (this.wasInCombat && this.lastCombatTarget !== null && this.lastCombatPosition !== null && playerEntity && playerDamage) {
-        const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-        if (playerTransform) {
-          const distanceFromLastCombat = Math.sqrt(
-            Math.pow(playerTransform.x - this.lastCombatPosition.x, 2) +
-            Math.pow(playerTransform.y - this.lastCombatPosition.y, 2)
-          );
-
-          // Se siamo tornati vicino al luogo dell'ultimo combattimento (entro 300px), cerca di riselezionare l'NPC
-          if (distanceFromLastCombat <= 300) {
-            const lastNpcEntity = this.ecs.getEntity(this.lastCombatTarget);
-            if (lastNpcEntity && this.ecs.hasComponent(lastNpcEntity, Npc) && this.ecs.hasComponent(lastNpcEntity, Transform)) {
-              const npcTransform = this.ecs.getComponent(lastNpcEntity, Transform);
-              const npcHealth = this.ecs.getComponent(lastNpcEntity, Health);
-
-              if (npcTransform && npcHealth && npcHealth.current > 0) {
-                const distanceToNpc = Math.sqrt(
-                  Math.pow(playerTransform.x - npcTransform.x, 2) +
-                  Math.pow(playerTransform.y - npcTransform.y, 2)
-                );
-
-                // Riseleziona se l'NPC è ancora vivo ed entro il range di combattimento
-                if (distanceToNpc <= playerDamage.attackRange) {
-                  console.log(`🔄 [COMBAT] Auto-reselected NPC ${this.lastCombatTarget} (${distanceToNpc.toFixed(1)}px away)`);
-                  this.ecs.addComponent(lastNpcEntity, SelectedNpc, new SelectedNpc());
-                  // Continua con la logica normale invece di uscire
-                } else {
-                  // NPC troppo lontano, reset
-                  this.wasInCombat = false;
-                  this.lastCombatTarget = null;
-                  this.lastCombatPosition = null;
-                }
-              } else {
-                // NPC morto o non più esistente, reset
-                this.wasInCombat = false;
-                this.lastCombatTarget = null;
-                this.lastCombatPosition = null;
-              }
-            } else {
-              // Entity non più esistente, reset
-              this.wasInCombat = false;
-              this.lastCombatTarget = null;
-              this.lastCombatPosition = null;
-            }
-          }
-        }
-      }
+      return;
+    }
 
       // Se dopo il tentativo di riselezione non abbiamo ancora un NPC selezionato, ferma il combattimento
       const selectedNpcsAfterCheck = this.ecs.getEntitiesWithComponents(SelectedNpc);
@@ -466,9 +420,6 @@ export class CombatSystem extends BaseSystem {
         this.currentAttackTarget = null;
         this.attackStartedLogged = false;
         this.wasInCombat = false; // Reset wasInCombat if no NPC is selected
-        console.log(`❌ [COMBAT] No NPC selected - combat stopped, currentAttackTarget reset to null`);
-        this.lastCombatTarget = null;
-        this.lastCombatPosition = null;
         }
         return;
       }
@@ -499,24 +450,18 @@ export class CombatSystem extends BaseSystem {
                        npcScreenPos.y < -margin ||
                        npcScreenPos.y > canvasSize.height + margin;
 
+    // Se l'NPC esce dallo schermo, deselezionalo sempre
     if (isOffScreen) {
-      if (this.currentAttackTarget === selectedNpc.id || this.wasInCombat) {
-        // NPC fuori visuale MA in combattimento attivo O eravamo in combattimento - mantieni selezione per permettere rientro
-        // Log ridotto per evitare spam - solo quando inizia ad essere fuori schermo
-        // Continua con la logica di range invece di deselezionare
-      } else {
-        // NPC fuori visuale e non in combattimento - deseleziona normalmente
-        console.log(`❌ [COMBAT] NPC ${selectedNpc.id} off-screen and deselected (no combat history)`);
-        this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      // Ferma combattimento se era attivo
+      if (this.currentAttackTarget === selectedNpc.id) {
         this.sendStopCombat();
         this.endAttackLogging();
         this.currentAttackTarget = null;
         this.attackStartedLogged = false;
-        this.wasInCombat = false; // Reset wasInCombat if NPC is deselected due to being off-screen
-        this.lastCombatTarget = null;
-        this.lastCombatPosition = null;
-        return; // Non continuare con la logica di range
+        this.wasInCombat = false;
       }
+      return; // Non continuare con la logica di combattimento
     }
 
     // Calcola la distanza semplice
@@ -528,10 +473,7 @@ export class CombatSystem extends BaseSystem {
     const inRange = distance <= playerDamage.attackRange; // 600px
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
-    // Debug: traccia lo stato per capire perché non riprende
-    console.log(`🔍 [COMBAT] Check NPC ${selectedNpc.id}: inRange=${inRange}, attackActivated=${attackActivated}, wasInCombat=${this.wasInCombat}, currentTarget=${this.currentAttackTarget}, selectedNpcId=${selectedNpc.id}`);
-
-    if (inRange && (attackActivated || this.wasInCombat) && this.currentAttackTarget !== selectedNpc.id) {
+    if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento
       const reason = attackActivated ? "attack activated" : `returning to previous combat (wasInCombat:${this.wasInCombat})`;
       console.log(`🎯 [COMBAT] STARTING combat (${distance.toFixed(1)}px) - ${reason} with NPC ${selectedNpc.id}`);
@@ -540,19 +482,13 @@ export class CombatSystem extends BaseSystem {
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
       this.wasInCombat = false; // Reset - ora stiamo combattendo
-      this.lastCombatTarget = null; // Reset anche lastCombatTarget
-      this.lastCombatPosition = null;
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
-      // Player uscito dal range - ferma combattimento e salva l'NPC per eventuale ripresa
-      console.log(`🛑 [COMBAT] OUT OF RANGE (${distance.toFixed(1)}px) - pausing combat with NPC ${selectedNpc.id}, setting wasInCombat=true`);
+      // Player uscito dal range - ferma combattimento
       this.sendStopCombat();
       this.endAttackLogging();
-      this.wasInCombat = true; // Segna che eravamo in combattimento
-      this.lastCombatTarget = this.currentAttackTarget; // Salva per riferimento
-      this.lastCombatPosition = { x: npcTransform.x, y: npcTransform.y }; // Salva posizione per riselezione automatica
       this.currentAttackTarget = null;
-      console.log(`📍 [COMBAT] Saved combat state for NPC ${this.lastCombatTarget} at position (${this.lastCombatPosition.x.toFixed(1)}, ${this.lastCombatPosition.y.toFixed(1)})`);
       this.attackStartedLogged = false;
+      this.wasInCombat = false;
     } else if (!attackActivated && this.currentAttackTarget !== null) {
       // Attacco disattivato - ferma qualsiasi combattimento in corso, indipendentemente dal target selezionato
       console.log(`🛑 [COMBAT] ATTACK DEACTIVATED - attackActivated=${attackActivated}, stopping combat with target ${this.currentAttackTarget}, resetting wasInCombat`);
@@ -796,9 +732,6 @@ export class CombatSystem extends BaseSystem {
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
       this.wasInCombat = false; // Reset wasInCombat on immediate stop
-      console.log(`🛑 [COMBAT] Combat stopped immediately - currentAttackTarget reset to null`);
-      this.lastCombatTarget = null;
-      this.lastCombatPosition = null;
     }
   }
 
