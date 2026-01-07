@@ -3,6 +3,7 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
+import { RemotePlayer } from '../../../entities/player/RemotePlayer';
 
 /**
  * Gestisce i danni ricevuti dalle entità (NPC o giocatori)
@@ -42,7 +43,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             // Giocatore locale - trova l'entità locale
             const allEntities = ecs.getEntitiesWithComponents(Health, Shield);
             for (const entity of allEntities) {
-              if (!ecs.hasComponent(entity, 'RemotePlayer')) {
+              if (!ecs.hasComponent(entity, RemotePlayer)) {
                 targetEntity = entity;
                 break;
               }
@@ -51,7 +52,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             // Giocatore remoto - trova l'entità remota
             const allEntities = ecs.getEntitiesWithComponents(Health);
             for (const entity of allEntities) {
-              const remotePlayer = ecs.getComponent(entity, 'RemotePlayer');
+              const remotePlayer = ecs.getComponent(entity, RemotePlayer);
               if (remotePlayer && remotePlayer.clientId === message.entityId) {
                 targetEntity = entity;
                 break;
@@ -67,36 +68,17 @@ export class EntityDamagedHandler extends BaseMessageHandler {
 
           // Ottieni componenti per calcolare il danno
           const shieldComponent = ecs.getComponent(targetEntity, Shield);
-          const healthComponent = ecs.getComponent(targetEntity, Health);
-
-          if (shieldComponent) {
-            const oldShield = shieldComponent.current;
-            const newShield = message.newShield;
-            shieldDamage = Math.max(0, oldShield - newShield);
+          // Poiché ora i componenti vengono aggiornati in tempo reale dai bulk updates,
+          // non possiamo fare affidamento sui valori "old" vs "new".
+          // Mostriamo semplicemente il danno totale ricevuto come damage text.
+          if (message.damage > 0) {
+            // Determina se è principalmente danno shield o HP basandosi sui valori attuali
+            const isShieldDamage = message.newShield < (shieldComponent?.current || 0);
+            combatSystem.createDamageText(targetEntity, message.damage, isShieldDamage);
           }
 
-          if (healthComponent) {
-            const oldHealth = healthComponent.current;
-            const newHealth = message.newHealth;
-            healthDamage = Math.max(0, oldHealth - newHealth);
-          }
-
-          // Crea testi di danno separati per shield e HP
-          if (shieldDamage > 0) {
-            combatSystem.createDamageText(targetEntity, shieldDamage, true); // true = shield damage (blu)
-          }
-
-          if (healthDamage > 0) {
-            combatSystem.createDamageText(targetEntity, healthDamage, false); // false = HP damage (rosso)
-          }
-
-          // Aggiorna i componenti con i nuovi valori ricevuti dal server
-          if (healthComponent) {
-            healthComponent.current = message.newHealth;
-          }
-          if (shieldComponent) {
-            shieldComponent.current = message.newShield;
-          }
+          // NOTA: Non aggiorniamo più i componenti qui perché ora vengono gestiti
+          // dai bulk updates in tempo reale. Questo messaggio serve solo per i damage text.
         }
       }
     }
@@ -118,7 +100,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
 
           for (const entity of allEntities) {
             // Salta remote players (hanno anche RemotePlayer component)
-            if (ecs.hasComponent(entity, 'RemotePlayer')) continue;
+            if (ecs.hasComponent(entity, RemotePlayer)) continue;
 
             // Questa dovrebbe essere l'entità del giocatore locale
             const healthComponent = ecs.getComponent(entity, Health);
