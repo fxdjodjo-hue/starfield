@@ -430,14 +430,20 @@ export class CombatSystem extends BaseSystem {
                        npcScreenPos.y > canvasSize.height + margin;
 
     if (isOffScreen) {
-      // NPC uscito dalla visuale - ferma il combattimento e deseleziona l'NPC
-      console.log(`👁️ [COMBAT] NPC ${selectedNpc.id} out of screen - stopping combat and deselecting`);
-      this.ecs.removeComponent(selectedNpc, SelectedNpc);
-      this.sendStopCombat();
-      this.endAttackLogging();
-      this.currentAttackTarget = null;
-      this.attackStartedLogged = false;
-      return; // Non continuare con la logica di range
+      if (this.currentAttackTarget === selectedNpc.id) {
+        // NPC fuori visuale MA in combattimento attivo - mantieni selezione per permettere rientro
+        console.log(`⚔️ [COMBAT] NPC ${selectedNpc.id} out of screen but in active combat - keeping selection for range re-entry`);
+        // Continua con la logica di range invece di deselezionare
+      } else {
+        // NPC fuori visuale e non in combattimento - deseleziona normalmente
+        console.log(`👁️ [COMBAT] NPC ${selectedNpc.id} out of screen - deselecting (not in combat)`);
+        this.ecs.removeComponent(selectedNpc, SelectedNpc);
+        this.sendStopCombat();
+        this.endAttackLogging();
+        this.currentAttackTarget = null;
+        this.attackStartedLogged = false;
+        return; // Non continuare con la logica di range
+      }
     }
 
     // Calcola la distanza semplice
