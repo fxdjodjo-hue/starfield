@@ -92,6 +92,11 @@ export class DamageTextSystem extends BaseSystem {
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
     console.log(`📊 Found ${damageTextEntities.length} damage text entities`); // TEMP DEBUG
 
+    // Log dettagli di ogni entità trovata
+    for (const entity of damageTextEntities) {
+      console.log(`🎯 Damage text entity: ${entity}`); // TEMP DEBUG
+    }
+
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
       if (!damageText) {
