@@ -169,6 +169,10 @@ export class GameInitializationSystem extends System {
     const combatSystem = new CombatSystem(this.ecs, cameraSystem, this.context, this.playerSystem);
     this.combatSystem = combatSystem; // Salva riferimento per setClientNetworkSystem
     const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, combatSystem);
+    // Collega il DamageTextSystem al RenderSystem per il rendering
+    if (renderSystem && typeof renderSystem.setDamageTextSystem === 'function') {
+      renderSystem.setDamageTextSystem(damageTextSystem);
+    }
     const projectileSystem = new ProjectileSystem(this.ecs, this.playerSystem, this.uiSystem || undefined);
 
     // Sistema NPC remoti per multiplayer

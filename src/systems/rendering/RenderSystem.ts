@@ -37,6 +37,7 @@ export class RenderSystem extends BaseSystem {
   private playerSystem: PlayerSystem;
   private assetManager: AssetManager;
   private projectileRenderer: ProjectileRenderer;
+  private damageTextSystem: any = null; // Sistema per renderizzare i testi di danno
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
@@ -44,6 +45,13 @@ export class RenderSystem extends BaseSystem {
     this.playerSystem = playerSystem;
     this.assetManager = assetManager;
     this.projectileRenderer = new ProjectileRenderer(ecs, playerSystem, assetManager);
+  }
+
+  /**
+   * Imposta il riferimento al DamageTextSystem per il rendering
+   */
+  setDamageTextSystem(damageTextSystem: any): void {
+    this.damageTextSystem = damageTextSystem;
   }
 
 
@@ -121,6 +129,11 @@ export class RenderSystem extends BaseSystem {
 
     // Render projectiles
     this.renderProjectiles(ctx, camera);
+
+    // Render damage text (floating numbers)
+    if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
+      this.damageTextSystem.render(ctx);
+    }
   }
 
   /**
