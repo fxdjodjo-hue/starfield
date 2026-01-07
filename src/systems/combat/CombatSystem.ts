@@ -450,22 +450,24 @@ export class CombatSystem extends BaseSystem {
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
-      // Player in range E attacco attivato - inizia combattimento
+      // Player in range E attacco attivato - inizia/riprendi combattimento
       console.log(`🎯 [COMBAT] Player in range (${distance.toFixed(1)}px) and attack activated - starting combat with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
-      // Player uscito dal range - ferma combattimento
-      console.log(`🛑 [COMBAT] Player out of range (${distance.toFixed(1)}px) - stopping combat with NPC ${selectedNpc.id}`);
+      // Player uscito dal range - ferma combattimento ma mantiene attacco attivo per rientro automatico
+      console.log(`🛑 [COMBAT] Player out of range (${distance.toFixed(1)}px) - pausing combat with NPC ${selectedNpc.id} (attack remains active)`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
-    } else if (inRange && !attackActivated && this.currentAttackTarget === selectedNpc.id) {
-      // Player ancora in range ma attacco disattivato - ferma combattimento
-      console.log(`🛑 [COMBAT] Attack deactivated while in range - stopping combat with NPC ${selectedNpc.id}`);
+
+      // Attacco rimane attivo - quando rientri nel range, il combattimento riprende automaticamente
+    } else if (!attackActivated && this.currentAttackTarget !== null) {
+      // Attacco disattivato - ferma qualsiasi combattimento in corso, indipendentemente dal target selezionato
+      console.log(`🛑 [COMBAT] Attack deactivated - stopping combat with current target ${this.currentAttackTarget}`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
@@ -691,6 +693,19 @@ export class CombatSystem extends BaseSystem {
       if (currentCount - 1 === 0) {
         this.activeDamageTexts.delete(targetEntityId);
       }
+    }
+  }
+
+  /**
+   * Ferma immediatamente il combattimento (chiamato quando disattivi manualmente l'attacco)
+   */
+  public stopCombatImmediately(): void {
+    if (this.currentAttackTarget) {
+      console.log(`🛑 [COMBAT] Combat stopped immediately by manual deactivation`);
+      this.sendStopCombat();
+      this.endAttackLogging();
+      this.currentAttackTarget = null;
+      this.attackStartedLogged = false;
     }
   }
 
