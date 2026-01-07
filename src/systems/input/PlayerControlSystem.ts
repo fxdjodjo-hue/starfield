@@ -117,12 +117,15 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Disattiva forzatamente l'attacco (chiamato dal CombatSystem quando finisce il combattimento)
+   * Disattiva forzatamente l'attacco (chiamato quando finisce il combattimento o cambia selezione)
    */
   deactivateAttack(): void {
     if (this.attackActivated) {
       this.attackActivated = false;
       console.log('[PlayerControl] Attack auto-deactivated after combat end');
+
+      // Ferma immediatamente qualsiasi combattimento in corso
+      this.stopCombatIfActive();
     }
   }
 
