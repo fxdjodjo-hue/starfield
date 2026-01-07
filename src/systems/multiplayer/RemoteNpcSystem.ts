@@ -108,7 +108,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Aggiorna un NPC remoto esistente
    */
-  updateRemoteNpc(npcId: string, position?: { x: number, y: number, rotation: number }, health?: { current: number, max: number }, behavior?: string): void {
+  updateRemoteNpc(npcId: string, position?: { x: number, y: number, rotation: number }, health?: { current: number, max: number }, shield?: { current: number, max: number }, behavior?: string): void {
     const npcData = this.remoteNpcs.get(npcId);
     if (!npcData) {
       // NPC distrutto/respawnato - silenziosamente ignora (normale durante il gameplay)
@@ -135,6 +135,15 @@ export class RemoteNpcSystem extends BaseSystem {
       if (healthComponent) {
         healthComponent.current = health.current;
         healthComponent.max = health.max;
+      }
+    }
+
+    // Aggiorna shield
+    if (shield) {
+      const shieldComponent = this.ecs.getComponent(entity, Shield);
+      if (shieldComponent) {
+        shieldComponent.current = shield.current;
+        shieldComponent.max = shield.max;
       }
     }
 
@@ -168,14 +177,14 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Gestisce aggiornamenti bulk di NPC (ottimizzato per performance)
    */
-  bulkUpdateNpcs(updates: Array<{ id: string, position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, behavior: string }>): void {
+  bulkUpdateNpcs(updates: Array<{ id: string, position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
     const startTime = Date.now();
     let successCount = 0;
     let failCount = 0;
 
     for (const update of updates) {
       const existed = this.remoteNpcs.has(update.id);
-      this.updateRemoteNpc(update.id, update.position, update.health, update.behavior);
+      this.updateRemoteNpc(update.id, update.position, update.health, update.shield, update.behavior);
       if (existed) {
         successCount++;
       } else {
