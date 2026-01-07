@@ -22,7 +22,14 @@ export class EntityDamagedHandler extends BaseMessageHandler {
       // Trova il CombatSystem per creare i damage text
       const combatSystem = this.findCombatSystem(ecs);
 
+      if (!combatSystem) {
+        console.log(`❌ EntityDamagedHandler: CombatSystem not found in ECS`); // TEMP DEBUG
+      } else if (!combatSystem.createDamageText) {
+        console.log(`❌ EntityDamagedHandler: CombatSystem found but no createDamageText method`); // TEMP DEBUG
+      }
+
       if (combatSystem && combatSystem.createDamageText) {
+        console.log(`✅ EntityDamagedHandler: Found CombatSystem with createDamageText method`); // TEMP DEBUG
         // Trova l'entità danneggiata
         let targetEntity = null;
 
@@ -68,6 +75,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             // Per ora mostriamo tutto come danno HP (bianco/rosso)
             // In futuro potremmo migliorare la logica per distinguere shield vs HP
             const isShieldDamage = false;
+            console.log(`🔥 EntityDamagedHandler: Calling combatSystem.createDamageText with targetEntity=${targetEntity}, damage=${message.damage}, isShield=${isShieldDamage}`); // TEMP DEBUG
             combatSystem.createDamageText({ id: targetEntity }, message.damage, isShieldDamage);
           }
 
