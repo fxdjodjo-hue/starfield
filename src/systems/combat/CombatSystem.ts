@@ -420,7 +420,6 @@ export class CombatSystem extends BaseSystem {
         this.currentAttackTarget = null;
         this.attackStartedLogged = false;
         this.wasInCombat = false; // Reset wasInCombat if no NPC is selected
-        }
         return;
       }
     }
