@@ -474,10 +474,10 @@ export class ClientNetworkSystem extends BaseSystem {
    * Gets the EntityDestroyedHandler instance
    */
   getEntityDestroyedHandler(): any {
-    // Trova l'handler EntityDestroyedHandler tra quelli registrati
+    // Trova l'handler EntityDestroyedHandler tra quelli registrati (robusto contro minificazione)
     if (this.messageRouter) {
       const handlers = (this.messageRouter as any).handlers || [];
-      return handlers.find((handler: any) => handler.constructor.name === 'EntityDestroyedHandler') || null;
+      return handlers.find((handler: any) => typeof handler.setRewardSystem === 'function') || null;
     }
     return null;
   }

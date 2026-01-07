@@ -184,12 +184,13 @@ export class ProjectileSystem extends BaseSystem {
    * Notifica il CombatSystem quando viene applicato danno
    */
   private notifyCombatSystemOfDamage(targetEntity: any, damage: number): void {
-    // Cerca il CombatSystem nell'ECS
-    const combatSystem = (this.ecs as any).systems?.find((system: any) =>
-      system.constructor.name === 'CombatSystem'
+    // Cerca il CombatSystem nell'ECS (robusto contro minificazione)
+    const systems = (this.ecs as any).systems || [];
+    const combatSystem = systems.find((system: any) =>
+      typeof system.createDamageText === 'function'
     );
 
-    if (combatSystem && combatSystem.createDamageText) {
+    if (combatSystem) {
       // Applica la logica di danno divisa tra shield e HP
       const targetShield = this.ecs.getComponent(targetEntity, Shield);
       const targetHealth = this.ecs.getComponent(targetEntity, Health);

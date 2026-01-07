@@ -23,9 +23,9 @@ export class DamageTextSystem extends BaseSystem {
    * Trova il sistema camera
    */
   private findCameraSystem(): any {
-    // Cerca nei sistemi registrati
+    // Cerca nei sistemi registrati (robusto contro minificazione)
     if (this.ecs && (this.ecs as any).systems) {
-      return (this.ecs as any).systems.find((system: any) => system.constructor?.name === 'CameraSystem');
+      return (this.ecs as any).systems.find((system: any) => typeof system.getCamera === 'function');
     }
     return null;
   }
