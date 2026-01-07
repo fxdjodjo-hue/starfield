@@ -61,20 +61,14 @@ export class EntityDamagedHandler extends BaseMessageHandler {
           }
         }
 
-        // Crea testi di danno separati per shield e HP
+        // Crea damage text se abbiamo trovato l'entità target
         if (targetEntity) {
-          let shieldDamage = 0;
-          let healthDamage = 0;
-
-          // Ottieni componenti per calcolare il danno
-          const shieldComponent = ecs.getComponent(targetEntity, Shield);
-          // Poiché ora i componenti vengono aggiornati in tempo reale dai bulk updates,
-          // non possiamo fare affidamento sui valori "old" vs "new".
-          // Mostriamo semplicemente il danno totale ricevuto come damage text.
+          // Crea damage text per il danno ricevuto dal server
           if (message.damage > 0) {
-            // Determina se è principalmente danno shield o HP basandosi sui valori attuali
-            const isShieldDamage = message.newShield < (shieldComponent?.current || 0);
-            combatSystem.createDamageText(targetEntity, message.damage, isShieldDamage);
+            // Per ora mostriamo tutto come danno HP (bianco/rosso)
+            // In futuro potremmo migliorare la logica per distinguere shield vs HP
+            const isShieldDamage = false;
+            combatSystem.createDamageText({ id: targetEntity }, message.damage, isShieldDamage);
           }
 
           // NOTA: Non aggiorniamo più i componenti qui perché ora vengono gestiti
