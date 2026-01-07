@@ -51,10 +51,30 @@ export class CombatSystem extends BaseSystem {
    * Imposta il sistema di rete per notifiche multiplayer (fallback)
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
+    console.log(`🔧 [COMBAT] setClientNetworkSystem called with: ${!!clientNetworkSystem}`);
     this.clientNetworkSystem = clientNetworkSystem;
 
-    // Processa le richieste di combattimento pendenti
+    // Processa le richieste di combattimento pendenti solo se connesso
     if (this.pendingCombatRequests.length > 0) {
+      if (this.clientNetworkSystem.isConnected()) {
+        const pendingRequests = [...this.pendingCombatRequests];
+        this.pendingCombatRequests = [];
+
+        for (const npcEntity of pendingRequests) {
+          this.sendStartCombat(npcEntity);
+        }
+      } else {
+        console.log(`📡 [COMBAT] Network system set but not connected, keeping ${this.pendingCombatRequests.length} pending requests`);
+      }
+    }
+  }
+
+  /**
+   * Processa le richieste di combattimento pendenti quando la connessione è stabilita
+   */
+  processPendingCombatRequests(): void {
+    if (this.pendingCombatRequests.length > 0 && this.clientNetworkSystem && this.clientNetworkSystem.isConnected()) {
+      console.log(`📡 [COMBAT] Processing ${this.pendingCombatRequests.length} pending combat requests`);
       const pendingRequests = [...this.pendingCombatRequests];
       this.pendingCombatRequests = [];
 
@@ -448,7 +468,7 @@ export class CombatSystem extends BaseSystem {
    * Invia richiesta di inizio combattimento al server
    */
   private sendStartCombat(npcEntity: any): void {
-    console.log(`📡 [CLIENT] Sending START_COMBAT request for NPC ${npcEntity.id}`);
+    console.log(`📡 [CLIENT] Sending START_COMBAT request for NPC ${npcEntity.id}, clientNetworkSystem: ${!!this.clientNetworkSystem}`);
 
     if (!this.clientNetworkSystem) {
       // Aggiungi alla coda delle richieste pendenti
@@ -456,6 +476,9 @@ export class CombatSystem extends BaseSystem {
       console.log(`📡 [CLIENT] No network system, queued request for NPC ${npcEntity.id}`);
       return;
     }
+
+    // Non controllare isConnected() qui - il metodo sendStartCombat del ClientNetworkSystem
+    // controlla già se la connessione è attiva prima di inviare
 
     const npc = this.ecs.getComponent(npcEntity, Npc);
     if (!npc) {

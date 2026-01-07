@@ -1136,7 +1136,10 @@ class ServerCombatManager {
     const dy = npc.position.y - playerData.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    if (distance === 0) return;
+    if (distance === 0) {
+      console.log(`⚠️ [SERVER] Distance is 0, skipping attack`);
+      return;
+    }
 
     const directionX = dx / distance;
     const directionY = dy / distance;
@@ -1144,6 +1147,8 @@ class ServerCombatManager {
     // Crea proiettile singolo (per semplicità, non dual laser per ora)
     const projectileId = `player_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const speed = SERVER_CONSTANTS.PROJECTILE.SPEED;
+
+    console.log(`🔫 [SERVER] Creating projectile ${projectileId} from (${playerData.position.x.toFixed(0)}, ${playerData.position.y.toFixed(0)}) to (${npc.position.x.toFixed(0)}, ${npc.position.y.toFixed(0)})`);
 
     const velocity = {
       x: directionX * speed,
@@ -1158,6 +1163,7 @@ class ServerCombatManager {
     };
 
     // Registra proiettile
+    console.log(`📡 [SERVER] Adding projectile ${projectileId} to projectileManager`);
     this.mapServer.projectileManager.addProjectile(
       projectileId,
       playerId,
@@ -1168,6 +1174,7 @@ class ServerCombatManager {
       npc.id, // targetId - ID dell'NPC bersaglio per homing
       false // excludeSender - il client deve vedere i suoi proiettili
     );
+    console.log(`✅ [SERVER] Projectile ${projectileId} added successfully`);
   }
 
   /**
@@ -1591,13 +1598,16 @@ wss.on('connection', (ws) => {
 
       // Gestisce richiesta di inizio combattimento
       if (data.type === 'start_combat') {
+        console.log(`📡 [SERVER] Received START_COMBAT message:`, JSON.stringify(data));
+
         // Valida che l'NPC esista
         const npc = mapServer.npcManager.getNpc(data.npcId);
         if (!npc) {
+          console.log(`❌ [SERVER] START_COMBAT: NPC ${data.npcId} not found`);
           return;
         }
 
-        console.log(`📡 [SERVER] Received START_COMBAT: player=${data.playerId}, npc=${data.npcId}`);
+        console.log(`✅ [SERVER] START_COMBAT: NPC ${data.npcId} found, starting combat for player=${data.playerId}`);
 
         // Inizia il combattimento server-side
         mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);

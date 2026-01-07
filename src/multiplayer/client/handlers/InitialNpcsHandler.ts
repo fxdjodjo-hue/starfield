@@ -12,7 +12,7 @@ export class InitialNpcsHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`🏁 [INITIAL_NPCS] Received ${message.npcs?.length || 0} initial NPCs`);
+    console.log(`🏁 [INITIAL_NPCS] Handler called with ${message.npcs?.length || 0} initial NPCs`);
 
     const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
     if (!remoteNpcSystem) {
@@ -20,7 +20,7 @@ export class InitialNpcsHandler extends BaseMessageHandler {
       return;
     }
 
-    console.log(`✅ [INITIAL_NPCS] Processing with RemoteNpcSystem available`);
+    console.log(`✅ [INITIAL_NPCS] Processing with RemoteNpcSystem available - calling initializeNpcsFromServer`);
 
     // Rimuovi eventuali NPC esistenti (cleanup da riconnessioni)
     remoteNpcSystem.removeAllRemoteNpcs();

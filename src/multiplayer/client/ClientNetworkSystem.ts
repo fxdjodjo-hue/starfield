@@ -70,6 +70,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private onConnectionErrorCallback?: (error: Event) => void;
   private onReconnectingCallback?: () => void;
   private onReconnectedCallback?: () => void;
+  private onConnectedCallback?: () => void;
 
   constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem, audioSystem?: any) {
     super(ecs);
@@ -165,6 +166,7 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
     console.log(`🔌 [CLIENT] WebSocket connected, sending join message`);
+    console.log(`📊 [CLIENT] RemoteNpcSystem available: ${!!this.remoteNpcSystem}`);
     this.socket = socket;
 
     // Reset tick manager timing on (re)connection
@@ -173,6 +175,11 @@ export class ClientNetworkSystem extends BaseSystem {
     // Notify external systems of successful (re)connection
     if (this.onReconnectedCallback) {
       this.onReconnectedCallback();
+    }
+
+    // Notify external systems of successful connection
+    if (this.onConnectedCallback) {
+      this.onConnectedCallback();
     }
 
     // Send join message with player info
@@ -195,6 +202,9 @@ export class ClientNetworkSystem extends BaseSystem {
       const message: NetMessage = JSON.parse(data);
 
       console.log(`📨 [CLIENT] Received message: ${message.type}`);
+      if (message.type === 'initial_npcs') {
+        console.log(`🌍 [CLIENT] Received initial_npcs with ${message.npcs?.length || 0} NPCs`);
+      }
 
       // Handle simple messages that don't need dedicated handlers
       switch (message.type) {
@@ -294,6 +304,13 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   onReconnected(callback: () => void): void {
     this.onReconnectedCallback = callback;
+  }
+
+  /**
+   * Registers callback for successful connection events
+   */
+  onConnected(callback: () => void): void {
+    this.onConnectedCallback = callback;
   }
 
   /**
@@ -661,6 +678,13 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getLocalClientId(): string {
     return this.clientId;
+  }
+
+  /**
+   * Sets the AudioSystem instance
+   */
+  setAudioSystem(audioSystem: any): void {
+    this.audioSystem = audioSystem;
   }
 
   /**

@@ -84,18 +84,28 @@ export class GameInitializationSystem extends System {
    * Imposta il sistema di rete per notifiche multiplayer
    */
   setClientNetworkSystem(clientNetworkSystem: any): void {
+    console.log(`🔧 [GAME_INIT] setClientNetworkSystem called, combatSystem exists: ${!!this.combatSystem}`);
     this.clientNetworkSystem = clientNetworkSystem;
 
-    // Ora che abbiamo il ClientNetworkSystem, impostalo anche nel CombatSystem
+    // Se il CombatSystem è già stato creato, impostalo immediatamente
     if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
+      console.log(`🔧 [GAME_INIT] Calling setClientNetworkSystem on CombatSystem`);
       this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
+      console.log(`📝 [GAME_INIT] CombatSystem not yet created, will set it later`);
+      // Il ClientNetworkSystem verrà impostato sul CombatSystem quando viene creato
     }
 
     // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
     if (this.minimapSystem && typeof this.minimapSystem.setClientNetworkSystem === 'function') {
       this.minimapSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
+    }
+
+    // Imposta il RemoteNpcSystem nel ClientNetworkSystem per gestire gli NPC remoti
+    if (this.systemsCache?.remoteNpcSystem && typeof clientNetworkSystem.setRemoteNpcSystem === 'function') {
+      clientNetworkSystem.setRemoteNpcSystem(this.systemsCache.remoteNpcSystem);
+      console.log('🔧 [GAME_INIT] RemoteNpcSystem collegato al ClientNetworkSystem');
     }
 
     // Collega RewardSystem all'EntityDestroyedHandler per processare ricompense da server
@@ -169,6 +179,12 @@ export class GameInitializationSystem extends System {
 
     // Sistema proiettili remoti per multiplayer
     const remoteProjectileSystem = new RemoteProjectileSystem(this.ecs);
+
+    // Se abbiamo già un ClientNetworkSystem, impostalo sul CombatSystem appena creato
+    if (this.clientNetworkSystem && combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
+      console.log(`🔧 [GAME_INIT] Setting ClientNetworkSystem on newly created CombatSystem`);
+      combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    }
 
     const result = {
       cameraSystem,

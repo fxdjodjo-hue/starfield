@@ -12,3 +12,4 @@ node server.cjs
 echo.
 echo Server fermato. Premi un tasto per chiudere...
 pause > nul
+

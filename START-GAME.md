@@ -53,3 +53,4 @@ DEFAULT_SERVER_URL: 'wss://tuo-server-online.com',
 
 ---
 *Creato automaticamente per avvio semplificato* 🎯
+

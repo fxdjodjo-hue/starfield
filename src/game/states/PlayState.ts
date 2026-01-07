@@ -73,6 +73,9 @@ export class PlayState extends GameState {
     // Nasconde il titolo principale
     this.uiSystem.hideMainTitle();
 
+    // Inizializza sistemi multiplayer PRIMA dell'inizializzazione del gioco
+    await this.initializeMultiplayerSystems();
+
     try {
       // Inizializza il mondo e crea il giocatore PRIMA di mostrare l'HUD
       await this.initializeGame();
@@ -84,10 +87,23 @@ export class PlayState extends GameState {
     // Inizializza il sistema UI dopo che tutti i sistemi sono stati creati
     this.uiSystem.initialize();
 
-    // Sistemi multiplayer verranno inizializzati dopo la creazione del player
+    // I sistemi remoti sono già stati collegati prima dell'inizializzazione del gioco
+
+    // Ora che tutti i sistemi sono collegati, connetti al server
+    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
+      console.log('🔌 [PLAYSTATE] Connecting to server after game initialization...');
+      this.clientNetworkSystem.connectToServer().catch(error => {
+        console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
+      });
+    }
 
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
+
+    // Collega l'AudioSystem al ClientNetworkSystem ora che è stato creato
+    if (this.clientNetworkSystem && this.audioSystem) {
+      this.clientNetworkSystem.setAudioSystem(this.audioSystem);
+    }
 
     // Avvia musica di background e suoni ambientali
     if (this.audioSystem) {
@@ -101,8 +117,6 @@ export class PlayState extends GameState {
       }, 100);
     }
 
-    // Il ClientNetworkSystem verrà impostato automaticamente quando inizializzato
-
     // Messaggio di benvenuto nella chat
     setTimeout(() => {
       this.uiSystem.addSystemMessage('🚀 Welcome to Starfield! Use the chat to communicate.');
@@ -113,6 +127,63 @@ export class PlayState extends GameState {
     // HUD toggle gestito da UiSystem
 
     // I listener per i pannelli sono ora gestiti da UiSystem e QuestSystem
+  }
+
+  /**
+   * Inizializza i sistemi multiplayer prima dell'inizializzazione del gioco
+   */
+  private async initializeMultiplayerSystems(): Promise<void> {
+    // Carica gli asset necessari per i sistemi remoti
+    const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
+
+    // Crea sistema remote player
+    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, 32, 32);
+    this.world.getECS().addSystem(this.remotePlayerSystem);
+
+    // Prova a ottenere i sistemi remoti (potrebbero essere null se initialize() non è stato chiamato)
+    const systems = this.gameInitSystem.getSystems();
+    this.remoteNpcSystem = systems.remoteNpcSystem || null;
+    this.remoteProjectileSystem = systems.remoteProjectileSystem || null;
+
+    // Inizializza il sistema di rete multiplayer
+    this.clientNetworkSystem = new ClientNetworkSystem(
+      this.world.getECS(),
+      this.context,
+      this.remotePlayerSystem,
+      'ws://localhost:3000', // Server locale
+      this.remoteNpcSystem, // Sistema NPC (potrebbe essere null inizialmente)
+      this.remoteProjectileSystem, // Sistema proiettili (potrebbe essere null inizialmente)
+      this.audioSystem // Sistema audio
+    );
+    this.world.getECS().addSystem(this.clientNetworkSystem);
+
+    // Imposta informazioni del player nel sistema di rete
+    this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
+
+    // Ora che il ClientNetworkSystem è inizializzato, passalo al GameInitializationSystem
+    this.setupClientNetworkSystem();
+
+    // Collega il callback per processare le richieste pendenti quando la connessione è stabilita
+    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
+      this.clientNetworkSystem.onConnected(() => {
+        // Notifica il CombatSystem che può processare le richieste pendenti
+        const systems = this.gameInitSystem.getSystems();
+        if (systems.combatSystem && typeof systems.combatSystem.processPendingCombatRequests === 'function') {
+          systems.combatSystem.processPendingCombatRequests();
+        }
+      });
+    }
+
+    // Imposta callback per notificare il CombatSystem quando la connessione è stabilita
+    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
+      this.clientNetworkSystem.onConnected(() => {
+        // Notifica il CombatSystem che può processare le richieste pendenti
+        const combatSystem = this.gameInitSystem.getSystems().combatSystem;
+        if (combatSystem && typeof combatSystem.processPendingCombatRequests === 'function') {
+          combatSystem.processPendingCombatRequests();
+        }
+      });
+    }
   }
 
 
@@ -214,49 +285,6 @@ export class PlayState extends GameState {
 
 
 
-  /**
-   * Inizializza sistemi multiplayer dopo la creazione del player
-   */
-  private initializeMultiplayerSystems(): void {
-    if (!this.playerEntity) {
-      console.error('Player entity not found, cannot initialize multiplayer systems');
-      return;
-    }
-
-    // Ottieni sprite info dal player locale
-    const playerSprite = this.world.getECS().getComponent(this.playerEntity, Sprite);
-    const shipImage = playerSprite?.image || null;
-    const shipWidth = playerSprite?.width || 32;
-    const shipHeight = playerSprite?.height || 32;
-
-
-    // Inizializza il sistema per i giocatori remoti
-    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, shipWidth, shipHeight);
-    this.world.getECS().addSystem(this.remotePlayerSystem);
-
-    // Prova a ottenere i sistemi remoti (potrebbero essere null se initialize() non è stato chiamato)
-    const systems = this.gameInitSystem.getSystems();
-    this.remoteNpcSystem = systems.remoteNpcSystem || null;
-    this.remoteProjectileSystem = systems.remoteProjectileSystem || null;
-
-    // Inizializza il sistema di rete multiplayer
-    this.clientNetworkSystem = new ClientNetworkSystem(
-      this.world.getECS(),
-      this.context,
-      this.remotePlayerSystem,
-      undefined, // Usa URL di default
-      this.remoteNpcSystem, // Sistema NPC (potrebbe essere null inizialmente)
-      this.remoteProjectileSystem, // Sistema proiettili (potrebbe essere null inizialmente)
-      this.audioSystem // Sistema audio
-    );
-    this.world.getECS().addSystem(this.clientNetworkSystem);
-
-    // Imposta informazioni del player nel sistema di rete
-    this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
-
-    // Ora che il ClientNetworkSystem è inizializzato, passalo al GameInitializationSystem
-    this.setupClientNetworkSystem();
-  }
 
 
   /**
@@ -306,12 +334,6 @@ export class PlayState extends GameState {
       }
     }
 
-    // Ora che tutti i sistemi sono impostati, connetti al server
-    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
-      this.clientNetworkSystem.connectToServer().catch(error => {
-        console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
-      });
-    }
 
     // Inizializza il sistema di interpolazione per movimenti fluidi
     this.interpolationSystem = new InterpolationSystem(this.world.getECS());
@@ -323,8 +345,6 @@ export class PlayState extends GameState {
       this.uiSystem.setEconomySystem(systems.economySystem);
     }
 
-    // Inizializza sistemi multiplayer dopo che il player è stato creato
-    this.initializeMultiplayerSystems();
 
     // Collega il PlayerSystem all'UiSystem
     if (systems.playerSystem) {
