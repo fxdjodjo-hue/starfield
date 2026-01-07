@@ -2,13 +2,10 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
-import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Sprite } from '../../entities/Sprite';
-import { Health } from '../../entities/combat/Health';
-import { Shield } from '../../entities/combat/Shield';
-import { Damage } from '../../entities/combat/Damage';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
-import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { EntityFactory } from '../../factories/EntityFactory';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
@@ -19,6 +16,8 @@ export class RemotePlayerSystem extends BaseSystem {
   private sharedSprite: Sprite;
   // Logging per evitare spam di aggiornamenti posizione
   private lastUpdateLog = new Map<string, number>();
+  // Factory per creare entità
+  private entityFactory: EntityFactory;
 
   constructor(ecs: ECS, shipImage: HTMLImageElement | null = null, shipWidth?: number, shipHeight?: number) {
     super(ecs);
@@ -26,6 +25,7 @@ export class RemotePlayerSystem extends BaseSystem {
     const height = shipHeight || 32;
     // Crea un singolo sprite condiviso per tutti i remote player
     this.sharedSprite = new Sprite(shipImage, width, height);
+    this.entityFactory = new EntityFactory(ecs);
   }
 
   /**
@@ -105,43 +105,24 @@ export class RemotePlayerSystem extends BaseSystem {
 
     console.log(`🎮 [REMOTE_PLAYER] Creating remote player entity for ${clientId} at (${x}, ${y})`);
 
-    // Crea una nuova entity per il giocatore remoto
-    const entity = this.ecs.createEntity();
-
-    // Aggiungi componenti base
-    const transform = new Transform(x, y, rotation);
-    this.ecs.addComponent(entity, Transform, transform);
-
-    // Aggiungi il componente identificativo del giocatore remoto
-    const remotePlayerComponent = new RemotePlayer(clientId, '', 'Recruit');
-    this.ecs.addComponent(entity, RemotePlayer, remotePlayerComponent);
+    // Usa EntityFactory per creare il remote player
+    const entity = this.entityFactory.createRemotePlayer({
+      clientId,
+      position: {
+        x,
+        y,
+        rotation,
+        sprite: this.sharedSprite
+      },
+      combat: {
+        health: { current: 100, max: 100 }, // HP completo per giocatori remoti
+        shield: { current: 50, max: 50 },   // Scudo completo per giocatori remoti
+        damage: { value: 50, range: 30, cooldown: 100 } // Valori base per giocatori remoti
+      },
+      interpolation: true // Abilita interpolazione per movimento fluido
+    });
 
     console.log(`✅ [REMOTE_PLAYER] Created entity ${entity.id} for remote player ${clientId}`);
-
-    // Nota: Non aggiungiamo Velocity ai remote player per evitare conflitti
-    // con il MovementSystem durante l'interpolazione
-
-    // Aggiungi salute per mostrare le barre
-    const health = new Health(100, 100); // HP completo per giocatori remoti
-    this.ecs.addComponent(entity, Health, health);
-
-    // Aggiungi scudo (come player locale)
-    const shield = new Shield(50, 50); // Scudo completo per giocatori remoti
-    this.ecs.addComponent(entity, Shield, shield);
-
-    // Aggiungi danno (per completezza, anche se non controllato localmente)
-    const damage = new Damage(50, 30, 100); // Valori base per giocatori remoti
-    this.ecs.addComponent(entity, Damage, damage);
-
-    // Aggiungi il sprite condiviso per il giocatore remoto
-    // Tutti i remote player condividono lo stesso sprite per efficienza
-    this.ecs.addComponent(entity, Sprite, this.sharedSprite);
-
-    // AGGIUNGI INTERPOLAZIONE PERSISTENTE
-    // Componente rimane attivo per sempre - interpolazione continua
-    const interpolation = new InterpolationTarget(x, y, rotation);
-    this.ecs.addComponent(entity, InterpolationTarget, interpolation);
-
     return entity.id;
   }
 
@@ -213,18 +194,13 @@ export class RemotePlayerSystem extends BaseSystem {
   getRemotePlayerPositions(): Array<{x: number, y: number}> {
     const positions: Array<{x: number, y: number}> = [];
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer, Transform);
-
-    console.log(`🔍 [REMOTE_PLAYER] getRemotePlayerPositions called - Found ${remotePlayerEntities.length} remote player entities`);
-
     for (const entity of remotePlayerEntities) {
       const transform = this.ecs.getComponent(entity, Transform);
       if (transform) {
         positions.push({ x: transform.x, y: transform.y });
-        console.log(`📍 [REMOTE_PLAYER] Remote player at (${transform.x.toFixed(1)}, ${transform.y.toFixed(1)})`);
       }
     }
 
-    console.log(`📊 [REMOTE_PLAYER] Returning ${positions.length} positions`);
     return positions;
   }
 

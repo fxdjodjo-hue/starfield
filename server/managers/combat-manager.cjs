@@ -177,6 +177,15 @@ class ServerCombatManager {
       y: playerData.position.y + directionY * offset
     };
 
+    // Calcola danno basato sugli upgrade del player (Server Authoritative)
+    let calculatedDamage = 500; // Base damage
+    if (playerData.upgrades) {
+      // Calculate damage bonus: 1.0 + (damageUpgrades * 0.01)
+      const damageBonus = 1.0 + (playerData.upgrades.damageUpgrades * 0.01);
+      calculatedDamage = Math.floor(500 * damageBonus);
+      console.log(`🎯 [SERVER] Player ${playerId} damage calculated: ${calculatedDamage} (base: 500, bonus: ${damageBonus.toFixed(3)}, upgrades: ${JSON.stringify(playerData.upgrades)})`);
+    }
+
     // Registra proiettile
     console.log(`📡 [SERVER] Adding projectile ${projectileId} to projectileManager`);
     this.mapServer.projectileManager.addProjectile(
@@ -184,7 +193,7 @@ class ServerCombatManager {
       playerId,
       projectilePos,
       velocity,
-      500, // damage
+      calculatedDamage, // damage calcolato basato sugli upgrade
       'laser',
       npc.id, // targetId - ID dell'NPC bersaglio per homing
       false // excludeSender - il client deve vedere i suoi proiettili

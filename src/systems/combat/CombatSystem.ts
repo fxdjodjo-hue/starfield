@@ -18,6 +18,7 @@ import { GameContext } from '../../infrastructure/engine/GameContext';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
+import { AtlasParser } from '../../utils/AtlasParser';
 import { calculateDirection } from '../../utils/MathUtils';
 import { ProjectileFactory } from '../../factories/ProjectileFactory';
 
@@ -88,6 +89,14 @@ export class CombatSystem extends BaseSystem {
     this.audioSystem = audioSystem;
   }
 
+  /**
+   * Imposta i frame dell'esplosione precaricati per evitare lag
+   */
+  setPreloadedExplosionFrames(frames: HTMLImageElement[]): void {
+    this.explosionFrames = frames;
+    console.log(`💥 [COMBAT] Explosion frames precaricati impostati: ${frames.length} frame`);
+  }
+
 
   update(deltaTime: number): void {
 
@@ -155,6 +164,7 @@ export class CombatSystem extends BaseSystem {
    * Crea un proiettile dall'attaccante verso il target
    */
   private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any): void {
+
     // Usa la rotazione corrente dell'NPC per la direzione del proiettile
     // Gli NPC in modalità aggressive mantengono la rotazione verso il player
     const isPlayer = attackerEntity === this.playerSystem.getPlayerEntity();
@@ -224,6 +234,14 @@ export class CombatSystem extends BaseSystem {
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
 
+    console.log('🔍 [COMBAT] isLocalPlayer check:', {
+      attackerEntityId: attackerEntity.id,
+      playerEntityId: playerEntity?.id,
+      isLocalPlayer,
+      attackerEntityType: attackerEntity.type,
+      playerEntityType: playerEntity?.type
+    });
+
     // Calcola posizione target per la factory
     const targetX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2; // Moltiplica per 2 per compensare
     const targetY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
@@ -262,7 +280,7 @@ export class CombatSystem extends BaseSystem {
               x: directionX * GAME_CONSTANTS.PROJECTILE.SPEED,
               y: directionY * GAME_CONSTANTS.PROJECTILE.SPEED
             },
-            damage,
+            // DAMAGE RIMOSSO: sarà calcolato dal server (Server Authoritative)
             projectileType: 'laser'
           });
         }
@@ -362,6 +380,12 @@ export class CombatSystem extends BaseSystem {
   private processPlayerCombat(): void {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+
+    // Log solo se ci sono NPC selezionati per evitare spam
+    if (selectedNpcs.length > 0) {
+      console.log(`⚔️ [COMBAT] processPlayerCombat called at ${Date.now()} - ${selectedNpcs.length} NPCs selected`);
+    }
+
     if (selectedNpcs.length === 0) {
       // Se non c'è nessun NPC selezionato, ferma il combattimento
       if (this.currentAttackTarget !== null) {
@@ -385,6 +409,14 @@ export class CombatSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
     if (!playerTransform || !playerDamage || !npcHealth || !npcTransform) return;
+
+    // Il combattimento è ora GESTITO DAL SERVER (Server Authoritative)
+    // Il client NON deve sparare automaticamente - solo il server lo fa
+    // Questo previene la duplicazione di proiettili
+
+    // Se siamo qui, significa che c'è un NPC selezionato ma il combattimento
+    // dovrebbe essere già stato avviato dal server quando è stato selezionato l'NPC
+    // Non sparare dal client per evitare duplicazioni
 
     // Controlla se l'NPC selezionato è ancora visibile nella viewport
     const canvasSize = (this.ecs as any).context?.canvas ?
@@ -547,7 +579,8 @@ export class CombatSystem extends BaseSystem {
 
       // Carica i frame dell'esplosione se non già caricati
       if (!this.explosionFrames) {
-        this.explosionFrames = await this.loadExplosionFrames();
+        const explosionType = this.getExplosionTypeForEntity(entity);
+        this.explosionFrames = await this.loadExplosionFrames(explosionType);
       }
 
       // Verifica nuovamente che l'entità esista dopo il caricamento async
@@ -567,7 +600,7 @@ export class CombatSystem extends BaseSystem {
       this.ecs.removeComponent(entity, Velocity); // Rimuovi velocità così l'esplosione rimane ferma
 
       // Aggiungi il componente esplosione
-      const explosion = new Explosion(this.explosionFrames, 80); // 80ms per frame
+      const explosion = new Explosion(this.explosionFrames, 20, 1); // 20ms per frame - perfetto
       this.ecs.addComponent(entity, Explosion, explosion);
 
       // Notifica il sistema di rete per sincronizzazione multiplayer
@@ -610,18 +643,22 @@ export class CombatSystem extends BaseSystem {
   /**
    * Carica tutti i frame dell'animazione dell'esplosione
    */
-  private async loadExplosionFrames(): Promise<HTMLImageElement[]> {
-    const frames: HTMLImageElement[] = [];
-    const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
+  private async loadExplosionFrames(explosionType?: string): Promise<HTMLImageElement[]> {
+    try {
+      // Usa il file atlas originale con l'immagine explosion.png
+      const atlasPath = `/assets/explosions/explosions_npc/explosion.atlas`;
 
-    // Carica i 10 frame dell'esplosione
-    for (let i = 1; i <= 10; i++) {
-      const framePath = `${basePath}${i}.png`;
-      const frame = await this.gameContext.assetManager.loadImage(framePath);
-      frames.push(frame);
+      const atlasData = await AtlasParser.parseAtlas(atlasPath);
+
+      // Estrai tutti i frame definiti nell'atlas
+      const frames = await AtlasParser.extractFrames(atlasData);
+
+      console.log(`💥 [EXPLOSION] Loaded ${frames.length} frames from atlas: ${atlasPath}`);
+      return frames;
+    } catch (error) {
+      console.error('Failed to load explosion frames from atlas:', error);
+      return [];
     }
-
-    return frames;
   }
 
   /**
@@ -675,5 +712,27 @@ export class CombatSystem extends BaseSystem {
         this.activeDamageTexts.delete(targetEntityId);
       }
     }
+  }
+
+  /**
+   * Restituisce il tipo di esplosione appropriato per l'entità
+   */
+  private getExplosionTypeForEntity(entity: any): string {
+    const npc = this.ecs.getComponent(entity, Npc);
+
+    if (npc) {
+      // Assegna esplosioni diverse per tipi di NPC (sequenziale/progressiva)
+      switch (npc.type) {
+        case 'Scouter':
+          return 'explosion2'; // Esplosione più piccola e rapida
+        case 'Frigate':
+          return 'explosion3'; // Esplosione più grande e spettacolare
+        default:
+          return 'explosion'; // Default
+      }
+    }
+
+    // Per il player usa esplosione base
+    return 'explosion';
   }
 }

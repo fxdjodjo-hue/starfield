@@ -240,16 +240,32 @@ class ServerNpcManager {
       return;
     }
 
+    // SkillPoints drop casuale (25-50% probabilità di 1-3 punti)
+    let skillPointsDrop = 0;
+    const dropChance = Math.random();
+    if (dropChance < 0.25) { // 25% probabilità
+      skillPointsDrop = 1;
+    } else if (dropChance < 0.50) { // Altri 25% probabilità (totale 50%)
+      skillPointsDrop = Math.floor(Math.random() * 3) + 1; // 1-3 punti
+    }
+
     // Aggiungi ricompense all'inventario del giocatore
     playerData.inventory.credits += rewards.credits || 0;
     playerData.inventory.cosmos += rewards.cosmos || 0;
     playerData.inventory.experience += rewards.experience || 0;
     playerData.inventory.honor += rewards.honor || 0;
+    playerData.inventory.skillPoints += skillPointsDrop;
 
-    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor for killing ${npcType}`);
+    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor, ${skillPointsDrop} skillPoints for killing ${npcType}`);
+
+    // Crea oggetto rewards completo includendo drop casuali
+    const finalRewards = {
+      ...rewards,
+      skillPoints: skillPointsDrop
+    };
 
     // Invia notifica delle ricompense al client
-    this.sendRewardsNotification(playerId, rewards, npcType);
+    this.sendRewardsNotification(playerId, finalRewards, npcType);
   }
 
   /**
@@ -260,10 +276,11 @@ class ServerNpcManager {
     if (!playerData || playerData.ws.readyState !== 1) return; // WebSocket.OPEN = 1
 
     const message = {
-      type: 'rewards_earned',
-      rewards: rewards,
+      type: 'player_state_update',
+      inventory: { ...playerData.inventory },
+      upgrades: { ...playerData.upgrades },
       source: `killed_${npcType}`,
-      totalInventory: { ...playerData.inventory }
+      rewardsEarned: rewards
     };
 
     playerData.ws.send(JSON.stringify(message));

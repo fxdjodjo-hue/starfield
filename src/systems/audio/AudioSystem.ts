@@ -1,5 +1,5 @@
 import { System } from '../../infrastructure/ecs/System';
-import { GameContext } from '../../infrastructure/engine/GameContext';
+import { ECS } from '../../infrastructure/ecs/ECS';
 import type { AudioConfig } from '../../config/AudioConfig';
 import { AUDIO_ASSETS } from '../../config/AudioConfig';
 
@@ -18,14 +18,13 @@ export default class AudioSystem extends System {
   private audioContext: AudioContext | null = null;
   private sounds: Map<string, HTMLAudioElement> = new Map();
   private musicInstance: HTMLAudioElement | null = null;
-  private gainNodes: Map<string, GainNode> = new Map();
 
   // Debouncing system to prevent sound duplication
   private lastPlayedTimes: Map<string, number> = new Map();
-  private debounceTimeouts: Map<string, NodeJS.Timeout> = new Map();
+  private debounceTimeouts: Map<string, number> = new Map();
 
-  constructor(config: Partial<AudioConfig> = {}) {
-    super();
+  constructor(ecs: ECS, config: Partial<AudioConfig> = {}) {
+    super(ecs);
     this.config = {
       masterVolume: 1.0,
       musicVolume: 0.7,
@@ -192,10 +191,10 @@ export default class AudioSystem extends System {
       this.musicInstance.loop = true;
 
       this.musicInstance.play().catch(error => {
-        console.warn(`Audio system: Failed to play music '${key}':`, error);
+        // console.warn(`Audio system: Failed to play music '${key}':`, error);
       });
     } catch (error) {
-      console.warn(`Audio system: Failed to play music '${key}':`, error);
+      // console.warn(`Audio system: Failed to play music '${key}':`, error);
     }
   }
 

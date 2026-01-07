@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import AudioSystem from '../../systems/audio/AudioSystem';
+import { ECS } from '../../infrastructure/ecs/ECS';
 
 // Mock di Audio
 const createMockAudio = () => ({
@@ -15,13 +16,16 @@ const createMockAudio = () => ({
 
 describe('AudioSystem', () => {
   let audioSystem: AudioSystem;
+  let mockEcs: ECS;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Create mock ECS
+    mockEcs = new ECS();
     // Mock del costruttore Audio
     const MockAudio = vi.fn().mockImplementation(() => createMockAudio());
     global.Audio = MockAudio as any;
-    audioSystem = new AudioSystem();
+    audioSystem = new AudioSystem(mockEcs);
   });
 
   describe('initialization', () => {
@@ -40,7 +44,7 @@ describe('AudioSystem', () => {
         musicVolume: 0.3,
         enabled: false
       };
-      audioSystem = new AudioSystem(customConfig);
+      audioSystem = new AudioSystem(mockEcs, customConfig);
 
       const config = audioSystem.getConfig();
       expect(config.masterVolume).toBe(0.5);

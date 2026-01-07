@@ -2,8 +2,10 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
+import { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
+import { AtlasParser } from '../../utils/AtlasParser';
 
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
@@ -12,7 +14,7 @@ import { RemotePlayerUpdateHandler } from './handlers/RemotePlayerUpdateHandler'
 import { PlayerJoinedHandler } from './handlers/PlayerJoinedHandler';
 import { PlayerLeftHandler } from './handlers/PlayerLeftHandler';
 import { PlayerRespawnHandler } from './handlers/PlayerRespawnHandler';
-import { RewardsEarnedHandler } from './handlers/RewardsEarnedHandler';
+import { PlayerStateUpdateHandler } from './handlers/PlayerStateUpdateHandler';
 // NPC handlers
 import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
 import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
@@ -66,6 +68,7 @@ export class ClientNetworkSystem extends BaseSystem {
   public readonly remotePlayerManager: RemotePlayerManager;
   private readonly positionTracker: PlayerPositionTracker;
   private readonly remotePlayerSystem: RemotePlayerSystem;
+  private playerSystem: PlayerSystem | null = null;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
 
@@ -122,6 +125,20 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Set the PlayerSystem reference
+   */
+  public setPlayerSystem(playerSystem: PlayerSystem): void {
+    this.playerSystem = playerSystem;
+  }
+
+  /**
+   * Get the PlayerSystem reference
+   */
+  public getPlayerSystem(): PlayerSystem | null {
+    return this.playerSystem;
+  }
+
+  /**
    * Registers all message handlers with the message router
    */
   private registerMessageHandlers(): void {
@@ -132,7 +149,7 @@ export class ClientNetworkSystem extends BaseSystem {
       new PlayerJoinedHandler(),
       new PlayerLeftHandler(),
       new PlayerRespawnHandler(),
-      new RewardsEarnedHandler()
+      new PlayerStateUpdateHandler()
     ];
 
     // Aggiungi handlers NPC se il sistema è disponibile
@@ -524,7 +541,7 @@ export class ClientNetworkSystem extends BaseSystem {
       // Crea entità temporanea per l'esplosione
       const explosionEntity = this.ecs.createEntity();
 
-      // Usa i frame cachati o caricali
+      // Usa i frame cachati o caricali (ora sempre la stessa immagine)
       let explosionFrames = this.explosionFramesCache;
       if (!explosionFrames) {
         explosionFrames = await this.loadExplosionFrames();
@@ -537,7 +554,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
       // Crea componenti
       const transform = new Transform(message.position.x, message.position.y, 0);
-      const explosion = new Explosion(explosionFrames, 80); // 80ms per frame
+      const explosion = new Explosion(explosionFrames, 20, 1); // 20ms per frame - perfetto
 
       // Aggiungi componenti all'entità
       this.ecs.addComponent(explosionEntity, Transform, transform);
@@ -556,6 +573,14 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Imposta i frame dell'esplosione precaricati per evitare lag
+   */
+  setPreloadedExplosionFrames(frames: HTMLImageElement[]): void {
+    this.explosionFramesCache = frames;
+    console.log(`💥 [CLIENT_NETWORK] Explosion frames precaricati impostati: ${frames.length} frame`);
+  }
+
+  /**
    * Cache per i frame delle esplosioni
    */
   private explosionFramesCache: HTMLImageElement[] | null = null;
@@ -563,41 +588,28 @@ export class ClientNetworkSystem extends BaseSystem {
   /**
    * Carica i frame dell'esplosione (cache per performance)
    */
-  private async loadExplosionFrames(): Promise<HTMLImageElement[]> {
+  private async loadExplosionFrames(explosionType: string = 'explosion'): Promise<HTMLImageElement[]> {
     if (this.explosionFramesCache) {
       return this.explosionFramesCache;
     }
 
-    const frames: HTMLImageElement[] = [];
-    const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
+    try {
+      // Usa il file atlas originale con l'immagine explosion.png
+      const atlasPath = `/assets/explosions/explosions_npc/explosion.atlas`;
 
-    // Carica i 10 frame disponibili
-    for (let i = 1; i <= 10; i++) {
-      const framePath = `${basePath}${i}.png`;
-      try {
-        // Usa il sistema di asset loading del context se disponibile
-        if (this.gameContext?.assetManager) {
-          const img = await this.gameContext.assetManager.loadImage(framePath);
-          frames.push(img);
-        } else {
-          // Fallback: carica direttamente
-          const img = new Image();
-          img.src = framePath;
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-          });
-          frames.push(img);
-        }
-      } catch (error) {
-        // Continua senza questo frame invece di fallire completamente
-      }
+      const atlasData = await AtlasParser.parseAtlas(atlasPath);
+
+      // Estrai tutti i frame definiti nell'atlas
+      const frames = await AtlasParser.extractFrames(atlasData);
+
+      console.log(`💥 [CLIENT_NETWORK] Loaded ${frames.length} frames from atlas: ${atlasPath}`);
+
+      this.explosionFramesCache = frames;
+      return frames;
+    } catch (error) {
+      console.error('Failed to load explosion frames from atlas:', error);
+      return [];
     }
-
-    // Se non abbiamo caricato nessun frame, restituisci un array vuoto
-    // Le esplosioni non verranno mostrate ma il gioco continuerà
-    this.explosionFramesCache = frames;
-    return frames;
   }
 
   /**
@@ -646,7 +658,7 @@ export class ClientNetworkSystem extends BaseSystem {
     playerId: string;
     position: { x: number; y: number };
     velocity: { x: number; y: number };
-    damage: number;
+    // damage rimosso: calcolato dal server (Server Authoritative)
     projectileType: string;
   }): void {
     if (!this.socket || !this.isConnected) {
@@ -659,10 +671,38 @@ export class ClientNetworkSystem extends BaseSystem {
       playerId: data.playerId,
       position: data.position,
       velocity: data.velocity,
-      damage: data.damage,
+      // damage rimosso: sarà calcolato dal server (Server Authoritative)
       projectileType: data.projectileType
     };
 
+    this.sendMessage(message);
+  }
+
+  /**
+   * Invia gli upgrade del player al server (Server Authoritative)
+   */
+  sendPlayerUpgrades(upgrades: {
+    hpUpgrades: number;
+    shieldUpgrades: number;
+    speedUpgrades: number;
+    damageUpgrades: number;
+  }): void {
+    console.log('📤 [CLIENT] sendPlayerUpgrades called with:', upgrades);
+    if (!this.socket || !this.isConnected) {
+      console.log('❌ [CLIENT] Cannot send upgrades - no socket or not connected');
+      return;
+    }
+
+    const localClientId = this.getLocalClientId();
+    console.log('🔍 [CLIENT] Local client ID:', localClientId);
+
+    const message = {
+      type: 'player_upgrades_update',
+      playerId: localClientId,
+      upgrades: upgrades
+    };
+
+    console.log('✅ [CLIENT] Sending upgrades message to server:', message);
     this.sendMessage(message);
   }
 
@@ -671,6 +711,27 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getLocalClientId(): string {
     return this.clientId;
+  }
+
+  /**
+   * Requests a skill upgrade to the server (Server Authoritative)
+   */
+  requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage'): void {
+    if (!this.socket || !this.isConnected) {
+      return;
+    }
+
+    const localClientId = this.getLocalClientId();
+    console.log('🔧 [CLIENT] Requesting skill upgrade:', upgradeType, 'for player:', localClientId);
+
+    const message = {
+      type: 'skill_upgrade_request',
+      playerId: localClientId,
+      upgradeType: upgradeType
+    };
+
+    console.log('✅ [CLIENT] Sending skill upgrade request to server:', message);
+    this.sendMessage(message);
   }
 
   /**
@@ -700,6 +761,16 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setLogSystem(logSystem: any): void {
     this.logSystem = logSystem;
+  }
+
+  /**
+   * Resets all upgrade progress states in the UI
+   */
+  resetAllUpgradeProgress(): void {
+    const uiSystem = this.uiSystem;
+    if (uiSystem && typeof uiSystem.resetAllUpgradeProgress === 'function') {
+      uiSystem.resetAllUpgradeProgress();
+    }
   }
 
   /**

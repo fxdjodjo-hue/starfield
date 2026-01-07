@@ -10,14 +10,18 @@ export class Explosion extends Component {
   public frameTime: number;
   public frameDuration: number; // millisecondi per frame
   public isFinished: boolean;
+  public loopCount: number; // quante volte ripetere l'animazione
+  public currentLoop: number;
 
-  constructor(frames: HTMLImageElement[], frameDuration: number = 100) {
+  constructor(frames: HTMLImageElement[], frameDuration: number = 100, loopCount: number = 1) {
     super();
     this.frames = frames;
     this.currentFrame = 0;
     this.frameTime = 0;
     this.frameDuration = frameDuration;
     this.isFinished = false;
+    this.loopCount = loopCount;
+    this.currentLoop = 0;
   }
 
   /**
@@ -33,9 +37,15 @@ export class Explosion extends Component {
       this.currentFrame++;
       this.frameTime = 0;
 
-      // Controlla se l'animazione è finita
+      // Controlla se abbiamo finito un loop
       if (this.currentFrame >= this.frames.length) {
-        this.isFinished = true;
+        this.currentLoop++;
+        this.currentFrame = 0; // ricomincia dall'inizio
+
+        // Controlla se abbiamo finito tutti i loop
+        if (this.currentLoop >= this.loopCount) {
+          this.isFinished = true;
+        }
       }
     }
   }

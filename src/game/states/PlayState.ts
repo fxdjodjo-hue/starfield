@@ -91,7 +91,7 @@ export class PlayState extends GameState {
 
     // Ora che tutti i sistemi sono collegati, connetti al server
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
-      console.log('🔌 [PLAYSTATE] Connecting to server after game initialization...');
+      // console.log('🔌 [PLAYSTATE] Connecting to server after game initialization...');
       this.clientNetworkSystem.connectToServer().catch(error => {
         console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
       });
@@ -302,7 +302,7 @@ export class PlayState extends GameState {
    * Inizializza il mondo di gioco e crea entitÃ
    */
   private async initializeGame(): Promise<void> {
-    console.log('🚀 [PLAYSTATE] Starting game initialization');
+    // console.log('🚀 [PLAYSTATE] Starting game initialization');
 
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
     this.playerEntity = await this.gameInitSystem.initialize();
@@ -349,6 +349,16 @@ export class PlayState extends GameState {
     // Collega il PlayerSystem all'UiSystem
     if (systems.playerSystem) {
       this.uiSystem.setPlayerSystem(systems.playerSystem);
+    }
+
+    // Collega il ClientNetworkSystem all'UiSystem (per SkillsPanel)
+    if (this.clientNetworkSystem) {
+      this.uiSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    }
+
+    // Collega il PlayerSystem al ClientNetworkSystem (per sincronizzazione upgrade)
+    if (systems.playerSystem && this.clientNetworkSystem) {
+      this.clientNetworkSystem.setPlayerSystem(systems.playerSystem);
     }
   }
 

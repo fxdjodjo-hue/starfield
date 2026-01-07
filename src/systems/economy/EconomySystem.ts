@@ -17,6 +17,7 @@ export class EconomySystem extends BaseSystem {
   private onCosmosChanged?: (newAmount: number, change: number) => void;
   private onExperienceChanged?: (newAmount: number, change: number, leveledUp: boolean) => void;
   private onHonorChanged?: (newAmount: number, change: number, newRank?: string) => void;
+  private onSkillPointsChanged?: (newAmount: number, change: number) => void;
 
 
   constructor(ecs: ECS) {
@@ -484,6 +485,29 @@ export class EconomySystem extends BaseSystem {
     return credits ? credits.canAfford(cost) : false;
   }
 
+  /**
+   * IMPOSTA direttamente i Credits del giocatore (Server Authoritative)
+   */
+  setCredits(amount: number, reason: string = 'server_update'): void {
+    const credits = this.getPlayerCredits();
+    if (!credits) return;
+
+    const oldAmount = credits.credits;
+    const targetAmount = Math.max(0, amount);
+
+    if (targetAmount > oldAmount) {
+      // Aggiungi la differenza
+      credits.addCredits(targetAmount - oldAmount);
+    } else if (targetAmount < oldAmount) {
+      // Rimuovi la differenza
+      credits.removeCredits(oldAmount - targetAmount);
+    }
+    // Se sono uguali, non fare nulla
+
+    const change = credits.credits - oldAmount;
+    this.onCreditsChanged?.(credits.credits, change);
+  }
+
   // ===== GESTIONE COSMOS =====
 
   /**
@@ -528,6 +552,26 @@ export class EconomySystem extends BaseSystem {
     return cosmos ? cosmos.canAfford(cost) : false;
   }
 
+  /**
+   * IMPOSTA direttamente i Cosmos del giocatore (Server Authoritative)
+   */
+  setCosmos(amount: number, reason: string = 'server_update'): void {
+    const cosmos = this.getPlayerCosmos();
+    if (!cosmos) return;
+
+    const oldAmount = cosmos.cosmos;
+    const targetAmount = Math.max(0, amount);
+
+    if (targetAmount > oldAmount) {
+      cosmos.addCosmos(targetAmount - oldAmount);
+    } else if (targetAmount < oldAmount) {
+      cosmos.removeCosmos(oldAmount - targetAmount);
+    }
+
+    const change = cosmos.cosmos - oldAmount;
+    this.onCosmosChanged?.(cosmos.cosmos, change);
+  }
+
   // ===== GESTIONE EXPERIENCE =====
 
   /**
@@ -541,10 +585,10 @@ export class EconomySystem extends BaseSystem {
 
     // Callback per assegnare skill points quando si sale di livello
     const leveledUp = experience.addExp(amount, (newLevel) => {
-      // Assegna 1 skill point per livello salito
+      // Assegna 10 skill points per livello salito
       const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
       if (skillPoints) {
-        skillPoints.addPoints(1);
+        skillPoints.addPoints(10);
       }
     });
 
@@ -562,6 +606,30 @@ export class EconomySystem extends BaseSystem {
   getPlayerLevel(): number {
     const experience = this.getPlayerExperience();
     return experience ? experience.level : 1;
+  }
+
+  /**
+   * IMPOSTA direttamente l'Experience del giocatore (Server Authoritative)
+   */
+  setExperience(totalExp: number, reason: string = 'server_update'): void {
+    const experience = this.getPlayerExperience();
+    if (!experience) return;
+
+    const oldTotalExp = experience.totalExpEarned;
+    const targetTotalExp = Math.max(0, totalExp);
+
+    // Calcola la differenza e usa addExp per raggiungere il target
+    if (targetTotalExp > oldTotalExp) {
+      experience.addExp(targetTotalExp - oldTotalExp);
+    } else if (targetTotalExp < oldTotalExp) {
+      // Per rimuovere esperienza, dovrei implementare un metodo removeExp
+      // Per ora, assumiamo che l'esperienza solo aumenti nel server authoritative
+      console.warn('[ECONOMY] Server trying to reduce experience - not implemented');
+    }
+
+    const change = experience.totalExpEarned - oldTotalExp;
+    const leveledUp = experience.level > Math.floor(oldTotalExp / 100) + 1;
+    this.onExperienceChanged?.(experience.exp, change, leveledUp);
   }
 
   // ===== GESTIONE HONOR =====
@@ -602,6 +670,60 @@ export class EconomySystem extends BaseSystem {
     if (honor) {
       honor.addHonor(amount);
     }
+  }
+
+  /**
+   * IMPOSTA direttamente l'Honor del giocatore (Server Authoritative)
+   */
+  setHonor(amount: number, reason: string = 'server_update'): void {
+    const honor = this.getPlayerHonor();
+    if (!honor) return;
+
+    const oldAmount = honor.honor;
+    const targetAmount = Math.max(0, amount);
+
+    if (targetAmount > oldAmount) {
+      honor.addHonor(targetAmount - oldAmount);
+    } else if (targetAmount < oldAmount) {
+      honor.removeHonor(oldAmount - targetAmount);
+    }
+
+    const change = honor.honor - oldAmount;
+    this.onHonorChanged?.(honor.honor, change, honor.getRank());
+  }
+
+  /**
+   * Aggiunge SkillPoints al giocatore
+   */
+  addSkillPoints(amount: number, reason: string = 'unknown'): number {
+    const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
+    if (!skillPoints) return 0;
+
+    const oldAmount = skillPoints.current;
+    skillPoints.addPoints(amount);
+    const newAmount = skillPoints.current;
+    const added = newAmount - oldAmount;
+
+    if (added > 0) {
+      this.onSkillPointsChanged?.(newAmount, added);
+      console.log(`🎯 [ECONOMY] Added ${added} SkillPoints (${reason}): ${oldAmount} → ${newAmount}`);
+    }
+
+    return added;
+  }
+
+  /**
+   * IMPOSTA direttamente i SkillPoints del giocatore (Server Authoritative)
+   */
+  setSkillPoints(amount: number, reason: string = 'server_update'): void {
+    const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
+    if (!skillPoints) return;
+
+    const oldAmount = skillPoints.skillPoints;
+    skillPoints.setPoints(Math.max(0, amount)); // Usa il metodo esistente
+
+    const change = skillPoints.skillPoints - oldAmount;
+    this.onSkillPointsChanged?.(skillPoints.skillPoints, change);
   }
 
   /**
