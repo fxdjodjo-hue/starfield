@@ -276,10 +276,11 @@ class ServerNpcManager {
     if (!playerData || playerData.ws.readyState !== 1) return; // WebSocket.OPEN = 1
 
     const message = {
-      type: 'rewards_earned',
-      rewards: rewards,
+      type: 'player_state_update',
+      inventory: { ...playerData.inventory },
+      upgrades: { ...playerData.upgrades },
       source: `killed_${npcType}`,
-      totalInventory: { ...playerData.inventory }
+      rewardsEarned: rewards
     };
 
     playerData.ws.send(JSON.stringify(message));

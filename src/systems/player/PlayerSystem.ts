@@ -49,9 +49,11 @@ export class PlayerSystem extends System {
     }
     this.ecs.addComponent(entity, Damage, new Damage(playerDef.stats.damage, playerDef.stats.range, playerDef.stats.cooldown));
 
-    // Aggiungi componenti economici
-    this.ecs.addComponent(entity, Credits, new Credits(playerDef.startingResources.credits));
-    this.ecs.addComponent(entity, Cosmos, new Cosmos(playerDef.startingResources.cosmos));
+    // SERVER AUTHORITATIVE: Non inizializzare risorse hardcoded
+    // Le risorse verranno impostate dal server tramite WelcomeHandler
+    // Inizializziamo con valori vuoti che verranno sovrascritti dal server
+    this.ecs.addComponent(entity, Credits, new Credits(0));
+    this.ecs.addComponent(entity, Cosmos, new Cosmos(0));
 
     // Aggiungi componenti progresso
     this.ecs.addComponent(entity, Experience, new Experience(0));
@@ -59,7 +61,7 @@ export class PlayerSystem extends System {
     this.ecs.addComponent(entity, PlayerStats, new PlayerStats());
 
     // Aggiungi componenti per gli upgrade
-    this.ecs.addComponent(entity, SkillPoints, new SkillPoints(playerDef.startingResources.skillPoints));
+    this.ecs.addComponent(entity, SkillPoints, new SkillPoints(0));
     this.ecs.addComponent(entity, PlayerUpgrades, new PlayerUpgrades());
 
     // Aggiungi componente quest

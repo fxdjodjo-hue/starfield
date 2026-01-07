@@ -68,6 +68,7 @@ export class PlayerStatusDisplaySystem extends System {
     const health = this.ecs.getComponent(this.playerEntity, Health);
     const shield = this.ecs.getComponent(this.playerEntity, Shield);
 
+
     // Svuota il contenitore
     this.statusElement.innerHTML = '';
 
@@ -185,6 +186,7 @@ export class PlayerStatusDisplaySystem extends System {
    */
   update(deltaTime: number): void {
     if (this.playerEntity && this.statusElement) {
+      console.log('🔄 [PlayerStatusDisplay] Update called, updating display');
       this.updateDisplay();
     }
   }

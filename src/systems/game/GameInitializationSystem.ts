@@ -84,7 +84,7 @@ export class GameInitializationSystem extends System {
    * Imposta il sistema di rete per notifiche multiplayer
    */
   setClientNetworkSystem(clientNetworkSystem: any): void {
-    console.log('[GAME_INIT] setClientNetworkSystem called');
+    // console.log('[GAME_INIT] setClientNetworkSystem called');
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Se il CombatSystem è già stato creato, impostalo immediatamente
@@ -96,13 +96,13 @@ export class GameInitializationSystem extends System {
 
     // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
     if (this.minimapSystem && typeof this.minimapSystem.setClientNetworkSystem === 'function') {
-      console.log('[GAME_INIT] Setting ClientNetworkSystem on MinimapSystem');
+      // console.log('[GAME_INIT] Setting ClientNetworkSystem on MinimapSystem');
       this.minimapSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
-      console.log('[GAME_INIT] MinimapSystem not available or setClientNetworkSystem not a function', {
-        minimapSystem: !!this.minimapSystem,
-        hasMethod: this.minimapSystem ? typeof this.minimapSystem.setClientNetworkSystem === 'function' : 'no minimapSystem'
-      });
+      // console.log('[GAME_INIT] MinimapSystem not available or setClientNetworkSystem not a function', {
+      //   minimapSystem: !!this.minimapSystem,
+      //   hasMethod: this.minimapSystem ? typeof this.minimapSystem.setClientNetworkSystem === 'function' : 'no minimapSystem'
+      // });
     }
 
     // Configura le impostazioni specifiche del ClientNetworkSystem ora che è disponibile

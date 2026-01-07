@@ -8,6 +8,7 @@ import { Damage } from '../../entities/combat/Damage';
 import { SkillPoints } from '../../entities/currency/SkillPoints';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { PlayerSystem } from '../../systems/player/PlayerSystem';
+import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 
 /**
  * SkillsPanel - Pannello per visualizzare statistiche giocatore e gestire abilità
@@ -15,12 +16,15 @@ import { PlayerSystem } from '../../systems/player/PlayerSystem';
 export class SkillsPanel extends BasePanel {
   private ecs: ECS;
   private playerSystem: PlayerSystem | null = null;
+  private clientNetworkSystem: ClientNetworkSystem | null = null;
   private tooltipElement: HTMLElement | null = null;
+  private upgradeInProgress: { [key: string]: boolean } = {};
 
-  constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
+  constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem, clientNetworkSystem?: ClientNetworkSystem) {
     super(config);
     this.ecs = ecs;
     this.playerSystem = playerSystem || null;
+    this.clientNetworkSystem = clientNetworkSystem || null;
   }
 
   /**
@@ -30,6 +34,13 @@ export class SkillsPanel extends BasePanel {
     this.playerSystem = playerSystem;
     // Aggiorna immediatamente le statistiche quando riceviamo il riferimento
     this.updatePlayerStats();
+  }
+
+  /**
+   * Imposta il riferimento al ClientNetworkSystem
+   */
+  setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
+    this.clientNetworkSystem = clientNetworkSystem;
   }
 
   /**
@@ -481,7 +492,7 @@ export class SkillsPanel extends BasePanel {
   /**
    * Aggiorna le statistiche dal giocatore
    */
-  private updatePlayerStats(): void {
+  public updatePlayerStats(): void {
     if (!this.container || !this.playerSystem) return;
 
     const playerEntity = this.playerSystem.getPlayerEntity();
@@ -495,23 +506,26 @@ export class SkillsPanel extends BasePanel {
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
 
     // Aggiorna statistiche nelle card di upgrade
-    if (health) {
-      const hpValue = this.container.querySelector('.stat-current-hp') as HTMLElement;
-      if (hpValue) {
-        hpValue.textContent = `${health.current.toLocaleString()}`;
-      }
-    }
-
-    if (shield) {
-      const shieldValue = this.container.querySelector('.stat-current-shield') as HTMLElement;
-      if (shieldValue) {
-        shieldValue.textContent = `${shield.current.toLocaleString()}`;
-      }
-    }
-
-    // Aggiorna velocità con bonus dagli upgrade
     if (playerUpgrades) {
       const playerDef = getPlayerDefinition();
+
+      // Mostra HP reali dal server (già includono gli upgrade)
+      if (health) {
+        const hpValue = this.container.querySelector('.stat-current-hp') as HTMLElement;
+        if (hpValue) {
+          hpValue.textContent = `${health.max.toLocaleString()}`;
+        }
+      }
+
+      // Mostra Shield reali dal server (già includono gli upgrade)
+      if (shield) {
+        const shieldValue = this.container.querySelector('.stat-current-shield') as HTMLElement;
+        if (shieldValue) {
+          shieldValue.textContent = `${shield.max.toLocaleString()}`;
+        }
+      }
+
+      // Aggiorna velocità con bonus dagli upgrade
       const speedBonus = playerUpgrades.getSpeedBonus();
       const calculatedSpeed = Math.floor(playerDef.stats.speed * speedBonus);
 
@@ -520,11 +534,14 @@ export class SkillsPanel extends BasePanel {
         speedValue.textContent = `${calculatedSpeed} u/s`;
       }
 
-      // Aggiorna damage dal componente Damage del player
+      // Calcola e aggiorna damage con bonus dagli upgrade
       if (damage) {
+        const damageBonus = playerUpgrades.getDamageBonus();
+        const calculatedDamage = Math.floor(damage.damage * damageBonus);
+
         const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
         if (damageValue) {
-          damageValue.textContent = damage.damage.toString();
+          damageValue.textContent = calculatedDamage.toString();
         }
       }
     }
@@ -567,42 +584,32 @@ export class SkillsPanel extends BasePanel {
 
     if (!skillPoints || !playerUpgrades) return;
 
-    // Controlla se ha abbastanza skill points
-    if (skillPoints.current < 1) {
-      // TODO: Mostra messaggio di errore
-      console.log('You don\'t have enough skill points!');
+    // SERVER AUTHORITATIVE: Non applicare upgrade localmente
+    // Invia richiesta al server e aspetta risposta
+
+    // Controlla se siamo già in attesa di una risposta del server per questo upgrade
+    if (this.isUpgradeInProgress(statType)) {
+      console.log('⏳ [SkillsPanel] Upgrade request already in progress for:', statType);
       return;
     }
 
-    // Acquista l'upgrade
-    let success = false;
-    switch (statType) {
-      case 'hp':
-        success = playerUpgrades.upgradeHP();
-        break;
-      case 'shield':
-        success = playerUpgrades.upgradeShield();
-        break;
-      case 'speed':
-        success = playerUpgrades.upgradeSpeed();
-        break;
-      case 'damage':
-        success = playerUpgrades.upgradeDamage();
-        console.log(`🎯 [SkillsPanel] Damage upgrade attempted: ${playerUpgrades.damageUpgrades - 1} → ${playerUpgrades.damageUpgrades}`);
-        break;
-    }
+    console.log('📡 [SkillsPanel] Requesting server authorization for upgrade:', statType);
 
-    if (success) {
-      // Rimuovi skill point
-      skillPoints.spendPoints(1);
+    if (this.clientNetworkSystem) {
+      // Marca l'upgrade come in corso
+      this.setUpgradeInProgress(statType, true);
 
-      // Forza aggiornamento delle statistiche fisiche del giocatore
-      this.updatePlayerPhysicalStats();
+      this.clientNetworkSystem.requestSkillUpgrade(statType);
+      console.log('✅ [SkillsPanel] Skill upgrade request sent to server for:', statType);
 
-      // Aggiorna le statistiche del giocatore (dopo aver aggiornato i componenti)
-      this.updatePlayerStats();
+      // Timeout di sicurezza - se non riceviamo risposta entro 5 secondi, resettiamo
+      setTimeout(() => {
+        this.setUpgradeInProgress(statType, false);
+        console.log('⏰ [SkillsPanel] Upgrade request timeout for:', statType);
+      }, 5000);
+
     } else {
-      console.log('❌ SkillsPanel: Upgrade failed for', statType);
+      console.log('❌ [SkillsPanel] No clientNetworkSystem available for upgrade request');
     }
   }
 
@@ -749,7 +756,7 @@ export class SkillsPanel extends BasePanel {
 
     // Chiudi quando si clicca fuori
     const handleOutsideClick = (e: MouseEvent) => {
-      if (!this.tooltipElement!.contains(e.target as Node) && !buttonElement.contains(e.target as Node)) {
+      if ((!this.tooltipElement || !this.tooltipElement.contains(e.target as Node)) && !buttonElement.contains(e.target as Node)) {
         this.hideTooltip();
         document.removeEventListener('click', handleOutsideClick);
       }
@@ -772,6 +779,46 @@ export class SkillsPanel extends BasePanel {
   }
 
   /**
+   * Sincronizza gli upgrade del player al server (Server Authoritative)
+   */
+  private syncUpgradesToServer(): void {
+    console.log('🔧 [SkillsPanel] syncUpgradesToServer called');
+    console.log('🔍 [SkillsPanel] clientNetworkSystem reference:', !!this.clientNetworkSystem);
+
+    if (!this.clientNetworkSystem) {
+      console.log('❌ [SkillsPanel] No clientNetworkSystem available');
+      return;
+    }
+
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    if (!playerEntity) {
+      console.log('❌ [SkillsPanel] No playerEntity available');
+      return;
+    }
+
+    const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
+    if (!playerUpgrades) {
+      console.log('❌ [SkillsPanel] No playerUpgrades component found');
+      return;
+    }
+
+    console.log('✅ [SkillsPanel] Sending upgrades to server:', {
+      hpUpgrades: playerUpgrades.hpUpgrades,
+      shieldUpgrades: playerUpgrades.shieldUpgrades,
+      speedUpgrades: playerUpgrades.speedUpgrades,
+      damageUpgrades: playerUpgrades.damageUpgrades
+    });
+
+    // Invia upgrade aggiornati al server
+    this.clientNetworkSystem.sendPlayerUpgrades({
+      hpUpgrades: playerUpgrades.hpUpgrades,
+      shieldUpgrades: playerUpgrades.shieldUpgrades,
+      speedUpgrades: playerUpgrades.speedUpgrades,
+      damageUpgrades: playerUpgrades.damageUpgrades
+    });
+  }
+
+  /**
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   updateECS(deltaTime: number): void {
@@ -779,6 +826,71 @@ export class SkillsPanel extends BasePanel {
     if (this.container) {
       this.updatePlayerStats();
     }
+  }
+
+  /**
+   * Controlla se un upgrade è attualmente in corso
+   */
+  private isUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage'): boolean {
+    return this.upgradeInProgress?.[statType] || false;
+  }
+
+  /**
+   * Imposta lo stato di progresso di un upgrade
+   */
+  private setUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage', inProgress: boolean): void {
+    if (!this.upgradeInProgress) {
+      this.upgradeInProgress = {};
+    }
+    this.upgradeInProgress[statType] = inProgress;
+  }
+
+  /**
+   * Resetta tutti gli stati di progresso degli upgrade (chiamato quando riceviamo risposta dal server)
+   */
+  public resetUpgradeProgress(): void {
+    this.upgradeInProgress = {};
+    console.log('🔄 [SkillsPanel] All upgrade progress states reset');
+  }
+
+  /**
+   * Rollback di un upgrade locale se la richiesta al server fallisce
+   */
+  private rollbackUpgrade(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
+    console.log('🔄 [SkillsPanel] Rolling back upgrade for:', statType);
+
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
+    if (!playerUpgrades) return;
+
+    // Rollback dell'upgrade specifico
+    switch (statType) {
+      case 'hp':
+        playerUpgrades.hpUpgrades = Math.max(0, playerUpgrades.hpUpgrades - 1);
+        break;
+      case 'shield':
+        playerUpgrades.shieldUpgrades = Math.max(0, playerUpgrades.shieldUpgrades - 1);
+        break;
+      case 'speed':
+        playerUpgrades.speedUpgrades = Math.max(0, playerUpgrades.speedUpgrades - 1);
+        break;
+      case 'damage':
+        playerUpgrades.damageUpgrades = Math.max(0, playerUpgrades.damageUpgrades - 1);
+        break;
+    }
+
+    // Riaggiungi il skill point sprecato
+    const skillPoints = this.ecs.getComponent(playerEntity, SkillPoints);
+    if (skillPoints) {
+      skillPoints.addPoints(1);
+    }
+
+    // Forza aggiornamento UI
+    this.updatePlayerStats();
+
+    console.log('✅ [SkillsPanel] Upgrade rolled back successfully');
   }
 
   /**

@@ -10,6 +10,7 @@ import { ChatManager } from './ChatManager';
 import { getPanelConfig } from '../../presentation/ui/PanelConfig';
 import { QuestSystem } from '../quest/QuestSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
 
@@ -25,6 +26,7 @@ export class UiSystem extends System {
   private questSystem: QuestSystem;
   private skillsPanel: SkillsPanel | null = null;
   private playerSystem: PlayerSystem | null = null;
+  private clientNetworkSystem: ClientNetworkSystem | null = null;
   private economySystem: any = null;
   private audioSystem: any = null;
   private playerNicknameElement: HTMLElement | null = null;
@@ -193,9 +195,32 @@ export class UiSystem extends System {
     // Aggiorna anche i pannelli che ne hanno bisogno
     if (this.skillsPanel) {
       this.skillsPanel.setPlayerSystem(playerSystem);
+      if (this.clientNetworkSystem) {
+        this.skillsPanel.setClientNetworkSystem(this.clientNetworkSystem);
+      }
     }
     if (this.chatPanel) {
       this.chatPanel.setPlayerSystem(playerSystem);
+    }
+  }
+
+  /**
+   * Imposta il riferimento al ClientNetworkSystem
+   */
+  setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
+    this.clientNetworkSystem = clientNetworkSystem;
+    // Aggiorna anche i pannelli che ne hanno bisogno
+    if (this.skillsPanel) {
+      this.skillsPanel.setClientNetworkSystem(clientNetworkSystem);
+    }
+  }
+
+  /**
+   * Resetta tutti gli stati di progresso degli upgrade nel SkillsPanel
+   */
+  public resetAllUpgradeProgress(): void {
+    if (this.skillsPanel && typeof this.skillsPanel.resetUpgradeProgress === 'function') {
+      this.skillsPanel.resetUpgradeProgress();
     }
   }
 
@@ -224,7 +249,7 @@ export class UiSystem extends System {
 
     // Crea e registra il pannello delle skills
     const skillsConfig = getPanelConfig('skills');
-    this.skillsPanel = new SkillsPanel(skillsConfig, this.ecs, this.playerSystem || undefined);
+    this.skillsPanel = new SkillsPanel(skillsConfig, this.ecs, this.playerSystem || undefined, this.clientNetworkSystem || undefined);
     this.uiManager.registerPanel(this.skillsPanel);
 
     // Collega il pannello quest al sistema quest
@@ -663,6 +688,13 @@ export class UiSystem extends System {
     }
 
     // Altri pannelli possono essere aggiunti qui se necessario
+  }
+
+  /**
+   * Ottiene il pannello Skills
+   */
+  public getSkillsPanel(): SkillsPanel | null {
+    return this.uiManager.getPanel('skills-panel') as SkillsPanel;
   }
 
   /**

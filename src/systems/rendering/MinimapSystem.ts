@@ -357,16 +357,17 @@ export class MinimapSystem extends BaseSystem {
       return;
     }
 
+    // Verifica se ci sono giocatori remoti prima di ottenere le posizioni
+    const remotePlayerCount = remotePlayerSystem.getRemotePlayerCount();
+    if (remotePlayerCount === 0) {
+      return; // Nessun giocatore remoto da renderizzare
+    }
+
     // Ottieni le posizioni di tutti i giocatori remoti
     const remotePlayerPositions = remotePlayerSystem.getRemotePlayerPositions();
 
-    if (remotePlayerPositions.length > 0) {
-      console.log(`🎨 [MINIMAP] Rendering ${remotePlayerPositions.length} remote players`);
-    }
-
     // Renderizza ogni giocatore remoto come pallino giallo
-    remotePlayerPositions.forEach((position: {x: number, y: number}, index: number) => {
-      console.log(`🟡 [MINIMAP] Rendering remote player ${index} at (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
+    remotePlayerPositions.forEach((position: {x: number, y: number}) => {
       this.renderEntityDot(ctx, position.x, position.y, '#FFFF00'); // Giallo per giocatori remoti
     });
   }

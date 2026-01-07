@@ -213,18 +213,13 @@ export class RemotePlayerSystem extends BaseSystem {
   getRemotePlayerPositions(): Array<{x: number, y: number}> {
     const positions: Array<{x: number, y: number}> = [];
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer, Transform);
-
-    console.log(`🔍 [REMOTE_PLAYER] getRemotePlayerPositions called - Found ${remotePlayerEntities.length} remote player entities`);
-
     for (const entity of remotePlayerEntities) {
       const transform = this.ecs.getComponent(entity, Transform);
       if (transform) {
         positions.push({ x: transform.x, y: transform.y });
-        console.log(`📍 [REMOTE_PLAYER] Remote player at (${transform.x.toFixed(1)}, ${transform.y.toFixed(1)})`);
       }
     }
 
-    console.log(`📊 [REMOTE_PLAYER] Returning ${positions.length} positions`);
     return positions;
   }
 

@@ -192,10 +192,10 @@ export default class AudioSystem extends System {
       this.musicInstance.loop = true;
 
       this.musicInstance.play().catch(error => {
-        console.warn(`Audio system: Failed to play music '${key}':`, error);
+        // console.warn(`Audio system: Failed to play music '${key}':`, error);
       });
     } catch (error) {
-      console.warn(`Audio system: Failed to play music '${key}':`, error);
+      // console.warn(`Audio system: Failed to play music '${key}':`, error);
     }
   }
 

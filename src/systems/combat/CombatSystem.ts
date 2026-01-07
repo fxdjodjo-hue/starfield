@@ -155,6 +155,7 @@ export class CombatSystem extends BaseSystem {
    * Crea un proiettile dall'attaccante verso il target
    */
   private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any): void {
+
     // Usa la rotazione corrente dell'NPC per la direzione del proiettile
     // Gli NPC in modalità aggressive mantengono la rotazione verso il player
     const isPlayer = attackerEntity === this.playerSystem.getPlayerEntity();
@@ -224,6 +225,14 @@ export class CombatSystem extends BaseSystem {
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
 
+    console.log('🔍 [COMBAT] isLocalPlayer check:', {
+      attackerEntityId: attackerEntity.id,
+      playerEntityId: playerEntity?.id,
+      isLocalPlayer,
+      attackerEntityType: attackerEntity.type,
+      playerEntityType: playerEntity?.type
+    });
+
     // Calcola posizione target per la factory
     const targetX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2; // Moltiplica per 2 per compensare
     const targetY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
@@ -262,7 +271,7 @@ export class CombatSystem extends BaseSystem {
               x: directionX * GAME_CONSTANTS.PROJECTILE.SPEED,
               y: directionY * GAME_CONSTANTS.PROJECTILE.SPEED
             },
-            damage,
+            // DAMAGE RIMOSSO: sarà calcolato dal server (Server Authoritative)
             projectileType: 'laser'
           });
         }
@@ -362,6 +371,12 @@ export class CombatSystem extends BaseSystem {
   private processPlayerCombat(): void {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+
+    // Log solo se ci sono NPC selezionati per evitare spam
+    if (selectedNpcs.length > 0) {
+      console.log(`⚔️ [COMBAT] processPlayerCombat called at ${Date.now()} - ${selectedNpcs.length} NPCs selected`);
+    }
+
     if (selectedNpcs.length === 0) {
       // Se non c'è nessun NPC selezionato, ferma il combattimento
       if (this.currentAttackTarget !== null) {
@@ -385,6 +400,14 @@ export class CombatSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
     if (!playerTransform || !playerDamage || !npcHealth || !npcTransform) return;
+
+    // Il combattimento è ora GESTITO DAL SERVER (Server Authoritative)
+    // Il client NON deve sparare automaticamente - solo il server lo fa
+    // Questo previene la duplicazione di proiettili
+
+    // Se siamo qui, significa che c'è un NPC selezionato ma il combattimento
+    // dovrebbe essere già stato avviato dal server quando è stato selezionato l'NPC
+    // Non sparare dal client per evitare duplicazioni
 
     // Controlla se l'NPC selezionato è ancora visibile nella viewport
     const canvasSize = (this.ecs as any).context?.canvas ?

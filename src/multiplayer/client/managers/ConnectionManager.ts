@@ -103,12 +103,12 @@ export class ConnectionManager {
 
     return new Promise((resolve, reject) => {
       try {
-        console.log(`🔌 Connecting to ${this.serverUrl}...`);
+        // console.log(`🔌 Connecting to ${this.serverUrl}...`);
         this.socket = new WebSocket(this.serverUrl);
 
         // Set up event handlers
         this.socket.onopen = () => {
-          console.log('✅ Connected to server');
+          // console.log('✅ Connected to server');
           this.isConnected = true;
           this.reconnectAttempts = 0; // Reset on successful connection
 
@@ -182,9 +182,14 @@ export class ConnectionManager {
    */
   send(data: string | ArrayBuffer | Blob | ArrayBufferView): void {
     if (this.socket && this.isConnected && this.socket.readyState === WebSocket.OPEN) {
+      console.log('📤 [CONNECTION] Sending data to server:', typeof data === 'string' ? data : 'binary data');
       this.socket.send(data);
     } else {
-      console.warn('⚠️ Cannot send data: WebSocket not connected');
+      console.warn('⚠️ Cannot send data: WebSocket not connected', {
+        socket: !!this.socket,
+        isConnected: this.isConnected,
+        readyState: this.socket?.readyState
+      });
     }
   }
 

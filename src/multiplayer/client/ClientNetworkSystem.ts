@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
+import { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
 
@@ -12,7 +13,7 @@ import { RemotePlayerUpdateHandler } from './handlers/RemotePlayerUpdateHandler'
 import { PlayerJoinedHandler } from './handlers/PlayerJoinedHandler';
 import { PlayerLeftHandler } from './handlers/PlayerLeftHandler';
 import { PlayerRespawnHandler } from './handlers/PlayerRespawnHandler';
-import { RewardsEarnedHandler } from './handlers/RewardsEarnedHandler';
+import { PlayerStateUpdateHandler } from './handlers/PlayerStateUpdateHandler';
 // NPC handlers
 import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
 import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
@@ -66,6 +67,7 @@ export class ClientNetworkSystem extends BaseSystem {
   public readonly remotePlayerManager: RemotePlayerManager;
   private readonly positionTracker: PlayerPositionTracker;
   private readonly remotePlayerSystem: RemotePlayerSystem;
+  private playerSystem: PlayerSystem | null = null;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
 
@@ -122,6 +124,20 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Set the PlayerSystem reference
+   */
+  public setPlayerSystem(playerSystem: PlayerSystem): void {
+    this.playerSystem = playerSystem;
+  }
+
+  /**
+   * Get the PlayerSystem reference
+   */
+  public getPlayerSystem(): PlayerSystem | null {
+    return this.playerSystem;
+  }
+
+  /**
    * Registers all message handlers with the message router
    */
   private registerMessageHandlers(): void {
@@ -132,7 +148,7 @@ export class ClientNetworkSystem extends BaseSystem {
       new PlayerJoinedHandler(),
       new PlayerLeftHandler(),
       new PlayerRespawnHandler(),
-      new RewardsEarnedHandler()
+      new PlayerStateUpdateHandler()
     ];
 
     // Aggiungi handlers NPC se il sistema è disponibile
@@ -646,7 +662,7 @@ export class ClientNetworkSystem extends BaseSystem {
     playerId: string;
     position: { x: number; y: number };
     velocity: { x: number; y: number };
-    damage: number;
+    // damage rimosso: calcolato dal server (Server Authoritative)
     projectileType: string;
   }): void {
     if (!this.socket || !this.isConnected) {
@@ -659,10 +675,38 @@ export class ClientNetworkSystem extends BaseSystem {
       playerId: data.playerId,
       position: data.position,
       velocity: data.velocity,
-      damage: data.damage,
+      // damage rimosso: sarà calcolato dal server (Server Authoritative)
       projectileType: data.projectileType
     };
 
+    this.sendMessage(message);
+  }
+
+  /**
+   * Invia gli upgrade del player al server (Server Authoritative)
+   */
+  sendPlayerUpgrades(upgrades: {
+    hpUpgrades: number;
+    shieldUpgrades: number;
+    speedUpgrades: number;
+    damageUpgrades: number;
+  }): void {
+    console.log('📤 [CLIENT] sendPlayerUpgrades called with:', upgrades);
+    if (!this.socket || !this.isConnected) {
+      console.log('❌ [CLIENT] Cannot send upgrades - no socket or not connected');
+      return;
+    }
+
+    const localClientId = this.getLocalClientId();
+    console.log('🔍 [CLIENT] Local client ID:', localClientId);
+
+    const message = {
+      type: 'player_upgrades_update',
+      playerId: localClientId,
+      upgrades: upgrades
+    };
+
+    console.log('✅ [CLIENT] Sending upgrades message to server:', message);
     this.sendMessage(message);
   }
 
@@ -671,6 +715,27 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getLocalClientId(): string {
     return this.clientId;
+  }
+
+  /**
+   * Requests a skill upgrade to the server (Server Authoritative)
+   */
+  requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage'): void {
+    if (!this.socket || !this.isConnected) {
+      return;
+    }
+
+    const localClientId = this.getLocalClientId();
+    console.log('🔧 [CLIENT] Requesting skill upgrade:', upgradeType, 'for player:', localClientId);
+
+    const message = {
+      type: 'skill_upgrade_request',
+      playerId: localClientId,
+      upgradeType: upgradeType
+    };
+
+    console.log('✅ [CLIENT] Sending skill upgrade request to server:', message);
+    this.sendMessage(message);
   }
 
   /**
@@ -700,6 +765,16 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setLogSystem(logSystem: any): void {
     this.logSystem = logSystem;
+  }
+
+  /**
+   * Resets all upgrade progress states in the UI
+   */
+  resetAllUpgradeProgress(): void {
+    const uiSystem = this.uiSystem;
+    if (uiSystem && typeof uiSystem.resetAllUpgradeProgress === 'function') {
+      uiSystem.resetAllUpgradeProgress();
+    }
   }
 
   /**

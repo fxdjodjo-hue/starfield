@@ -25,6 +25,14 @@ class WebSocketConnectionManager {
         this.messageCount.increment();
         try {
           const data = JSON.parse(message.toString());
+
+          // Log speciale per player_upgrades_update
+          if (data.type === 'player_upgrades_update') {
+            console.log('🎯 [SERVER] PLAYER UPGRADES MESSAGE RECEIVED!');
+            console.log('🎯 [SERVER] Full message:', JSON.stringify(data, null, 2));
+          }
+
+          console.log(`📡 [SERVER] Received ${data.type} from ${data.clientId || 'unknown'}:`, JSON.stringify(data));
           logger.debug('WEBSOCKET', `Received ${data.type} from ${data.clientId || 'unknown'}`);
 
           // Risponde ai messaggi di join
@@ -38,22 +46,36 @@ class WebSocketConnectionManager {
               lastInputAt: null,
               position: data.position, // Save initial position from join message
               ws: ws,
+              // Player Upgrades (server authoritative)
+              upgrades: {
+                hpUpgrades: 0,
+                shieldUpgrades: 0,
+                speedUpgrades: 0,
+                damageUpgrades: 0
+              },
               // Health and shield system (server authoritative)
-              health: 100000,
-              maxHealth: 100000,
-              shield: 50000,
-              maxShield: 50000,
+              health: this.calculateMaxHealth(0), // Inizialmente 0 upgrade
+              maxHealth: this.calculateMaxHealth(0),
+              shield: this.calculateMaxShield(0),
+              maxShield: this.calculateMaxShield(0),
               // Combat state
               lastDamage: null,
               isDead: false,
               respawnTime: null,
-              // Inventory system (server authoritative)
+              // Inventory system (server authoritative) - risorse iniziali generose
               inventory: {
-                credits: 0,
-                cosmos: 0,
-                experience: 0,
-                honor: 0,
-                skillPoints: 0
+                credits: 100000,      // 100k credits iniziali
+                cosmos: 10000,        // 10k cosmos iniziali
+                experience: 0,        // esperienza inizia da 0
+                honor: 0,             // onore inizia da 0
+                skillPoints: 10        // 10 skill points iniziali per testing
+              },
+              // Upgrades system (server authoritative) - per calcolo danno sicuro
+              upgrades: {
+                hpUpgrades: 0,
+                shieldUpgrades: 0,
+                speedUpgrades: 0,
+                damageUpgrades: 0
               }
             };
 
@@ -116,7 +138,14 @@ class WebSocketConnectionManager {
             ws.send(JSON.stringify({
               type: 'welcome',
               clientId: data.clientId,
-              message: `Welcome ${data.nickname}! Connected to server.`
+              message: `Welcome ${data.nickname}! Connected to server.`,
+              initialState: {
+                inventory: { ...playerData.inventory },
+                health: playerData.health,
+                maxHealth: playerData.maxHealth,
+                shield: playerData.shield,
+                maxShield: playerData.maxShield
+              }
             }));
 
             // Invia la posizione del nuovo giocatore a tutti gli altri giocatori
@@ -186,6 +215,95 @@ class WebSocketConnectionManager {
             }));
           }
 
+          // Gestisce aggiornamenti upgrade del player (Server Authoritative)
+          if (data.type === 'player_upgrades_update') {
+            console.log(`🔧 [SERVER] Player upgrades update RECEIVED: ${data.playerId}`, JSON.stringify(data.upgrades));
+
+            console.log(`🔍 [SERVER] Looking for player: ${data.playerId}`);
+            const playerData = this.mapServer.players.get(data.playerId);
+            if (playerData) {
+              // Salva upgrade precedenti per confronto
+              const oldUpgrades = JSON.parse(JSON.stringify(playerData.upgrades));
+              // Aggiorna gli upgrade del player con quelli ricevuti dal client
+              playerData.upgrades = { ...data.upgrades };
+              console.log(`✅ [SERVER] Player ${data.playerId} upgrades synchronized:`, JSON.stringify(oldUpgrades), '→', JSON.stringify(playerData.upgrades));
+            } else {
+              console.log(`❌ [SERVER] Player ${data.playerId} not found for upgrades update`);
+              console.log('Available players:', Array.from(this.mapServer.players.keys()));
+              // Prova anche con il clientId dalla connessione WebSocket
+              const wsClientId = Array.from(this.mapServer.players.entries()).find(([_, pd]) => pd.ws === ws)?.[0];
+              console.log(`🔍 [SERVER] WebSocket client ID: ${wsClientId}`);
+            }
+          }
+
+          // Gestisce richieste di upgrade skill (Server Authoritative)
+          if (data.type === 'skill_upgrade_request') {
+            console.log(`🎯 [SERVER] Skill upgrade request RECEIVED: ${data.playerId} wants to upgrade ${data.upgradeType}`);
+
+            const playerData = this.mapServer.players.get(data.playerId);
+            if (!playerData) {
+              console.log(`❌ [SERVER] Player ${data.playerId} not found for skill upgrade`);
+              return;
+            }
+
+            // Verifica se il player ha abbastanza skill points
+            if (playerData.inventory.skillPoints < 1) {
+              console.log(`❌ [SERVER] Player ${data.playerId} doesn't have enough skill points (${playerData.inventory.skillPoints})`);
+              // TODO: Invia messaggio di errore al client
+              return;
+            }
+
+            // Salva stato precedente per confronto
+            const oldSkillPoints = playerData.inventory.skillPoints;
+            const oldUpgrades = JSON.parse(JSON.stringify(playerData.upgrades));
+
+            // Sposta 1 skill point dall'inventory agli upgrade
+            playerData.inventory.skillPoints -= 1;
+
+            // Applica l'upgrade specifico
+            switch (data.upgradeType) {
+              case 'hp':
+                playerData.upgrades.hpUpgrades += 1;
+                // Aggiorna maxHealth con il nuovo upgrade
+                playerData.maxHealth = this.calculateMaxHealth(playerData.upgrades.hpUpgrades);
+                break;
+              case 'shield':
+                playerData.upgrades.shieldUpgrades += 1;
+                // Aggiorna maxShield con il nuovo upgrade
+                playerData.maxShield = this.calculateMaxShield(playerData.upgrades.shieldUpgrades);
+                break;
+              case 'speed':
+                playerData.upgrades.speedUpgrades += 1;
+                break;
+              case 'damage':
+                playerData.upgrades.damageUpgrades += 1;
+                break;
+              default:
+                console.log(`❌ [SERVER] Unknown upgrade type: ${data.upgradeType}`);
+                // Rollback skill points
+                playerData.inventory.skillPoints += 1;
+                return;
+            }
+
+            console.log(`✅ [SERVER] Skill upgrade applied: ${data.upgradeType}`);
+            console.log(`   Skill Points: ${oldSkillPoints} → ${playerData.inventory.skillPoints}`);
+            console.log(`   Upgrades: ${JSON.stringify(oldUpgrades)} → ${JSON.stringify(playerData.upgrades)}`);
+
+            // Invia aggiornamento completo dello stato al client
+            ws.send(JSON.stringify({
+              type: 'player_state_update',
+              inventory: { ...playerData.inventory },
+              upgrades: { ...playerData.upgrades },
+              health: playerData.health,
+              maxHealth: playerData.maxHealth,
+              shield: playerData.shield,
+              maxShield: playerData.maxShield,
+              source: `skill_upgrade_${data.upgradeType}`
+            }));
+
+            console.log(`📡 [SERVER] Player state update sent to ${data.playerId} after skill upgrade`);
+          }
+
           // Gestisce spari di proiettili
           if (data.type === 'projectile_fired') {
             console.log(`🔫 [SERVER] Projectile fired: ${data.projectileId} by ${data.playerId} (RECEIVED FROM CLIENT)`);
@@ -200,25 +318,37 @@ class WebSocketConnectionManager {
               }
             }
 
-            // Registra il proiettile nel server
+            // SERVER AUTHORITATIVE: Calcola il danno basato sugli upgrade del player
+            const playerData = this.mapServer.players.get(data.playerId);
+            let calculatedDamage = 500; // Danno base
+            if (playerData && playerData.upgrades) {
+              // Calcola bonus danno: 1.0 + (damageUpgrades * 0.01)
+              const damageBonus = 1.0 + (playerData.upgrades.damageUpgrades * 0.01);
+              calculatedDamage = Math.floor(500 * damageBonus);
+              console.log(`🎯 [SERVER] Player ${data.playerId} damage calculated: ${calculatedDamage} (base: 500, bonus: ${damageBonus.toFixed(3)}, upgrades: ${JSON.stringify(playerData.upgrades)})`);
+            } else {
+              console.log(`⚠️ [SERVER] Player ${data.playerId} damage calculated with defaults: ${calculatedDamage} (no player data or upgrades found)`);
+            }
+
+            // Registra il proiettile nel server con danno calcolato dal server
             this.mapServer.projectileManager.addProjectile(
               data.projectileId,
               data.playerId,
               data.position,
               data.velocity,
-              data.damage,
+              calculatedDamage, // Danno calcolato dal server (Server Authoritative)
               data.projectileType || 'laser',
               targetId
             );
 
-            // Broadcast il proiettile a tutti gli altri client
+            // Broadcast il proiettile a tutti gli altri client con danno calcolato dal server
             const projectileMessage = {
               type: 'projectile_fired',
               projectileId: data.projectileId,
               playerId: data.playerId,
               position: data.position,
               velocity: data.velocity,
-              damage: data.damage,
+              damage: calculatedDamage, // Danno calcolato dal server (Server Authoritative)
               projectileType: data.projectileType || 'laser',
               targetId: targetId
             };
@@ -354,6 +484,26 @@ class WebSocketConnectionManager {
 
       logger.info('SERVER', '✅ WebSocket connections closed gracefully');
     });
+  }
+
+  /**
+   * Calcola maxHealth basato sugli upgrade HP
+   * Formula: baseValue * (1.0 + hpUpgrades * 0.01)
+   */
+  calculateMaxHealth(hpUpgrades) {
+    const baseHealth = 100000;
+    const bonus = 1.0 + (hpUpgrades * 0.01);
+    return Math.floor(baseHealth * bonus);
+  }
+
+  /**
+   * Calcola maxShield basato sugli upgrade Shield
+   * Formula: baseValue * (1.0 + shieldUpgrades * 0.01)
+   */
+  calculateMaxShield(shieldUpgrades) {
+    const baseShield = 50000;
+    const bonus = 1.0 + (shieldUpgrades * 0.01);
+    return Math.floor(baseShield * bonus);
   }
 }
 
