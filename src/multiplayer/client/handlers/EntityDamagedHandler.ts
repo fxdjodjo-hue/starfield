@@ -51,28 +51,20 @@ export class EntityDamagedHandler extends BaseMessageHandler {
         } else         if (message.entityType === 'player') {
           if (message.entityId === networkSystem.getLocalClientId()) {
             // Giocatore locale - trova l'entità locale
-            console.log('[EntityDamagedHandler] Processing damage to LOCAL player:', message.entityId);
             const allEntities = ecs.getEntitiesWithComponents(Health, Shield);
-            console.log('[EntityDamagedHandler] Found entities with Health+Shield:', allEntities.length);
-
             for (const entity of allEntities) {
-              const hasRemotePlayer = ecs.hasComponent(entity, RemotePlayer);
-              console.log(`[EntityDamagedHandler] Entity ${entity.id} has RemotePlayer:`, hasRemotePlayer);
-              if (!hasRemotePlayer) {
+              if (!ecs.hasComponent(entity, RemotePlayer)) {
                 targetEntity = entity;
-                console.log(`[EntityDamagedHandler] Selected local player entity:`, entity.id);
                 break;
               }
             }
           } else {
             // Giocatore remoto - trova l'entità remota
-            console.log('[EntityDamagedHandler] Processing damage to REMOTE player:', message.entityId);
             const allEntities = ecs.getEntitiesWithComponents(Health);
             for (const entity of allEntities) {
               const remotePlayer = ecs.getComponent(entity, RemotePlayer);
               if (remotePlayer && remotePlayer.clientId === message.entityId) {
                 targetEntity = entity;
-                console.log(`[EntityDamagedHandler] Found remote player entity:`, entity.id);
                 break;
               }
             }

@@ -109,12 +109,13 @@ export class BoundsSystem extends BaseSystem {
    * Notifica il CombatSystem per mostrare i numeri di danno
    */
   private notifyCombatSystemOfDamage(targetEntity: any, damage: number): void {
-    // Cerca il CombatSystem nell'ECS
-    const combatSystem = (this.ecs as any).systems?.find((system: any) =>
-      system.constructor.name === 'CombatSystem'
+    // Cerca il CombatSystem nell'ECS (robusto contro minificazione)
+    const systems = (this.ecs as any).systems || [];
+    const combatSystem = systems.find((system: any) =>
+      typeof system.createDamageText === 'function'
     );
 
-    if (combatSystem && combatSystem.createDamageText) {
+    if (combatSystem) {
       // Il danno dei bounds è sempre danno HP e permette più testi simultanei
       combatSystem.createDamageText(targetEntity, damage, false, true);
     }
