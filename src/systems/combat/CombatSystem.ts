@@ -454,6 +454,9 @@ export class CombatSystem extends BaseSystem {
     const inRange = distance <= playerDamage.attackRange; // 600px
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
+    // Debug: mostra sempre lo stato
+    console.log(`🔍 [COMBAT DEBUG] NPC ${selectedNpc.id}: distance=${distance.toFixed(1)}px, inRange=${inRange}, attackActivated=${attackActivated}, lastCombatTarget=${this.lastCombatTarget}, currentTarget=${this.currentAttackTarget}, selectedNpcId=${selectedNpc.id}`);
+
     if (inRange && (attackActivated || this.lastCombatTarget === selectedNpc.id) && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range E (attacco attivato O era l'ultimo NPC combattuto) - inizia/riprendi combattimento
       const reason = attackActivated ? "attack activated" : "returning to previous combat";
@@ -463,6 +466,8 @@ export class CombatSystem extends BaseSystem {
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
       this.lastCombatTarget = null; // Reset - ora stiamo combattendo
+    } else {
+      console.log(`⏭️ [COMBAT] No action for NPC ${selectedNpc.id} (conditions not met)`);
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
       // Player uscito dal range - ferma combattimento e salva l'NPC per eventuale ripresa
       console.log(`🛑 [COMBAT] Player out of range (${distance.toFixed(1)}px) - pausing combat with NPC ${selectedNpc.id}`);
