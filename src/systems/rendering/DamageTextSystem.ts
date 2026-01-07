@@ -75,36 +75,19 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
-    console.log('🔍 DamageTextSystem.render() called'); // TEMP DEBUG
-
     if (!ctx.canvas || !this.cameraSystem) {
-      console.log('❌ DamageTextSystem: missing canvas or camera'); // TEMP DEBUG
       return; // Silenziosamente senza log per evitare spam
     }
 
     const camera = this.cameraSystem.getCamera();
-    if (!camera) {
-      console.log('❌ DamageTextSystem: no camera available'); // TEMP DEBUG
-      return;
-    }
+    if (!camera) return;
 
     const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
-    console.log(`📊 Found ${damageTextEntities.length} damage text entities`); // TEMP DEBUG
-
-    // Log dettagli di ogni entità trovata
-    for (const entity of damageTextEntities) {
-      console.log(`🎯 Damage text entity: ${entity}`); // TEMP DEBUG
-    }
 
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);
-      if (!damageText) {
-        console.log('⚠️ DamageTextSystem: entity without DamageText component'); // TEMP DEBUG
-        continue;
-      }
-
-      console.log(`🎯 Processing damage text: ${damageText.value} for entity ${damageText.targetEntityId}`); // TEMP DEBUG
+      if (!damageText) continue;
 
       let worldX: number;
       let worldY: number;
@@ -112,14 +95,10 @@ export class DamageTextSystem extends BaseSystem {
       const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
       if (targetEntity) {
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-        if (!targetTransform) {
-          console.log(`❌ DamageTextSystem: target entity ${damageText.targetEntityId} has no Transform`); // TEMP DEBUG
-          continue;
-        }
+        if (!targetTransform) continue;
 
         worldX = targetTransform.x + damageText.initialOffsetX;
         worldY = targetTransform.y + damageText.currentOffsetY;
-        console.log(`✅ DamageTextSystem: using live coords (${worldX.toFixed(0)}, ${worldY.toFixed(0)})`); // TEMP DEBUG
 
         worldX = targetTransform.x + damageText.initialOffsetX;
         worldY = targetTransform.y + damageText.currentOffsetY;
@@ -129,7 +108,6 @@ export class DamageTextSystem extends BaseSystem {
         damageText.lastWorldY = worldY;
       } else {
         // Usa l'ultima posizione conosciuta se entità non esiste più
-        console.log(`⚠️ DamageTextSystem: target entity ${damageText.targetEntityId} not found, using last coords`); // TEMP DEBUG
         worldX = damageText.lastWorldX;
         worldY = damageText.lastWorldY;
       }
@@ -150,8 +128,6 @@ export class DamageTextSystem extends BaseSystem {
       ctx.fillText(damageText.value.toString(), screenPos.x, screenPos.y);
       ctx.restore();
     }
-
-    console.log(`✅ DamageTextSystem.render() completed, rendered ${damageTextEntities.length} texts`); // TEMP DEBUG
   }
 
 }

@@ -42,7 +42,7 @@ export class DamageText extends Component {
   }
 
   getAlpha(): number {
-    const progress = this.lifetime / this.maxLifetime;
+    const progress = Math.max(0, this.lifetime / this.maxLifetime); // Clamp to 0 to avoid negative values
     return progress < 0.25 ? progress / 0.25 : 1.0;
   }
 

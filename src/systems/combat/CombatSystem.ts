@@ -277,15 +277,11 @@ export class CombatSystem extends BaseSystem {
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
   createDamageText(targetEntity: any, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false): void {
-    console.log(`🎯 CombatSystem.createDamageText called: damage=${damage}, isShield=${isShieldDamage}, targetEntity=${targetEntity}`); // TEMP DEBUG
-
     if (damage <= 0) {
-      console.log('❌ CombatSystem.createDamageText: damage <= 0, skipping'); // TEMP DEBUG
       return;
     }
 
     const targetEntityId = targetEntity.id;
-    console.log(`📋 CombatSystem.createDamageText: targetEntityId=${targetEntityId}`); // TEMP DEBUG
 
     // Controlla quanti testi sono già attivi per questa entità
     const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
@@ -322,8 +318,6 @@ export class CombatSystem extends BaseSystem {
 
     // Aggiorna il contatore
     this.activeDamageTexts.set(targetEntityId, activeCount + 1);
-
-    console.log(`✅ CombatSystem.createDamageText: Created damage text entity ${damageTextEntity} for target ${targetEntityId}`); // TEMP DEBUG
   }
 
   /**
