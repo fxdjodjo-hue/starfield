@@ -37,13 +37,9 @@ export class CombatSystem extends BaseSystem {
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private pendingCombatRequests: any[] = []; // Coda richieste combattimento in attesa di ClientNetworkSystem
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
+  private lastCombatChange: number = 0; // Timestamp ultimo cambio stato combattimento
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
   private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
-
-  // Anti-flickering per combattimento stabile
-  private lastCombatStateChange: number = 0; // Timestamp ultimo cambio stato combattimento
-  private readonly COMBAT_STATE_DEBOUNCE = 300; // 300ms minimo tra cambi stato
-  private combatFlickerCount: number = 0; // Conta flickering per debug
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, gameContext: GameContext, playerSystem: PlayerSystem, clientNetworkSystem: ClientNetworkSystem | null = null) {
     super(ecs);
@@ -464,57 +460,52 @@ export class CombatSystem extends BaseSystem {
       Math.pow(playerTransform.y - npcTransform.y, 2)
     );
 
-    // Hysteresis aumentata per ridurre flickering con movimenti rapidi
-    // Range di entrata: 300px, uscita: 500px (differenza 200px invece di 20px)
-    const enterRange = playerDamage.attackRange; // 300px - inizia combattimento
-    const exitRange = playerDamage.attackRange + 200; // 500px - finisce combattimento
+    // Hysteresis aumentata per ridurre flickering con movimenti rapidi:
+    // Range entrata: 300px, Range uscita: 450px (differenza 150px invece di 20px)
+    const enterRange = playerDamage.attackRange; // 300px
+    const exitRange = playerDamage.attackRange + 150; // 450px per hysteresis ampia
 
     const inRange = this.currentAttackTarget === selectedNpc.id
-      ? distance <= exitRange  // Range ampio per uscita (stabilità)
-      : distance <= enterRange; // Range normale per entrata
+      ? distance <= exitRange  // Se già stiamo combattendo, usa range ampio per uscita
+      : distance <= enterRange; // Se non combattiamo, usa range normale per entrata
 
+    // Debounce: evita cambi di stato combattimento più frequenti di 1 secondo
     const now = Date.now();
-    const timeSinceLastChange = now - this.lastCombatStateChange;
+    const timeSinceLastChange = now - this.lastCombatChange;
+
 
     if (inRange) {
       // Nel range - assicurati che stiamo combattendo questo NPC
       if (this.currentAttackTarget !== selectedNpc.id) {
-        // Reset stability counters quando si cambia target
-        this.resetCombatStability();
-
-        // Anti-flickering: evita cambi troppo frequenti (300ms debounce)
-        if (timeSinceLastChange >= this.COMBAT_STATE_DEBOUNCE) {
+        // Nuovo target o rientro nel range - inizia combattimento (con debounce)
+        if (timeSinceLastChange >= 1000) { // Minimo 1 secondo dall'ultimo cambio
+          console.log(`🎯 [COMBAT] Starting combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px, hysteresis: enter=${enterRange})`);
           this.sendStartCombat(selectedNpc);
           this.startAttackLogging(selectedNpc);
           this.currentAttackTarget = selectedNpc.id;
           this.attackStartedLogged = true;
-          this.lastCombatStateChange = now;
+          this.lastCombatChange = now;
         } else {
-          // Conta flickering per debug
-          this.combatFlickerCount++;
-          if (this.combatFlickerCount > 3) {
-            console.warn(`⚠️ [COMBAT] Combat flickering detected (${this.combatFlickerCount} attempts) - distance: ${distance.toFixed(1)}px`);
-          }
+          console.log(`⏳ [COMBAT] Debouncing START_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms since last change)`);
         }
+      } else {
+        // Comment out the continuing log to reduce spam
+        // console.log(`🎯 [COMBAT] Continuing combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px)`);
       }
       // Il server gestisce automaticamente gli attacchi - non combattiamo localmente
     } else {
       // Fuori range - ferma il combattimento se stavamo attaccando questo NPC
       if (this.currentAttackTarget === selectedNpc.id) {
-        // Anti-flickering: evita cambi troppo frequenti (300ms debounce)
-        if (timeSinceLastChange >= this.COMBAT_STATE_DEBOUNCE) {
+        // Ferma combattimento (con debounce)
+        if (timeSinceLastChange >= 1000) { // Minimo 1 secondo dall'ultimo cambio
+          console.log(`🛑 [COMBAT] Stopping combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px > exit=${exitRange})`);
           this.sendStopCombat();
           this.endAttackLogging();
           this.currentAttackTarget = null;
           this.attackStartedLogged = false;
-          this.lastCombatStateChange = now;
-          this.combatFlickerCount = 0; // Reset counter
+          this.lastCombatChange = now;
         } else {
-          // Conta flickering per debug
-          this.combatFlickerCount++;
-          if (this.combatFlickerCount > 3) {
-            console.warn(`⚠️ [COMBAT] Combat flickering detected (${this.combatFlickerCount} attempts) - distance: ${distance.toFixed(1)}px`);
-          }
+          console.log(`⏳ [COMBAT] Debouncing STOP_COMBAT for NPC ${selectedNpc.id} (${timeSinceLastChange}ms since last change)`);
         }
       }
     }
@@ -740,14 +731,6 @@ export class CombatSystem extends BaseSystem {
         this.activeDamageTexts.delete(targetEntityId);
       }
     }
-  }
-
-  /**
-   * Reset dei counter anti-flickering (usato quando si cambia NPC target)
-   */
-  private resetCombatStability(): void {
-    this.lastCombatStateChange = 0;
-    this.combatFlickerCount = 0;
   }
 
   /**
