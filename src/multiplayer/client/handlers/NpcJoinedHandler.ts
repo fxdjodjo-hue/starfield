@@ -11,7 +11,6 @@ export class NpcJoinedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`🚀 [NPC_JOINED] Creating NPC ${message.npcId} (${message.npcType}) at (${message.position.x}, ${message.position.y})`);
 
     const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
     if (!remoteNpcSystem) {
@@ -34,7 +33,6 @@ export class NpcJoinedHandler extends BaseMessageHandler {
     if (entityId === -1) {
       console.error(`❌ [NPC_JOINED] Failed to create NPC ${message.npcId}`);
     } else {
-      console.log(`✅ [NPC_JOINED] Created NPC ${message.npcId} with entity ID ${entityId}`);
     }
   }
 }

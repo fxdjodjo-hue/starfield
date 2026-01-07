@@ -160,8 +160,8 @@ export class PlayState extends GameState {
     // Imposta informazioni del player nel sistema di rete
     this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
 
-    // Ora che il ClientNetworkSystem è inizializzato, passalo al GameInitializationSystem
-    this.setupClientNetworkSystem();
+    // Il ClientNetworkSystem verrà impostato dopo l'inizializzazione del gioco
+    // this.setupClientNetworkSystem(); // Spostato dopo initializeGame()
 
     // Collega il callback per processare le richieste pendenti quando la connessione è stabilita
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
@@ -307,8 +307,8 @@ export class PlayState extends GameState {
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
     this.playerEntity = await this.gameInitSystem.initialize();
 
-    // Il ClientNetworkSystem verrà passato al GameInitializationSystem dopo la connessione
-    // (viene chiamato automaticamente dal setTimeout nel metodo di connessione)
+    // Ora che i sistemi sono stati creati, imposta il ClientNetworkSystem
+    this.setupClientNetworkSystem();
 
     // Ottieni riferimenti ai sistemi creati
     const systems = this.gameInitSystem.getSystems();

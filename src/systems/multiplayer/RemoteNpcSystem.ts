@@ -99,8 +99,6 @@ export class RemoteNpcSystem extends BaseSystem {
     // Registra l'NPC
     this.remoteNpcs.set(npcId, { entityId: entity.id, type });
 
-    console.log(`✅ [REMOTE_NPC] Created NPC ${npcId} (${type}) at (${x}, ${y}) - Entity ID: ${entity.id}`);
-    console.log(`📊 [REMOTE_NPC] Total NPCs now: ${this.remoteNpcs.size}`);
 
     return entity.id;
   }
@@ -200,9 +198,7 @@ export class RemoteNpcSystem extends BaseSystem {
    * Inizializza NPC dal messaggio initial_npcs
    */
   initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Frigate', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
-    console.log(`🏁 [REMOTE_NPC] Initializing ${npcs.length} NPCs from server`);
     for (const npcData of npcs) {
-      console.log(`🎯 [REMOTE_NPC] Initializing NPC ${npcData.id} (${npcData.type}) at (${npcData.position.x}, ${npcData.position.y})`);
       this.addRemoteNpc(
         npcData.id,
         npcData.type,
@@ -214,7 +210,6 @@ export class RemoteNpcSystem extends BaseSystem {
         npcData.behavior
       );
     }
-    console.log(`✅ [REMOTE_NPC] Finished initializing ${npcs.length} NPCs`);
   }
 
   /**

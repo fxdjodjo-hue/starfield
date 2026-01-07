@@ -23,8 +23,8 @@ export const NETWORK_CONFIG = {
 
   // Fallback positions
   FALLBACK_POSITION: {
-    x: 400,
-    y: 300,
+    x: 0,
+    y: 0,
     rotation: 0
   }
 } as const;

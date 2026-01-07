@@ -347,20 +347,26 @@ export class MinimapSystem extends BaseSystem {
    */
   private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
     if (!this.clientNetworkSystem) {
-      // ClientNetworkSystem non ancora impostato, salta il rendering
+      console.log('❌ [MINIMAP] No clientNetworkSystem');
       return;
     }
 
     const remotePlayerSystem = this.clientNetworkSystem.getRemotePlayerSystem();
     if (!remotePlayerSystem) {
+      console.log('❌ [MINIMAP] No remotePlayerSystem');
       return;
     }
 
     // Ottieni le posizioni di tutti i giocatori remoti
     const remotePlayerPositions = remotePlayerSystem.getRemotePlayerPositions();
 
+    if (remotePlayerPositions.length > 0) {
+      console.log(`🎨 [MINIMAP] Rendering ${remotePlayerPositions.length} remote players`);
+    }
+
     // Renderizza ogni giocatore remoto come pallino giallo
-    remotePlayerPositions.forEach((position: {x: number, y: number}) => {
+    remotePlayerPositions.forEach((position: {x: number, y: number}, index: number) => {
+      console.log(`🟡 [MINIMAP] Rendering remote player ${index} at (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
       this.renderEntityDot(ctx, position.x, position.y, '#FFFF00'); // Giallo per giocatori remoti
     });
   }

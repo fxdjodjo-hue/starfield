@@ -196,7 +196,6 @@ export class RewardSystem extends BaseSystem {
       this.playState.markAsChanged();
       // Logging ridotto per performance
       if (import.meta.env.DEV) {
-        console.log('🎯 [RewardSystem] Ricompensa assegnata - salvataggio pianificato');
       }
     }
     // Nota: se playState non è disponibile, il salvataggio non avviene automaticamente

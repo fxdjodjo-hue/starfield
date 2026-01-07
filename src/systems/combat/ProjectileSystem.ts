@@ -167,13 +167,13 @@ export class ProjectileSystem extends BaseSystem {
         // Solo il server può confermare se hanno colpito il target corretto
         if (projectile.targetId !== targetEntity.id) {
           // Colpito qualcun altro - continua il volo, lascia che il server decida
-          console.log(`🎯 [CLIENT] Projectile ${projectile.id} hit ${targetEntity.id} but target is ${projectile.targetId} - continuing flight`);
+          console.log(`🎯 [CLIENT] Projectile ${projectileEntity.id} hit ${targetEntity.id} but target is ${projectile.targetId} - continuing flight`);
           continue; // Non rimuovere, continua a volare
         }
 
         // Colpito il target corretto - il server dovrebbe averlo già rimosso,
         // ma per sicurezza rimuoviamo anche localmente
-        console.log(`🎯 [CLIENT] Projectile ${projectile.id} hit intended target ${projectile.targetId} - removing locally`);
+        console.log(`🎯 [CLIENT] Projectile ${projectileEntity.id} hit intended target ${projectile.targetId} - removing locally`);
         this.ecs.removeEntity(projectileEntity);
         return;
       }

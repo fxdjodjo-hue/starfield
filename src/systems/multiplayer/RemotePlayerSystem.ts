@@ -103,6 +103,8 @@ export class RemotePlayerSystem extends BaseSystem {
       return existingEntity.id;
     }
 
+    console.log(`🎮 [REMOTE_PLAYER] Creating remote player entity for ${clientId} at (${x}, ${y})`);
+
     // Crea una nuova entity per il giocatore remoto
     const entity = this.ecs.createEntity();
 
@@ -113,6 +115,8 @@ export class RemotePlayerSystem extends BaseSystem {
     // Aggiungi il componente identificativo del giocatore remoto
     const remotePlayerComponent = new RemotePlayer(clientId, '', 'Recruit');
     this.ecs.addComponent(entity, RemotePlayer, remotePlayerComponent);
+
+    console.log(`✅ [REMOTE_PLAYER] Created entity ${entity.id} for remote player ${clientId}`);
 
     // Nota: Non aggiungiamo Velocity ai remote player per evitare conflitti
     // con il MovementSystem durante l'interpolazione
@@ -210,13 +214,17 @@ export class RemotePlayerSystem extends BaseSystem {
     const positions: Array<{x: number, y: number}> = [];
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer, Transform);
 
+    console.log(`🔍 [REMOTE_PLAYER] getRemotePlayerPositions called - Found ${remotePlayerEntities.length} remote player entities`);
+
     for (const entity of remotePlayerEntities) {
       const transform = this.ecs.getComponent(entity, Transform);
       if (transform) {
         positions.push({ x: transform.x, y: transform.y });
+        console.log(`📍 [REMOTE_PLAYER] Remote player at (${transform.x.toFixed(1)}, ${transform.y.toFixed(1)})`);
       }
     }
 
+    console.log(`📊 [REMOTE_PLAYER] Returning ${positions.length} positions`);
     return positions;
   }
 

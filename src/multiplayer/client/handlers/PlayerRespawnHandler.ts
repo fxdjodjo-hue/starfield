@@ -14,7 +14,6 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     const { clientId, position, health, maxHealth, shield, maxShield } = message;
 
-    console.log(`🔄 [CLIENT] Player ${clientId} respawned at (${position.x.toFixed(0)}, ${position.y.toFixed(0)})`);
 
     // Update the respawned player's position and stats
     if (networkSystem.remotePlayerManager) {
@@ -31,7 +30,6 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
 
     // If this is our own player respawning, we might need special handling
     if (clientId === networkSystem.getLocalClientId()) {
-      console.log(`🔄 [CLIENT] Local player respawned!`);
       // The server will send position updates, so our client should automatically sync
     }
   }

@@ -11,7 +11,6 @@ export class NpcSpawnHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`🔄 [CLIENT] NPC spawn received: ${message.npc.id} (${message.npc.type}) at (${message.npc.position.x.toFixed(0)}, ${message.npc.position.y.toFixed(0)})`);
 
     const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
     if (!remoteNpcSystem) {
@@ -34,7 +33,6 @@ export class NpcSpawnHandler extends BaseMessageHandler {
     if (entityId === -1) {
       console.error(`❌ [CLIENT] Failed to create respawned NPC ${message.npc.id}`);
     } else {
-      console.log(`✅ [CLIENT] Successfully added respawned NPC ${message.npc.id} (entity: ${entityId})`);
     }
   }
 }

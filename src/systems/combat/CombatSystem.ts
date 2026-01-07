@@ -51,7 +51,6 @@ export class CombatSystem extends BaseSystem {
    * Imposta il sistema di rete per notifiche multiplayer (fallback)
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
-    console.log(`🔧 [COMBAT] setClientNetworkSystem called with: ${!!clientNetworkSystem}`);
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Processa le richieste di combattimento pendenti solo se connesso
@@ -64,7 +63,6 @@ export class CombatSystem extends BaseSystem {
           this.sendStartCombat(npcEntity);
         }
       } else {
-        console.log(`📡 [COMBAT] Network system set but not connected, keeping ${this.pendingCombatRequests.length} pending requests`);
       }
     }
   }
@@ -74,7 +72,6 @@ export class CombatSystem extends BaseSystem {
    */
   processPendingCombatRequests(): void {
     if (this.pendingCombatRequests.length > 0 && this.clientNetworkSystem && this.clientNetworkSystem.isConnected()) {
-      console.log(`📡 [COMBAT] Processing ${this.pendingCombatRequests.length} pending combat requests`);
       const pendingRequests = [...this.pendingCombatRequests];
       this.pendingCombatRequests = [];
 
@@ -438,13 +435,11 @@ export class CombatSystem extends BaseSystem {
       ? distance <= exitRange  // Se già stiamo combattendo, usa range più ampio per uscita
       : distance <= enterRange; // Se non combattiamo, usa range normale per entrata
 
-    console.log(`📏 [COMBAT] Distance to NPC ${selectedNpc.id}: ${distance.toFixed(1)}px (enter: ${enterRange}px, exit: ${exitRange}px), inRange: ${inRange}, currentTarget: ${this.currentAttackTarget}`);
 
     if (inRange) {
       // Nel range - assicurati che stiamo combattendo questo NPC
       if (this.currentAttackTarget !== selectedNpc.id) {
         // Nuovo target o rientro nel range - inizia combattimento
-        console.log(`🎯 [COMBAT] Starting combat with NPC ${selectedNpc.id} (distance: ${distance.toFixed(1)}px) - switching from ${this.currentAttackTarget}`);
         this.sendStartCombat(selectedNpc);
         this.startAttackLogging(selectedNpc);
         this.currentAttackTarget = selectedNpc.id;
@@ -457,7 +452,6 @@ export class CombatSystem extends BaseSystem {
     } else {
       // Fuori range - ferma il combattimento se stavamo attaccando questo NPC
       if (this.currentAttackTarget === selectedNpc.id) {
-        console.log(`📏 [COMBAT] Out of range (${distance.toFixed(1)}px > ${exitRange}px), stopping combat with NPC ${selectedNpc.id}`);
         this.sendStopCombat();
         this.endAttackLogging();
         this.currentAttackTarget = null;
@@ -470,12 +464,10 @@ export class CombatSystem extends BaseSystem {
    * Invia richiesta di inizio combattimento al server
    */
   private sendStartCombat(npcEntity: any): void {
-    console.log(`📡 [CLIENT] Sending START_COMBAT request for NPC ${npcEntity.id}, clientNetworkSystem: ${!!this.clientNetworkSystem}`);
 
     if (!this.clientNetworkSystem) {
       // Aggiungi alla coda delle richieste pendenti
       this.pendingCombatRequests.push(npcEntity);
-      console.log(`📡 [CLIENT] No network system, queued request for NPC ${npcEntity.id}`);
       return;
     }
 
@@ -492,12 +484,10 @@ export class CombatSystem extends BaseSystem {
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
     const playerId = this.clientNetworkSystem.getLocalClientId();
 
-    console.log(`📡 [CLIENT] START_COMBAT: player=${playerId}, npc=${npcIdToSend} (serverId: ${npc.serverId}, entityId: ${npcEntity.id})`);
 
     // Riproduci suono di attivazione combattimento per feedback immediato
     if (this.audioSystem) {
       this.audioSystem.playSound('laser', 0.2, false, true); // Volume ridotto per attivazione
-      console.log(`🔊 [AUDIO] Combat activation sound played at ${Date.now()}`);
     } else {
       console.warn(`🔊 [AUDIO] No audio system available for combat activation`);
     }
@@ -507,7 +497,6 @@ export class CombatSystem extends BaseSystem {
         npcId: npcIdToSend,
         playerId: playerId
       });
-      console.log(`✅ [CLIENT] START_COMBAT request sent successfully`);
     } catch (error) {
       console.error(`❌ [CLIENT] Failed to send START_COMBAT request:`, error);
     }
@@ -545,7 +534,6 @@ export class CombatSystem extends BaseSystem {
     try {
       const npc = this.ecs.getComponent(entity, Npc);
       const entityType = npc ? `NPC-${npc.type}` : 'Player';
-      console.log(`🎆 [EXPLOSION] Starting explosion creation for ${entityType} entity ${entity.id}`);
 
       // Verifica che l'entità esista ancora (potrebbe essere stata rimossa dal ProjectileSystem)
       if (!this.ecs.entityExists(entity.id)) {
@@ -590,7 +578,6 @@ export class CombatSystem extends BaseSystem {
           const hasNpc = this.ecs.hasComponent(entity, Npc);
           const entityType = hasNpc ? 'npc' : 'player';
 
-          console.log(`📡 [EXPLOSION] Sending explosion notification for ${entityType} entity ${entity.id}`);
 
           // Genera ID univoco per l'esplosione
           const explosionId = `expl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -606,7 +593,6 @@ export class CombatSystem extends BaseSystem {
         }
       }
 
-      console.log(`✅ [EXPLOSION] Explosion created successfully for ${entityType} entity ${entity.id}`);
 
       // Pulisci il Set dopo che l'esplosione è finita (10 frame * 80ms = 800ms + margine)
       setTimeout(() => {

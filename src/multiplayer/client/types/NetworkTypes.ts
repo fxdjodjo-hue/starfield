@@ -98,6 +98,23 @@ export interface ErrorMessage extends NetworkMessage {
   message: string;
 }
 
+export interface RewardsEarnedMessage extends NetworkMessage {
+  type: 'rewards_earned';
+  rewards: {
+    credits: number;
+    cosmos: number;
+    experience: number;
+    honor: number;
+  };
+  source: string;
+  totalInventory: {
+    credits: number;
+    cosmos: number;
+    experience: number;
+    honor: number;
+  };
+}
+
 // Union type for all possible network messages
 export type NetworkMessageUnion =
   | JoinMessage
@@ -107,4 +124,5 @@ export type NetworkMessageUnion =
   | PlayerJoinedMessage
   | PlayerLeftMessage
   | WelcomeMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | RewardsEarnedMessage;

@@ -14,7 +14,6 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`💥 [DAMAGE_TEXT] Received entity_damaged: ${message.entityType} ${message.entityId}, damage: ${message.damage}, newHealth: ${message.newHealth}, newShield: ${message.newShield}`);
 
     // Crea damage text per il danno ricevuto
     const ecs = networkSystem.getECS();
@@ -23,13 +22,10 @@ export class EntityDamagedHandler extends BaseMessageHandler {
       const combatSystem = this.findCombatSystem(ecs);
 
       if (!combatSystem) {
-        console.log(`❌ EntityDamagedHandler: CombatSystem not found in ECS`); // TEMP DEBUG
       } else if (!combatSystem.createDamageText) {
-        console.log(`❌ EntityDamagedHandler: CombatSystem found but no createDamageText method`); // TEMP DEBUG
       }
 
       if (combatSystem && combatSystem.createDamageText) {
-        console.log(`✅ EntityDamagedHandler: Found CombatSystem with createDamageText method`); // TEMP DEBUG
         // Trova l'entità danneggiata
         let targetEntity = null;
 
@@ -91,7 +87,6 @@ export class EntityDamagedHandler extends BaseMessageHandler {
       // Controlla se il danno è per il giocatore locale
       if (message.entityId === networkSystem.getLocalClientId()) {
         // Danno al giocatore LOCALE - aggiorna i propri componenti
-        console.log(`💥 [CLIENT] Local player damaged: ${message.newHealth} HP, ${message.newShield} shield`);
 
         // Trova e aggiorna i componenti del giocatore locale
         if (ecs) {
@@ -110,7 +105,6 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             if (healthComponent && shieldComponent) {
               healthComponent.current = message.newHealth;
               shieldComponent.current = message.newShield;
-              console.log(`✅ [CLIENT] Updated local player health: ${healthComponent.current}/${healthComponent.max}, shield: ${shieldComponent.current}/${shieldComponent.max}`);
               break;
             }
           }

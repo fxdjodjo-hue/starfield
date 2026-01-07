@@ -84,35 +84,41 @@ export class GameInitializationSystem extends System {
    * Imposta il sistema di rete per notifiche multiplayer
    */
   setClientNetworkSystem(clientNetworkSystem: any): void {
-    console.log(`🔧 [GAME_INIT] setClientNetworkSystem called, combatSystem exists: ${!!this.combatSystem}`);
+    console.log('[GAME_INIT] setClientNetworkSystem called');
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Se il CombatSystem è già stato creato, impostalo immediatamente
     if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
-      console.log(`🔧 [GAME_INIT] Calling setClientNetworkSystem on CombatSystem`);
       this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
-      console.log(`📝 [GAME_INIT] CombatSystem not yet created, will set it later`);
       // Il ClientNetworkSystem verrà impostato sul CombatSystem quando viene creato
     }
 
     // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
     if (this.minimapSystem && typeof this.minimapSystem.setClientNetworkSystem === 'function') {
+      console.log('[GAME_INIT] Setting ClientNetworkSystem on MinimapSystem');
       this.minimapSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
+      console.log('[GAME_INIT] MinimapSystem not available or setClientNetworkSystem not a function', {
+        minimapSystem: !!this.minimapSystem,
+        hasMethod: this.minimapSystem ? typeof this.minimapSystem.setClientNetworkSystem === 'function' : 'no minimapSystem'
+      });
     }
 
-    // Imposta il RemoteNpcSystem nel ClientNetworkSystem per gestire gli NPC remoti
-    if (this.systemsCache?.remoteNpcSystem && typeof clientNetworkSystem.setRemoteNpcSystem === 'function') {
-      clientNetworkSystem.setRemoteNpcSystem(this.systemsCache.remoteNpcSystem);
-      console.log('🔧 [GAME_INIT] RemoteNpcSystem collegato al ClientNetworkSystem');
-    }
-
-    // Collega RewardSystem all'EntityDestroyedHandler per processare ricompense da server
-    if (clientNetworkSystem && typeof clientNetworkSystem.getEntityDestroyedHandler === 'function') {
-      const entityDestroyedHandler = clientNetworkSystem.getEntityDestroyedHandler();
-      if (entityDestroyedHandler && this.systemsCache?.rewardSystem) {
-        entityDestroyedHandler.setRewardSystem(this.systemsCache.rewardSystem);
+    // Configura le impostazioni specifiche del ClientNetworkSystem ora che è disponibile
+    if (this.clientNetworkSystem) {
+      // Imposta riferimenti ai sistemi esistenti
+      if (this.systemsCache?.logSystem) {
+        this.clientNetworkSystem.setLogSystem(this.systemsCache.logSystem);
+      }
+      if (this.systemsCache?.uiSystem) {
+        this.clientNetworkSystem.setUiSystem(this.systemsCache.uiSystem);
+      }
+      if (this.systemsCache?.economySystem) {
+        this.clientNetworkSystem.setEconomySystem(this.systemsCache.economySystem);
+      }
+      if (this.systemsCache?.questTrackingSystem) {
+        this.systemsCache.questTrackingSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
       }
     }
   }
@@ -186,7 +192,6 @@ export class GameInitializationSystem extends System {
 
     // Se abbiamo già un ClientNetworkSystem, impostalo sul CombatSystem appena creato
     if (this.clientNetworkSystem && combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
-      console.log(`🔧 [GAME_INIT] Setting ClientNetworkSystem on newly created CombatSystem`);
       combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
     }
 
@@ -215,6 +220,7 @@ export class GameInitializationSystem extends System {
       playerStatusDisplaySystem: this.playerStatusDisplaySystem,
       playerSystem: this.playerSystem,
       audioSystem: this.audioSystem,
+      clientNetworkSystem: this.clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,
       assets: { shipImage, mapBackgroundImage, scouterImage, frigateImage }
@@ -282,7 +288,7 @@ export class GameInitializationSystem extends System {
       combatSystem.setAudioSystem(this.audioSystem);
     }
 
-    // ClientNetworkSystem verrà impostato successivamente tramite setClientNetworkSystem()
+    // ClientNetworkSystem viene impostato tramite setClientNetworkSystem()
 
     // Collega AudioSystem al sistema bounds
     if (boundsSystem && typeof boundsSystem.setAudioSystem === 'function') {

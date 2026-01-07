@@ -12,6 +12,7 @@ import { RemotePlayerUpdateHandler } from './handlers/RemotePlayerUpdateHandler'
 import { PlayerJoinedHandler } from './handlers/PlayerJoinedHandler';
 import { PlayerLeftHandler } from './handlers/PlayerLeftHandler';
 import { PlayerRespawnHandler } from './handlers/PlayerRespawnHandler';
+import { RewardsEarnedHandler } from './handlers/RewardsEarnedHandler';
 // NPC handlers
 import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
 import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
@@ -44,6 +45,9 @@ export class ClientNetworkSystem extends BaseSystem {
   public readonly gameContext: GameContext;
   public readonly clientId: string;
   private audioSystem: any = null;
+  private logSystem: any = null;
+  private uiSystem: any = null;
+  private economySystem: any = null;
 
   // Network components
   private readonly connectionManager: ConnectionManager;
@@ -127,12 +131,12 @@ export class ClientNetworkSystem extends BaseSystem {
       new RemotePlayerUpdateHandler(),
       new PlayerJoinedHandler(),
       new PlayerLeftHandler(),
-      new PlayerRespawnHandler()
+      new PlayerRespawnHandler(),
+      new RewardsEarnedHandler()
     ];
 
     // Aggiungi handlers NPC se il sistema è disponibile
     if (this.remoteNpcSystem) {
-      console.log(`🎯 [CLIENT] Registering NPC handlers`);
       handlers.push(
         new InitialNpcsHandler(),
         new NpcJoinedHandler(),
@@ -144,7 +148,6 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Aggiungi handlers di combattimento se il sistema è disponibile
     if (this.remoteProjectileSystem) {
-      console.log(`⚔️ [CLIENT] Registering combat handlers`);
       handlers.push(
         new CombatUpdateHandler(),
         new ProjectileFiredHandler(),
@@ -158,15 +161,12 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Registra tutti gli handler (questo sovrascrive quelli precedenti)
     this.messageRouter.registerHandlers(handlers);
-    console.log(`📡 [CLIENT] Registered ${handlers.length} message handlers`);
   }
 
   /**
    * Handles successful connection establishment
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
-    console.log(`🔌 [CLIENT] WebSocket connected, sending join message`);
-    console.log(`📊 [CLIENT] RemoteNpcSystem available: ${!!this.remoteNpcSystem}`);
     this.socket = socket;
 
     // Reset tick manager timing on (re)connection
@@ -201,9 +201,7 @@ export class ClientNetworkSystem extends BaseSystem {
     try {
       const message: NetMessage = JSON.parse(data);
 
-      console.log(`📨 [CLIENT] Received message: ${message.type}`);
       if (message.type === 'initial_npcs') {
-        console.log(`🌍 [CLIENT] Received initial_npcs with ${message.npcs?.length || 0} NPCs`);
       }
 
       // Handle simple messages that don't need dedicated handlers
@@ -317,10 +315,8 @@ export class ClientNetworkSystem extends BaseSystem {
    * Connects to the server using the connection manager
    */
   async connect(): Promise<void> {
-    console.log(`🔌 [CLIENT] Attempting to connect to server...`);
     try {
       this.socket = await this.connectionManager.connect();
-      console.log(`🔌 [CLIENT] Socket connected successfully`);
     } catch (error) {
       console.error(`🔌 [CLIENT] Socket connection failed:`, error);
       throw error;
@@ -426,7 +422,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sets the RemoteNpcSystem instance
    */
   setRemoteNpcSystem(remoteNpcSystem: RemoteNpcSystem): void {
-    console.log(`🔧 [CLIENT] Setting RemoteNpcSystem: ${!!remoteNpcSystem}`);
     this.remoteNpcSystem = remoteNpcSystem;
 
     // Ri-registra gli handler per includere quelli NPC ora che il sistema è disponibile
@@ -451,10 +446,8 @@ export class ClientNetworkSystem extends BaseSystem {
    * Manually connect to the server (called after systems are set up)
    */
   async connectToServer(): Promise<void> {
-    console.log(`🚀 [CONNECT] connectToServer() called - RemoteNpcSystem available: ${!!this.remoteNpcSystem}`);
     try {
       await this.connect();
-      console.log(`✅ [CLIENT] Connection successful`);
     } catch (error) {
       console.error(`❌ [CLIENT] Connection failed:`, error);
     }
@@ -700,5 +693,47 @@ export class ClientNetworkSystem extends BaseSystem {
   disconnect(): void {
     this.connectionManager.disconnect();
     this.socket = null;
+  }
+
+  /**
+   * Imposta il riferimento al LogSystem per le notifiche di log
+   */
+  setLogSystem(logSystem: any): void {
+    this.logSystem = logSystem;
+  }
+
+  /**
+   * Ottiene il riferimento al LogSystem
+   */
+  getLogSystem(): any {
+    return this.logSystem;
+  }
+
+  /**
+   * Imposta il riferimento al UiSystem per aggiornare l'HUD
+   */
+  setUiSystem(uiSystem: any): void {
+    this.uiSystem = uiSystem;
+  }
+
+  /**
+   * Ottiene il riferimento al UiSystem
+   */
+  getUiSystem(): any {
+    return this.uiSystem;
+  }
+
+  /**
+   * Imposta il riferimento al EconomySystem per aggiornare l'inventario
+   */
+  setEconomySystem(economySystem: any): void {
+    this.economySystem = economySystem;
+  }
+
+  /**
+   * Ottiene il riferimento al EconomySystem
+   */
+  getEconomySystem(): any {
+    return this.economySystem;
   }
 }

@@ -16,7 +16,6 @@ export class WelcomeHandler extends BaseMessageHandler {
     networkSystem.gameContext.localClientId = message.clientId || networkSystem.clientId;
 
     if (import.meta.env.DEV) {
-      console.log(`[CLIENT] Welcome received. Client ID: ${networkSystem.gameContext.localClientId}`);
     }
   }
 }
