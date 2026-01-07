@@ -152,7 +152,7 @@ export class GameInitializationSystem extends System {
     const frigateImage = await this.context.assetManager.loadImage('/assets/npc_ships/frigate/npc_frigate.png');
 
     // Crea sistemi
-    this.audioSystem = new AudioSystem(AUDIO_CONFIG);
+    this.audioSystem = new AudioSystem(this.ecs, AUDIO_CONFIG);
     const cameraSystem = new CameraSystem(this.ecs);
     this.movementSystem = new MovementSystem(this.ecs, cameraSystem);
     const parallaxSystem = new ParallaxSystem(this.ecs, cameraSystem);

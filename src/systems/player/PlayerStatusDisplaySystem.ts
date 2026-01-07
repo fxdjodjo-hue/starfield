@@ -181,13 +181,19 @@ export class PlayerStatusDisplaySystem extends System {
     return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
   }
 
+  private lastUpdateTime: number = 0;
+  private readonly UPDATE_INTERVAL = 100; // Update ogni 100ms invece che ogni frame
+
   /**
    * Aggiorna il sistema (chiamato ogni frame)
    */
   update(deltaTime: number): void {
     if (this.playerEntity && this.statusElement) {
-      console.log('🔄 [PlayerStatusDisplay] Update called, updating display');
-      this.updateDisplay();
+      const now = Date.now();
+      if (now - this.lastUpdateTime >= this.UPDATE_INTERVAL) {
+        this.lastUpdateTime = now;
+        this.updateDisplay();
+      }
     }
   }
 

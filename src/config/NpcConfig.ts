@@ -19,11 +19,19 @@ export interface NpcRewards {
   honor: number;
 }
 
+export interface NpcAI {
+  aggressionLevel: 'low' | 'medium' | 'high';
+  targetPriority: 'nearest' | 'weakest' | 'players' | 'defense';
+  formation: 'scattered' | 'patrol' | 'pack' | 'solo' | 'swarm';
+}
+
 export interface NpcDefinition {
   type: string;
   defaultBehavior: string;
   stats: NpcStats;
   rewards: NpcRewards;
+  spawns?: string[]; // Tipi di NPC che questo NPC può generare
+  ai?: NpcAI; // Configurazione AI avanzata
   description?: string;
 }
 

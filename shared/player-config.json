@@ -1,0 +1,29 @@
+{
+  "stats": {
+    "health": 100000,
+    "shield": 50000,
+    "damage": 500,
+    "range": 300,
+    "cooldown": 1000,
+    "speed": 300
+  },
+  "startingResources": {
+    "credits": 1000,
+    "cosmos": 50,
+    "level": 1,
+    "experience": 0,
+    "honor": 0,
+    "skillPoints": 10
+  },
+  "spriteSize": {
+    "width": 112,
+    "height": 112
+  },
+  "upgrades": {
+    "maxHpUpgrades": 100,
+    "maxShieldUpgrades": 100,
+    "maxSpeedUpgrades": 100,
+    "maxDamageUpgrades": 100
+  },
+  "description": "La nave controllata dal giocatore"
+}

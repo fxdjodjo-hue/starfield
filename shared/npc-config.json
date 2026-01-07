@@ -16,6 +16,11 @@
       "experience": 400,
       "honor": 2
     },
+    "ai": {
+      "aggressionLevel": "low",
+      "targetPriority": "nearest",
+      "formation": "scattered"
+    },
     "description": "Nemico base dello spazio profondo"
   },
   "Frigate": {
@@ -35,6 +40,84 @@
       "experience": 800,
       "honor": 4
     },
+    "ai": {
+      "aggressionLevel": "medium",
+      "targetPriority": "weakest",
+      "formation": "patrol"
+    },
     "description": "Nave da guerra di medie dimensioni"
+  },
+  "Destroyer": {
+    "type": "Destroyer",
+    "defaultBehavior": "patrol",
+    "stats": {
+      "health": 5000,
+      "shield": 3000,
+      "damage": 150,
+      "range": 400,
+      "cooldown": 2000,
+      "speed": 150
+    },
+    "rewards": {
+      "credits": 1500,
+      "cosmos": 3,
+      "experience": 1500,
+      "honor": 8
+    },
+    "ai": {
+      "aggressionLevel": "high",
+      "targetPriority": "players",
+      "formation": "pack"
+    },
+    "description": "Cacciatorpediniere pesante specializzato nel combattimento ravvicinato"
+  },
+  "Carrier": {
+    "type": "Carrier",
+    "defaultBehavior": "support",
+    "stats": {
+      "health": 10000,
+      "shield": 5000,
+      "damage": 50,
+      "range": 500,
+      "cooldown": 3000,
+      "speed": 100
+    },
+    "rewards": {
+      "credits": 3000,
+      "cosmos": 5,
+      "experience": 3000,
+      "honor": 15
+    },
+    "spawns": ["Fighter"],
+    "ai": {
+      "aggressionLevel": "low",
+      "targetPriority": "defense",
+      "formation": "solo"
+    },
+    "description": "Portaerei che genera caccia di supporto"
+  },
+  "Fighter": {
+    "type": "Fighter",
+    "defaultBehavior": "swarm",
+    "stats": {
+      "health": 300,
+      "shield": 100,
+      "damage": 30,
+      "range": 250,
+      "cooldown": 800,
+      "speed": 400
+    },
+    "rewards": {
+      "credits": 150,
+      "cosmos": 0,
+      "experience": 150,
+      "honor": 1
+    },
+    "ai": {
+      "aggressionLevel": "medium",
+      "targetPriority": "weakest",
+      "formation": "swarm"
+    },
+    "description": "Caccia leggero generato dalle portaerei"
   }
 }

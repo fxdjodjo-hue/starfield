@@ -1,18 +1,18 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
-import { Transform } from '../../entities/spatial/Transform';
-import { Velocity } from '../../entities/spatial/Velocity';
 import { Sprite } from '../../entities/Sprite';
-import { Npc } from '../../entities/ai/Npc';
-import { Health } from '../../entities/combat/Health';
+import { EntityFactory } from '../../factories/EntityFactory';
 
 /**
  * Sistema dedicato alla gestione degli NPC
- * Gestisce creazione, configurazione e logica NPC
+ * Gestisce creazione, configurazione e logica NPC utilizzando EntityFactory
  */
 export class NpcSystem extends System {
+  private entityFactory: EntityFactory;
+
   constructor(ecs: ECS) {
     super(ecs);
+    this.entityFactory = new EntityFactory(ecs);
   }
 
   /**
@@ -28,21 +28,71 @@ export class NpcSystem extends System {
    * Crea un singolo NPC Scouter
    */
   private createScouter(sprite: Sprite): void {
-    const npc = this.ecs.createEntity();
-
     // Posizione casuale distribuita
-    const x = (Math.random() - 0.5) * 2000;
-    const y = (Math.random() - 0.5) * 2000;
+    const position = {
+      x: (Math.random() - 0.5) * 2000,
+      y: (Math.random() - 0.5) * 2000,
+      rotation: 0,
+      velocity: {
+        x: (Math.random() - 0.5) * 50,
+        y: (Math.random() - 0.5) * 50
+      },
+      sprite: sprite
+    };
 
-    // Aggiungi componenti NPC
-    this.ecs.addComponent(npc, Transform, new Transform(x, y));
-    this.ecs.addComponent(npc, Velocity, new Velocity(
-      (Math.random() - 0.5) * 50,
-      (Math.random() - 0.5) * 50
-    ));
-    this.ecs.addComponent(npc, Sprite, sprite);
-    this.ecs.addComponent(npc, Npc, new Npc('scouter'));
-    this.ecs.addComponent(npc, Health, new Health(50, 50));
+    this.entityFactory.createScouter(position);
+  }
+
+  /**
+   * Crea NPC distribuiti per tipo
+   */
+  createDistributedNpcs(npcTypes: string[], totalCount: number, sprite: Sprite): void {
+    const typesCount = npcTypes.length;
+    const countPerType = Math.floor(totalCount / typesCount);
+    const remainder = totalCount % typesCount;
+
+    npcTypes.forEach((type, index) => {
+      const count = countPerType + (index < remainder ? 1 : 0);
+      this.createNpcsOfType(type, count, sprite);
+    });
+  }
+
+  /**
+   * Crea NPC di un tipo specifico
+   */
+  private createNpcsOfType(type: string, count: number, sprite: Sprite): void {
+    for (let i = 0; i < count; i++) {
+      const position = {
+        x: (Math.random() - 0.5) * 2000,
+        y: (Math.random() - 0.5) * 2000,
+        rotation: 0,
+        velocity: {
+          x: (Math.random() - 0.5) * 50,
+          y: (Math.random() - 0.5) * 50
+        },
+        sprite: sprite
+      };
+
+      switch (type.toLowerCase()) {
+        case 'scouter':
+          this.entityFactory.createScouter(position);
+          break;
+        case 'frigate':
+          this.entityFactory.createFrigate(position);
+          break;
+        case 'destroyer':
+          this.entityFactory.createDestroyer(position);
+          break;
+        case 'carrier':
+          this.entityFactory.createCarrier(position);
+          break;
+        case 'fighter':
+          this.entityFactory.createFighter(position);
+          break;
+        default:
+          console.warn(`Unknown NPC type: ${type}`);
+      }
+    }
   }
 
   update(deltaTime: number): void {
