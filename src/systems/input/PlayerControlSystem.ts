@@ -24,6 +24,7 @@ export class PlayerControlSystem extends BaseSystem {
   private minimapTargetY: number | null = null;
   private attackActivated = false; // Flag per tracciare se l'attacco è stato attivato con SPACE
   private lastInputTime = 0; // Timestamp dell'ultimo input per rispettare attack speed
+  private lastNpcSelectionTime = 0; // Timestamp dell'ultima selezione NPC
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
@@ -82,9 +83,15 @@ export class PlayerControlSystem extends BaseSystem {
       } else {
         // Riattivazione con cooldown per prevenire spam
         if (now - this.lastInputTime >= playerCooldown) {
-          this.attackActivated = true;
-          this.lastInputTime = now;
-          console.log('[PlayerControl] Attack reactivated after cooldown');
+          // Controlla che l'attacco sia attivato dopo l'ultima selezione NPC
+          // per evitare auto-attacco quando si cambia selezione
+          if (now - this.lastNpcSelectionTime >= 100) { // 100ms di tolleranza
+            this.attackActivated = true;
+            this.lastInputTime = now;
+            console.log('[PlayerControl] Attack activated for current NPC selection');
+          } else {
+            console.log('[PlayerControl] Attack blocked - NPC selection too recent');
+          }
         } else {
           // Cooldown attivo - mostra tempo rimanente
           const remaining = playerCooldown - (now - this.lastInputTime);
@@ -127,6 +134,13 @@ export class PlayerControlSystem extends BaseSystem {
       // Ferma immediatamente qualsiasi combattimento in corso
       this.stopCombatIfActive();
     }
+  }
+
+  /**
+   * Chiamato quando viene selezionato un nuovo NPC
+   */
+  public onNpcSelected(): void {
+    this.lastNpcSelectionTime = Date.now();
   }
 
   /**
