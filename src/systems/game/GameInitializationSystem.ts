@@ -28,6 +28,7 @@ import { GameContext } from '../../infrastructure/engine/GameContext';
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import AudioSystem from '../audio/AudioSystem';
 import { AUDIO_CONFIG } from '../../config/AudioConfig';
+import { AtlasParser } from '../../utils/AtlasParser';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
@@ -90,6 +91,12 @@ export class GameInitializationSystem extends System {
     // Se il CombatSystem è già stato creato, impostalo immediatamente
     if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
       this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+
+      // Imposta anche i frame precaricati nel ClientNetworkSystem se disponibili
+      if (this.combatSystem.explosionFrames && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
+        this.clientNetworkSystem.setPreloadedExplosionFrames(this.combatSystem.explosionFrames);
+        console.log(`💥 [GAME_INIT] Explosion frames trasferiti a ClientNetworkSystem: ${this.combatSystem.explosionFrames.length} frame`);
+      }
     } else {
       // Il ClientNetworkSystem verrà impostato sul CombatSystem quando viene creato
     }
@@ -174,6 +181,24 @@ export class GameInitializationSystem extends System {
     const renderSystem = new RenderSystem(this.ecs, cameraSystem, this.playerSystem, this.context.assetManager);
     const combatSystem = new CombatSystem(this.ecs, cameraSystem, this.context, this.playerSystem);
     this.combatSystem = combatSystem; // Salva riferimento per setClientNetworkSystem
+
+    // Imposta i frame dell'esplosione precaricati nei sistemi
+    try {
+      const explosionAtlasData = await AtlasParser.parseAtlas('/assets/explosions/explosions_npc/explosion.atlas');
+      const explosionFrames = await AtlasParser.extractFrames(explosionAtlasData);
+
+      // CombatSystem
+      combatSystem.setPreloadedExplosionFrames(explosionFrames);
+      console.log(`💥 [GAME_INIT] Explosion frames impostati nel CombatSystem: ${explosionFrames.length} frame`);
+
+      // ClientNetworkSystem (se già disponibile)
+      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
+        this.clientNetworkSystem.setPreloadedExplosionFrames(explosionFrames);
+        console.log(`💥 [GAME_INIT] Explosion frames impostati nel ClientNetworkSystem: ${explosionFrames.length} frame`);
+      }
+    } catch (error) {
+      console.warn('⚠️ [GAME_INIT] Errore nell\'impostazione explosion frames precaricati:', error);
+    }
     const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, combatSystem);
     // Collega il DamageTextSystem al RenderSystem per il rendering
     if (renderSystem && typeof renderSystem.setDamageTextSystem === 'function') {
@@ -193,6 +218,12 @@ export class GameInitializationSystem extends System {
     // Se abbiamo già un ClientNetworkSystem, impostalo sul CombatSystem appena creato
     if (this.clientNetworkSystem && combatSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
       combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+
+      // Imposta anche i frame precaricati nel ClientNetworkSystem se disponibili
+      if (combatSystem.explosionFrames && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
+        this.clientNetworkSystem.setPreloadedExplosionFrames(combatSystem.explosionFrames);
+        console.log(`💥 [GAME_INIT] Explosion frames condivisi con ClientNetworkSystem: ${combatSystem.explosionFrames.length} frame`);
+      }
     }
 
     const result = {

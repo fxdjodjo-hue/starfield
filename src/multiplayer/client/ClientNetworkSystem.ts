@@ -5,6 +5,7 @@ import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem
 import { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
+import { AtlasParser } from '../../utils/AtlasParser';
 
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
@@ -540,7 +541,7 @@ export class ClientNetworkSystem extends BaseSystem {
       // Crea entità temporanea per l'esplosione
       const explosionEntity = this.ecs.createEntity();
 
-      // Usa i frame cachati o caricali
+      // Usa i frame cachati o caricali (ora sempre la stessa immagine)
       let explosionFrames = this.explosionFramesCache;
       if (!explosionFrames) {
         explosionFrames = await this.loadExplosionFrames();
@@ -553,7 +554,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
       // Crea componenti
       const transform = new Transform(message.position.x, message.position.y, 0);
-      const explosion = new Explosion(explosionFrames, 80); // 80ms per frame
+      const explosion = new Explosion(explosionFrames, 20, 1); // 20ms per frame - perfetto
 
       // Aggiungi componenti all'entità
       this.ecs.addComponent(explosionEntity, Transform, transform);
@@ -572,6 +573,14 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Imposta i frame dell'esplosione precaricati per evitare lag
+   */
+  setPreloadedExplosionFrames(frames: HTMLImageElement[]): void {
+    this.explosionFramesCache = frames;
+    console.log(`💥 [CLIENT_NETWORK] Explosion frames precaricati impostati: ${frames.length} frame`);
+  }
+
+  /**
    * Cache per i frame delle esplosioni
    */
   private explosionFramesCache: HTMLImageElement[] | null = null;
@@ -579,41 +588,28 @@ export class ClientNetworkSystem extends BaseSystem {
   /**
    * Carica i frame dell'esplosione (cache per performance)
    */
-  private async loadExplosionFrames(): Promise<HTMLImageElement[]> {
+  private async loadExplosionFrames(explosionType: string = 'explosion'): Promise<HTMLImageElement[]> {
     if (this.explosionFramesCache) {
       return this.explosionFramesCache;
     }
 
-    const frames: HTMLImageElement[] = [];
-    const basePath = '/assets/explosions/explosions_npc/Explosion_blue_oval/Explosion_blue_oval';
+    try {
+      // Usa il file atlas originale con l'immagine explosion.png
+      const atlasPath = `/assets/explosions/explosions_npc/explosion.atlas`;
 
-    // Carica i 10 frame disponibili
-    for (let i = 1; i <= 10; i++) {
-      const framePath = `${basePath}${i}.png`;
-      try {
-        // Usa il sistema di asset loading del context se disponibile
-        if (this.gameContext?.assetManager) {
-          const img = await this.gameContext.assetManager.loadImage(framePath);
-          frames.push(img);
-        } else {
-          // Fallback: carica direttamente
-          const img = new Image();
-          img.src = framePath;
-          await new Promise((resolve, reject) => {
-            img.onload = resolve;
-            img.onerror = reject;
-          });
-          frames.push(img);
-        }
-      } catch (error) {
-        // Continua senza questo frame invece di fallire completamente
-      }
+      const atlasData = await AtlasParser.parseAtlas(atlasPath);
+
+      // Estrai tutti i frame definiti nell'atlas
+      const frames = await AtlasParser.extractFrames(atlasData);
+
+      console.log(`💥 [CLIENT_NETWORK] Loaded ${frames.length} frames from atlas: ${atlasPath}`);
+
+      this.explosionFramesCache = frames;
+      return frames;
+    } catch (error) {
+      console.error('Failed to load explosion frames from atlas:', error);
+      return [];
     }
-
-    // Se non abbiamo caricato nessun frame, restituisci un array vuoto
-    // Le esplosioni non verranno mostrate ma il gioco continuerà
-    this.explosionFramesCache = frames;
-    return frames;
   }
 
   /**
