@@ -182,7 +182,6 @@ export class ConnectionManager {
    */
   send(data: string | ArrayBuffer | Blob | ArrayBufferView): void {
     if (this.socket && this.isConnected && this.socket.readyState === WebSocket.OPEN) {
-      console.log('📤 [CONNECTION] Sending data to server:', typeof data === 'string' ? data : 'binary data');
       this.socket.send(data);
     } else {
       console.warn('⚠️ Cannot send data: WebSocket not connected', {

@@ -8,11 +8,11 @@ export const NETWORK_CONFIG = {
 
   // Timing intervals (in milliseconds)
   HEARTBEAT_INTERVAL: 5000, // 5 seconds
-  POSITION_SYNC_INTERVAL: 50, // 20 FPS for position updates
+  POSITION_SYNC_INTERVAL: 25, // 40 FPS for position updates (ridotto per posizioni più fresche)
 
   // Position sync thresholds
   POSITION_CHANGE_THRESHOLD: 5, // Minimum position change to trigger sync (pixels)
-  ROTATION_CHANGE_THRESHOLD: 0.05, // Minimum rotation change to trigger sync (radians) - ridotto per più fluidità
+  ROTATION_CHANGE_THRESHOLD: 0.05, // Minimum rotation change to trigger sync (radians)
 
   // Connection management
   RECONNECT_ATTEMPTS: 3,

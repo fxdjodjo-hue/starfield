@@ -116,10 +116,15 @@ class ServerCombatManager {
 
     // Periodo di grazia: non verificare range nei primi 2 secondi dopo inizio combattimento
     const timeSinceCombatStart = now - (combat.combatStartTime || 0);
-    const inGracePeriod = timeSinceCombatStart < 2000; // 2 secondi di grazia
+    const inGracePeriod = timeSinceCombatStart < 5000; // 5 secondi di grazia aumentata
+
+    // Log distanza ogni 5 secondi per debug
+    if (Math.floor(now / 5000) !== Math.floor((now - 16) / 5000)) { // ~ogni 5 secondi
+      console.log(`📏 [SERVER] Player ${playerId} distance to NPC ${combat.npcId}: ${distance.toFixed(1)}px (range: ${SERVER_CONSTANTS.COMBAT.PLAYER_RANGE}px, grace: ${inGracePeriod ? 'YES' : 'NO'})`);
+    }
 
     if (!inGracePeriod && distance > SERVER_CONSTANTS.COMBAT.PLAYER_RANGE) { // Range del player
-      logger.debug('COMBAT', `Player ${playerId} out of range (${distance.toFixed(0)}) after ${timeSinceCombatStart}ms, stopping combat (was attacking NPC ${combat.npcId})`);
+      console.log(`🛑 [SERVER] Player ${playerId} OUT OF RANGE (${distance.toFixed(0)}px > ${SERVER_CONSTANTS.COMBAT.PLAYER_RANGE}px) after ${timeSinceCombatStart}ms, stopping combat (NPC ${combat.npcId})`);
       this.playerCombats.delete(playerId);
       return;
     }

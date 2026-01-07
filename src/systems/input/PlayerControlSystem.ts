@@ -66,7 +66,8 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Gestisce la pressione del tasto SPACE per attivare/disattivare l'attacco
+   * Gestisce la pressione del tasto SPACE per attivare l'attacco
+   * SPACE attiva sempre l'attacco se c'è un NPC selezionato, non lo disattiva mai
    */
   private handleSpacePress(): void {
     const now = Date.now();
@@ -75,12 +76,8 @@ export class PlayerControlSystem extends BaseSystem {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     if (selectedNpcs.length > 0) {
-      if (this.attackActivated) {
-        // Disattivazione sempre immediata - giocatore deve poter smettere quando vuole
-        this.attackActivated = false;
-        console.log('[PlayerControl] Attack deactivated immediately');
-        this.stopCombatIfActive();
-      } else {
+      // Attivazione sempre (non disattivazione)
+      if (!this.attackActivated) {
         // Riattivazione con cooldown per prevenire spam
         if (now - this.lastInputTime >= playerCooldown) {
           // Controlla che l'attacco sia attivato dopo l'ultima selezione NPC
@@ -97,11 +94,17 @@ export class PlayerControlSystem extends BaseSystem {
           const remaining = playerCooldown - (now - this.lastInputTime);
           console.log(`[PlayerControl] Reactivation blocked - ${remaining}ms remaining`);
         }
+      } else {
+        // Attacco già attivo - SPACE non fa nulla (previene disattivazione accidentale)
+        console.log('[PlayerControl] Attack already active - SPACE ignored');
       }
     } else {
-      // Nessun NPC selezionato
-      this.attackActivated = false;
-      console.log('[PlayerControl] No NPC selected');
+      // Nessun NPC selezionato - reset dell'attacco
+      if (this.attackActivated) {
+        this.attackActivated = false;
+        console.log('[PlayerControl] Attack deactivated - no NPC selected');
+        this.stopCombatIfActive();
+      }
     }
   }
 
@@ -120,16 +123,18 @@ export class PlayerControlSystem extends BaseSystem {
    * Restituisce se l'attacco è attualmente attivato
    */
   isAttackActivated(): boolean {
+    // Log per debug quando viene chiamato durante combattimento
+    // console.log(`[PlayerControl] isAttackActivated called: ${this.attackActivated}`);
     return this.attackActivated;
   }
 
   /**
-   * Disattiva forzatamente l'attacco (chiamato quando finisce il combattimento o cambia selezione)
+   * Disattiva forzatamente l'attacco (chiamato quando non ci sono più NPC selezionati)
    */
   deactivateAttack(): void {
     if (this.attackActivated) {
+      console.log('[PlayerControl] ⚠️ ATTACK FORCE-DISABLED - no NPC selected, attack deactivated');
       this.attackActivated = false;
-      console.log('[PlayerControl] Attack auto-deactivated after combat end');
 
       // Ferma immediatamente qualsiasi combattimento in corso
       this.stopCombatIfActive();
