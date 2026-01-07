@@ -588,6 +588,7 @@ export class SkillsPanel extends BasePanel {
         break;
       case 'damage':
         success = playerUpgrades.upgradeDamage();
+        console.log(`🎯 [SkillsPanel] Damage upgrade attempted: ${playerUpgrades.damageUpgrades - 1} → ${playerUpgrades.damageUpgrades}`);
         break;
     }
 
@@ -638,8 +639,11 @@ export class SkillsPanel extends BasePanel {
     // Aggiorna Damage
     const damage = this.ecs.getComponent(playerEntity, Damage);
     if (damage) {
-      const newDamage = Math.floor(playerDef.stats.damage * playerUpgrades.getDamageBonus());
+      const oldDamage = damage.damage;
+      const bonus = playerUpgrades.getDamageBonus();
+      const newDamage = Math.floor(playerDef.stats.damage * bonus);
       damage.damage = newDamage;
+      console.log(`💥 [SkillsPanel] Damage updated: ${oldDamage} → ${newDamage} (base: ${playerDef.stats.damage}, bonus: ${bonus.toFixed(3)})`);
     }
 
     // Speed viene aggiornata automaticamente dal PlayerControlSystem
