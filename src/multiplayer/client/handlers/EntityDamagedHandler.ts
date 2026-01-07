@@ -30,17 +30,13 @@ export class EntityDamagedHandler extends BaseMessageHandler {
 
     if (!combatSystem) {
       console.error('[EntityDamagedHandler] CombatSystem not found in ECS!');
-      console.error('[EntityDamagedHandler] Available systems:', ecs.getSystems ? ecs.getSystems().map((s: any) => s.constructor.name) : 'No getSystems method');
+      console.error('[EntityDamagedHandler] Available systems with createDamageText method:', ecs.getSystems ? ecs.getSystems().filter((s: any) => typeof s.createDamageText === 'function').length : 'No getSystems method');
+      console.error('[EntityDamagedHandler] Total systems available:', ecs.getSystems ? ecs.getSystems().length : 'No getSystems method');
       return;
     }
 
-    if (!combatSystem.createDamageText) {
-      console.error('[EntityDamagedHandler] CombatSystem.createDamageText method not found!');
-      return;
-    }
-
-    // CombatSystem trovato e valido, procedi con la creazione dei damage text
-    if (combatSystem && combatSystem.createDamageText) {
+    // CombatSystem trovato e valido (ha il metodo createDamageText), procedi con la creazione dei damage text
+    if (combatSystem) {
       // Trova l'entità danneggiata
       let targetEntity = null;
 
@@ -145,11 +141,11 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   }
 
   /**
-   * Trova il CombatSystem nell'ECS
+   * Trova il CombatSystem nell'ECS (robusto contro minificazione)
    */
   private findCombatSystem(ecs: any): any {
-    // Cerca il CombatSystem nell'ECS
+    // Cerca il sistema che ha il metodo createDamageText (unico del CombatSystem)
     const systems = ecs.getSystems ? ecs.getSystems() : [];
-    return systems.find((system: any) => system.constructor.name === 'CombatSystem');
+    return systems.find((system: any) => typeof system.createDamageText === 'function');
   }
 }
