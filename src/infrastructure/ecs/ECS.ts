@@ -145,6 +145,13 @@ export class ECS {
   }
 
   /**
+   * Restituisce tutti i sistemi registrati
+   */
+  getSystems(): System[] {
+    return [...this.systems]; // Restituisce una copia per evitare modifiche esterne
+  }
+
+  /**
    * Aggiorna tutti i sistemi con error boundary
    */
   update(deltaTime: number): void {

@@ -136,7 +136,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
    */
   private findCombatSystem(ecs: any): any {
     // Cerca il CombatSystem nell'ECS
-    const systems = ecs.systems || [];
+    const systems = ecs.getSystems ? ecs.getSystems() : [];
     return systems.find((system: any) => system.constructor.name === 'CombatSystem');
   }
 }
