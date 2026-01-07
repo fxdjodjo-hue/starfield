@@ -8,6 +8,7 @@ import { QuestManager } from '../../systems/quest/QuestManager';
 import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
+import { NETWORK_CONFIG } from '../../config/NetworkConfig';
 import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
@@ -119,7 +120,7 @@ export class PlayState extends GameState {
 
     // Messaggio di benvenuto nella chat
     setTimeout(() => {
-      this.uiSystem.addSystemMessage('🚀 Welcome to Starfield! Use the chat to communicate.');
+      this.uiSystem.addSystemMessage('Welcome to Starfield! Use the chat to communicate.');
     }, 1000);
 
     // Il nickname verrà creato al primo update quando tutti i sistemi sono pronti
@@ -150,7 +151,7 @@ export class PlayState extends GameState {
       this.world.getECS(),
       this.context,
       this.remotePlayerSystem,
-      'ws://localhost:3000', // Server locale
+      NETWORK_CONFIG.DEFAULT_SERVER_URL, // Server configurato
       this.remoteNpcSystem, // Sistema NPC (potrebbe essere null inizialmente)
       this.remoteProjectileSystem, // Sistema proiettili (potrebbe essere null inizialmente)
       this.audioSystem // Sistema audio
