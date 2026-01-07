@@ -148,7 +148,7 @@ export class LogSystem extends BaseSystem {
   /**
    * Log specifico per ricompense
    */
-  logReward(credits: number, cosmos: number, experience: number, honor: number, duration: number = 3000): void {
+  logReward(credits: number, cosmos: number, experience: number, honor: number, skillPoints: number = 0, duration: number = 3000): void {
     let rewardText = '🎁 Ricompense: ';
     const rewards: string[] = [];
 
@@ -156,6 +156,7 @@ export class LogSystem extends BaseSystem {
     if (cosmos > 0) rewards.push(`${cosmos} cosmos`);
     if (experience > 0) rewards.push(`${experience} XP`);
     if (honor > 0) rewards.push(`${honor} onore`);
+    if (skillPoints > 0) rewards.push(`${skillPoints} SP`);
 
     if (rewards.length > 0) {
       rewardText += rewards.join(', ');

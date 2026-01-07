@@ -18,11 +18,7 @@ export class RewardsEarnedHandler extends BaseMessageHandler {
     // Usa il LogSystem esistente per mostrare le ricompense al giocatore
     const logSystem = networkSystem.getLogSystem();
     if (logSystem) {
-      logSystem.logReward(rewards.credits, rewards.cosmos, rewards.experience, rewards.honor);
-      if (rewards.skillPoints && rewards.skillPoints > 0) {
-        // Log separato per SkillPoints
-        console.log(`🎯 Guadagnati ${rewards.skillPoints} SkillPoints!`);
-      }
+      logSystem.logReward(rewards.credits, rewards.cosmos, rewards.experience, rewards.honor, rewards.skillPoints || 0);
     }
 
     // AGGIORNA L'ECONOMY SYSTEM DEL CLIENT con le ricompense ricevute
