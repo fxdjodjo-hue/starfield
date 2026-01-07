@@ -23,6 +23,7 @@ export class PlayerControlSystem extends BaseSystem {
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
   private attackActivated = false; // Flag per tracciare se l'attacco è stato attivato con SPACE
+  private lastInputTime = 0; // Timestamp dell'ultimo input per rispettare attack speed
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
@@ -55,33 +56,74 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
+   * Gestisce il rilascio dei tasti
+   */
+  handleKeyRelease(key: string): void {
+    if (key === 'Space') {
+      this.spaceKeyPressed = false;
+    }
+  }
+
+  /**
    * Gestisce la pressione del tasto SPACE per attivare/disattivare l'attacco
    */
   private handleSpacePress(): void {
+    const now = Date.now();
+    const playerCooldown = this.getPlayerAttackCooldown();
+
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     if (selectedNpcs.length > 0) {
-      // C'è un NPC selezionato
       if (this.attackActivated) {
-        // Se l'attacco è già attivo, disattivalo
+        // Disattivazione sempre immediata - giocatore deve poter smettere quando vuole
         this.attackActivated = false;
-        console.log('[PlayerControl] Attack deactivated');
+        console.log('[PlayerControl] Attack deactivated immediately');
+        this.stopCombatIfActive();
       } else {
-        // Se l'attacco non è attivo, attivalo
-        this.attackActivated = true;
-        console.log('[PlayerControl] Attack activated');
+        // Riattivazione con cooldown per prevenire spam
+        if (now - this.lastInputTime >= playerCooldown) {
+          this.attackActivated = true;
+          this.lastInputTime = now;
+          console.log('[PlayerControl] Attack reactivated after cooldown');
+        } else {
+          // Cooldown attivo - mostra tempo rimanente
+          const remaining = playerCooldown - (now - this.lastInputTime);
+          console.log(`[PlayerControl] Reactivation blocked - ${remaining}ms remaining`);
+        }
       }
     } else {
-      // Nessun NPC selezionato, reset del flag
+      // Nessun NPC selezionato
       this.attackActivated = false;
+      console.log('[PlayerControl] No NPC selected');
     }
   }
+
+  /**
+   * Ottiene il cooldown dell'attacco del player per sincronizzare input e bilanciamento
+   */
+  private getPlayerAttackCooldown(): number {
+    if (!this.playerEntity) return 1000; // Default 1 secondo
+
+    const damage = this.ecs.getComponent(this.playerEntity, Damage);
+    return damage ? damage.attackCooldown : 1000;
+  }
+
 
   /**
    * Restituisce se l'attacco è attualmente attivato
    */
   isAttackActivated(): boolean {
     return this.attackActivated;
+  }
+
+  /**
+   * Disattiva forzatamente l'attacco (chiamato dal CombatSystem quando finisce il combattimento)
+   */
+  deactivateAttack(): void {
+    if (this.attackActivated) {
+      this.attackActivated = false;
+      console.log('[PlayerControl] Attack auto-deactivated after combat end');
+    }
   }
 
   /**
@@ -193,10 +235,11 @@ export class PlayerControlSystem extends BaseSystem {
       this.stopPlayerMovement();
     }
 
-    // Se c'è un NPC selezionato, ruota il player verso di esso (ha priorità)
-    // Questa chiamata viene sempre fatta per garantire che la rotazione sia corretta
-    // anche quando il player rimane fermo durante il combattimento
-    this.faceSelectedNpc();
+    // Ruota verso l'NPC selezionato SOLO se l'attacco è attivo
+    // Questo previene l'agganciamento precoce prima dell'inizio del combattimento
+    if (this.attackActivated) {
+      this.faceSelectedNpc();
+    }
   }
 
   /**
@@ -311,14 +354,10 @@ export class PlayerControlSystem extends BaseSystem {
       // Imposta velocity verso il mouse
       velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
 
-      // NON ruotare verso il mouse se c'è un NPC selezionato
-      // La rotazione verso l'NPC ha priorità e viene gestita in faceSelectedNpc()
-      const hasSelectedNpc = this.ecs.getEntitiesWithComponents(SelectedNpc).length > 0;
-      if (!hasSelectedNpc) {
-        // Solo se non c'è NPC selezionato, ruota verso la direzione del movimento
-        const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
-        transform.rotation = angle;
-      }
+      // Ruota sempre verso la direzione del movimento per movimento libero
+      // L'agganciamento al bersaglio avviene solo durante combattimento attivo
+      const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
+      transform.rotation = angle;
     } else {
       // Vicino al mouse, ferma il movimento
       velocity.stop();
@@ -339,7 +378,22 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Ruota il player verso l'NPC selezionato (se presente)
+   * Ferma il combattimento attivo quando disattivi manualmente l'attacco
+   */
+  private stopCombatIfActive(): void {
+    // Trova il CombatSystem nell'ECS
+    const combatSystem = this.ecs.systems?.find((system: any) =>
+      typeof system.stopCombatImmediately === 'function'
+    );
+
+    if (combatSystem) {
+      combatSystem.stopCombatImmediately();
+    }
+  }
+
+  /**
+   * Ruota il player verso l'NPC selezionato SOLO durante il combattimento attivo
+   * (chiamato solo quando attackActivated è true)
    */
   private faceSelectedNpc(): void {
     if (!this.playerEntity) return;
@@ -363,3 +417,4 @@ export class PlayerControlSystem extends BaseSystem {
     playerTransform.rotation = angle;
   }
 }
+
