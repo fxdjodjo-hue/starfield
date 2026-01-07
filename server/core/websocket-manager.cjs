@@ -436,6 +436,58 @@ class WebSocketConnectionManager {
             this.mapServer.broadcastNear(data.position, 2000, message);
           }
 
+          // Gestisce messaggi chat
+          if (data.type === 'chat_message') {
+            console.log(`💬 [SERVER] Chat message from ${data.clientId}: ${data.content}`);
+
+            // RATE LIMITING: max 1 messaggio ogni 5 secondi per player
+            const now = Date.now();
+            if (!playerData.lastChatTime) playerData.lastChatTime = 0;
+
+            if (now - playerData.lastChatTime < 5000) { // 1 msg ogni 5 sec
+              console.log(`🚫 [SERVER] Chat rate limit exceeded for ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Chat rate limit exceeded. Please wait before sending another message.'
+              }));
+              return;
+            }
+
+            // VALIDAZIONE CONTENUTO
+            if (!data.content || typeof data.content !== 'string') {
+              console.log(`🚫 [SERVER] Invalid chat content from ${data.clientId}`);
+              return;
+            }
+
+            const content = data.content.trim();
+            if (content.length === 0 || content.length > 200) {
+              console.log(`🚫 [SERVER] Chat message length invalid from ${data.clientId}: ${content.length} chars`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Chat message must be between 1 and 200 characters.'
+              }));
+              return;
+            }
+
+            // FILTRAGGIO BASICO (espandi con bad words list)
+            const filteredContent = this.filterChatMessage(content);
+
+            // AGGIORNA TIMESTAMP PER RATE LIMITING
+            playerData.lastChatTime = now;
+
+            // BROADCAST A TUTTI I GIOCATORI CONNESSI
+            const chatBroadcast = {
+              type: 'chat_message',
+              clientId: data.clientId,
+              senderName: playerData.nickname || 'Unknown Player',
+              content: filteredContent,
+              timestamp: now
+            };
+
+            console.log(`📡 [SERVER] Broadcasting chat message from ${playerData.nickname} to all players`);
+            this.mapServer.broadcastToMap(chatBroadcast);
+          }
+
         } catch (error) {
           logger.error('WEBSOCKET', 'Error parsing message', error.message);
         }
@@ -504,6 +556,34 @@ class WebSocketConnectionManager {
     const baseShield = 50000;
     const bonus = 1.0 + (shieldUpgrades * 0.01);
     return Math.floor(baseShield * bonus);
+  }
+
+  /**
+   * Filtra i messaggi di chat per sicurezza e appropriatezza
+   * Rimuove HTML, filtra parole inappropriate, ecc.
+   */
+  filterChatMessage(content) {
+    // Rimuovi tag HTML per sicurezza
+    let filtered = content.replace(/<[^>]*>/g, '');
+
+    // Lista base di parole inappropriate (espandi secondo necessità)
+    const badWords = [
+      // Aggiungi parole inappropriate qui quando necessario
+      // Esempio: 'badword1', 'badword2'
+    ];
+
+    // Filtraggio parole inappropriate (case insensitive)
+    badWords.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      filtered = filtered.replace(regex, '***');
+    });
+
+    // Limita lunghezza massima per sicurezza
+    if (filtered.length > 200) {
+      filtered = filtered.substring(0, 200) + '...';
+    }
+
+    return filtered;
   }
 }
 

@@ -7,6 +7,8 @@ import { QuestPanel } from '../../presentation/ui/QuestPanel';
 import { SkillsPanel } from '../../presentation/ui/SkillsPanel';
 import { ChatPanel } from '../../presentation/ui/ChatPanel';
 import { ChatManager } from './ChatManager';
+import { ChatMessageHandler } from '../../multiplayer/client/handlers/ChatMessageHandler';
+import { ErrorMessageHandler } from '../../multiplayer/client/handlers/ErrorMessageHandler';
 import { getPanelConfig } from '../../presentation/ui/PanelConfig';
 import { QuestSystem } from '../quest/QuestSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
@@ -209,10 +211,29 @@ export class UiSystem extends System {
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
     this.clientNetworkSystem = clientNetworkSystem;
+
+    // Abilita modalità multiplayer per il ChatManager
+    this.chatManager.setMultiplayerMode(true, clientNetworkSystem.clientId);
+
+    // Registra callback per inviare messaggi alla rete
+    this.chatManager.onMessageSent((message) => {
+      if (this.clientNetworkSystem) {
+        this.clientNetworkSystem.sendChatMessage(message.content);
+      }
+    });
+
+    // Registra gli handler per ricevere messaggi dalla rete
+    const chatHandler = new ChatMessageHandler(this.chatManager);
+    const errorHandler = new ErrorMessageHandler(this.chatManager);
+    clientNetworkSystem.getMessageRouter().registerHandler(chatHandler);
+    clientNetworkSystem.getMessageRouter().registerHandler(errorHandler);
+
     // Aggiorna anche i pannelli che ne hanno bisogno
     if (this.skillsPanel) {
       this.skillsPanel.setClientNetworkSystem(clientNetworkSystem);
     }
+
+    console.log('💬 [UI] Chat system connected to network');
   }
 
   /**

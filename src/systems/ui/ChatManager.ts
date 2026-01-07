@@ -2,7 +2,7 @@ import { ChatPanel } from '../../presentation/ui/ChatPanel';
 
 /**
  * ChatManager - Gestore centrale della chat per single-player e multiplayer
- * Prepara l'architettura per il supporto multiplayer
+ * Gestisce comunicazione in tempo reale tra giocatori
  */
 export class ChatManager {
   private chatPanel: ChatPanel;
@@ -10,6 +10,8 @@ export class ChatManager {
   private localPlayerId: string = 'local-player';
   private context: any = null;
   private messageCallbacks: ((message: ChatMessage) => void)[] = [];
+  private lastMessageTime: number = 0;
+  private lastMessageContent: string = '';
 
   constructor(chatPanel: ChatPanel, context?: any) {
     this.chatPanel = chatPanel;
@@ -27,9 +29,9 @@ export class ChatManager {
     }
 
     if (enabled) {
-      console.log('Chat: Multiplayer mode enabled');
+      this.log('info', 'Multiplayer mode enabled');
     } else {
-      console.log('Chat: Single-player mode');
+      this.log('info', 'Single-player mode');
     }
   }
 
@@ -48,11 +50,11 @@ export class ChatManager {
   }
 
   /**
-   * Riceve un messaggio dalla rete (multiplayer) - DA USARE QUANDO IMPLEMENTI IL MULTIPLAYER
+   * Riceve un messaggio dalla rete (multiplayer)
    */
   receiveNetworkMessage(message: ChatMessage): void {
     if (!this.isMultiplayerMode) {
-      console.warn('Chat: Received network message but not in multiplayer mode');
+      this.log('warn', 'Received network message but not in multiplayer mode');
       return;
     }
 
@@ -75,14 +77,37 @@ export class ChatManager {
    * Invia un messaggio (usato internamente dalla chat)
    */
   private sendMessage(content: string): void {
+    // SANITIZZA INPUT per sicurezza (XSS prevention)
+    const sanitizedContent = this.sanitizeInput(content);
+    if (sanitizedContent.length === 0) {
+      return; // Messaggio vuoto dopo sanitizzazione
+    }
+
+    // RATE LIMITING lato client: max 1 messaggio ogni 5 secondi
+    const now = Date.now();
+    if (now - this.lastMessageTime < 5000) { // 5000ms = max 1 msg ogni 5 sec
+      const secondsLeft = Math.ceil((5000 - (now - this.lastMessageTime)) / 1000);
+      this.showErrorMessage(`Please wait ${secondsLeft} second${secondsLeft === 1 ? '' : 's'} before sending another message.`);
+      return;
+    }
+
+    // CONTROLLA DUPLICATI: evita messaggi identici consecutivi
+    if (sanitizedContent === this.lastMessageContent && this.lastMessageContent !== '') {
+      this.showErrorMessage('Please do not send duplicate messages.');
+      return;
+    }
+
     const message: ChatMessage = {
       id: this.generateMessageId(),
       senderId: this.localPlayerId,
       senderName: this.getPlayerDisplayName(),
-      content: content,
+      content: sanitizedContent,
       timestamp: new Date(),
       type: 'user'
     };
+
+    // Aggiorna timestamp per rate limiting
+    this.lastMessageTime = now;
 
     // Mostra sempre localmente
     this.chatPanel.addMessage({
@@ -93,13 +118,17 @@ export class ChatManager {
       type: 'user'
     });
 
+    // Aggiorna il tracking per duplicati
+    this.lastMessageContent = sanitizedContent;
+    this.lastMessageTime = now;
+
     // In multiplayer, invia alla rete
     if (this.isMultiplayerMode) {
       this.messageCallbacks.forEach(callback => {
         try {
           callback(message);
         } catch (error) {
-          console.error('Chat: Error in message callback:', error);
+          this.log('error', `Error in message callback: ${error}`);
         }
       });
     }
@@ -110,6 +139,24 @@ export class ChatManager {
    */
   private generateMessageId(): string {
     return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  /**
+   * Metodo di logging centralizzato e consistente
+   */
+  private log(level: 'info' | 'warn' | 'error', message: string): void {
+    const prefix = `[CHAT:${level.toUpperCase()}]`;
+    console[level === 'info' ? 'log' : level](`${prefix} ${message}`);
+  }
+
+  /**
+   * Sanitizza l'input utente per sicurezza (XSS prevention)
+   */
+  private sanitizeInput(content: string): string {
+    return content
+      .trim()
+      .replace(/[<>\"'&]/g, '') // Basic XSS prevention
+      .substring(0, 200); // Enforce length limit
   }
 
   /**
@@ -130,6 +177,27 @@ export class ChatManager {
       if (message) {
         this.sendMessage(message);
       }
+    });
+  }
+
+  /**
+   * Riceve un errore dal server (rate limiting, ecc.)
+   */
+  receiveError(errorMessage: string): void {
+    this.log('info', `Received error from server: ${errorMessage}`);
+    this.showErrorMessage(errorMessage);
+  }
+
+  /**
+   * Mostra un messaggio di errore nella chat
+   */
+  private showErrorMessage(content: string): void {
+    this.chatPanel.addMessage({
+      id: `error-${Date.now()}`,
+      sender: 'System',
+      content: content,
+      timestamp: new Date(),
+      type: 'system'
     });
   }
 

@@ -434,9 +434,9 @@ export class ChatPanel {
   addMessage(message: ChatMessage): void {
     this.messages.push(message);
 
-    // Limita il numero di messaggi
+    // Limita il numero di messaggi (ottimizzazione memory)
     if (this.messages.length > this.maxMessages) {
-      this.messages = this.messages.slice(-this.maxMessages);
+      this.messages.splice(0, this.messages.length - this.maxMessages);
     }
 
     this.updateMessagesDisplay();
@@ -457,15 +457,20 @@ export class ChatPanel {
   }
 
   /**
-   * Aggiorna la visualizzazione dei messaggi
+   * Aggiorna la visualizzazione dei messaggi (ottimizzato con DocumentFragment)
    */
   private updateMessagesDisplay(): void {
-    this.messagesContainer.innerHTML = '';
+    // Usa DocumentFragment per batch DOM operations (performance optimization)
+    const fragment = document.createDocumentFragment();
 
     this.messages.forEach(message => {
       const messageElement = this.createMessageElement(message);
-      this.messagesContainer.appendChild(messageElement);
+      fragment.appendChild(messageElement);
     });
+
+    // Singola operazione DOM invece di N operazioni separate
+    this.messagesContainer.innerHTML = '';
+    this.messagesContainer.appendChild(fragment);
   }
 
   /**
@@ -483,16 +488,24 @@ export class ChatPanel {
       word-wrap: break-word;
     `;
 
-    // Nome del giocatore (solo per messaggi utente)
+    // Nome del giocatore (per messaggi utente) o System (per messaggi di sistema)
     if (message.type === 'user') {
-      const playerName = this.context?.playerNickname || 'Player';
+      const playerName = message.sender || this.context?.playerNickname || 'Player';
       const nameSpan = document.createElement('span');
       nameSpan.textContent = `${playerName}: `;
       nameSpan.style.cssText = `
-        color: rgba(16, 185, 129, 0.9);
+        color: rgba(200, 200, 200, 0.9);
         font-weight: 600;
       `;
       messageDiv.appendChild(nameSpan);
+    } else if (message.type === 'system') {
+      const systemSpan = document.createElement('span');
+      systemSpan.textContent = 'System: ';
+      systemSpan.style.cssText = `
+        color: rgba(220, 53, 69, 0.9);
+        font-weight: 600;
+      `;
+      messageDiv.appendChild(systemSpan);
     }
 
     // Testo del messaggio
@@ -500,7 +513,7 @@ export class ChatPanel {
     textSpan.textContent = message.content;
     textSpan.style.cssText = `
       word-wrap: break-word;
-      color: ${message.type === 'system' ? 'rgba(59, 130, 246, 0.9)' : 'rgba(255, 255, 255, 0.9)'};
+      color: ${message.type === 'system' ? 'rgba(220, 53, 69, 0.9)' : 'rgba(255, 255, 255, 0.9)'};
     `;
 
     messageDiv.appendChild(textSpan);

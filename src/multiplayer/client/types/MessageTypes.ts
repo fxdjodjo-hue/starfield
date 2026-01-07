@@ -63,6 +63,23 @@ export interface ErrorMessage extends NetMessage {
   message: string;
 }
 
+export interface ChatMessage extends NetMessage {
+  type: 'chat_message';
+  clientId: string;
+  senderName: string;
+  content: string;
+  timestamp: number;
+}
+
+export interface ChatHistoryMessage extends NetMessage {
+  type: 'chat_history';
+  messages: Array<{
+    senderName: string;
+    content: string;
+    timestamp: number;
+  }>;
+}
+
 // Union type for all possible network messages
 export type NetworkMessageUnion =
   | JoinMessage
@@ -72,4 +89,6 @@ export type NetworkMessageUnion =
   | PlayerJoinedMessage
   | PlayerLeftMessage
   | WelcomeMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | ChatMessage
+  | ChatHistoryMessage;

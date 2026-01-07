@@ -735,6 +735,34 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Sends a chat message to the server
+   */
+  sendChatMessage(content: string): void {
+    if (!this.socket || !this.isConnected || !this.clientId) {
+      console.warn('💬 [CHAT] Cannot send message: not connected');
+      return;
+    }
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      console.warn('💬 [CHAT] Cannot send empty message');
+      return;
+    }
+
+    const message = {
+      type: 'chat_message',
+      clientId: this.clientId,
+      content: content.trim(),
+      timestamp: Date.now()
+    };
+
+    if (import.meta.env.DEV) {
+      console.log('💬 [CHAT] Sending message to server:', message);
+    }
+
+    this.sendMessage(message);
+  }
+
+  /**
    * Sets the AudioSystem instance
    */
   setAudioSystem(audioSystem: any): void {
@@ -746,6 +774,13 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getAudioSystem(): any {
     return this.audioSystem || this.gameContext?.audioSystem || null;
+  }
+
+  /**
+   * Gets the message router for registering handlers
+   */
+  getMessageRouter(): MessageRouter {
+    return this.messageRouter;
   }
 
   /**
