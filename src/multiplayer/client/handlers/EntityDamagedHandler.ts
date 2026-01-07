@@ -14,9 +14,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    if (import.meta.env.DEV) {
-      console.log('[EntityDamagedHandler] Processing damage message:', message);
-    }
+    console.log('[EntityDamagedHandler] Processing damage message:', message);
 
     // Crea damage text per il danno ricevuto
     const ecs = networkSystem.getECS();
@@ -28,9 +26,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
     // Trova il CombatSystem per creare i damage text
     const combatSystem = this.findCombatSystem(ecs);
 
-    if (import.meta.env.DEV) {
-      console.log('[EntityDamagedHandler] CombatSystem found:', !!combatSystem);
-    }
+    console.log('[EntityDamagedHandler] CombatSystem found:', !!combatSystem);
 
     if (!combatSystem) {
       console.error('[EntityDamagedHandler] CombatSystem not found in ECS!');
@@ -58,9 +54,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             if (entityId !== undefined) {
               // Ottieni l'entità effettiva dall'ECS usando l'entity ID
               targetEntity = ecs.getEntity(entityId);
-              if (import.meta.env.DEV) {
-                console.log(`[EntityDamagedHandler] Found NPC entity ${entityId} for NPC ${npcId}`);
-              }
+              console.log(`[EntityDamagedHandler] Found NPC entity ${entityId} for NPC ${npcId}`);
             } else {
               console.warn(`[EntityDamagedHandler] NPC entity not found for NPC ${npcId}`);
             }
@@ -98,9 +92,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             // In futuro potremmo migliorare la logica per distinguere shield vs HP
             const isShieldDamage = false;
             combatSystem.createDamageText({ id: targetEntity.id }, message.damage, isShieldDamage);
-            if (import.meta.env.DEV) {
-              console.log(`[EntityDamagedHandler] Created damage text: ${message.damage} damage to ${message.entityType} ${message.entityId}`);
-            }
+            console.log(`[EntityDamagedHandler] Created damage text: ${message.damage} damage to ${message.entityType} ${message.entityId}`);
           }
         } else {
           console.warn(`[EntityDamagedHandler] Target entity not found for ${message.entityType} ${message.entityId}`);
