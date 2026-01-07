@@ -10,8 +10,6 @@ export class ChatManager {
   private localPlayerId: string = 'local-player';
   private context: any = null;
   private messageCallbacks: ((message: ChatMessage) => void)[] = [];
-  private lastMessageTime: number = 0;
-  private lastMessageContent: string = '';
 
   constructor(chatPanel: ChatPanel, context?: any) {
     this.chatPanel = chatPanel;
@@ -83,20 +81,6 @@ export class ChatManager {
       return; // Messaggio vuoto dopo sanitizzazione
     }
 
-    // RATE LIMITING lato client: max 1 messaggio ogni 5 secondi
-    const now = Date.now();
-    if (now - this.lastMessageTime < 5000) { // 5000ms = max 1 msg ogni 5 sec
-      const secondsLeft = Math.ceil((5000 - (now - this.lastMessageTime)) / 1000);
-      this.showErrorMessage(`Please wait ${secondsLeft} second${secondsLeft === 1 ? '' : 's'} before sending another message.`);
-      return;
-    }
-
-    // CONTROLLA DUPLICATI: evita messaggi identici consecutivi
-    if (sanitizedContent === this.lastMessageContent && this.lastMessageContent !== '') {
-      this.showErrorMessage('Please do not send duplicate messages.');
-      return;
-    }
-
     const message: ChatMessage = {
       id: this.generateMessageId(),
       senderId: this.localPlayerId,
@@ -106,9 +90,6 @@ export class ChatManager {
       type: 'user'
     };
 
-    // Aggiorna timestamp per rate limiting
-    this.lastMessageTime = now;
-
     // Mostra sempre localmente
     this.chatPanel.addMessage({
       id: message.id,
@@ -117,10 +98,6 @@ export class ChatManager {
       timestamp: message.timestamp,
       type: 'user'
     });
-
-    // Aggiorna il tracking per duplicati
-    this.lastMessageContent = sanitizedContent;
-    this.lastMessageTime = now;
 
     // In multiplayer, invia alla rete
     if (this.isMultiplayerMode) {

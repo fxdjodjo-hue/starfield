@@ -440,19 +440,6 @@ class WebSocketConnectionManager {
           if (data.type === 'chat_message') {
             console.log(`💬 [SERVER] Chat message from ${data.clientId}: ${data.content}`);
 
-            // RATE LIMITING: max 1 messaggio ogni 5 secondi per player
-            const now = Date.now();
-            if (!playerData.lastChatTime) playerData.lastChatTime = 0;
-
-            if (now - playerData.lastChatTime < 5000) { // 1 msg ogni 5 sec
-              console.log(`🚫 [SERVER] Chat rate limit exceeded for ${data.clientId}`);
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: 'Chat rate limit exceeded. Please wait before sending another message.'
-              }));
-              return;
-            }
-
             // VALIDAZIONE CONTENUTO
             if (!data.content || typeof data.content !== 'string') {
               console.log(`🚫 [SERVER] Invalid chat content from ${data.clientId}`);
@@ -471,9 +458,6 @@ class WebSocketConnectionManager {
 
             // FILTRAGGIO BASICO (espandi con bad words list)
             const filteredContent = this.filterChatMessage(content);
-
-            // AGGIORNA TIMESTAMP PER RATE LIMITING
-            playerData.lastChatTime = now;
 
             // BROADCAST A TUTTI I GIOCATORI CONNESSI
             const chatBroadcast = {
