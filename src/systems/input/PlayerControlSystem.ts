@@ -80,10 +80,16 @@ export class PlayerControlSystem extends BaseSystem {
         console.log('[PlayerControl] Attack deactivated immediately');
         this.stopCombatIfActive();
       } else {
-        // Riattivazione semplice (rimossa tolleranza selezione per semplicità)
-        this.attackActivated = true;
-        this.lastInputTime = now;
-        console.log('[PlayerControl] Attack activated');
+        // Riattivazione con cooldown per prevenire spam
+        if (now - this.lastInputTime >= playerCooldown) {
+          this.attackActivated = true;
+          this.lastInputTime = now;
+          console.log('[PlayerControl] Attack activated');
+        } else {
+          // Cooldown attivo - mostra tempo rimanente
+          const remaining = playerCooldown - (now - this.lastInputTime);
+          console.log(`[PlayerControl] Activation blocked - ${remaining}ms remaining`);
+        }
       }
     } else {
       // Nessun NPC selezionato
