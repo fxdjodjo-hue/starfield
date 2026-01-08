@@ -431,8 +431,13 @@ export class CombatSystem extends BaseSystem {
       Math.pow(playerTransform.y - npcTransform.y, 2)
     );
 
-    const inRange = distance <= playerDamage.attackRange; // 600px
+    const inRange = distance <= playerDamage.attackRange; // 400px
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
+
+    // Debug range consistency
+    if (playerDamage.attackRange !== 400) {
+      console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected 400, got ${playerDamage.attackRange}`);
+    }
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento

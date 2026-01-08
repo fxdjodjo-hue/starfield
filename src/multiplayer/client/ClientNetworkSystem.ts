@@ -29,6 +29,7 @@ import { ProjectileDestroyedHandler } from './handlers/ProjectileDestroyedHandle
 import { EntityDamagedHandler } from './handlers/EntityDamagedHandler';
 import { EntityDestroyedHandler } from './handlers/EntityDestroyedHandler';
 import { ExplosionCreatedHandler } from './handlers/ExplosionCreatedHandler';
+import { StopCombatHandler } from './handlers/StopCombatHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { ConnectionManager } from './managers/ConnectionManager';
@@ -55,6 +56,9 @@ export class ClientNetworkSystem extends BaseSystem {
   private readonly connectionManager: ConnectionManager;
   private readonly tickManager: NetworkTickManager;
   private socket: WebSocket | null = null;
+
+  // ECS reference for combat management
+  private ecs: ECS | null = null;
 
   // Player info
   private playerNickname: string = 'Player';
@@ -167,6 +171,7 @@ export class ClientNetworkSystem extends BaseSystem {
     if (this.remoteProjectileSystem) {
       handlers.push(
         new CombatUpdateHandler(),
+        new StopCombatHandler(),
         new ProjectileFiredHandler(),
         new ProjectileUpdateHandler(),
         new ProjectileDestroyedHandler(),
@@ -460,6 +465,35 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Sets the ECS reference for combat management
+   */
+  setEcs(ecs: ECS): void {
+    this.ecs = ecs;
+  }
+
+  /**
+   * Stops combat when server sends stop_combat message
+   */
+  stopCombat(): void {
+    if (!this.ecs) {
+      console.warn(`⚠️ [CLIENT] ECS not available in ClientNetworkSystem.stopCombat()`);
+      return;
+    }
+
+    // Find the CombatSystem and stop combat immediately
+    const combatSystem = this.ecs.systems?.find((system: any) =>
+      typeof system.stopCombatImmediately === 'function'
+    );
+
+    if (combatSystem) {
+      console.log(`🛑 [CLIENT] Stopping combat due to server stop_combat message`);
+      combatSystem.stopCombatImmediately();
+    } else {
+      console.warn(`⚠️ [CLIENT] CombatSystem not found, cannot stop combat`);
+    }
+  }
+
+  /**
    * Manually connect to the server (called after systems are set up)
    */
   async connectToServer(): Promise<void> {
@@ -628,6 +662,8 @@ export class ClientNetworkSystem extends BaseSystem {
       npcId: data.npcId,
       playerId: data.playerId
     };
+
+    console.log('🚀 [CLIENT] Sending START_COMBAT:', message);
 
     this.sendMessage(message);
   }

@@ -22,6 +22,7 @@ class WebSocketConnectionManager {
 
       // Gestisce messaggi dal client
       ws.on('message', (message) => {
+        console.log(`🔥 [WEBSOCKET] RAW MESSAGE from client:`, message.toString());
         this.messageCount.increment();
         try {
           const data = JSON.parse(message.toString());
@@ -34,6 +35,16 @@ class WebSocketConnectionManager {
 
           console.log(`📡 [SERVER] Received ${data.type} from ${data.clientId || 'unknown'}:`, JSON.stringify(data));
           logger.debug('WEBSOCKET', `Received ${data.type} from ${data.clientId || 'unknown'}`);
+
+          // Debug per TUTTI i messaggi dal client specifico
+          if (data.clientId === 'client_z3q8xbv6a') {
+            console.log(`📨 [SERVER] MESSAGE from ${data.clientId}: ${data.type}`, JSON.stringify(data));
+          }
+
+          // Debug specifico per messaggi di combattimento
+          if (data.type === 'start_combat' || data.type.includes('combat')) {
+            console.log(`⚔️ [SERVER] COMBAT MESSAGE RECEIVED: ${data.type}`, data);
+          }
 
           // Risponde ai messaggi di join
           if (data.type === 'join') {
@@ -373,6 +384,19 @@ class WebSocketConnectionManager {
             }
 
             console.log(`✅ [SERVER] START_COMBAT: NPC ${data.npcId} found, starting combat for player=${data.playerId}`);
+
+            // Debug: lista tutti i player connessi
+            console.log(`👥 [SERVER] Connected players:`, Array.from(this.mapServer.players.keys()));
+
+            // Verifica che il player sia connesso
+            const playerData = this.mapServer.players.get(data.playerId);
+            if (!playerData) {
+              console.log(`❌ [SERVER] START_COMBAT: Player ${data.playerId} not found in connected players`);
+              console.log(`❌ [SERVER] Available players:`, Array.from(this.mapServer.players.keys()));
+              return;
+            }
+
+            console.log(`✅ [SERVER] START_COMBAT: Player ${data.playerId} is connected, starting combat`);
 
             // Inizia il combattimento server-side
             this.mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);

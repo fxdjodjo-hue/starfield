@@ -23,6 +23,11 @@ class ServerCombatManager {
       this.processNpcCombat(npc, now);
     }
 
+    // Debug: mostra numero combattimenti attivi ogni secondo
+    if (now % 1000 < 50) { // Solo una volta al secondo
+      console.log(`⚔️ [COMBAT] Active combats: ${this.playerCombats.size}`);
+    }
+
     // Processa combattimenti player
     this.processPlayerCombats(now);
   }
@@ -54,7 +59,7 @@ class ServerCombatManager {
     }
 
     // Ottieni cooldown dalla configurazione player (coerente con client)
-    const PLAYER_CONFIG = require('../config/player-config.json');
+    const PLAYER_CONFIG = require('../../shared/player-config.json');
     const attackCooldown = PLAYER_CONFIG.stats.cooldown;
 
     // Imposta combattimento attivo
@@ -83,6 +88,10 @@ class ServerCombatManager {
    * Processa tutti i combattimenti attivi dei player
    */
   processPlayerCombats(now) {
+    if (this.playerCombats.size > 0) {
+      console.log(`🎯 [COMBAT] Processing ${this.playerCombats.size} player combats`);
+    }
+
     for (const [playerId, combat] of this.playerCombats) {
       this.processPlayerCombat(playerId, combat, now);
     }
@@ -92,6 +101,8 @@ class ServerCombatManager {
    * Processa combattimento per un singolo player
    */
   processPlayerCombat(playerId, combat, now) {
+    console.log(`🔄 [COMBAT] Processing combat for player ${playerId} vs NPC ${combat.npcId}`);
+
     // Verifica che il player sia ancora connesso
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData) {
@@ -123,13 +134,24 @@ class ServerCombatManager {
     // Controllo range rigoroso: ferma combattimento se fuori dal range base
     // I proiettili già sparati continueranno il loro volo, ma non verranno sparati altri
     if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_START_RANGE) {
+      console.log(`📏 [SERVER] Player ${playerId} out of range (${distance.toFixed(1)}px > ${SERVER_CONSTANTS.COMBAT.PLAYER_START_RANGE}px), stopping combat`);
       this.playerCombats.delete(playerId);
+
+      // Notifica il client che il combattimento è stato fermato automaticamente per range
+      const stopCombatMessage = {
+        type: 'stop_combat',
+        reason: 'out_of_range',
+        playerId: playerId
+      };
+      playerData.ws.send(JSON.stringify(stopCombatMessage));
+
       return;
     }
 
     // Verifica cooldown
-    if (now - combat.lastAttackTime < combat.attackCooldown) {
-      // console.log(`⏰ [SERVER] Player ${playerId} cooling down (${((now - combat.lastAttackTime) / 1000).toFixed(1)}s / ${(combat.attackCooldown / 1000).toFixed(1)}s)`);
+    const timeSinceLastAttack = now - combat.lastAttackTime;
+    if (timeSinceLastAttack < combat.attackCooldown) {
+      console.log(`⏰ [SERVER] Player ${playerId} cooling down (${(timeSinceLastAttack / 1000).toFixed(1)}s / ${(combat.attackCooldown / 1000).toFixed(1)}s)`);
       return; // Non ancora tempo di attaccare
     }
 

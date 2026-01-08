@@ -183,6 +183,11 @@ export class ConnectionManager {
   send(data: string | ArrayBuffer | Blob | ArrayBufferView): void {
     if (this.socket && this.isConnected && this.socket.readyState === WebSocket.OPEN) {
       this.socket.send(data);
+      // Debug specifico per messaggi di combattimento
+      const dataStr = data.toString();
+      if (dataStr.includes('combat') || dataStr.includes('start_combat')) {
+        console.log(`⚔️ [CONNECTION] Sending COMBAT data to server:`, dataStr);
+      }
     } else {
       console.warn('⚠️ Cannot send data: WebSocket not connected', {
         socket: !!this.socket,

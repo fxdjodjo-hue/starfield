@@ -88,6 +88,11 @@ export class GameInitializationSystem extends System {
     // console.log('[GAME_INIT] setClientNetworkSystem called');
     this.clientNetworkSystem = clientNetworkSystem;
 
+    // Imposta il riferimento all'ECS per la gestione del combattimento
+    if (this.ecs && typeof clientNetworkSystem.setEcs === 'function') {
+      clientNetworkSystem.setEcs(this.ecs);
+    }
+
     // Se il CombatSystem è già stato creato, impostalo immediatamente
     if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
       this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);

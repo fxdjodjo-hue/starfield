@@ -59,7 +59,12 @@ export class WelcomeHandler extends BaseMessageHandler {
       // ... gestire health/shield se necessario
     }
 
-    if (import.meta.env.DEV) {
+    // Mostra welcome message nell'interfaccia del gioco (senza "Connected to server")
+    const logSystem = networkSystem.getLogSystem();
+    if (logSystem && message.message) {
+      // Rimuovi "Connected to server" dal messaggio per l'UI
+      const uiMessage = message.message.replace(' Connected to server.', '');
+      logSystem.logWelcome(uiMessage);
       console.log('🎉 [WELCOME] Player welcomed by server:', message.message);
     }
   }

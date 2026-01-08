@@ -160,8 +160,8 @@ export class PlayerControlSystem extends BaseSystem {
       // Avvia il suono con volume 0 per evitare pop iniziale
       this.audioSystem.playSound('engine', 0, true);
 
-      // Fade in graduale
-      this.audioSystem.fadeInSound('engine', 800, 0.08);
+      // Fade in graduale (volume ridotto)
+      this.audioSystem.fadeInSound('engine', 800, 0.05);
     } catch (error) {
       console.warn('PlayerControlSystem: Error starting engine sound:', error);
       this.isEnginePlaying = false;
