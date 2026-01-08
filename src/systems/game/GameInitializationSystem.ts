@@ -405,7 +405,11 @@ export class GameInitializationSystem extends System {
 
     // Configura selezione NPC
     npcSelectionSystem.setOnNpcClickCallback((npcEntity: any) => {
-      // Segna il timestamp della selezione (rimosso auto-disattivazione per semplicità)
+      // Quando si seleziona un nuovo NPC, disattiva l'attacco precedente
+      // per evitare combattimenti automatici continui con NPC diversi
+      playerControlSystem.deactivateAttack();
+
+      // Segna il timestamp della selezione
       playerControlSystem.onNpcSelected();
     });
   }

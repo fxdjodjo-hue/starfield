@@ -118,7 +118,18 @@ export class PlayerControlSystem extends BaseSystem {
     return this.attackActivated;
   }
 
+  /**
+   * Disattiva forzatamente l'attacco (chiamato quando finisce il combattimento o cambia selezione)
+   */
+  deactivateAttack(): void {
+    if (this.attackActivated) {
+      console.log('[PlayerControl] Attack auto-deactivated when selecting new NPC');
+      this.attackActivated = false;
 
+      // Ferma immediatamente qualsiasi combattimento in corso
+      this.stopCombatIfActive();
+    }
+  }
 
   /**
    * Imposta la camera per la conversione coordinate
