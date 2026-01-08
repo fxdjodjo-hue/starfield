@@ -53,13 +53,19 @@ class ServerCombatManager {
       return;
     }
 
+    // Ottieni cooldown dalla configurazione player (coerente con client)
+    const PLAYER_CONFIG = require('../config/player-config.json');
+    const attackCooldown = PLAYER_CONFIG.stats.cooldown;
+
     // Imposta combattimento attivo
     this.playerCombats.set(playerId, {
       npcId: npcId,
       lastAttackTime: 0,
-      attackCooldown: 1000, // 1 sparo al secondo
+      attackCooldown: attackCooldown,
       combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
+
+    logger.debug('COMBAT', `Started player combat: ${playerId} vs ${npcId} (cooldown: ${attackCooldown}ms)`);
   }
 
   /**
