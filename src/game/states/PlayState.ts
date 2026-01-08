@@ -1,4 +1,4 @@
-﻿import { GameState } from './GameState';
+import { GameState } from './GameState';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { World } from '../../infrastructure/engine/World';
 import { MovementSystem } from '../../systems/physics/MovementSystem';
@@ -158,8 +158,7 @@ export class PlayState extends GameState {
     );
     this.world.getECS().addSystem(this.clientNetworkSystem);
 
-    // Imposta informazioni del player nel sistema di rete
-    this.clientNetworkSystem.setPlayerInfo(this.context.playerNickname, this.context.playerId);
+    // Il nickname viene preso direttamente dal GameContext nel ClientNetworkSystem
 
     // Il ClientNetworkSystem verrà impostato dopo l'inizializzazione del gioco
     // this.setupClientNetworkSystem(); // Spostato dopo initializeGame()

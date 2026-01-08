@@ -28,8 +28,8 @@ export class Game {
    * Inizializza il gioco e imposta lo stato iniziale
    */
   async init(): Promise<void> {
-    // Imposta il callback per il passaggio a PlayState
-    this.startState.getStartScreen().setOnPlayCallback((nickname) => {
+    // Imposta il callback per il passaggio a PlayState quando autenticato
+    this.startState.getAuthScreen().setOnAuthenticated(() => {
       this.changeState(this.playState);
     });
 

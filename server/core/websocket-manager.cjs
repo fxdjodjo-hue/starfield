@@ -2,6 +2,12 @@
 // Dipendenze consentite: logger.cjs, messageCount, mapServer, wss
 
 const { logger } = require('../logger.cjs');
+const { createClient } = require('@supabase/supabase-js');
+
+// Supabase client (usiamo la stessa istanza del server principale)
+const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbwbvwis.supabase.co';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 class WebSocketConnectionManager {
   constructor(wss, mapServer, messageCount) {
@@ -10,6 +16,289 @@ class WebSocketConnectionManager {
     this.messageCount = messageCount;
     this.setupConnectionHandling();
     this.setupShutdownHandling();
+    this.setupPeriodicSave();
+  }
+
+  /**
+   * Imposta il salvataggio periodico dei dati dei giocatori
+   */
+  setupPeriodicSave() {
+    // Salva i dati di tutti i giocatori ogni 5 minuti
+    setInterval(async () => {
+      try {
+        logger.info('DATABASE', 'Starting periodic save of all player data...');
+
+        for (const [clientId, playerData] of this.mapServer.players) {
+          if (playerData && playerData.playerId) {
+            await this.savePlayerData(playerData);
+          }
+        }
+
+        logger.info('DATABASE', 'Periodic save completed');
+      } catch (error) {
+        logger.error('DATABASE', `Error during periodic save: ${error.message}`);
+      }
+    }, 5 * 60 * 1000); // 5 minuti
+
+    logger.info('DATABASE', 'Periodic save system initialized (every 5 minutes)');
+  }
+
+  /**
+   * Carica i dati del giocatore dal database Supabase
+   */
+  async loadPlayerData(userId) {
+    try {
+      logger.info('DATABASE', `Loading player data for user: ${userId}`);
+
+      // Prima cerca se esiste già un profilo per questo userId
+      const { data: existingProfile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('id, username')
+        .eq('id', userId)  // L'id della tabella user_profiles corrisponde all'userId di Supabase Auth
+        .maybeSingle();
+
+      if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows returned
+        logger.error('DATABASE', `Error loading profile: ${profileError.message}`);
+        return this.getDefaultPlayerData();
+      }
+
+      let playerId = userId; // Il playerId è l'userId stesso
+      let playerData = this.getDefaultPlayerData();
+
+      if (existingProfile) {
+        // Giocatore esistente - carica i suoi dati
+        playerId = existingProfile.id;
+        logger.info('DATABASE', `Found existing player: ${existingProfile.username} (ID: ${playerId})`);
+
+        // Carica stats
+        const { data: stats } = await supabase
+          .from('player_stats')
+          .select('*')
+          .eq('player_id', playerId)
+          .maybeSingle();
+
+        if (stats) {
+          playerData.stats = stats;
+        }
+
+        // Carica upgrades
+        const { data: upgrades } = await supabase
+          .from('player_upgrades')
+          .select('*')
+          .eq('player_id', playerId)
+          .maybeSingle();
+
+        if (upgrades) {
+          playerData.upgrades = {
+            hpUpgrades: upgrades.hp_points,
+            shieldUpgrades: upgrades.shield_points,
+            speedUpgrades: upgrades.speed_points,
+            damageUpgrades: upgrades.damage_points
+          };
+        }
+
+        // Carica currencies
+        const { data: currencies } = await supabase
+          .from('player_currencies')
+          .select('*')
+          .eq('player_id', playerId)
+          .maybeSingle();
+
+        if (currencies) {
+          logger.info('DATABASE', `Loaded currencies: credits=${currencies.credits}, cosmos=${currencies.cosmos}, exp=${currencies.experience}, honor=${currencies.honor}, sp=${currencies.skill_points_current}`);
+          playerData.inventory = {
+            credits: currencies.credits,
+            cosmos: currencies.cosmos,
+            experience: currencies.experience,
+            honor: currencies.honor,
+            skillPoints: currencies.skill_points_current
+          };
+        } else {
+          logger.warn('DATABASE', `No currencies found for player ${playerId}`);
+        }
+
+        // Carica quest progress
+        const { data: quests } = await supabase
+          .from('quest_progress')
+          .select('*')
+          .eq('player_id', playerId);
+
+        if (quests) {
+          playerData.quests = quests;
+        }
+
+      } else {
+        // Nuovo giocatore - il profilo dovrebbe già esistere da Supabase Auth Triggers
+        // Se non esiste, c'è un problema con i trigger
+        logger.warn('DATABASE', `Profile not found for user: ${userId} - Supabase Auth triggers may not be working`);
+
+        // Per ora, creiamo un profilo minimo (normalmente fatto dai trigger)
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: userId,  // L'id corrisponde all'userId di Supabase Auth
+            email: `${userId}@temp.local`,  // Email temporanea
+            username: `Player_${userId.substring(0, 8)}`  // Username basato sull'UUID
+          });
+
+        if (insertError) {
+          logger.error('DATABASE', `Error creating profile: ${insertError.message}`);
+        } else {
+          logger.info('DATABASE', `Created profile for user: ${userId}`);
+        }
+
+        // Crea record iniziali per le altre tabelle
+        await this.createInitialPlayerRecords(userId);
+      }
+
+      playerData.playerId = playerId;
+      logger.info('DATABASE', `Player data loaded successfully for user ${userId}`);
+      return playerData;
+
+    } catch (error) {
+      logger.error('DATABASE', `Error loading player data: ${error.message}`);
+      return this.getDefaultPlayerData();
+    }
+  }
+
+  /**
+   * Crea i record iniziali per un nuovo giocatore
+   */
+  async createInitialPlayerRecords(playerId) {
+    try {
+      // Stats iniziali
+      await supabase.from('player_stats').insert({
+        player_id: playerId,
+        kills: 0,
+        deaths: 0,
+        missions_completed: 0,
+        play_time: 0
+      });
+
+      // Upgrades iniziali
+      await supabase.from('player_upgrades').insert({
+        player_id: playerId,
+        hp_points: 0,
+        shield_points: 0,
+        speed_points: 0,
+        damage_points: 0
+      });
+
+      // Currencies iniziali
+      await supabase.from('player_currencies').insert({
+        player_id: playerId,
+        credits: 1000,
+        cosmos: 100,
+        experience: 0,
+        honor: 0,
+        skill_points_current: 0,
+        skill_points_total: 0
+      });
+
+      logger.info('DATABASE', `Created initial records for player ${playerId}`);
+    } catch (error) {
+      logger.error('DATABASE', `Error creating initial records: ${error.message}`);
+    }
+  }
+
+  /**
+   * Salva i dati del giocatore nel database
+   */
+  async savePlayerData(playerData) {
+    try {
+      if (!playerData || !playerData.playerId) {
+        logger.warn('DATABASE', 'Cannot save player data: invalid player data');
+        return;
+      }
+
+      const playerId = playerData.playerId;
+      logger.info('DATABASE', `Saving player data for player ID: ${playerId}`);
+
+      // Salva stats
+      if (playerData.stats) {
+        await supabase.from('player_stats').upsert({
+          player_id: playerId,
+          kills: playerData.stats.kills || 0,
+          deaths: playerData.stats.deaths || 0,
+          missions_completed: playerData.stats.missions_completed || 0,
+          play_time: playerData.stats.play_time || 0,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // Salva upgrades
+      if (playerData.upgrades) {
+        await supabase.from('player_upgrades').upsert({
+          player_id: playerId,
+          hp_points: playerData.upgrades.hpUpgrades || 0,
+          shield_points: playerData.upgrades.shieldUpgrades || 0,
+          speed_points: playerData.upgrades.speedUpgrades || 0,
+          damage_points: playerData.upgrades.damageUpgrades || 0,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // Salva currencies
+      if (playerData.inventory) {
+        await supabase.from('player_currencies').upsert({
+          player_id: playerId,
+          credits: playerData.inventory.credits || 0,
+          cosmos: playerData.inventory.cosmos || 0,
+          experience: playerData.inventory.experience || 0,
+          honor: playerData.inventory.honor || 0,
+          skill_points_current: playerData.inventory.skillPoints || 0,
+          skill_points_total: playerData.inventory.skillPoints || 0,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      // Salva quest progress
+      if (playerData.quests && Array.isArray(playerData.quests)) {
+        for (const quest of playerData.quests) {
+          await supabase.from('quest_progress').upsert({
+            player_id: playerId,
+            quest_id: quest.quest_id,
+            objectives: quest.objectives || [],
+            is_completed: quest.is_completed || false,
+            started_at: quest.started_at || new Date().toISOString(),
+            completed_at: quest.completed_at || null
+          });
+        }
+      }
+
+      logger.info('DATABASE', `Player data saved successfully for player ID: ${playerId}`);
+    } catch (error) {
+      logger.error('DATABASE', `Error saving player data: ${error.message}`);
+    }
+  }
+
+  /**
+   * Restituisce i dati di default per un nuovo giocatore
+   */
+  getDefaultPlayerData() {
+    return {
+      playerId: 0,
+      stats: {
+        kills: 0,
+        deaths: 0,
+        missions_completed: 0,
+        play_time: 0
+      },
+      upgrades: {
+        hpUpgrades: 0,
+        shieldUpgrades: 0,
+        speedUpgrades: 0,
+        damageUpgrades: 0
+      },
+      inventory: {
+        credits: 1000,
+        cosmos: 100,
+        experience: 0,
+        honor: 0,
+        skillPoints: 0
+      },
+      quests: []
+    };
   }
 
   /**
@@ -21,7 +310,7 @@ class WebSocketConnectionManager {
       let playerData = null;
 
       // Gestisce messaggi dal client
-      ws.on('message', (message) => {
+      ws.on('message', async (message) => {
         console.log(`🔥 [WEBSOCKET] RAW MESSAGE from client:`, message.toString());
         this.messageCount.increment();
         try {
@@ -48,46 +337,33 @@ class WebSocketConnectionManager {
 
           // Risponde ai messaggi di join
           if (data.type === 'join') {
+            // Carica i dati del giocatore dal database invece di usare valori hardcoded
+            const loadedData = await this.loadPlayerData(data.userId);
+
             playerData = {
               clientId: data.clientId,
               nickname: data.nickname,
-              playerId: data.playerId,
+              playerId: data.userId, // Usa direttamente userId come playerId
               userId: data.userId,
               connectedAt: new Date().toISOString(),
               lastInputAt: null,
               position: data.position, // Save initial position from join message
               ws: ws,
-              // Player Upgrades (server authoritative)
-              upgrades: {
-                hpUpgrades: 0,
-                shieldUpgrades: 0,
-                speedUpgrades: 0,
-                damageUpgrades: 0
-              },
+              // Player Upgrades (server authoritative) - da database
+              upgrades: loadedData.upgrades,
               // Health and shield system (server authoritative)
-              health: this.calculateMaxHealth(0), // Inizialmente 0 upgrade
-              maxHealth: this.calculateMaxHealth(0),
-              shield: this.calculateMaxShield(0),
-              maxShield: this.calculateMaxShield(0),
+              health: this.calculateMaxHealth(loadedData.upgrades.hpUpgrades),
+              maxHealth: this.calculateMaxHealth(loadedData.upgrades.hpUpgrades),
+              shield: this.calculateMaxShield(loadedData.upgrades.shieldUpgrades),
+              maxShield: this.calculateMaxShield(loadedData.upgrades.shieldUpgrades),
               // Combat state
               lastDamage: null,
               isDead: false,
               respawnTime: null,
-              // Inventory system (server authoritative) - risorse iniziali generose
-              inventory: {
-                credits: 100000,      // 100k credits iniziali
-                cosmos: 10000,        // 10k cosmos iniziali
-                experience: 0,        // esperienza inizia da 0
-                honor: 0,             // onore inizia da 0
-                skillPoints: 10        // 10 skill points iniziali per testing
-              },
-              // Upgrades system (server authoritative) - per calcolo danno sicuro
-              upgrades: {
-                hpUpgrades: 0,
-                shieldUpgrades: 0,
-                speedUpgrades: 0,
-                damageUpgrades: 0
-              }
+              // Inventory system (server authoritative) - da database
+              inventory: loadedData.inventory,
+              // Quest progress - da database
+              quests: loadedData.quests || []
             };
 
             this.mapServer.addPlayer(data.clientId, playerData);
@@ -149,9 +425,11 @@ class WebSocketConnectionManager {
             ws.send(JSON.stringify({
               type: 'welcome',
               clientId: data.clientId,
+              playerId: playerData.userId, // Usa userId come playerId (è l'UUID dell'utente)
               message: `Welcome ${data.nickname}! Connected to server.`,
               initialState: {
                 inventory: { ...playerData.inventory },
+                upgrades: { ...playerData.upgrades },
                 health: playerData.health,
                 maxHealth: playerData.maxHealth,
                 shield: playerData.shield,
@@ -501,9 +779,12 @@ class WebSocketConnectionManager {
         }
       });
 
-      ws.on('close', () => {
+      ws.on('close', async () => {
         if (playerData) {
           logger.info('PLAYER', `Player disconnected: ${playerData.clientId} (${playerData.nickname})`);
+
+          // Salva i dati del giocatore prima della disconnessione
+          await this.savePlayerData(playerData);
 
           this.mapServer.broadcastToMap({
             type: 'player_left',

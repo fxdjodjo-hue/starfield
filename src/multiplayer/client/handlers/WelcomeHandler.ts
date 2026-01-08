@@ -13,8 +13,14 @@ export class WelcomeHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    // Set the local client ID from the server
+    // Set the local client ID and player ID from the server
     networkSystem.gameContext.localClientId = message.clientId || networkSystem.clientId;
+
+    // Salva il playerId assegnato dal server (UUID dell'utente)
+    if (message.playerId) {
+      networkSystem.gameContext.localPlayerId = message.playerId;
+      console.log('🎯 [WELCOME] Player ID assegnato dal server:', message.playerId);
+    }
 
     // SERVER AUTHORITATIVE: Ricevi lo stato iniziale dal server
     if (message.initialState) {

@@ -1,19 +1,19 @@
 import { GameState } from './GameState';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-import { StartScreen } from '../../presentation/ui/StartScreen';
+import { AuthScreen } from '../../presentation/ui/AuthScreen';
 
 /**
  * Stato della schermata iniziale
- * Gestisce la UI di avvio del gioco senza logica di gameplay
+ * Gestisce la UI di autenticazione del gioco
  */
 export class StartState extends GameState {
-  private startScreen: StartScreen;
+  private authScreen: AuthScreen;
   private context: GameContext;
 
   constructor(context: GameContext) {
     super();
     this.context = context;
-    this.startScreen = new StartScreen(context);
+    this.authScreen = new AuthScreen(context);
   }
 
   /**
@@ -52,23 +52,16 @@ export class StartState extends GameState {
   }
 
   /**
-   * Disattiva la start screen
+   * Disattiva la auth screen
    */
   exit(): void {
-    this.startScreen.hide();
+    this.authScreen.destroy();
   }
 
   /**
-   * Metodo di debug per testare il callback (rimuovi dopo)
+   * Restituisce la AuthScreen per accesso esterno
    */
-  testCallback(nickname: string): void {
-    // Player is ready to start
-  }
-
-  /**
-   * Restituisce la StartScreen per accesso esterno
-   */
-  getStartScreen(): StartScreen {
-    return this.startScreen;
+  getAuthScreen(): AuthScreen {
+    return this.authScreen;
   }
 }

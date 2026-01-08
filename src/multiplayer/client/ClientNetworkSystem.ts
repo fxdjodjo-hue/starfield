@@ -61,7 +61,6 @@ export class ClientNetworkSystem extends BaseSystem {
   private ecs: ECS | null = null;
 
   // Player info
-  private playerNickname: string = 'Player';
   private playerId?: number;
 
   // Position sync state
@@ -204,13 +203,26 @@ export class ClientNetworkSystem extends BaseSystem {
       this.onConnectedCallback();
     }
 
+    // Verifica che abbiamo una sessione valida prima di connetterci
+    if (!this.gameContext.localClientId || this.gameContext.localClientId.startsWith('client_')) {
+      console.error('❌ [CLIENT] Tentativo di connessione senza sessione valida - rilogin necessario');
+      // Disconnetti e forza rilogin
+      this.connectionManager.disconnect();
+      // Ricarica la pagina per tornare alla schermata di auth
+      window.location.reload();
+      return;
+    }
+
     // Send join message with player info
     const currentPosition = this.getLocalPlayerPosition();
+    const nicknameToSend = this.gameContext.playerNickname || 'Player';
+    console.log('🚀 [CLIENT] Sending JOIN message with nickname:', nicknameToSend);
+
     this.sendMessage({
       type: MESSAGE_TYPES.JOIN,
       clientId: this.clientId,
-      nickname: this.playerNickname,
-      playerId: this.playerId,
+      nickname: nicknameToSend,
+      // playerId sarà assegnato dal server nel welcome message
       userId: this.gameContext.localClientId,
       position: currentPosition
     });
@@ -289,13 +301,6 @@ export class ClientNetworkSystem extends BaseSystem {
     }
   }
 
-  /**
-   * Imposta informazioni aggiuntive del player
-   */
-  setPlayerInfo(nickname?: string, playerId?: number): void {
-    this.playerNickname = nickname || 'Player';
-    this.playerId = playerId;
-  }
 
   /**
    * Registers callback for disconnection events
