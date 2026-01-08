@@ -408,9 +408,6 @@ export class GameInitializationSystem extends System {
       // Quando si seleziona un nuovo NPC, disattiva l'attacco precedente
       // per evitare combattimenti automatici continui con NPC diversi
       playerControlSystem.deactivateAttack();
-
-      // Segna il timestamp della selezione
-      playerControlSystem.onNpcSelected();
     });
   }
 
