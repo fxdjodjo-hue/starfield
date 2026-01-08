@@ -483,13 +483,8 @@ export class CombatSystem extends BaseSystem {
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
     const playerId = this.clientNetworkSystem.getLocalClientId();
 
-
-    // Riproduci suono di attivazione combattimento per feedback immediato
-    if (this.audioSystem) {
-      this.audioSystem.playSound('laser', 0.2, false, true); // Volume ridotto per attivazione
-    } else {
-      console.warn(`🔊 [AUDIO] No audio system available for combat activation`);
-    }
+    // NON riprodurre suono qui - verrà riprodotto quando arriva il proiettile dal server
+    // per evitare duplicazioni audio
 
     try {
       this.clientNetworkSystem.sendStartCombat({
