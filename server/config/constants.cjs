@@ -6,14 +6,14 @@
 // Combat constants
 const SERVER_CONSTANTS = {
   PROJECTILE: {
-    SPEED: 400,
+    SPEED: 800,  // Aumentato da 400 per ridurre tempo di percorrenza
     LIFETIME: 3000,
     SPAWN_OFFSET: 25,
     HIT_RADIUS: 15
   },
 
   COMBAT: {
-    PLAYER_RANGE: 300,
+    PLAYER_RANGE: 600,
     NPC_MIN_COOLDOWN: 500
   },
 
