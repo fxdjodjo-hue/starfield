@@ -120,11 +120,9 @@ class ServerCombatManager {
       Math.pow(playerData.position.y - npc.position.y, 2)
     );
 
-    // Logica isteresi per range perfetto:
-    // - Inizia combattimento a PLAYER_START_RANGE (400px)
-    // - Continua finché non supera PLAYER_STOP_RANGE (500px)
-    // Questo previene oscillazioni dovute alla latenza di rete
-    if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_STOP_RANGE) {
+    // Controllo range rigoroso: ferma combattimento se fuori dal range base
+    // I proiettili già sparati continueranno il loro volo, ma non verranno sparati altri
+    if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_START_RANGE) {
       this.playerCombats.delete(playerId);
       return;
     }
@@ -147,9 +145,12 @@ class ServerCombatManager {
   performPlayerAttack(playerId, playerData, npc, now) {
     console.log(`🚀 [SERVER] Player ${playerId} firing projectile at NPC ${npc.id}`);
 
+    // Usa posizione corrente del player dal server (più affidabile)
+    const playerPos = playerData.position;
+
     // Calcola direzione dal player all'NPC
-    const dx = npc.position.x - playerData.position.x;
-    const dy = npc.position.y - playerData.position.y;
+    const dx = npc.position.x - playerPos.x;
+    const dy = npc.position.y - playerPos.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance === 0) {
@@ -164,18 +165,17 @@ class ServerCombatManager {
     const projectileId = `player_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const speed = SERVER_CONSTANTS.PROJECTILE.SPEED;
 
-    logger.debug('PROJECTILE', `Creating projectile ${projectileId} from (${playerData.position.x.toFixed(0)}, ${playerData.position.y.toFixed(0)}) to (${npc.position.x.toFixed(0)}, ${npc.position.y.toFixed(0)})`);
+    logger.debug('PROJECTILE', `Creating projectile ${projectileId} from (${playerPos.x.toFixed(0)}, ${playerPos.y.toFixed(0)}) to (${npc.position.x.toFixed(0)}, ${npc.position.y.toFixed(0)})`);
 
     const velocity = {
       x: directionX * speed,
       y: directionY * speed
     };
 
-    // Posizione leggermente avanti al player
-    const offset = SERVER_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
+    // Posizione dal centro esatto del player (no offset per centrare sempre)
     const projectilePos = {
-      x: playerData.position.x + directionX * offset,
-      y: playerData.position.y + directionY * offset
+      x: playerPos.x,
+      y: playerPos.y
     };
 
     // Calcola danno basato sugli upgrade del player (Server Authoritative)
@@ -259,11 +259,10 @@ class ServerCombatManager {
       y: Math.sin(angle) * speed
     };
 
-    // Posizione leggermente avanti all'NPC nella direzione del proiettile
-    const offset = SERVER_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
+    // Posizione dal centro esatto dell'NPC (no offset per centrare sempre)
     const projectilePos = {
-      x: npc.position.x + Math.cos(angle) * offset,
-      y: npc.position.y + Math.sin(angle) * offset
+      x: npc.position.x,
+      y: npc.position.y
     };
 
     // Registra proiettile
