@@ -114,8 +114,11 @@ class ServerCombatManager {
       Math.pow(playerData.position.y - npc.position.y, 2)
     );
 
-    // Controllo semplice del range: se oltre 600px, ferma combattimento
-    if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_RANGE) {
+    // Logica isteresi per range perfetto:
+    // - Inizia combattimento a PLAYER_START_RANGE (400px)
+    // - Continua finché non supera PLAYER_STOP_RANGE (500px)
+    // Questo previene oscillazioni dovute alla latenza di rete
+    if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_STOP_RANGE) {
       this.playerCombats.delete(playerId);
       return;
     }

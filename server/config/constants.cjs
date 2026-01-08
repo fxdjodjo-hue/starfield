@@ -13,7 +13,8 @@ const SERVER_CONSTANTS = {
   },
 
   COMBAT: {
-    PLAYER_RANGE: 400,  // Ridotto da 600 per compensare latenza posizioni client-server
+    PLAYER_START_RANGE: 400,  // Distanza per iniziare combattimento
+    PLAYER_STOP_RANGE: 500,   // Distanza per fermare combattimento (isteresi)
     NPC_MIN_COOLDOWN: 500
   },
 

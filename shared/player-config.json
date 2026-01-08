@@ -3,7 +3,7 @@
     "health": 100000,
     "shield": 50000,
     "damage": 500,
-    "range": 600,
+    "range": 400,
     "cooldown": 1000,
     "speed": 300
   },
