@@ -37,12 +37,24 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       return;
     }
 
-    // Aggiungi sempre il proiettile al sistema remoto per renderizzarlo
-    // Anche i proiettili del giocatore locale vengono creati dal server
+    // Per i proiettili del giocatore locale, usa posizione centrata sul player locale
+    // per evitare disallineamenti dovuti alla latenza di rete
+    let projectilePosition = message.position;
+
+    if (isLocalPlayer) {
+      // Usa posizione del player locale invece di quella del server
+      const localPlayerPos = networkSystem.getLocalPlayerPosition();
+      projectilePosition = {
+        x: localPlayerPos.x,
+        y: localPlayerPos.y
+      };
+      console.log(`🎯 [CLIENT] Local projectile ${message.projectileId} centered at local player position (${localPlayerPos.x.toFixed(0)}, ${localPlayerPos.y.toFixed(0)})`);
+    }
+
     remoteProjectileSystem.addRemoteProjectile(
       message.projectileId,
       message.playerId,
-      message.position,
+      projectilePosition,
       message.velocity,
       message.damage,
       message.projectileType,
