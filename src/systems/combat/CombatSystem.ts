@@ -36,9 +36,7 @@ export class CombatSystem extends BaseSystem {
   private audioSystem: any = null;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
-  private pendingCombatRequests: any[] = []; // Coda richieste combattimento in attesa di ClientNetworkSystem
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
-  private wasInCombat: boolean = false; // Traccia se siamo attualmente in combattimento
  // Posizione dove è avvenuto l'ultimo combattimento
   private explosionFrames: HTMLImageElement[] | null = null; // Cache dei frame dell'esplosione
   private explodingEntities: Set<number> = new Set(); // Traccia entità già in esplosione
@@ -52,37 +50,10 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
-   * Imposta il sistema di rete per notifiche multiplayer (fallback)
+   * Imposta il sistema di rete per notifiche multiplayer
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
     this.clientNetworkSystem = clientNetworkSystem;
-
-    // Processa le richieste di combattimento pendenti solo se connesso
-    if (this.pendingCombatRequests.length > 0) {
-      if (this.clientNetworkSystem.isConnected()) {
-        const pendingRequests = [...this.pendingCombatRequests];
-        this.pendingCombatRequests = [];
-
-        for (const npcEntity of pendingRequests) {
-          this.sendStartCombat(npcEntity);
-        }
-      } else {
-      }
-    }
-  }
-
-  /**
-   * Processa le richieste di combattimento pendenti quando la connessione è stabilita
-   */
-  processPendingCombatRequests(): void {
-    if (this.pendingCombatRequests.length > 0 && this.clientNetworkSystem && this.clientNetworkSystem.isConnected()) {
-      const pendingRequests = [...this.pendingCombatRequests];
-      this.pendingCombatRequests = [];
-
-      for (const npcEntity of pendingRequests) {
-        this.sendStartCombat(npcEntity);
-      }
-    }
   }
 
   /**
@@ -405,7 +376,6 @@ export class CombatSystem extends BaseSystem {
         this.endAttackLogging();
         this.currentAttackTarget = null;
         this.attackStartedLogged = false;
-        this.wasInCombat = false;
       }
       return;
     }
@@ -419,7 +389,7 @@ export class CombatSystem extends BaseSystem {
           this.endAttackLogging();
         this.currentAttackTarget = null;
         this.attackStartedLogged = false;
-        this.wasInCombat = false; // Reset wasInCombat if no NPC is selected
+ // Reset wasInCombat if no NPC is selected
         return;
       }
     }
@@ -449,17 +419,9 @@ export class CombatSystem extends BaseSystem {
                        npcScreenPos.y < -margin ||
                        npcScreenPos.y > canvasSize.height + margin;
 
-    // Se l'NPC esce dallo schermo, deselezionalo sempre
-    if (isOffScreen) {
+    // Se l'NPC esce dallo schermo MA è in combattimento attivo, mantieni selezione
+    if (isOffScreen && this.currentAttackTarget !== selectedNpc.id) {
       this.ecs.removeComponent(selectedNpc, SelectedNpc);
-      // Ferma combattimento se era attivo
-      if (this.currentAttackTarget === selectedNpc.id) {
-        this.sendStopCombat();
-        this.endAttackLogging();
-        this.currentAttackTarget = null;
-        this.attackStartedLogged = false;
-        this.wasInCombat = false;
-      }
       return; // Non continuare con la logica di combattimento
     }
 
@@ -474,7 +436,7 @@ export class CombatSystem extends BaseSystem {
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento
-      const reason = attackActivated ? "attack activated" : `returning to previous combat (wasInCombat:${this.wasInCombat})`;
+      const reason = attackActivated ? "attack activated" : "unknown reason";
       console.log(`🎯 [COMBAT] STARTING combat (${distance.toFixed(1)}px) - ${reason} with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
@@ -490,7 +452,7 @@ export class CombatSystem extends BaseSystem {
       this.wasInCombat = false;
     } else if (!attackActivated && this.currentAttackTarget !== null) {
       // Attacco disattivato - ferma qualsiasi combattimento in corso, indipendentemente dal target selezionato
-      console.log(`🛑 [COMBAT] ATTACK DEACTIVATED - attackActivated=${attackActivated}, stopping combat with target ${this.currentAttackTarget}, resetting wasInCombat`);
+      console.log(`🛑 [COMBAT] ATTACK DEACTIVATED - stopping combat with target ${this.currentAttackTarget}`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
@@ -505,9 +467,7 @@ export class CombatSystem extends BaseSystem {
   private sendStartCombat(npcEntity: any): void {
 
     if (!this.clientNetworkSystem) {
-      // Aggiungi alla coda delle richieste pendenti
-      this.pendingCombatRequests.push(npcEntity);
-      return;
+      return; // Non fare niente se non connesso
     }
 
     // Non controllare isConnected() qui - il metodo sendStartCombat del ClientNetworkSystem
