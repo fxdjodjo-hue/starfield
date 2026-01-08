@@ -15,7 +15,7 @@ Centralizzare tutte le costanti di gioco per:
 ```javascript
 module.exports = {
   SERVER_CONSTANTS: {
-    PROJECTILE: { /* velocità, danno, spawn offset */ },
+    PROJECTILE: { /* velocità, danno */ },
     COMBAT: { /* range, cooldown, damage */ },
     NETWORK: { /* interest radius, timeouts */ }
   },
@@ -35,7 +35,7 @@ module.exports = {
 ```javascript
 PROJECTILE: {
   SPEED: 800,           // pixel/secondo
-  SPAWN_OFFSET: 60,     // distanza spawn dal player
+  // Proiettili spawnano dal centro esatto delle navi
   MAX_LIFETIME: 10000   // millisecondi
 }
 ```

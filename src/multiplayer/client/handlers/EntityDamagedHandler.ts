@@ -14,6 +14,8 @@ export class EntityDamagedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    console.log(`💥 [EntityDamagedHandler] Received damage:`, JSON.stringify(message));
+
     // Crea damage text per il danno ricevuto
     const ecs = networkSystem.getECS();
     if (!ecs) {

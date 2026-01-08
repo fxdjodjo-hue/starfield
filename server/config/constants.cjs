@@ -8,7 +8,6 @@ const SERVER_CONSTANTS = {
   PROJECTILE: {
     SPEED: 400,  // Velocità originale
     LIFETIME: 3000,
-    SPAWN_OFFSET: 25,
     HIT_RADIUS: 15
   },
 
