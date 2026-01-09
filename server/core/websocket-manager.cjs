@@ -357,7 +357,7 @@ class WebSocketConnectionManager {
 
             logger.info('PLAYER', `Player joined: ${data.clientId}`);
             logger.info('PLAYER', `  Nickname: ${data.nickname}`);
-            logger.info('PLAYER', `  Player ID: ${data.playerId}`);
+            logger.info('PLAYER', `  Player ID: ${playerData.playerId}`);
             logger.info('PLAYER', `  User ID: ${data.userId}`);
             logger.info('SERVER', `Total connected players: ${this.mapServer.players.size}`);
 
@@ -370,7 +370,7 @@ class WebSocketConnectionManager {
               type: 'player_joined',
               clientId: data.clientId,
               nickname: data.nickname,
-              playerId: data.playerId
+              playerId: playerData.playerId
             }, data.clientId);
 
             // Invia le posizioni di tutti i giocatori già connessi al nuovo giocatore
@@ -433,7 +433,7 @@ class WebSocketConnectionManager {
                 rotation: data.position.rotation || 0,
                 tick: 0,
                 nickname: data.nickname,
-                playerId: data.playerId
+                playerId: playerData.playerId
               }, data.clientId);
             }
 
