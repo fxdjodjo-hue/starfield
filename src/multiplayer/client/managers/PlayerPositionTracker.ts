@@ -1,5 +1,6 @@
 import { ECS } from '../../../infrastructure/ecs/ECS';
 import { Transform } from '../../../entities/spatial/Transform';
+import { Velocity } from '../../../entities/spatial/Velocity';
 import { Npc } from '../../../entities/ai/Npc';
 import { NETWORK_CONFIG } from '../../../config/NetworkConfig';
 
@@ -11,6 +12,7 @@ export class PlayerPositionTracker {
   private readonly ecs: ECS;
   private cachedPlayerEntity: any = null;
   private cacheTimestamp = 0;
+  private lastFallbackLog = 0;
 
   constructor(ecs: ECS) {
     this.ecs = ecs;
@@ -54,7 +56,7 @@ export class PlayerPositionTracker {
   private getPositionFromEntity(entity: any): { x: number; y: number; rotation: number } {
     const transform = this.ecs.getComponent(entity, Transform);
 
-    if (transform) {
+    if (transform && this.isValidTransform(transform)) {
       return {
         x: transform.x,
         y: transform.y,
@@ -62,8 +64,26 @@ export class PlayerPositionTracker {
       };
     }
 
-    // Fallback if transform is missing
+    // Fallback con logging ridotto per evitare spam
+    if (Date.now() - this.lastFallbackLog > 10000) {
+      console.warn('[PlayerPositionTracker] Using fallback position for invalid transform:', {
+        hasTransform: !!transform,
+        transform: transform,
+        entityId: entity?.id
+      });
+      this.lastFallbackLog = Date.now();
+    }
     return { ...NETWORK_CONFIG.FALLBACK_POSITION };
+  }
+
+  /**
+   * Valida che il Transform component abbia valori validi
+   */
+  private isValidTransform(transform: any): boolean {
+    return transform &&
+           Number.isFinite(transform.x) &&
+           Number.isFinite(transform.y) &&
+           (transform.rotation === undefined || Number.isFinite(transform.rotation));
   }
 
   /**
@@ -73,7 +93,31 @@ export class PlayerPositionTracker {
   private findLocalPlayer(): any {
     const entitiesWithTransform = this.ecs.getEntitiesWithComponents(Transform);
 
+    // Debug: log entità trovate con più dettagli
+    if (Date.now() - this.lastFallbackLog > 5000) {
+      console.log('[PlayerPositionTracker] Entities with Transform:', entitiesWithTransform.length);
+      entitiesWithTransform.forEach(entity => {
+        const hasNpc = this.ecs.hasComponent(entity, Npc);
+        const hasVelocity = this.ecs.hasComponent(entity, Velocity);
+        const transform = this.ecs.getComponent(entity, Transform);
+        const velocity = this.ecs.getComponent(entity, Velocity);
+        console.log(`  Entity ${entity.id}: hasNpc=${hasNpc}, hasVelocity=${hasVelocity}, transform=`, transform, 'velocity=', velocity);
+      });
+      this.lastFallbackLog = Date.now();
+    }
+
     // Find entities that have Transform but not Npc (local player)
+    // Prioritize entities with Velocity (moving entities) as they are likely the player
+    const movingEntities = entitiesWithTransform.filter(entity =>
+      !this.ecs.hasComponent(entity, Npc) && this.ecs.hasComponent(entity, Velocity)
+    );
+
+    if (movingEntities.length > 0) {
+      // Return the first moving entity (should be the player)
+      return movingEntities[0];
+    }
+
+    // Fallback: find any entity without Npc component
     for (const entity of entitiesWithTransform) {
       if (!this.ecs.hasComponent(entity, Npc)) {
         return entity;

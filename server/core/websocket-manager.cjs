@@ -3,6 +3,8 @@
 
 const { logger } = require('../logger.cjs');
 const { createClient } = require('@supabase/supabase-js');
+const ServerInputValidator = require('./InputValidator.cjs');
+const { BoundaryEnforcement } = require('../../shared/SecurityBoundary.cjs');
 
 // Supabase client (usiamo la stessa istanza del server principale)
 const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbwbvwis.supabase.co';
@@ -14,6 +16,14 @@ class WebSocketConnectionManager {
     this.wss = wss;
     this.mapServer = mapServer;
     this.messageCount = messageCount;
+    this.inputValidator = new ServerInputValidator();
+
+    // Logging throttling per performance
+    this.validationWarningCount = 0;
+    this.lastValidationWarning = 0;
+    this.securityWarningCount = 0;
+    this.lastSecurityWarning = 0;
+
     this.setupConnectionHandling();
     this.setupShutdownHandling();
     this.setupPeriodicSave();
@@ -315,6 +325,48 @@ class WebSocketConnectionManager {
         try {
           const data = JSON.parse(message.toString());
 
+          // INPUT VALIDATION: valida struttura messaggio
+          const structureValidation = this.inputValidator.validateMessageStructure(data);
+          if (!structureValidation.isValid) {
+            logger.warn('VALIDATION', `Invalid message structure from ${data.clientId || 'unknown'}: ${structureValidation.errors.join(', ')}`);
+            return;
+          }
+
+          // INPUT VALIDATION: valida contenuto specifico
+          const contentValidation = this.inputValidator.validate(data.type, data);
+          if (!contentValidation.isValid) {
+            // LOGGING THROTTLING: limita logging per performance ma permetti throughput
+            this.validationWarningCount++;
+            const now = Date.now();
+            if (now - this.lastValidationWarning > 5000 || this.validationWarningCount % 50 === 0) {
+              const clientInfo = data.clientId || 'unknown';
+              const summary = `${this.validationWarningCount} invalid messages in last period`;
+              logger.warn('VALIDATION', `Invalid content from ${clientInfo} (${data.type}): ${contentValidation.errors[0]}... (${summary})`);
+              this.lastValidationWarning = now;
+              this.validationWarningCount = 0; // Reset counter
+            }
+            return;
+          }
+
+          // SECURITY BOUNDARY: verifica intent del client
+          const intentValidation = BoundaryEnforcement.validateClientIntent(data.type, data);
+          if (!intentValidation.allowed) {
+            // LOGGING THROTTLING: limita logging security per performance
+            this.securityWarningCount++;
+            const now = Date.now();
+            if (now - this.lastSecurityWarning > 5000 || this.securityWarningCount % 5 === 0) {
+              const clientInfo = data.clientId || 'unknown';
+              const summary = `${this.securityWarningCount} security violations in last period`;
+              logger.error('SECURITY', `Intent violation from ${clientInfo}: ${intentValidation.reason} (${summary})`);
+              this.lastSecurityWarning = now;
+              this.securityWarningCount = 0; // Reset counter
+            }
+            return;
+          }
+
+          // Usa dati sanitizzati per elaborazione successiva
+          const sanitizedData = contentValidation.sanitizedData;
+
           logger.debug('WEBSOCKET', `Received ${data.type} from ${data.clientId || 'unknown'}`);
 
           // Debug specifico per messaggi di combattimento
@@ -409,7 +461,10 @@ class WebSocketConnectionManager {
               logger.info('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${data.clientId}`);
             }
 
-            ws.send(JSON.stringify({
+            // DEBUG: log prima di inviare welcome
+            console.log('🎯 [SERVER] About to send welcome message to', data.clientId);
+
+            const welcomeMessage = {
               type: 'welcome',
               clientId: data.clientId,
               playerId: playerData.userId, // Usa userId come playerId (è l'UUID dell'utente)
@@ -420,9 +475,23 @@ class WebSocketConnectionManager {
                 health: playerData.health,
                 maxHealth: playerData.maxHealth,
                 shield: playerData.shield,
-                maxShield: playerData.maxShield
+                maxShield: playerData.maxShield,
+                position: {
+                  x: playerData.position?.x || 0,
+                  y: playerData.position?.y || 0,
+                  rotation: playerData.position?.rotation || 0
+                }
               }
-            }));
+            };
+
+            console.log('📤 [SERVER] Welcome message content:', JSON.stringify(welcomeMessage, null, 2));
+
+            try {
+              ws.send(JSON.stringify(welcomeMessage));
+              console.log('✅ [SERVER] Welcome message sent successfully to', data.clientId);
+            } catch (error) {
+              console.error('❌ [SERVER] Failed to send welcome message:', error);
+            }
 
             // Invia la posizione del nuovo giocatore a tutti gli altri giocatori
             if (data.position) {
@@ -442,9 +511,17 @@ class WebSocketConnectionManager {
 
           // Gestisce aggiornamenti posizione del player
           if (data.type === 'position_update') {
+            console.log(`📨 [SERVER] Received position_update from ${data.clientId}:`, { x: data.x, y: data.y });
             if (playerData) {
               playerData.lastInputAt = new Date().toISOString();
-              playerData.position = data.position;
+
+              // Aggiorna posizione solo se i dati sono validi
+              if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
+                playerData.position = sanitizedData;
+                console.log(`📍 [SERVER] Position updated for ${data.clientId}: (${sanitizedData.x.toFixed(1)}, ${sanitizedData.y.toFixed(1)})`);
+              } else {
+                console.warn(`[SERVER] Ignoring invalid position update from ${data.clientId}:`, sanitizedData);
+              }
 
               // Posizione aggiornata (logging limitato per evitare spam)
 
@@ -454,7 +531,7 @@ class WebSocketConnectionManager {
               }
 
               this.mapServer.positionUpdateQueue.get(data.clientId).push({
-                position: data.position,
+                position: { x: data.x, y: data.y },
                 rotation: data.rotation,
                 tick: data.tick,
                 nickname: playerData.nickname,

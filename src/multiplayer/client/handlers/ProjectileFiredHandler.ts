@@ -12,6 +12,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   handle(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem): void {
+    console.log(`🎯 [CLIENT] Received projectile_fired: ${message.projectileId} from ${message.playerId} (target: ${message.targetId})`);
     const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
 
     // Riproduci suono sparo sincronizzato
@@ -23,9 +24,8 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         // Suono laser del player
         audioSystem.playSound('laser', 0.4, false, true);
       } else if (message.playerId.startsWith('npc_')) {
-        // Suono laser degli NPC - QUESTO NON DOVREBBE SUCCEDERE!
+        // Suono laser degli NPC
         audioSystem.playSound('scouterLaser', 0.25, false, true);
-        console.warn(`🚨 [ALERT] NPC attack detected - check server code, performNpcAttack should be commented out!`);
       } else {
       }
     } else {

@@ -6,14 +6,16 @@
 // Combat constants
 const SERVER_CONSTANTS = {
   PROJECTILE: {
-    SPEED: 400,  // Velocità originale
+    SPEED: 400,     // Velocità proiettili player
+    NPC_SPEED: 800, // Velocità proiettili NPC (più veloci per homing efficace)
     LIFETIME: 3000,
-    HIT_RADIUS: 15
+    HIT_RADIUS: 15,
+    SPAWN_OFFSET: 50  // Offset spawn per evitare auto-collisione (px)
   },
 
   COMBAT: {
-    PLAYER_START_RANGE: 400,  // Distanza per iniziare combattimento
-    PLAYER_STOP_RANGE: 500,   // Distanza per fermare combattimento (isteresi)
+    PLAYER_START_RANGE: 600,  // Distanza per iniziare combattimento
+    PLAYER_STOP_RANGE: 600,   // Distanza per fermare combattimento (senza isteresi)
     NPC_MIN_COOLDOWN: 500
   },
 
@@ -36,7 +38,7 @@ const NPC_CONFIG = {
       health: 800,
       shield: 400,
       damage: 20,
-      range: 300,
+      range: 600,
       cooldown: 1200,
       speed: 250
     },
@@ -56,7 +58,7 @@ const NPC_CONFIG = {
       health: 2000,
       shield: 2000,
       damage: 80,
-      range: 300,
+      range: 600,
       cooldown: 1500,
       speed: 200
     },

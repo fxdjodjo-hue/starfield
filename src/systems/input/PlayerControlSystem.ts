@@ -10,6 +10,7 @@ import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { CONFIG } from '../../utils/config/Config';
+import { GAME_CONSTANTS } from '../../config/GameConstants';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo
@@ -30,6 +31,7 @@ export class PlayerControlSystem extends BaseSystem {
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
   private logSystem: LogSystem | null = null;
+  private keysPressed = new Set<string>();
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -55,6 +57,9 @@ export class PlayerControlSystem extends BaseSystem {
   handleKeyPress(key: string): void {
     if (key === 'Space') {
       this.handleSpacePress();
+    } else {
+      // Gestisci movimento con WASD
+      this.keysPressed.add(key.toLowerCase());
     }
   }
 
@@ -64,6 +69,9 @@ export class PlayerControlSystem extends BaseSystem {
   handleKeyRelease(key: string): void {
     if (key === 'Space') {
       this.spaceKeyPressed = false;
+    } else {
+      // Rimuovi dal set dei tasti premuti
+      this.keysPressed.delete(key.toLowerCase());
     }
   }
 
@@ -123,8 +131,8 @@ export class PlayerControlSystem extends BaseSystem {
     const dy = playerTransform.y - npcTransform.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Usa la stessa costante del server per coerenza
-    const PLAYER_RANGE = 400; // SERVER_CONSTANTS.COMBAT.PLAYER_RANGE
+    // Usa la costante centralizzata
+    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
 
     return distance <= PLAYER_RANGE;
   }
@@ -271,7 +279,9 @@ export class PlayerControlSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
 
-    const isMoving = (this.minimapTargetX !== null && this.minimapTargetY !== null) || this.isMousePressed;
+    const isMoving = (this.minimapTargetX !== null && this.minimapTargetY !== null) ||
+                     this.isKeyboardMoving() ||
+                     this.isMousePressed;
 
     // Gestisci suono del motore - evita chiamate multiple rapide
     if (isMoving && !this.isEnginePlaying && !this.engineSoundPromise) {
@@ -284,9 +294,11 @@ export class PlayerControlSystem extends BaseSystem {
       });
     }
 
-    // Priorità: movimento minimappa > movimento mouse > fermo
+    // Priorità: movimento minimappa > movimento tastiera > movimento mouse > fermo
     if (this.minimapTargetX !== null && this.minimapTargetY !== null) {
       this.movePlayerTowardsMinimapTarget();
+    } else if (this.isKeyboardMoving()) {
+      this.movePlayerWithKeyboard();
     } else if (this.isMousePressed) {
       this.movePlayerTowardsMouse();
     } else {
@@ -474,6 +486,53 @@ export class PlayerControlSystem extends BaseSystem {
     // Calcola l'angolo e ruota la nave
     const angle = Math.atan2(dy, dx) + Math.PI / 2;
     playerTransform.rotation = angle;
+  }
+
+  /**
+   * Controlla se ci sono tasti di movimento premuti
+   */
+  private isKeyboardMoving(): boolean {
+    return this.keysPressed.has('w') || this.keysPressed.has('a') ||
+           this.keysPressed.has('s') || this.keysPressed.has('d');
+  }
+
+  /**
+   * Muove il player basato sui tasti WASD premuti
+   */
+  private movePlayerWithKeyboard(): void {
+    if (!this.playerEntity) return;
+
+    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
+    if (!velocity) return;
+
+    const speed = this.getPlayerSpeed();
+    let vx = 0;
+    let vy = 0;
+
+    // Calcola direzione basata sui tasti premuti
+    if (this.keysPressed.has('w')) vy -= 1; // Su
+    if (this.keysPressed.has('s')) vy += 1; // Giù
+    if (this.keysPressed.has('a')) vx -= 1; // Sinistra
+    if (this.keysPressed.has('d')) vx += 1; // Destra
+
+    // Normalizza il vettore se si muovono due direzioni contemporaneamente
+    if (vx !== 0 && vy !== 0) {
+      const length = Math.sqrt(vx * vx + vy * vy);
+      vx /= length;
+      vy /= length;
+    }
+
+    // Applica velocità
+    velocity.setVelocity(vx * speed, vy * speed);
+
+    // Ruota la nave verso la direzione del movimento
+    if (vx !== 0 || vy !== 0) {
+      const angle = Math.atan2(vy, vx) + Math.PI / 2; // +90° per orientare la nave correttamente
+      const transform = this.ecs.getComponent(this.playerEntity, Transform);
+      if (transform) {
+        transform.rotation = angle;
+      }
+    }
   }
 }
 

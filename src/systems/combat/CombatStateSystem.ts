@@ -186,8 +186,8 @@ export class CombatStateSystem extends BaseSystem {
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
     // Debug range consistency
-    if (playerDamage.attackRange !== 400) {
-      console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected 400, got ${playerDamage.attackRange}`);
+    if (playerDamage.attackRange !== 600) {
+      console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected 600, got ${playerDamage.attackRange}`);
     }
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {

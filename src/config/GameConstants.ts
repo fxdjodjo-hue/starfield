@@ -11,7 +11,7 @@ export const PROJECTILE = {
 } as const;
 
 export const COMBAT = {
-  PLAYER_RANGE: 400,            // Range attacco player (px)
+  PLAYER_RANGE: 600,            // Range attacco player (px)
   PLAYER_COOLDOWN: 1000,        // Cooldown attacco player (ms) - NON UTILIZZATO, vedi player-config.json
   NPC_MIN_COOLDOWN: 500,        // Cooldown minimo NPC (ms)
   DAMAGE_TIMEOUT: 10000         // Timeout danno NPC (ms)

@@ -94,15 +94,37 @@ export class InputSystem extends BaseSystem {
 
     // Gestione tastiera
     window.addEventListener('keydown', (event) => {
-      // Non intercettare la barra spaziatrice se un campo input ha il focus
+      // Non intercettare input se un campo input ha il focus
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Gestisci tasti di movimento WASD e Space
       if (event.code === 'Space') {
-        const activeElement = document.activeElement;
-        if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
-          // Lascia che il campo input gestisca la barra spaziatrice normalmente
-          return;
-        }
         event.preventDefault();
         this.onKeyPress?.('Space');
+      } else if (event.code === 'KeyW' || event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD') {
+        event.preventDefault();
+        const key = event.code.toLowerCase().replace('key', ''); // 'w', 'a', 's', 'd'
+        this.onKeyPress?.(key);
+      }
+    });
+
+    // Gestisci rilascio tasti
+    window.addEventListener('keyup', (event) => {
+      const activeElement = document.activeElement;
+      if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      if (event.code === 'Space') {
+        event.preventDefault();
+        this.onKeyRelease?.('Space');
+      } else if (event.code === 'KeyW' || event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD') {
+        event.preventDefault();
+        const key = event.code.toLowerCase().replace('key', ''); // 'w', 'a', 's', 'd'
+        this.onKeyRelease?.(key);
       }
     });
 

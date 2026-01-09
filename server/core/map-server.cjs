@@ -68,6 +68,9 @@ class MapServer {
       // 3. Collisioni proiettili
       this.projectileManager.checkCollisions();
 
+      // 3.5. Aggiornamenti posizione proiettili homing
+      this.projectileManager.broadcastHomingProjectileUpdates();
+
       // 4. Broadcast aggiornamenti NPC significativi
       this.broadcastNpcUpdates();
 
@@ -120,14 +123,40 @@ class MapServer {
     for (const npc of allNpcs) {
       const deltaTime = 1000 / 60; // Fixed timestep per fisica server
 
+      // Validazione posizione iniziale
+      if (!Number.isFinite(npc.position.x) || !Number.isFinite(npc.position.y)) {
+        console.warn(`⚠️ [SERVER] NPC ${npc.id} has invalid initial position: (${npc.position.x}, ${npc.position.y}), skipping`);
+        continue;
+      }
+
       // Salva posizione iniziale per calcolare movimento significativo
       const startX = npc.position.x;
       const startY = npc.position.y;
 
     // Movimento semplice con velocity
     const speed = NPC_CONFIG[npc.type].stats.speed;
+
+    // Validazione velocità: assicurati che siano finite
+    if (!Number.isFinite(npc.velocity.x) || !Number.isFinite(npc.velocity.y)) {
+      console.warn(`⚠️ [SERVER] NPC ${npc.id} velocity became NaN, resetting. Speed: ${speed}, deltaTime: ${deltaTime}`);
+      npc.velocity.x = (Math.random() - 0.5) * 100;
+      npc.velocity.y = (Math.random() - 0.5) * 100;
+    }
+
+    // Validazione parametri movimento
+    if (!Number.isFinite(speed) || speed <= 0) {
+      console.warn(`⚠️ [SERVER] NPC ${npc.id} invalid speed: ${speed}`);
+      return; // Salta questo NPC
+    }
+
+    if (!Number.isFinite(deltaTime) || deltaTime <= 0) {
+      console.warn(`⚠️ [SERVER] NPC ${npc.id} invalid deltaTime: ${deltaTime}`);
+      return; // Salta questo NPC
+    }
+
       let deltaX = npc.velocity.x * (deltaTime / 1000) * (speed / 100); // Normalizza velocità base
       let deltaY = npc.velocity.y * (deltaTime / 1000) * (speed / 100);
+
 
       // Modifica velocità basata sul comportamento
       switch (npc.behavior) {
@@ -144,6 +173,17 @@ class MapServer {
       // Calcola nuova posizione
       const newX = npc.position.x + deltaX;
       const newY = npc.position.y + deltaY;
+
+      // Validazione: assicurati che le posizioni siano finite
+      if (!Number.isFinite(newX) || !Number.isFinite(newY)) {
+        console.warn(`⚠️ [SERVER] NPC ${npc.id} position became NaN! old_pos: (${npc.position.x}, ${npc.position.y}) delta: (${deltaX}, ${deltaY}) vel: (${npc.velocity.x}, ${npc.velocity.y}) speed: ${speed} deltaTime: ${deltaTime}`);
+        console.warn(`⚠️ [SERVER] Resetting NPC ${npc.id} to (0, 0)`);
+        npc.position.x = 0;
+        npc.position.y = 0;
+        npc.velocity.x = (Math.random() - 0.5) * 100;
+        npc.velocity.y = (Math.random() - 0.5) * 100;
+        continue; // Salta l'aggiornamento per questo NPC
+      }
 
       // Applica movimento e controlla confini
       if (newX >= this.npcManager.WORLD_LEFT && newX <= this.npcManager.WORLD_RIGHT) {

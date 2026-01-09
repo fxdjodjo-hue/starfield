@@ -24,7 +24,7 @@ describe('ProjectileCreationSystem', () => {
 
     // Aggiungi componenti necessari
     ecs.addComponent(attackerEntity, Transform, new Transform(100, 100, 0));
-    ecs.addComponent(attackerEntity, Damage, new Damage(50, 1000, 400));
+    ecs.addComponent(attackerEntity, Damage, new Damage(50, 1000, 600));
     ecs.addComponent(targetEntity, Transform, new Transform(200, 100, 0));
 
     // Collega il PlayerSystem

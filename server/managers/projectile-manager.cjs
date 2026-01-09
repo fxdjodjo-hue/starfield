@@ -24,11 +24,18 @@ class ServerProjectileManager {
       projectileType,
       targetId, // ID del bersaglio (per homing projectiles)
       createdAt: Date.now(),
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
+      initialDistance: targetId ? this.calculateInitialDistance(position, targetId) : null
     };
 
     this.projectiles.set(projectileId, projectile);
-    logger.debug('PROJECTILE', `Projectile ${projectileId} added for player ${playerId}`);
+
+    // LOG SPECIFICO PER NPC PROJECTILES
+    if (playerId.startsWith('npc_')) {
+      console.log(`🎯 [NPC_PROJECTILE] Created ${projectileId} from ${playerId} targeting ${targetId} at position (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
+    } else {
+      logger.debug('PROJECTILE', `Projectile ${projectileId} added for player ${playerId}`);
+    }
 
     // Broadcast ai client - escludi il mittente solo se richiesto
     const excludeClientId = excludeSender ? playerId : null;
@@ -67,6 +74,16 @@ class ServerProjectileManager {
     const projectilesToRemove = [];
 
     for (const [projectileId, projectile] of this.projectiles.entries()) {
+      // HOMING LOGIC: Se proiettile ha un target, aggiorna direzione verso di esso
+      if (projectile.targetId && projectile.targetId !== -1) {
+        const homingResult = this.updateProjectileHoming(projectile);
+        if (!homingResult) {
+          // Target non trovato - rimuovi proiettile immediatamente
+          projectilesToRemove.push(projectileId);
+          continue;
+        }
+      }
+
       // Simula movimento del proiettile (aggiorna posizione)
       const deltaTime = (now - projectile.lastUpdate) / 1000; // secondi
       projectile.position.x += projectile.velocity.x * deltaTime;
@@ -89,7 +106,7 @@ class ServerProjectileManager {
 
           } else if (targetHit.type === 'player') {
             // Applica danno al giocatore target
-            const playerDead = this.damagePlayer(targetHit.entity.clientId, projectile.damage, projectile.playerId);
+            const playerDead = this.mapServer.npcManager.damagePlayer(targetHit.entity.clientId, projectile.damage, projectile.playerId);
             this.broadcastEntityDamaged(targetHit.entity, projectile, 'player');
 
             if (playerDead) {
@@ -136,7 +153,7 @@ class ServerProjectileManager {
       // Verifica collisioni con giocatori
       const hitPlayer = this.checkPlayerCollision(projectile);
       if (hitPlayer) {
-        const playerDead = this.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
+        const playerDead = this.mapServer.npcManager.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
         this.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
 
         if (playerDead) {
@@ -153,8 +170,9 @@ class ServerProjectileManager {
         continue;
       }
 
-      // Verifica timeout (proiettili troppo vecchi vengono rimossi)
-      if (now - projectile.createdAt > 10000) { // 10 secondi
+      // Verifica timeout intelligente basato sul tipo di proiettile
+      const maxLifetime = this.calculateProjectileLifetime(projectile);
+      if (now - projectile.createdAt > maxLifetime) {
         projectilesToRemove.push(projectileId);
         continue;
       }
@@ -289,8 +307,11 @@ class ServerProjectileManager {
       targetId: projectile.targetId
     };
 
+    console.log(`📡 [SERVER] Broadcasting projectile ${projectile.id} from ${projectile.playerId} at position (${projectile.position.x.toFixed(1)}, ${projectile.position.y.toFixed(1)}) to clients within ${SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS}px`);
+
     // Interest radius per proiettili
-    this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message, excludeClientId);
+    const clientsInRange = this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message, excludeClientId);
+    console.log(`📡 [SERVER] Projectile ${projectile.id} broadcast completed`);
   }
 
   /**
@@ -373,7 +394,7 @@ class ServerProjectileManager {
 
     if (entityType === 'player') {
       // Per danni ai giocatori, broadcast globale - tutti devono sapere se un giocatore viene danneggiato
-      this.mapServer.broadcast(message);
+      this.mapServer.broadcastToMap(message);
     } else {
       // Per danni agli NPC, usa interest radius
       this.mapServer.broadcastNear(entity.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
@@ -428,7 +449,174 @@ class ServerProjectileManager {
     };
 
     // Broadcast a tutti i giocatori
-    this.mapServer.broadcast(message);
+    this.mapServer.broadcastToMap(message);
+  }
+
+  /**
+   * Aggiorna direzione di un proiettile homing verso il suo target con PREDIZIONE
+   * @returns {boolean} true se target trovato e homing applicato, false se target scomparso
+   */
+  updateProjectileHoming(projectile) {
+    // Trova posizione corrente del target
+    const targetData = this.getTargetData(projectile.targetId);
+    if (!targetData || !targetData.position) {
+      // Target morto/disconnesso - segnala rimozione immediata
+      return false;
+    }
+
+    const targetPosition = targetData.position;
+    const targetVelocity = targetData.velocity || { x: 0, y: 0 };
+
+    // Calcola distanza attuale
+    const dx = targetPosition.x - projectile.position.x;
+    const dy = targetPosition.y - projectile.position.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // PREDIZIONE MIGLIORATA: meno aggressiva per comportamenti più prevedibili
+    let predictedX = targetPosition.x;
+    let predictedY = targetPosition.y;
+
+    if (distance > 10) { // Solo se siamo abbastanza lontani
+      const projectileSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
+
+      if (projectileSpeed > 50) { // Evita divisione per zero
+        // Tempo stimato per raggiungere il target (con velocità più realistica)
+        const timeToTarget = distance / projectileSpeed;
+
+        // Predizione più conservativa - usa meno tempo per evitare posizioni estreme
+        const maxPredictionTime = Math.min(timeToTarget * 0.3, 0.8); // max 0.8 secondi, usa solo 30% del tempo stimato
+
+        predictedX = targetPosition.x + targetVelocity.x * maxPredictionTime;
+        predictedY = targetPosition.y + targetVelocity.y * maxPredictionTime;
+      }
+    }
+
+    // Ora calcola direzione verso la posizione predetta
+    const predDx = predictedX - projectile.position.x;
+    const predDy = predictedY - projectile.position.y;
+    const predDistance = Math.sqrt(predDx * predDx + predDy * predDy);
+
+    // Se siamo molto vicini al target (anche predetto), accelera per colpire
+    const CLOSE_DISTANCE = 25; // pixel
+    if (predDistance < CLOSE_DISTANCE && predDistance > 0) {
+      // Aumenta velocità quando vicino al target per garantire il colpo
+      const boostMultiplier = 1.8;
+      const currentSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
+      const boostedSpeed = Math.min(currentSpeed * boostMultiplier, currentSpeed * 2.5); // max 2.5x velocità
+
+      projectile.velocity.x = (predDx / predDistance) * boostedSpeed;
+      projectile.velocity.y = (predDy / predDistance) * boostedSpeed;
+    } else if (predDistance > 0) {
+      // HOMING GRADUALE per NPC projectiles - più fluido e prevedibile
+      const currentSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
+      const targetDirectionX = predDx / predDistance;
+      const targetDirectionY = predDy / predDistance;
+
+      if (projectile.playerId.startsWith('npc_')) {
+        // Per NPC: interpola gradualmente la direzione (80% direzione attuale, 20% direzione target)
+        const currentDirectionX = projectile.velocity.x / currentSpeed;
+        const currentDirectionY = projectile.velocity.y / currentSpeed;
+
+        // Interpolazione lineare per direzione più morbida
+        const lerpFactor = 0.2; // 20% verso la direzione target
+        const newDirectionX = currentDirectionX * (1 - lerpFactor) + targetDirectionX * lerpFactor;
+        const newDirectionY = currentDirectionY * (1 - lerpFactor) + targetDirectionY * lerpFactor;
+
+        // Normalizza la nuova direzione
+        const newDirectionLength = Math.sqrt(newDirectionX * newDirectionX + newDirectionY * newDirectionY);
+        const normalizedX = newDirectionX / newDirectionLength;
+        const normalizedY = newDirectionY / newDirectionLength;
+
+        // Applica velocità (aumenta leggermente se necessario)
+        const targetSpeed = Math.max(currentSpeed, 600); // velocità minima 600 per NPC
+        projectile.velocity.x = normalizedX * targetSpeed;
+        projectile.velocity.y = normalizedY * targetSpeed;
+      } else {
+        // Per player projectiles: direzione diretta (come prima)
+        const maxSpeed = 2000;
+        const safeSpeed = Math.max(50, Math.min(currentSpeed, maxSpeed));
+        projectile.velocity.x = targetDirectionX * safeSpeed;
+        projectile.velocity.y = targetDirectionY * safeSpeed;
+      }
+
+      // Validazione finale per NaN/Infinity
+      if (!Number.isFinite(projectile.velocity.x) || !Number.isFinite(projectile.velocity.y)) {
+        // Reset a velocità sicura se qualcosa va storto
+        const safeDirectionX = predDx > 0 ? 1 : -1;
+        const safeDirectionY = predDy > 0 ? 1 : -1;
+        projectile.velocity.x = safeDirectionX * 400;
+        projectile.velocity.y = safeDirectionY * 400;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Ottiene posizione corrente di un target (player o NPC)
+   */
+  getTargetPosition(targetId) {
+    const targetData = this.getTargetData(targetId);
+    return targetData ? targetData.position : null;
+  }
+
+  /**
+   * Ottiene dati completi del target (posizione e velocità per predizione)
+   */
+  getTargetData(targetId) {
+    // Prima cerca tra i giocatori
+    if (this.mapServer.players.has(targetId)) {
+      const playerData = this.mapServer.players.get(targetId);
+      if (!playerData.position || playerData.isDead) return null;
+
+      return {
+        position: playerData.position,
+        velocity: playerData.velocity || { x: 0, y: 0 }
+      };
+    }
+
+    // Poi cerca tra gli NPC
+    const npcs = this.mapServer.npcManager.getAllNpcs();
+    for (const npc of npcs) {
+      if (npc.id === targetId) {
+        return {
+          position: npc.position,
+          velocity: npc.velocity || { x: 0, y: 0 }
+        };
+      }
+    }
+
+    return null; // Target non trovato
+  }
+
+  /**
+   * Calcola la distanza iniziale dal target al momento della creazione
+   */
+  calculateInitialDistance(projectilePosition, targetId) {
+    const targetPosition = this.getTargetPosition(targetId);
+    if (!targetPosition) return null;
+
+    return Math.sqrt(
+      Math.pow(projectilePosition.x - targetPosition.x, 2) +
+      Math.pow(projectilePosition.y - targetPosition.y, 2)
+    );
+  }
+
+  /**
+   * Calcola il tempo di vita massimo di un proiettile basato sul suo tipo
+   */
+  calculateProjectileLifetime(projectile) {
+    if (projectile.targetId && projectile.initialDistance) {
+      // Per proiettili homing: tempo basato sulla distanza + margine
+      const speed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
+      const baseTime = (projectile.initialDistance / speed) * 1000; // millisecondi
+      const marginTime = Math.min(3000, baseTime * 0.5); // fino al 50% di margine, max 3 secondi
+
+      return Math.min(baseTime + marginTime, 8000); // max 8 secondi per homing
+    } else {
+      // Per proiettili normali: timeout fisso
+      return 10000; // 10 secondi
+    }
   }
 
   /**
@@ -461,18 +649,8 @@ class ServerProjectileManager {
     const targetId = projectile.targetId;
     if (!targetId) return Infinity;
 
-    // Prima cerca tra gli NPC
-    const npcs = this.mapServer.npcManager.getAllNpcs();
-    for (const npc of npcs) {
-      if (npc.id === targetId) {
-        return Math.sqrt(
-          Math.pow(projectile.position.x - npc.position.x, 2) +
-          Math.pow(projectile.position.y - npc.position.y, 2)
-        );
-      }
-    }
-
-    // Poi cerca tra i giocatori
+    // STESSO ORDINE di getTargetPosition: prima giocatori, poi NPC
+    // Prima cerca tra i giocatori
     for (const [clientId, playerData] of this.mapServer.players.entries()) {
       if (clientId === targetId || playerData.playerId?.toString() === targetId?.toString()) {
         if (!playerData.position || playerData.isDead) continue;
@@ -483,8 +661,67 @@ class ServerProjectileManager {
       }
     }
 
+    // Poi cerca tra gli NPC
+    const npcs = this.mapServer.npcManager.getAllNpcs();
+    for (const npc of npcs) {
+      if (npc.id === targetId) {
+        return Math.sqrt(
+          Math.pow(projectile.position.x - npc.position.x, 2) +
+          Math.pow(projectile.position.y - npc.position.y, 2)
+        );
+      }
+    }
+
     // Target non trovato
     return Infinity;
+  }
+
+  /**
+   * Trasmissione aggiornamenti posizione proiettili homing ai client
+   */
+  broadcastHomingProjectileUpdates() {
+    const homingProjectiles = Array.from(this.projectiles.values())
+      .filter(proj => proj.targetId && proj.targetId !== -1 && proj.playerId.startsWith('npc_'));
+
+    if (homingProjectiles.length === 0) return;
+
+    // Raggruppa per area per ottimizzare le trasmissioni
+    const updatesByArea = new Map();
+
+    for (const projectile of homingProjectiles) {
+      const areaKey = `${Math.floor(projectile.position.x / 1000)}_${Math.floor(projectile.position.y / 1000)}`;
+
+      if (!updatesByArea.has(areaKey)) {
+        updatesByArea.set(areaKey, []);
+      }
+
+      updatesByArea.get(areaKey).push({
+        id: projectile.id,
+        position: {
+          x: projectile.position.x,
+          y: projectile.position.y
+        },
+        velocity: {
+          x: projectile.velocity.x,
+          y: projectile.velocity.y
+        }
+      });
+    }
+
+    // Trasmetti aggiornamenti per ogni area
+    for (const [areaKey, projectiles] of updatesByArea.entries()) {
+      const centerX = parseInt(areaKey.split('_')[0]) * 1000 + 500;
+      const centerY = parseInt(areaKey.split('_')[1]) * 1000 + 500;
+
+      const message = {
+        type: 'projectile_updates',
+        projectiles: projectiles,
+        timestamp: Date.now()
+      };
+
+      // Broadcast ai client nell'area
+      this.mapServer.broadcastNear({ x: centerX, y: centerY }, 1500, message);
+    }
   }
 
   /**

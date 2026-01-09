@@ -7,6 +7,7 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
+import { Npc } from '../../entities/ai/Npc';
 import { UiSystem } from '../ui/UiSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
@@ -102,41 +103,67 @@ export class ProjectileSystem extends BaseSystem {
    */
   private updateHomingDirection(projectileTransform: Transform, projectile: Projectile): void {
     // Trova il bersaglio tra tutte le entità con Health
+    // STESSO ORDINE del server: prima giocatori, poi NPC
     const allTargets = this.ecs.getEntitiesWithComponents(Health);
-    const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
 
+    // Prima cerca tra i giocatori locali (se siamo il target)
+    const localPlayer = this.playerSystem.getPlayerEntity();
+    if (localPlayer && localPlayer.id === projectile.targetId) {
+      const targetTransform = this.ecs.getComponent(localPlayer, Transform);
+      if (targetTransform) {
+        this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
+        return;
+      }
+    }
+
+    // Poi cerca tra gli NPC
+    const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
     if (!targetEntity) return;
 
     const targetTransform = this.ecs.getComponent(targetEntity, Transform);
     if (!targetTransform) return;
 
-    // Calcola la nuova direzione verso il bersaglio usando utility centralizzata
-    const { direction } = calculateDirection(
-      projectileTransform.x,
-      projectileTransform.y,
-      targetTransform.x,
-      targetTransform.y
-    );
+    this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
+  }
 
-    projectile.directionX = direction.x;
-    projectile.directionY = direction.y;
+  /**
+   * Calcola e imposta la direzione del proiettile verso il target
+   */
+  private calculateAndSetDirection(projectileTransform: Transform, targetTransform: Transform, projectile: Projectile): void {
+    const dx = targetTransform.x - projectileTransform.x;
+    const dy = targetTransform.y - projectileTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance > 0) {
+      // Normalizza direzione
+      const directionX = dx / distance;
+      const directionY = dy / distance;
+
+      projectile.directionX = directionX;
+      projectile.directionY = directionY;
+    }
   }
 
   /**
    * Controlla collisioni tra proiettile e possibili bersagli
    */
   private checkCollisions(projectileEntity: any, projectileTransform: Transform, projectile: Projectile): void {
+    // Per proiettili homing, verifica se il target esiste ancora
+    if (this.isHomingProjectile(projectile)) {
+      const targetExists = this.targetStillExists(projectile.targetId);
+      if (!targetExists) {
+        // Target scomparso - rimuovi proiettile
+        this.ecs.removeEntity(projectileEntity);
+        return;
+      }
+    }
+
     // Trova tutte le entità con Health (possibili bersagli)
     const targets = this.ecs.getEntitiesWithComponents(Transform, Health);
 
     for (const targetEntity of targets) {
       // Non colpire il proprietario del proiettile
-      const playerEntity = this.playerSystem.getPlayerEntity();
-      const isPlayerProjectile = playerEntity &&
-        (projectile.ownerId === playerEntity.id ||
-         projectile.ownerId === this.clientNetworkSystem?.getLocalClientId());
-
-      if (targetEntity.id === playerEntity?.id && isPlayerProjectile) continue;
+      if (this.isProjectileOwner(targetEntity, projectile)) continue;
 
       const targetTransform = this.ecs.getComponent(targetEntity, Transform);
       const targetHealth = this.ecs.getComponent(targetEntity, Health);
@@ -178,6 +205,51 @@ export class ProjectileSystem extends BaseSystem {
         return;
       }
     }
+  }
+
+  /**
+   * Controlla se l'entità target è il proprietario del proiettile
+   */
+  private isProjectileOwner(targetEntity: any, projectile: Projectile): boolean {
+    // Controllo diretto per entity ID
+    if (projectile.ownerId === targetEntity.id) return true;
+
+    // Per gli NPC, controlla se il target ha un Npc con l'ID corrispondente
+    const npc = this.ecs.getComponent(targetEntity, Npc);
+    if (npc && projectile.ownerId === npc.serverId) {
+      return true;
+    }
+
+    // Per il player locale, usa il controllo esistente
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (playerEntity && targetEntity.id === playerEntity.id) {
+      // Se il proiettile è del player, non colpire il player
+      return projectile.ownerId === playerEntity.id || projectile.ownerId?.startsWith?.('client_');
+    }
+
+    return false;
+  }
+
+  /**
+   * Verifica se un proiettile è di tipo homing
+   */
+  private isHomingProjectile(projectile: Projectile): boolean {
+    return projectile.targetId !== -1 && projectile.targetId !== undefined;
+  }
+
+  /**
+   * Verifica se il target di un proiettile homing esiste ancora
+   */
+  private targetStillExists(targetId: string): boolean {
+    // Prima cerca tra i giocatori locali
+    const localPlayer = this.playerSystem.getPlayerEntity();
+    if (localPlayer && localPlayer.id === targetId) {
+      return true;
+    }
+
+    // Poi cerca tra tutte le entità con Health (NPC)
+    const allTargets = this.ecs.getEntitiesWithComponents(Health);
+    return allTargets.some(entity => entity.id === targetId);
   }
 
   /**

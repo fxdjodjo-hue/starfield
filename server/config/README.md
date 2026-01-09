@@ -70,7 +70,7 @@ Scouter: {
     maxShield: 400,
     speed: 150,
     damage: 100,
-    range: 400,
+    range: 600,
     cooldown: 1500
   },
   rewards: {

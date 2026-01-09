@@ -122,11 +122,23 @@ class ServerCombatManager {
       return;
     }
 
+    // Validazione posizione player
+    const px = playerData.position.x;
+    const py = playerData.position.y;
+    console.log(`📍 [SERVER] Combat check for ${playerId} - playerData.position: (${px}, ${py})`);
+    if (!Number.isFinite(px) || !Number.isFinite(py)) {
+      console.log(`📍 [SERVER] Player ${playerId} has invalid position (${px}, ${py}), skipping combat`);
+      return;
+    }
+
     // Verifica che il player sia nel range (con periodo di grazia iniziale)
     const distance = Math.sqrt(
-      Math.pow(playerData.position.x - npc.position.x, 2) +
-      Math.pow(playerData.position.y - npc.position.y, 2)
+      Math.pow(px - npc.position.x, 2) +
+      Math.pow(py - npc.position.y, 2)
     );
+
+    // Debug: log posizioni e distanza
+    console.log(`📏 [COMBAT] Range check - Player: (${px.toFixed(1)}, ${py.toFixed(1)}) NPC ${npc.id}: (${npc.position.x.toFixed(1)}, ${npc.position.y.toFixed(1)}) Distance: ${distance.toFixed(1)}px`);
 
     // Controllo range rigoroso: ferma combattimento se fuori dal range base
     // I proiettili già sparati continueranno il loro volo, ma non verranno sparati altri
@@ -248,9 +260,9 @@ class ServerCombatManager {
       const distanceSq = dx * dx + dy * dy;
 
       if (distanceSq <= attackRangeSq) {
-        // Player nel range - NPC attacca (TEMPORANEAMENTE DISABILITATO)
-        console.log(`🚫 [SERVER] NPC ${npc.id} could attack player ${clientId} but attacks are DISABLED`);
-        // this.performNpcAttack(npc, playerData, now);
+        // Player nel range - NPC attacca
+        console.log(`🔫 [SERVER] NPC ${npc.id} attacking player ${clientId}`);
+        this.performNpcAttack(npc, playerData, now);
         break; // Un attacco per tick
       }
     }
@@ -260,10 +272,24 @@ class ServerCombatManager {
    * Esegue un attacco NPC contro un player
    */
   performNpcAttack(npc, targetPlayer, now) {
-    logger.error('COMBAT', `NPC ${npc.id} trying to attack - THIS SHOULD NOT HAPPEN!`);
+    // CRITICO: Crea una snapshot IMMEDIATA della posizione per evitare race conditions
+    const npcPosition = {
+      x: npc.position.x,
+      y: npc.position.y,
+      rotation: npc.position.rotation
+    };
+
+    console.log(`🚀 [SERVER] NPC ${npc.id} firing projectile at player ${targetPlayer.clientId}, position: (${npcPosition.x}, ${npcPosition.y})`);
+
+    // Controlla che la snapshot abbia una posizione valida
+    if (!Number.isFinite(npcPosition.x) || !Number.isFinite(npcPosition.y)) {
+      console.error(`❌ [SERVER] NPC ${npc.id} has INVALID position snapshot! x=${npcPosition.x}, y=${npcPosition.y}. SKIPPING ATTACK`);
+      return;
+    }
+
     // Calcola direzione diretta verso il player per il proiettile
-    const dx = targetPlayer.position.x - npc.position.x;
-    const dy = targetPlayer.position.y - npc.position.y;
+    const dx = targetPlayer.position.x - npcPosition.x;
+    const dy = targetPlayer.position.y - npcPosition.y;
     const angle = Math.atan2(dy, dx);
 
     // Ruota NPC verso il target (per rendering visivo)
@@ -271,29 +297,37 @@ class ServerCombatManager {
 
     // Crea proiettile NPC
     const projectileId = `npc_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const speed = SERVER_CONSTANTS.PROJECTILE.SPEED; // Velocità proiettile
 
-    const velocity = {
-      x: Math.cos(angle) * speed,
-      y: Math.sin(angle) * speed
-    };
-
-    // Posizione dal centro esatto dell'NPC (no offset per centrare sempre)
+    // Posizione con offset per evitare di colpire immediatamente l'NPC stesso - USA SNAPSHOT
+    const spawnOffset = SERVER_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
     const projectilePos = {
-      x: npc.position.x,
-      y: npc.position.y
+      x: npcPosition.x + Math.cos(angle) * spawnOffset,
+      y: npcPosition.y + Math.sin(angle) * spawnOffset
     };
+
+    // Velocità iniziale verso il target (sarà corretta dal homing)
+    const velocity = {
+      x: Math.cos(angle) * SERVER_CONSTANTS.PROJECTILE.NPC_SPEED,
+      y: Math.sin(angle) * SERVER_CONSTANTS.PROJECTILE.NPC_SPEED
+    };
+
+    console.log(`📡 [SERVER] Adding projectile ${projectileId} to projectileManager (NPC attack) - Target: ${targetPlayer.clientId}, Initial velocity: (${velocity.x.toFixed(1)}, ${velocity.y.toFixed(1)})`);
 
     // Registra proiettile
-    this.mapServer.projectileManager.addProjectile(
-      projectileId,
-      npc.id, // Attaccante NPC (già include "npc_")
-      projectilePos,
-      velocity,
-      npc.damage || NPC_CONFIG[npc.type].stats.damage,
-      'scouter_laser',
-      targetPlayer.clientId // Target è il player che viene attaccato
-    );
+    try {
+      this.mapServer.projectileManager.addProjectile(
+        projectileId,
+        npc.id, // Attaccante NPC (già include "npc_")
+        projectilePos,
+        velocity,
+        npc.damage || NPC_CONFIG[npc.type].stats.damage,
+        'scouter_laser',
+        targetPlayer.clientId // Target è il player che viene attaccato
+      );
+      console.log(`✅ [SERVER] Projectile ${projectileId} added successfully (NPC attack)`);
+    } catch (error) {
+      console.error(`❌ [SERVER] Failed to add projectile ${projectileId} (NPC attack):`, error);
+    }
 
     // Il broadcast viene già fatto automaticamente da addProjectile()
 

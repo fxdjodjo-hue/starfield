@@ -5,7 +5,14 @@ import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem
 import { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
-import { AtlasParser } from '../../utils/AtlasParser';
+import { Projectile } from '../../entities/combat/Projectile';
+import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
+
+// Nuovi sistemi specializzati
+import { ExplosionSystem } from '../../systems/client/ExplosionSystem';
+import { AudioNotificationSystem } from '../../systems/client/AudioNotificationSystem';
+import { UINotificationSystem } from '../../systems/client/UINotificationSystem';
 
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
@@ -65,6 +72,10 @@ export class ClientNetworkSystem extends BaseSystem {
 
   // Position sync state
   private lastSentPosition: { x: number; y: number } | null = null;
+  private lastInvalidPositionLog = 0;
+  private hasReceivedWelcome = false;
+  private pendingPosition: { x: number; y: number; rotation: number } | null = null;
+  private currentCombatNpcId: string | null = null;
 
   // New modular components
   private readonly messageRouter: MessageRouter;
@@ -74,6 +85,11 @@ export class ClientNetworkSystem extends BaseSystem {
   private playerSystem: PlayerSystem | null = null;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
+
+  // Sistemi delegati per responsabilità specifiche (chirurgicamente estratti)
+  private readonly explosionSystem: ExplosionSystem;
+  private readonly audioNotificationSystem: AudioNotificationSystem;
+  private readonly uiNotificationSystem: UINotificationSystem;
 
   // Error handling callbacks
   private onDisconnectedCallback?: () => void;
@@ -103,6 +119,17 @@ export class ClientNetworkSystem extends BaseSystem {
       this.sendHeartbeat.bind(this),
       this.sendPlayerPosition.bind(this)
     );
+
+    // Initialize specialized systems (chirurgicamente estratti)
+    this.explosionSystem = new ExplosionSystem(ecs, gameContext);
+    this.audioNotificationSystem = new AudioNotificationSystem(ecs, gameContext);
+    this.uiNotificationSystem = new UINotificationSystem(ecs, gameContext);
+
+    // Pass audio system reference to subsystems
+    if (this.audioSystem) {
+      this.explosionSystem.setAudioSystem(this.audioSystem);
+      this.audioNotificationSystem.setAudioSystem(this.audioSystem);
+    }
 
     // Initialize connection manager with callbacks
     this.connectionManager = new ConnectionManager(
@@ -139,6 +166,37 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   public getPlayerSystem(): PlayerSystem | null {
     return this.playerSystem;
+  }
+
+  /**
+   * Welcome state management
+   */
+  public setHasReceivedWelcome(received: boolean): void {
+    this.hasReceivedWelcome = received;
+  }
+
+  public getPendingPosition(): { x: number; y: number; rotation: number } | null {
+    return this.pendingPosition;
+  }
+
+  public clearPendingPosition(): void {
+    this.pendingPosition = null;
+  }
+
+  public setCurrentCombatNpcId(npcId: string | null): void {
+    this.currentCombatNpcId = npcId;
+  }
+
+  public getCurrentCombatNpcId(): string | null {
+    return this.currentCombatNpcId;
+  }
+
+  public invalidatePositionCache(): void {
+    this.positionTracker.invalidateCache();
+  }
+
+  public getHasReceivedWelcome(): boolean {
+    return this.hasReceivedWelcome;
   }
 
   /**
@@ -213,6 +271,9 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
+    // Invalidate position tracker cache on connection (player might have moved)
+    this.positionTracker.invalidateCache();
+
     // Send join message with player info
     const currentPosition = this.getLocalPlayerPosition();
     const nicknameToSend = this.gameContext.playerNickname || 'Player';
@@ -256,12 +317,48 @@ export class ClientNetworkSystem extends BaseSystem {
           // console.error('🚨 Server error:', (message as any).message);
           break;
 
+        case 'projectile_updates':
+          this.handleProjectileUpdates(message as any);
+          break;
+
         default:
           // Route to appropriate handler
           this.messageRouter.route(message, this);
           break;
       }
     } catch (error) {
+    }
+  }
+
+  /**
+   * Handles projectile position updates from server (for homing projectiles)
+   */
+  private handleProjectileUpdates(message: any): void {
+    if (!message.projectiles || !Array.isArray(message.projectiles)) return;
+
+    for (const projectileUpdate of message.projectiles) {
+      // Trova il proiettile nell'ECS
+      const projectileEntity = this.ecs.getEntitiesWithComponents(Projectile)
+        .find(entity => {
+          const projectile = this.ecs.getComponent(entity, Projectile);
+          return projectile && projectile.id === projectileUpdate.id;
+        });
+
+      if (projectileEntity) {
+        // Aggiorna posizione e velocità del proiettile
+        const transform = this.ecs.getComponent(projectileEntity, Transform);
+        const velocity = this.ecs.getComponent(projectileEntity, Velocity);
+
+        if (transform && projectileUpdate.position) {
+          transform.x = projectileUpdate.position.x;
+          transform.y = projectileUpdate.position.y;
+        }
+
+        if (velocity && projectileUpdate.velocity) {
+          velocity.x = projectileUpdate.velocity.x;
+          velocity.y = projectileUpdate.velocity.y;
+        }
+      }
     }
   }
 
@@ -414,13 +511,58 @@ export class ClientNetworkSystem extends BaseSystem {
   private sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
     if (!this.socket) return;
 
-      this.sendMessage({
-        type: MESSAGE_TYPES.POSITION_UPDATE,
-        clientId: this.clientId,
-        position: { x: position.x, y: position.y },
-        rotation: position.rotation,
-        tick: this.tickManager.getTickCounter()
-      });
+    // Debug: log posizione ricevuta dal PositionTracker
+    console.log('[CLIENT] PositionTracker returned:', position);
+
+    // IMPORTANTE: Non mandare position updates finché il server non ha confermato il join
+    if (!this.hasReceivedWelcome) {
+      // Accumula la posizione per quando il server sarà pronto
+      this.pendingPosition = position;
+      if (Date.now() - this.lastInvalidPositionLog > 10000) {
+        console.log('[CLIENT] Waiting for welcome message before sending position updates');
+        this.lastInvalidPositionLog = Date.now();
+      }
+      return;
+    }
+
+    // CLIENT VALIDATION: usa fallback per dati invalidi
+    if (!this.isValidPosition(position)) {
+      if (Date.now() - this.lastInvalidPositionLog > 10000) {
+        console.warn('[CLIENT] Invalid position data, using fallback:', position);
+        this.lastInvalidPositionLog = Date.now();
+      }
+      // Usa posizione di fallback invece di scartare
+      position = { x: 0, y: 0, rotation: 0 };
+    }
+
+    // Debug: log posizioni inviate
+    console.log('[CLIENT] Sending position to server:', position);
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.POSITION_UPDATE,
+      clientId: this.clientId,
+      x: position.x,
+      y: position.y,
+      rotation: position.rotation,
+      tick: this.tickManager.getTickCounter()
+    });
+  }
+
+  /**
+   * Valida che la posizione sia valida prima dell'invio
+   */
+  private isValidPosition(pos: { x: number; y: number; rotation: number }): boolean {
+    // Normalizza la rotation per accettare valori non normalizzati
+    let normalizedRotation = pos.rotation;
+    while (normalizedRotation > Math.PI) normalizedRotation -= 2 * Math.PI;
+    while (normalizedRotation < -Math.PI) normalizedRotation += 2 * Math.PI;
+
+    return Number.isFinite(pos.x) &&
+           Number.isFinite(pos.y) &&
+           Number.isFinite(pos.rotation) &&
+           pos.x >= -50000 && pos.x <= 50000 &&
+           pos.y >= -50000 && pos.y <= 50000 &&
+           normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI;
   }
 
 
@@ -428,6 +570,11 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends a message to the server
    */
   private sendMessage(message: NetMessage): void {
+    // DEBUG: Log position_update sends
+    if (message.type === 'position_update') {
+      console.log('[ClientNetworkSystem] 🔄 POSITION_UPDATE sending to server:', message.position);
+    }
+
     this.connectionManager.send(JSON.stringify(message));
   }
 
@@ -573,6 +720,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
   /**
    * Creates a remote explosion for synchronized visual effects
+   * Delega al ExplosionSystem specializzato
    */
   async createRemoteExplosion(message: {
     explosionId: string;
@@ -581,85 +729,17 @@ export class ClientNetworkSystem extends BaseSystem {
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
-
-    try {
-      if (!this.ecs) {
-        return;
-      }
-
-      // Crea entità temporanea per l'esplosione
-      const explosionEntity = this.ecs.createEntity();
-
-      // Usa i frame cachati o caricali (ora sempre la stessa immagine)
-      let explosionFrames = this.explosionFramesCache;
-      if (!explosionFrames) {
-        explosionFrames = await this.loadExplosionFrames();
-        this.explosionFramesCache = explosionFrames;
-      }
-
-      // Import componenti
-      const { Explosion } = await import('../../entities/combat/Explosion');
-      const { Transform } = await import('../../entities/spatial/Transform');
-
-      // Crea componenti
-      const transform = new Transform(message.position.x, message.position.y, 0);
-      const explosion = new Explosion(explosionFrames, 20, 1); // 20ms per frame - perfetto
-
-      // Aggiungi componenti all'entità
-      this.ecs.addComponent(explosionEntity, Transform, transform);
-      this.ecs.addComponent(explosionEntity, Explosion, explosion);
-
-      // Riproduci suono esplosione sincronizzato su tutti i client
-      if (this.audioSystem) {
-        this.audioSystem.playSound('explosion', 0.1, false, true); // Volume più basso per equilibrio sonoro
-      }
-
-      // L'ExplosionSystem esistente gestirà automaticamente questa entità
-      // perché cerca tutte le entità con componente Explosion
-
-    } catch (error) {
-    }
+    await this.explosionSystem.createRemoteExplosion(message);
   }
 
   /**
    * Imposta i frame dell'esplosione precaricati per evitare lag
+   * Delega al ExplosionSystem
    */
   setPreloadedExplosionFrames(frames: HTMLImageElement[]): void {
-    this.explosionFramesCache = frames;
-    console.log(`💥 [CLIENT_NETWORK] Explosion frames precaricati impostati: ${frames.length} frame`);
+    this.explosionSystem.setPreloadedExplosionFrames(frames);
   }
 
-  /**
-   * Cache per i frame delle esplosioni
-   */
-  private explosionFramesCache: HTMLImageElement[] | null = null;
-
-  /**
-   * Carica i frame dell'esplosione (cache per performance)
-   */
-  private async loadExplosionFrames(explosionType: string = 'explosion'): Promise<HTMLImageElement[]> {
-    if (this.explosionFramesCache) {
-      return this.explosionFramesCache;
-    }
-
-    try {
-      // Usa il file atlas originale con l'immagine explosion.png
-      const atlasPath = `/assets/explosions/explosions_npc/explosion.atlas`;
-
-      const atlasData = await AtlasParser.parseAtlas(atlasPath);
-
-      // Estrai tutti i frame definiti nell'atlas
-      const frames = await AtlasParser.extractFrames(atlasData);
-
-      console.log(`💥 [CLIENT_NETWORK] Loaded ${frames.length} frames from atlas: ${atlasPath}`);
-
-      this.explosionFramesCache = frames;
-      return frames;
-    } catch (error) {
-      console.error('Failed to load explosion frames from atlas:', error);
-      return [];
-    }
-  }
 
   /**
    * Sends request to start combat against an NPC
@@ -671,6 +751,9 @@ export class ClientNetworkSystem extends BaseSystem {
     if (!this.socket || !this.isConnected) {
       return;
     }
+
+    // Salva l'NPC corrente per stop_combat
+    this.setCurrentCombatNpcId(data.npcId);
 
     const message = {
       type: MESSAGE_TYPES.START_COMBAT,
@@ -688,6 +771,7 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   sendStopCombat(data: {
     playerId: string;
+    npcId?: string;
   }): void {
     if (!this.socket || !this.isConnected) {
       return;
@@ -695,7 +779,8 @@ export class ClientNetworkSystem extends BaseSystem {
 
     const message = {
       type: MESSAGE_TYPES.STOP_COMBAT,
-      playerId: data.playerId
+      playerId: data.playerId,
+      npcId: data.npcId || this.getCurrentCombatNpcId() || 'unknown'
     };
 
     this.sendMessage(message);
@@ -818,6 +903,9 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
+    // Propaga riferimento ai sottosistemi
+    this.explosionSystem.setAudioSystem(audioSystem);
+    this.audioNotificationSystem.setAudioSystem(audioSystem);
   }
 
   /**
@@ -844,9 +932,11 @@ export class ClientNetworkSystem extends BaseSystem {
 
   /**
    * Imposta il riferimento al LogSystem per le notifiche di log
+   * Propaga ai sottosistemi
    */
   setLogSystem(logSystem: any): void {
     this.logSystem = logSystem;
+    this.uiNotificationSystem.setUISystems(this.uiSystem, logSystem, this.economySystem);
   }
 
   /**
@@ -868,9 +958,11 @@ export class ClientNetworkSystem extends BaseSystem {
 
   /**
    * Imposta il riferimento al UiSystem per aggiornare l'HUD
+   * Propaga ai sottosistemi specializzati
    */
   setUiSystem(uiSystem: any): void {
     this.uiSystem = uiSystem;
+    this.uiNotificationSystem.setUISystems(uiSystem, this.logSystem, this.economySystem);
   }
 
   /**

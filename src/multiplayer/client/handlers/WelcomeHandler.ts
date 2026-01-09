@@ -3,6 +3,7 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { WelcomeMessage } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
+import { Transform } from '../../../entities/spatial/Transform';
 
 /**
  * Handles welcome messages from the server
@@ -15,6 +16,8 @@ export class WelcomeHandler extends BaseMessageHandler {
   }
 
   handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): void {
+    console.log('🎉 [WELCOME] WelcomeHandler chiamato con message:', JSON.stringify(message, null, 2));
+
     // Set the local client ID and player ID from the server
     networkSystem.gameContext.localClientId = message.clientId || networkSystem.clientId;
 
@@ -28,7 +31,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       console.log('🎮 [WELCOME] Ricevuto stato iniziale dal server:', message.initialState);
 
-      const { inventory, upgrades } = message.initialState;
+      const { inventory, upgrades, position } = message.initialState;
 
       // Sincronizza le risorse economiche con lo stato server
       const economySystem = networkSystem.getEconomySystem();
@@ -46,15 +49,53 @@ export class WelcomeHandler extends BaseMessageHandler {
         console.log(`📊 Risorse iniziali: ${inventory.credits} credits, ${inventory.cosmos} cosmos, ${inventory.experience} XP, ${inventory.honor} honor, ${inventory.skillPoints} skillPoints`);
       }
 
+      // IMPORTANTE: Segna che abbiamo ricevuto il welcome, possiamo ora mandare position updates
+      networkSystem.setHasReceivedWelcome(true);
+
+      // Se abbiamo una posizione pending, mandala ora
+      const pendingPosition = networkSystem.getPendingPosition();
+      if (pendingPosition) {
+        console.log('📍 [WELCOME] Sending pending position after welcome:', pendingPosition);
+        networkSystem.sendPlayerPosition(pendingPosition);
+        networkSystem.clearPendingPosition();
+      }
+
       // Sincronizza gli upgrade del player con lo stato server
       const playerSystem = networkSystem.getPlayerSystem();
-      if (playerSystem && upgrades) {
-        const playerEntity = playerSystem.getPlayerEntity();
-        if (playerEntity) {
-          const playerUpgrades = networkSystem.getECS().getComponent(playerEntity, PlayerUpgrades);
-          if (playerUpgrades) {
-            // Imposta gli upgrade ricevuti dal server
-            playerUpgrades.setUpgrades(upgrades.hpUpgrades, upgrades.shieldUpgrades, upgrades.speedUpgrades, upgrades.damageUpgrades);
+      let playerEntity: any = null;
+
+      if (playerSystem) {
+        playerEntity = playerSystem.getPlayerEntity();
+
+        // IMPORTANTE: Dopo la prima sincronizzazione, NON sovrascrivere mai la posizione del player
+      // Il welcome può essere inviato più volte dal server per aggiornamenti, ma il player
+      // deve mantenere la sua posizione di gioco corrente
+
+      // Invalidate position cache when receiving welcome (position might have changed)
+      // This ensures the position tracker finds the correct current position
+      networkSystem.invalidatePositionCache();
+
+      if (playerEntity && position && !networkSystem.getHasReceivedWelcome()) {
+        const transform = networkSystem.getECS().getComponent(playerEntity, Transform);
+        if (transform) {
+          // Solo al primo welcome, applica la posizione iniziale
+          console.log('📍 [WELCOME] Applicando posizione iniziale server authoritative:', position);
+          transform.x = position.x;
+          transform.y = position.y;
+          transform.rotation = position.rotation || 0;
+          console.log('✅ [WELCOME] Posizione iniziale sincronizzata con server');
+        }
+      } else if (networkSystem.getHasReceivedWelcome()) {
+        console.log('📍 [WELCOME] Welcome già ricevuto, mantenendo posizione corrente del player');
+      }
+
+        if (upgrades) {
+          if (playerEntity) {
+            const playerUpgrades = networkSystem.getECS().getComponent(playerEntity, PlayerUpgrades);
+            if (playerUpgrades) {
+              // Imposta gli upgrade ricevuti dal server
+              playerUpgrades.setUpgrades(upgrades.hpUpgrades, upgrades.shieldUpgrades, upgrades.speedUpgrades, upgrades.damageUpgrades);
+            }
           }
         }
       }

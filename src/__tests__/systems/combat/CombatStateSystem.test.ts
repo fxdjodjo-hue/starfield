@@ -25,7 +25,7 @@ describe('CombatStateSystem', () => {
 
     // Aggiungi componenti necessari
     ecs.addComponent(playerEntity, Transform, new Transform(100, 100, 0));
-    ecs.addComponent(playerEntity, Damage, new Damage(50, 1000, 400));
+    ecs.addComponent(playerEntity, Damage, new Damage(50, 1000, 600));
     ecs.addComponent(npcEntity, Transform, new Transform(200, 100, 0));
     ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
 

@@ -107,10 +107,16 @@ export class EntityFactory {
     const entity = this.ecs.createEntity();
     const playerDef = getPlayerDefinition();
 
-    // Componenti spaziali
+    // Componenti spaziali - assicurati che la posizione sia sempre valida
+    const safePosition = {
+      x: (typeof config.position?.x === 'number' && !isNaN(config.position.x)) ? config.position.x : 0,
+      y: (typeof config.position?.y === 'number' && !isNaN(config.position.y)) ? config.position.y : 0,
+      rotation: (typeof config.position?.rotation === 'number' && !isNaN(config.position.rotation)) ? config.position.rotation : 0
+    };
+
     this.addSpatialComponents(entity, {
-      ...config.position,
-      sprite: config.position.sprite, // Player sprite fornito dal chiamante
+      ...safePosition,
+      sprite: config.position?.sprite, // Player sprite fornito dal chiamante
       velocity: { x: 0, y: 0 } // Aggiungi Velocity iniziale per permettere il movimento
     });
 

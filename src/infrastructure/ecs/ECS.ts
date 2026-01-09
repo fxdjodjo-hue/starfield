@@ -318,4 +318,12 @@ export class ECS {
     }
     return undefined;
   }
+
+  /**
+   * Verifica se il client locale ha autorità su una componente specifica
+   * Delega all'AuthorityManagerSystem - questa è l'unica interfaccia pubblica
+   */
+  hasAuthority(entity: Entity, componentType: new (...args: any[]) => Component, authorityManager: any): boolean {
+    return authorityManager.hasAuthority(entity, componentType);
+  }
 }
