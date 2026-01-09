@@ -54,7 +54,6 @@ class ServerProjectileManager {
     if (!projectile) return;
 
     this.projectiles.delete(projectileId);
-    console.log(`💥 [SERVER] Projectile ${projectileId} removed (${reason})`);
 
     // Broadcast distruzione a tutti i client
     this.broadcastProjectileDestroyed(projectileId, reason);
@@ -79,12 +78,9 @@ class ServerProjectileManager {
         // Questo proiettile ha un target specifico - verifica solo quel target
         const targetHit = this.checkSpecificTargetCollision(projectile);
         if (targetHit) {
-          console.log(`🎯 [SERVER] Projectile ${projectileId} HIT target ${targetHit.entity.id} with ${projectile.damage} damage`);
           if (targetHit.type === 'npc') {
             // Applica danno all'NPC target
-            console.log(`💥 [SERVER] Applying ${projectile.damage} damage to NPC ${targetHit.entity.id} (was ${targetHit.entity.health}/${targetHit.entity.shield})`);
             const npcDead = this.mapServer.npcManager.damageNpc(targetHit.entity.id, projectile.damage, projectile.playerId);
-            console.log(`❤️ [SERVER] NPC ${targetHit.entity.id} after damage: ${targetHit.entity.health} HP, ${targetHit.entity.shield} shield, dead=${npcDead}`);
             this.broadcastEntityDamaged(targetHit.entity, projectile);
 
             if (npcDead) {
@@ -110,15 +106,9 @@ class ServerProjectileManager {
 
       // Per proiettili CON target specifico: NON permettere collisioni accidentali
       // Il proiettile deve colpire ESATTAMENTE il target o continuare il volo
-      if (projectile.targetId && projectile.targetId !== -1) {
-        // Questo proiettile ha un target specifico - ignora collisioni accidentali
-        console.log(`🎯 [SERVER] Projectile ${projectileId} with target ${projectile.targetId} continues flight (no accidental hits)`);
-        // Non rimuovere il proiettile - continua il volo
-        continue;
-      }
+      // (I controlli di cleanup verranno fatti sotto per tutti i proiettili)
 
-      // Debug: se un proiettile non ha colpito niente, logga la posizione
-      console.log(`❓ [SERVER] Projectile ${projectileId} (target: ${projectile.targetId || 'none'}) checked but no collision at position (${projectile.position.x.toFixed(0)}, ${projectile.position.y.toFixed(0)})`);
+      // Proiettili senza target specifico continuano la verifica collisioni
 
       // Fallback: collisioni generiche SOLO per proiettili senza target specifico (NPC projectiles)
       // Verifica collisioni con NPC
@@ -132,7 +122,6 @@ class ServerProjectileManager {
         }
 
         projectilesToRemove.push(projectileId);
-        console.log(`💥 [SERVER] Projectile ${projectileId} hit NPC ${hitNpc.id} (generic collision)`);
         continue;
       }
 
@@ -147,20 +136,17 @@ class ServerProjectileManager {
         }
 
         projectilesToRemove.push(projectileId);
-        console.log(`💥 [SERVER] Projectile ${projectileId} hit player ${hitPlayer.clientId} (generic collision)`);
         continue;
       }
 
       // Verifica se proiettile è fuori dai confini del mondo
       if (this.isOutOfBounds(projectile.position)) {
-        console.log(`🌍 [SERVER] Projectile ${projectileId} out of bounds at (${projectile.position.x.toFixed(0)}, ${projectile.position.y.toFixed(0)})`);
         projectilesToRemove.push(projectileId);
         continue;
       }
 
       // Verifica timeout (proiettili troppo vecchi vengono rimossi)
       if (now - projectile.createdAt > 10000) { // 10 secondi
-        console.log(`⏰ [SERVER] Projectile ${projectileId} timed out after ${(now - projectile.createdAt)/1000}s`);
         projectilesToRemove.push(projectileId);
         continue;
       }
@@ -240,13 +226,8 @@ class ServerProjectileManager {
           Math.pow(projectile.position.y - npc.position.y, 2)
         );
 
-        console.log(`📏 [SERVER] Projectile ${projectile.id} distance to target NPC ${npc.id}: ${distance.toFixed(1)}px (hit threshold: 50px)`);
-
         if (distance < 50) {
-          console.log(`✅ [SERVER] Projectile ${projectile.id} HIT NPC ${npc.id} at distance ${distance.toFixed(1)}px`);
           return { entity: npc, type: 'npc' };
-        } else {
-          console.log(`❌ [SERVER] Projectile ${projectile.id} MISSED NPC ${npc.id} at distance ${distance.toFixed(1)}px`);
         }
         break; // Trovato l'NPC target, non cercare altri
       }
@@ -302,7 +283,6 @@ class ServerProjectileManager {
 
     // Interest radius per proiettili
     this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message, excludeClientId);
-    console.log(`📡 [SERVER] Broadcast projectile ${projectile.id} from ${projectile.playerId} to clients (exclude: ${excludeClientId})`);
   }
 
   /**
@@ -382,8 +362,6 @@ class ServerProjectileManager {
       newShield: entity.shield,
       position: entity.position
     };
-
-    console.log(`📡 [SERVER] Broadcasting entity_damaged: ${entityType} ${entity.id || entity.clientId} took ${projectile.damage} damage, newHealth=${entity.health}`);
 
     if (entityType === 'player') {
       // Per danni ai giocatori, broadcast globale - tutti devono sapere se un giocatore viene danneggiato

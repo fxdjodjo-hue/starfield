@@ -17,9 +17,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned } = message;
 
-
-    console.log('🔄 [PLAYER_STATE] Stato giocatore aggiornato dal server:', message);
-
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (non somme locali)
     const economySystem = networkSystem.getEconomySystem();
     if (economySystem) {
@@ -45,15 +42,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           const playerUpgrades = networkSystem.getECS().getComponent(playerEntity, PlayerUpgrades);
 
           if (playerUpgrades) {
-            console.log('🔧 [PLAYER_STATE] Sincronizzando upgrade dal server:', upgrades);
-            const oldUpgrades = {
-              hpUpgrades: playerUpgrades.hpUpgrades,
-              shieldUpgrades: playerUpgrades.shieldUpgrades,
-              speedUpgrades: playerUpgrades.speedUpgrades,
-              damageUpgrades: playerUpgrades.damageUpgrades
-            };
             playerUpgrades.setUpgrades(upgrades.hpUpgrades, upgrades.shieldUpgrades, upgrades.speedUpgrades, upgrades.damageUpgrades);
-            console.log('✅ [PLAYER_STATE] Upgrade sincronizzati:', oldUpgrades, '→', upgrades);
 
             // Resetta tutti gli upgrade in progress dato che abbiamo ricevuto una risposta dal server
             networkSystem.resetAllUpgradeProgress();
@@ -69,37 +58,19 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
             if (typeof health === 'number' && typeof maxHealth === 'number') {
               const healthComponent = networkSystem.getECS().getComponent(playerEntity, Health);
               if (healthComponent) {
-                console.log('✅ [PLAYER_STATE] Health component TROVATO! Aggiornando...');
-                  console.log('🔄 [PLAYER_STATE] Aggiornando Health component:', {
-                    current: healthComponent.current,
-                    max: healthComponent.max
-                  }, '→', { current: health, max: maxHealth });
-
-                  healthComponent.current = health;
-                  healthComponent.max = maxHealth;
-                  console.log('✅ [PLAYER_STATE] Health component aggiornato:', healthComponent);
-                } else {
-                  console.log('❌ [PLAYER_STATE] Health component non trovato dopo delay!');
-                }
+                healthComponent.current = health;
+                healthComponent.max = maxHealth;
               }
+            }
 
             // Aggiorna Shield component
             if (typeof shield === 'number' && typeof maxShield === 'number') {
               const shieldComponent = networkSystem.getECS().getComponent(playerEntity, Shield);
               if (shieldComponent) {
-                console.log('✅ [PLAYER_STATE] Shield component TROVATO! Aggiornando...');
-                  console.log('🔄 [PLAYER_STATE] Aggiornando Shield component:', {
-                    current: shieldComponent.current,
-                    max: shieldComponent.max
-                  }, '→', { current: shield, max: maxShield });
-
-                  shieldComponent.current = shield;
-                  shieldComponent.max = maxShield;
-                  console.log('✅ [PLAYER_STATE] Shield component aggiornato:', shieldComponent);
-                } else {
-                  console.log('❌ [PLAYER_STATE] Shield component non trovato dopo delay!');
-                }
+                shieldComponent.current = shield;
+                shieldComponent.max = maxShield;
               }
+            }
             }
           }, 100); // Ritardo di 100ms per permettere l'inizializzazione
         } else {

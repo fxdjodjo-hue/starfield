@@ -1,6 +1,7 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 
 /**
  * Handles welcome messages from the server
@@ -47,15 +48,12 @@ export class WelcomeHandler extends BaseMessageHandler {
       // Sincronizza gli upgrade del player con lo stato server
       const playerSystem = networkSystem.getPlayerSystem();
       if (playerSystem && upgrades) {
-        console.log('🔧 [WELCOME] Sincronizzando upgrade con server');
-
         const playerEntity = playerSystem.getPlayerEntity();
         if (playerEntity) {
-          const playerUpgrades = networkSystem.getECS()?.getComponent(playerEntity, networkSystem.getECS()?.components?.PlayerUpgrades);
+          const playerUpgrades = networkSystem.getECS().getComponent(playerEntity, PlayerUpgrades);
           if (playerUpgrades) {
             // Imposta gli upgrade ricevuti dal server
             playerUpgrades.setUpgrades(upgrades.hpUpgrades, upgrades.shieldUpgrades, upgrades.speedUpgrades, upgrades.damageUpgrades);
-            console.log('✅ [WELCOME] Upgrade sincronizzati con server:', upgrades);
           }
         }
       }

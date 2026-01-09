@@ -311,7 +311,6 @@ class WebSocketConnectionManager {
 
       // Gestisce messaggi dal client
       ws.on('message', async (message) => {
-        console.log(`🔥 [WEBSOCKET] RAW MESSAGE from client:`, message.toString());
         this.messageCount.increment();
         try {
           const data = JSON.parse(message.toString());
@@ -459,10 +458,7 @@ class WebSocketConnectionManager {
               playerData.lastInputAt = new Date().toISOString();
               playerData.position = data.position;
 
-              // Log posizione aggiornata (limitato per evitare spam)
-              if (Math.random() < 0.1) { // Log solo il 10% degli aggiornamenti
-                console.log(`📍 [SERVER] Position from ${data.clientId}: (${data.position.x.toFixed(1)}, ${data.position.y.toFixed(1)})`);
-              }
+              // Posizione aggiornata (logging limitato per evitare spam)
 
               // Aggiungi alla queue invece di broadcastare immediatamente
               if (!this.mapServer.positionUpdateQueue.has(data.clientId)) {

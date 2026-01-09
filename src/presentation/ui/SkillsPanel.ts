@@ -534,10 +534,10 @@ export class SkillsPanel extends BasePanel {
         speedValue.textContent = `${calculatedSpeed} u/s`;
       }
 
-      // Calcola e aggiorna damage con bonus dagli upgrade
-      if (damage) {
+      // Calcola e aggiorna damage con bonus dagli upgrade (stesso metodo di applyPlayerUpgrades)
+      if (damage && playerDef.stats.damage) {
         const damageBonus = playerUpgrades.getDamageBonus();
-        const calculatedDamage = Math.floor(damage.damage * damageBonus);
+        const calculatedDamage = Math.floor(playerDef.stats.damage * damageBonus);
 
         const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
         if (damageValue) {
@@ -782,8 +782,6 @@ export class SkillsPanel extends BasePanel {
    * Sincronizza gli upgrade del player al server (Server Authoritative)
    */
   private syncUpgradesToServer(): void {
-    console.log('🔧 [SkillsPanel] syncUpgradesToServer called');
-    console.log('🔍 [SkillsPanel] clientNetworkSystem reference:', !!this.clientNetworkSystem);
 
     if (!this.clientNetworkSystem) {
       console.log('❌ [SkillsPanel] No clientNetworkSystem available');
@@ -850,7 +848,6 @@ export class SkillsPanel extends BasePanel {
    */
   public resetUpgradeProgress(): void {
     this.upgradeInProgress = {};
-    console.log('🔄 [SkillsPanel] All upgrade progress states reset');
   }
 
   /**

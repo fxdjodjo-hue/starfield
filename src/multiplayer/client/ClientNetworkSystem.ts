@@ -493,6 +493,16 @@ export class ClientNetworkSystem extends BaseSystem {
     if (combatSystem) {
       console.log(`🛑 [CLIENT] Stopping combat due to server stop_combat message`);
       combatSystem.stopCombatImmediately();
+
+      // Also deactivate attack in PlayerControlSystem to prevent auto-attack on next NPC click
+      const playerControlSystem = this.ecs.systems?.find((system: any) =>
+        typeof system.deactivateAttack === 'function'
+      );
+
+      if (playerControlSystem) {
+        console.log(`🛑 [CLIENT] Deactivating attack after combat end`);
+        playerControlSystem.deactivateAttack();
+      }
     } else {
       console.warn(`⚠️ [CLIENT] CombatSystem not found, cannot stop combat`);
     }

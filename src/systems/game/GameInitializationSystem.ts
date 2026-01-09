@@ -410,9 +410,8 @@ export class GameInitializationSystem extends System {
 
     // Configura selezione NPC
     npcSelectionSystem.setOnNpcClickCallback((npcEntity: any) => {
-      // Quando si seleziona un nuovo NPC, disattiva l'attacco precedente
-      // per evitare combattimenti automatici continui con NPC diversi
-      playerControlSystem.deactivateAttack();
+      // La disattivazione dell'attacco è ora gestita direttamente nel NpcSelectionSystem
+      // quando cambia la selezione, per una gestione più precisa
     });
   }
 

@@ -74,11 +74,28 @@ export class NpcSelectionSystem extends BaseSystem {
    * Seleziona un NPC specifico (deselezionando gli altri)
    */
   private selectNpc(npcEntity: any): void {
+    // Ogni volta che si seleziona un NPC, disattiva l'attacco per dare controllo totale al giocatore
+    this.deactivateAttackOnAnySelection();
+
     // Rimuovi selezione da tutti gli NPC
     this.deselectAllNpcs();
 
     // Aggiungi selezione al NPC selezionato
     this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
+  }
+
+  /**
+   * Disattiva l'attacco ogni volta che si seleziona un NPC (massimo controllo per il giocatore)
+   */
+  private deactivateAttackOnAnySelection(): void {
+    const playerControlSystem = this.ecs.systems?.find((system: any) =>
+      typeof system.deactivateAttack === 'function'
+    );
+
+    if (playerControlSystem) {
+      console.log(`[NpcSelection] Deactivating attack on any NPC selection (manual reactivation required)`);
+      playerControlSystem.deactivateAttack();
+    }
   }
 
   /**

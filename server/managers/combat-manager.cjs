@@ -23,10 +23,7 @@ class ServerCombatManager {
       this.processNpcCombat(npc, now);
     }
 
-    // Debug: mostra numero combattimenti attivi ogni secondo
-    if (now % 1000 < 50) { // Solo una volta al secondo
-      console.log(`⚔️ [COMBAT] Active combats: ${this.playerCombats.size}`);
-    }
+    // Monitor combattimenti attivi
 
     // Processa combattimenti player
     this.processPlayerCombats(now);

@@ -684,13 +684,31 @@ export class CombatSystem extends BaseSystem {
    * Ferma immediatamente il combattimento (chiamato quando disattivi manualmente l'attacco)
    */
   public stopCombatImmediately(): void {
+    console.log(`🛑 [COMBAT] Combat stopped immediately by manual deactivation`);
+
+    // Disattiva anche l'attacco nel PlayerControlSystem PRIMA di tutto
+    this.deactivateAttackAfterCombatEnd();
+
     if (this.currentAttackTarget) {
-      console.log(`🛑 [COMBAT] Combat stopped immediately by manual deactivation`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
       this.wasInCombat = false; // Reset wasInCombat on immediate stop
+    }
+  }
+
+  /**
+   * Disattiva l'attacco nel PlayerControlSystem quando finisce il combattimento
+   */
+  private deactivateAttackAfterCombatEnd(): void {
+    const playerControlSystem = this.ecs.systems?.find((system: any) =>
+      typeof system.deactivateAttack === 'function'
+    );
+
+    if (playerControlSystem) {
+      console.log(`🛑 [COMBAT] Deactivating attack after combat end`);
+      playerControlSystem.deactivateAttack();
     }
   }
 
