@@ -13,6 +13,8 @@ import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
 import { UiSystem } from '../../systems/ui/UiSystem';
+import { EconomySystem } from '../../systems/economy/EconomySystem';
+import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { Sprite } from '../../entities/Sprite';
 import { Npc } from '../../entities/ai/Npc';
@@ -28,8 +30,8 @@ export class PlayState extends GameState {
   private uiSystem!: UiSystem;
   private gameInitSystem!: GameInitializationSystem;
   private context: GameContext;
-  private playerEntity: any = null;
-  private economySystem: any = null;
+  private playerEntity: Entity | null = null;
+  private economySystem: EconomySystem | null = null;
   private questSystem: QuestSystem | null = null;
   private questManager: QuestManager | null = null;
   private cameraSystem: CameraSystem | null = null;
@@ -166,10 +168,11 @@ export class PlayState extends GameState {
     // Collega il callback per processare le richieste pendenti quando la connessione è stabilita
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
       this.clientNetworkSystem.onConnected(() => {
-        // Notifica il CombatSystem che può processare le richieste pendenti
+        // Notifica il CombatStateSystem che può processare le richieste pendenti
         const systems = this.gameInitSystem.getSystems();
-        if (systems.combatSystem && typeof systems.combatSystem.processPendingCombatRequests === 'function') {
-          systems.combatSystem.processPendingCombatRequests();
+        if (systems.combatStateSystem && typeof systems.combatStateSystem.processPlayerCombat === 'function') {
+          // Il CombatStateSystem gestisce automaticamente il processamento delle richieste nel suo update
+          console.log('[PLAYSTATE] CombatStateSystem ready for combat processing');
         }
       });
     }
@@ -177,11 +180,8 @@ export class PlayState extends GameState {
     // Imposta callback per notificare il CombatSystem quando la connessione è stabilita
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
       this.clientNetworkSystem.onConnected(() => {
-        // Notifica il CombatSystem che può processare le richieste pendenti
-        const combatSystem = this.gameInitSystem.getSystems().combatSystem;
-        if (combatSystem && typeof combatSystem.processPendingCombatRequests === 'function') {
-          combatSystem.processPendingCombatRequests();
-        }
+        // Il CombatStateSystem gestisce automaticamente le richieste pendenti nel suo update
+        console.log('[PLAYSTATE] CombatStateSystem ready for pending combat requests');
       });
     }
   }

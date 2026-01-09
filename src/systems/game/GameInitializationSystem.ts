@@ -6,7 +6,9 @@ import { RenderSystem } from '../rendering/RenderSystem';
 import { InputSystem } from '../input/InputSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { NpcSelectionSystem } from '../ai/NpcSelectionSystem';
-import { CombatSystem } from '../combat/CombatSystem';
+import { DamageSystem } from '../combat/DamageSystem';
+import { ProjectileCreationSystem } from '../combat/ProjectileCreationSystem';
+import { CombatStateSystem } from '../combat/CombatStateSystem';
 import { ExplosionSystem } from '../combat/ExplosionSystem';
 import { DamageTextSystem } from '../rendering/DamageTextSystem';
 import { ChatTextSystem } from '../rendering/ChatTextSystem';
@@ -61,7 +63,9 @@ export class GameInitializationSystem extends System {
   private audioSystem!: AudioSystem;
   private playerStatusDisplaySystem!: PlayerStatusDisplaySystem;
   private clientNetworkSystem: any = null; // Sistema di rete per notifiche multiplayer
-  private combatSystem: any = null; // Riferimento al sistema di combattimento
+  private damageSystem: DamageSystem | null = null; // Sistema gestione danni
+  private projectileCreationSystem: ProjectileCreationSystem | null = null; // Sistema creazione proiettili
+  private combatStateSystem: CombatStateSystem | null = null; // Sistema stato combattimento
   private minimapSystem: any = null; // Riferimento al sistema minimappa
   private systemsCache: any = null;
   private npcStatsManager: NpcStatsManager;
@@ -93,15 +97,13 @@ export class GameInitializationSystem extends System {
       clientNetworkSystem.setEcs(this.ecs);
     }
 
-    // Se il CombatSystem è già stato creato, impostalo immediatamente
-    if (this.combatSystem && typeof this.combatSystem.setClientNetworkSystem === 'function') {
-      this.combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    // Configura i sistemi modulari con il ClientNetworkSystem
+    if (this.combatStateSystem && typeof this.combatStateSystem.setClientNetworkSystem === 'function') {
+      this.combatStateSystem.setClientNetworkSystem(this.clientNetworkSystem);
+    }
 
-      // Imposta anche i frame precaricati nel ClientNetworkSystem se disponibili
-      if (this.combatSystem.explosionFrames && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
-        this.clientNetworkSystem.setPreloadedExplosionFrames(this.combatSystem.explosionFrames);
-        console.log(`💥 [GAME_INIT] Explosion frames trasferiti a ClientNetworkSystem: ${this.combatSystem.explosionFrames.length} frame`);
-      }
+    if (this.projectileCreationSystem && typeof this.projectileCreationSystem.setClientNetworkSystem === 'function') {
+      this.projectileCreationSystem.setClientNetworkSystem(this.clientNetworkSystem);
     } else {
       // Il ClientNetworkSystem verrà impostato sul CombatSystem quando viene creato
     }
@@ -184,18 +186,22 @@ export class GameInitializationSystem extends System {
     this.playerStatusDisplaySystem = new PlayerStatusDisplaySystem(this.ecs);
     this.playerSystem = new PlayerSystem(this.ecs);
     const renderSystem = new RenderSystem(this.ecs, cameraSystem, this.playerSystem, this.context.assetManager);
-    const combatSystem = new CombatSystem(this.ecs, cameraSystem, this.context, this.playerSystem);
-    this.combatSystem = combatSystem; // Salva riferimento per setClientNetworkSystem
+    // Sistemi di combattimento modulari
+    const damageSystem = new DamageSystem(this.ecs);
+    const projectileCreationSystem = new ProjectileCreationSystem(this.ecs);
+    const combatStateSystem = new CombatStateSystem(this.ecs);
+
+    // Salva riferimenti per configurazione successiva
+    this.damageSystem = damageSystem;
+    this.projectileCreationSystem = projectileCreationSystem;
+    this.combatStateSystem = combatStateSystem;
 
     // Imposta i frame dell'esplosione precaricati nei sistemi
     try {
       const explosionAtlasData = await AtlasParser.parseAtlas('/assets/explosions/explosions_npc/explosion.atlas');
       const explosionFrames = await AtlasParser.extractFrames(explosionAtlasData);
 
-      // CombatSystem
-      combatSystem.setPreloadedExplosionFrames(explosionFrames);
-      console.log(`💥 [GAME_INIT] Explosion frames impostati nel CombatSystem: ${explosionFrames.length} frame`);
-
+      // Explosion frames sono gestiti dal ClientNetworkSystem per sincronizzazione
       // ClientNetworkSystem (se già disponibile)
       if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
         this.clientNetworkSystem.setPreloadedExplosionFrames(explosionFrames);
@@ -204,7 +210,7 @@ export class GameInitializationSystem extends System {
     } catch (error) {
       console.warn('⚠️ [GAME_INIT] Errore nell\'impostazione explosion frames precaricati:', error);
     }
-    const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, combatSystem);
+    const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, this.damageSystem);
     // Collega il DamageTextSystem al RenderSystem per il rendering
     if (renderSystem && typeof renderSystem.setDamageTextSystem === 'function') {
       renderSystem.setDamageTextSystem(damageTextSystem);
@@ -220,22 +226,28 @@ export class GameInitializationSystem extends System {
     // Sistema proiettili remoti per multiplayer
     const remoteProjectileSystem = new RemoteProjectileSystem(this.ecs);
 
-    // Collega sistemi al CombatSystem
-    if (combatSystem) {
-      // Collega PlayerControlSystem per gestione attacco con SPACE
-      if (typeof combatSystem.setPlayerControlSystem === 'function') {
-        combatSystem.setPlayerControlSystem(playerControlSystem);
+    // Collega sistemi ai sistemi di combattimento modulari
+    if (this.combatStateSystem) {
+      // Collega PlayerControlSystem al CombatStateSystem per gestione attacco con SPACE
+      this.combatStateSystem.setPlayerControlSystem(playerControlSystem);
+      this.combatStateSystem.setCameraSystem(cameraSystem);
+      this.combatStateSystem.setPlayerSystem(this.playerSystem);
+      this.combatStateSystem.setLogSystem(logSystem);
+    }
+
+    if (this.projectileCreationSystem) {
+      // Collega sistemi al ProjectileCreationSystem
+      this.projectileCreationSystem.setPlayerSystem(this.playerSystem);
+      this.projectileCreationSystem.setAudioSystem(this.audioSystem);
+    }
+
+    // Collega ClientNetworkSystem ai sistemi che ne hanno bisogno
+    if (this.clientNetworkSystem) {
+      if (this.combatStateSystem) {
+        this.combatStateSystem.setClientNetworkSystem(this.clientNetworkSystem);
       }
-
-      // Se abbiamo già un ClientNetworkSystem, impostalo sul CombatSystem appena creato
-      if (this.clientNetworkSystem && typeof combatSystem.setClientNetworkSystem === 'function') {
-        combatSystem.setClientNetworkSystem(this.clientNetworkSystem);
-
-        // Imposta anche i frame precaricati nel ClientNetworkSystem se disponibili
-        if (combatSystem.explosionFrames && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
-          this.clientNetworkSystem.setPreloadedExplosionFrames(combatSystem.explosionFrames);
-          console.log(`💥 [GAME_INIT] Explosion frames condivisi con ClientNetworkSystem: ${combatSystem.explosionFrames.length} frame`);
-        }
+      if (this.projectileCreationSystem) {
+        this.projectileCreationSystem.setClientNetworkSystem(this.clientNetworkSystem);
       }
     }
 
@@ -247,7 +259,9 @@ export class GameInitializationSystem extends System {
       inputSystem,
       playerControlSystem,
       npcSelectionSystem,
-      combatSystem,
+      damageSystem: this.damageSystem,
+      projectileCreationSystem: this.projectileCreationSystem,
+      combatStateSystem: this.combatStateSystem,
       explosionSystem,
       damageTextSystem,
       chatTextSystem,
@@ -277,7 +291,8 @@ export class GameInitializationSystem extends System {
    * Aggiunge tutti i sistemi all'ECS nell'ordine corretto
    */
   private addSystemsToECS(systems: any): void {
-    const { inputSystem, playerControlSystem, npcSelectionSystem, combatSystem,
+    const { inputSystem, playerControlSystem, npcSelectionSystem,
+            damageSystem, projectileCreationSystem, combatStateSystem,
             cameraSystem, explosionSystem, projectileSystem, movementSystem,
             parallaxSystem, renderSystem, boundsSystem, minimapSystem,
             damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
@@ -289,7 +304,9 @@ export class GameInitializationSystem extends System {
     this.ecs.addSystem(npcSelectionSystem);
     this.ecs.addSystem(playerControlSystem);
     this.ecs.addSystem(playerSystem);
-    this.ecs.addSystem(combatSystem);
+    this.ecs.addSystem(damageSystem); // Gestione danni
+    this.ecs.addSystem(projectileCreationSystem); // Creazione proiettili
+    this.ecs.addSystem(combatStateSystem); // Stato combattimento
     this.ecs.addSystem(explosionSystem);
     this.ecs.addSystem(projectileSystem);
     this.ecs.addSystem(cameraSystem);
@@ -317,19 +334,20 @@ export class GameInitializationSystem extends System {
   private configureSystemInteractions(systems: any): void {
     const {
       movementSystem, playerControlSystem, npcSelectionSystem, minimapSystem, economySystem,
-      rankSystem, rewardSystem, combatSystem, logSystem, boundsSystem,
-      questTrackingSystem, inputSystem,
+      rankSystem, rewardSystem, damageSystem, projectileCreationSystem, combatStateSystem,
+      logSystem, boundsSystem, questTrackingSystem, inputSystem,
       chatTextSystem, uiSystem, cameraSystem
     } = systems;
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
     playerControlSystem.setCamera(cameraSystem.getCamera());
     playerControlSystem.setAudioSystem(this.audioSystem);
+    playerControlSystem.setLogSystem(logSystem);
     minimapSystem.setCamera(cameraSystem.getCamera());
 
     // Collega AudioSystem ai sistemi di combattimento
-    if (combatSystem && typeof combatSystem.setAudioSystem === 'function') {
-      combatSystem.setAudioSystem(this.audioSystem);
+    if (projectileCreationSystem && typeof projectileCreationSystem.setAudioSystem === 'function') {
+      projectileCreationSystem.setAudioSystem(this.audioSystem);
     }
 
     // ClientNetworkSystem viene impostato tramite setClientNetworkSystem()
@@ -347,7 +365,6 @@ export class GameInitializationSystem extends System {
     rankSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
     rewardSystem.setEconomySystem(economySystem);
     rewardSystem.setLogSystem(logSystem);
-    combatSystem.setLogSystem(logSystem);
     boundsSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
     rewardSystem.setQuestTrackingSystem(questTrackingSystem);
     questTrackingSystem.setEconomySystem(economySystem);
@@ -676,7 +693,10 @@ export class GameInitializationSystem extends System {
       uiSystem: this.uiSystem,
       questManager: this.questManager,
       economySystem: this.economySystem,
-      movementSystem: this.movementSystem
+      movementSystem: this.movementSystem,
+      damageSystem: this.damageSystem,
+      projectileCreationSystem: this.projectileCreationSystem,
+      combatStateSystem: this.combatStateSystem
     };
   }
 

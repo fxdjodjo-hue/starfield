@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { DamageText } from '../../entities/combat/DamageText';
 import { Transform } from '../../entities/spatial/Transform';
+import type { DamageSystem } from '../combat/DamageSystem';
 
 /**
  * Sistema per il rendering dei testi di danno fluttuanti
@@ -9,14 +10,14 @@ import { Transform } from '../../entities/spatial/Transform';
  */
 export class DamageTextSystem extends BaseSystem {
   private cameraSystem: any = null; // Cache del sistema camera
-  private combatSystem: any = null; // Riferimento al CombatSystem per gestire i contatori dei testi
+  private damageSystem: DamageSystem | null = null; // Riferimento al DamageSystem per gestire i contatori dei testi
 
-  constructor(ecs: ECS, cameraSystem?: any, combatSystem?: any) {
+  constructor(ecs: ECS, cameraSystem?: any, damageSystem?: DamageSystem) {
     super(ecs);
     // Usa il cameraSystem passato o cercalo
     this.cameraSystem = cameraSystem || this.findCameraSystem();
-    // Salva il riferimento al CombatSystem
-    this.combatSystem = combatSystem;
+    // Salva il riferimento al DamageSystem
+    this.damageSystem = damageSystem;
   }
 
   /**
@@ -35,9 +36,9 @@ export class DamageTextSystem extends BaseSystem {
    */
   private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
     this.ecs.removeEntity(damageTextEntity);
-    // Decrementa il contatore dei testi attivi nel CombatSystem
-    if (this.combatSystem && this.combatSystem.decrementDamageTextCount) {
-      this.combatSystem.decrementDamageTextCount(targetEntityId);
+    // Decrementa il contatore dei testi attivi nel DamageSystem
+    if (this.damageSystem && this.damageSystem.decrementDamageTextCount) {
+      this.damageSystem.decrementDamageTextCount(targetEntityId);
     }
   }
 

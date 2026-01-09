@@ -1,8 +1,10 @@
 // Network message type definitions
+import { ClientId, NpcId, ProjectileId, ExplosionId } from '../../../config/NetworkConfig';
+
 export type NetMessage = {
   type: string;
-  clientId?: string;
-  [key: string]: any;
+  clientId?: ClientId;
+  [key: string]: unknown; // Cambiato da any a unknown per type safety
 };
 
 /**

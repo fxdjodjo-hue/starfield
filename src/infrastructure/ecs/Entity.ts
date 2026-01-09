@@ -1,19 +1,24 @@
 /**
+ * Branded type per Entity ID - type safety per ID di entità
+ */
+export type EntityId = number & { readonly __brand: unique symbol };
+
+/**
  * Entity rappresentata come semplice ID numerico
  * In futuro potrà essere estesa con metadata se necessario
  */
 export class Entity {
-  public id: number;
+  public readonly id: EntityId;
 
   constructor(id: number) {
-    this.id = id;
+    this.id = id as EntityId;
   }
 
   toString(): string {
     return `Entity(${this.id})`;
   }
 
-  valueOf(): number {
+  valueOf(): EntityId {
     return this.id;
   }
 }
@@ -28,7 +33,7 @@ export class EntityIdGenerator {
     return new Entity(this.nextId++);
   }
 
-  static createIdValue(): number {
-    return this.nextId++;
+  static createIdValue(): EntityId {
+    return this.nextId++ as EntityId;
   }
 }

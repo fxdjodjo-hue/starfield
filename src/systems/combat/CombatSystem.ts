@@ -1,5 +1,7 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { Entity } from '../../infrastructure/ecs/Entity';
+import type { EntityId } from '../../infrastructure/ecs/Entity';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
@@ -16,7 +18,9 @@ import { CameraSystem } from '../rendering/CameraSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
+import AudioSystem from '../audio/AudioSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { AtlasParser } from '../../utils/AtlasParser';
 import { calculateDirection } from '../../utils/MathUtils';
@@ -28,12 +32,12 @@ import { ProjectileFactory } from '../../factories/ProjectileFactory';
  */
 export class CombatSystem extends BaseSystem {
   private cameraSystem: CameraSystem;
-  private playerControlSystem: any = null;
+  private playerControlSystem: PlayerControlSystem | null = null;
   private logSystem: LogSystem | null = null;
   private gameContext: GameContext;
   private playerSystem: PlayerSystem;
-  private clientNetworkSystem: any = null; // Sistema di rete per notifiche multiplayer
-  private audioSystem: any = null;
+  private clientNetworkSystem: ClientNetworkSystem | null = null; // Sistema di rete per notifiche multiplayer
+  private audioSystem: AudioSystem | null = null;
   private activeDamageTexts: Map<number, number> = new Map(); // entityId -> count
   private attackStartedLogged: boolean = false; // Flag per evitare log multipli di inizio attacco
   private currentAttackTarget: number | null = null; // ID dell'NPC attualmente sotto attacco
@@ -59,14 +63,14 @@ export class CombatSystem extends BaseSystem {
   /**
    * Imposta il sistema audio per i suoni di combattimento
    */
-  setAudioSystem(audioSystem: any): void {
+  setAudioSystem(audioSystem: AudioSystem): void {
     this.audioSystem = audioSystem;
   }
 
   /**
    * Imposta il riferimento al sistema di controllo del player
    */
-  setPlayerControlSystem(playerControlSystem: any): void {
+  setPlayerControlSystem(playerControlSystem: PlayerControlSystem): void {
     this.playerControlSystem = playerControlSystem;
   }
 
@@ -99,7 +103,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Elabora il combattimento per un NPC che attacca il player quando nel range
    */
-  private processNpcCombat(attackerEntity: any): void {
+  private processNpcCombat(attackerEntity: Entity): void {
     console.warn(`⚠️ [COMBAT] NPC combat called for entity ${attackerEntity.id} - THIS SHOULD NOT HAPPEN in automatic combat!`);
 
     const attackerTransform = this.ecs.getComponent(attackerEntity, Transform);
@@ -144,7 +148,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un proiettile dall'attaccante verso il target
    */
-  private performAttack(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any): void {
+  private performAttack(attackerEntity: Entity, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: Entity): void {
 
     // Usa la rotazione corrente dell'NPC per la direzione del proiettile
     // Gli NPC in modalità aggressive mantengono la rotazione verso il player
@@ -184,7 +188,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un singolo laser per il player
    */
-  private createSingleLaser(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any, directionX: number, directionY: number): void {
+  private createSingleLaser(attackerEntity: Entity, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: Entity, directionX: number, directionY: number): void {
     // Crea singolo laser con danno completo
     const laserDamage = attackerDamage.damage;
 
@@ -197,7 +201,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un singolo proiettile (usato dagli NPC)
    */
-  private createSingleProjectile(attackerEntity: any, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: any, directionX: number, directionY: number): void {
+  private createSingleProjectile(attackerEntity: Entity, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: Entity, directionX: number, directionY: number): void {
     this.createProjectileAt(attackerEntity, attackerTransform, attackerDamage.damage, directionX, directionY, targetEntity);
 
     // Registra l'attacco per il cooldown
@@ -207,7 +211,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un proiettile in una posizione e direzione specifica
    */
-  private createProjectileAt(attackerEntity: any, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: any): void {
+  private createProjectileAt(attackerEntity: Entity, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: Entity): void {
     // Genera ID univoco per il proiettile (per sincronizzazione multiplayer)
     const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -272,7 +276,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
-  createDamageText(targetEntity: any, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false): void {
     if (damage <= 0) {
       return;
     }
@@ -319,7 +323,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Controlla se l'entità ha subito danno shield recentemente
    */
-  private hasRecentShieldDamage(targetEntity: any): boolean {
+  private hasRecentShieldDamage(targetEntity: Entity): boolean {
     // Per ora semplificato - controlla se ha uno shield attivo con danni recenti
     // In futuro potrebbe usare un timestamp più sofisticato
     const shield = this.ecs.getComponent(targetEntity, Shield);
@@ -341,7 +345,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Ruota l'NPC verso il player
    */
-  private facePlayer(npcTransform: Transform, npcEntity: any): void {
+  private facePlayer(npcTransform: Transform, npcEntity: Entity): void {
     // Trova il player (entità con Transform ma senza componente Npc)
     const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
       .filter(entity => !this.ecs.hasComponent(entity, Npc));
@@ -469,7 +473,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Invia richiesta di inizio combattimento al server
    */
-  private sendStartCombat(npcEntity: any): void {
+  private sendStartCombat(npcEntity: Entity): void {
 
     if (!this.clientNetworkSystem) {
       return; // Non fare niente se non connesso
@@ -529,7 +533,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un effetto esplosione per un'entità morta
    */
-  private async createExplosion(entity: any): Promise<void> {
+  private async createExplosion(entity: Entity): Promise<void> {
     try {
       const npc = this.ecs.getComponent(entity, Npc);
       const entityType = npc ? `NPC-${npc.npcType}` : 'Player';
@@ -637,7 +641,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Inizia il logging di un attacco contro un NPC
    */
-  private startAttackLogging(targetEntity: any): void {
+  private startAttackLogging(targetEntity: Entity): void {
     if (!this.logSystem) return;
 
     const npc = this.ecs.getComponent(targetEntity, Npc);
@@ -681,6 +685,28 @@ export class CombatSystem extends BaseSystem {
   }
 
   /**
+   * Cleanup delle risorse per prevenire memory leaks
+   * Implementa l'interfaccia System.destroy()
+   */
+  public destroy(): void {
+    // Pulisce tutte le mappe di stato
+    this.activeDamageTexts.clear();
+    this.explodingEntities.clear();
+
+    // Reset dei riferimenti
+    this.playerControlSystem = null;
+    this.logSystem = null;
+    this.clientNetworkSystem = null;
+    this.audioSystem = null;
+
+    // Reset delle variabili di stato del combattimento
+    this.currentAttackTarget = null;
+    this.attackStartedLogged = false;
+
+    console.log('[CombatSystem] Cleanup completato - memory leaks prevenuti');
+  }
+
+  /**
    * Ferma immediatamente il combattimento (chiamato quando disattivi manualmente l'attacco)
    */
   public stopCombatImmediately(): void {
@@ -702,9 +728,9 @@ export class CombatSystem extends BaseSystem {
    * Disattiva l'attacco nel PlayerControlSystem quando finisce il combattimento
    */
   private deactivateAttackAfterCombatEnd(): void {
-    const playerControlSystem = this.ecs.systems?.find((system: any) =>
-      typeof system.deactivateAttack === 'function'
-    );
+    const playerControlSystem = this.ecs.systems?.find((system) =>
+      system instanceof PlayerControlSystem
+    ) as PlayerControlSystem | undefined;
 
     if (playerControlSystem) {
       console.log(`🛑 [COMBAT] Deactivating attack after combat end`);

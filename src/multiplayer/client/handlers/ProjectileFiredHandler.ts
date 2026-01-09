@@ -1,6 +1,7 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import type { ProjectileFiredMessage } from '../../../config/NetworkConfig';
 
 /**
  * Gestisce il messaggio projectile_fired quando un giocatore spara
@@ -10,7 +11,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     super(MESSAGE_TYPES.PROJECTILE_FIRED);
   }
 
-  handle(message: any, networkSystem: ClientNetworkSystem): void {
+  handle(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem): void {
     const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
 
     // Riproduci suono sparo sincronizzato

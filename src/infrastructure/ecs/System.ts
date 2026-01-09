@@ -19,4 +19,10 @@ export abstract class System {
    * Render del sistema (opzionale, usato dal RenderSystem)
    */
   render?(ctx: CanvasRenderingContext2D): void;
+
+  /**
+   * Cleanup delle risorse del sistema (opzionale)
+   * Chiamato quando il sistema viene rimosso dall'ECS
+   */
+  destroy?(): void;
 }

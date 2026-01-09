@@ -1,6 +1,9 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { Entity } from '../../infrastructure/ecs/Entity';
 import { Health } from '../../entities/combat/Health';
+import { EconomySystem } from '../economy/EconomySystem';
+import { PlayState } from '../../game/states/PlayState';
 import { Explosion } from '../../entities/combat/Explosion';
 import { Npc } from '../../entities/ai/Npc';
 import { PlayerStats } from '../../entities/player/PlayerStats';
@@ -22,13 +25,13 @@ class RewardProcessed extends Component {}
  * Segue il principio di Single Responsibility: solo ricompense, niente combattimento
  */
 export class RewardSystem extends BaseSystem {
-  private economySystem: any = null;
-  private playerEntity: any = null;
+  private economySystem: EconomySystem | null = null;
+  private playerEntity: Entity | null = null;
   private logSystem: LogSystem | null = null;
   private questTrackingSystem: QuestTrackingSystem | null = null;
-  private playState: any = null; // Reference to PlayState for saving
+  private playState: PlayState | null = null; // Reference to PlayState for saving
 
-  constructor(ecs: ECS, playState?: any) {
+  constructor(ecs: ECS, playState?: PlayState) {
     super(ecs);
     this.playState = playState;
   }
@@ -36,14 +39,14 @@ export class RewardSystem extends BaseSystem {
   /**
    * Imposta il riferimento all'EconomySystem per assegnare ricompense
    */
-  setEconomySystem(economySystem: any): void {
+  setEconomySystem(economySystem: EconomySystem): void {
     this.economySystem = economySystem;
   }
 
   /**
    * Imposta l'entità player per aggiornare le statistiche
    */
-  setPlayerEntity(playerEntity: any): void {
+  setPlayerEntity(playerEntity: Entity): void {
     this.playerEntity = playerEntity;
   }
 
@@ -81,7 +84,7 @@ export class RewardSystem extends BaseSystem {
   /**
    * Assegna ricompense ricevute dal server quando un NPC viene ucciso
    */
-  assignRewardsFromServer(rewards: any, npcType: string): void {
+  assignRewardsFromServer(rewards: { credits: number; experience: number; honor: number }, npcType: string): void {
     if (!this.economySystem) {
       console.warn('[RewardSystem] EconomySystem not available for server rewards');
       return;
@@ -156,7 +159,7 @@ export class RewardSystem extends BaseSystem {
   /**
    * Assegna le ricompense per aver ucciso un NPC
    */
-  private assignNpcRewards(npcEntity: any): void {
+  private assignNpcRewards(npcEntity: Entity): void {
     const npc = this.ecs.getComponent(npcEntity, Npc);
     if (!npc) return;
 

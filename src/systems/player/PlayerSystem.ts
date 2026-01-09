@@ -1,5 +1,6 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { Entity } from '../../infrastructure/ecs/Entity';
 import { Sprite } from '../../entities/Sprite';
 import { EntityFactory } from '../../factories/EntityFactory';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
@@ -9,7 +10,7 @@ import { getPlayerDefinition } from '../../config/PlayerConfig';
  * Gestisce creazione, configurazione e stato del player utilizzando EntityFactory
  */
 export class PlayerSystem extends System {
-  private playerEntity: any = null;
+  private playerEntity: Entity | null = null;
   private entityFactory: EntityFactory;
 
   constructor(ecs: ECS) {
@@ -20,7 +21,7 @@ export class PlayerSystem extends System {
   /**
    * Crea e configura l'entità giocatore
    */
-  createPlayer(startX: number, startY: number, serverAuthoritative: boolean = true): any {
+  createPlayer(startX: number, startY: number, serverAuthoritative: boolean = true): Entity {
     const playerDef = getPlayerDefinition();
 
     // Crea sprite placeholder
@@ -52,7 +53,7 @@ export class PlayerSystem extends System {
   /**
    * Restituisce l'entità giocatore
    */
-  getPlayerEntity(): any {
+  getPlayerEntity(): Entity | null {
     return this.playerEntity;
   }
 

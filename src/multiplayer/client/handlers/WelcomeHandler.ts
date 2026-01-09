@@ -1,6 +1,7 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import type { WelcomeMessage } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 
 /**
@@ -13,7 +14,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     super(MESSAGE_TYPES.WELCOME);
   }
 
-  handle(message: any, networkSystem: ClientNetworkSystem): void {
+  handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): void {
     // Set the local client ID and player ID from the server
     networkSystem.gameContext.localClientId = message.clientId || networkSystem.clientId;
 

@@ -30,6 +30,14 @@ export const NETWORK_CONFIG = {
 } as const;
 
 /**
+ * Branded types per type safety nella comunicazione di rete
+ */
+export type ClientId = string & { readonly __brand: unique symbol };
+export type NpcId = string & { readonly __brand: unique symbol };
+export type ProjectileId = string & { readonly __brand: unique symbol };
+export type ExplosionId = string & { readonly __brand: unique symbol };
+
+/**
  * Network message types
  * Centralizes message type constants to avoid typos and ensure consistency
  */
@@ -46,6 +54,7 @@ export const MESSAGE_TYPES = {
   REMOTE_PLAYER_UPDATE: 'remote_player_update',
   PLAYER_JOINED: 'player_joined',
   PLAYER_LEFT: 'player_left',
+  PLAYER_STATE_UPDATE: 'player_state_update',
 
   // World messages
   WORLD_UPDATE: 'world_update',
@@ -95,7 +104,7 @@ export function isValidMessageType(type: string): type is NetworkMessageType {
  */
 export interface NpcJoinedMessage {
   type: typeof MESSAGE_TYPES.NPC_JOINED;
-  npcId: string;
+  npcId: NpcId;
   npcType: 'Scouter' | 'Frigate';
   position: { x: number; y: number; rotation: number };
   health: { current: number; max: number };
@@ -109,7 +118,7 @@ export interface NpcJoinedMessage {
 export interface NpcSpawnMessage {
   type: typeof MESSAGE_TYPES.NPC_SPAWN;
   npc: {
-    id: string;
+    id: NpcId;
     type: 'Scouter' | 'Frigate';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
@@ -124,7 +133,7 @@ export interface NpcSpawnMessage {
 export interface InitialNpcsMessage {
   type: typeof MESSAGE_TYPES.INITIAL_NPCS;
   npcs: Array<{
-    id: string;
+    id: NpcId;
     type: 'Scouter' | 'Frigate';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
@@ -139,7 +148,7 @@ export interface InitialNpcsMessage {
  */
 export interface NpcUpdateMessage {
   type: typeof MESSAGE_TYPES.NPC_UPDATE;
-  npcId: string;
+  npcId: NpcId;
   position?: { x: number; y: number; rotation: number };
   health?: { current: number; max: number };
   shield?: { current: number; max: number };
@@ -153,7 +162,7 @@ export interface NpcUpdateMessage {
 export interface NpcBulkUpdateMessage {
   type: typeof MESSAGE_TYPES.NPC_BULK_UPDATE;
   npcs: Array<{
-    id: string;
+    id: NpcId;
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     behavior: string;
@@ -166,7 +175,7 @@ export interface NpcBulkUpdateMessage {
  */
 export interface NpcLeftMessage {
   type: typeof MESSAGE_TYPES.NPC_LEFT;
-  npcId: string;
+  npcId: NpcId;
   reason: 'destroyed' | 'cleanup';
 }
 
@@ -175,9 +184,9 @@ export interface NpcLeftMessage {
  */
 export interface NpcDamagedMessage {
   type: typeof MESSAGE_TYPES.NPC_DAMAGED;
-  npcId: string;
+  npcId: NpcId;
   damage: number;
-  attackerId: string;
+  attackerId: ClientId;
   newHealth: number;
   newShield: number;
 }
@@ -187,8 +196,8 @@ export interface NpcDamagedMessage {
  */
 export interface StartCombatMessage {
   type: typeof MESSAGE_TYPES.START_COMBAT;
-  npcId: string;
-  playerId: string;
+  npcId: NpcId;
+  playerId: ClientId;
 }
 
 /**
@@ -196,7 +205,7 @@ export interface StartCombatMessage {
  */
 export interface StopCombatMessage {
   type: typeof MESSAGE_TYPES.STOP_COMBAT;
-  playerId: string;
+  playerId: ClientId;
 }
 
 /**
@@ -204,8 +213,8 @@ export interface StopCombatMessage {
  */
 export interface CombatUpdateMessage {
   type: typeof MESSAGE_TYPES.COMBAT_UPDATE;
-  playerId: string;
-  npcId: string;
+  playerId: ClientId;
+  npcId: NpcId;
   isAttacking: boolean;
   lastAttackTime: number;
 }
@@ -215,8 +224,8 @@ export interface CombatUpdateMessage {
  */
 export interface ProjectileFiredMessage {
   type: typeof MESSAGE_TYPES.PROJECTILE_FIRED;
-  projectileId: string;
-  playerId: string;
+  projectileId: ProjectileId;
+  playerId: ClientId;
   position: { x: number; y: number };
   velocity: { x: number; y: number };
   damage: number;
@@ -228,7 +237,7 @@ export interface ProjectileFiredMessage {
  */
 export interface ProjectileUpdateMessage {
   type: typeof MESSAGE_TYPES.PROJECTILE_UPDATE;
-  projectileId: string;
+  projectileId: ProjectileId;
   position: { x: number; y: number };
 }
 
@@ -237,7 +246,7 @@ export interface ProjectileUpdateMessage {
  */
 export interface ProjectileDestroyedMessage {
   type: typeof MESSAGE_TYPES.PROJECTILE_DESTROYED;
-  projectileId: string;
+  projectileId: ProjectileId;
   reason: 'collision' | 'out_of_bounds' | 'timeout';
 }
 
@@ -246,10 +255,10 @@ export interface ProjectileDestroyedMessage {
  */
 export interface EntityDamagedMessage {
   type: typeof MESSAGE_TYPES.ENTITY_DAMAGED;
-  entityId: string;
+  entityId: EntityId;
   entityType: 'player' | 'npc';
   damage: number;
-  attackerId: string;
+  attackerId: ClientId;
   newHealth: number;
   newShield: number;
   position: { x: number; y: number };
@@ -260,9 +269,9 @@ export interface EntityDamagedMessage {
  */
 export interface EntityDestroyedMessage {
   type: typeof MESSAGE_TYPES.ENTITY_DESTROYED;
-  entityId: string;
+  entityId: EntityId;
   entityType: 'player' | 'npc';
-  destroyerId: string;
+  destroyerId: ClientId;
   position: { x: number; y: number };
   rewards?: {
     credits: number;
@@ -276,8 +285,8 @@ export interface EntityDestroyedMessage {
  */
 export interface ExplosionCreatedMessage {
   type: typeof MESSAGE_TYPES.EXPLOSION_CREATED;
-  explosionId: string;
-  entityId: string;
+  explosionId: ExplosionId;
+  entityId: EntityId;
   entityType: 'player' | 'npc';
   position: { x: number; y: number };
   explosionType: 'entity_death' | 'projectile_impact' | 'special';
@@ -288,12 +297,59 @@ export interface ExplosionCreatedMessage {
  */
 export interface PlayerRespawnMessage {
   type: typeof MESSAGE_TYPES.PLAYER_RESPAWN;
-  clientId: string;
+  clientId: ClientId;
   position: { x: number; y: number };
   health: number;
   maxHealth: number;
   shield: number;
   maxShield: number;
+}
+
+/**
+ * Aggiornamento completo dello stato del player (inventory, upgrades, stats)
+ */
+export interface PlayerStateUpdateMessage {
+  type: typeof MESSAGE_TYPES.PLAYER_STATE_UPDATE;
+  inventory: {
+    credits: number;
+    cosmos: number;
+    experience: number;
+    honor: number;
+  };
+  upgrades: {
+    [key: string]: number; // Upgrade levels
+  };
+  health: number;
+  maxHealth: number;
+  shield: number;
+  maxShield: number;
+  source: string;
+  rewardsEarned?: {
+    credits: number;
+    experience: number;
+    honor: number;
+  };
+}
+
+/**
+ * Welcome message - server conferma connessione e assegna ID
+ */
+export interface WelcomeMessage {
+  type: typeof MESSAGE_TYPES.WELCOME;
+  clientId: ClientId;
+  playerId: string; // Player ID (potrebbe essere UUID o altro identificatore)
+  initialState?: {
+    players: Array<{
+      id: ClientId;
+      position: { x: number; y: number };
+      nickname: string;
+    }>;
+    npcs: Array<{
+      id: NpcId;
+      position: { x: number; y: number };
+      type: string;
+    }>;
+  };
 }
 
 // Type union per tutti i messaggi NPC
@@ -318,12 +374,17 @@ export type CombatMessage =
   | EntityDestroyedMessage
   | ExplosionCreatedMessage;
 
+// Type union per tutti i messaggi di connessione
+export type ConnectionMessage =
+  | WelcomeMessage;
+
 // Type union per tutti i messaggi dei giocatori
 export type PlayerMessage =
   | PlayerRespawnMessage;
 
 // Type union per tutti i messaggi di rete
 export type NetworkMessageUnion =
+  | ConnectionMessage
   | PlayerMessage
   | NpcMessage
   | CombatMessage;

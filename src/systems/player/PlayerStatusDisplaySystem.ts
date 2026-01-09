@@ -8,7 +8,7 @@ import { Shield } from '../../entities/combat/Shield';
  * Mostra solo testo centrato in basso per test rapidi
  */
 export class PlayerStatusDisplaySystem extends System {
-  private playerEntity: any = null;
+  private playerEntity: Entity | null = null;
   private statusElement: HTMLElement | null = null;
 
   constructor(ecs: ECS) {
@@ -18,7 +18,7 @@ export class PlayerStatusDisplaySystem extends System {
   /**
    * Imposta l'entità player da monitorare
    */
-  setPlayerEntity(entity: any): void {
+  setPlayerEntity(entity: Entity): void {
     this.playerEntity = entity;
     this.createStatusDisplay();
   }
