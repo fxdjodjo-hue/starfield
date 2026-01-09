@@ -1,6 +1,7 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import type { StopCombatMessage } from '../../../config/NetworkConfig';
 
 /**
  * Gestisce il messaggio stop_combat inviato dal server quando ferma automaticamente il combattimento
@@ -10,7 +11,7 @@ export class StopCombatHandler extends BaseMessageHandler {
     super(MESSAGE_TYPES.STOP_COMBAT);
   }
 
-  handle(message: any, networkSystem: ClientNetworkSystem): void {
+  handle(message: StopCombatMessage, networkSystem: ClientNetworkSystem): void {
     console.log(`🛑 [CLIENT] Received stop_combat from server (reason: ${message.reason || 'unknown'})`);
 
     // Usa il metodo del ClientNetworkSystem per fermare il combattimento

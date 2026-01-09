@@ -7,6 +7,59 @@ import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 
 /**
+ * Cache per ottimizzare le query ECS più frequenti
+ * Riduce la complessità da O(n) a O(1) per query cached
+ */
+class EntityQueryCache {
+  private cache = new Map<string, Set<number>>();
+  private lastEntityCount = 0;
+
+  /**
+   * Ottiene entità dalla cache o calcola se necessario
+   */
+  getEntitiesWithComponents(
+    ecs: ECS,
+    componentTypes: (new (...args: any[]) => Component)[],
+    currentEntityCount: number
+  ): Entity[] {
+    // Invalida cache se numero entità è cambiato (entità aggiunte/rimosse)
+    if (currentEntityCount !== this.lastEntityCount) {
+      this.cache.clear();
+      this.lastEntityCount = currentEntityCount;
+    }
+
+    const cacheKey = this.getCacheKey(componentTypes);
+
+    if (this.cache.has(cacheKey)) {
+      // Restituisce copia dalla cache per evitare modifiche esterne
+      const cachedIds = this.cache.get(cacheKey)!;
+      return Array.from(cachedIds).map(id => new Entity(id));
+    }
+
+    // Calcola e cache il risultato
+    const entities = ecs.getEntitiesWithComponentsUncached(...componentTypes);
+    const entityIds = new Set(entities.map(e => e.id));
+    this.cache.set(cacheKey, entityIds);
+
+    return entities;
+  }
+
+  /**
+   * Invalida cache quando componenti vengono aggiunti/rimossi
+   */
+  invalidate(): void {
+    this.cache.clear();
+  }
+
+  /**
+   * Genera chiave cache basata sui tipi di componente
+   */
+  private getCacheKey(componentTypes: (new (...args: any[]) => Component)[]): string {
+    return componentTypes.map(type => type.name).sort().join(',');
+  }
+}
+
+/**
  * Entity Component System principale
  * Gestisce entità, componenti e sistemi
  */
@@ -14,6 +67,7 @@ export class ECS {
   private entities = new Set<number>();
   private components = new Map<new (...args: any[]) => Component, Map<number, Component>>();
   private systems: System[] = [];
+  private queryCache = new EntityQueryCache();
 
   /**
    * Crea una nuova entità
@@ -34,6 +88,9 @@ export class ECS {
     for (const componentMap of this.components.values()) {
       componentMap.delete(entity.id);
     }
+
+    // Invalida cache quando entità vengono rimosse
+    this.queryCache.invalidate();
   }
 
   /**
@@ -53,6 +110,9 @@ export class ECS {
     }
 
     this.components.get(componentType)!.set(entity.id, component);
+
+    // Invalida cache quando componenti cambiano
+    this.queryCache.invalidate();
   }
 
   /**
@@ -65,6 +125,8 @@ export class ECS {
     const componentMap = this.components.get(componentType);
     if (componentMap) {
       componentMap.delete(entity.id);
+      // Invalida cache quando componenti cambiano
+      this.queryCache.invalidate();
     }
   }
 
@@ -93,14 +155,14 @@ export class ECS {
   /**
    * Verifica se un'entità esiste
    */
-  entityExists(id: number): boolean {
+  entityExists(id: EntityId): boolean {
     return this.entities.has(id);
   }
 
   /**
    * Ottiene un'entità per ID
    */
-  getEntity(id: number): Entity | undefined {
+  getEntity(id: EntityId): Entity | undefined {
     if (this.entities.has(id)) {
       return new Entity(id);
     }
@@ -108,9 +170,16 @@ export class ECS {
   }
 
   /**
-   * Ottiene tutte le entità che hanno determinati componenti
+   * Ottiene tutte le entità che hanno determinati componenti (con caching)
    */
   getEntitiesWithComponents(...componentTypes: (new (...args: any[]) => Component)[]): Entity[] {
+    return this.queryCache.getEntitiesWithComponents(this, componentTypes, this.entities.size);
+  }
+
+  /**
+   * Versione non-cached per calcoli interni e testing
+   */
+  getEntitiesWithComponentsUncached(...componentTypes: (new (...args: any[]) => Component)[]): Entity[] {
     const entities: Entity[] = [];
 
     for (const entityId of this.entities) {
@@ -141,6 +210,15 @@ export class ECS {
     const index = this.systems.indexOf(system);
     if (index > -1) {
       this.systems.splice(index, 1);
+
+      // Chiama cleanup del sistema se disponibile
+      if (system.destroy) {
+        try {
+          system.destroy();
+        } catch (error) {
+          this.handleSystemError(system, error, 'destroy');
+        }
+      }
     }
   }
 
@@ -152,22 +230,15 @@ export class ECS {
   }
 
   /**
-   * Aggiorna tutti i sistemi con error boundary
+   * Aggiorna tutti i sistemi con error boundary strutturato
    */
   update(deltaTime: number): void {
     for (const system of this.systems) {
       try {
         system.update(deltaTime);
       } catch (error) {
-        // Log dell'errore ma continua con gli altri sistemi
-        console.error(`[ECS] System ${system.constructor.name} failed during update:`, error);
-
-        // In development, possiamo anche loggare lo stack trace
-        if (process.env.NODE_ENV === 'development') {
-          console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
-        }
-
-        // Continua con il prossimo sistema invece di bloccare tutto
+        // Error boundary strutturato - non blocca altri sistemi
+        this.handleSystemError(system, error, 'update');
       }
     }
   }
@@ -181,18 +252,41 @@ export class ECS {
         try {
           system.render(ctx);
         } catch (error) {
-          // Log dell'errore ma continua con gli altri sistemi
-          console.error(`[ECS] System ${system.constructor.name} failed during render:`, error);
-
-          // In development, possiamo anche loggare lo stack trace
-          if (process.env.NODE_ENV === 'development') {
-            console.error('Stack trace:', error instanceof Error ? error.stack : 'No stack trace available');
-          }
-
-          // Continua con il prossimo sistema invece di bloccare tutto il rendering
+          this.handleSystemError(system, error, 'render');
         }
       }
     }
+  }
+
+  /**
+   * Gestisce errori di sistema in modo strutturato
+   * Centralizza logging, recovery e monitoring
+   */
+  private handleSystemError(system: System, error: unknown, operation: string): void {
+    const systemName = system.constructor.name;
+    const timestamp = new Date().toISOString();
+
+    // Logging strutturato con contesto
+    const errorContext = {
+      system: systemName,
+      operation,
+      timestamp,
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined
+    };
+
+    console.error(`[ECS] System failure:`, errorContext);
+
+    // In produzione, possiamo aggiungere monitoring/telemetry
+    if (process.env.NODE_ENV === 'production') {
+      // TODO: Integrazione con servizio di monitoring (es. Sentry)
+      // this.telemetry.reportSystemError(errorContext);
+    }
+
+    // Strategia di recovery: per ora continuiamo, ma possiamo estendere
+    // - Disabilitare sistema temporaneamente
+    // - Triggerare recovery automatico
+    // - Notificare altri sistemi del fallimento
   }
 
   /**
@@ -204,5 +298,24 @@ export class ECS {
       .filter(entity => !this.hasComponent(entity, SelectedNpc));
 
     return playerEntities.length > 0 ? playerEntities[0] : null;
+  }
+
+  /**
+   * Alias per compatibilità - alcuni sistemi potrebbero ancora usare number
+   * @deprecated Use entityExists(id: EntityId) instead
+   */
+  entityExistsByNumber(id: number): boolean {
+    return this.entities.has(id);
+  }
+
+  /**
+   * Alias per compatibilità
+   * @deprecated Use getEntity(id: EntityId) instead
+   */
+  getEntityByNumber(id: number): Entity | undefined {
+    if (this.entities.has(id)) {
+      return new Entity(id);
+    }
+    return undefined;
   }
 }

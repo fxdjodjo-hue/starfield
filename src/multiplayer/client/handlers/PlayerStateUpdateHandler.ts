@@ -1,5 +1,6 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
+import type { PlayerStateUpdateMessage } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
@@ -14,7 +15,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
   }
 
 
-  handle(message: any, networkSystem: ClientNetworkSystem): void {
+  handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
     const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned } = message;
 
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (non somme locali)

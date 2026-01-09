@@ -1,6 +1,7 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import type { EntityDamagedMessage } from '../../../config/NetworkConfig';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
 import { RemotePlayer } from '../../../entities/player/RemotePlayer';
@@ -13,7 +14,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
     super(MESSAGE_TYPES.ENTITY_DAMAGED);
   }
 
-  handle(message: any, networkSystem: ClientNetworkSystem): void {
+  handle(message: EntityDamagedMessage, networkSystem: ClientNetworkSystem): void {
     console.log(`💥 [EntityDamagedHandler] Received damage:`, JSON.stringify(message));
 
     // Crea damage text per il danno ricevuto

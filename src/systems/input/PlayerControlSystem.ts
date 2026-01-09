@@ -6,6 +6,8 @@ import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Camera } from '../../entities/spatial/Camera';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
+import { LogSystem } from '../rendering/LogSystem';
+import { LogType } from '../../presentation/ui/LogMessage';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { CONFIG } from '../../utils/config/Config';
 
@@ -27,6 +29,7 @@ export class PlayerControlSystem extends BaseSystem {
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
+  private logSystem: LogSystem | null = null;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -66,36 +69,80 @@ export class PlayerControlSystem extends BaseSystem {
 
   /**
    * Gestisce la pressione del tasto SPACE per attivare/disattivare l'attacco
+   * ✅ PRE-VALIDATION: Controlla range prima di permettere attacco
    */
   private handleSpacePress(): void {
-    const now = Date.now();
-    const playerCooldown = this.getPlayerAttackCooldown();
-
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
-    if (selectedNpcs.length > 0) {
-      if (this.attackActivated) {
-        // Disattivazione sempre immediata - giocatore deve poter smettere quando vuole
-        this.attackActivated = false;
-        console.log('[PlayerControl] Attack deactivated immediately');
-        this.stopCombatIfActive();
-      } else {
-        // Riattivazione con cooldown per prevenire spam
-        if (now - this.lastInputTime >= playerCooldown) {
-          this.attackActivated = true;
-          this.lastInputTime = now;
-          console.log('[PlayerControl] Attack activated');
-        } else {
-          // Cooldown attivo - mostra tempo rimanente
-          const remaining = playerCooldown - (now - this.lastInputTime);
-          console.log(`[PlayerControl] Activation blocked - ${remaining}ms remaining`);
-        }
+    if (selectedNpcs.length === 0) {
+      console.log('[PlayerControl] No NPC selected - cannot toggle attack');
+      if (this.logSystem) {
+        this.logSystem.addLogMessage('No target selected', LogType.ATTACK_FAILED, 2000);
       }
-    } else {
-      // Nessun NPC selezionato
-      this.attackActivated = false;
-      console.log('[PlayerControl] No NPC selected');
+      return;
     }
+
+    // 🔥 PRE-VALIDATION: Controlla se l'NPC è in range prima di permettere l'attacco
+    if (!this.isSelectedNpcInRange()) {
+      console.log('[PlayerControl] 📏 NPC out of range - cannot start attack');
+      this.showOutOfRangeMessage();
+      return;
+    }
+
+    // 🎯 TOGGLE SEMPLICE: attiva/disattiva combattimento
+    // ✅ BEST PRACTICE: Client dichiara INTENTO, server gestisce TIMING
+    // ❌ NO cooldown client-side - il server ha autorità completa
+    this.attackActivated = !this.attackActivated;
+
+    if (this.attackActivated) {
+      console.log('[PlayerControl] 🎯 Attack ACTIVATED (intent declared to server)');
+      this.lastInputTime = Date.now(); // Solo per controlli anti-spam UI
+    } else {
+      console.log('[PlayerControl] 🛑 Attack DEACTIVATED (intent declared to server)');
+      this.stopCombatIfActive();
+    }
+  }
+
+  /**
+   * Controlla se l'NPC selezionato è nel range di attacco
+   */
+  private isSelectedNpcInRange(): boolean {
+    const playerEntity = this.ecs.getPlayerEntity();
+    if (!playerEntity) return false;
+
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    if (selectedNpcs.length === 0) return false;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const npcTransform = this.ecs.getComponent(selectedNpcs[0], Transform);
+
+    if (!playerTransform || !npcTransform) return false;
+
+    // Calcola distanza
+    const dx = playerTransform.x - npcTransform.x;
+    const dy = playerTransform.y - npcTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Usa la stessa costante del server per coerenza
+    const PLAYER_RANGE = 400; // SERVER_CONSTANTS.COMBAT.PLAYER_RANGE
+
+    return distance <= PLAYER_RANGE;
+  }
+
+  /**
+   * Mostra messaggio quando NPC è fuori range
+   */
+  private showOutOfRangeMessage(): void {
+    // Mostra nei log di gioco
+    if (this.logSystem) {
+      this.logSystem.addLogMessage('Target out of range! Move closer to attack.', LogType.ATTACK_FAILED, 2000);
+    }
+
+    // Anche nella console per debug
+    console.log('[PlayerControl] 📏 Target out of range! Move closer to attack.');
+
+    // TODO: Implementare feedback visivo nell'UI
+    // this.uiSystem?.showNotification('NPC fuori gittata! Avvicinati per attaccare.');
   }
 
   /**
@@ -143,6 +190,13 @@ export class PlayerControlSystem extends BaseSystem {
    */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
+  }
+
+  /**
+   * Imposta il sistema di logging per messaggi in-game
+   */
+  setLogSystem(logSystem: LogSystem): void {
+    this.logSystem = logSystem;
   }
 
   /**
