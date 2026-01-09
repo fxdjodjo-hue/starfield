@@ -315,19 +315,7 @@ class WebSocketConnectionManager {
         try {
           const data = JSON.parse(message.toString());
 
-          // Log speciale per player_upgrades_update
-          if (data.type === 'player_upgrades_update') {
-            console.log('🎯 [SERVER] PLAYER UPGRADES MESSAGE RECEIVED!');
-            console.log('🎯 [SERVER] Full message:', JSON.stringify(data, null, 2));
-          }
-
-          console.log(`📡 [SERVER] Received ${data.type} from ${data.clientId || 'unknown'}:`, JSON.stringify(data));
           logger.debug('WEBSOCKET', `Received ${data.type} from ${data.clientId || 'unknown'}`);
-
-          // Debug per TUTTI i messaggi dal client specifico
-          if (data.clientId === 'client_z3q8xbv6a') {
-            console.log(`📨 [SERVER] MESSAGE from ${data.clientId}: ${data.type}`, JSON.stringify(data));
-          }
 
           // Debug specifico per messaggi di combattimento
           if (data.type === 'start_combat' || data.type.includes('combat')) {
@@ -502,22 +490,10 @@ class WebSocketConnectionManager {
 
           // Gestisce aggiornamenti upgrade del player (Server Authoritative)
           if (data.type === 'player_upgrades_update') {
-            console.log(`🔧 [SERVER] Player upgrades update RECEIVED: ${data.playerId}`, JSON.stringify(data.upgrades));
-
-            console.log(`🔍 [SERVER] Looking for player: ${data.playerId}`);
             const playerData = this.mapServer.players.get(data.playerId);
             if (playerData) {
-              // Salva upgrade precedenti per confronto
-              const oldUpgrades = JSON.parse(JSON.stringify(playerData.upgrades));
               // Aggiorna gli upgrade del player con quelli ricevuti dal client
               playerData.upgrades = { ...data.upgrades };
-              console.log(`✅ [SERVER] Player ${data.playerId} upgrades synchronized:`, JSON.stringify(oldUpgrades), '→', JSON.stringify(playerData.upgrades));
-            } else {
-              console.log(`❌ [SERVER] Player ${data.playerId} not found for upgrades update`);
-              console.log('Available players:', Array.from(this.mapServer.players.keys()));
-              // Prova anche con il clientId dalla connessione WebSocket
-              const wsClientId = Array.from(this.mapServer.players.entries()).find(([_, pd]) => pd.ws === ws)?.[0];
-              console.log(`🔍 [SERVER] WebSocket client ID: ${wsClientId}`);
             }
           }
 
@@ -610,9 +586,6 @@ class WebSocketConnectionManager {
               // Calcola bonus danno: 1.0 + (damageUpgrades * 0.01)
               const damageBonus = 1.0 + (playerData.upgrades.damageUpgrades * 0.01);
               calculatedDamage = Math.floor(500 * damageBonus);
-              console.log(`🎯 [SERVER] Player ${data.playerId} damage calculated: ${calculatedDamage} (base: 500, bonus: ${damageBonus.toFixed(3)}, upgrades: ${JSON.stringify(playerData.upgrades)})`);
-            } else {
-              console.log(`⚠️ [SERVER] Player ${data.playerId} damage calculated with defaults: ${calculatedDamage} (no player data or upgrades found)`);
             }
 
             // Registra il proiettile nel server con danno calcolato dal server
@@ -648,8 +621,6 @@ class WebSocketConnectionManager {
 
           // Gestisce richiesta di inizio combattimento
           if (data.type === 'start_combat') {
-            console.log(`📡 [SERVER] Received START_COMBAT message:`, JSON.stringify(data));
-
             // Valida che l'NPC esista
             const npc = this.mapServer.npcManager.getNpc(data.npcId);
             if (!npc) {
@@ -657,20 +628,11 @@ class WebSocketConnectionManager {
               return;
             }
 
-            console.log(`✅ [SERVER] START_COMBAT: NPC ${data.npcId} found, starting combat for player=${data.playerId}`);
-
-            // Debug: lista tutti i player connessi
-            console.log(`👥 [SERVER] Connected players:`, Array.from(this.mapServer.players.keys()));
-
             // Verifica che il player sia connesso
             const playerData = this.mapServer.players.get(data.playerId);
             if (!playerData) {
-              console.log(`❌ [SERVER] START_COMBAT: Player ${data.playerId} not found in connected players`);
-              console.log(`❌ [SERVER] Available players:`, Array.from(this.mapServer.players.keys()));
               return;
             }
-
-            console.log(`✅ [SERVER] START_COMBAT: Player ${data.playerId} is connected, starting combat`);
 
             // Inizia il combattimento server-side
             this.mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);
