@@ -8,6 +8,9 @@ export const CONFIG = {
   WORLD_WIDTH: 21000,
   WORLD_HEIGHT: 13100,
 
+  // Mappa corrente
+  CURRENT_MAP: 'palantir',
+
   // Parametri di gioco (FPS, timing)
   TARGET_FPS: 60,
   FIXED_DELTA_TIME: 1000 / 60, // 16.67ms per frame fisso

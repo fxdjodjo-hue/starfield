@@ -34,7 +34,7 @@ export class MinimapSystem extends BaseSystem {
     );
 
     // Carica l'immagine di sfondo della mappa
-    this.loadMapBackground('maps1/1');
+    this.loadMapBackground(CONFIG.CURRENT_MAP);
 
     // Ascolta eventi di resize finestra
     window.addEventListener('resize', () => this.handleResize());
@@ -237,6 +237,9 @@ export class MinimapSystem extends BaseSystem {
     ctx.lineWidth = 1;
     ctx.strokeRect(x, y, w, h);
 
+    // Renderizza il nome della mappa sopra la minimappa nel pannello glass
+    this.renderMapName(ctx, bgX, bgY, bgW, headerHeight);
+
     // Indicatore centro mondo con glow
     const centerX = x + w / 2;
     const centerY = y + h / 2;
@@ -251,31 +254,18 @@ export class MinimapSystem extends BaseSystem {
     ctx.lineTo(centerX, centerY + 6);
     ctx.stroke();
 
-    // Header del pannello glass con titolo centrato
+    // Coordinate del player nell'header
     const headerY = bgY + 8;
 
-    // Coordinate X a sinistra del titolo
     if (this.camera) {
       const playerX = Math.round(this.camera.x);
+      const playerY = Math.round(this.camera.y);
+
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.font = '12px Arial';
       ctx.textAlign = 'left';
       ctx.fillText(`X:${playerX}`, bgX + 15, headerY + 17);
-    }
 
-    // Titolo "MINIMAP" centrato (grigio chiaro)
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-    ctx.shadowBlur = 1;
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-    ctx.font = 'bold 14px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('MINIMAP', bgX + bgW / 2, headerY + 18);
-
-    // Coordinate Y a destra del titolo
-    if (this.camera) {
-      const playerY = Math.round(this.camera.y);
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.font = '12px Arial';
       ctx.textAlign = 'right';
       ctx.fillText(`Y:${playerY}`, bgX + bgW - 15, headerY + 17);
     }
@@ -573,6 +563,35 @@ export class MinimapSystem extends BaseSystem {
 
     // Click completamente fuori dal pannello glass
     return false;
+  }
+
+  /**
+   * Renderizza il nome della mappa sopra la minimappa nel pannello glass
+   */
+  private renderMapName(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number): void {
+    // Formatta il nome della mappa (tutto maiuscolo)
+    const mapName = CONFIG.CURRENT_MAP.toUpperCase();
+
+    // Configura il font e lo stile del testo
+    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Aggiungi un leggero glow al testo
+    ctx.shadowColor = 'rgba(0, 255, 136, 0.4)'; // Colore cyan/verde del tema, leggermente più tenue
+    ctx.shadowBlur = 4;
+
+    // Posiziona il testo al centro sopra la minimappa
+    const textX = x + width / 2;
+    const textY = y + height / 2;
+
+    // Renderizza il testo
+    ctx.fillText(mapName, textX, textY);
+
+    // Reset dello shadow per non influenzare altri elementi
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
   }
 
   /**

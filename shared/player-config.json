@@ -4,7 +4,7 @@
     "shield": 50000,
     "damage": 500,
     "range": 400,
-    "cooldown": 1000,
+    "cooldown": 800,
     "speed": 300
   },
   "startingResources": {
