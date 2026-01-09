@@ -38,6 +38,9 @@ export class RenderSystem extends BaseSystem {
   private assetManager: AssetManager;
   private projectileRenderer: ProjectileRenderer;
   private damageTextSystem: any = null; // Sistema per renderizzare i testi di danno
+  private componentCache: Map<Entity, any> = new Map(); // Cache componenti per ottimizzazione
+  private entityQueryCache: Entity[] = []; // Cache risultati query ECS
+  private projectileQueryCache: Entity[] = []; // Cache risultati query proiettili
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
@@ -52,6 +55,35 @@ export class RenderSystem extends BaseSystem {
    */
   setDamageTextSystem(damageTextSystem: any): void {
     this.damageTextSystem = damageTextSystem;
+  }
+
+  /**
+   * Ottieni componenti con caching per ottimizzazione performance
+   */
+  private getCachedComponents(entity: Entity): any {
+    if (!this.componentCache.has(entity)) {
+      this.componentCache.set(entity, {
+        transform: this.ecs.getComponent(entity, Transform),
+        npc: this.ecs.getComponent(entity, Npc),
+        projectile: this.ecs.getComponent(entity, Projectile),
+        parallax: this.ecs.getComponent(entity, ParallaxLayer),
+        sprite: this.ecs.getComponent(entity, Sprite),
+        explosion: this.ecs.getComponent(entity, Explosion),
+        velocity: this.ecs.getComponent(entity, Velocity),
+        health: this.ecs.getComponent(entity, Health),
+        shield: this.ecs.getComponent(entity, Shield)
+      });
+    }
+    return this.componentCache.get(entity);
+  }
+
+  /**
+   * Svuota la cache componenti e query (chiamare ogni frame)
+   */
+  private clearComponentCache(): void {
+    this.componentCache.clear();
+    this.entityQueryCache.length = 0; // Svuota array invece di riassegnare
+    this.projectileQueryCache.length = 0;
   }
 
 
@@ -122,6 +154,9 @@ export class RenderSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
+    // Svuota cache componenti ad ogni frame per dati freschi
+    this.clearComponentCache();
+
     const camera = this.cameraSystem.getCamera();
 
     // Render entities and health/shield bars
@@ -140,36 +175,36 @@ export class RenderSystem extends BaseSystem {
    * Render entities and their health/shield bars
    */
   private renderEntities(ctx: CanvasRenderingContext2D, camera: Camera): void {
-    const entities = this.ecs.getEntitiesWithComponents(Transform);
+    // OTTIMIZZAZIONE: Cache risultati query ECS invece di chiamare ogni volta
+    if (this.entityQueryCache.length === 0) {
+      this.entityQueryCache = this.ecs.getEntitiesWithComponents(Transform);
+    }
+    const entities = this.entityQueryCache;
 
     for (const entity of entities) {
-      const transform = this.ecs.getComponent(entity, Transform);
-      const npc = this.ecs.getComponent(entity, Npc);
-      const projectile = this.ecs.getComponent(entity, Projectile);
-      const parallax = this.ecs.getComponent(entity, ParallaxLayer);
-      const sprite = this.ecs.getComponent(entity, Sprite);
-      const explosion = this.ecs.getComponent(entity, Explosion);
+      // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
+      const components = this.getCachedComponents(entity);
 
       // Skip projectiles (rendered separately)
-      if (projectile) continue;
+      if (components.projectile) continue;
 
       // Skip parallax entities (rendered by ParallaxSystem)
-      if (parallax) continue;
+      if (components.parallax) continue;
 
-      if (transform) {
-        const screenPos = ScreenSpace.toScreen(transform, camera, ctx.canvas.width, ctx.canvas.height);
+      if (components.transform) {
+        const screenPos = ScreenSpace.toScreen(components.transform, camera, ctx.canvas.width, ctx.canvas.height);
 
         // Render entity
-        const entityVelocity = this.ecs.getComponent(entity, Velocity);
-        this.renderGameEntity(ctx, entity, transform, screenPos.x, screenPos.y, {
-          explosion, npc, sprite, velocity: entityVelocity
+        this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
+          explosion: components.explosion,
+          npc: components.npc,
+          sprite: components.sprite,
+          velocity: components.velocity
         });
 
         // Render health/shield bars
-        const health = this.ecs.getComponent(entity, Health);
-        const shield = this.ecs.getComponent(entity, Shield);
-        if (health || shield) {
-          this.renderHealthBars(ctx, screenPos.x, screenPos.y, health || null, shield || null);
+        if (components.health || components.shield) {
+          this.renderHealthBars(ctx, screenPos.x, screenPos.y, components.health || null, components.shield || null);
         }
       }
     }
@@ -271,18 +306,22 @@ export class RenderSystem extends BaseSystem {
    * Render all projectiles
    */
   private renderProjectiles(ctx: CanvasRenderingContext2D, camera: Camera): void {
-    const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+    // OTTIMIZZAZIONE: Cache risultati query ECS invece di chiamare ogni volta
+    if (this.projectileQueryCache.length === 0) {
+      this.projectileQueryCache = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+    }
+    const projectiles = this.projectileQueryCache;
 
     for (const projectileEntity of projectiles) {
-      const transform = this.ecs.getComponent(projectileEntity, Transform);
-      const projectile = this.ecs.getComponent(projectileEntity, Projectile);
+      // OTTIMIZZAZIONE: Usa cache componenti
+      const components = this.getCachedComponents(projectileEntity);
 
-      if (!transform || !projectile) continue;
+      if (!components.transform || !components.projectile) continue;
 
       // Convert world coordinates to screen coordinates
-      const screenPos = ScreenSpace.toScreen(transform, camera, ctx.canvas.width, ctx.canvas.height);
+      const screenPos = ScreenSpace.toScreen(components.transform, camera, ctx.canvas.width, ctx.canvas.height);
 
-      this.renderProjectile(ctx, projectile, screenPos);
+      this.renderProjectile(ctx, components.projectile, screenPos);
     }
   }
 

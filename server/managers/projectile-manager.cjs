@@ -101,6 +101,14 @@ class ServerProjectileManager {
 
           projectilesToRemove.push(projectileId);
           continue;
+        } else {
+          // OPTIMIZZAZIONE: Se proiettile non ha colpito il target E è troppo lontano,
+          // rimuovilo per evitare memory leak e spam console
+          const maxDistance = this.getMaxTargetDistance(projectile);
+          if (maxDistance > 0 && this.getDistanceToTarget(projectile) > maxDistance) {
+            projectilesToRemove.push(projectileId);
+            continue;
+          }
         }
       }
 
@@ -435,6 +443,49 @@ class ServerProjectileManager {
     return baseRewards[npc.type] || { credits: 25, experience: 5, honor: 2 };
   }
 
+
+  /**
+   * Calcola la distanza massima consentita dal target per un proiettile
+   * Oltre questa distanza, il proiettile viene rimosso per evitare memory leak
+   */
+  getMaxTargetDistance(projectile) {
+    // Distanza massima: 2000 unità (circa 2 schermi di gioco)
+    // Questo previene proiettili che volano all'infinito
+    return 2000;
+  }
+
+  /**
+   * Calcola la distanza attuale dal target per un proiettile
+   */
+  getDistanceToTarget(projectile) {
+    const targetId = projectile.targetId;
+    if (!targetId) return Infinity;
+
+    // Prima cerca tra gli NPC
+    const npcs = this.mapServer.npcManager.getAllNpcs();
+    for (const npc of npcs) {
+      if (npc.id === targetId) {
+        return Math.sqrt(
+          Math.pow(projectile.position.x - npc.position.x, 2) +
+          Math.pow(projectile.position.y - npc.position.y, 2)
+        );
+      }
+    }
+
+    // Poi cerca tra i giocatori
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      if (clientId === targetId || playerData.playerId?.toString() === targetId?.toString()) {
+        if (!playerData.position || playerData.isDead) continue;
+        return Math.sqrt(
+          Math.pow(projectile.position.x - playerData.position.x, 2) +
+          Math.pow(projectile.position.y - playerData.position.y, 2)
+        );
+      }
+    }
+
+    // Target non trovato
+    return Infinity;
+  }
 
   /**
    * Statistiche proiettili attivi
