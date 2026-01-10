@@ -115,6 +115,17 @@ export class RewardSystem extends BaseSystem {
       this.economySystem.addHonor(rewards.honor, `defeated ${npcType}`);
     }
 
+    // Trigger quest event for NPC kill
+    if (this.questTrackingSystem) {
+      const event = {
+        type: QuestEventType.NPC_KILLED,
+        targetId: npcType,
+        targetType: npcType.toLowerCase(),
+        amount: 1
+      };
+      this.questTrackingSystem.triggerEvent(event);
+    }
+
     // Segnala cambiamento per salvataggio event-driven
     if (this.playState && this.playState.markAsChanged) {
       this.playState.markAsChanged();

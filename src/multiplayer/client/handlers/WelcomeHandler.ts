@@ -4,6 +4,8 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { WelcomeMessage } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Transform } from '../../../entities/spatial/Transform';
+import { ActiveQuest } from '../../../entities/quest/ActiveQuest';
+import { Quest } from '../../../entities/quest/Quest';
 
 /**
  * Handles welcome messages from the server
@@ -31,7 +33,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       console.log('🎮 [WELCOME] Ricevuto stato iniziale dal server:', message.initialState);
 
-      const { inventory, upgrades, position } = message.initialState;
+      const { inventory, upgrades, position, quests } = message.initialState;
 
       // Sincronizza le risorse economiche con lo stato server
       const economySystem = networkSystem.getEconomySystem();
@@ -96,6 +98,50 @@ export class WelcomeHandler extends BaseMessageHandler {
               // Imposta gli upgrade ricevuti dal server
               playerUpgrades.setUpgrades(upgrades.hpUpgrades, upgrades.shieldUpgrades, upgrades.speedUpgrades, upgrades.damageUpgrades);
             }
+          }
+        }
+      }
+
+      // Sincronizza le quest attive con lo stato server
+      if (quests && Array.isArray(quests) && quests.length > 0) {
+        if (playerEntity) {
+          const activeQuestComponent = networkSystem.getECS().getComponent(playerEntity, ActiveQuest);
+          if (activeQuestComponent) {
+            console.log('📜 [WELCOME] Sincronizzando quest dal server:', quests.length, 'quest');
+
+            // Converti i dati delle quest in oggetti Quest
+            for (const questData of quests) {
+              try {
+                const quest = new Quest(
+                  questData.quest_id || questData.id,
+                  questData.title || 'Unknown Quest',
+                  questData.description || 'No description',
+                  questData.type || 'unknown',
+                  questData.objectives || [],
+                  questData.rewards || []
+                );
+
+                // Imposta lo stato della quest
+                if (questData.is_completed) {
+                  quest.isCompleted = true;
+                  quest.isActive = false;
+                } else {
+                  quest.isCompleted = false;
+                  quest.isActive = true;
+                }
+
+                // Aggiungi alla lista delle quest attive
+                activeQuestComponent.addQuest(quest);
+
+                console.log(`✅ [WELCOME] Quest caricata: ${quest.title} (${quest.isCompleted ? 'completata' : 'attiva'})`);
+              } catch (error) {
+                console.error('❌ [WELCOME] Errore caricamento quest:', questData, error);
+              }
+            }
+
+            console.log('✅ [WELCOME] Quest sincronizzate con server');
+          } else {
+            console.warn('⚠️ [WELCOME] ActiveQuest component non trovato sul player entity');
           }
         }
       }

@@ -369,10 +369,6 @@ class WebSocketConnectionManager {
 
           logger.debug('WEBSOCKET', `Received ${data.type} from ${data.clientId || 'unknown'}`);
 
-          // Debug specifico per messaggi di combattimento
-          if (data.type === 'start_combat' || data.type.includes('combat')) {
-            console.log(`⚔️ [SERVER] COMBAT MESSAGE RECEIVED: ${data.type}`, data);
-          }
 
           // Risponde ai messaggi di join
           if (data.type === 'join') {
@@ -461,9 +457,6 @@ class WebSocketConnectionManager {
               logger.info('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${data.clientId}`);
             }
 
-            // DEBUG: log prima di inviare welcome
-            console.log('🎯 [SERVER] About to send welcome message to', data.clientId);
-
             const welcomeMessage = {
               type: 'welcome',
               clientId: data.clientId,
@@ -480,15 +473,13 @@ class WebSocketConnectionManager {
                   x: playerData.position?.x || 0,
                   y: playerData.position?.y || 0,
                   rotation: playerData.position?.rotation || 0
-                }
+                },
+                quests: playerData.quests || []
               }
             };
 
-            console.log('📤 [SERVER] Welcome message content:', JSON.stringify(welcomeMessage, null, 2));
-
             try {
               ws.send(JSON.stringify(welcomeMessage));
-              console.log('✅ [SERVER] Welcome message sent successfully to', data.clientId);
             } catch (error) {
               console.error('❌ [SERVER] Failed to send welcome message:', error);
             }
@@ -518,7 +509,6 @@ class WebSocketConnectionManager {
               // Aggiorna posizione solo se i dati sono validi
               if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
                 playerData.position = sanitizedData;
-                console.log(`📍 [SERVER] Position updated for ${data.clientId}: (${sanitizedData.x.toFixed(1)}, ${sanitizedData.y.toFixed(1)})`);
               } else {
                 console.warn(`[SERVER] Ignoring invalid position update from ${data.clientId}:`, sanitizedData);
               }
@@ -576,17 +566,13 @@ class WebSocketConnectionManager {
 
           // Gestisce richieste di upgrade skill (Server Authoritative)
           if (data.type === 'skill_upgrade_request') {
-            console.log(`🎯 [SERVER] Skill upgrade request RECEIVED: ${data.playerId} wants to upgrade ${data.upgradeType}`);
-
             const playerData = this.mapServer.players.get(data.playerId);
             if (!playerData) {
-              console.log(`❌ [SERVER] Player ${data.playerId} not found for skill upgrade`);
               return;
             }
 
             // Verifica se il player ha abbastanza skill points
             if (playerData.inventory.skillPoints < 1) {
-              console.log(`❌ [SERVER] Player ${data.playerId} doesn't have enough skill points (${playerData.inventory.skillPoints})`);
               // TODO: Invia messaggio di errore al client
               return;
             }
@@ -617,15 +603,10 @@ class WebSocketConnectionManager {
                 playerData.upgrades.damageUpgrades += 1;
                 break;
               default:
-                console.log(`❌ [SERVER] Unknown upgrade type: ${data.upgradeType}`);
                 // Rollback skill points
                 playerData.inventory.skillPoints += 1;
                 return;
             }
-
-            console.log(`✅ [SERVER] Skill upgrade applied: ${data.upgradeType}`);
-            console.log(`   Skill Points: ${oldSkillPoints} → ${playerData.inventory.skillPoints}`);
-            console.log(`   Upgrades: ${JSON.stringify(oldUpgrades)} → ${JSON.stringify(playerData.upgrades)}`);
 
             // Invia aggiornamento completo dello stato al client
             ws.send(JSON.stringify({
@@ -638,8 +619,6 @@ class WebSocketConnectionManager {
               maxShield: playerData.maxShield,
               source: `skill_upgrade_${data.upgradeType}`
             }));
-
-            console.log(`📡 [SERVER] Player state update sent to ${data.playerId} after skill upgrade`);
           }
 
           // Gestisce spari di proiettili
