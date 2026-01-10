@@ -85,10 +85,6 @@ class ServerCombatManager {
    * Processa tutti i combattimenti attivi dei player
    */
   processPlayerCombats(now) {
-    if (this.playerCombats.size > 0) {
-      console.log(`🎯 [COMBAT] Processing ${this.playerCombats.size} player combats`);
-    }
-
     for (const [playerId, combat] of this.playerCombats) {
       this.processPlayerCombat(playerId, combat, now);
     }
@@ -98,12 +94,9 @@ class ServerCombatManager {
    * Processa combattimento per un singolo player
    */
   processPlayerCombat(playerId, combat, now) {
-    console.log(`🔄 [COMBAT] Processing combat for player ${playerId} vs NPC ${combat.npcId}`);
-
     // Verifica che il player sia ancora connesso
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData) {
-      console.log(`🛑 [SERVER] Player ${playerId} disconnected, stopping combat`);
       this.playerCombats.delete(playerId);
       return;
     }
@@ -111,23 +104,19 @@ class ServerCombatManager {
     // Verifica che l'NPC esista ancora
     const npc = this.mapServer.npcManager.getNpc(combat.npcId);
     if (!npc) {
-      console.log(`🛑 [SERVER] NPC ${combat.npcId} destroyed, stopping combat for ${playerId}`);
       this.playerCombats.delete(playerId);
       return;
     }
 
     // Verifica che il player abbia una posizione
     if (!playerData.position) {
-      console.log(`📍 [SERVER] Player ${playerId} has no position, skipping combat`);
       return;
     }
 
     // Validazione posizione player
     const px = playerData.position.x;
     const py = playerData.position.y;
-    console.log(`📍 [SERVER] Combat check for ${playerId} - playerData.position: (${px}, ${py})`);
     if (!Number.isFinite(px) || !Number.isFinite(py)) {
-      console.log(`📍 [SERVER] Player ${playerId} has invalid position (${px}, ${py}), skipping combat`);
       return;
     }
 
@@ -137,13 +126,9 @@ class ServerCombatManager {
       Math.pow(py - npc.position.y, 2)
     );
 
-    // Debug: log posizioni e distanza
-    console.log(`📏 [COMBAT] Range check - Player: (${px.toFixed(1)}, ${py.toFixed(1)}) NPC ${npc.id}: (${npc.position.x.toFixed(1)}, ${npc.position.y.toFixed(1)}) Distance: ${distance.toFixed(1)}px`);
-
     // Controllo range rigoroso: ferma combattimento se fuori dal range base
     // I proiettili già sparati continueranno il loro volo, ma non verranno sparati altri
     if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_START_RANGE) {
-      console.log(`📏 [SERVER] Player ${playerId} out of range (${distance.toFixed(1)}px > ${SERVER_CONSTANTS.COMBAT.PLAYER_START_RANGE}px), stopping combat`);
       this.playerCombats.delete(playerId);
 
       // Notifica il client che il combattimento è stato fermato automaticamente per range

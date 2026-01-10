@@ -89,7 +89,6 @@ export class GameInitializationSystem extends System {
    * Imposta il sistema di rete per notifiche multiplayer
    */
   setClientNetworkSystem(clientNetworkSystem: any): void {
-    // console.log('[GAME_INIT] setClientNetworkSystem called');
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Imposta il riferimento all'ECS per la gestione del combattimento
@@ -110,13 +109,7 @@ export class GameInitializationSystem extends System {
 
     // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
     if (this.minimapSystem && typeof this.minimapSystem.setClientNetworkSystem === 'function') {
-      // console.log('[GAME_INIT] Setting ClientNetworkSystem on MinimapSystem');
       this.minimapSystem.setClientNetworkSystem(this.clientNetworkSystem);
-    } else {
-      // console.log('[GAME_INIT] MinimapSystem not available or setClientNetworkSystem not a function', {
-      //   minimapSystem: !!this.minimapSystem,
-      //   hasMethod: this.minimapSystem ? typeof this.minimapSystem.setClientNetworkSystem === 'function' : 'no minimapSystem'
-      // });
     }
 
     // Configura le impostazioni specifiche del ClientNetworkSystem ora che è disponibile
@@ -205,10 +198,9 @@ export class GameInitializationSystem extends System {
       // ClientNetworkSystem (se già disponibile)
       if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setPreloadedExplosionFrames === 'function') {
         this.clientNetworkSystem.setPreloadedExplosionFrames(explosionFrames);
-        console.log(`💥 [GAME_INIT] Explosion frames impostati nel ClientNetworkSystem: ${explosionFrames.length} frame`);
       }
     } catch (error) {
-      console.warn('⚠️ [GAME_INIT] Errore nell\'impostazione explosion frames precaricati:', error);
+      // Error loading explosion frames - continue without them
     }
     const damageTextSystem = new DamageTextSystem(this.ecs, cameraSystem, this.damageSystem);
     // Collega il DamageTextSystem al RenderSystem per il rendering

@@ -30,10 +30,7 @@ class ServerProjectileManager {
 
     this.projectiles.set(projectileId, projectile);
 
-    // LOG SPECIFICO PER NPC PROJECTILES
     if (playerId.startsWith('npc_')) {
-      console.log(`🎯 [NPC_PROJECTILE] Created ${projectileId} from ${playerId} targeting ${targetId} at position (${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
-    } else {
       logger.debug('PROJECTILE', `Projectile ${projectileId} added for player ${playerId}`);
     }
 
@@ -307,11 +304,8 @@ class ServerProjectileManager {
       targetId: projectile.targetId
     };
 
-    console.log(`📡 [SERVER] Broadcasting projectile ${projectile.id} from ${projectile.playerId} at position (${projectile.position.x.toFixed(1)}, ${projectile.position.y.toFixed(1)}) to clients within ${SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS}px`);
-
     // Interest radius per proiettili
     const clientsInRange = this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message, excludeClientId);
-    console.log(`📡 [SERVER] Projectile ${projectile.id} broadcast completed`);
   }
 
   /**
@@ -337,8 +331,6 @@ class ServerProjectileManager {
   handlePlayerDeath(clientId, killerId) {
     const playerData = this.mapServer.players.get(clientId);
     if (!playerData) return;
-
-    console.log(`💀 [SERVER] Player ${clientId} died! Killer: ${killerId}`);
 
     playerData.isDead = true;
     playerData.respawnTime = Date.now() + 3000; // 3 secondi di respawn
@@ -418,7 +410,6 @@ class ServerProjectileManager {
 
     // Broadcast esplosione con interest radius di 2000 unità
     this.mapServer.broadcastNear(entity.position, 2000, explosionMessage);
-    console.log(`💥 [SERVER] Explosion created for ${entityType} ${entityType === 'npc' ? entity.id : entity.clientId} death`);
 
     // POI: Il messaggio entity_destroyed esistente
     const message = {
