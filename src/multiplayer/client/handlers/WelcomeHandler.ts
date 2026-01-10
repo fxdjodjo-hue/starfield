@@ -25,7 +25,10 @@ export class WelcomeHandler extends BaseMessageHandler {
     // Set the local client ID (WebSocket connection ID)
     networkSystem.gameContext.localClientId = message.clientId || networkSystem.clientId;
 
-    // Nota: playerId UUID non viene salvato in localPlayer (che è di tipo PlayerState)
+    // Salva l'auth ID dell'utente (UUID Supabase)
+    networkSystem.gameContext.authId = message.playerId;
+
+    // Nota: playerId UUID ora è salvato in gameContext.authId
     // Il playerId numerico è salvato in gameContext.playerId
 
       // Salva il player_id numerico del giocatore REGISTRATO (per display/HUD)
@@ -49,7 +52,18 @@ export class WelcomeHandler extends BaseMessageHandler {
 
     // SERVER AUTHORITATIVE: Ricevi lo stato iniziale dal server
     if (message.initialState) {
-      const { position } = message.initialState;
+      const { position, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
+
+      console.log('🎉 [WELCOME] ===== WELCOME MESSAGE RECEIVED =====');
+      console.log('🎉 [WELCOME] Processing initialState:', {
+        position,
+        inventoryLazy,
+        upgradesLazy,
+        questsLazy,
+        hasPosition: !!position
+      });
+      console.log('🎉 [WELCOME] Full initialState:', message.initialState);
+      console.log('🎉 [WELCOME] GameContext localClientId:', networkSystem.gameContext.localClientId);
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
       networkSystem.setHasReceivedWelcome(true);
@@ -71,6 +85,19 @@ export class WelcomeHandler extends BaseMessageHandler {
           console.log('✅ [WELCOME] Posizione iniziale sincronizzata con server');
         }
       }
+
+      // 🔄 RICHIEDI DATI COMPLETI: Se il server ha indicato lazy loading, richiedi i dati completi
+      if (inventoryLazy || upgradesLazy || questsLazy) {
+        console.log('🔄 [WELCOME] Server indicated lazy loading - requesting complete player data');
+        console.log('🔄 [WELCOME] Lazy flags detected:', { inventoryLazy, upgradesLazy, questsLazy });
+        const playerId = message.playerId || networkSystem.gameContext.localClientId;
+        console.log('🔄 [WELCOME] Requesting data for playerId:', playerId);
+        networkSystem.requestPlayerData(playerId);
+      } else {
+        console.log('ℹ️ [WELCOME] No lazy loading flags detected, using welcome data only');
+      }
+    } else {
+      console.log('⚠️ [WELCOME] No initialState received from server');
     }
   }
 }

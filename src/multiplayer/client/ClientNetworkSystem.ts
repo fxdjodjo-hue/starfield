@@ -43,6 +43,7 @@ import { EntityDamagedHandler } from './handlers/EntityDamagedHandler';
 import { EntityDestroyedHandler } from './handlers/EntityDestroyedHandler';
 import { ExplosionCreatedHandler } from './handlers/ExplosionCreatedHandler';
 import { StopCombatHandler } from './handlers/StopCombatHandler';
+import { PlayerDataResponseHandler } from './handlers/PlayerDataResponseHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { ConnectionManager } from './managers/ConnectionManager';
@@ -213,7 +214,8 @@ export class ClientNetworkSystem extends BaseSystem {
       new PlayerJoinedHandler(),
       new PlayerLeftHandler(),
       new PlayerRespawnHandler(),
-      new PlayerStateUpdateHandler()
+      new PlayerStateUpdateHandler(),
+      new PlayerDataResponseHandler()
     ];
 
     // Aggiungi handlers NPC se il sistema è disponibile
@@ -455,8 +457,10 @@ export class ClientNetworkSystem extends BaseSystem {
    * Connects to the server using the connection manager
    */
   async connect(): Promise<void> {
+    console.log('🔌 [CLIENT] connect() called - connecting to server');
     try {
       this.socket = await this.connectionManager.connect();
+      console.log('✅ [CLIENT] connect() completed - socket established');
     } catch (error) {
       console.error(`🔌 [CLIENT] Socket connection failed:`, error);
       throw error;
@@ -540,6 +544,17 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
+    // ✅ FIX: Normalizza la rotazione PRIMA della validazione e invio
+    let normalizedRotation = position.rotation;
+    while (normalizedRotation > Math.PI) normalizedRotation -= 2 * Math.PI;
+    while (normalizedRotation < -Math.PI) normalizedRotation += 2 * Math.PI;
+
+    const normalizedPosition = {
+      x: position.x,
+      y: position.y,
+      rotation: normalizedRotation
+    };
+
     // RATE LIMITING: Controlla se possiamo inviare aggiornamenti posizione
     if (!this.rateLimiter.canSend('position_update', RATE_LIMITS.POSITION_UPDATE.maxRequests, RATE_LIMITS.POSITION_UPDATE.windowMs)) {
       // Rate limit superato - salta questo aggiornamento per ridurre carico server
@@ -547,21 +562,23 @@ export class ClientNetworkSystem extends BaseSystem {
     }
 
     // CLIENT VALIDATION: usa fallback per dati invalidi
-    if (!this.isValidPosition(position)) {
+    if (!this.isValidPosition(normalizedPosition)) {
       if (Date.now() - this.lastInvalidPositionLog > 10000) {
-        console.warn('[CLIENT] Invalid position data, using fallback:', position);
+        console.warn('[CLIENT] Invalid position data, using fallback:', normalizedPosition);
         this.lastInvalidPositionLog = Date.now();
       }
       // Usa posizione di fallback invece di scartare
-      position = { x: 0, y: 0, rotation: 0 };
+      normalizedPosition.x = 0;
+      normalizedPosition.y = 0;
+      normalizedPosition.rotation = 0;
     }
 
     this.connectionManager.send(JSON.stringify({
       type: MESSAGE_TYPES.POSITION_UPDATE,
       clientId: this.clientId,
-      x: position.x,
-      y: position.y,
-      rotation: position.rotation,
+      x: normalizedPosition.x,
+      y: normalizedPosition.y,
+      rotation: normalizedPosition.rotation, // Ora usa la rotazione normalizzata
       tick: this.tickManager.getTickCounter()
     }));
   }
@@ -676,8 +693,10 @@ export class ClientNetworkSystem extends BaseSystem {
    * Manually connect to the server (called after systems are set up)
    */
   async connectToServer(): Promise<void> {
+    console.log('🔌 [CLIENT] connectToServer() called - attempting to connect');
     try {
       await this.connect();
+      console.log('✅ [CLIENT] connectToServer() completed successfully');
     } catch (error) {
       console.error(`❌ [CLIENT] Connection failed:`, error);
     }
@@ -932,9 +951,8 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
-    // Propaga riferimento ai sottosistemi
-    this.explosionSystem.setAudioSystem(audioSystem);
-    this.audioNotificationSystem.setAudioSystem(audioSystem);
+    // Propaga riferimento al NetworkEventSystem (che contiene i sottosistemi)
+    this.eventSystem.initializeExternalSystems(audioSystem, this.uiSystem, this.logSystem, this.economySystem);
   }
 
   /**
@@ -965,7 +983,10 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setLogSystem(logSystem: any): void {
     this.logSystem = logSystem;
-    this.uiNotificationSystem.setUISystems(this.uiSystem, logSystem, this.economySystem);
+    // Propaga ai sottosistemi solo se tutti i sistemi necessari sono disponibili
+    if (this.uiNotificationSystem && this.uiSystem && this.logSystem && this.economySystem) {
+      this.uiNotificationSystem.setUISystems(this.uiSystem, this.logSystem, this.economySystem);
+    }
   }
 
   /**
@@ -991,7 +1012,10 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setUiSystem(uiSystem: any): void {
     this.uiSystem = uiSystem;
-    this.uiNotificationSystem.setUISystems(uiSystem, this.logSystem, this.economySystem);
+    // Propaga ai sottosistemi solo se tutti i sistemi necessari sono disponibili
+    if (this.uiNotificationSystem && this.uiSystem && this.logSystem && this.economySystem) {
+      this.uiNotificationSystem.setUISystems(this.uiSystem, this.logSystem, this.economySystem);
+    }
   }
 
   /**
@@ -1006,6 +1030,10 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
+    // Propaga ai sottosistemi solo se tutti i sistemi necessari sono disponibili
+    if (this.uiNotificationSystem && this.uiSystem && this.logSystem && this.economySystem) {
+      this.uiNotificationSystem.setUISystems(this.uiSystem, this.logSystem, this.economySystem);
+    }
   }
 
   /**
@@ -1076,5 +1104,31 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getRateLimiterStats() {
     return this.rateLimiter.getStats();
+  }
+
+  /**
+   * Richiede i dati completi del giocatore al server (dopo welcome)
+   */
+  requestPlayerData(playerId: string): void {
+    console.log('📊 [PLAYER_DATA] ===== REQUESTING PLAYER DATA =====');
+    console.log('📊 [PLAYER_DATA] requestPlayerData called with playerId:', playerId);
+    console.log('📊 [PLAYER_DATA] Connection active:', this.connectionManager.isConnectionActive());
+
+    if (!this.connectionManager.isConnectionActive()) {
+      console.warn('📊 [PLAYER_DATA] Cannot request player data - not connected');
+      return;
+    }
+
+    console.log('📊 [PLAYER_DATA] Requesting complete player data for:', playerId);
+
+    const message = {
+      type: MESSAGE_TYPES.REQUEST_PLAYER_DATA,
+      playerId: playerId,
+      timestamp: Date.now()
+    };
+
+    console.log('📊 [PLAYER_DATA] Sending message:', message);
+    this.connectionManager.send(JSON.stringify(message));
+    console.log('📊 [PLAYER_DATA] Message sent to server');
   }
 }

@@ -50,10 +50,40 @@ export class GameContext {
   public assetManager: AssetManager;
 
   // Identità client
-  public localClientId: string = '';           // ID univoco di questo client (UUID Supabase)
+  public localClientId: string = '';           // ID univoco di questo client (WebSocket ID)
+  public authId: string = '';                  // Auth ID dell'utente (UUID Supabase)
   public playerId: number = 0;                 // ID numerico sequenziale del player
   public playerNickname: string = '';          // Nickname del player
   public sessionId: string = '';               // ID sessione corrente
+
+  // Dati giocatore (sincronizzati dal server)
+  public playerInventory: {
+    credits: number;
+    cosmos: number;
+    experience: number;
+    honor: number;
+    skillPoints: number;
+  } = {
+    credits: 0,
+    cosmos: 0,
+    experience: 0,
+    honor: 0,
+    skillPoints: 0
+  };
+
+  public playerUpgrades: {
+    hpUpgrades: number;
+    shieldUpgrades: number;
+    speedUpgrades: number;
+    damageUpgrades: number;
+  } = {
+    hpUpgrades: 0,
+    shieldUpgrades: 0,
+    speedUpgrades: 0,
+    damageUpgrades: 0
+  };
+
+  public playerQuests: any[] = [];             // Lista quest del giocatore
 
   // Stato connessione
   public connectionState: ConnectionState = ConnectionState.DISCONNECTED;

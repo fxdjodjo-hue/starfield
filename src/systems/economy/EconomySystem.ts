@@ -453,7 +453,8 @@ export class EconomySystem extends BaseSystem {
     const oldAmount = credits.credits;
     const added = credits.addCredits(amount);
 
-    if (added > 0) {
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (added > 0 && reason !== 'server_update') {
       this.onCreditsChanged?.(credits.credits, added);
     }
 
@@ -505,7 +506,11 @@ export class EconomySystem extends BaseSystem {
     // Se sono uguali, non fare nulla
 
     const change = credits.credits - oldAmount;
-    this.onCreditsChanged?.(credits.credits, change);
+
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (reason !== 'server_update') {
+      this.onCreditsChanged?.(credits.credits, change);
+    }
   }
 
   // ===== GESTIONE COSMOS =====
@@ -520,7 +525,8 @@ export class EconomySystem extends BaseSystem {
     const oldAmount = cosmos.cosmos;
     const added = cosmos.addCosmos(amount);
 
-    if (added > 0) {
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (added > 0 && reason !== 'server_update') {
       this.onCosmosChanged?.(cosmos.cosmos, added);
     }
 
@@ -569,7 +575,11 @@ export class EconomySystem extends BaseSystem {
     }
 
     const change = cosmos.cosmos - oldAmount;
-    this.onCosmosChanged?.(cosmos.cosmos, change);
+
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (reason !== 'server_update') {
+      this.onCosmosChanged?.(cosmos.cosmos, change);
+    }
   }
 
   // ===== GESTIONE EXPERIENCE =====
@@ -592,10 +602,10 @@ export class EconomySystem extends BaseSystem {
       }
     });
 
-    if (leveledUp) {
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (reason !== 'server_update') {
+      this.onExperienceChanged?.(experience.totalExpEarned, amount, leveledUp);
     }
-
-    this.onExperienceChanged?.(experience.totalExpEarned, amount, leveledUp);
 
     return leveledUp;
   }
@@ -629,7 +639,11 @@ export class EconomySystem extends BaseSystem {
 
     const change = experience.totalExpEarned - oldTotalExp;
     const leveledUp = experience.level > Math.floor(oldTotalExp / 100) + 1;
-    this.onExperienceChanged?.(experience.exp, change, leveledUp);
+
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (reason !== 'server_update') {
+      this.onExperienceChanged?.(experience.exp, change, leveledUp);
+    }
   }
 
   // ===== GESTIONE HONOR =====
@@ -656,7 +670,8 @@ export class EconomySystem extends BaseSystem {
       const newAmount = honor.honor;
       const change = newAmount - oldAmount;
 
-      if (change !== 0) {
+      // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+      if (change !== 0 && reason !== 'server_update') {
         this.onHonorChanged?.(newAmount, change, honor.getRank());
       }
     }
@@ -689,7 +704,11 @@ export class EconomySystem extends BaseSystem {
     }
 
     const change = honor.honor - oldAmount;
-    this.onHonorChanged?.(honor.honor, change, honor.getRank());
+
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (reason !== 'server_update') {
+      this.onHonorChanged?.(honor.honor, change, honor.getRank());
+    }
   }
 
   /**
@@ -704,7 +723,8 @@ export class EconomySystem extends BaseSystem {
     const newAmount = skillPoints.current;
     const added = newAmount - oldAmount;
 
-    if (added > 0) {
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (added > 0 && reason !== 'server_update') {
       this.onSkillPointsChanged?.(newAmount, added);
       console.log(`🎯 [ECONOMY] Added ${added} SkillPoints (${reason}): ${oldAmount} → ${newAmount}`);
     }
@@ -723,7 +743,11 @@ export class EconomySystem extends BaseSystem {
     skillPoints.setPoints(Math.max(0, amount)); // Usa il metodo esistente
 
     const change = skillPoints.skillPoints - oldAmount;
-    this.onSkillPointsChanged?.(skillPoints.skillPoints, change);
+
+    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
+    if (reason !== 'server_update') {
+      this.onSkillPointsChanged?.(skillPoints.skillPoints, change);
+    }
   }
 
   /**

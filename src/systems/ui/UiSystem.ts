@@ -8,6 +8,7 @@ import { SkillsPanel } from '../../presentation/ui/SkillsPanel';
 import { ChatPanel } from '../../presentation/ui/ChatPanel';
 import { ChatManager } from './ChatManager';
 import { ChatMessageHandler } from '../../multiplayer/client/handlers/ChatMessageHandler';
+import { MESSAGE_TYPES } from '../../config/NetworkConfig';
 import { ErrorMessageHandler } from '../../multiplayer/client/handlers/ErrorMessageHandler';
 import { getPanelConfig } from '../../presentation/ui/PanelConfig';
 import { QuestSystem } from '../quest/QuestSystem';
@@ -44,6 +45,9 @@ export class UiSystem extends System {
   // Player ID per l'HUD
   private playerId: number | null = null;
 
+  // Dati economici locali (fallback)
+  private economyData: any = null;
+
   constructor(ecs: ECS, questSystem: QuestSystem, context?: any, playerSystem?: PlayerSystem) {
     super(ecs);
     this.ecs = ecs;
@@ -61,6 +65,102 @@ export class UiSystem extends System {
    */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
+
+    // Imposta i callback per aggiornare l'HUD quando i valori economici cambiano
+    if (this.economySystem) {
+      this.economySystem.setCreditsChangedCallback((newAmount: number, change: number) => {
+        const inventory = {
+          credits: newAmount,
+          cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
+          experience: this.economySystem?.getPlayerExperience()?.totalExpEarned || 0,
+          honor: this.economySystem?.getPlayerHonor()?.honor || 0,
+          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+        };
+
+        // Aggiorna UI locale
+        this.updatePlayerData({ inventory });
+
+        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
+        if (this.clientNetworkSystem && this.context?.playerId) {
+          this.clientNetworkSystem.sendMessage({
+            type: MESSAGE_TYPES.ECONOMY_UPDATE,
+            playerId: this.context.playerId.toString(),
+            field: 'credits',
+            value: newAmount,
+            change: change
+          });
+        }
+      });
+
+      this.economySystem.setCosmosChangedCallback((newAmount: number, change: number) => {
+        const inventory = {
+          credits: this.economySystem?.getPlayerCredits()?.credits || 0,
+          cosmos: newAmount,
+          experience: this.economySystem?.getPlayerExperience()?.totalExpEarned || 0,
+          honor: this.economySystem?.getPlayerHonor()?.honor || 0,
+          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+        };
+
+        this.updatePlayerData({ inventory });
+
+        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
+        if (this.clientNetworkSystem && this.context?.playerId) {
+          this.clientNetworkSystem.sendMessage({
+            type: MESSAGE_TYPES.ECONOMY_UPDATE,
+            playerId: this.context.playerId.toString(),
+            field: 'cosmos',
+            value: newAmount,
+            change: change
+          });
+        }
+      });
+
+      this.economySystem.setExperienceChangedCallback((newAmount: number, change: number, leveledUp: boolean) => {
+        const inventory = {
+          credits: this.economySystem?.getPlayerCredits()?.credits || 0,
+          cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
+          experience: newAmount,
+          honor: this.economySystem?.getPlayerHonor()?.honor || 0,
+          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+        };
+
+        this.updatePlayerData({ inventory });
+
+        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
+        if (this.clientNetworkSystem && this.context?.playerId) {
+          this.clientNetworkSystem.sendMessage({
+            type: MESSAGE_TYPES.ECONOMY_UPDATE,
+            playerId: this.context.playerId.toString(),
+            field: 'experience',
+            value: newAmount,
+            change: change
+          });
+        }
+      });
+
+      this.economySystem.setHonorChangedCallback((newAmount: number, change: number, newRank?: string) => {
+        const inventory = {
+          credits: this.economySystem?.getPlayerCredits()?.credits || 0,
+          cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
+          experience: this.economySystem?.getPlayerExperience()?.totalExpEarned || 0,
+          honor: newAmount,
+          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+        };
+
+        this.updatePlayerData({ inventory });
+
+        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
+        if (this.clientNetworkSystem && this.context?.playerId) {
+          this.clientNetworkSystem.sendMessage({
+            type: MESSAGE_TYPES.ECONOMY_UPDATE,
+            playerId: this.context.playerId.toString(),
+            field: 'honor',
+            value: newAmount,
+            change: change
+          });
+        }
+      });
+    }
   }
 
   /**
@@ -325,27 +425,45 @@ export class UiSystem extends System {
    * Mostra le informazioni del giocatore
    */
   showPlayerInfo(): void {
-    // Ottieni i dati economici dal sistema
-    const economyData = this.economySystem?.getPlayerEconomyStatus();
+    // Prima priorità: dati dal GameContext (server authoritative)
+    let hudData = null;
 
-    if (economyData) {
-      // Prepara i dati per l'HUD
-      const hudData = {
-        level: economyData.level,
-        playerId: this.playerId || 0,
-        credits: economyData.credits,
-        cosmos: economyData.cosmos,
-        experience: economyData.experience,
-        expForNextLevel: economyData.expForNextLevel,
-        honor: economyData.honor
+    if (this.context && this.context.playerInventory) {
+      console.log('📊 [UISYSTEM] Using GameContext data for HUD');
+      console.log('📊 [UISYSTEM] playerInventory:', this.context.playerInventory);
+
+      hudData = {
+        level: 1, // TODO: calcolare livello basato su experience
+        playerId: this.context.playerId || this.playerId || 0,
+        credits: this.context.playerInventory.credits || 0,
+        cosmos: this.context.playerInventory.cosmos || 0,
+        experience: this.context.playerInventory.experience || 0,
+        expForNextLevel: 1000, // TODO: sistema livelli
+        honor: this.context.playerInventory.honor || 0
       };
+      console.log('📊 [UISYSTEM] HUD data from GameContext:', hudData);
+    }
 
-      // Aggiorna e mostra l'HUD
-      this.playerHUD.updateData(hudData);
-      this.playerHUD.show();
-    } else {
-      // Mostra comunque l'HUD con valori di default
-      const defaultData = {
+    // Seconda priorità: dati dall'EconomySystem (se non abbiamo GameContext)
+    if (!hudData) {
+      const economyData = this.economySystem?.getPlayerEconomyStatus();
+      if (economyData) {
+        hudData = {
+          level: economyData.level,
+          playerId: this.playerId || 0,
+          credits: economyData.credits,
+          cosmos: economyData.cosmos,
+          experience: economyData.experience,
+          expForNextLevel: economyData.expForNextLevel,
+          honor: economyData.honor
+        };
+        console.log('📊 [UISYSTEM] HUD data from EconomySystem:', hudData);
+      }
+    }
+
+    // Terza priorità: valori di default
+    if (!hudData) {
+      hudData = {
         level: 1,
         playerId: this.playerId || 0,
         credits: 0,
@@ -354,9 +472,44 @@ export class UiSystem extends System {
         expForNextLevel: 100,
         honor: 0
       };
-      this.playerHUD.updateData(defaultData);
-      this.playerHUD.show();
+      console.log('📊 [UISYSTEM] Using default HUD data');
     }
+
+    // Aggiorna sempre l'HUD con i dati disponibili
+    this.playerHUD.updateData(hudData);
+    this.playerHUD.show();
+    console.log('✅ [UISYSTEM] HUD updated and shown');
+  }
+
+  /**
+   * Aggiorna i dati del giocatore ricevuti dal server
+   */
+  updatePlayerData(data: any): void {
+    // Aggiorna i dati interni se esistono
+    if (data.inventory) {
+      this.economyData = {
+        ...this.economyData,
+        credits: data.inventory.credits || 0,
+        cosmos: data.inventory.cosmos || 0,
+        experience: data.inventory.experience || 0,
+        honor: data.inventory.honor || 0
+      };
+
+      // 🔧 CRITICAL FIX: Aggiorna ANCHE il GameContext che l'HUD legge!
+      if (this.context) {
+        this.context.playerInventory = {
+          ...this.context.playerInventory,
+          credits: data.inventory.credits || 0,
+          cosmos: data.inventory.cosmos || 0,
+          experience: data.inventory.experience || 0,
+          honor: data.inventory.honor || 0,
+          skillPoints: data.inventory.skillPoints || this.context.playerInventory.skillPoints || 0
+        };
+      }
+    }
+
+    // Forza aggiornamento immediato dell'HUD
+    this.showPlayerInfo();
   }
 
   /**

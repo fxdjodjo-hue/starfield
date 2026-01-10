@@ -18,6 +18,34 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
     const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned } = message;
 
+    // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
+    if (networkSystem.gameContext) {
+      // Aggiorna inventory nel GameContext
+      networkSystem.gameContext.playerInventory = {
+        credits: inventory.credits,
+        cosmos: inventory.cosmos,
+        experience: inventory.experience,
+        honor: inventory.honor,
+        skillPoints: inventory.skillPoints,
+        skill_points_total: inventory.skillPoints // compatibilità
+      };
+      console.log('📊 [GAMECONTEXT] Inventory aggiornato:', networkSystem.gameContext.playerInventory);
+    }
+
+    // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
+    if (networkSystem.gameContext) {
+      // Aggiorna inventory nel GameContext
+      networkSystem.gameContext.playerInventory = {
+        credits: inventory.credits,
+        cosmos: inventory.cosmos,
+        experience: inventory.experience,
+        honor: inventory.honor,
+        skillPoints: inventory.skillPoints,
+        skill_points_total: inventory.skillPoints // compatibilità
+      };
+      console.log('📊 [GAMECONTEXT] Inventory aggiornato:', networkSystem.gameContext.playerInventory);
+    }
+
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (non somme locali)
     const economySystem = networkSystem.getEconomySystem();
     if (economySystem) {
@@ -84,33 +112,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       }
     }
 
-    // Aggiorna il PlayerHUD con i nuovi dati
+    // Ottieni riferimento all'UiSystem per aggiornamenti successivi
     const uiSystem = networkSystem.getUiSystem();
-    if (uiSystem) {
-      const playerHUD = uiSystem.getPlayerHUD();
-      if (playerHUD) {
-        playerHUD.updateData({
-          level: 1, // Per ora fisso, possiamo implementare calcolo livello dopo
-          playerId: networkSystem.gameContext.localClientId || 0,
-          credits: inventory.credits,
-          cosmos: inventory.cosmos,
-          experience: inventory.experience,
-          expForNextLevel: 1000, // Placeholder, possiamo calcolare dopo
-          honor: inventory.honor
-        });
-
-    // Forza la visualizzazione dell'HUD se non è già visibile
-    playerHUD.show();
-    console.log('✅ [HUD] PlayerHUD aggiornato con stato server');
-
-    // Aggiorna anche il pannello Skills per riflettere i valori reali
-    const skillsPanel = uiSystem.getSkillsPanel();
-    if (skillsPanel) {
-      skillsPanel.updatePlayerStats();
-      console.log('✅ [SKILLS] SkillsPanel aggiornato con valori server authoritative');
-    }
-      }
-    }
 
     // Mostra notifica delle ricompense guadagnate (se presente)
     if (rewardsEarned) {
@@ -141,5 +144,24 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     }
 
     console.log(`📊 Nuovo stato inventario: ${inventory.credits} credits, ${inventory.cosmos} cosmos, ${inventory.experience} XP, ${inventory.honor} honor, ${inventory.skillPoints} skillPoints`);
+
+    // 🔄 AGGIORNA L'HUD IN TEMPO REALE DOPO TUTTI GLI AGGIORNAMENTI
+    if (uiSystem) {
+      // L'UiSystem aggiornerà automaticamente l'HUD tramite i suoi meccanismi interni
+      console.log('✅ [UI] UiSystem notified of player state update');
+
+      // Aggiorna anche il pannello Skills per riflettere i valori reali
+      const skillsPanel = uiSystem.getSkillsPanel();
+      if (skillsPanel) {
+        skillsPanel.updatePlayerStats();
+        console.log('✅ [SKILLS] SkillsPanel aggiornato con valori server authoritative');
+      }
+
+      // Aggiorna l'HUD in tempo reale
+      setTimeout(() => {
+        uiSystem.showPlayerInfo();
+        console.log('✅ [HUD] HUD aggiornato in tempo reale dopo player state update');
+      }, 100); // Delay per permettere all'EconomySystem di aggiornarsi
+    }
   }
 }

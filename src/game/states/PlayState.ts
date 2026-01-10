@@ -45,6 +45,22 @@ export class PlayState extends GameState {
   private nicknameCreated: boolean = false;
   private remotePlayerSpriteUpdated: boolean = false;
 
+  /**
+   * Segnala che i dati del giocatore sono cambiati e dovrebbero essere salvati
+   * Questo viene chiamato da sistemi come RewardSystem quando avvengono cambiamenti significativi
+   */
+  markAsChanged(): void {
+    if (this.clientNetworkSystem && this.context.localClientId && this.context.authId) {
+      // Invia una richiesta di salvataggio immediato al server
+      this.clientNetworkSystem.sendMessage({
+        type: 'save_request',
+        clientId: this.context.localClientId,
+        playerId: this.context.authId, // Usa authId come playerId
+        timestamp: Date.now()
+      });
+    }
+  }
+
   constructor(context: GameContext) {
     super();
     this.context = context;
@@ -94,7 +110,7 @@ export class PlayState extends GameState {
 
     // Ora che tutti i sistemi sono collegati, connetti al server
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
-      // console.log('🔌 [PLAYSTATE] Connecting to server after game initialization...');
+      console.log('🔌 [PLAYSTATE] Connecting to server after game initialization...');
       this.clientNetworkSystem.connectToServer().catch(error => {
         console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
       });
@@ -340,7 +356,7 @@ export class PlayState extends GameState {
     this.audioSystem = systems.audioSystem;
 
     // Collega l'EconomySystem all'UiSystem
-    if (systems.economySystem) {
+    if (systems.economySystem && this.uiSystem) {
       this.uiSystem.setEconomySystem(systems.economySystem);
     }
 

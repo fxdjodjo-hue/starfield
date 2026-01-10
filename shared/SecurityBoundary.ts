@@ -222,9 +222,25 @@ export class BoundaryEnforcement {
         // Il client può richiedere combattimento, ma il server decide
         return { allowed: true };
 
+      case 'request_player_data':
+        // Il client può richiedere i propri dati dal server
+        return { allowed: true };
+
+      case 'economy_update':
+        // Il client può aggiornare dati economici, ma il server valida
+        return { allowed: true };
+
+      case 'save_request':
+        // Il client può richiedere un salvataggio immediato
+        return { allowed: true };
+
+      case 'save_response':
+        // Il server risponde alle richieste di salvataggio
+        return { allowed: true };
+
       default:
-        // Per default, consentire ma loggare per review
-        console.warn(`[SECURITY] Unknown message type: ${messageType}`);
+        // Per default, consentire ma loggare per review con più dettagli
+        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, chat_message, start_combat, stop_combat, request_player_data, economy_update`);
         return { allowed: true };
     }
   }

@@ -84,7 +84,7 @@ ALTER TABLE public.player_upgrades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.player_currencies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.quest_progress ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies - Single source of truth: player_id
+-- RLS Policies - Single source of truth: auth_id
 -- Users can access their own data and check existing profiles during authentication
 CREATE POLICY "Users can view their own profile" ON public.user_profiles
   FOR SELECT USING (auth.uid() = auth_id);
@@ -97,6 +97,30 @@ CREATE POLICY "Users can insert their own profile" ON public.user_profiles
 
 CREATE POLICY "Users can update their own profile" ON public.user_profiles
   FOR UPDATE USING (auth.uid() = auth_id);
+
+-- Service Role Policies - Server can access all data
+-- Drop existing policies first to avoid conflicts
+DROP POLICY IF EXISTS "Service role can manage profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "Service role can manage stats" ON public.player_stats;
+DROP POLICY IF EXISTS "Service role can manage upgrades" ON public.player_upgrades;
+DROP POLICY IF EXISTS "Service role can manage currencies" ON public.player_currencies;
+DROP POLICY IF EXISTS "Service role can manage quests" ON public.quest_progress;
+
+-- Recreate policies
+CREATE POLICY "Service role can manage profiles" ON public.user_profiles
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Service role can manage stats" ON public.player_stats
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Service role can manage upgrades" ON public.player_upgrades
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Service role can manage currencies" ON public.player_currencies
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "Service role can manage quests" ON public.quest_progress
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- =================================================================================
 -- MMO SECURITY: RPC Functions for Server-Only Access

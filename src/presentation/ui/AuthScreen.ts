@@ -699,6 +699,7 @@ export class AuthScreen {
         this.justLoggedIn = true;
 
         // Imposta ID e nickname nel context
+        this.context.authId = data.user.id;
         this.context.localClientId = data.user.id;
         this.context.playerNickname = data.user.user_metadata?.display_name ||
                                      data.user.user_metadata?.username ||
@@ -830,6 +831,7 @@ export class AuthScreen {
         this.justLoggedIn = true;
 
         // Imposta ID e nickname nel context
+        this.context.authId = data.user.id;
         this.context.localClientId = data.user.id;
         this.context.playerNickname = nickname; // Usiamo il nickname dal form
 

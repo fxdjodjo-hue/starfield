@@ -100,19 +100,19 @@ export class RewardSystem extends BaseSystem {
 
     // Assegna ricompense economiche ricevute dal server
     if (rewards.credits > 0) {
-      this.economySystem.addCredits(rewards.credits, `defeated ${npcType}`);
+      this.economySystem.addCredits(rewards.credits, 'server_update');
     }
 
     if (rewards.cosmos > 0) {
-      this.economySystem.addCosmos(rewards.cosmos, `defeated ${npcType}`);
+      this.economySystem.addCosmos(rewards.cosmos, 'server_update');
     }
 
     if (rewards.experience > 0) {
-      this.economySystem.addExperience(rewards.experience, `defeated ${npcType}`);
+      this.economySystem.addExperience(rewards.experience, 'server_update');
     }
 
     if (rewards.honor > 0) {
-      this.economySystem.addHonor(rewards.honor, `defeated ${npcType}`);
+      this.economySystem.addHonor(rewards.honor, 'server_update');
     }
 
     // Trigger quest event for NPC kill

@@ -1,4 +1,3 @@
-import { MessageRouter } from '../handlers/MessageRouter';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { NETWORK_CONFIG } from '../../../config/NetworkConfig';
 import type { NetMessage } from '../types/MessageTypes';
@@ -10,10 +9,10 @@ import type { NetMessage } from '../types/MessageTypes';
 export class NetworkConnectionManager {
   private socket: WebSocket | null = null;
   private serverUrl: string;
-  private messageRouter: MessageRouter;
 
   // Connection callbacks
-  private onConnectedCallback?: () => void;
+  private onConnectedCallback?: (socket: WebSocket) => Promise<void>;
+  private onMessageCallback?: (data: string) => void;
   private onDisconnectedCallback?: () => void;
   private onConnectionErrorCallback?: (error: Event) => void;
   private onReconnectingCallback?: () => void;
@@ -34,15 +33,19 @@ export class NetworkConnectionManager {
   ) {
     this.serverUrl = serverUrl;
 
+    // Store callbacks
+    this.onConnectedCallback = onConnected;
+    this.onMessageCallback = onMessage;
+    this.onDisconnectedCallback = onDisconnected;
+    this.onConnectionErrorCallback = onConnectionError;
+    this.onReconnectingCallback = onReconnecting;
+
     // Bind callbacks
     this.handleConnected = this.handleConnected.bind(this);
     this.handleMessage = this.handleMessage.bind(this);
     this.handleDisconnected = this.handleDisconnected.bind(this);
     this.handleConnectionError = this.handleConnectionError.bind(this);
     this.handleReconnecting = this.handleReconnecting.bind(this);
-
-    // Initialize message router
-    this.messageRouter = new MessageRouter();
   }
 
   /**
@@ -56,11 +59,15 @@ export class NetworkConnectionManager {
 
         this.socket.onopen = async () => {
           console.log('🔌 [CONNECTION] WebSocket connected successfully');
+          await this.handleConnected(this.socket!);
           this.startHeartbeat();
           resolve(this.socket!);
         };
 
         this.socket.onmessage = (event) => {
+          console.log('🔽 [CONNECTION] ===== RAW MESSAGE RECEIVED =====');
+          console.log('🔽 [CONNECTION] Raw data length:', event.data.length);
+          console.log('🔽 [CONNECTION] Raw data preview:', event.data.substring(0, 200) + '...');
           this.handleMessage(event.data);
         };
 
@@ -99,7 +106,7 @@ export class NetworkConnectionManager {
     this.startHeartbeat();
 
     if (this.onConnectedCallback) {
-      await this.onConnectedCallback();
+      await this.onConnectedCallback(socket);
     }
   }
 
@@ -107,12 +114,18 @@ export class NetworkConnectionManager {
    * Gestisce messaggi ricevuti
    */
   private handleMessage(data: string): void {
+    console.log('📨 [CONNECTION] ===== RECEIVED MESSAGE =====');
+    console.log('📨 [CONNECTION] Raw data length:', data.length);
+    console.log('📨 [CONNECTION] Raw data preview:', data.substring(0, 200) + '...');
+
     try {
       const message: NetMessage = JSON.parse(data);
+      console.log('📨 [CONNECTION] Parsed message type:', message.type);
 
       // Handle system messages first
       switch (message.type) {
         case 'heartbeat_ack':
+          console.log('📨 [CONNECTION] Handling heartbeat_ack');
           this.lastHeartbeatAck = Date.now();
           if (this.heartbeatTimeout) {
             clearTimeout(this.heartbeatTimeout);
@@ -121,8 +134,13 @@ export class NetworkConnectionManager {
           break;
 
         default:
-          // Route to appropriate handler
-          this.messageRouter.route(message, null as any); // TODO: Pass proper context
+          // Forward to ClientNetworkSystem for routing
+          console.log('📨 [CONNECTION] Forwarding message to ClientNetworkSystem');
+          if (this.onMessageCallback) {
+            this.onMessageCallback(data);
+          } else {
+            console.warn('⚠️ [CONNECTION] No onMessageCallback registered');
+          }
           break;
       }
     } catch (error) {
@@ -245,12 +263,6 @@ export class NetworkConnectionManager {
     this.socket = null;
   }
 
-  /**
-   * Registra handler per messaggi
-   */
-  registerMessageHandlers(handlers: any[]): void {
-    this.messageRouter.registerHandlers(handlers);
-  }
 
   /**
    * Callback setters

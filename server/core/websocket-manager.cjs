@@ -93,6 +93,7 @@ class WebSocketConnectionManager {
       };
 
       logger.info('DATABASE', `Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
+      logger.info('DATABASE', `Loaded currencies:`, playerData.inventory);
       return playerData;
 
     } catch (error) {
@@ -100,6 +101,7 @@ class WebSocketConnectionManager {
       // In caso di errore, restituisci dati di default ma con playerId = 0
       const defaultData = this.getDefaultPlayerData();
       defaultData.playerId = 0; // Segnala che non c'è profilo valido
+      defaultData.userId = userId; // Mantieni l'userId per la sicurezza
       return defaultData;
     }
   }
@@ -111,7 +113,7 @@ class WebSocketConnectionManager {
     try {
       // Stats iniziali
       await supabase.from('player_stats').insert({
-        player_id: playerId,
+        auth_id: playerId,
         kills: 0,
         deaths: 0,
         missions_completed: 0,
@@ -120,21 +122,21 @@ class WebSocketConnectionManager {
 
       // Upgrades iniziali
       await supabase.from('player_upgrades').insert({
-        player_id: playerId,
-        hp_points: 0,
-        shield_points: 0,
-        speed_points: 0,
-        damage_points: 0
+        auth_id: playerId,
+        hp_upgrades: 0,
+        shield_upgrades: 0,
+        speed_upgrades: 0,
+        damage_upgrades: 0
       });
 
       // Currencies iniziali
       await supabase.from('player_currencies').insert({
-        player_id: playerId,
+        auth_id: playerId,
         credits: 1000,
         cosmos: 100,
         experience: 0,
         honor: 0,
-        skill_points_current: 0,
+        skill_points: 0,
         skill_points_total: 0
       });
 
@@ -154,59 +156,75 @@ class WebSocketConnectionManager {
         return;
       }
 
-      const playerId = playerData.playerId;
+      const playerId = playerData.userId; // Usa auth_id invece del player_id numerico
       logger.info('DATABASE', `Saving player data for player ID: ${playerId}`);
+      logger.info('DATABASE', `Player data to save:`, {
+        stats: playerData.stats,
+        upgrades: playerData.upgrades,
+        inventory: playerData.inventory,
+        quests: playerData.quests ? playerData.quests.length : 0
+      });
 
-      // Salva stats
-      if (playerData.stats) {
-        await supabase.from('player_stats').upsert({
-          player_id: playerId,
-          kills: playerData.stats.kills || 0,
-          deaths: playerData.stats.deaths || 0,
-          missions_completed: playerData.stats.missions_completed || 0,
-          play_time: playerData.stats.play_time || 0,
-          updated_at: new Date().toISOString()
-        });
+      // Prepare data for secure RPC function
+      const statsData = playerData.stats ? {
+        kills: playerData.stats.kills || 0,
+        deaths: playerData.stats.deaths || 0,
+        missions_completed: playerData.stats.missions_completed || 0,
+        play_time: playerData.stats.play_time || 0
+      } : null;
+
+      const upgradesData = playerData.upgrades ? {
+        hp_upgrades: playerData.upgrades.hpUpgrades || 0,
+        shield_upgrades: playerData.upgrades.shieldUpgrades || 0,
+        speed_upgrades: playerData.upgrades.speedUpgrades || 0,
+        damage_upgrades: playerData.upgrades.damageUpgrades || 0
+      } : null;
+
+      const currenciesData = playerData.inventory ? {
+        credits: playerData.inventory.credits || 0,
+        cosmos: playerData.inventory.cosmos || 0,
+        experience: playerData.inventory.experience || 0,
+        honor: playerData.inventory.honor || 0,
+        skill_points: playerData.inventory.skillPoints || 0,
+        skill_points_total: playerData.inventory.skill_points_total || playerData.inventory.skillPoints || 0
+      } : null;
+
+      // Use secure RPC function instead of direct table access
+      logger.info('DATABASE', `Calling update_player_data_secure RPC for auth_id: ${playerId}`);
+      const { data: updateResult, error: updateError } = await supabase.rpc(
+        'update_player_data_secure',
+        {
+          auth_id_param: playerId,
+          stats_data: statsData,
+          upgrades_data: upgradesData,
+          currencies_data: currenciesData,
+          quests_data: null // Quests handled separately below
+        }
+      );
+
+      if (updateError) {
+        logger.error('DATABASE', `Error saving player data via RPC:`, updateError);
+      } else {
+        logger.info('DATABASE', `Successfully saved player data via RPC for player ID: ${playerId}`);
       }
 
-      // Salva upgrades
-      if (playerData.upgrades) {
-        await supabase.from('player_upgrades').upsert({
-          player_id: playerId,
-          hp_points: playerData.upgrades.hpUpgrades || 0,
-          shield_points: playerData.upgrades.shieldUpgrades || 0,
-          speed_points: playerData.upgrades.speedUpgrades || 0,
-          damage_points: playerData.upgrades.damageUpgrades || 0,
-          updated_at: new Date().toISOString()
-        });
-      }
-
-      // Salva currencies
-      if (playerData.inventory) {
-        await supabase.from('player_currencies').upsert({
-          player_id: playerId,
-          credits: playerData.inventory.credits || 0,
-          cosmos: playerData.inventory.cosmos || 0,
-          experience: playerData.inventory.experience || 0,
-          honor: playerData.inventory.honor || 0,
-          skill_points_current: playerData.inventory.skillPoints || 0,
-          skill_points_total: playerData.inventory.skillPoints || 0,
-          updated_at: new Date().toISOString()
-        });
-      }
-
-      // Salva quest progress
+      // Salva quest progress (quests need separate handling as noted in RPC function)
       if (playerData.quests && Array.isArray(playerData.quests)) {
+        logger.info('DATABASE', `Saving quest progress for auth_id: ${playerId}`);
         for (const quest of playerData.quests) {
-          await supabase.from('quest_progress').upsert({
-            player_id: playerId,
+          const questResult = await supabase.from('quest_progress').upsert({
+            auth_id: playerId,
             quest_id: quest.quest_id,
             objectives: quest.objectives || [],
             is_completed: quest.is_completed || false,
             started_at: quest.started_at || new Date().toISOString(),
             completed_at: quest.completed_at || null
           });
+          if (questResult.error) {
+            logger.error('DATABASE', `Error saving quest ${quest.quest_id}:`, questResult.error);
+          }
         }
+        logger.info('DATABASE', `Quest progress saved successfully`);
       }
 
       logger.info('DATABASE', `Player data saved successfully for player ID: ${playerId}`);
@@ -302,6 +320,11 @@ class WebSocketConnectionManager {
 
           // Risponde ai messaggi di join
           if (data.type === 'join') {
+            console.log('🎯 [SERVER] ===== RECEIVED JOIN MESSAGE =====');
+            console.log('🎯 [SERVER] Client ID:', data.clientId);
+            console.log('🎯 [SERVER] Nickname:', data.nickname);
+            console.log('🎯 [SERVER] User ID:', data.userId);
+            console.log('🎯 [SERVER] Auth Token present:', !!data.authToken);
             // Carica i dati del giocatore dal database invece di usare valori hardcoded
             const loadedData = await this.loadPlayerData(data.userId);
 
@@ -411,8 +434,11 @@ class WebSocketConnectionManager {
               }
             };
 
+            console.log('🎉 [SERVER] ===== SENDING WELCOME MESSAGE =====');
+            console.log('🎉 [SERVER] Welcome message:', JSON.stringify(welcomeMessage, null, 2));
             try {
               ws.send(JSON.stringify(welcomeMessage));
+              console.log('✅ [SERVER] Welcome message sent successfully');
             } catch (error) {
               console.error('❌ [SERVER] Failed to send welcome message:', error);
             }
@@ -440,7 +466,6 @@ class WebSocketConnectionManager {
               if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
                 playerData.position = sanitizedData;
               }
-            }
 
               // Posizione aggiornata (logging limitato per evitare spam)
 
@@ -708,6 +733,88 @@ class WebSocketConnectionManager {
             this.mapServer.broadcastNear(data.position, 2000, message);
           }
 
+          // Gestisce richiesta dati completi del giocatore (dopo welcome)
+          if (data.type === 'request_player_data') {
+            console.log('📊 [SERVER] ===== RECEIVED REQUEST_PLAYER_DATA =====');
+            console.log('📊 [SERVER] Request data:', data);
+            console.log('📊 [SERVER] Client playerData.userId:', playerData?.userId);
+            console.log('📊 [SERVER] Requested playerId:', data.playerId);
+
+            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
+            if (data.playerId !== playerData?.userId) {
+              logger.error('SECURITY', `🚫 BLOCKED: Player data request with mismatched playerId from ${data.clientId}`);
+              console.log('🚫 [SERVER] SECURITY BLOCK: playerId mismatch');
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid player ID for data request.',
+                code: 'INVALID_PLAYER_ID'
+              }));
+              return;
+            }
+
+            console.log(`📊 [SERVER] Player data request for player: ${data.playerId}`);
+            console.log('📊 [SERVER] Player inventory:', playerData.inventory);
+            console.log('📊 [SERVER] Player upgrades:', playerData.upgrades);
+            console.log('📊 [SERVER] Player quests:', playerData.quests);
+
+            // Invia dati completi del giocatore
+            const responseMessage = {
+              type: 'player_data_response',
+              playerId: data.playerId,
+              inventory: playerData.inventory,
+              upgrades: playerData.upgrades,
+              quests: playerData.quests || [],
+              timestamp: Date.now()
+            };
+
+            console.log('📤 [SERVER] Sending response:', responseMessage);
+            ws.send(JSON.stringify(responseMessage));
+            console.log(`📤 [SERVER] Sent complete player data for player: ${data.playerId}`);
+          }
+
+          // Gestisce aggiornamenti economici dal client
+          if (data.type === 'economy_update') {
+            console.log('💰 [SERVER] ===== RECEIVED ECONOMY_UPDATE =====');
+            console.log('💰 [SERVER] Player ID:', data.playerId);
+            console.log('💰 [SERVER] Field:', data.field, 'Value:', data.value, 'Change:', data.change);
+
+            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
+            if (data.playerId !== playerData?.userId) {
+              logger.error('SECURITY', `🚫 BLOCKED: Economy update attempt with mismatched playerId from ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid player ID for economy update.',
+                code: 'INVALID_PLAYER_ID'
+              }));
+              return;
+            }
+
+            // Aggiorna i dati economici del giocatore (Server Authoritative)
+            if (playerData) {
+              // Supporta sia il vecchio formato (inventory) che il nuovo (field/value)
+              if (data.inventory) {
+                // Vecchio formato - ancora supportato per retrocompatibilità
+                playerData.inventory.credits = Math.max(0, data.inventory.credits || 0);
+                playerData.inventory.cosmos = Math.max(0, data.inventory.cosmos || 0);
+                playerData.inventory.experience = Math.max(0, data.inventory.experience || 0);
+                playerData.inventory.honor = Math.max(0, data.inventory.honor || 0);
+                playerData.inventory.skillPoints = Math.max(0, data.inventory.skillPoints || 0);
+              } else if (data.field && data.value !== undefined) {
+                // Nuovo formato - aggiorna solo il campo specifico
+                const field = data.field;
+                const value = Math.max(0, data.value);
+                if (playerData.inventory.hasOwnProperty(field)) {
+                  playerData.inventory[field] = value;
+                }
+              }
+
+              console.log('✅ [SERVER] Economy updated successfully for player:', data.playerId);
+              console.log('✅ [SERVER] New inventory state:', playerData.inventory);
+
+              // I dati verranno salvati automaticamente dal periodic save o al disconnect
+            }
+          }
+
           // Gestisce messaggi chat
           if (data.type === 'chat_message') {
             // VALIDAZIONE CONTENUTO
@@ -749,6 +856,47 @@ class WebSocketConnectionManager {
 
             console.log(`📡 [SERVER] Broadcasting chat message from ${playerData.nickname} to all players`);
             this.mapServer.broadcastToMap(chatBroadcast);
+          }
+
+          // Gestisce richiesta di salvataggio immediato dal client
+          if (data.type === 'save_request') {
+            console.log('💾 [SERVER] ===== RECEIVED SAVE_REQUEST =====');
+            console.log('💾 [SERVER] Player ID:', playerData.playerId);
+
+            // 🔴 CRITICAL SECURITY: Verifica che clientId e playerId (authId) siano validi
+            if (data.clientId !== playerData?.clientId || data.playerId !== playerData?.userId) {
+              logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client/player ID from ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid client or player ID for save request.',
+                code: 'INVALID_IDS'
+              }));
+              return;
+            }
+
+            // Salva immediatamente i dati del giocatore
+            try {
+              await this.savePlayerData(playerData);
+              console.log('✅ [SERVER] Immediate save completed successfully for player:', playerData.playerId);
+
+              // Rispondi al client che il salvataggio è avvenuto
+              ws.send(JSON.stringify({
+                type: 'save_response',
+                success: true,
+                message: 'Data saved successfully',
+                timestamp: Date.now()
+              }));
+            } catch (error) {
+              logger.error('DATABASE', `Error during immediate save for player ${playerData.playerId}: ${error.message}`);
+
+              ws.send(JSON.stringify({
+                type: 'save_response',
+                success: false,
+                message: 'Save failed',
+                error: error.message,
+                timestamp: Date.now()
+              }));
+            }
           }
 
         } catch (error) {

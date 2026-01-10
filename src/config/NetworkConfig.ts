@@ -83,7 +83,14 @@ export const MESSAGE_TYPES = {
   PROJECTILE_DESTROYED: 'projectile_destroyed',
   ENTITY_DAMAGED: 'entity_damaged',
   ENTITY_DESTROYED: 'entity_destroyed',
-  EXPLOSION_CREATED: 'explosion_created'
+  EXPLOSION_CREATED: 'explosion_created',
+
+  // Player data messages
+  REQUEST_PLAYER_DATA: 'request_player_data',
+  PLAYER_DATA_RESPONSE: 'player_data_response',
+  ECONOMY_UPDATE: 'economy_update',
+  SAVE_REQUEST: 'save_request',
+  SAVE_RESPONSE: 'save_response'
 } as const;
 
 /**
@@ -396,9 +403,70 @@ export type ConnectionMessage =
 export type PlayerMessage =
   | PlayerRespawnMessage;
 
+// Player data messages
+export interface RequestPlayerDataMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.REQUEST_PLAYER_DATA;
+  playerId: string;
+}
+
+export interface PlayerDataResponseMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.PLAYER_DATA_RESPONSE;
+  playerId: string;
+  inventory: {
+    credits: number;
+    cosmos: number;
+    experience: number;
+    honor: number;
+    skillPoints: number;
+  };
+  upgrades: {
+    hpUpgrades: number;
+    shieldUpgrades: number;
+    speedUpgrades: number;
+    damageUpgrades: number;
+  };
+  quests: any[];
+  timestamp: number;
+}
+
+export interface SaveRequestMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.SAVE_REQUEST;
+  clientId: string;
+  playerId: string;
+  timestamp: number;
+}
+
+export interface SaveResponseMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.SAVE_RESPONSE;
+  success: boolean;
+  message: string;
+  error?: string;
+  timestamp: number;
+}
+
+/**
+ * Aggiornamento dati economici dal client al server
+ */
+export interface EconomyUpdateMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.ECONOMY_UPDATE;
+  playerId: string;
+  inventory: {
+    credits: number;
+    cosmos: number;
+    experience: number;
+    honor: number;
+    skillPoints: number;
+  };
+}
+
 // Type union per tutti i messaggi di rete
 export type NetworkMessageUnion =
   | ConnectionMessage
   | PlayerMessage
   | NpcMessage
-  | CombatMessage;
+  | CombatMessage
+  | RequestPlayerDataMessage
+  | PlayerDataResponseMessage
+  | EconomyUpdateMessage
+  | SaveRequestMessage
+  | SaveResponseMessage;
