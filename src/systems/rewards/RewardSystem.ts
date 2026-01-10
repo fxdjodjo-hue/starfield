@@ -116,7 +116,7 @@ export class RewardSystem extends BaseSystem {
     }
 
     // Trigger quest event for NPC kill
-    if (this.questTrackingSystem) {
+    if (this.questTrackingSystem && this.questTrackingSystem.playerEntity) {
       const event = {
         type: QuestEventType.NPC_KILLED,
         targetId: npcType,
@@ -131,26 +131,13 @@ export class RewardSystem extends BaseSystem {
       this.playState.markAsChanged();
     }
 
-    // Crea il messaggio dell'NPC sconfitto
+    // Log semplice dell'NPC sconfitto (ricompense gestite separatamente)
     if (this.logSystem) {
-      let killMessage = `💀 ${npcType} sconfitto!`;
-
-      // Aggiungi ricompense se presenti
-      const rewardParts: string[] = [];
-      if (rewards.credits > 0) rewardParts.push(`${rewards.credits} crediti`);
-      if (rewards.cosmos > 0) rewardParts.push(`${rewards.cosmos} cosmos`);
-      if (rewards.experience > 0) rewardParts.push(`${rewards.experience} XP`);
-      if (rewards.honor > 0) rewardParts.push(`${rewards.honor} onore`);
-
-      if (rewardParts.length > 0) {
-        killMessage += `\n🎁 Ricompense: ${rewardParts.join(', ')}`;
-      }
-
-      this.logSystem.addLogMessage(killMessage, LogType.NPC_KILLED, 4000);
+      this.logSystem.logNpcKilled(npcType);
     }
 
     // Notifica il sistema quest per aggiornare il progresso
-    if (this.questTrackingSystem) {
+    if (this.questTrackingSystem && this.questTrackingSystem.playerEntity) {
       const event = {
         type: QuestEventType.NPC_KILLED,
         targetId: npcType,
@@ -159,6 +146,8 @@ export class RewardSystem extends BaseSystem {
       };
 
       this.questTrackingSystem.triggerEvent(event);
+    } else if (this.questTrackingSystem && !this.questTrackingSystem.playerEntity) {
+      console.warn(`⚠️ [QUEST] QuestTrackingSystem has no playerEntity yet - skipping quest update for ${npcType}`);
     }
 
     // Pianifica il respawn dell'NPC morto
@@ -215,26 +204,13 @@ export class RewardSystem extends BaseSystem {
     // Nota: se playState non è disponibile, il salvataggio non avviene automaticamente
     // ma il gioco continua normalmente
 
-    // Crea il messaggio dell'NPC sconfitto PRIMA di notificare il quest system
+    // Log semplice dell'NPC sconfitto (ricompense gestite separatamente)
     if (this.logSystem) {
-      let killMessage = `💀 ${npc.npcType} sconfitto!`;
-
-      // Aggiungi ricompense se presenti
-      const rewardParts: string[] = [];
-      if (npcDef.rewards.credits > 0) rewardParts.push(`${npcDef.rewards.credits} crediti`);
-      if (npcDef.rewards.cosmos > 0) rewardParts.push(`${npcDef.rewards.cosmos} cosmos`);
-      if (npcDef.rewards.experience > 0) rewardParts.push(`${npcDef.rewards.experience} XP`);
-      if (npcDef.rewards.honor > 0) rewardParts.push(`${npcDef.rewards.honor} onore`);
-
-      if (rewardParts.length > 0) {
-        killMessage += `\n🎁 Ricompense: ${rewardParts.join(', ')}`;
-      }
-
-      this.logSystem.addLogMessage(killMessage, LogType.NPC_KILLED, 4000);
+      this.logSystem.logNpcKilled(npc.npcType);
     }
 
     // Notifica il sistema quest per aggiornare il progresso tramite eventi
-    if (this.questTrackingSystem) {
+    if (this.questTrackingSystem && this.questTrackingSystem.playerEntity) {
       const event = {
         type: QuestEventType.NPC_KILLED,
         targetId: npc.npcType,
@@ -243,6 +219,8 @@ export class RewardSystem extends BaseSystem {
       };
 
       this.questTrackingSystem.triggerEvent(event);
+    } else if (this.questTrackingSystem && !this.questTrackingSystem.playerEntity) {
+      console.warn(`⚠️ [QUEST] QuestTrackingSystem has no playerEntity yet - skipping quest update for ${npc.npcType}`);
     }
 
     // Nota: Il respawn degli NPC è ora gestito lato server

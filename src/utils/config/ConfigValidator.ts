@@ -95,7 +95,6 @@ export class ConfigValidator {
   static validatePlayerConfig(config: any): { success: boolean; errors?: string[] } {
     try {
       PlayerConfigSchema.parse(config);
-      console.log('✅ [ConfigValidator] Player config validation passed');
       return { success: true };
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -114,7 +113,6 @@ export class ConfigValidator {
   static validateNpcConfig(config: any): { success: boolean; errors?: string[] } {
     try {
       NpcConfigSchema.parse(config);
-      console.log('✅ [ConfigValidator] NPC config validation passed');
       return { success: true };
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -141,7 +139,6 @@ export class ConfigValidator {
     const allSuccess = playerResult.success && npcResult.success;
 
     if (allSuccess) {
-      console.log('🎉 [ConfigValidator] All configurations validated successfully!');
       return { success: true };
     } else {
       const errors: { player?: string[]; npc?: string[] } = {};

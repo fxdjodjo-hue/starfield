@@ -181,7 +181,6 @@ export class PlayState extends GameState {
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
       this.clientNetworkSystem.onConnected(() => {
         // Il CombatStateSystem gestisce automaticamente le richieste pendenti nel suo update
-        console.log('[PLAYSTATE] CombatStateSystem ready for pending combat requests');
       });
     }
   }
@@ -354,6 +353,17 @@ export class PlayState extends GameState {
     // Collega il ClientNetworkSystem all'UiSystem (per SkillsPanel)
     if (this.clientNetworkSystem) {
       this.uiSystem.setClientNetworkSystem(this.clientNetworkSystem);
+
+      // Imposta callback per gestire il playerId ricevuto dal server
+      this.clientNetworkSystem.setOnPlayerIdReceived((playerId: number) => {
+        if (this.questManager) {
+          this.questManager.setPlayerId(playerId);
+          console.log('✅ [PLAYSTATE] QuestManager playerId set:', playerId);
+        }
+        if (this.uiSystem) {
+          this.uiSystem.setPlayerId(playerId);
+        }
+      });
     }
 
     // Collega il PlayerSystem al ClientNetworkSystem (per sincronizzazione upgrade)

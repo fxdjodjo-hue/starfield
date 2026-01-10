@@ -104,6 +104,11 @@ export class LogSystem extends BaseSystem {
    * Aggiunge un nuovo messaggio di log
    */
   addLogMessage(text: string, type: LogType = LogType.INFO, duration: number = 3000): void {
+    // Evita messaggi vuoti o solo spazi
+    if (!text || text.trim().length === 0) {
+      return;
+    }
+
     const logEntity = this.ecs.createEntity();
     const logMessage = new LogMessage(text, type, duration);
     this.ecs.addComponent(logEntity, LogMessage, logMessage);
@@ -113,28 +118,28 @@ export class LogSystem extends BaseSystem {
    * Log specifico per messaggio di benvenuto
    */
   logWelcome(playerName: string): void {
-    this.addLogMessage(`Welcome back ${playerName}!`, LogType.WELCOME);
+    this.addLogMessage(`Welcome back ${playerName}!`, LogType.WELCOME, 5000);
   }
 
   /**
    * Log specifico per inizio attacco
    */
   logAttackStart(targetName: string): void {
-    this.addLogMessage(`🔥 Attacco iniziato contro ${targetName}`, LogType.ATTACK_START);
+    this.addLogMessage(`🔥 Attack started against ${targetName}`, LogType.ATTACK_START, 2000);
   }
 
   /**
    * Log specifico per fine attacco
    */
   logAttackEnd(targetName: string): void {
-    this.addLogMessage(`Attacco fuori gittata contro ${targetName}`, LogType.ATTACK_END);
+    this.addLogMessage(`Target out of range: ${targetName}`, LogType.ATTACK_END, 2000);
   }
 
   /**
    * Log specifico per attacco fallito
    */
   logAttackFailed(targetName: string): void {
-    this.addLogMessage(`Attacco fallito contro ${targetName}`, LogType.ATTACK_FAILED);
+    this.addLogMessage(`Attack failed against ${targetName}`, LogType.ATTACK_FAILED, 2000);
   }
 
 
@@ -142,24 +147,24 @@ export class LogSystem extends BaseSystem {
    * Log specifico per NPC ucciso
    */
   logNpcKilled(npcName: string): void {
-    this.addLogMessage(`💀 ${npcName} sconfitto!`, LogType.NPC_KILLED);
+    this.addLogMessage(`💀 ${npcName} defeated!`, LogType.NPC_KILLED, 4000);
   }
 
   /**
    * Log specifico per ricompense
    */
-  logReward(credits: number, cosmos: number, experience: number, honor: number, skillPoints: number = 0, duration: number = 3000): void {
-    let rewardText = '🎁 Ricompense: ';
+  logReward(credits: number, cosmos: number, experience: number, honor: number, skillPoints: number = 0, duration: number = 4000): void {
     const rewards: string[] = [];
 
-    if (credits > 0) rewards.push(`${credits} crediti`);
+    if (credits > 0) rewards.push(`${credits} credits`);
     if (cosmos > 0) rewards.push(`${cosmos} cosmos`);
     if (experience > 0) rewards.push(`${experience} XP`);
-    if (honor > 0) rewards.push(`${honor} onore`);
+    if (honor > 0) rewards.push(`${honor} honor`);
     if (skillPoints > 0) rewards.push(`${skillPoints} SP`);
 
+    // Mostra messaggio solo se ci sono ricompense
     if (rewards.length > 0) {
-      rewardText += rewards.join(', ');
+      const rewardText = `🎁 Rewards: ${rewards.join(', ')}`;
       this.addLogMessage(rewardText, LogType.REWARD, duration);
     }
   }

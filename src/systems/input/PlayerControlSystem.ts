@@ -83,7 +83,6 @@ export class PlayerControlSystem extends BaseSystem {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     if (selectedNpcs.length === 0) {
-      console.log('[PlayerControl] No NPC selected - cannot toggle attack');
       if (this.logSystem) {
         this.logSystem.addLogMessage('No target selected', LogType.ATTACK_FAILED, 2000);
       }
@@ -92,7 +91,6 @@ export class PlayerControlSystem extends BaseSystem {
 
     // 🔥 PRE-VALIDATION: Controlla se l'NPC è in range prima di permettere l'attacco
     if (!this.isSelectedNpcInRange()) {
-      console.log('[PlayerControl] 📏 NPC out of range - cannot start attack');
       this.showOutOfRangeMessage();
       return;
     }

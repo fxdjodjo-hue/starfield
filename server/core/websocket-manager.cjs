@@ -60,114 +60,47 @@ class WebSocketConnectionManager {
     try {
       logger.info('DATABASE', `Loading player data for user: ${userId}`);
 
-      // Prima cerca se esiste già un profilo per questo userId
-      const { data: existingProfile, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('id, username')
-        .eq('id', userId)  // L'id della tabella user_profiles corrisponde all'userId di Supabase Auth
-        .maybeSingle();
+      // Carica TUTTO in una singola query ottimizzata
+      logger.info('DATABASE', `🔍 Loading complete player data for user ${userId}`);
+      const { data: completeData, error: dataError } = await supabase.rpc(
+        'get_player_complete_data_secure',
+        { auth_id_param: userId }
+      );
 
-      if (profileError && profileError.code !== 'PGRST116') { // PGRST116 = no rows returned
-        logger.error('DATABASE', `Error loading profile: ${profileError.message}`);
-        return this.getDefaultPlayerData();
+      if (dataError) {
+        logger.error('DATABASE', `❌ Complete data load error for user ${userId}:`, dataError);
+        throw dataError;
       }
 
-      let playerId = userId; // Il playerId è l'userId stesso
-      let playerData = this.getDefaultPlayerData();
+      // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
+      const playerDataRaw = Array.isArray(completeData) && completeData.length > 0 ? completeData[0] : completeData;
 
-      if (existingProfile) {
-        // Giocatore esistente - carica i suoi dati
-        playerId = existingProfile.id;
-        logger.info('DATABASE', `Found existing player: ${existingProfile.username} (ID: ${playerId})`);
-
-        // Carica stats
-        const { data: stats } = await supabase
-          .from('player_stats')
-          .select('*')
-          .eq('player_id', playerId)
-          .maybeSingle();
-
-        if (stats) {
-          playerData.stats = stats;
-        }
-
-        // Carica upgrades
-        const { data: upgrades } = await supabase
-          .from('player_upgrades')
-          .select('*')
-          .eq('player_id', playerId)
-          .maybeSingle();
-
-        if (upgrades) {
-          playerData.upgrades = {
-            hpUpgrades: upgrades.hp_points,
-            shieldUpgrades: upgrades.shield_points,
-            speedUpgrades: upgrades.speed_points,
-            damageUpgrades: upgrades.damage_points
-          };
-        }
-
-        // Carica currencies
-        const { data: currencies } = await supabase
-          .from('player_currencies')
-          .select('*')
-          .eq('player_id', playerId)
-          .maybeSingle();
-
-        if (currencies) {
-          logger.info('DATABASE', `Loaded currencies: credits=${currencies.credits}, cosmos=${currencies.cosmos}, exp=${currencies.experience}, honor=${currencies.honor}, sp=${currencies.skill_points_current}`);
-          playerData.inventory = {
-            credits: currencies.credits,
-            cosmos: currencies.cosmos,
-            experience: currencies.experience,
-            honor: currencies.honor,
-            skillPoints: currencies.skill_points_current
-          };
-        } else {
-          logger.warn('DATABASE', `No currencies found for player ${playerId}`);
-        }
-
-        // Carica quest progress
-        const { data: quests } = await supabase
-          .from('quest_progress')
-          .select('*')
-          .eq('player_id', playerId);
-
-        if (quests) {
-          playerData.quests = quests;
-        }
-
-      } else {
-        // Nuovo giocatore - il profilo dovrebbe già esistere da Supabase Auth Triggers
-        // Se non esiste, c'è un problema con i trigger
-        logger.warn('DATABASE', `Profile not found for user: ${userId} - Supabase Auth triggers may not be working`);
-
-        // Per ora, creiamo un profilo minimo (normalmente fatto dai trigger)
-        const { error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: userId,  // L'id corrisponde all'userId di Supabase Auth
-            email: `${userId}@temp.local`,  // Email temporanea
-            username: `Player_${userId.substring(0, 8)}`  // Username basato sull'UUID
-          });
-
-        if (insertError) {
-          logger.error('DATABASE', `Error creating profile: ${insertError.message}`);
-        } else {
-          logger.info('DATABASE', `Created profile for user: ${userId}`);
-        }
-
-        // Crea record iniziali per le altre tabelle
-        await this.createInitialPlayerRecords(userId);
+      if (!playerDataRaw || !playerDataRaw.found) {
+        // PROFILO NON TROVATO - BLOCCO TOTALE ACCESSO
+        logger.error('SECURITY', `🚫 BLOCKED: User ${userId} attempted to play without profile`);
+        throw new Error(`ACCESS DENIED: You must register and create a profile before playing. Please register first.`);
       }
 
-      playerData.playerId = playerId;
-      logger.info('DATABASE', `Player data loaded successfully for user ${userId}`);
+      // Costruisci playerData con i dati reali del database
+      const playerData = {
+        playerId: playerDataRaw.player_id, // player_id NUMERICO per display/HUD
+        userId: userId,     // auth_id per identificazione
+        nickname: playerDataRaw.username || 'Unknown',
+        position: { x: 0, y: 0, rotation: 0 }, // Posizione verrà impostata dal client
+        inventory: playerDataRaw.currencies_data ? JSON.parse(playerDataRaw.currencies_data) : this.getDefaultPlayerData().inventory,
+        upgrades: playerDataRaw.upgrades_data ? JSON.parse(playerDataRaw.upgrades_data) : this.getDefaultPlayerData().upgrades,
+        quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : []
+      };
+
+      logger.info('DATABASE', `Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
       return playerData;
 
     } catch (error) {
       logger.error('DATABASE', `Error loading player data: ${error.message}`);
-      return this.getDefaultPlayerData();
+      // In caso di errore, restituisci dati di default ma con playerId = 0
+      const defaultData = this.getDefaultPlayerData();
+      defaultData.playerId = 0; // Segnala che non c'è profilo valido
+      return defaultData;
     }
   }
 
@@ -367,9 +300,6 @@ class WebSocketConnectionManager {
           // Usa dati sanitizzati per elaborazione successiva
           const sanitizedData = contentValidation.sanitizedData;
 
-          logger.debug('WEBSOCKET', `Received ${data.type} from ${data.clientId || 'unknown'}`);
-
-
           // Risponde ai messaggi di join
           if (data.type === 'join') {
             // Carica i dati del giocatore dal database invece di usare valori hardcoded
@@ -378,7 +308,7 @@ class WebSocketConnectionManager {
             playerData = {
               clientId: data.clientId,
               nickname: data.nickname,
-              playerId: data.userId, // Usa direttamente userId come playerId
+              playerId: loadedData.playerId, // Usa player_id numerico dal database
               userId: data.userId,
               connectedAt: new Date().toISOString(),
               lastInputAt: null,
@@ -434,7 +364,6 @@ class WebSocketConnectionManager {
                   playerId: playerData.playerId
                 };
                 ws.send(JSON.stringify(existingPlayerBroadcast));
-                logger.debug('PLAYER', `Sent position of existing player ${existingClientId} to new player ${data.clientId}`);
               }
             });
 
@@ -457,24 +386,42 @@ class WebSocketConnectionManager {
               logger.info('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${data.clientId}`);
             }
 
+            console.log('🎉 [SERVER] Sending welcome message:', {
+              clientId: data.clientId,
+              playerId: playerData.userId,
+              playerDbId: playerData.playerId,
+              nickname: data.nickname
+            });
+
+            console.log('🎉 [SERVER] Building welcome message with:', {
+              clientId: data.clientId,
+              playerData_userId: playerData.userId,
+              playerData_playerId: playerData.playerId,
+              nickname: data.nickname
+            });
+
             const welcomeMessage = {
               type: 'welcome',
               clientId: data.clientId,
-              playerId: playerData.userId, // Usa userId come playerId (è l'UUID dell'utente)
+              playerId: playerData.userId, // UUID dell'utente (auth_id)
+              playerDbId: playerData.playerId, // Player ID numerico per display/HUD
               message: `Welcome ${data.nickname}! Connected to server.`,
               initialState: {
-                inventory: { ...playerData.inventory },
-                upgrades: { ...playerData.upgrades },
-                health: playerData.health,
-                maxHealth: playerData.maxHealth,
-                shield: playerData.shield,
-                maxShield: playerData.maxShield,
+                // Solo dati critici per iniziare il gioco
                 position: {
                   x: playerData.position?.x || 0,
                   y: playerData.position?.y || 0,
                   rotation: playerData.position?.rotation || 0
                 },
-                quests: playerData.quests || []
+                // I dati dettagliati verranno richiesti dal client dopo l'inizializzazione
+                inventoryLazy: true,  // Flag per indicare lazy loading
+                upgradesLazy: true,
+                questsLazy: true,
+                // Dati essenziali calcolati server-side
+                health: this.calculateMaxHealth(playerData.upgrades.hpUpgrades),
+                maxHealth: this.calculateMaxHealth(playerData.upgrades.hpUpgrades),
+                shield: this.calculateMaxShield(playerData.upgrades.shieldUpgrades),
+                maxShield: this.calculateMaxShield(playerData.upgrades.shieldUpgrades)
               }
             };
 
@@ -496,8 +443,6 @@ class WebSocketConnectionManager {
                 playerId: playerData.playerId
               }, data.clientId);
             }
-
-            logger.debug('SERVER', `Sent welcome to ${data.clientId}`);
           }
 
           // Gestisce aggiornamenti posizione del player

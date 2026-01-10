@@ -63,6 +63,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
    * Questo è il metodo principale per il tracking scalabile
    */
   handleEvent(event: QuestEvent, activeQuestComponent: ActiveQuest): void {
+
     // Trova tutte le quest attive che potrebbero essere interessate da questo evento
     activeQuestComponent.quests.forEach(quest => {
       const questConfig = QuestRegistry.get(quest.id);
@@ -74,7 +75,6 @@ export class QuestTrackingSystem implements QuestEventHandler {
       quest.objectives.forEach(objective => {
         if (this.shouldUpdateObjective(objective, event)) {
           const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
-
           if (questCompleted) {
             this.handleQuestCompletion(quest, activeQuestComponent);
           }
@@ -120,7 +120,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
   private handleQuestCompletion(quest: any, activeQuestComponent: ActiveQuest): void {
     // Mostra messaggio di completamento quest nel log
     if (this.logSystem) {
-      this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completata!`, LogType.REWARD, 5000);
+      this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completed!`, LogType.REWARD, 5000);
     }
 
     // Completa la quest e ottieni le ricompense

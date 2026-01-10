@@ -27,7 +27,6 @@ export class ChatManager {
     }
 
     if (enabled) {
-      this.log('info', 'Multiplayer mode enabled');
     } else {
       this.log('info', 'Single-player mode');
     }

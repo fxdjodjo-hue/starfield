@@ -13,25 +13,21 @@ DROP TABLE IF EXISTS public.player_upgrades CASCADE;
 DROP TABLE IF EXISTS public.player_stats CASCADE;
 DROP TABLE IF EXISTS public.user_profiles CASCADE;
 
--- Also drop the sequence if it exists
-DROP SEQUENCE IF EXISTS player_id_seq CASCADE;
-
 -- Drop existing function if it exists
 DROP FUNCTION IF EXISTS public.handle_new_user() CASCADE;
 
--- Users table - Single source of truth: player_id (BIGINT)
+-- Users table - auth_id primary key, player_id for display
 CREATE TABLE public.user_profiles (
-  player_id BIGINT PRIMARY KEY,
-  auth_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- Reference to Supabase auth (optional)
+  auth_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, -- Supabase Auth ID
+  player_id BIGINT UNIQUE NOT NULL, -- Display ID (sequential numeric)
   username VARCHAR(50) UNIQUE NOT NULL,
-  display_name VARCHAR(100),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Player statistics (reflects PlayerStats component exactly)
 CREATE TABLE public.player_stats (
-  player_id BIGINT REFERENCES public.user_profiles(player_id) ON DELETE CASCADE PRIMARY KEY,
+  auth_id UUID REFERENCES public.user_profiles(auth_id) ON DELETE CASCADE PRIMARY KEY,
   kills INTEGER DEFAULT 0,
   deaths INTEGER DEFAULT 0,
   missions_completed INTEGER DEFAULT 0,
@@ -42,7 +38,7 @@ CREATE TABLE public.player_stats (
 
 -- Player upgrades (reflects PlayerUpgrades component exactly)
 CREATE TABLE public.player_upgrades (
-  player_id BIGINT REFERENCES public.user_profiles(player_id) ON DELETE CASCADE PRIMARY KEY,
+  auth_id UUID REFERENCES public.user_profiles(auth_id) ON DELETE CASCADE PRIMARY KEY,
   hp_upgrades INTEGER DEFAULT 0,
   shield_upgrades INTEGER DEFAULT 0,
   speed_upgrades INTEGER DEFAULT 0,
@@ -53,13 +49,13 @@ CREATE TABLE public.player_upgrades (
 
 -- Player currencies (combines all currency components: Credits, Cosmos, Experience, Honor, SkillPoints)
 CREATE TABLE public.player_currencies (
-  player_id BIGINT REFERENCES public.user_profiles(player_id) ON DELETE CASCADE PRIMARY KEY,
+  auth_id UUID REFERENCES public.user_profiles(auth_id) ON DELETE CASCADE PRIMARY KEY,
   credits BIGINT DEFAULT 1000,
   cosmos BIGINT DEFAULT 100,
   experience BIGINT DEFAULT 0,
   honor INTEGER DEFAULT 0,
-  skill_points_current INTEGER DEFAULT 0,
-  skill_points_total INTEGER DEFAULT 0,
+  skill_points BIGINT DEFAULT 0,
+  skill_points_total BIGINT DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -67,19 +63,19 @@ CREATE TABLE public.player_currencies (
 -- Quest progress (reflects ActiveQuest + Quest components exactly)
 CREATE TABLE public.quest_progress (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  player_id BIGINT REFERENCES public.user_profiles(player_id) ON DELETE CASCADE,
+  auth_id UUID REFERENCES public.user_profiles(auth_id) ON DELETE CASCADE,
   quest_id VARCHAR(100) NOT NULL,
   objectives JSONB DEFAULT '[]'::jsonb, -- Array of objectives with id, current, target
   is_completed BOOLEAN DEFAULT FALSE,
   started_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
-  UNIQUE(player_id, quest_id)
+  UNIQUE(auth_id, quest_id)
 );
 
 -- Indexes for performance
 CREATE INDEX idx_user_profiles_username ON public.user_profiles(username);
 CREATE INDEX idx_user_profiles_auth_id ON public.user_profiles(auth_id); -- Index for Supabase auth lookup
-CREATE INDEX idx_quest_progress_player_id ON public.quest_progress(player_id);
+CREATE INDEX idx_quest_progress_auth_id ON public.quest_progress(auth_id);
 
 -- Row Level Security (RLS) policies
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
@@ -102,6 +98,254 @@ CREATE POLICY "Users can insert their own profile" ON public.user_profiles
 CREATE POLICY "Users can update their own profile" ON public.user_profiles
   FOR UPDATE USING (auth.uid() = auth_id);
 
+-- =================================================================================
+-- MMO SECURITY: RPC Functions for Server-Only Access
+-- =================================================================================
+-- Server NEVER accesses tables directly - only through secure RPC functions
+-- This prevents exploits and ensures server authoritative architecture
+
+-- =================================================================================
+-- MMO SECURE RPC FUNCTIONS - Server Only Access
+-- =================================================================================
+
+-- Create player profile after user registration (called by client after Supabase auth)
+DROP FUNCTION IF EXISTS create_player_profile(UUID, VARCHAR(50));
+
+CREATE FUNCTION create_player_profile(auth_id_param UUID, username_param VARCHAR(50))
+RETURNS TABLE(
+  player_id BIGINT,
+  success BOOLEAN,
+  error_message TEXT
+)
+SECURITY DEFINER
+AS $$
+DECLARE
+  new_player_id BIGINT;
+BEGIN
+  -- Check if profile already exists
+  IF EXISTS (SELECT 1 FROM public.user_profiles WHERE auth_id = auth_id_param) THEN
+    RETURN QUERY SELECT NULL::BIGINT, FALSE, 'Profile already exists'::TEXT;
+    RETURN;
+  END IF;
+
+  -- Get next player_id (display ID)
+  SELECT get_next_player_id() INTO new_player_id;
+
+  -- Create profile with both auth_id and player_id
+  INSERT INTO public.user_profiles (auth_id, player_id, username)
+  VALUES (auth_id_param, new_player_id, username_param);
+
+  -- Create default player data using auth_id
+  INSERT INTO public.player_stats (auth_id) VALUES (auth_id_param);
+  INSERT INTO public.player_upgrades (auth_id) VALUES (auth_id_param);
+  INSERT INTO public.player_currencies (auth_id) VALUES (auth_id_param);
+
+  RETURN QUERY SELECT new_player_id, TRUE, NULL::TEXT;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN QUERY SELECT NULL::BIGINT, FALSE, SQLERRM::TEXT;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get player profile securely (server only)
+DROP FUNCTION IF EXISTS get_player_profile_secure(UUID);
+
+CREATE FUNCTION get_player_profile_secure(auth_id_param UUID)
+RETURNS TABLE(
+  auth_id UUID,
+  player_id BIGINT,
+  username VARCHAR(50),
+  found BOOLEAN
+)
+SECURITY DEFINER
+AS $$
+DECLARE
+  result_record RECORD;
+BEGIN
+  -- Log per debug
+  RAISE LOG 'RPC get_player_profile_secure called for auth_id: %', auth_id_param;
+
+  -- Try to find existing profile
+  SELECT
+    up.auth_id,
+    up.player_id,
+    up.username
+  INTO result_record
+  FROM public.user_profiles up
+  WHERE up.auth_id = auth_id_param;
+
+  IF FOUND THEN
+    RAISE LOG 'RPC found profile: player_id=%, username=%', result_record.player_id, result_record.username;
+    RETURN QUERY SELECT result_record.auth_id, result_record.player_id, result_record.username, TRUE;
+  ELSE
+    RAISE LOG 'RPC profile NOT found for auth_id: %', auth_id_param;
+    RETURN QUERY SELECT NULL::UUID, NULL::BIGINT, NULL::VARCHAR(50), FALSE;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Get all player data securely (server only)
+CREATE OR REPLACE FUNCTION get_player_data_secure(auth_id_param UUID)
+RETURNS TABLE(
+  profile_data JSONB,
+  stats_data JSONB,
+  upgrades_data JSONB,
+  currencies_data JSONB,
+  quests_data JSONB
+)
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    jsonb_build_object(
+      'auth_id', up.auth_id,
+      'username', up.username,
+      'created_at', up.created_at
+    ) as profile_data,
+    CASE WHEN ps.auth_id IS NOT NULL THEN
+      jsonb_build_object(
+        'kills', ps.kills,
+        'deaths', ps.deaths,
+        'missions_completed', ps.missions_completed,
+        'play_time', ps.play_time
+      )
+    ELSE NULL END as stats_data,
+    CASE WHEN pu.auth_id IS NOT NULL THEN
+      jsonb_build_object(
+        'hp_upgrades', pu.hp_upgrades,
+        'shield_upgrades', pu.shield_upgrades,
+        'speed_upgrades', pu.speed_upgrades,
+        'damage_upgrades', pu.damage_upgrades
+      )
+    ELSE NULL END as upgrades_data,
+    CASE WHEN pc.auth_id IS NOT NULL THEN
+      jsonb_build_object(
+        'credits', pc.credits,
+        'cosmos', pc.cosmos,
+        'experience', pc.experience,
+        'honor', pc.honor,
+        'skill_points', pc.skill_points,
+        'skill_points_total', pc.skill_points_total
+      )
+    ELSE NULL END as currencies_data,
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'quest_id', qp.quest_id,
+          'objectives', qp.objectives,
+          'is_completed', qp.is_completed,
+          'completed_at', qp.completed_at
+        )
+      ) FILTER (WHERE qp.auth_id IS NOT NULL),
+      '[]'::jsonb
+    ) as quests_data
+  FROM public.user_profiles up
+  LEFT JOIN public.player_stats ps ON up.auth_id = ps.auth_id
+  LEFT JOIN public.player_upgrades pu ON up.auth_id = pu.auth_id
+  LEFT JOIN public.player_currencies pc ON up.auth_id = pc.auth_id
+  LEFT JOIN public.quest_progress qp ON up.auth_id = qp.auth_id
+  WHERE up.auth_id = auth_id_param
+  GROUP BY up.auth_id, up.username, up.created_at,
+           ps.auth_id, ps.kills, ps.deaths, ps.missions_completed, ps.play_time,
+           pu.auth_id, pu.hp_upgrades, pu.shield_upgrades, pu.speed_upgrades, pu.damage_upgrades,
+           pc.auth_id, pc.credits, pc.cosmos, pc.experience, pc.honor, pc.skill_points, pc.skill_points_total;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Update player data securely (server only)
+CREATE OR REPLACE FUNCTION update_player_data_secure(
+  auth_id_param UUID,
+  stats_data JSONB DEFAULT NULL,
+  upgrades_data JSONB DEFAULT NULL,
+  currencies_data JSONB DEFAULT NULL,
+  quests_data JSONB DEFAULT NULL
+)
+RETURNS BOOLEAN
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Update stats if provided
+  IF stats_data IS NOT NULL THEN
+    INSERT INTO public.player_stats (
+      auth_id, kills, deaths, missions_completed, play_time
+    ) VALUES (
+      auth_id_param,
+      (stats_data->>'kills')::INTEGER,
+      (stats_data->>'deaths')::INTEGER,
+      (stats_data->>'missions_completed')::INTEGER,
+      (stats_data->>'play_time')::INTEGER
+    )
+    ON CONFLICT (auth_id) DO UPDATE SET
+      kills = EXCLUDED.kills,
+      deaths = EXCLUDED.deaths,
+      missions_completed = EXCLUDED.missions_completed,
+      play_time = EXCLUDED.play_time,
+      updated_at = NOW();
+  END IF;
+
+  -- Update upgrades if provided
+  IF upgrades_data IS NOT NULL THEN
+    INSERT INTO public.player_upgrades (
+      auth_id, hp_upgrades, shield_upgrades, speed_upgrades, damage_upgrades
+    ) VALUES (
+      auth_id_param,
+      (upgrades_data->>'hp_upgrades')::INTEGER,
+      (upgrades_data->>'shield_upgrades')::INTEGER,
+      (upgrades_data->>'speed_upgrades')::INTEGER,
+      (upgrades_data->>'damage_upgrades')::INTEGER
+    )
+    ON CONFLICT (auth_id) DO UPDATE SET
+      hp_upgrades = EXCLUDED.hp_upgrades,
+      shield_upgrades = EXCLUDED.shield_upgrades,
+      speed_upgrades = EXCLUDED.speed_upgrades,
+      damage_upgrades = EXCLUDED.damage_upgrades,
+      updated_at = NOW();
+  END IF;
+
+  -- Update currencies if provided
+  IF currencies_data IS NOT NULL THEN
+    INSERT INTO public.player_currencies (
+      auth_id, credits, cosmos, experience, honor, skill_points, skill_points_total
+    ) VALUES (
+      auth_id_param,
+      (currencies_data->>'credits')::BIGINT,
+      (currencies_data->>'cosmos')::BIGINT,
+      (currencies_data->>'experience')::BIGINT,
+      (currencies_data->>'honor')::INTEGER,
+      (currencies_data->>'skill_points')::BIGINT,
+      (currencies_data->>'skill_points_total')::BIGINT
+    )
+    ON CONFLICT (auth_id) DO UPDATE SET
+      credits = EXCLUDED.credits,
+      cosmos = EXCLUDED.cosmos,
+      experience = EXCLUDED.experience,
+      honor = EXCLUDED.honor,
+      skill_points = EXCLUDED.skill_points,
+      skill_points_total = EXCLUDED.skill_points_total,
+      updated_at = NOW();
+  END IF;
+
+  -- Update quests if provided (this would need more complex logic for quest updates)
+  -- For now, we'll handle quest updates separately
+
+  RETURN TRUE;
+EXCEPTION
+  WHEN OTHERS THEN
+    RAISE EXCEPTION 'Failed to update player data: %', SQLERRM;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Grant execute to service role only
+GRANT EXECUTE ON FUNCTION create_player_profile(UUID, VARCHAR(50)) TO service_role;
+GRANT EXECUTE ON FUNCTION get_player_profile_secure(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION get_player_data_secure(UUID) TO service_role;
+GRANT EXECUTE ON FUNCTION update_player_data_secure(UUID, JSONB, JSONB, JSONB, JSONB) TO service_role;
+
+-- =================================================================================
+-- RLS ALREADY ENABLED ABOVE - Policies created in original section
+-- =================================================================================
+
 -- Drop existing policies before creating new ones
 DROP POLICY IF EXISTS "Users can insert their stats" ON public.player_stats;
 DROP POLICY IF EXISTS "Users can manage their stats" ON public.player_stats;
@@ -119,24 +363,24 @@ DROP POLICY IF EXISTS "Users can insert their quests" ON public.quest_progress;
 DROP POLICY IF EXISTS "Users can manage their quests" ON public.quest_progress;
 DROP POLICY IF EXISTS "Authenticated users can manage quests" ON public.quest_progress;
 
--- Simplified RLS: Allow authenticated users to manage their data
--- Use auth.uid() IS NOT NULL to check authentication
-CREATE POLICY "Authenticated users can manage stats" ON public.player_stats
-  FOR ALL USING (auth.uid() IS NOT NULL);
+-- RLS Policies: Users can only access their own data
+-- auth_id is the primary key, auth.uid() should match it
+CREATE POLICY "Users can manage their stats" ON public.player_stats
+  FOR ALL USING (auth_id = auth.uid());
 
-CREATE POLICY "Authenticated users can manage upgrades" ON public.player_upgrades
-  FOR ALL USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Users can manage their upgrades" ON public.player_upgrades
+  FOR ALL USING (auth_id = auth.uid());
 
-CREATE POLICY "Authenticated users can manage currencies" ON public.player_currencies
-  FOR ALL USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Users can manage their currencies" ON public.player_currencies
+  FOR ALL USING (auth_id = auth.uid());
 
-CREATE POLICY "Authenticated users can manage quests" ON public.quest_progress
-  FOR ALL USING (auth.uid() IS NOT NULL);
+CREATE POLICY "Users can manage their quests" ON public.quest_progress
+  FOR ALL USING (auth_id = auth.uid());
 
--- Sequence for sequential player IDs starting from 1 (fresh database start)
+-- Sequence for player_id (display ID)
 CREATE SEQUENCE IF NOT EXISTS player_id_seq START 1;
 
--- Function to get next player ID (sequential)
+-- Function to get next player ID (sequential display ID)
 CREATE OR REPLACE FUNCTION get_next_player_id()
 RETURNS BIGINT AS $$
 BEGIN
@@ -154,5 +398,109 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Note: User profile creation is handled manually in the application
--- to avoid conflicts with anonymous authentication and ensure proper player_id assignment
+-- OTTIMIZZAZIONE: Singola RPC che combina profilo + dati giocatore
+DROP FUNCTION IF EXISTS get_player_complete_data_secure(UUID);
+CREATE FUNCTION get_player_complete_data_secure(auth_id_param UUID)
+RETURNS TABLE(
+  auth_id UUID,
+  player_id BIGINT,
+  username VARCHAR(50),
+  found BOOLEAN,
+  currencies_data TEXT,
+  upgrades_data TEXT,
+  quests_data TEXT
+) AS $$
+DECLARE
+  result_record RECORD;
+BEGIN
+  -- Prima ottieni i dati base del profilo
+  SELECT
+    up.auth_id,
+    up.player_id,
+    up.username,
+    TRUE as found,
+    CASE WHEN pc.auth_id IS NOT NULL THEN
+      jsonb_build_object(
+        'credits', pc.credits,
+        'cosmos', pc.cosmos,
+        'experience', pc.experience,
+        'honor', pc.honor,
+        'skill_points_current', pc.skill_points,
+        'skill_points_total', pc.skill_points_total
+      )::text
+    ELSE
+      jsonb_build_object(
+        'credits', 1000,
+        'cosmos', 100,
+        'experience', 0,
+        'honor', 0,
+        'skill_points_current', 0,
+        'skill_points_total', 0
+      )::text
+    END as currencies_data,
+    CASE WHEN pu.auth_id IS NOT NULL THEN
+      jsonb_build_object(
+        'hpUpgrades', pu.hp_upgrades,
+        'shieldUpgrades', pu.shield_upgrades,
+        'speedUpgrades', pu.speed_upgrades,
+        'damageUpgrades', pu.damage_upgrades
+      )::text
+    ELSE
+      jsonb_build_object(
+        'hpUpgrades', 0,
+        'shieldUpgrades', 0,
+        'speedUpgrades', 0,
+        'damageUpgrades', 0
+      )::text
+    END as upgrades_data,
+    COALESCE(
+      (SELECT jsonb_agg(
+        jsonb_build_object(
+          'quest_id', qp_inner.quest_id,
+          'objectives', qp_inner.objectives,
+          'is_completed', qp_inner.is_completed,
+          'started_at', qp_inner.started_at,
+          'completed_at', qp_inner.completed_at
+        )
+      )::text FROM quest_progress qp_inner WHERE qp_inner.auth_id = auth_id_param),
+      '[]'
+    ) as quests_data
+  INTO result_record
+  FROM user_profiles up
+  LEFT JOIN player_currencies pc ON up.auth_id = pc.auth_id
+  LEFT JOIN player_upgrades pu ON up.auth_id = pu.auth_id
+  WHERE up.auth_id = auth_id_param;
+
+  -- Se il profilo non esiste, restituisci valori di default
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT
+      NULL::UUID,
+      NULL::BIGINT,
+      NULL::VARCHAR(50),
+      FALSE,
+      '{"credits": 1000, "cosmos": 100, "experience": 0, "honor": 0, "skill_points_current": 0, "skill_points_total": 0}',
+      '{"hpUpgrades": 0, "shieldUpgrades": 0, "speedUpgrades": 0, "damageUpgrades": 0}',
+      '[]';
+  ELSE
+    RETURN QUERY SELECT
+      result_record.auth_id,
+      result_record.player_id,
+      result_record.username,
+      result_record.found,
+      result_record.currencies_data,
+      result_record.upgrades_data,
+      result_record.quests_data;
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permissions for the new function
+GRANT EXECUTE ON FUNCTION get_player_complete_data_secure(UUID) TO service_role;
+
+-- Rimozione campo ridondante display_name dalla tabella user_profiles
+-- (commentato per mantenere compatibilità con dati esistenti)
+-- ALTER TABLE public.user_profiles DROP COLUMN IF EXISTS display_name;
+
+-- MMO SECURITY: No guest users allowed
+-- Every player MUST register and create a profile before playing
+-- auth_id (UUID) + player_id (BIGINT display) for complete user identification

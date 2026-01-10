@@ -4,7 +4,6 @@ import { ConfigValidator } from '../../utils/config/ConfigValidator';
 
 async function main() {
   // Valida tutte le configurazioni all'avvio
-  console.log('🔍 [Main] Validating configurations...');
   ConfigValidator.validateOrThrow();
 
   const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;

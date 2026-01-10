@@ -79,7 +79,6 @@ export class CombatSystem extends BaseSystem {
    */
   setPreloadedExplosionFrames(frames: HTMLImageElement[]): void {
     this.explosionFrames = frames;
-    console.log(`💥 [COMBAT] Explosion frames precaricati impostati: ${frames.length} frame`);
   }
 
 
@@ -218,14 +217,6 @@ export class CombatSystem extends BaseSystem {
     // Determina se è il player locale
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
-
-    console.log('🔍 [COMBAT] isLocalPlayer check:', {
-      attackerEntityId: attackerEntity.id,
-      playerEntityId: playerEntity?.id,
-      isLocalPlayer,
-      attackerEntityType: attackerEntity.type,
-      playerEntityType: playerEntity?.type
-    });
 
     // Calcola posizione target per la factory
     const targetX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2; // Moltiplica per 2 per compensare
@@ -368,7 +359,6 @@ export class CombatSystem extends BaseSystem {
     const playerDamage = playerEntity ? this.ecs.getComponent(playerEntity, Damage) : null;
 
     // Log di debug per vedere se la funzione viene chiamata
-    // console.log(`🔄 [COMBAT] processPlayerCombat called, playerEntity: ${!!playerEntity}, playerDamage: ${!!playerDamage}`);
 
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
@@ -388,7 +378,6 @@ export class CombatSystem extends BaseSystem {
       const selectedNpcsAfterCheck = this.ecs.getEntitiesWithComponents(SelectedNpc);
       if (selectedNpcsAfterCheck.length === 0) {
         if (this.currentAttackTarget !== null) {
-          console.log(`❌ [COMBAT] No NPC selected - stopping active combat with target ${this.currentAttackTarget}`);
           this.sendStopCombat();
           this.endAttackLogging();
         this.currentAttackTarget = null;
@@ -446,7 +435,6 @@ export class CombatSystem extends BaseSystem {
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento
       const reason = attackActivated ? "attack activated" : "unknown reason";
-      console.log(`🎯 [COMBAT] STARTING combat (${distance.toFixed(1)}px) - ${reason} with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
@@ -461,7 +449,6 @@ export class CombatSystem extends BaseSystem {
       this.wasInCombat = false;
     } else if (!attackActivated && this.currentAttackTarget !== null) {
       // Attacco disattivato - ferma qualsiasi combattimento in corso, indipendentemente dal target selezionato
-      console.log(`🛑 [COMBAT] ATTACK DEACTIVATED - stopping combat with target ${this.currentAttackTarget}`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
@@ -623,7 +610,6 @@ export class CombatSystem extends BaseSystem {
       // Estrai tutti i frame definiti nell'atlas
       const frames = await AtlasParser.extractFrames(atlasData);
 
-      console.log(`💥 [EXPLOSION] Loaded ${frames.length} frames from atlas`);
       return frames;
     } catch (error) {
       console.error('Failed to load explosion frames from atlas:', error);
@@ -702,16 +688,12 @@ export class CombatSystem extends BaseSystem {
     // Reset delle variabili di stato del combattimento
     this.currentAttackTarget = null;
     this.attackStartedLogged = false;
-
-    console.log('[CombatSystem] Cleanup completato - memory leaks prevenuti');
   }
 
   /**
    * Ferma immediatamente il combattimento (chiamato quando disattivi manualmente l'attacco)
    */
   public stopCombatImmediately(): void {
-    console.log(`🛑 [COMBAT] Combat stopped immediately by manual deactivation`);
-
     // Disattiva anche l'attacco nel PlayerControlSystem PRIMA di tutto
     this.deactivateAttackAfterCombatEnd();
 
@@ -733,7 +715,6 @@ export class CombatSystem extends BaseSystem {
     ) as PlayerControlSystem | undefined;
 
     if (playerControlSystem) {
-      console.log(`🛑 [COMBAT] Deactivating attack after combat end`);
       playerControlSystem.deactivateAttack();
     }
   }

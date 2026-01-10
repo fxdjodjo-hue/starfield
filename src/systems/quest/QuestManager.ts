@@ -8,6 +8,7 @@ import {
   initializeDefaultQuests,
   type QuestConfig
 } from '../../config/QuestConfig';
+import { gameAPI } from '../../lib/supabase';
 
 /**
  * QuestManager - Sistema di gestione delle quest
@@ -16,9 +17,17 @@ import {
 export class QuestManager {
   private availableQuests: Quest[] = [];
   private completedQuests: Quest[] = [];
+  private playerId: number | null = null;
 
   constructor() {
     this.initializeQuests();
+  }
+
+  /**
+   * Imposta il player ID per il salvataggio nel database
+   */
+  setPlayerId(playerId: number): void {
+    this.playerId = playerId;
   }
 
   /**
@@ -129,7 +138,38 @@ export class QuestManager {
     if (!quest) return false;
 
     const questCompleted = quest.updateObjective(objectiveId);
+
+    // Salva il progresso nel database
+    this.saveQuestProgressToDatabase(quest);
+
     return questCompleted;
+  }
+
+  /**
+   * Salva il progresso della quest nel database
+   */
+  private async saveQuestProgressToDatabase(quest: Quest): Promise<void> {
+    if (!this.playerId) {
+      console.warn('[QUEST_MANAGER] Cannot save quest progress: playerId not set');
+      return;
+    }
+
+    try {
+      const progress = {
+        objectives: quest.objectives,
+        is_completed: quest.isCompleted,
+        completed_at: quest.isCompleted ? new Date().toISOString() : null
+      };
+
+      const result = await gameAPI.updateQuestProgress(this.playerId, quest.id, progress);
+      if (result.error) {
+        console.error('[QUEST_MANAGER] Failed to save quest progress:', result.error);
+      } else {
+        console.log(`💾 [QUEST_MANAGER] Quest progress saved: ${quest.title}`);
+      }
+    } catch (error) {
+      console.error('[QUEST_MANAGER] Error saving quest progress:', error);
+    }
   }
 
   /**

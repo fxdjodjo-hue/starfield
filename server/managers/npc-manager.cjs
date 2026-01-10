@@ -216,9 +216,7 @@ class ServerNpcManager {
       logger.info('NPC', `Removed NPC ${npcId} (${npcType})`);
 
       // Pianifica automaticamente il respawn per mantenere la popolazione
-      logger.debug('NPC', `About to call scheduleRespawn for ${npcType}`);
       this.scheduleRespawn(npcType);
-      logger.debug('NPC', `scheduleRespawn called for ${npcType}`);
     }
 
     return existed;
@@ -280,7 +278,10 @@ class ServerNpcManager {
       inventory: { ...playerData.inventory },
       upgrades: { ...playerData.upgrades },
       source: `killed_${npcType}`,
-      rewardsEarned: rewards
+      rewardsEarned: {
+        ...rewards,
+        npcType: npcType
+      }
     };
 
     playerData.ws.send(JSON.stringify(message));
@@ -299,7 +300,6 @@ class ServerNpcManager {
     };
 
     this.respawnQueue.push(respawnEntry);
-    logger.debug('NPC', `Scheduled respawn for ${npcType} in ${respawnDelay/1000}s`);
   }
 
   /**

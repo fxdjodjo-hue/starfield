@@ -95,13 +95,11 @@ export class PlayerPositionTracker {
 
     // Debug: log entità trovate con più dettagli
     if (Date.now() - this.lastFallbackLog > 5000) {
-      console.log('[PlayerPositionTracker] Entities with Transform:', entitiesWithTransform.length);
       entitiesWithTransform.forEach(entity => {
         const hasNpc = this.ecs.hasComponent(entity, Npc);
         const hasVelocity = this.ecs.hasComponent(entity, Velocity);
         const transform = this.ecs.getComponent(entity, Transform);
         const velocity = this.ecs.getComponent(entity, Velocity);
-        console.log(`  Entity ${entity.id}: hasNpc=${hasNpc}, hasVelocity=${hasVelocity}, transform=`, transform, 'velocity=', velocity);
       });
       this.lastFallbackLog = Date.now();
     }

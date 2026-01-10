@@ -39,11 +39,9 @@ class ServerCombatManager {
     if (this.playerCombats.has(playerId)) {
       const existingCombat = this.playerCombats.get(playerId);
       if (existingCombat.npcId !== npcId) {
-        logger.debug('COMBAT', `Player ${playerId} switching from NPC ${existingCombat.npcId} to ${npcId}, stopping previous combat`);
         this.playerCombats.delete(playerId);
         // Non chiamare stopPlayerCombat qui per evitare loop
       } else {
-        logger.debug('COMBAT', `Player ${playerId} already attacking NPC ${npcId}, ignoring duplicate request`);
         return;
       }
     }
@@ -66,16 +64,12 @@ class ServerCombatManager {
       attackCooldown: attackCooldown,
       combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
-
-    logger.debug('COMBAT', `Started player combat: ${playerId} vs ${npcId} (cooldown: ${attackCooldown}ms)`);
   }
 
   /**
    * Ferma combattimento player
    */
   stopPlayerCombat(playerId) {
-    logger.debug('COMBAT', `Stopping player combat: ${playerId}`);
-
     if (this.playerCombats.has(playerId)) {
       this.playerCombats.delete(playerId);
     }
@@ -180,8 +174,6 @@ class ServerCombatManager {
     // Crea proiettile singolo (per semplicità, non dual laser per ora)
     const projectileId = `player_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const speed = SERVER_CONSTANTS.PROJECTILE.SPEED;
-
-    logger.debug('PROJECTILE', `Creating projectile ${projectileId} from (${playerPos.x.toFixed(0)}, ${playerPos.y.toFixed(0)}) to (${npc.position.x.toFixed(0)}, ${npc.position.y.toFixed(0)})`);
 
     const velocity = {
       x: directionX * speed,

@@ -337,14 +337,28 @@ export interface PlayerStateUpdateMessage {
 export interface WelcomeMessage {
   type: typeof MESSAGE_TYPES.WELCOME;
   clientId: ClientId;
-  playerId: string; // Player ID (potrebbe essere UUID o altro identificatore)
+  playerId: string; // Player ID (UUID dell'utente)
+  playerDbId?: number; // Player ID numerico per database
   initialState?: {
-    players: Array<{
+    // Dati essenziali (sempre inclusi)
+    position: { x: number; y: number; rotation: number };
+    health: number;
+    maxHealth: number;
+    shield: number;
+    maxShield: number;
+
+    // Flag per lazy loading
+    inventoryLazy?: boolean;
+    upgradesLazy?: boolean;
+    questsLazy?: boolean;
+
+    // Dati legacy (per compatibilità)
+    players?: Array<{
       id: ClientId;
       position: { x: number; y: number };
       nickname: string;
     }>;
-    npcs: Array<{
+    npcs?: Array<{
       id: NpcId;
       position: { x: number; y: number };
       type: string;

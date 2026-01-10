@@ -28,9 +28,10 @@ export class AuthScreen {
   private authContainer!: HTMLDivElement;
   private versionElement!: HTMLDivElement;
 
-  // Stati
-  private currentState: AuthState = AuthState.LOADING;
-  private isProcessing: boolean = false;
+    // Stati
+    private currentState: AuthState = AuthState.LOADING;
+    private isProcessing: boolean = false;
+    private justLoggedIn: boolean = false;
 
   constructor(context: GameContext) {
     this.context = context;
@@ -48,44 +49,22 @@ export class AuthScreen {
    */
   private async init(): Promise<void> {
     this.createUI();
-    await this.checkExistingSession();
+
+    // Se abbiamo appena fatto login, salta il controllo della sessione esistente
+    if (!this.justLoggedIn) {
+      await this.checkExistingSession();
+    } else {
+      this.setState(AuthState.VERIFIED);
+      this.notifyAuthenticated();
+    }
   }
 
   /**
-   * Controlla se esiste già una sessione valida
+   * Salta il controllo della sessione esistente - sempre mostra login form
    */
   private async checkExistingSession(): Promise<void> {
-    try {
-      this.setState(AuthState.LOADING);
-
-      const { data: { session }, error } = await supabase.auth.getSession();
-
-      if (error) {
-        console.warn('❌ [AuthScreen] Errore controllo sessione:', error.message);
-        this.setState(AuthState.LOGIN);
-        return;
-      }
-
-      if (session?.user) {
-        console.log('✅ [AuthScreen] Sessione esistente trovata:', session.user.email);
-
-        // Imposta ID e nickname nel context
-        this.context.localClientId = session.user.id;
-        this.context.playerNickname = session.user.user_metadata?.display_name ||
-                                     session.user.user_metadata?.username ||
-                                     'Player'; // Fallback
-        console.log('👤 [AuthScreen] Nickname impostato nel context (auto-login):', this.context.playerNickname);
-
-        this.setState(AuthState.VERIFIED);
-        this.notifyAuthenticated();
-      } else {
-        console.log('❌ [AuthScreen] Nessuna sessione valida - rilogin obbligatorio');
-        this.setState(AuthState.LOGIN);
-      }
-    } catch (error) {
-      console.error('❌ [AuthScreen] Errore controllo sessione:', error);
-      this.setState(AuthState.LOGIN);
-    }
+    console.log('ℹ️ [AuthScreen] Autologin disabled - showing login form');
+    this.setState(AuthState.LOGIN);
   }
 
   /**
@@ -716,12 +695,14 @@ export class AuthScreen {
       if (data.user) {
         console.log('✅ [AuthScreen] Login successful:', data.user.email);
 
+        // Segna che abbiamo appena fatto login per evitare controlli di sessione
+        this.justLoggedIn = true;
+
         // Imposta ID e nickname nel context
         this.context.localClientId = data.user.id;
         this.context.playerNickname = data.user.user_metadata?.display_name ||
                                      data.user.user_metadata?.username ||
                                      'Player'; // Fallback
-        console.log('👤 [AuthScreen] Nickname impostato nel context (login):', this.context.playerNickname);
 
         this.setState(AuthState.VERIFIED);
         this.notifyAuthenticated();
@@ -789,10 +770,68 @@ export class AuthScreen {
       if (data.user) {
         console.log('✅ [AuthScreen] Registration successful:', data.user.email);
 
+        // CREA PROFILO NEL DATABASE - OBBLIGATORIO, NON OPZIONALE
+        try {
+          const { data: profileData, error: profileError } = await import('../../lib/supabase').then(m => m.gameAPI.createPlayerProfile(nickname));
+
+          if (profileError) {
+            console.error('❌ [AuthScreen] CRITICAL: Failed to create player profile:', profileError);
+            this.showError('Account created but profile creation failed. Cannot proceed.');
+            return;
+          }
+
+          if (!profileData || !profileData.success) {
+            console.error('❌ [AuthScreen] CRITICAL: Profile creation returned error:', profileData?.error_message);
+            this.showError('Profile creation failed: ' + (profileData?.error_message || 'Unknown error'));
+            return;
+          }
+
+          console.log('✅ [AuthScreen] Player profile created successfully:', profileData);
+
+          // Verifica intelligente che il profilo sia disponibile (max 3 tentativi, backoff)
+          let profileVerified = false;
+          let attempts = 0;
+          const maxAttempts = 3;
+
+          while (!profileVerified && attempts < maxAttempts) {
+            attempts++;
+            try {
+              // Quick verification call - usa endpoint esistente
+              const response = await fetch('http://localhost:3000/api/player-data/' + data.user.id, {
+                headers: {
+                  'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+                }
+              });
+
+              if (response.ok) {
+                profileVerified = true;
+                console.log(`✅ [AuthScreen] Profile verified after ${attempts} attempt(s)`);
+              } else {
+                // Attesa progressiva: 100ms, 200ms, 300ms
+                await new Promise(resolve => setTimeout(resolve, attempts * 100));
+              }
+            } catch (error) {
+              console.warn(`⚠️ [AuthScreen] Profile check attempt ${attempts} failed:`, error);
+              await new Promise(resolve => setTimeout(resolve, attempts * 100));
+            }
+          }
+
+          if (!profileVerified) {
+            console.warn('⚠️ [AuthScreen] Profile verification timed out, proceeding anyway');
+          }
+
+        } catch (profileError) {
+          console.error('❌ [AuthScreen] CRITICAL: Exception during profile creation:', profileError);
+          this.showError('Critical error during profile creation. Cannot proceed.');
+          return;
+        }
+
+        // SOLO DOPO AVER CREATO IL PROFILO - permettiamo di giocare
+        this.justLoggedIn = true;
+
         // Imposta ID e nickname nel context
         this.context.localClientId = data.user.id;
         this.context.playerNickname = nickname; // Usiamo il nickname dal form
-        console.log('👤 [AuthScreen] Nickname impostato nel context (registrazione):', this.context.playerNickname);
 
         if (data.user.email_confirmed_at) {
           // Email già confermata automaticamente

@@ -39,15 +39,247 @@ const WebSocketConnectionManager = require('./server/core/websocket-manager.cjs'
 const PORT = process.env.PORT || 3000;
 const http = require('http');
 
-// Crea server HTTP
-const server = http.createServer((req, res) => {
+// Crea server HTTP con API endpoints sicuri
+const server = http.createServer(async (req, res) => {
+  // Health check
   if (req.url === '/health' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('OK');
-  } else {
-    res.writeHead(404, { 'Content-Type': 'text/plain' });
-    res.end('Not Found');
+    return;
   }
+
+  // API endpoints sicuri
+  if (req.url?.startsWith('/api/')) {
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') {
+      res.writeHead(200);
+      res.end();
+      return;
+    }
+
+    try {
+      // Parse URL
+      const url = new URL(req.url, `http://${req.headers.host}`);
+      const pathParts = url.pathname.split('/').filter(p => p);
+
+      // POST /api/create-profile - Crea profilo giocatore
+      if (pathParts[0] === 'api' && pathParts[1] === 'create-profile' && req.method === 'POST') {
+        console.log('📡 [API] Received create-profile request');
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+          try {
+            const { username } = JSON.parse(body);
+            console.log('📡 [API] Parsed request body:', { username });
+
+            // Verifica autenticazione
+            const authHeader = req.headers.authorization;
+            if (!authHeader?.startsWith('Bearer ')) {
+              res.writeHead(401, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Unauthorized' }));
+              return;
+            }
+
+            const token = authHeader.substring(7);
+
+            // Verifica token con Supabase
+            const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+            if (authError || !user) {
+              res.writeHead(401, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Invalid token' }));
+              return;
+            }
+
+            // Crea profilo usando RPC sicura
+            console.log('🔧 [API] Calling RPC create_player_profile:', { auth_id: user.id, username });
+            const { data, error } = await supabase.rpc('create_player_profile', {
+              auth_id_param: user.id,
+              username_param: username
+            });
+
+            console.log('🔧 [API] RPC response:', { data, error });
+
+            if (error) {
+              console.error('❌ [API] RPC error:', error);
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: error.message }));
+              return;
+            }
+
+            console.log('✅ [API] Profile created successfully:', data);
+            // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
+            const profileData = Array.isArray(data) && data.length > 0 ? data[0] : data;
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ data: profileData }));
+
+          } catch (error) {
+            console.error('❌ [API] Exception in create-profile:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+          }
+        });
+        return;
+      }
+
+      // GET /api/player-lazy-data/:authId - Ottieni dati lazy-loaded (inventory, upgrades, quests)
+      if (pathParts[0] === 'api' && pathParts[1] === 'player-lazy-data' && req.method === 'GET') {
+        const authId = pathParts[2];
+
+        if (!authId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid auth ID' }));
+          return;
+        }
+
+        // Verifica autenticazione
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
+
+        try {
+          console.log('📡 [API] Received lazy-data request for:', authId);
+
+          // Usa la RPC consolidata per ottenere SOLO i dati lazy
+          const { data, error } = await supabase.rpc('get_player_complete_data_secure', {
+            auth_id_param: authId
+          });
+
+          if (error) {
+            console.error('❌ [API] Lazy data RPC error:', error);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+            return;
+          }
+
+          // Estrai solo i dati lazy-loaded
+          const lazyData = Array.isArray(data) && data.length > 0 ? data[0] : data;
+
+          const response = {
+            inventory: lazyData.currencies_data ? JSON.parse(lazyData.currencies_data) : { credits: 1000, cosmos: 100, experience: 0, honor: 0, skill_points_current: 0, skill_points_total: 0 },
+            upgrades: lazyData.upgrades_data ? JSON.parse(lazyData.upgrades_data) : { hpUpgrades: 0, shieldUpgrades: 0, speedUpgrades: 0, damageUpgrades: 0 },
+            quests: lazyData.quests_data ? JSON.parse(lazyData.quests_data) : []
+          };
+
+          console.log('✅ [API] Lazy data retrieved successfully');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: response }));
+
+        } catch (error) {
+          console.error('❌ [API] Exception in lazy-data:', error);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+      }
+
+      // GET /api/player-data/:authId - Ottieni dati giocatore
+      if (pathParts[0] === 'api' && pathParts[1] === 'player-data' && req.method === 'GET') {
+        const authId = pathParts[2];
+
+        if (!authId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid auth ID' }));
+          return;
+        }
+
+        // Verifica autenticazione
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized' }));
+          return;
+        }
+
+        try {
+          // Usa RPC sicura per ottenere dati
+          const { data, error } = await supabase.rpc('get_player_data_secure', {
+            auth_id_param: authId
+          });
+
+          if (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+            return;
+          }
+
+          // Trasforma i dati JSONB in oggetti
+          const playerData = {
+            profile: data.profile_data ? JSON.parse(data.profile_data) : null,
+            stats: data.stats_data ? JSON.parse(data.stats_data) : null,
+            upgrades: data.upgrades_data ? JSON.parse(data.upgrades_data) : null,
+            currencies: data.currencies_data ? JSON.parse(data.currencies_data) : null,
+            quests: data.quests_data ? JSON.parse(data.quests_data) : []
+          };
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: playerData }));
+
+        } catch (error) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message }));
+        }
+        return;
+      }
+
+      // PUT /api/player-data/:authId - Salva dati giocatore
+      if (pathParts[0] === 'api' && pathParts[1] === 'player-data' && req.method === 'PUT') {
+        const authId = pathParts[2];
+
+        if (!authId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid auth ID' }));
+          return;
+        }
+
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+          try {
+            const playerData = JSON.parse(body);
+
+            // Usa RPC sicura per salvare dati
+            const { data, error } = await supabase.rpc('update_player_data_secure', {
+              auth_id_param: authId,
+              stats_data: playerData.stats ? JSON.stringify(playerData.stats) : null,
+              upgrades_data: playerData.upgrades ? JSON.stringify(playerData.upgrades) : null,
+              currencies_data: playerData.currencies ? JSON.stringify(playerData.currencies) : null,
+              quests_data: playerData.quests ? JSON.stringify(playerData.quests) : null
+            });
+
+            if (error) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: error.message }));
+              return;
+            }
+
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ data: { success: true } }));
+
+          } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+          }
+        });
+        return;
+      }
+
+    } catch (error) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal server error' }));
+      return;
+    }
+  }
+
+  // Default 404
+  res.writeHead(404, { 'Content-Type': 'text/plain' });
+  res.end('Not Found');
 });
 
 // Crea server WebSocket sullo stesso server HTTP

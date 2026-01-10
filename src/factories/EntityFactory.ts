@@ -141,7 +141,6 @@ export class EntityFactory {
     // Quest system
     this.ecs.addComponent(entity, ActiveQuest, new ActiveQuest());
 
-    console.log(`🏭 [EntityFactory] Created player entity ${entity.id}`);
     return entity;
   }
 

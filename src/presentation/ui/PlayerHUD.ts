@@ -4,6 +4,7 @@
  */
 export interface PlayerHUDData {
   level: number;
+  playerId: number;
   credits: number;
   cosmos: number;
   experience: number;
@@ -56,6 +57,7 @@ export class PlayerHUD {
         <div class="level-circle">
           <span class="level-number">1</span>
         </div>
+        <div class="player-id">ID: 0</div>
       </div>
 
       <div class="stats-row">
@@ -110,7 +112,9 @@ export class PlayerHUD {
       /* Indicatore livello circolare */
       .level-indicator {
         display: flex;
+        flex-direction: column;
         align-items: center;
+        gap: 4px;
       }
 
       .level-circle {
@@ -136,6 +140,18 @@ export class PlayerHUD {
         -webkit-user-select: none;
         -moz-user-select: none;
         -ms-user-select: none;
+      }
+
+      .player-id {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 10px;
+        font-weight: 500;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        letter-spacing: 0.5px;
       }
 
 
@@ -200,6 +216,10 @@ export class PlayerHUD {
 
         .level-number {
           font-size: 15px;
+        }
+
+        .player-id {
+          font-size: 9px;
         }
 
 
@@ -268,6 +288,12 @@ export class PlayerHUD {
     const levelElement = this.container.querySelector('.level-number') as HTMLElement;
     if (levelElement) {
       levelElement.textContent = data.level.toString();
+    }
+
+    // Aggiorna ID giocatore
+    const playerIdElement = this.container.querySelector('.player-id') as HTMLElement;
+    if (playerIdElement) {
+      playerIdElement.textContent = `ID: ${data.playerId}`;
     }
 
     // Aggiorna risorse - usa gli indici di posizione dato che non abbiamo data-stat

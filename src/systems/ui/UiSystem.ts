@@ -41,6 +41,9 @@ export class UiSystem extends System {
   // Gestione nickname remote player (da PlayState)
   private remotePlayerNicknameElements: Map<string, HTMLElement> = new Map();
 
+  // Player ID per l'HUD
+  private playerId: number | null = null;
+
   constructor(ecs: ECS, questSystem: QuestSystem, context?: any, playerSystem?: PlayerSystem) {
     super(ecs);
     this.ecs = ecs;
@@ -58,6 +61,13 @@ export class UiSystem extends System {
    */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
+  }
+
+  /**
+   * Imposta l'ID del player per l'HUD
+   */
+  setPlayerId(playerId: number): void {
+    this.playerId = playerId;
   }
 
   /**
@@ -232,8 +242,6 @@ export class UiSystem extends System {
     if (this.skillsPanel) {
       this.skillsPanel.setClientNetworkSystem(clientNetworkSystem);
     }
-
-    console.log('💬 [UI] Chat system connected to network');
   }
 
   /**
@@ -324,6 +332,7 @@ export class UiSystem extends System {
       // Prepara i dati per l'HUD
       const hudData = {
         level: economyData.level,
+        playerId: this.playerId || 0,
         credits: economyData.credits,
         cosmos: economyData.cosmos,
         experience: economyData.experience,
@@ -338,6 +347,7 @@ export class UiSystem extends System {
       // Mostra comunque l'HUD con valori di default
       const defaultData = {
         level: 1,
+        playerId: this.playerId || 0,
         credits: 0,
         cosmos: 0,
         experience: 0,

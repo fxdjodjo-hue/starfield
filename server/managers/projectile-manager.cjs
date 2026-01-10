@@ -30,10 +30,6 @@ class ServerProjectileManager {
 
     this.projectiles.set(projectileId, projectile);
 
-    if (playerId.startsWith('npc_')) {
-      logger.debug('PROJECTILE', `Projectile ${projectileId} added for player ${playerId}`);
-    }
-
     // Broadcast ai client - escludi il mittente solo se richiesto
     const excludeClientId = excludeSender ? playerId : null;
     this.broadcastProjectileFired(projectile, excludeClientId);
@@ -109,8 +105,6 @@ class ServerProjectileManager {
             if (playerDead) {
               logger.info('COMBAT', `Player ${targetHit.entity.clientId} killed by ${projectile.playerId}`);
             }
-
-            logger.debug('PROJECTILE', `Projectile ${projectileId} hit intended player target ${targetHit.entity.clientId}`);
           }
 
           projectilesToRemove.push(projectileId);

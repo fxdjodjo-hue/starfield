@@ -124,9 +124,11 @@ export class GameInitializationSystem extends System {
       if (this.systemsCache?.economySystem) {
         this.clientNetworkSystem.setEconomySystem(this.systemsCache.economySystem);
       }
-      if (this.systemsCache?.questTrackingSystem) {
-        this.systemsCache.questTrackingSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
+      if (this.systemsCache?.rewardSystem) {
+        this.clientNetworkSystem.setRewardSystem(this.systemsCache.rewardSystem);
       }
+      // Rimosso: this.systemsCache.questTrackingSystem.setPlayerEntity(null);
+      // Ora il playerEntity viene impostato correttamente in setPlayerEntityInSystems
     }
   }
 
@@ -361,7 +363,8 @@ export class GameInitializationSystem extends System {
     rewardSystem.setQuestTrackingSystem(questTrackingSystem);
     questTrackingSystem.setEconomySystem(economySystem);
     questTrackingSystem.setLogSystem(logSystem);
-    questTrackingSystem.setPlayerEntity(null); // Sarà impostato dopo creazione player
+    // Rimosso: questTrackingSystem.setPlayerEntity(null);
+    // Ora il playerEntity viene impostato correttamente in setPlayerEntityInSystems
 
     // Configura callbacks per minimappa
     minimapSystem.setMoveToCallback((worldX: number, worldY: number) => {
@@ -457,6 +460,7 @@ export class GameInitializationSystem extends System {
     // Nota: Gli NPC ora vengono creati e gestiti dal server
     // Non creiamo più NPC locali per garantire consistenza multiplayer
 
+    console.log(`🏗️ [CREATE_ENTITIES] Returning playerEntity:`, !!playerEntity, 'entity:', playerEntity?.id);
     return playerEntity;
   }
 
@@ -464,6 +468,8 @@ export class GameInitializationSystem extends System {
    * Imposta il riferimento al player in tutti i sistemi che ne hanno bisogno
    */
   private setPlayerEntityInSystems(playerEntity: any, systems: any): void {
+    console.log(`🔧 [SET_ENTITIES] setPlayerEntityInSystems called with playerEntity:`, !!playerEntity, 'entity:', playerEntity?.id);
+
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
       boundsSystem, questTrackingSystem, playerStatusDisplaySystem,

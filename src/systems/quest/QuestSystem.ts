@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { QuestManager } from './QuestManager';
 import { QuestPanel } from '../../presentation/ui/QuestPanel';
+import { gameAPI } from '../../lib/supabase';
 
 /**
  * Sistema di orchestrazione per la gestione delle quest

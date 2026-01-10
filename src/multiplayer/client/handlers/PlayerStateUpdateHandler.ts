@@ -91,6 +91,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       if (playerHUD) {
         playerHUD.updateData({
           level: 1, // Per ora fisso, possiamo implementare calcolo livello dopo
+          playerId: networkSystem.gameContext.localClientId || 0,
           credits: inventory.credits,
           cosmos: inventory.cosmos,
           experience: inventory.experience,
@@ -113,6 +114,18 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
     // Mostra notifica delle ricompense guadagnate (se presente)
     if (rewardsEarned) {
+      // Chiama il RewardSystem per assegnare le ricompense e aggiornare le quest
+      const rewardSystem = networkSystem.getRewardSystem();
+      if (rewardSystem && rewardsEarned.npcType) {
+        console.log(`🎯 [REWARDS] Assegnando ricompense dal server per ${rewardsEarned.npcType}`);
+        rewardSystem.assignRewardsFromServer({
+          credits: rewardsEarned.credits,
+          cosmos: rewardsEarned.cosmos,
+          experience: rewardsEarned.experience,
+          honor: rewardsEarned.honor
+        }, rewardsEarned.npcType);
+      }
+
       const logSystem = networkSystem.getLogSystem();
       if (logSystem) {
         logSystem.logReward(

@@ -58,6 +58,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private logSystem: any = null;
   private uiSystem: any = null;
   private economySystem: any = null;
+  private rewardSystem: any = null;
 
   // Network components
   private readonly connectionManager: ConnectionManager;
@@ -69,6 +70,9 @@ export class ClientNetworkSystem extends BaseSystem {
 
   // Player info
   private playerId?: number;
+
+  // Callbacks for external systems
+  private onPlayerIdReceived?: (playerId: number) => void;
 
   // Position sync state
   private lastSentPosition: { x: number; y: number } | null = null;
@@ -246,6 +250,7 @@ export class ClientNetworkSystem extends BaseSystem {
    * Handles successful connection establishment
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
+    console.log('🔌 [CLIENT] WebSocket connected successfully!');
     this.socket = socket;
 
     // Reset tick manager timing on (re)connection
@@ -277,7 +282,13 @@ export class ClientNetworkSystem extends BaseSystem {
     // Send join message with player info
     const currentPosition = this.getLocalPlayerPosition();
     const nicknameToSend = this.gameContext.playerNickname || 'Player';
-    console.log('🚀 [CLIENT] Sending JOIN message with nickname:', nicknameToSend);
+
+    console.log('🚀 [CLIENT] Sending join message:', {
+      clientId: this.clientId,
+      nickname: nicknameToSend,
+      userId: this.gameContext.localClientId,
+      position: currentPosition
+    });
 
     this.sendMessage({
       type: MESSAGE_TYPES.JOIN,
@@ -511,17 +522,10 @@ export class ClientNetworkSystem extends BaseSystem {
   private sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
     if (!this.socket) return;
 
-    // Debug: log posizione ricevuta dal PositionTracker
-    console.log('[CLIENT] PositionTracker returned:', position);
-
     // IMPORTANTE: Non mandare position updates finché il server non ha confermato il join
     if (!this.hasReceivedWelcome) {
       // Accumula la posizione per quando il server sarà pronto
       this.pendingPosition = position;
-      if (Date.now() - this.lastInvalidPositionLog > 10000) {
-        console.log('[CLIENT] Waiting for welcome message before sending position updates');
-        this.lastInvalidPositionLog = Date.now();
-      }
       return;
     }
 
@@ -534,9 +538,6 @@ export class ClientNetworkSystem extends BaseSystem {
       // Usa posizione di fallback invece di scartare
       position = { x: 0, y: 0, rotation: 0 };
     }
-
-    // Debug: log posizioni inviate
-    console.log('[CLIENT] Sending position to server:', position);
 
     this.sendMessage({
       type: MESSAGE_TYPES.POSITION_UPDATE,
@@ -570,11 +571,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends a message to the server
    */
   private sendMessage(message: NetMessage): void {
-    // DEBUG: Log position_update sends
-    if (message.type === 'position_update') {
-      console.log('[ClientNetworkSystem] 🔄 POSITION_UPDATE sending to server:', message.position);
-    }
-
     this.connectionManager.send(JSON.stringify(message));
   }
 
@@ -638,7 +634,6 @@ export class ClientNetworkSystem extends BaseSystem {
     );
 
     if (combatSystem) {
-      console.log(`🛑 [CLIENT] Stopping combat due to server stop_combat message`);
       combatSystem.stopCombatImmediately();
 
       // Also deactivate attack in PlayerControlSystem to prevent auto-attack on next NPC click
@@ -647,7 +642,6 @@ export class ClientNetworkSystem extends BaseSystem {
       );
 
       if (playerControlSystem) {
-        console.log(`🛑 [CLIENT] Deactivating attack after combat end`);
         playerControlSystem.deactivateAttack();
       }
     } else {
@@ -761,8 +755,6 @@ export class ClientNetworkSystem extends BaseSystem {
       playerId: data.playerId
     };
 
-    console.log('🚀 [CLIENT] Sending START_COMBAT:', message);
-
     this.sendMessage(message);
   }
 
@@ -823,14 +815,11 @@ export class ClientNetworkSystem extends BaseSystem {
     speedUpgrades: number;
     damageUpgrades: number;
   }): void {
-    console.log('📤 [CLIENT] sendPlayerUpgrades called with:', upgrades);
     if (!this.socket || !this.isConnected) {
-      console.log('❌ [CLIENT] Cannot send upgrades - no socket or not connected');
       return;
     }
 
     const localClientId = this.getLocalClientId();
-    console.log('🔍 [CLIENT] Local client ID:', localClientId);
 
     const message = {
       type: 'player_upgrades_update',
@@ -838,7 +827,6 @@ export class ClientNetworkSystem extends BaseSystem {
       upgrades: upgrades
     };
 
-    console.log('✅ [CLIENT] Sending upgrades message to server:', message);
     this.sendMessage(message);
   }
 
@@ -984,5 +972,26 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getEconomySystem(): any {
     return this.economySystem;
+  }
+
+  /**
+   * Imposta il riferimento al RewardSystem per assegnare ricompense
+   */
+  setRewardSystem(rewardSystem: any): void {
+    this.rewardSystem = rewardSystem;
+  }
+
+  /**
+   * Ottiene il riferimento al RewardSystem
+   */
+  getRewardSystem(): any {
+    return this.rewardSystem;
+  }
+
+  /**
+   * Imposta callback per quando viene ricevuto il player ID
+   */
+  setOnPlayerIdReceived(callback: (playerId: number) => void): void {
+    this.onPlayerIdReceived = callback;
   }
 }

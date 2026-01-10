@@ -23,12 +23,8 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
 
     if (message.entityType === 'npc') {
-      // NPC distrutto - assegna ricompense se presenti
-      if (message.rewards && this.rewardSystem) {
-        // Converti l'entityId NPC (es. "npc_6") nel tipo NPC (es. "Scouter")
-        const npcType = this.extractNpcTypeFromId(message.entityId);
-        this.rewardSystem.assignRewardsFromServer(message.rewards, npcType);
-      }
+      // NPC distrutto - NON assegnare ricompense qui (fatto in PlayerStateUpdateHandler)
+      // Le ricompense vengono assegnate tramite player_state_update per evitare duplicazioni
 
       // Rimuovi l'NPC dal sistema remoto
       const remoteNpcSystem = networkSystem.getRemoteNpcSystem();

@@ -24,23 +24,23 @@ export type Database = {
     Tables: {
       user_profiles: {
         Row: {
-          id: string
+          auth_id: string
           username: string
-          display_name: string | null
+          player_id: number
           created_at: string
           updated_at: string
         }
         Insert: {
-          id: string
+          auth_id: string
           username: string
-          display_name?: string | null
+          player_id: number
           created_at?: string
           updated_at?: string
         }
         Update: {
-          id?: string
+          auth_id?: string
           username?: string
-          display_name?: string | null
+          player_id?: number
           created_at?: string
           updated_at?: string
         }
@@ -217,229 +217,82 @@ export const auth = {
   }
 }
 
-// Game data helpers - Simplified for single-player data only
+// MMO SECURE API - Client communicates with server only
+// NO direct database access - everything goes through secure server endpoints
 export const gameAPI = {
-  // Get all player data at once (for loading game)
-  getPlayerData: async (playerId: number) => {
+  // Create player profile after Supabase registration (calls server API)
+  createPlayerProfile: async (username: string) => {
     try {
-      const [profile, stats, upgrades, currencies, quests] = await Promise.all([
-        supabase.from('user_profiles').select('*').eq('player_id', playerId).maybeSingle(),
-        supabase.from('player_stats').select('*').eq('player_id', playerId).maybeSingle(),
-        supabase.from('player_upgrades').select('*').eq('player_id', playerId).maybeSingle(),
-        supabase.from('player_currencies').select('*').eq('player_id', playerId).maybeSingle(),
-        supabase.from('quest_progress').select('*').eq('player_id', playerId)
-      ]);
-
-      // Gestisci il caso in cui alcuni dati potrebbero non esistere (nuovo utente)
-      const hasErrors = profile.error || stats.error || upgrades.error || currencies.error || quests.error;
-      const hasData = profile.data || stats.data || upgrades.data || currencies.data || (quests.data && quests.data.length > 0);
-
-      if (hasErrors && !hasData) {
-        // Se ci sono errori E nessun dato, allora è un errore vero
-        return {
-          data: null,
-          error: profile.error || stats.error || upgrades.error || currencies.error || quests.error
-        };
+      // Get current user from Supabase auth
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return { data: null, error: authError || new Error('No authenticated user') };
       }
 
-      // Se il profilo esiste ma mancano alcuni dati, creali al volo per utenti esistenti
-      let finalData = {
-        profile: profile.data || null,
-        stats: stats.data || null,
-        upgrades: upgrades.data || null,
-        currencies: currencies.data || null,
-        quests: quests.data || []
-      };
+      // Call server endpoint to create profile (server will use secure RPC)
+      const response = await fetch('http://localhost:3000/api/create-profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({ username })
+      });
 
-      if (profile.data && (!stats.data || !upgrades.data || !currencies.data)) {
-        const missingDataPromises = [];
-
-        if (!stats.data) {
-          missingDataPromises.push(
-            supabase.from('player_stats').insert({
-              player_id: playerId,
-              kills: 0,
-              deaths: 0,
-              missions_completed: 0,
-              play_time: 0
-            })
-          );
-        }
-
-        if (!upgrades.data) {
-          missingDataPromises.push(
-            supabase.from('player_upgrades').insert({
-              player_id: playerId,
-              hp_upgrades: 0,
-              shield_upgrades: 0,
-              speed_upgrades: 0,
-              damage_upgrades: 0
-            })
-          );
-        }
-
-        if (!currencies.data) {
-          missingDataPromises.push(
-            supabase.from('player_currencies').insert({
-              player_id: playerId,
-              credits: 1000,
-              cosmos: 100,
-              experience: 0,
-              honor: 0,
-              skill_points_current: 0,
-              skill_points_total: 0
-            })
-          );
-        }
-
-        if (missingDataPromises.length > 0) {
-          await Promise.all(missingDataPromises);
-
-          // Ricarica tutti i dati dopo aver creato quelli mancanti
-          const [newProfile, newStats, newUpgrades, newCurrencies, newQuests] = await Promise.all([
-            supabase.from('user_profiles').select('*').eq('player_id', playerId).maybeSingle(),
-            supabase.from('player_stats').select('*').eq('player_id', playerId).maybeSingle(),
-            supabase.from('player_upgrades').select('*').eq('player_id', playerId).maybeSingle(),
-            supabase.from('player_currencies').select('*').eq('player_id', playerId).maybeSingle(),
-            supabase.from('quest_progress').select('*').eq('player_id', playerId)
-          ]);
-
-          finalData = {
-            profile: newProfile.data || profile.data,
-            stats: newStats.data || stats.data,
-            upgrades: newUpgrades.data || upgrades.data,
-            currencies: newCurrencies.data || currencies.data,
-            quests: newQuests.data || quests.data || []
-          };
-        }
-      }
-
-      return {
-        data: finalData,
-        error: null
-      };
+      const result = await response.json();
+      return result;
     } catch (error) {
       return { data: null, error };
     }
   },
 
-  // Save all player data at once (for saving game)
-  savePlayerData: async (playerId: number, playerData: any) => {
+  // Get player data through server (no direct DB access)
+  getPlayerData: async () => {
     try {
-      const updates = [];
-
-      // Update stats
-      if (playerData.stats) {
-        updates.push(
-          supabase.from('player_stats').upsert({
-            player_id: playerId,
-            ...playerData.stats,
-            updated_at: new Date().toISOString()
-          })
-        );
+      // Get current user auth_id
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return { data: null, error: authError || new Error('No authenticated user') };
       }
 
-      // Update upgrades
-      if (playerData.upgrades) {
-        updates.push(
-          supabase.from('player_upgrades').upsert({
-            player_id: playerId,
-            ...playerData.upgrades,
-            updated_at: new Date().toISOString()
-          })
-        );
-      }
+      // Request data through secure server API using auth_id
+      const response = await fetch(`http://localhost:3000/api/player-data/${user.id}`, {
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
 
-      // Update currencies
-      if (playerData.currencies) {
-        updates.push(
-          supabase.from('player_currencies').upsert({
-            player_id: playerId,
-            ...playerData.currencies,
-            updated_at: new Date().toISOString()
-          })
-        );
-      }
-
-      // Update quest progress
-      if (playerData.quests) {
-        const questUpdates = playerData.quests.map((quest: any) =>
-          supabase.from('quest_progress').upsert({
-            player_id: playerId,
-            quest_id: quest.quest_id,
-            objectives: quest.objectives,
-            is_completed: quest.is_completed,
-            completed_at: quest.completed_at
-          })
-        );
-        updates.push(...questUpdates);
-      }
-
-      const results = await Promise.all(updates);
-      const errors = results.filter(result => result.error);
-
-      return {
-        data: results.filter(result => result.data),
-        error: errors.length > 0 ? errors[0].error : null
-      };
+      const result = await response.json();
+      return result;
     } catch (error) {
       return { data: null, error };
     }
   },
 
-  // Individual table operations (for specific updates)
-  updatePlayerStats: async (playerId: number, stats: any) => {
-    const { data, error } = await supabase
-      .from('player_stats')
-      .upsert({
-        player_id: playerId,
-        ...stats,
-        updated_at: new Date().toISOString()
-      });
-    return { data, error };
-  },
+  // Save player data through server (no direct DB access)
+  savePlayerData: async (playerData: any) => {
+    try {
+      // Get current user auth_id
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        return { data: null, error: authError || new Error('No authenticated user') };
+      }
 
-  updatePlayerUpgrades: async (playerId: number, upgrades: any) => {
-    const { data, error } = await supabase
-      .from('player_upgrades')
-      .upsert({
-        player_id: playerId,
-        ...upgrades,
-        updated_at: new Date().toISOString()
+      // Send data through secure server API using auth_id
+      const response = await fetch(`http://localhost:3000/api/player-data/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify(playerData)
       });
-    return { data, error };
-  },
 
-  updatePlayerCurrencies: async (playerId: number, currencies: any) => {
-    const { data, error } = await supabase
-      .from('player_currencies')
-      .upsert({
-        player_id: playerId,
-        ...currencies,
-        updated_at: new Date().toISOString()
-      });
-    return { data, error };
-  },
-
-  updateQuestProgress: async (playerId: number, questId: string, progress: any) => {
-    const { data, error } = await supabase
-      .from('quest_progress')
-      .upsert({
-        player_id: playerId,
-        quest_id: questId,
-        objectives: progress.objectives,
-        is_completed: progress.is_completed,
-        completed_at: progress.completed_at
-      });
-    return { data, error };
-  },
-
-  getQuestProgress: async (playerId: number) => {
-    const { data, error } = await supabase
-      .from('quest_progress')
-      .select('*')
-      .eq('player_id', playerId);
-    return { data, error };
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      return { data: null, error };
+    }
   }
 }
 
