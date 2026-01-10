@@ -35,15 +35,23 @@ export class PlayerSystem extends System {
         rotation: 0,
         sprite: playerSprite
       },
-      progression: serverAuthoritative ? undefined : {
-        // Inizializza con valori locali solo se non server authoritative
-        skillPoints: playerDef.startingResources.skillPoints,
-        credits: playerDef.startingResources.credits,
-        cosmos: playerDef.startingResources.cosmos,
-        experience: playerDef.startingResources.experience,
-        honor: playerDef.startingResources.honor
+      progression: {
+        // Inizializza sempre i componenti ECS con valori di default
+        // Verranno sovrascritti dal server quando arrivano i dati
+        skillPoints: 0,
+        credits: 0,
+        cosmos: 0,
+        experience: 0,
+        honor: 0
       },
-      serverAuthoritative
+      upgrades: {
+        // Inizializza sempre gli upgrades ECS con valori di default
+        // Verranno sovrascritti dal server quando arrivano i dati
+        hpUpgrades: 0,
+        shieldUpgrades: 0,
+        speedUpgrades: 0,
+        damageUpgrades: 0
+      }
     });
 
     this.playerEntity = entity;

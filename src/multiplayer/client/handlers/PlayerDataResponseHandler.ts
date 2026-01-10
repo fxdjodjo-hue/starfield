@@ -64,9 +64,7 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
         if (skillPointsComponent) {
           // Inizializza i punti abilità ricevuti dal server
           skillPointsComponent.setPoints(message.inventory.skillPoints || 0);
-          console.log('🎯 [SKILLPOINTS] Initialized ECS SkillPoints component:', message.inventory.skillPoints);
-        } else {
-          console.log('⚠️ [SKILLPOINTS] ECS SkillPoints component not found, will be initialized later');
+          console.log(`🎯 [INIT] Initialized ECS SkillPoints component: ${message.inventory.skillPoints || 0}`);
         }
       }
     }

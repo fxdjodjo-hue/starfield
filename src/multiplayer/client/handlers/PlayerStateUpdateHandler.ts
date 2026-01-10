@@ -33,20 +33,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       console.log('📊 [GAMECONTEXT] Inventory aggiornato:', networkSystem.gameContext.playerInventory);
     }
 
-    // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
-    if (networkSystem.gameContext) {
-      // Aggiorna inventory nel GameContext
-      networkSystem.gameContext.playerInventory = {
-        credits: inventory.credits,
-        cosmos: inventory.cosmos,
-        experience: inventory.experience,
-        honor: inventory.honor,
-        skillPoints: inventory.skillPoints,
-        skill_points_total: inventory.skillPoints // compatibilità
-      };
-      console.log('📊 [GAMECONTEXT] Inventory aggiornato:', networkSystem.gameContext.playerInventory);
-    }
-
     // AGGIORNA IL COMPONENTE ECS SKILLPOINTS (necessario per SkillsPanel)
     if (networkSystem.getPlayerSystem()) {
       const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
@@ -55,7 +41,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         if (skillPointsComponent) {
           // Imposta direttamente i punti abilità ricevuti dal server
           skillPointsComponent.setPoints(inventory.skillPoints);
-          console.log('🎯 [SKILLPOINTS] Aggiornati skill points ECS component:', inventory.skillPoints);
+          console.log(`🎯 [SKILLPOINTS] Updated ECS component to ${inventory.skillPoints}`);
         }
       }
     }
