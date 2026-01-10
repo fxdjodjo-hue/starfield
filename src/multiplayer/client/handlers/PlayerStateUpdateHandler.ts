@@ -27,38 +27,33 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         cosmos: inventory.cosmos,
         experience: inventory.experience,
         honor: inventory.honor,
-        skillPoints: inventory.skillPoints,
-        skill_points_total: inventory.skillPoints // compatibilità
+        skillPoints: inventory.skillPoints
       };
-      console.log('📊 [GAMECONTEXT] Inventory aggiornato:', networkSystem.gameContext.playerInventory);
     }
 
-    // AGGIORNA IL COMPONENTE ECS SKILLPOINTS (necessario per SkillsPanel)
-    if (networkSystem.getPlayerSystem()) {
-      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
-      if (playerEntity) {
-        const skillPointsComponent = networkSystem.getECS().getComponent(playerEntity, SkillPoints);
-        if (skillPointsComponent) {
-          // Imposta direttamente i punti abilità ricevuti dal server
-          skillPointsComponent.setPoints(inventory.skillPoints);
-          console.log(`🎯 [SKILLPOINTS] Updated ECS component to ${inventory.skillPoints}`);
-        }
-      }
-    }
-
-    // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (non somme locali)
+    // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (server authoritative)
     const economySystem = networkSystem.getEconomySystem();
-    if (economySystem) {
-      console.log('💰 [ECONOMY] Applicando stato completo dal server');
-
+    if (economySystem && inventory) {
       // Imposta direttamente i valori dal server (server authoritative)
       economySystem.setCredits(inventory.credits, 'server_update');
       economySystem.setCosmos(inventory.cosmos, 'server_update');
       economySystem.setExperience(inventory.experience, 'server_update');
       economySystem.setHonor(inventory.honor, 'server_update');
       economySystem.setSkillPoints(inventory.skillPoints, 'server_update');
+    }
 
-      console.log('✅ [ECONOMY] Stato EconomySystem sincronizzato con server');
+    // AGGIORNA IL COMPONENTE ECS SKILLPOINTS (dopo EconomySystem per coerenza)
+    const playerSystem = networkSystem.getPlayerSystem();
+    const ecs = networkSystem.getECS();
+    if (playerSystem && ecs) {
+      const playerEntity = playerSystem.getPlayerEntity();
+      if (playerEntity) {
+        const skillPointsComponent = ecs.getComponent(playerEntity, SkillPoints);
+        if (skillPointsComponent) {
+          // Imposta direttamente i punti abilità ricevuti dal server
+          skillPointsComponent.setPoints(inventory.skillPoints);
+        }
+      }
     }
 
     // SINCRONIZZA GLI UPGRADE DEL PLAYER (Server Authoritative)
@@ -66,9 +61,10 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       const playerSystem = networkSystem.getPlayerSystem();
       if (playerSystem) {
         const playerEntity = playerSystem.getPlayerEntity();
-        if (playerEntity) {
+        if (playerEntity && networkSystem.getECS()) {
           // Ottieni il componente PlayerUpgrades
-          const playerUpgrades = networkSystem.getECS().getComponent(playerEntity, PlayerUpgrades);
+          const ecs = networkSystem.getECS();
+          const playerUpgrades = ecs?.getComponent(playerEntity, PlayerUpgrades);
 
           if (playerUpgrades) {
             playerUpgrades.setUpgrades(upgrades.hpUpgrades, upgrades.shieldUpgrades, upgrades.speedUpgrades, upgrades.damageUpgrades);
@@ -84,8 +80,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
             if (playerEntity) {
 
             // Aggiorna Health component
-            if (typeof health === 'number' && typeof maxHealth === 'number') {
-              const healthComponent = networkSystem.getECS().getComponent(playerEntity, Health);
+            if (typeof health === 'number' && typeof maxHealth === 'number' && ecs) {
+              const healthComponent = ecs.getComponent(playerEntity, Health);
               if (healthComponent) {
                 healthComponent.current = health;
                 healthComponent.max = maxHealth;
@@ -93,8 +89,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
             }
 
             // Aggiorna Shield component
-            if (typeof shield === 'number' && typeof maxShield === 'number') {
-              const shieldComponent = networkSystem.getECS().getComponent(playerEntity, Shield);
+            if (typeof shield === 'number' && typeof maxShield === 'number' && ecs) {
+              const shieldComponent = ecs.getComponent(playerEntity, Shield);
               if (shieldComponent) {
                 shieldComponent.current = shield;
                 shieldComponent.max = maxShield;
@@ -102,12 +98,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
             }
             }
           }, 100); // Ritardo di 100ms per permettere l'inizializzazione
-        } else {
-          console.log('❌ [PLAYER_STATE] PlayerUpgrades component non trovato');
-          console.log('🔍 [PLAYER_STATE] Player entity:', playerEntity.id);
-          // Debug: lista tutti i componenti disponibili
-          const ecs = networkSystem.getECS();
-          console.log('🔍 [PLAYER_STATE] ECS components disponibili:', Object.keys(ecs.components || {}));
         }
       }
     }
@@ -120,10 +110,9 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       // Chiama il RewardSystem per assegnare le ricompense e aggiornare le quest
       const rewardSystem = networkSystem.getRewardSystem();
       if (rewardSystem && rewardsEarned.npcType) {
-        console.log(`🎯 [REWARDS] Assegnando ricompense dal server per ${rewardsEarned.npcType}`);
         rewardSystem.assignRewardsFromServer({
           credits: rewardsEarned.credits,
-          cosmos: rewardsEarned.cosmos,
+          cosmos: rewardsEarned.cosmos || 0,
           experience: rewardsEarned.experience,
           honor: rewardsEarned.honor
         }, rewardsEarned.npcType);
@@ -133,41 +122,33 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       if (logSystem) {
         logSystem.logReward(
           rewardsEarned.credits,
-          rewardsEarned.cosmos,
+          rewardsEarned.cosmos || 0,
           rewardsEarned.experience,
           rewardsEarned.honor,
           rewardsEarned.skillPoints || 0
         );
       }
-
-      console.log(`🎁 Ricompense guadagnate! ${rewardsEarned.credits} credits, ${rewardsEarned.cosmos} cosmos, ${rewardsEarned.experience} XP, ${rewardsEarned.honor} honor, ${rewardsEarned.skillPoints} skillPoints`);
     }
-
-    console.log(`📊 Nuovo stato inventario: ${inventory.credits} credits, ${inventory.cosmos} cosmos, ${inventory.experience} XP, ${inventory.honor} honor, ${inventory.skillPoints} skillPoints`);
 
     // 🔄 AGGIORNA L'HUD IN TEMPO REALE DOPO TUTTI GLI AGGIORNAMENTI
     if (uiSystem) {
       // L'UiSystem aggiornerà automaticamente l'HUD tramite i suoi meccanismi interni
-      console.log('✅ [UI] UiSystem notified of player state update');
 
       // Aggiorna anche il pannello Skills per riflettere i valori reali
       const skillsPanel = uiSystem.getSkillsPanel();
       if (skillsPanel) {
-        // Assicurati che abbia tutti i riferimenti necessari
-        if (!skillsPanel['playerSystem'] && networkSystem.getPlayerSystem()) {
-          skillsPanel.setPlayerSystem(networkSystem.getPlayerSystem()!);
+        // Assicurati che abbia il riferimento al PlayerSystem
+        const playerSystem = networkSystem.getPlayerSystem();
+        if (playerSystem) {
+          skillsPanel.setPlayerSystem(playerSystem);
         }
         skillsPanel.updatePlayerStats();
-        console.log('✅ [SKILLS] SkillsPanel aggiornato con valori server authoritative');
-      } else {
-        console.log('⚠️ [SKILLS] SkillsPanel not available yet, will be updated on next panel open');
       }
 
       // Aggiorna l'HUD in tempo reale
       setTimeout(() => {
         uiSystem.showPlayerInfo();
-        console.log('✅ [HUD] HUD aggiornato in tempo reale dopo player state update');
-      }, 100); // Delay per permettere all'EconomySystem di aggiornarsi
+      }, 50); // Delay ridotto per permettere all'EconomySystem di aggiornarsi
     }
   }
 }

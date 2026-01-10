@@ -63,7 +63,6 @@ export class AuthScreen {
    * Salta il controllo della sessione esistente - sempre mostra login form
    */
   private async checkExistingSession(): Promise<void> {
-    console.log('ℹ️ [AuthScreen] Autologin disabled - showing login form');
     this.setState(AuthState.LOGIN);
   }
 
@@ -693,8 +692,6 @@ export class AuthScreen {
       }
 
       if (data.user) {
-        console.log('✅ [AuthScreen] Login successful:', data.user.email);
-
         // Segna che abbiamo appena fatto login per evitare controlli di sessione
         this.justLoggedIn = true;
 
@@ -769,8 +766,6 @@ export class AuthScreen {
       }
 
       if (data.user) {
-        console.log('✅ [AuthScreen] Registration successful:', data.user.email);
-
         // CREA PROFILO NEL DATABASE - OBBLIGATORIO, NON OPZIONALE
         try {
           const { data: profileData, error: profileError } = await import('../../lib/supabase').then(m => m.gameAPI.createPlayerProfile(nickname));
@@ -786,8 +781,6 @@ export class AuthScreen {
             this.showError('Profile creation failed: ' + (profileData?.error_message || 'Unknown error'));
             return;
           }
-
-          console.log('✅ [AuthScreen] Player profile created successfully:', profileData);
 
           // Verifica intelligente che il profilo sia disponibile (max 3 tentativi, backoff)
           let profileVerified = false;
@@ -806,19 +799,18 @@ export class AuthScreen {
 
               if (response.ok) {
                 profileVerified = true;
-                console.log(`✅ [AuthScreen] Profile verified after ${attempts} attempt(s)`);
               } else {
                 // Attesa progressiva: 100ms, 200ms, 300ms
                 await new Promise(resolve => setTimeout(resolve, attempts * 100));
               }
             } catch (error) {
-              console.warn(`⚠️ [AuthScreen] Profile check attempt ${attempts} failed:`, error);
+              // Profile check attempt failed - continue with backoff
               await new Promise(resolve => setTimeout(resolve, attempts * 100));
             }
           }
 
           if (!profileVerified) {
-            console.warn('⚠️ [AuthScreen] Profile verification timed out, proceeding anyway');
+            // Profile verification timed out, proceeding anyway
           }
 
         } catch (profileError) {

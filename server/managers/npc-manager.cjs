@@ -247,12 +247,12 @@ class ServerNpcManager {
       skillPointsDrop = Math.floor(Math.random() * 3) + 1; // 1-3 punti
     }
 
-    // Aggiungi ricompense all'inventario del giocatore
-    playerData.inventory.credits += rewards.credits || 0;
-    playerData.inventory.cosmos += rewards.cosmos || 0;
-    playerData.inventory.experience += rewards.experience || 0;
-    playerData.inventory.honor += rewards.honor || 0;
-    playerData.inventory.skillPoints += skillPointsDrop;
+    // Aggiungi ricompense all'inventario del giocatore (assicurati che siano numeri)
+    playerData.inventory.credits = Number(playerData.inventory.credits || 0) + (rewards.credits || 0);
+    playerData.inventory.cosmos = Number(playerData.inventory.cosmos || 0) + (rewards.cosmos || 0);
+    playerData.inventory.experience = Number(playerData.inventory.experience || 0) + (rewards.experience || 0);
+    playerData.inventory.honor = Number(playerData.inventory.honor || 0) + (rewards.honor || 0);
+    playerData.inventory.skillPoints = Number(playerData.inventory.skillPoints || 0) + skillPointsDrop;
 
     logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor, ${skillPointsDrop} skillPoints for killing ${npcType}`);
 

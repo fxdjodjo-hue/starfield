@@ -289,6 +289,28 @@ class ServerInputValidator {
               projectileType: data.projectileType || 'laser'
             }
           };
+        case 'skill_upgrade_request':
+          // Valida richiesta di upgrade skill
+          const skillErrors = [];
+
+          if (!data.playerId || typeof data.playerId !== 'string') {
+            skillErrors.push('Invalid or missing playerId');
+          }
+
+          if (!data.upgradeType || typeof data.upgradeType !== 'string') {
+            skillErrors.push('Invalid or missing upgradeType');
+          } else if (!['hp', 'shield', 'speed', 'damage'].includes(data.upgradeType)) {
+            skillErrors.push('Invalid upgradeType - must be hp, shield, speed, or damage');
+          }
+
+          return {
+            isValid: skillErrors.length === 0,
+            errors: skillErrors,
+            sanitizedData: {
+              playerId: data.playerId,
+              upgradeType: data.upgradeType
+            }
+          };
         default:
           // Per messaggi sconosciuti, valida solo struttura base
           return {

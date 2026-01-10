@@ -241,27 +241,10 @@ export class CombatSystem extends BaseSystem {
       (projectileComponent as any).id = projectileId;
     }
 
-    // Notifica il sistema di rete per sincronizzazione multiplayer
-    if (this.clientNetworkSystem) {
-      // Invia SOLO i proiettili del giocatore locale al server
-      // Gli NPC vengono gestiti direttamente dal server
-      if (isLocalPlayer) {
-        const transform = this.ecs.getComponent(projectileEntity, Transform);
-        if (transform) {
-          this.clientNetworkSystem.sendProjectileFired({
-            projectileId,
-            playerId: this.clientNetworkSystem.getLocalClientId(),
-            position: { x: transform.x, y: transform.y },
-            velocity: {
-              x: directionX * GAME_CONSTANTS.PROJECTILE.SPEED,
-              y: directionY * GAME_CONSTANTS.PROJECTILE.SPEED
-            },
-            // DAMAGE RIMOSSO: sarà calcolato dal server (Server Authoritative)
-            projectileType: 'laser'
-          });
-        }
-      }
-    }
+    // 🚫 CLIENT NON INVIA PIÙ projectile_fired PER IL PLAYER
+    // Il server gestisce tutti i proiettili del player in modalità Server Authoritative
+    // Solo gli NPC inviano projectile_fired per sincronizzazione
+  }
   }
 
   /**
@@ -477,7 +460,7 @@ export class CombatSystem extends BaseSystem {
 
     // Usa l'ID server se disponibile, altrimenti l'ID entità locale
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
-    const playerId = this.clientNetworkSystem.getLocalClientId();
+    const playerId = this.clientNetworkSystem.gameContext.authId;
 
     // NON riprodurre suono qui - verrà riprodotto quando arriva il proiettile dal server
     // per evitare duplicazioni audio

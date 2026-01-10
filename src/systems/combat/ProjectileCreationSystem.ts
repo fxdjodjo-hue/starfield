@@ -113,26 +113,9 @@ export class ProjectileCreationSystem extends BaseSystem {
       (projectileComponent as any).id = projectileId;
     }
 
-    // Notifica il sistema di rete per sincronizzazione multiplayer
-    if (this.clientNetworkSystem) {
-      // Invia SOLO i proiettili del giocatore locale al server
-      // Gli NPC vengono gestiti direttamente dal server
-      if (isLocalPlayer) {
-        const transform = this.ecs.getComponent(projectileEntity, Transform);
-        if (transform) {
-          this.clientNetworkSystem.sendProjectileFired({
-            projectileId,
-            playerId: this.clientNetworkSystem.getLocalClientId(),
-            position: { x: transform.x, y: transform.y },
-            velocity: {
-              x: directionX * GAME_CONSTANTS.PROJECTILE.SPEED,
-              y: directionY * GAME_CONSTANTS.PROJECTILE.SPEED
-            },
-            projectileType: 'laser'
-          });
-        }
-      }
-    }
+    // 🚫 CLIENT NON INVIA PIÙ projectile_fired PER IL PLAYER
+    // Il server gestisce tutti i proiettili del player in modalità Server Authoritative
+    // Solo gli NPC inviano projectile_fired per sincronizzazione
   }
 
   /**

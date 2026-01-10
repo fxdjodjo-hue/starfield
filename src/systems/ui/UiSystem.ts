@@ -429,9 +429,6 @@ export class UiSystem extends System {
     let hudData = null;
 
     if (this.context && this.context.playerInventory) {
-      console.log('📊 [UISYSTEM] Using GameContext data for HUD');
-      console.log('📊 [UISYSTEM] playerInventory:', this.context.playerInventory);
-
       hudData = {
         level: 1, // TODO: calcolare livello basato su experience
         playerId: this.context.playerId || this.playerId || 0,
@@ -441,7 +438,6 @@ export class UiSystem extends System {
         expForNextLevel: 1000, // TODO: sistema livelli
         honor: this.context.playerInventory.honor || 0
       };
-      console.log('📊 [UISYSTEM] HUD data from GameContext:', hudData);
     }
 
     // Seconda priorità: dati dall'EconomySystem (se non abbiamo GameContext)
@@ -457,7 +453,6 @@ export class UiSystem extends System {
           expForNextLevel: economyData.expForNextLevel,
           honor: economyData.honor
         };
-        console.log('📊 [UISYSTEM] HUD data from EconomySystem:', hudData);
       }
     }
 
@@ -472,13 +467,11 @@ export class UiSystem extends System {
         expForNextLevel: 100,
         honor: 0
       };
-      console.log('📊 [UISYSTEM] Using default HUD data');
     }
 
     // Aggiorna sempre l'HUD con i dati disponibili
     this.playerHUD.updateData(hudData);
     this.playerHUD.show();
-    console.log('✅ [UISYSTEM] HUD updated and shown');
   }
 
   /**
@@ -504,6 +497,19 @@ export class UiSystem extends System {
           experience: data.inventory.experience || 0,
           honor: data.inventory.honor || 0,
           skillPoints: data.inventory.skillPoints || this.context.playerInventory.skillPoints || 0
+        };
+      }
+    }
+
+    // Aggiorna gli upgrades nel GameContext
+    if (data.upgrades) {
+      if (this.context) {
+        this.context.playerUpgrades = {
+          ...this.context.playerUpgrades,
+          hpUpgrades: data.upgrades.hpUpgrades || 0,
+          shieldUpgrades: data.upgrades.shieldUpgrades || 0,
+          speedUpgrades: data.upgrades.speedUpgrades || 0,
+          damageUpgrades: data.upgrades.damageUpgrades || 0
         };
       }
     }

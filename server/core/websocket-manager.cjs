@@ -87,7 +87,12 @@ class WebSocketConnectionManager {
         userId: userId,     // auth_id per identificazione
         nickname: playerDataRaw.username || 'Unknown',
         position: { x: 0, y: 0, rotation: 0 }, // Posizione verrà impostata dal client
-        inventory: playerDataRaw.currencies_data ? JSON.parse(playerDataRaw.currencies_data) : this.getDefaultPlayerData().inventory,
+        inventory: (() => {
+          const currencies = playerDataRaw.currencies_data ? JSON.parse(playerDataRaw.currencies_data) : this.getDefaultPlayerData().inventory;
+          // Assicurati che skillPoints sia sempre definito e un numero valido (compatibilità con skill_points_current)
+          currencies.skillPoints = Number(currencies.skillPoints || currencies.skill_points_current || 0);
+          return currencies;
+        })(),
         upgrades: playerDataRaw.upgrades_data ? JSON.parse(playerDataRaw.upgrades_data) : this.getDefaultPlayerData().upgrades,
         quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : []
       };
@@ -186,7 +191,8 @@ class WebSocketConnectionManager {
         experience: playerData.inventory.experience || 0,
         honor: playerData.inventory.honor || 0,
         skill_points: playerData.inventory.skillPoints || 0,
-        skill_points_total: playerData.inventory.skill_points_total || playerData.inventory.skillPoints || 0
+        skill_points_total: playerData.inventory.skill_points_total || playerData.inventory.skillPoints || 0,
+        skill_points_current: playerData.inventory.skillPoints || 0 // Aggiunto per compatibilità
       } : null;
 
       // Use secure RPC function instead of direct table access
@@ -320,11 +326,6 @@ class WebSocketConnectionManager {
 
           // Risponde ai messaggi di join
           if (data.type === 'join') {
-            console.log('🎯 [SERVER] ===== RECEIVED JOIN MESSAGE =====');
-            console.log('🎯 [SERVER] Client ID:', data.clientId);
-            console.log('🎯 [SERVER] Nickname:', data.nickname);
-            console.log('🎯 [SERVER] User ID:', data.userId);
-            console.log('🎯 [SERVER] Auth Token present:', !!data.authToken);
             // Carica i dati del giocatore dal database invece di usare valori hardcoded
             const loadedData = await this.loadPlayerData(data.userId);
 
@@ -434,11 +435,8 @@ class WebSocketConnectionManager {
               }
             };
 
-            console.log('🎉 [SERVER] ===== SENDING WELCOME MESSAGE =====');
-            console.log('🎉 [SERVER] Welcome message:', JSON.stringify(welcomeMessage, null, 2));
             try {
               ws.send(JSON.stringify(welcomeMessage));
-              console.log('✅ [SERVER] Welcome message sent successfully');
             } catch (error) {
               console.error('❌ [SERVER] Failed to send welcome message:', error);
             }
@@ -511,8 +509,14 @@ class WebSocketConnectionManager {
 
           // Gestisce aggiornamenti upgrade del player (Server Authoritative)
           if (data.type === 'player_upgrades_update') {
+            const playerData = this.mapServer.players.get(data.clientId);
+            if (!playerData) {
+              logger.warn('PLAYER_UPGRADES', `Player data not found for clientId: ${data.clientId}`);
+              return;
+            }
+
             // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
-            if (data.playerId !== playerData?.userId) {
+            if (data.playerId !== playerData.userId) {
               logger.error('SECURITY', `🚫 BLOCKED: Upgrade update attempt with mismatched playerId from ${data.clientId}`);
               ws.send(JSON.stringify({
                 type: 'error',
@@ -522,17 +526,20 @@ class WebSocketConnectionManager {
               return;
             }
 
-            const playerData = this.mapServer.players.get(data.playerId);
-            if (playerData) {
-              // Aggiorna gli upgrade del player con quelli ricevuti dal client
-              playerData.upgrades = { ...data.upgrades };
-            }
+            // Aggiorna gli upgrade del player con quelli ricevuti dal client
+            playerData.upgrades = { ...data.upgrades };
           }
 
           // Gestisce richieste di upgrade skill (Server Authoritative)
           if (data.type === 'skill_upgrade_request') {
+            const playerData = this.mapServer.players.get(data.clientId);
+            if (!playerData) {
+              logger.warn('SKILL_UPGRADE', `Player data not found for clientId: ${data.clientId}`);
+              return;
+            }
+
             // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
-            if (data.playerId !== playerData?.userId) {
+            if (data.playerId !== playerData.userId) {
               logger.error('SECURITY', `🚫 BLOCKED: Skill upgrade attempt with mismatched playerId from ${data.clientId}`);
               ws.send(JSON.stringify({
                 type: 'error',
@@ -542,23 +549,23 @@ class WebSocketConnectionManager {
               return;
             }
 
-            const playerData = this.mapServer.players.get(data.playerId);
-            if (!playerData) {
-              return;
-            }
-
             // Verifica se il player ha abbastanza skill points
-            if (playerData.inventory.skillPoints < 1) {
-              // TODO: Invia messaggio di errore al client
+            const currentSkillPoints = Number(playerData.inventory.skillPoints || 0);
+            if (currentSkillPoints < 1) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Not enough skill points for upgrade',
+                code: 'INSUFFICIENT_SKILL_POINTS'
+              }));
               return;
             }
 
             // Salva stato precedente per confronto
-            const oldSkillPoints = playerData.inventory.skillPoints;
+            const oldSkillPoints = currentSkillPoints;
             const oldUpgrades = JSON.parse(JSON.stringify(playerData.upgrades));
 
             // Sposta 1 skill point dall'inventory agli upgrade
-            playerData.inventory.skillPoints -= 1;
+            playerData.inventory.skillPoints = currentSkillPoints - 1;
 
             // Applica l'upgrade specifico
             switch (data.upgradeType) {
@@ -580,7 +587,7 @@ class WebSocketConnectionManager {
                 break;
               default:
                 // Rollback skill points
-                playerData.inventory.skillPoints += 1;
+                playerData.inventory.skillPoints = currentSkillPoints;
                 return;
             }
 
@@ -599,8 +606,14 @@ class WebSocketConnectionManager {
 
           // Gestisce spari di proiettili
           if (data.type === 'projectile_fired') {
+            const playerData = this.mapServer.players.get(data.clientId);
+            if (!playerData) {
+              logger.warn('PROJECTILE', `Player data not found for clientId: ${data.clientId}`);
+              return;
+            }
+
             // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
-            if (data.playerId !== playerData?.userId) {
+            if (data.playerId !== playerData.userId) {
               logger.error('SECURITY', `🚫 BLOCKED: Projectile fire attempt with mismatched playerId from ${data.clientId}`);
               ws.send(JSON.stringify({
                 type: 'error',
@@ -614,14 +627,13 @@ class WebSocketConnectionManager {
             let targetId = data.targetId || null;
             if (!targetId) {
               // Controlla se il player sta combattendo contro un NPC
-              const playerCombat = this.mapServer.combatManager.playerCombats.get(data.playerId);
+              const playerCombat = this.mapServer.combatManager.playerCombats.get(data.clientId);
               if (playerCombat) {
                 targetId = playerCombat.npcId;
               }
             }
 
             // SERVER AUTHORITATIVE: Calcola il danno basato sugli upgrade del player
-            const playerData = this.mapServer.players.get(data.playerId);
             let calculatedDamage = 500; // Danno base
             if (playerData && playerData.upgrades) {
               // Calcola bonus danno: 1.0 + (damageUpgrades * 0.01)
@@ -662,6 +674,24 @@ class WebSocketConnectionManager {
 
           // Gestisce richiesta di inizio combattimento
           if (data.type === 'start_combat') {
+            // Verifica che il player sia connesso
+            const playerData = this.mapServer.players.get(data.clientId);
+            if (!playerData) {
+              logger.warn('COMBAT', `Player data not found for clientId: ${data.clientId}`);
+              return;
+            }
+
+            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
+            if (data.playerId !== playerData.userId) {
+              logger.error('SECURITY', `🚫 BLOCKED: Combat start attempt with mismatched playerId from ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid player ID for combat action.',
+                code: 'INVALID_PLAYER_ID'
+              }));
+              return;
+            }
+
             // Valida che l'NPC esista
             const npc = this.mapServer.npcManager.getNpc(data.npcId);
             if (!npc) {
@@ -669,23 +699,16 @@ class WebSocketConnectionManager {
               return;
             }
 
-            // Verifica che il player sia connesso
-            const playerData = this.mapServer.players.get(data.playerId);
-            if (!playerData) {
-              return;
-            }
-
             // Inizia il combattimento server-side
-            this.mapServer.combatManager.startPlayerCombat(data.playerId, data.npcId);
+            this.mapServer.combatManager.startPlayerCombat(data.clientId, data.npcId);
 
             // Spara immediatamente il primo proiettile per ridurre il delay percepito
             // Nota: rimuoviamo il setTimeout per evitare race conditions
-            const combat = this.mapServer.combatManager.playerCombats.get(data.playerId);
+            const combat = this.mapServer.combatManager.playerCombats.get(data.clientId);
             if (combat) {
-              console.log(`📡 [SERVER] Processing initial combat for ${data.playerId} vs ${data.npcId}`);
-              this.mapServer.combatManager.processPlayerCombat(data.playerId, combat, Date.now());
+              this.mapServer.combatManager.processPlayerCombat(data.clientId, combat, Date.now());
             } else {
-              console.error(`❌ [SERVER] Combat not found after startPlayerCombat for ${data.playerId}`);
+              console.error(`❌ [SERVER] Combat not found after startPlayerCombat for ${data.clientId}`);
             }
 
             // Broadcast stato combattimento a tutti i client
@@ -703,7 +726,7 @@ class WebSocketConnectionManager {
           // Gestisce richiesta di fine combattimento
           if (data.type === 'stop_combat') {
             // Ferma il combattimento server-side
-            this.mapServer.combatManager.stopPlayerCombat(data.playerId);
+            this.mapServer.combatManager.stopPlayerCombat(data.clientId);
 
             // Broadcast stato combattimento a tutti i client
             const combatUpdate = {
@@ -735,15 +758,9 @@ class WebSocketConnectionManager {
 
           // Gestisce richiesta dati completi del giocatore (dopo welcome)
           if (data.type === 'request_player_data') {
-            console.log('📊 [SERVER] ===== RECEIVED REQUEST_PLAYER_DATA =====');
-            console.log('📊 [SERVER] Request data:', data);
-            console.log('📊 [SERVER] Client playerData.userId:', playerData?.userId);
-            console.log('📊 [SERVER] Requested playerId:', data.playerId);
-
             // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
             if (data.playerId !== playerData?.userId) {
               logger.error('SECURITY', `🚫 BLOCKED: Player data request with mismatched playerId from ${data.clientId}`);
-              console.log('🚫 [SERVER] SECURITY BLOCK: playerId mismatch');
               ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Invalid player ID for data request.',
@@ -751,11 +768,6 @@ class WebSocketConnectionManager {
               }));
               return;
             }
-
-            console.log(`📊 [SERVER] Player data request for player: ${data.playerId}`);
-            console.log('📊 [SERVER] Player inventory:', playerData.inventory);
-            console.log('📊 [SERVER] Player upgrades:', playerData.upgrades);
-            console.log('📊 [SERVER] Player quests:', playerData.quests);
 
             // Invia dati completi del giocatore
             const responseMessage = {
@@ -767,16 +779,11 @@ class WebSocketConnectionManager {
               timestamp: Date.now()
             };
 
-            console.log('📤 [SERVER] Sending response:', responseMessage);
             ws.send(JSON.stringify(responseMessage));
-            console.log(`📤 [SERVER] Sent complete player data for player: ${data.playerId}`);
           }
 
           // Gestisce aggiornamenti economici dal client
           if (data.type === 'economy_update') {
-            console.log('💰 [SERVER] ===== RECEIVED ECONOMY_UPDATE =====');
-            console.log('💰 [SERVER] Player ID:', data.playerId);
-            console.log('💰 [SERVER] Field:', data.field, 'Value:', data.value, 'Change:', data.change);
 
             // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
             if (data.playerId !== playerData?.userId) {
@@ -807,9 +814,6 @@ class WebSocketConnectionManager {
                   playerData.inventory[field] = value;
                 }
               }
-
-              console.log('✅ [SERVER] Economy updated successfully for player:', data.playerId);
-              console.log('✅ [SERVER] New inventory state:', playerData.inventory);
 
               // I dati verranno salvati automaticamente dal periodic save o al disconnect
             }
@@ -854,15 +858,11 @@ class WebSocketConnectionManager {
               timestamp: now
             };
 
-            console.log(`📡 [SERVER] Broadcasting chat message from ${playerData.nickname} to all players`);
             this.mapServer.broadcastToMap(chatBroadcast);
           }
 
           // Gestisce richiesta di salvataggio immediato dal client
           if (data.type === 'save_request') {
-            console.log('💾 [SERVER] ===== RECEIVED SAVE_REQUEST =====');
-            console.log('💾 [SERVER] Player ID:', playerData.playerId);
-
             // 🔴 CRITICAL SECURITY: Verifica che clientId e playerId (authId) siano validi
             if (data.clientId !== playerData?.clientId || data.playerId !== playerData?.userId) {
               logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client/player ID from ${data.clientId}`);
@@ -877,7 +877,6 @@ class WebSocketConnectionManager {
             // Salva immediatamente i dati del giocatore
             try {
               await this.savePlayerData(playerData);
-              console.log('✅ [SERVER] Immediate save completed successfully for player:', playerData.playerId);
 
               // Rispondi al client che il salvataggio è avvenuto
               ws.send(JSON.stringify({

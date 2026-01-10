@@ -175,9 +175,13 @@ class BoundaryEnforcement {
         // Il server risponde alle richieste di salvataggio
         return { allowed: true };
 
+      case 'skill_upgrade_request':
+        // Il client può richiedere upgrade skill, ma il server valida e applica
+        return { allowed: true };
+
       default:
         // Per default, consentire ma loggare per review con più dettagli
-        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, economy_update`);
+        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, economy_update, skill_upgrade_request`);
         return { allowed: true };
     }
   }

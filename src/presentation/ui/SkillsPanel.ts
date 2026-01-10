@@ -576,20 +576,13 @@ export class SkillsPanel extends BasePanel {
     this.stopRealtimeUpdates();
   }
 
-  /**
-   * Callback quando il pannello viene nascosto
-   */
-  protected onHide(): void {
-    // Chiude eventuali tooltip aperti
-    this.hideTooltip();
-    // Le statistiche continuano ad aggiornarsi anche quando il pannello è chiuso
-  }
 
   /**
    * Acquista un upgrade per una statistica
    */
   private upgradeStat(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
     if (!this.playerSystem) return;
+
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -603,27 +596,20 @@ export class SkillsPanel extends BasePanel {
 
     // Controlla se siamo già in attesa di una risposta del server per questo upgrade
     if (this.isUpgradeInProgress(statType)) {
-      console.log('⏳ [SkillsPanel] Upgrade request already in progress for:', statType);
       return;
     }
-
-    console.log('📡 [SkillsPanel] Requesting server authorization for upgrade:', statType);
 
     if (this.clientNetworkSystem) {
       // Marca l'upgrade come in corso
       this.setUpgradeInProgress(statType, true);
 
       this.clientNetworkSystem.requestSkillUpgrade(statType);
-      console.log('✅ [SkillsPanel] Skill upgrade request sent to server for:', statType);
 
       // Timeout di sicurezza - se non riceviamo risposta entro 5 secondi, resettiamo
       setTimeout(() => {
         this.setUpgradeInProgress(statType, false);
-        console.log('⏰ [SkillsPanel] Upgrade request timeout for:', statType);
       }, 5000);
 
-    } else {
-      console.log('❌ [SkillsPanel] No clientNetworkSystem available for upgrade request');
     }
   }
 
@@ -660,11 +646,9 @@ export class SkillsPanel extends BasePanel {
     // Aggiorna Damage
     const damage = this.ecs.getComponent(playerEntity, Damage);
     if (damage) {
-      const oldDamage = damage.damage;
       const bonus = playerUpgrades.getDamageBonus();
       const newDamage = Math.floor(playerDef.stats.damage * bonus);
       damage.damage = newDamage;
-      console.log(`💥 [SkillsPanel] Damage updated: ${oldDamage} → ${newDamage} (base: ${playerDef.stats.damage}, bonus: ${bonus.toFixed(3)})`);
     }
 
     // Speed viene aggiornata automaticamente dal PlayerControlSystem
@@ -798,28 +782,18 @@ export class SkillsPanel extends BasePanel {
   private syncUpgradesToServer(): void {
 
     if (!this.clientNetworkSystem) {
-      console.log('❌ [SkillsPanel] No clientNetworkSystem available');
       return;
     }
 
     const playerEntity = this.playerSystem?.getPlayerEntity();
     if (!playerEntity) {
-      console.log('❌ [SkillsPanel] No playerEntity available');
       return;
     }
 
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
     if (!playerUpgrades) {
-      console.log('❌ [SkillsPanel] No playerUpgrades component found');
       return;
     }
-
-    console.log('✅ [SkillsPanel] Sending upgrades to server:', {
-      hpUpgrades: playerUpgrades.hpUpgrades,
-      shieldUpgrades: playerUpgrades.shieldUpgrades,
-      speedUpgrades: playerUpgrades.speedUpgrades,
-      damageUpgrades: playerUpgrades.damageUpgrades
-    });
 
     // Invia upgrade aggiornati al server
     this.clientNetworkSystem.sendPlayerUpgrades({
@@ -851,7 +825,7 @@ export class SkillsPanel extends BasePanel {
    */
   updateECS(deltaTime: number): void {
     // Aggiorna le statistiche solo se il pannello è attivo (visibile o ha aggiornamenti real-time attivi)
-    if (this.container && (this.isVisible() || this.realtimeUpdateActive)) {
+    if (this.container && (this.isPanelVisible() || this.realtimeUpdateActive)) {
       this.updatePlayerStats();
     }
   }
@@ -884,8 +858,6 @@ export class SkillsPanel extends BasePanel {
    * Rollback di un upgrade locale se la richiesta al server fallisce
    */
   private rollbackUpgrade(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
-    console.log('🔄 [SkillsPanel] Rolling back upgrade for:', statType);
-
     const playerEntity = this.playerSystem?.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -916,8 +888,6 @@ export class SkillsPanel extends BasePanel {
 
     // Forza aggiornamento UI
     this.updatePlayerStats();
-
-    console.log('✅ [SkillsPanel] Upgrade rolled back successfully');
   }
 
   /**

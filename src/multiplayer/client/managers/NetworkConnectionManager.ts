@@ -54,20 +54,15 @@ export class NetworkConnectionManager {
   async connect(): Promise<WebSocket> {
     return new Promise((resolve, reject) => {
       try {
-        console.log('🔌 [CONNECTION] Connecting to:', this.serverUrl);
         this.socket = new WebSocket(this.serverUrl);
 
         this.socket.onopen = async () => {
-          console.log('🔌 [CONNECTION] WebSocket connected successfully');
           await this.handleConnected(this.socket!);
           this.startHeartbeat();
           resolve(this.socket!);
         };
 
         this.socket.onmessage = (event) => {
-          console.log('🔽 [CONNECTION] ===== RAW MESSAGE RECEIVED =====');
-          console.log('🔽 [CONNECTION] Raw data length:', event.data.length);
-          console.log('🔽 [CONNECTION] Raw data preview:', event.data.substring(0, 200) + '...');
           this.handleMessage(event.data);
         };
 
@@ -114,18 +109,12 @@ export class NetworkConnectionManager {
    * Gestisce messaggi ricevuti
    */
   private handleMessage(data: string): void {
-    console.log('📨 [CONNECTION] ===== RECEIVED MESSAGE =====');
-    console.log('📨 [CONNECTION] Raw data length:', data.length);
-    console.log('📨 [CONNECTION] Raw data preview:', data.substring(0, 200) + '...');
-
     try {
       const message: NetMessage = JSON.parse(data);
-      console.log('📨 [CONNECTION] Parsed message type:', message.type);
 
       // Handle system messages first
       switch (message.type) {
         case 'heartbeat_ack':
-          console.log('📨 [CONNECTION] Handling heartbeat_ack');
           this.lastHeartbeatAck = Date.now();
           if (this.heartbeatTimeout) {
             clearTimeout(this.heartbeatTimeout);
@@ -135,7 +124,6 @@ export class NetworkConnectionManager {
 
         default:
           // Forward to ClientNetworkSystem for routing
-          console.log('📨 [CONNECTION] Forwarding message to ClientNetworkSystem');
           if (this.onMessageCallback) {
             this.onMessageCallback(data);
           } else {

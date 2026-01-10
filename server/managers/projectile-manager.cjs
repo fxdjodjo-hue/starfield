@@ -329,7 +329,7 @@ class ServerProjectileManager {
     const message = {
       type: 'projectile_fired',
       projectileId: projectile.id,
-      playerId: projectile.playerId,
+      playerId: projectile.playerId, // Questo è il clientId del player che ha sparato
       position: projectile.position,
       velocity: projectile.velocity,
       damage: projectile.damage,

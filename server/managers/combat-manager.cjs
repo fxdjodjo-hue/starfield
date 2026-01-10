@@ -9,6 +9,7 @@ class ServerCombatManager {
     this.mapServer = mapServer;
     this.npcAttackCooldowns = new Map(); // npcId -> lastAttackTime
     this.playerCombats = new Map(); // playerId -> { npcId, lastAttackTime, attackCooldown }
+    this.combatStartCooldowns = new Map(); // playerId -> lastCombatStartTime
   }
 
   /**
@@ -35,6 +36,16 @@ class ServerCombatManager {
   startPlayerCombat(playerId, npcId) {
     logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId}`);
 
+    // Anti-spam: controlla se il player ha avviato un combattimento recentemente
+    const now = Date.now();
+    const lastCombatStart = this.combatStartCooldowns.get(playerId) || 0;
+    const minTimeBetweenStarts = 500; // 500ms tra avvii combattimento
+
+    if (now - lastCombatStart < minTimeBetweenStarts) {
+      console.log(`⚔️ [SERVER] Combat start blocked for ${playerId} - too frequent`);
+      return;
+    }
+
     // Se il player sta già combattendo un NPC diverso, ferma il combattimento precedente
     if (this.playerCombats.has(playerId)) {
       const existingCombat = this.playerCombats.get(playerId);
@@ -45,6 +56,9 @@ class ServerCombatManager {
         return;
       }
     }
+
+    // Registra il timestamp dell'avvio combattimento
+    this.combatStartCooldowns.set(playerId, now);
 
     // Verifica che l'NPC esista
     const npc = this.mapServer.npcManager.getNpc(npcId);

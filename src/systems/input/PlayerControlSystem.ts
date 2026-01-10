@@ -25,8 +25,9 @@ export class PlayerControlSystem extends BaseSystem {
   private lastMouseY = 0;
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
-  private attackActivated = false; // Flag per tracciare se l'attacco è stato attivato con SPACE
-  private lastInputTime = 0; // Timestamp dell'ultimo input per rispettare attack speed
+    private attackActivated = false; // Flag per tracciare se l'attacco è stato attivato con SPACE
+    private lastInputTime = 0; // Timestamp dell'ultimo input per rispettare attack speed
+    private spaceKeyPressed = false; // Flag per evitare ripetizioni quando SPACE è tenuto premuto
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
@@ -56,7 +57,11 @@ export class PlayerControlSystem extends BaseSystem {
    */
   handleKeyPress(key: string): void {
     if (key === 'Space') {
-      this.handleSpacePress();
+      // Evita ripetizioni quando SPACE è già premuto (key repeat del browser)
+      if (!this.spaceKeyPressed) {
+        this.spaceKeyPressed = true;
+        this.handleSpacePress();
+      }
     } else {
       // Gestisci movimento con WASD
       this.keysPressed.add(key.toLowerCase());
@@ -69,6 +74,11 @@ export class PlayerControlSystem extends BaseSystem {
   handleKeyRelease(key: string): void {
     if (key === 'Space') {
       this.spaceKeyPressed = false;
+      // Disattiva l'attacco quando SPACE viene rilasciato
+      if (this.attackActivated) {
+        this.attackActivated = false;
+        this.handleAttackDeactivated();
+      }
     } else {
       // Rimuovi dal set dei tasti premuti
       this.keysPressed.delete(key.toLowerCase());
@@ -95,18 +105,11 @@ export class PlayerControlSystem extends BaseSystem {
       return;
     }
 
-    // 🎯 TOGGLE SEMPLICE: attiva/disattiva combattimento
+    // 🎯 ATTIVA combattimento al keydown
     // ✅ BEST PRACTICE: Client dichiara INTENTO, server gestisce TIMING
     // ❌ NO cooldown client-side - il server ha autorità completa
-    this.attackActivated = !this.attackActivated;
-
-    if (this.attackActivated) {
-      console.log('[PlayerControl] 🎯 Attack ACTIVATED (intent declared to server)');
-      this.lastInputTime = Date.now(); // Solo per controlli anti-spam UI
-    } else {
-      console.log('[PlayerControl] 🛑 Attack DEACTIVATED (intent declared to server)');
-      this.stopCombatIfActive();
-    }
+    this.attackActivated = true;
+    this.lastInputTime = Date.now(); // Solo per controlli anti-spam UI
   }
 
   /**
@@ -144,9 +147,6 @@ export class PlayerControlSystem extends BaseSystem {
       this.logSystem.addLogMessage('Target out of range! Move closer to attack.', LogType.ATTACK_FAILED, 2000);
     }
 
-    // Anche nella console per debug
-    console.log('[PlayerControl] 📏 Target out of range! Move closer to attack.');
-
     // TODO: Implementare feedback visivo nell'UI
     // this.uiSystem?.showNotification('NPC fuori gittata! Avvicinati per attaccare.');
   }
@@ -167,7 +167,6 @@ export class PlayerControlSystem extends BaseSystem {
    */
   isAttackActivated(): boolean {
     // Log per debug quando viene chiamato durante combattimento
-    // console.log(`[PlayerControl] isAttackActivated called: ${this.attackActivated}`);
     return this.attackActivated;
   }
 
@@ -176,7 +175,6 @@ export class PlayerControlSystem extends BaseSystem {
    */
   deactivateAttack(): void {
     if (this.attackActivated) {
-      console.log('[PlayerControl] Attack auto-deactivated when selecting new NPC');
       this.attackActivated = false;
 
       // Ferma immediatamente qualsiasi combattimento in corso

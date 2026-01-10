@@ -3,6 +3,10 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { PlayerDataResponseMessage } from '../../../config/NetworkConfig';
 import { SkillPoints } from '../../../entities/currency/SkillPoints';
+import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
+import { Health } from '../../../entities/combat/Health';
+import { Shield } from '../../../entities/combat/Shield';
+import { getPlayerDefinition } from '../../../config/PlayerConfig';
 
 /**
  * Handles player data response messages from the server
@@ -14,36 +18,22 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
   }
 
   handle(message: PlayerDataResponseMessage, networkSystem: ClientNetworkSystem): void {
-    console.log('📊 [PLAYER_DATA] ===== PLAYER DATA RESPONSE RECEIVED =====');
-    console.log('📊 [PLAYER_DATA] Player ID:', message.playerId);
-    console.log('📊 [PLAYER_DATA] Inventory:', message.inventory);
-    console.log('📊 [PLAYER_DATA] Upgrades:', message.upgrades);
-    console.log('📊 [PLAYER_DATA] Quests count:', message.quests?.length || 0);
-    console.log('📊 [PLAYER_DATA] Full message:', message);
-
     // Aggiorna i dati del giocatore nel game context
     if (networkSystem.gameContext) {
       // Aggiorna inventory
       if (message.inventory) {
         networkSystem.gameContext.playerInventory = message.inventory;
-        console.log('💰 [PLAYER_DATA] Inventory updated:', message.inventory);
-        console.log('🔍 [PLAYER_DATA] GameContext playerInventory after update:', networkSystem.gameContext.playerInventory);
       }
 
       // Aggiorna upgrades
       if (message.upgrades) {
         networkSystem.gameContext.playerUpgrades = message.upgrades;
-        console.log('⬆️ [PLAYER_DATA] Upgrades updated:', message.upgrades);
-        console.log('🔍 [PLAYER_DATA] GameContext playerUpgrades after update:', networkSystem.gameContext.playerUpgrades);
       }
 
       // Aggiorna quests
       if (message.quests) {
         networkSystem.gameContext.playerQuests = message.quests;
-        console.log('📜 [PLAYER_DATA] Quests updated:', message.quests.length, 'quests');
       }
-
-      console.log('🔍 [PLAYER_DATA] GameContext reference check:', networkSystem.gameContext);
     }
 
     // Notifica l'UI che i dati del giocatore sono stati aggiornati
@@ -64,7 +54,46 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
         if (skillPointsComponent) {
           // Inizializza i punti abilità ricevuti dal server
           skillPointsComponent.setPoints(message.inventory.skillPoints || 0);
-          console.log(`🎯 [INIT] Initialized ECS SkillPoints component: ${message.inventory.skillPoints || 0}`);
+        }
+      }
+    }
+
+    // SINCRONIZZA GLI UPGRADE DEL PLAYER CON IL COMPONENTE ECS (Server Authoritative)
+    if (networkSystem.getPlayerSystem() && message.upgrades) {
+      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+      if (playerEntity && networkSystem.getECS()) {
+        const ecs = networkSystem.getECS();
+        const playerUpgrades = ecs?.getComponent(playerEntity, PlayerUpgrades);
+
+        if (playerUpgrades) {
+          // Sincronizza gli upgrade ricevuti dal server con il componente ECS
+          playerUpgrades.setUpgrades(
+            message.upgrades.hpUpgrades || 0,
+            message.upgrades.shieldUpgrades || 0,
+            message.upgrades.speedUpgrades || 0,
+            message.upgrades.damageUpgrades || 0
+          );
+
+          // APPLICA GLI UPGRADE AI VALORI ATTUALI DI HP E SHIELD
+          const playerDef = getPlayerDefinition();
+
+          // Aggiorna Health component con upgrade applicati
+          const healthComponent = ecs?.getComponent(playerEntity, Health);
+          if (healthComponent) {
+            const newMaxHP = Math.floor(playerDef.stats.health * playerUpgrades.getHPBonus());
+            const currentHPPercent = healthComponent.current / healthComponent.max;
+            healthComponent.max = newMaxHP;
+            healthComponent.current = Math.floor(newMaxHP * currentHPPercent);
+          }
+
+          // Aggiorna Shield component con upgrade applicati
+          const shieldComponent = ecs?.getComponent(playerEntity, Shield);
+          if (shieldComponent && playerDef.stats.shield) {
+            const newMaxShield = Math.floor(playerDef.stats.shield * playerUpgrades.getShieldBonus());
+            const currentShieldPercent = shieldComponent.current / shieldComponent.max;
+            shieldComponent.max = newMaxShield;
+            shieldComponent.current = Math.floor(newMaxShield * currentShieldPercent);
+          }
         }
       }
     }
@@ -74,7 +103,5 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     if (economySystem && typeof economySystem.updatePlayerInventory === 'function') {
       economySystem.updatePlayerInventory(message.inventory);
     }
-
-    console.log('✅ [PLAYER_DATA] Player data synchronization completed');
   }
 }

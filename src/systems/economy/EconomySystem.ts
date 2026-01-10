@@ -634,7 +634,6 @@ export class EconomySystem extends BaseSystem {
     } else if (targetTotalExp < oldTotalExp) {
       // Per rimuovere esperienza, dovrei implementare un metodo removeExp
       // Per ora, assumiamo che l'esperienza solo aumenti nel server authoritative
-      console.warn('[ECONOMY] Server trying to reduce experience - not implemented');
     }
 
     const change = experience.totalExpEarned - oldTotalExp;
@@ -726,7 +725,6 @@ export class EconomySystem extends BaseSystem {
     // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
     if (added > 0 && reason !== 'server_update') {
       this.onSkillPointsChanged?.(newAmount, added);
-      console.log(`🎯 [ECONOMY] Added ${added} SkillPoints (${reason}): ${oldAmount} → ${newAmount}`);
     }
 
     return added;

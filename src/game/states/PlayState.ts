@@ -110,7 +110,6 @@ export class PlayState extends GameState {
 
     // Ora che tutti i sistemi sono collegati, connetti al server
     if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
-      console.log('🔌 [PLAYSTATE] Connecting to server after game initialization...');
       this.clientNetworkSystem.connectToServer().catch(error => {
         console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
       });
@@ -188,7 +187,6 @@ export class PlayState extends GameState {
         const systems = this.gameInitSystem.getSystems();
         if (systems.combatStateSystem && typeof systems.combatStateSystem.processPlayerCombat === 'function') {
           // Il CombatStateSystem gestisce automaticamente il processamento delle richieste nel suo update
-          console.log('[PLAYSTATE] CombatStateSystem ready for combat processing');
         }
       });
     }
@@ -317,7 +315,6 @@ export class PlayState extends GameState {
    * Inizializza il mondo di gioco e crea entitÃ
    */
   private async initializeGame(): Promise<void> {
-    // console.log('🚀 [PLAYSTATE] Starting game initialization');
 
     // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
     this.playerEntity = await this.gameInitSystem.initialize();
@@ -539,8 +536,6 @@ export class PlayState extends GameState {
     if (!this.clientNetworkSystem) return;
 
     try {
-      console.log('🔄 [PLAYSTATE] Starting network system initialization...');
-
       // Inizializza il sistema di rete
       await this.clientNetworkSystem.initialize();
 
@@ -548,7 +543,6 @@ export class PlayState extends GameState {
       this.clientNetworkSystem.setOnPlayerIdReceived((playerId: number) => {
         if (this.questManager) {
           this.questManager.setPlayerId(playerId);
-          console.log('✅ [PLAYSTATE] QuestManager playerId set:', playerId);
         }
         if (this.uiSystem) {
           this.uiSystem.setPlayerId(playerId);
@@ -565,8 +559,6 @@ export class PlayState extends GameState {
           this.uiSystem.setPlayerId(this.clientNetworkSystem.gameContext.playerId);
         }
       }
-
-      console.log('✅ [PLAYSTATE] Network system initialization completed');
     } catch (error) {
       console.error('❌ [PLAYSTATE] Network system initialization failed:', error);
     }

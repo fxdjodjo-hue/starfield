@@ -38,19 +38,18 @@ export class PlayerSystem extends System {
       progression: {
         // Inizializza sempre i componenti ECS con valori di default
         // Verranno sovrascritti dal server quando arrivano i dati
+        stats: { kills: 0, deaths: 0, missionsCompleted: 0, playTime: 0 },
+        upgrades: {
+          hpUpgrades: 0,
+          shieldUpgrades: 0,
+          speedUpgrades: 0,
+          damageUpgrades: 0
+        },
         skillPoints: 0,
         credits: 0,
         cosmos: 0,
         experience: 0,
         honor: 0
-      },
-      upgrades: {
-        // Inizializza sempre gli upgrades ECS con valori di default
-        // Verranno sovrascritti dal server quando arrivano i dati
-        hpUpgrades: 0,
-        shieldUpgrades: 0,
-        speedUpgrades: 0,
-        damageUpgrades: 0
       }
     });
 

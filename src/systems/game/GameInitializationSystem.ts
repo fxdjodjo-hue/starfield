@@ -460,7 +460,6 @@ export class GameInitializationSystem extends System {
     // Nota: Gli NPC ora vengono creati e gestiti dal server
     // Non creiamo più NPC locali per garantire consistenza multiplayer
 
-    console.log(`🏗️ [CREATE_ENTITIES] Returning playerEntity:`, !!playerEntity, 'entity:', playerEntity?.id);
     return playerEntity;
   }
 
@@ -468,8 +467,6 @@ export class GameInitializationSystem extends System {
    * Imposta il riferimento al player in tutti i sistemi che ne hanno bisogno
    */
   private setPlayerEntityInSystems(playerEntity: any, systems: any): void {
-    console.log(`🔧 [SET_ENTITIES] setPlayerEntityInSystems called with playerEntity:`, !!playerEntity, 'entity:', playerEntity?.id);
-
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
       boundsSystem, questTrackingSystem, playerStatusDisplaySystem,

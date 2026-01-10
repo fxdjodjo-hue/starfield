@@ -322,6 +322,7 @@ export interface PlayerStateUpdateMessage {
     cosmos: number;
     experience: number;
     honor: number;
+    skillPoints: number;
   };
   upgrades: {
     [key: string]: number; // Upgrade levels
@@ -333,8 +334,11 @@ export interface PlayerStateUpdateMessage {
   source: string;
   rewardsEarned?: {
     credits: number;
+    cosmos: number;
     experience: number;
     honor: number;
+    skillPoints: number;
+    npcType: string;
   };
 }
 

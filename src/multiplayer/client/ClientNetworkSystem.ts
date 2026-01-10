@@ -44,6 +44,7 @@ import { EntityDestroyedHandler } from './handlers/EntityDestroyedHandler';
 import { ExplosionCreatedHandler } from './handlers/ExplosionCreatedHandler';
 import { StopCombatHandler } from './handlers/StopCombatHandler';
 import { PlayerDataResponseHandler } from './handlers/PlayerDataResponseHandler';
+import { SaveResponseHandler } from './handlers/SaveResponseHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { ConnectionManager } from './managers/ConnectionManager';
@@ -215,7 +216,8 @@ export class ClientNetworkSystem extends BaseSystem {
       new PlayerLeftHandler(),
       new PlayerRespawnHandler(),
       new PlayerStateUpdateHandler(),
-      new PlayerDataResponseHandler()
+      new PlayerDataResponseHandler(),
+      new SaveResponseHandler()
     ];
 
     // Aggiungi handlers NPC se il sistema è disponibile
@@ -251,7 +253,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Handles successful connection establishment
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
-    console.log('🔌 [CLIENT] WebSocket connected successfully!');
     this.socket = socket;
 
     // Reset tick manager timing on (re)connection
@@ -292,8 +293,6 @@ export class ClientNetworkSystem extends BaseSystem {
     // Send SECURE join message with JWT token
     const currentPosition = this.getLocalPlayerPosition();
     const nicknameToSend = this.gameContext.playerNickname || 'Player';
-
-    console.log('🔐 [CLIENT] Sending SECURE join message with JWT token');
 
     this.sendMessage({
       type: MESSAGE_TYPES.JOIN,
@@ -457,10 +456,8 @@ export class ClientNetworkSystem extends BaseSystem {
    * Connects to the server using the connection manager
    */
   async connect(): Promise<void> {
-    console.log('🔌 [CLIENT] connect() called - connecting to server');
     try {
       this.socket = await this.connectionManager.connect();
-      console.log('✅ [CLIENT] connect() completed - socket established');
     } catch (error) {
       console.error(`🔌 [CLIENT] Socket connection failed:`, error);
       throw error;
@@ -693,10 +690,8 @@ export class ClientNetworkSystem extends BaseSystem {
    * Manually connect to the server (called after systems are set up)
    */
   async connectToServer(): Promise<void> {
-    console.log('🔌 [CLIENT] connectToServer() called - attempting to connect');
     try {
       await this.connect();
-      console.log('✅ [CLIENT] connectToServer() completed successfully');
     } catch (error) {
       console.error(`❌ [CLIENT] Connection failed:`, error);
     }
@@ -744,6 +739,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     const message = {
       type: MESSAGE_TYPES.EXPLOSION_CREATED,
+      clientId: this.clientId,
       explosionId: data.explosionId,
       entityId: data.entityId,
       entityType: data.entityType,
@@ -785,8 +781,16 @@ export class ClientNetworkSystem extends BaseSystem {
     playerId: string;
   }): void {
     if (!this.connectionManager.isConnectionActive()) {
+      console.log(`⚔️ [CLIENT] Cannot send start_combat - not connected`);
       return;
     }
+
+    if (!this.clientId) {
+      console.log(`⚔️ [CLIENT] Cannot send start_combat - clientId not set`);
+      return;
+    }
+
+    console.log(`⚔️ [CLIENT] Sending start_combat with clientId: ${this.clientId}, playerId: ${data.playerId}`);
 
     // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
     if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
@@ -799,6 +803,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     const message = {
       type: MESSAGE_TYPES.START_COMBAT,
+      clientId: this.clientId,
       npcId: data.npcId,
       playerId: data.playerId
     };
@@ -819,6 +824,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     const message = {
       type: MESSAGE_TYPES.STOP_COMBAT,
+      clientId: this.clientId,
       playerId: data.playerId,
       npcId: data.npcId || this.getCurrentCombatNpcId() || 'unknown'
     };
@@ -849,6 +855,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     const message = {
       type: MESSAGE_TYPES.PROJECTILE_FIRED,
+      clientId: this.clientId,
       projectileId: data.projectileId,
       playerId: data.playerId,
       position: data.position,
@@ -873,11 +880,10 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
-    const localClientId = this.getLocalClientId();
-
     const message = {
       type: 'player_upgrades_update',
-      playerId: localClientId,
+      clientId: this.clientId,
+      playerId: this.gameContext.authId,  // User/auth ID (UUID)
       upgrades: upgrades
     };
 
@@ -899,16 +905,13 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
-    const localClientId = this.getLocalClientId();
-    console.log('🔧 [CLIENT] Requesting skill upgrade:', upgradeType, 'for player:', localClientId);
-
     const message = {
       type: 'skill_upgrade_request',
-      playerId: localClientId,
+      clientId: this.clientId,  // WebSocket client ID
+      playerId: this.gameContext.authId,  // User/auth ID (UUID)
       upgradeType: upgradeType
     };
 
-    console.log('✅ [CLIENT] Sending skill upgrade request to server:', message);
     this.sendMessage(message);
   }
 
@@ -1110,25 +1113,18 @@ export class ClientNetworkSystem extends BaseSystem {
    * Richiede i dati completi del giocatore al server (dopo welcome)
    */
   requestPlayerData(playerId: string): void {
-    console.log('📊 [PLAYER_DATA] ===== REQUESTING PLAYER DATA =====');
-    console.log('📊 [PLAYER_DATA] requestPlayerData called with playerId:', playerId);
-    console.log('📊 [PLAYER_DATA] Connection active:', this.connectionManager.isConnectionActive());
-
     if (!this.connectionManager.isConnectionActive()) {
       console.warn('📊 [PLAYER_DATA] Cannot request player data - not connected');
       return;
     }
 
-    console.log('📊 [PLAYER_DATA] Requesting complete player data for:', playerId);
-
     const message = {
       type: MESSAGE_TYPES.REQUEST_PLAYER_DATA,
+      clientId: this.clientId,
       playerId: playerId,
       timestamp: Date.now()
     };
 
-    console.log('📊 [PLAYER_DATA] Sending message:', message);
     this.connectionManager.send(JSON.stringify(message));
-    console.log('📊 [PLAYER_DATA] Message sent to server');
   }
 }

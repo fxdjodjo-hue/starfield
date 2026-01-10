@@ -176,7 +176,6 @@ export class EntityFactory {
     // Logica specializzata per tipi specifici
     this.setupSpecializedNpcLogic(entity, npcDef);
 
-    console.log(`🏭 [EntityFactory] Created ${config.type} NPC entity ${entity.id}`);
     return entity;
   }
 
@@ -253,8 +252,6 @@ export class EntityFactory {
     // Salva l'interval ID per poterlo fermare quando il carrier viene distrutto
     // Nota: In un'implementazione reale, dovremmo avere un componente per gestire questo
     (carrier as any)._spawnInterval = spawnInterval;
-
-    console.log(`🏭 [EntityFactory] Setup carrier spawning for entity ${carrier.id}`);
   }
 
   /**
@@ -281,9 +278,8 @@ export class EntityFactory {
 
     try {
       this.createFighter(fighterPosition);
-      console.log(`🏭 [EntityFactory] Carrier ${carrier.id} spawned fighter at (${fighterPosition.x}, ${fighterPosition.y})`);
     } catch (error) {
-      console.error('❌ [EntityFactory] Failed to spawn fighter for carrier:', error);
+      // Fighter spawn failed - silently ignore for now
     }
   }
 
@@ -319,7 +315,6 @@ export class EntityFactory {
       ));
     }
 
-    console.log(`🏭 [EntityFactory] Created remote player entity ${entity.id} for ${config.clientId}`);
     return entity;
   }
 
@@ -352,25 +347,47 @@ export class EntityFactory {
    * Aggiunge componenti di combattimento a un'entità
    */
   private addCombatComponents(entity: Entity, config: CombatConfig): void {
+    // Health component - supporta sia il formato annidato che diretto
     if (config.health) {
       this.ecs.addComponent(entity, Health, new Health(
-        config.health.current,
-        config.health.max
+        config.health.current || config.health,
+        config.health.max || config.health
+      ));
+    } else if (config.stats?.health) {
+      // Formato diretto per player (da playerDef.stats)
+      this.ecs.addComponent(entity, Health, new Health(
+        config.stats.health,
+        config.stats.health
       ));
     }
 
+    // Shield component - supporta sia il formato annidato che diretto
     if (config.shield) {
       this.ecs.addComponent(entity, Shield, new Shield(
-        config.shield.current,
-        config.shield.max
+        config.shield.current || config.shield,
+        config.shield.max || config.shield
+      ));
+    } else if (config.stats?.shield) {
+      // Formato diretto per player (da playerDef.stats)
+      this.ecs.addComponent(entity, Shield, new Shield(
+        config.stats.shield,
+        config.stats.shield
       ));
     }
 
+    // Damage component - supporta sia il formato diretto (stats) che il formato annidato (damage)
     if (config.damage) {
       this.ecs.addComponent(entity, Damage, new Damage(
-        config.damage.value,
-        config.damage.range,
-        config.damage.cooldown
+        config.damage.value || config.damage,
+        config.damage.range || config.stats?.range || 600,
+        config.damage.cooldown || config.stats?.cooldown || 1000
+      ));
+    } else if (config.stats?.damage) {
+      // Formato diretto per player (da playerDef.stats)
+      this.ecs.addComponent(entity, Damage, new Damage(
+        config.stats.damage,
+        config.stats.range,
+        config.stats.cooldown
       ));
     }
   }

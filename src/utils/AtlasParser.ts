@@ -38,8 +38,6 @@ export class AtlasParser {
         rotated: false
       }];
 
-      console.log(`💥 [ANIMATED_PNG] Loaded animated PNG: ${imagePath} (${image.width}x${image.height})`);
-
       return { image, frames };
     } catch (error) {
       console.error('Error loading animated PNG:', error);

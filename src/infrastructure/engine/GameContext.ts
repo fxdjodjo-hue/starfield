@@ -154,7 +154,6 @@ export class GameContext {
    */
   setConnectionState(state: ConnectionState): void {
     this.connectionState = state;
-    console.log(`🔌 Connection state changed to: ${state}`);
   }
 
   /**

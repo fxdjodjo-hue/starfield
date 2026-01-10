@@ -303,7 +303,7 @@ export class ChatPanel {
 
     // Listener per l'evento input (quando il valore cambia)
     this.inputElement.addEventListener('input', (e) => {
-      console.log('Input value changed to:', `"${this.inputElement.value}"`);
+      // Input value changed - no action needed
     });
 
     // Invio messaggio con Enter

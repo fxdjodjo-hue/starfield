@@ -16,14 +16,11 @@ export class WelcomeHandler extends BaseMessageHandler {
   }
 
   handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): void {
-    console.log('🎉 [WELCOME] Welcome message received!', {
-      clientId: message.clientId,
-      playerId: message.playerId,
-      playerDbId: message.playerDbId
-    });
-
     // Set the local client ID (WebSocket connection ID)
-    networkSystem.gameContext.localClientId = message.clientId || networkSystem.clientId;
+    const serverClientId = message.clientId || networkSystem.clientId;
+    networkSystem.gameContext.localClientId = serverClientId;
+    // Update the network system's clientId to match the server-assigned ID
+    networkSystem.clientId = serverClientId;
 
     // Salva l'auth ID dell'utente (UUID Supabase)
     networkSystem.gameContext.authId = message.playerId;
@@ -39,7 +36,6 @@ export class WelcomeHandler extends BaseMessageHandler {
       // 🔧 FIX RACE CONDITION: Invece di chiamare direttamente il callback,
       // segnaliamo che abbiamo ricevuto il player ID e lasciamo che il sistema
       // principale gestisca l'inizializzazione sequenziale
-      console.log('🎯 [WELCOME] Player ID received, marking system as ready for initialization:', message.playerDbId);
 
       // Il callback verrà chiamato dal sistema principale dopo l'inizializzazione completa
       // per evitare race conditions
@@ -54,17 +50,6 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       const { position, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
 
-      console.log('🎉 [WELCOME] ===== WELCOME MESSAGE RECEIVED =====');
-      console.log('🎉 [WELCOME] Processing initialState:', {
-        position,
-        inventoryLazy,
-        upgradesLazy,
-        questsLazy,
-        hasPosition: !!position
-      });
-      console.log('🎉 [WELCOME] Full initialState:', message.initialState);
-      console.log('🎉 [WELCOME] GameContext localClientId:', networkSystem.gameContext.localClientId);
-
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
       networkSystem.setHasReceivedWelcome(true);
 
@@ -78,26 +63,17 @@ export class WelcomeHandler extends BaseMessageHandler {
         const ecs = networkSystem.getECS();
         const transform = ecs?.getComponent(playerEntity, Transform);
         if (transform) {
-          console.log('📍 [WELCOME] Applicando posizione iniziale server authoritative:', position);
           transform.x = position.x;
           transform.y = position.y;
           transform.rotation = position.rotation || 0;
-          console.log('✅ [WELCOME] Posizione iniziale sincronizzata con server');
         }
       }
 
       // 🔄 RICHIEDI DATI COMPLETI: Se il server ha indicato lazy loading, richiedi i dati completi
       if (inventoryLazy || upgradesLazy || questsLazy) {
-        console.log('🔄 [WELCOME] Server indicated lazy loading - requesting complete player data');
-        console.log('🔄 [WELCOME] Lazy flags detected:', { inventoryLazy, upgradesLazy, questsLazy });
         const playerId = message.playerId || networkSystem.gameContext.localClientId;
-        console.log('🔄 [WELCOME] Requesting data for playerId:', playerId);
         networkSystem.requestPlayerData(playerId);
-      } else {
-        console.log('ℹ️ [WELCOME] No lazy loading flags detected, using welcome data only');
       }
-    } else {
-      console.log('⚠️ [WELCOME] No initialState received from server');
     }
   }
 }
