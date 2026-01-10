@@ -559,7 +559,21 @@ export class SkillsPanel extends BasePanel {
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
+    // Aggiorna immediatamente quando viene mostrato
     this.updatePlayerStats();
+
+    // E continua ad aggiornare ogni frame mentre è visibile
+    this.startRealtimeUpdates();
+  }
+
+  /**
+   * Callback quando il pannello viene nascosto
+   */
+  protected onHide(): void {
+    // Chiude eventuali tooltip aperti
+    this.hideTooltip();
+    // Ferma aggiornamenti real-time quando nascosto per risparmiare risorse
+    this.stopRealtimeUpdates();
   }
 
   /**
@@ -816,12 +830,28 @@ export class SkillsPanel extends BasePanel {
     });
   }
 
+  private realtimeUpdateActive: boolean = false;
+
+  /**
+   * Avvia aggiornamenti real-time quando il pannello è visibile
+   */
+  private startRealtimeUpdates(): void {
+    this.realtimeUpdateActive = true;
+  }
+
+  /**
+   * Ferma aggiornamenti real-time quando il pannello è nascosto
+   */
+  private stopRealtimeUpdates(): void {
+    this.realtimeUpdateActive = false;
+  }
+
   /**
    * Metodo update chiamato dal sistema ECS ogni frame
    */
   updateECS(deltaTime: number): void {
-    // Aggiorna le statistiche sempre se il container esiste
-    if (this.container) {
+    // Aggiorna le statistiche solo se il pannello è attivo (visibile o ha aggiornamenti real-time attivi)
+    if (this.container && (this.isVisible() || this.realtimeUpdateActive)) {
       this.updatePlayerStats();
     }
   }

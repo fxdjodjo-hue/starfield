@@ -10,7 +10,6 @@ export interface PlayerHUDData {
   experience: number;
   expForNextLevel: number;
   honor: number;
-  skillPoints: number;
 }
 
 /**
@@ -76,10 +75,6 @@ export class PlayerHUD {
         </div>
         <div class="stat-item">
           <div class="stat-label">HONOR</div>
-          <div class="stat-value">0</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">SKILL POINTS</div>
           <div class="stat-value">0</div>
         </div>
       </div>
@@ -303,7 +298,7 @@ export class PlayerHUD {
 
     // Aggiorna risorse - usa gli indici di posizione dato che non abbiamo data-stat
     const statItems = this.container.querySelectorAll('.stat-item .stat-value');
-    if (statItems.length >= 5) {
+    if (statItems.length >= 4) {
       // CR (Credits) - primo elemento
       (statItems[0] as HTMLElement).textContent = this.formatNumber(data.credits);
       // CO (Cosmos) - secondo elemento
@@ -312,8 +307,6 @@ export class PlayerHUD {
       (statItems[2] as HTMLElement).textContent = this.formatNumber(data.experience);
       // HN (Honor) - quarto elemento
       (statItems[3] as HTMLElement).textContent = this.formatNumber(data.honor);
-      // SP (Skill Points) - quinto elemento
-      (statItems[4] as HTMLElement).textContent = this.formatNumber(data.skillPoints);
     }
   }
 

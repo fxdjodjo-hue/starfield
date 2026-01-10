@@ -2,6 +2,7 @@ import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { PlayerDataResponseMessage } from '../../../config/NetworkConfig';
+import { SkillPoints } from '../../../entities/currency/SkillPoints';
 
 /**
  * Handles player data response messages from the server
@@ -53,6 +54,21 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
         upgrades: message.upgrades,
         quests: message.quests
       });
+    }
+
+    // INIZIALIZZA IL COMPONENTE ECS SKILLPOINTS (necessario per SkillsPanel)
+    if (networkSystem.getPlayerSystem() && message.inventory) {
+      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+      if (playerEntity) {
+        const skillPointsComponent = networkSystem.getECS().getComponent(playerEntity, SkillPoints);
+        if (skillPointsComponent) {
+          // Inizializza i punti abilità ricevuti dal server
+          skillPointsComponent.setPoints(message.inventory.skillPoints || 0);
+          console.log('🎯 [SKILLPOINTS] Initialized ECS SkillPoints component:', message.inventory.skillPoints);
+        } else {
+          console.log('⚠️ [SKILLPOINTS] ECS SkillPoints component not found, will be initialized later');
+        }
+      }
     }
 
     // Notifica gli altri sistemi che potrebbero aver bisogno di questi dati

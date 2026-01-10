@@ -775,15 +775,13 @@ export class EconomySystem extends BaseSystem {
     expForNextLevel: number;
     honor: number;
     honorRank: string;
-    skillPoints: number;
   } | null {
     const credits = this.getPlayerCredits();
     const cosmos = this.getPlayerCosmos();
     const experience = this.getPlayerExperience();
     const honor = this.getPlayerHonor();
-    const skillPoints = this.getPlayerSkillPoints();
 
-    if (!credits || !cosmos || !experience || !honor || skillPoints === undefined) return null;
+    if (!credits || !cosmos || !experience || !honor) return null;
 
     const result = {
       credits: credits.credits,
@@ -792,8 +790,7 @@ export class EconomySystem extends BaseSystem {
       experience: experience.exp,
       expForNextLevel: experience.expForCurrentLevel,
       honor: honor.honor,
-      honorRank: this.rankSystem?.calculateCurrentRank() || 'Recruit',
-      skillPoints: skillPoints
+      honorRank: this.rankSystem?.calculateCurrentRank() || 'Recruit'
     };
 
     return result;

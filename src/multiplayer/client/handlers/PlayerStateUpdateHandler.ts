@@ -4,6 +4,7 @@ import type { PlayerStateUpdateMessage } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
+import { SkillPoints } from '../../../entities/currency/SkillPoints';
 
 /**
  * Gestisce gli aggiornamenti completi dello stato del giocatore dal server
@@ -44,6 +45,19 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         skill_points_total: inventory.skillPoints // compatibilità
       };
       console.log('📊 [GAMECONTEXT] Inventory aggiornato:', networkSystem.gameContext.playerInventory);
+    }
+
+    // AGGIORNA IL COMPONENTE ECS SKILLPOINTS (necessario per SkillsPanel)
+    if (networkSystem.getPlayerSystem()) {
+      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+      if (playerEntity) {
+        const skillPointsComponent = networkSystem.getECS().getComponent(playerEntity, SkillPoints);
+        if (skillPointsComponent) {
+          // Imposta direttamente i punti abilità ricevuti dal server
+          skillPointsComponent.setPoints(inventory.skillPoints);
+          console.log('🎯 [SKILLPOINTS] Aggiornati skill points ECS component:', inventory.skillPoints);
+        }
+      }
     }
 
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (non somme locali)
@@ -153,8 +167,14 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       // Aggiorna anche il pannello Skills per riflettere i valori reali
       const skillsPanel = uiSystem.getSkillsPanel();
       if (skillsPanel) {
+        // Assicurati che abbia tutti i riferimenti necessari
+        if (!skillsPanel['playerSystem'] && networkSystem.getPlayerSystem()) {
+          skillsPanel.setPlayerSystem(networkSystem.getPlayerSystem()!);
+        }
         skillsPanel.updatePlayerStats();
         console.log('✅ [SKILLS] SkillsPanel aggiornato con valori server authoritative');
+      } else {
+        console.log('⚠️ [SKILLS] SkillsPanel not available yet, will be updated on next panel open');
       }
 
       // Aggiorna l'HUD in tempo reale
