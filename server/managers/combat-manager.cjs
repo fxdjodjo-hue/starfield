@@ -139,12 +139,10 @@ class ServerCombatManager {
     // Verifica cooldown
     const timeSinceLastAttack = now - combat.lastAttackTime;
     if (timeSinceLastAttack < combat.attackCooldown) {
-      console.log(`⏰ [SERVER] Player ${playerId} cooling down (${(timeSinceLastAttack / 1000).toFixed(1)}s / ${(combat.attackCooldown / 1000).toFixed(1)}s)`);
       return; // Non ancora tempo di attaccare
     }
 
     // Esegui attacco
-    console.log(`🔫 [SERVER] Player ${playerId} attacking NPC ${combat.npcId} (distance: ${distance.toFixed(0)}, range: ${SERVER_CONSTANTS.COMBAT.PLAYER_RANGE})`);
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
   }
@@ -164,7 +162,6 @@ class ServerCombatManager {
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance === 0) {
-      console.log(`⚠️ [SERVER] Distance is 0, skipping attack`);
       return;
     }
 
@@ -192,11 +189,9 @@ class ServerCombatManager {
       // Calculate damage bonus: 1.0 + (damageUpgrades * 0.01)
       const damageBonus = 1.0 + (playerData.upgrades.damageUpgrades * 0.01);
       calculatedDamage = Math.floor(500 * damageBonus);
-      console.log(`🎯 [SERVER] Player ${playerId} damage calculated: ${calculatedDamage} (base: 500, bonus: ${damageBonus.toFixed(3)}, upgrades: ${JSON.stringify(playerData.upgrades)})`);
     }
 
     // Registra proiettile
-    console.log(`📡 [SERVER] Adding projectile ${projectileId} to projectileManager`);
     this.mapServer.projectileManager.addProjectile(
       projectileId,
       playerId,
@@ -207,7 +202,6 @@ class ServerCombatManager {
       npc.id, // targetId - ID dell'NPC bersaglio per homing
       false // excludeSender - il client deve vedere i suoi proiettili
     );
-    console.log(`✅ [SERVER] Projectile ${projectileId} added successfully`);
   }
 
   /**
@@ -238,7 +232,6 @@ class ServerCombatManager {
 
       if (distanceSq <= attackRangeSq) {
         // Player nel range - NPC attacca
-        console.log(`🔫 [SERVER] NPC ${npc.id} attacking player ${clientId}`);
         this.performNpcAttack(npc, playerData, now);
         break; // Un attacco per tick
       }
@@ -255,8 +248,6 @@ class ServerCombatManager {
       y: npc.position.y,
       rotation: npc.position.rotation
     };
-
-    console.log(`🚀 [SERVER] NPC ${npc.id} firing projectile at player ${targetPlayer.clientId}, position: (${npcPosition.x}, ${npcPosition.y})`);
 
     // Controlla che la snapshot abbia una posizione valida
     if (!Number.isFinite(npcPosition.x) || !Number.isFinite(npcPosition.y)) {
@@ -288,8 +279,6 @@ class ServerCombatManager {
       y: Math.sin(angle) * SERVER_CONSTANTS.PROJECTILE.NPC_SPEED
     };
 
-    console.log(`📡 [SERVER] Adding projectile ${projectileId} to projectileManager (NPC attack) - Target: ${targetPlayer.clientId}, Initial velocity: (${velocity.x.toFixed(1)}, ${velocity.y.toFixed(1)})`);
-
     // Registra proiettile
     try {
       this.mapServer.projectileManager.addProjectile(
@@ -301,7 +290,6 @@ class ServerCombatManager {
         'scouter_laser',
         targetPlayer.clientId // Target è il player che viene attaccato
       );
-      console.log(`✅ [SERVER] Projectile ${projectileId} added successfully (NPC attack)`);
     } catch (error) {
       console.error(`❌ [SERVER] Failed to add projectile ${projectileId} (NPC attack):`, error);
     }

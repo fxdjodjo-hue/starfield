@@ -28,16 +28,20 @@ export class WelcomeHandler extends BaseMessageHandler {
     // Nota: playerId UUID non viene salvato in localPlayer (che è di tipo PlayerState)
     // Il playerId numerico è salvato in gameContext.playerId
 
-    // Salva il player_id numerico del giocatore REGISTRATO (per display/HUD)
+      // Salva il player_id numerico del giocatore REGISTRATO (per display/HUD)
     if (message.playerDbId && message.playerDbId > 0) {
       // Salva il player_id numerico valido
       networkSystem.gameContext.playerId = message.playerDbId;
 
-      // Notifica il PlayState del player_id ricevuto
-      if (networkSystem['onPlayerIdReceived']) {
-        networkSystem['onPlayerIdReceived'](message.playerDbId);
-        console.log('🎯 [WELCOME] Registered player ID received:', message.playerDbId);
-      }
+      // 🔧 FIX RACE CONDITION: Invece di chiamare direttamente il callback,
+      // segnaliamo che abbiamo ricevuto il player ID e lasciamo che il sistema
+      // principale gestisca l'inizializzazione sequenziale
+      console.log('🎯 [WELCOME] Player ID received, marking system as ready for initialization:', message.playerDbId);
+
+      // Il callback verrà chiamato dal sistema principale dopo l'inizializzazione completa
+      // per evitare race conditions
+      networkSystem.markAsInitialized();
+
     } else {
       // IMPOSSIBILE: server non dovrebbe mai inviare playerDbId = 0 per utenti registrati
       console.error('🚨 [WELCOME] CRITICAL: Received invalid playerDbId:', message.playerDbId);

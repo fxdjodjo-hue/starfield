@@ -386,20 +386,6 @@ class WebSocketConnectionManager {
               logger.info('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${data.clientId}`);
             }
 
-            console.log('🎉 [SERVER] Sending welcome message:', {
-              clientId: data.clientId,
-              playerId: playerData.userId,
-              playerDbId: playerData.playerId,
-              nickname: data.nickname
-            });
-
-            console.log('🎉 [SERVER] Building welcome message with:', {
-              clientId: data.clientId,
-              playerData_userId: playerData.userId,
-              playerData_playerId: playerData.playerId,
-              nickname: data.nickname
-            });
-
             const welcomeMessage = {
               type: 'welcome',
               clientId: data.clientId,
@@ -447,16 +433,14 @@ class WebSocketConnectionManager {
 
           // Gestisce aggiornamenti posizione del player
           if (data.type === 'position_update') {
-            console.log(`📨 [SERVER] Received position_update from ${data.clientId}:`, { x: data.x, y: data.y });
             if (playerData) {
               playerData.lastInputAt = new Date().toISOString();
 
               // Aggiorna posizione solo se i dati sono validi
               if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
                 playerData.position = sanitizedData;
-              } else {
-                console.warn(`[SERVER] Ignoring invalid position update from ${data.clientId}:`, sanitizedData);
               }
+            }
 
               // Posizione aggiornata (logging limitato per evitare spam)
 
@@ -502,6 +486,17 @@ class WebSocketConnectionManager {
 
           // Gestisce aggiornamenti upgrade del player (Server Authoritative)
           if (data.type === 'player_upgrades_update') {
+            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
+            if (data.playerId !== playerData?.userId) {
+              logger.error('SECURITY', `🚫 BLOCKED: Upgrade update attempt with mismatched playerId from ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid player ID for upgrade action.',
+                code: 'INVALID_PLAYER_ID'
+              }));
+              return;
+            }
+
             const playerData = this.mapServer.players.get(data.playerId);
             if (playerData) {
               // Aggiorna gli upgrade del player con quelli ricevuti dal client
@@ -511,6 +506,17 @@ class WebSocketConnectionManager {
 
           // Gestisce richieste di upgrade skill (Server Authoritative)
           if (data.type === 'skill_upgrade_request') {
+            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
+            if (data.playerId !== playerData?.userId) {
+              logger.error('SECURITY', `🚫 BLOCKED: Skill upgrade attempt with mismatched playerId from ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid player ID for skill upgrade.',
+                code: 'INVALID_PLAYER_ID'
+              }));
+              return;
+            }
+
             const playerData = this.mapServer.players.get(data.playerId);
             if (!playerData) {
               return;
@@ -568,7 +574,16 @@ class WebSocketConnectionManager {
 
           // Gestisce spari di proiettili
           if (data.type === 'projectile_fired') {
-            console.log(`🔫 [SERVER] Projectile fired: ${data.projectileId} by ${data.playerId} (RECEIVED FROM CLIENT)`);
+            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
+            if (data.playerId !== playerData?.userId) {
+              logger.error('SECURITY', `🚫 BLOCKED: Projectile fire attempt with mismatched playerId from ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid player ID for projectile action.',
+                code: 'INVALID_PLAYER_ID'
+              }));
+              return;
+            }
 
             // Determina il target per i proiettili del player (NPC che sta attaccando)
             let targetId = data.targetId || null;
@@ -662,8 +677,6 @@ class WebSocketConnectionManager {
 
           // Gestisce richiesta di fine combattimento
           if (data.type === 'stop_combat') {
-            console.log(`🛑 [SERVER] Stop combat request: player ${data.playerId}`);
-
             // Ferma il combattimento server-side
             this.mapServer.combatManager.stopPlayerCombat(data.playerId);
 
@@ -681,8 +694,6 @@ class WebSocketConnectionManager {
 
           // Gestisce creazione esplosioni
           if (data.type === 'explosion_created') {
-            console.log(`💥 [SERVER] Explosion created: ${data.explosionType} for ${data.entityType} ${data.entityId}`);
-
             // Broadcast l'esplosione a tutti gli altri client
             const message = {
               type: 'explosion_created',
@@ -699,17 +710,24 @@ class WebSocketConnectionManager {
 
           // Gestisce messaggi chat
           if (data.type === 'chat_message') {
-            console.log(`💬 [SERVER] Chat message from ${data.clientId}: ${data.content}`);
-
             // VALIDAZIONE CONTENUTO
             if (!data.content || typeof data.content !== 'string') {
-              console.log(`🚫 [SERVER] Invalid chat content from ${data.clientId}`);
+              return;
+            }
+
+            // Verifica che il clientId corrisponda al mittente (previene spoofing nomi)
+            if (data.clientId !== playerData?.clientId) {
+              logger.warn('SECURITY', `🚫 BLOCKED: Chat message with mismatched clientId from ${data.clientId}`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: 'Invalid client ID for chat message.',
+                code: 'INVALID_CLIENT_ID'
+              }));
               return;
             }
 
             const content = data.content.trim();
             if (content.length === 0 || content.length > 200) {
-              console.log(`🚫 [SERVER] Chat message length invalid from ${data.clientId}: ${content.length} chars`);
               ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Chat message must be between 1 and 200 characters.'

@@ -354,16 +354,8 @@ export class PlayState extends GameState {
     if (this.clientNetworkSystem) {
       this.uiSystem.setClientNetworkSystem(this.clientNetworkSystem);
 
-      // Imposta callback per gestire il playerId ricevuto dal server
-      this.clientNetworkSystem.setOnPlayerIdReceived((playerId: number) => {
-        if (this.questManager) {
-          this.questManager.setPlayerId(playerId);
-          console.log('✅ [PLAYSTATE] QuestManager playerId set:', playerId);
-        }
-        if (this.uiSystem) {
-          this.uiSystem.setPlayerId(playerId);
-        }
-      });
+      // 🔧 FIX RACE CONDITION: Usa il nuovo sistema di inizializzazione sequenziale
+      this.initializeNetworkSystem();
     }
 
     // Collega il PlayerSystem al ClientNetworkSystem (per sincronizzazione upgrade)
@@ -522,6 +514,47 @@ export class PlayState extends GameState {
 
 
 
+
+  /**
+   * 🔧 FIX RACE CONDITION: Inizializza il sistema di rete con gestione sequenziale
+   * per prevenire callback chiamati prima che i sistemi siano pronti
+   */
+  private async initializeNetworkSystem(): Promise<void> {
+    if (!this.clientNetworkSystem) return;
+
+    try {
+      console.log('🔄 [PLAYSTATE] Starting network system initialization...');
+
+      // Inizializza il sistema di rete
+      await this.clientNetworkSystem.initialize();
+
+      // Ora che il sistema è inizializzato, possiamo configurare i callback in sicurezza
+      this.clientNetworkSystem.setOnPlayerIdReceived((playerId: number) => {
+        if (this.questManager) {
+          this.questManager.setPlayerId(playerId);
+          console.log('✅ [PLAYSTATE] QuestManager playerId set:', playerId);
+        }
+        if (this.uiSystem) {
+          this.uiSystem.setPlayerId(playerId);
+        }
+      });
+
+      // Verifica se abbiamo già ricevuto il playerId (caso di riconnessione)
+      if (this.clientNetworkSystem.isSystemInitialized() && this.clientNetworkSystem.gameContext.playerId) {
+        // Richiama manualmente il callback per i sistemi che potrebbero essere stati inizializzati dopo
+        if (this.questManager) {
+          this.questManager.setPlayerId(this.clientNetworkSystem.gameContext.playerId);
+        }
+        if (this.uiSystem) {
+          this.uiSystem.setPlayerId(this.clientNetworkSystem.gameContext.playerId);
+        }
+      }
+
+      console.log('✅ [PLAYSTATE] Network system initialization completed');
+    } catch (error) {
+      console.error('❌ [PLAYSTATE] Network system initialization failed:', error);
+    }
+  }
 
   /**
    * Restituisce il mondo di gioco per accesso esterno

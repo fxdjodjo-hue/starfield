@@ -67,12 +67,24 @@ class ServerProjectileManager {
     const projectilesToRemove = [];
 
     for (const [projectileId, projectile] of this.projectiles.entries()) {
+      // MEMORY LEAK FIX: Controlla se il proiettile è "orfano" (senza target valido)
+      if (this.isProjectileOrphaned(projectile)) {
+        projectilesToRemove.push({
+          id: projectileId,
+          reason: 'orphaned_target'
+        });
+        continue;
+      }
+
       // HOMING LOGIC: Se proiettile ha un target, aggiorna direzione verso di esso
       if (projectile.targetId && projectile.targetId !== -1) {
         const homingResult = this.updateProjectileHoming(projectile);
         if (!homingResult) {
-          // Target non trovato - rimuovi proiettile immediatamente
-          projectilesToRemove.push(projectileId);
+          // Target non trovato - rimuovi proiettile immediatamente per prevenire memory leak
+          projectilesToRemove.push({
+            id: projectileId,
+            reason: 'target_not_found'
+          });
           continue;
         }
       }
@@ -107,14 +119,34 @@ class ServerProjectileManager {
             }
           }
 
-          projectilesToRemove.push(projectileId);
+          projectilesToRemove.push({
+            id: projectileId,
+            reason: 'target_hit'
+          });
           continue;
         } else {
-          // OPTIMIZZAZIONE: Se proiettile non ha colpito il target E è troppo lontano,
-          // rimuovilo per evitare memory leak e spam console
+          // MEMORY LEAK PREVENTION: Controlli multipli per rimuovere proiettili homing problematici
+
+          // 1. Se è troppo lontano dal target originale, rimuovilo
           const maxDistance = this.getMaxTargetDistance(projectile);
-          if (maxDistance > 0 && this.getDistanceToTarget(projectile) > maxDistance) {
-            projectilesToRemove.push(projectileId);
+          if (maxDistance > 0) {
+            const currentDistance = this.getDistanceToTarget(projectile);
+            if (currentDistance > maxDistance) {
+              projectilesToRemove.push({
+                id: projectileId,
+                reason: 'target_too_far'
+              });
+              continue;
+            }
+          }
+
+          // 2. Se è troppo vecchio e homing, rimuovilo (extra safety)
+          const homingTimeout = projectile.playerId.startsWith('npc_') ? 12000 : 8000; // NPC hanno più tempo
+          if (now - projectile.createdAt > homingTimeout) {
+            projectilesToRemove.push({
+              id: projectileId,
+              reason: 'homing_timeout'
+            });
             continue;
           }
         }
@@ -170,17 +202,24 @@ class ServerProjectileManager {
     }
 
     // Rimuovi proiettili distrutti
-    projectilesToRemove.forEach(id => {
-      // Determina il motivo specifico della rimozione
+    projectilesToRemove.forEach(item => {
+      const id = typeof item === 'string' ? item : item.id;
       const projectile = this.projectiles.get(id);
-      let reason = 'collision';
-      if (projectile) {
+
+      // Determina il motivo specifico della rimozione
+      let reason = 'unknown';
+      if (typeof item === 'object' && item.reason) {
+        reason = item.reason;
+      } else if (projectile) {
         if (this.isOutOfBounds(projectile.position)) {
           reason = 'out_of_bounds';
         } else if (now - projectile.createdAt > 10000) {
           reason = 'timeout';
+        } else {
+          reason = 'collision';
         }
       }
+
       this.removeProjectile(id, reason);
     });
   }
@@ -543,6 +582,19 @@ class ServerProjectileManager {
   getTargetPosition(targetId) {
     const targetData = this.getTargetData(targetId);
     return targetData ? targetData.position : null;
+  }
+
+  /**
+   * Verifica se un proiettile è "orfano" (il suo target non esiste più)
+   * Previene memory leaks rimuovendo proiettili che non possono mai colpire
+   */
+  isProjectileOrphaned(projectile) {
+    if (!projectile.targetId || projectile.targetId === -1) {
+      return false; // Non è un proiettile homing, quindi non orfano
+    }
+
+    const targetExists = this.getTargetData(projectile.targetId) !== null;
+    return !targetExists;
   }
 
   /**

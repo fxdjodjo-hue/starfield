@@ -14,6 +14,12 @@ import { ExplosionSystem } from '../../systems/client/ExplosionSystem';
 import { AudioNotificationSystem } from '../../systems/client/AudioNotificationSystem';
 import { UINotificationSystem } from '../../systems/client/UINotificationSystem';
 
+// Refactored components - Separation of Concerns
+import { NetworkConnectionManager } from './managers/NetworkConnectionManager';
+import { NetworkEventSystem } from './managers/NetworkEventSystem';
+import { RemoteEntityManager } from './managers/RemoteEntityManager';
+import { RateLimiter, RATE_LIMITS } from './managers/RateLimiter';
+
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
 import { WelcomeHandler } from './handlers/WelcomeHandler';
@@ -46,6 +52,9 @@ import { NetworkTickManager } from './managers/NetworkTickManager';
 import type { NetMessage } from './types/MessageTypes';
 import { NETWORK_CONFIG, MESSAGE_TYPES } from '../../config/NetworkConfig';
 
+// Supabase client for JWT token
+import { supabase } from '../../lib/supabase';
+
 /**
  * Sistema di rete client modulare per multiplayer
  * Utilizza architettura a componenti per gestire connessioni, messaggi e giocatori remoti
@@ -60,12 +69,19 @@ export class ClientNetworkSystem extends BaseSystem {
   private economySystem: any = null;
   private rewardSystem: any = null;
 
-  // Network components
-  private readonly connectionManager: ConnectionManager;
+  // REFACTORED: Modular architecture with separated concerns
+  private readonly connectionManager: NetworkConnectionManager;
+  private readonly eventSystem: NetworkEventSystem;
+  private readonly entityManager: RemoteEntityManager;
   private readonly tickManager: NetworkTickManager;
-  private socket: WebSocket | null = null;
+  private readonly positionTracker: PlayerPositionTracker;
+  private readonly rateLimiter: RateLimiter;
 
-  // ECS reference for combat management
+  // Legacy components (to be phased out)
+  public readonly remotePlayerManager: RemotePlayerManager; // TODO: Deprecate
+  private readonly messageRouter: MessageRouter; // TODO: Move to connectionManager
+
+  // ECS reference
   private ecs: ECS | null = null;
 
   // Player info
@@ -79,21 +95,6 @@ export class ClientNetworkSystem extends BaseSystem {
   private lastInvalidPositionLog = 0;
   private hasReceivedWelcome = false;
   private pendingPosition: { x: number; y: number; rotation: number } | null = null;
-  private currentCombatNpcId: string | null = null;
-
-  // New modular components
-  private readonly messageRouter: MessageRouter;
-  public readonly remotePlayerManager: RemotePlayerManager;
-  private readonly positionTracker: PlayerPositionTracker;
-  private readonly remotePlayerSystem: RemotePlayerSystem;
-  private playerSystem: PlayerSystem | null = null;
-  private remoteNpcSystem: RemoteNpcSystem | null = null;
-  private remoteProjectileSystem: RemoteProjectileSystem | null = null;
-
-  // Sistemi delegati per responsabilità specifiche (chirurgicamente estratti)
-  private readonly explosionSystem: ExplosionSystem;
-  private readonly audioNotificationSystem: AudioNotificationSystem;
-  private readonly uiNotificationSystem: UINotificationSystem;
 
   // Error handling callbacks
   private onDisconnectedCallback?: () => void;
@@ -101,6 +102,11 @@ export class ClientNetworkSystem extends BaseSystem {
   private onReconnectingCallback?: () => void;
   private onReconnectedCallback?: () => void;
   private onConnectedCallback?: () => void;
+
+  // Initialization state management
+  private initializationPromise: Promise<void> | null = null;
+  private initializationResolver: (() => void) | null = null;
+  private isInitialized = false;
 
   constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem, audioSystem?: any) {
     super(ecs);
@@ -113,30 +119,8 @@ export class ClientNetworkSystem extends BaseSystem {
     // Generate unique client ID
     this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
 
-    // Initialize modular components
-    this.messageRouter = new MessageRouter();
-    this.remotePlayerManager = new RemotePlayerManager(ecs, remotePlayerSystem);
-    this.positionTracker = new PlayerPositionTracker(ecs);
-
-    // Initialize network tick manager
-    this.tickManager = new NetworkTickManager(
-      this.sendHeartbeat.bind(this),
-      this.sendPlayerPosition.bind(this)
-    );
-
-    // Initialize specialized systems (chirurgicamente estratti)
-    this.explosionSystem = new ExplosionSystem(ecs, gameContext);
-    this.audioNotificationSystem = new AudioNotificationSystem(ecs, gameContext);
-    this.uiNotificationSystem = new UINotificationSystem(ecs, gameContext);
-
-    // Pass audio system reference to subsystems
-    if (this.audioSystem) {
-      this.explosionSystem.setAudioSystem(this.audioSystem);
-      this.audioNotificationSystem.setAudioSystem(this.audioSystem);
-    }
-
-    // Initialize connection manager with callbacks
-    this.connectionManager = new ConnectionManager(
+    // REFACTORED: Initialize modular architecture
+    this.connectionManager = new NetworkConnectionManager(
       serverUrl,
       this.handleConnected.bind(this),
       this.handleMessage.bind(this),
@@ -144,6 +128,21 @@ export class ClientNetworkSystem extends BaseSystem {
       this.handleConnectionError.bind(this),
       this.handleReconnecting.bind(this)
     );
+
+    this.eventSystem = new NetworkEventSystem(ecs, gameContext);
+    this.entityManager = new RemoteEntityManager(ecs, remotePlayerSystem);
+    this.positionTracker = new PlayerPositionTracker(ecs);
+    this.rateLimiter = new RateLimiter();
+
+    // Initialize network tick manager
+    this.tickManager = new NetworkTickManager(
+      this.sendHeartbeat.bind(this),
+      this.sendPlayerPosition.bind(this)
+    );
+
+    // LEGACY: Initialize old components for backward compatibility (TODO: Remove)
+    this.messageRouter = new MessageRouter();
+    this.remotePlayerManager = new RemotePlayerManager(ecs, remotePlayerSystem);
 
     // Register message handlers
     this.registerMessageHandlers();
@@ -266,7 +265,7 @@ export class ClientNetworkSystem extends BaseSystem {
       this.onConnectedCallback();
     }
 
-    // Verifica che abbiamo una sessione valida prima di connetterci
+    // 🔴 CRITICAL SECURITY: Verifica che abbiamo sia una sessione valida che un token JWT
     if (!this.gameContext.localClientId || this.gameContext.localClientId.startsWith('client_')) {
       console.error('❌ [CLIENT] Tentativo di connessione senza sessione valida - rilogin necessario');
       // Disconnetti e forza rilogin
@@ -276,24 +275,30 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
+    // 🔴 CRITICAL SECURITY: Ottieni il JWT token corrente da Supabase
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError || !session?.access_token) {
+      console.error('❌ [CLIENT] No valid JWT token available - rilogin necessario');
+      this.connectionManager.disconnect();
+      window.location.reload();
+      return;
+    }
+
     // Invalidate position tracker cache on connection (player might have moved)
     this.positionTracker.invalidateCache();
 
-    // Send join message with player info
+    // Send SECURE join message with JWT token
     const currentPosition = this.getLocalPlayerPosition();
     const nicknameToSend = this.gameContext.playerNickname || 'Player';
 
-    console.log('🚀 [CLIENT] Sending join message:', {
-      clientId: this.clientId,
-      nickname: nicknameToSend,
-      userId: this.gameContext.localClientId,
-      position: currentPosition
-    });
+    console.log('🔐 [CLIENT] Sending SECURE join message with JWT token');
 
     this.sendMessage({
       type: MESSAGE_TYPES.JOIN,
       clientId: this.clientId,
       nickname: nicknameToSend,
+      // 🔴 CRITICAL SECURITY: Include JWT token for server-side validation
+      authToken: session.access_token,
       // playerId sarà assegnato dal server nel welcome message
       userId: this.gameContext.localClientId,
       position: currentPosition
@@ -497,13 +502,19 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends heartbeat to keep connection alive
    */
   private sendHeartbeat(): void {
-    if (!this.socket) return;
+    if (!this.connectionManager.isConnectionActive()) return;
 
-    this.sendMessage({
+    // RATE LIMITING: Controlla se possiamo inviare heartbeat
+    if (!this.rateLimiter.canSend('heartbeat', RATE_LIMITS.HEARTBEAT.maxRequests, RATE_LIMITS.HEARTBEAT.windowMs)) {
+      // Rate limit superato - salta questo heartbeat
+      return;
+    }
+
+    this.connectionManager.send(JSON.stringify({
       type: MESSAGE_TYPES.HEARTBEAT,
       clientId: this.clientId,
       timestamp: Date.now()
-    });
+    }));
   }
 
   /**
@@ -520,12 +531,18 @@ export class ClientNetworkSystem extends BaseSystem {
    * Synchronizes the player position to the server (called by tick manager)
    */
   private sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
-    if (!this.socket) return;
+    if (!this.connectionManager.isConnectionActive()) return;
 
     // IMPORTANTE: Non mandare position updates finché il server non ha confermato il join
     if (!this.hasReceivedWelcome) {
       // Accumula la posizione per quando il server sarà pronto
       this.pendingPosition = position;
+      return;
+    }
+
+    // RATE LIMITING: Controlla se possiamo inviare aggiornamenti posizione
+    if (!this.rateLimiter.canSend('position_update', RATE_LIMITS.POSITION_UPDATE.maxRequests, RATE_LIMITS.POSITION_UPDATE.windowMs)) {
+      // Rate limit superato - salta questo aggiornamento per ridurre carico server
       return;
     }
 
@@ -539,14 +556,14 @@ export class ClientNetworkSystem extends BaseSystem {
       position = { x: 0, y: 0, rotation: 0 };
     }
 
-    this.sendMessage({
+    this.connectionManager.send(JSON.stringify({
       type: MESSAGE_TYPES.POSITION_UPDATE,
       clientId: this.clientId,
       x: position.x,
       y: position.y,
       rotation: position.rotation,
       tick: this.tickManager.getTickCounter()
-    });
+    }));
   }
 
   /**
@@ -592,6 +609,9 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sets the RemoteNpcSystem instance
    */
   setRemoteNpcSystem(remoteNpcSystem: RemoteNpcSystem): void {
+    this.entityManager.setRemoteSystems(remoteNpcSystem, this.remoteProjectileSystem || undefined);
+
+    // LEGACY: Update old reference for backward compatibility
     this.remoteNpcSystem = remoteNpcSystem;
 
     // Ri-registra gli handler per includere quelli NPC ora che il sistema è disponibile
@@ -604,6 +624,9 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sets the RemoteProjectileSystem instance
    */
   setRemoteProjectileSystem(remoteProjectileSystem: RemoteProjectileSystem): void {
+    this.entityManager.setRemoteSystems(this.remoteNpcSystem || undefined, remoteProjectileSystem);
+
+    // LEGACY: Update old reference for backward compatibility
     this.remoteProjectileSystem = remoteProjectileSystem;
 
     // Ri-registra gli handler per includere quelli di combattimento ora che il sistema è disponibile
@@ -696,7 +719,7 @@ export class ClientNetworkSystem extends BaseSystem {
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): void {
-    if (!this.socket || !this.isConnected) {
+    if (!this.connectionManager.isConnectionActive()) {
       return;
     }
 
@@ -709,12 +732,12 @@ export class ClientNetworkSystem extends BaseSystem {
       explosionType: data.explosionType
     };
 
-    this.sendMessage(message);
+    this.connectionManager.send(JSON.stringify(message));
   }
 
   /**
    * Creates a remote explosion for synchronized visual effects
-   * Delega al ExplosionSystem specializzato
+   * Delegates to the NetworkEventSystem
    */
   async createRemoteExplosion(message: {
     explosionId: string;
@@ -723,7 +746,7 @@ export class ClientNetworkSystem extends BaseSystem {
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
-    await this.explosionSystem.createRemoteExplosion(message);
+    await this.eventSystem.createRemoteExplosion(message);
   }
 
   /**
@@ -742,12 +765,18 @@ export class ClientNetworkSystem extends BaseSystem {
     npcId: string;
     playerId: string;
   }): void {
-    if (!this.socket || !this.isConnected) {
+    if (!this.connectionManager.isConnectionActive()) {
+      return;
+    }
+
+    // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
+    if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
+      console.warn('⚔️ [COMBAT] Rate limit exceeded - combat action blocked');
       return;
     }
 
     // Salva l'NPC corrente per stop_combat
-    this.setCurrentCombatNpcId(data.npcId);
+    this.entityManager.setCurrentCombatNpcId(data.npcId);
 
     const message = {
       type: MESSAGE_TYPES.START_COMBAT,
@@ -755,7 +784,7 @@ export class ClientNetworkSystem extends BaseSystem {
       playerId: data.playerId
     };
 
-    this.sendMessage(message);
+    this.connectionManager.send(JSON.stringify(message));
   }
 
   /**
@@ -789,7 +818,13 @@ export class ClientNetworkSystem extends BaseSystem {
     // damage rimosso: calcolato dal server (Server Authoritative)
     projectileType: string;
   }): void {
-    if (!this.socket || !this.isConnected) {
+    if (!this.connectionManager.isConnectionActive()) {
+      return;
+    }
+
+    // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
+    if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
+      console.warn('🚀 [PROJECTILE] Rate limit exceeded - projectile blocked');
       return;
     }
 
@@ -803,7 +838,7 @@ export class ClientNetworkSystem extends BaseSystem {
       projectileType: data.projectileType
     };
 
-    this.sendMessage(message);
+    this.connectionManager.send(JSON.stringify(message));
   }
 
   /**
@@ -862,13 +897,19 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends a chat message to the server
    */
   sendChatMessage(content: string): void {
-    if (!this.socket || !this.isConnected || !this.clientId) {
+    if (!this.connectionManager.isConnectionActive() || !this.clientId) {
       console.warn('💬 [CHAT] Cannot send message: not connected');
       return;
     }
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
       console.warn('💬 [CHAT] Cannot send empty message');
+      return;
+    }
+
+    // RATE LIMITING: Controlla se possiamo inviare messaggi chat
+    if (!this.rateLimiter.canSend('chat_message', RATE_LIMITS.CHAT_MESSAGE.maxRequests, RATE_LIMITS.CHAT_MESSAGE.windowMs)) {
+      console.warn('💬 [CHAT] Rate limit exceeded - please wait before sending another message');
       return;
     }
 
@@ -883,7 +924,7 @@ export class ClientNetworkSystem extends BaseSystem {
       console.log('💬 [CHAT] Sending message to server:', message);
     }
 
-    this.sendMessage(message);
+    this.connectionManager.send(JSON.stringify(message));
   }
 
   /**
@@ -989,9 +1030,51 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Inizializza il sistema di rete con gestione dello stato di inizializzazione
+   * Previene race conditions nei callback
+   */
+  initialize(): Promise<void> {
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = new Promise((resolve) => {
+      this.initializationResolver = resolve;
+    });
+
+    return this.initializationPromise;
+  }
+
+  /**
+   * Segna il sistema come inizializzato e risolve eventuali promise in attesa
+   */
+  markAsInitialized(): void {
+    this.isInitialized = true;
+    if (this.initializationResolver) {
+      this.initializationResolver();
+      this.initializationResolver = null;
+    }
+  }
+
+  /**
+   * Verifica se il sistema è completamente inizializzato
+   */
+  isSystemInitialized(): boolean {
+    return this.isInitialized;
+  }
+
+  /**
    * Imposta callback per quando viene ricevuto il player ID
+   * Ora sicuro da race conditions grazie al sistema di inizializzazione
    */
   setOnPlayerIdReceived(callback: (playerId: number) => void): void {
     this.onPlayerIdReceived = callback;
+  }
+
+  /**
+   * Ottiene statistiche del rate limiter per debugging
+   */
+  getRateLimiterStats() {
+    return this.rateLimiter.getStats();
   }
 }
