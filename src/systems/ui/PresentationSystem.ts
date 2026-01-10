@@ -88,7 +88,8 @@ export class PresentationSystem {
         cosmos: economyData.cosmos,
         experience: economyData.experience,
         expForNextLevel: economyData.expForNextLevel,
-        honor: economyData.honor
+        honor: economyData.honor,
+        skillPoints: economyData.skillPoints || 0
       };
 
       // Aggiorna e mostra l'HUD
@@ -102,7 +103,8 @@ export class PresentationSystem {
         cosmos: 0,
         experience: 0,
         expForNextLevel: 100,
-        honor: 0
+        honor: 0,
+        skillPoints: 0
       };
       this.playerHUD.updateData(defaultData);
       this.playerHUD.show();

@@ -439,7 +439,8 @@ export class UiSystem extends System {
         cosmos: this.context.playerInventory.cosmos || 0,
         experience: this.context.playerInventory.experience || 0,
         expForNextLevel: 1000, // TODO: sistema livelli
-        honor: this.context.playerInventory.honor || 0
+        honor: this.context.playerInventory.honor || 0,
+        skillPoints: this.context.playerInventory.skillPoints || 0
       };
       console.log('📊 [UISYSTEM] HUD data from GameContext:', hudData);
     }
@@ -455,7 +456,8 @@ export class UiSystem extends System {
           cosmos: economyData.cosmos,
           experience: economyData.experience,
           expForNextLevel: economyData.expForNextLevel,
-          honor: economyData.honor
+          honor: economyData.honor,
+          skillPoints: economyData.skillPoints || 0
         };
         console.log('📊 [UISYSTEM] HUD data from EconomySystem:', hudData);
       }
@@ -470,7 +472,8 @@ export class UiSystem extends System {
         cosmos: 0,
         experience: 0,
         expForNextLevel: 100,
-        honor: 0
+        honor: 0,
+        skillPoints: 0
       };
       console.log('📊 [UISYSTEM] Using default HUD data');
     }

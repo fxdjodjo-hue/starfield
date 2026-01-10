@@ -241,7 +241,8 @@ class PlayState extends GameState {
       cosmos: this.getPlayerCosmos(),
       experience: this.getPlayerExperience(),
       expForNextLevel: this.getExpForNextLevel(),
-      honor: this.getPlayerHonor()
+      honor: this.getPlayerHonor(),
+      skillPoints: this.getPlayerSkillPoints()
     };
 
     this.playerHUD.updateData(hudData);
