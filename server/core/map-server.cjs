@@ -267,7 +267,12 @@ class MapServer {
       const positionBroadcast = {
         type: 'remote_player_update',
         clientId,
-        position: latestUpdate.position,
+        position: {
+          x: latestUpdate.x,
+          y: latestUpdate.y,
+          velocityX: latestUpdate.velocityX || 0,
+          velocityY: latestUpdate.velocityY || 0
+        },
         rotation: latestUpdate.rotation,
         tick: latestUpdate.tick,
         nickname: latestUpdate.nickname,

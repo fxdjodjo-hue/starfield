@@ -20,6 +20,8 @@ export class InterpolationTarget {
   targetX: number;
   targetY: number;
   targetRotation: number;
+  targetVelocityX: number;
+  targetVelocityY: number;
 
   // ==========================================
   // VALIDAZIONE POSIZIONI
@@ -48,23 +50,25 @@ export class InterpolationTarget {
   }
 
   // ==========================================
-  // SMOOTHING SEMPLIFICATO
+  // SMOOTHING OTTIMIZZATO PER FLUIDITÀ
   // ==========================================
-  private smoothingFactor: number = 0.3;   // Smoothing fisso (30% per frame)
+  private smoothingFactor: number = 0.5;   // Smoothing aumentato (50% per frame) da 0.3 → 0.5 per ridurre lag
   private angularSmoothing: number = 0.6;  // Smoothing separato per rotazione - aumentato per più fluidità
 
-  constructor(initialX: number, initialY: number, initialRotation: number) {
+  constructor(initialX: number, initialY: number, initialRotation: number, initialVelocityX: number = 0, initialVelocityY: number = 0) {
     // Inizializza render = target
     this.renderX = this.targetX = initialX;
     this.renderY = this.targetY = initialY;
     this.renderRotation = this.targetRotation = initialRotation;
+    this.targetVelocityX = initialVelocityX;
+    this.targetVelocityY = initialVelocityY;
   }
 
   /**
    * AGGIORNA TARGET - Versione semplificata con validazione
    * Chiamato quando arriva un pacchetto server per remote player
    */
-  updateTarget(x: number, y: number, rotation: number): void {
+  updateTarget(x: number, y: number, rotation: number, velocityX: number = 0, velocityY: number = 0): void {
     // Valida e sanitizza le posizioni prima di aggiornarle
     const sanitizedPos = InterpolationTarget.sanitizePosition(x, y, this.targetX, this.targetY);
 
@@ -79,11 +83,13 @@ export class InterpolationTarget {
     this.targetX = sanitizedPos.x;
     this.targetY = sanitizedPos.y;
     this.targetRotation = sanitizedRotation;
+    this.targetVelocityX = velocityX;
+    this.targetVelocityY = velocityY;
   }
 
   /**
-   * UPDATE RENDER - Versione semplificata con sicurezza
-   * Interpolazione lineare semplice ogni frame
+   * UPDATE RENDER - Versione con extrapolation per fluidità
+   * Interpolazione lineare con leggera extrapolation basata su velocità
    */
   updateRender(deltaTime: number): void {
     // Normalizza deltaTime per frame-rate independence (max 2x velocità)
@@ -93,9 +99,15 @@ export class InterpolationTarget {
     const positionSmoothing = this.smoothingFactor * normalizedDelta;
     const rotationSmoothing = this.angularSmoothing * normalizedDelta;
 
-    // Interpolazione lineare semplice per posizione
-    this.renderX += (this.targetX - this.renderX) * positionSmoothing;
-    this.renderY += (this.targetY - this.renderY) * positionSmoothing;
+    // Se abbiamo velocità, facciamo una leggera extrapolation per riempire i gap
+    // Questo aiuta quando gli aggiornamenti dal server sono sporadici
+    const extrapolationFactor = 0.1; // Piccola extrapolation (10% della velocità)
+    const extrapolatedX = this.targetX + (this.targetVelocityX * deltaTime * extrapolationFactor);
+    const extrapolatedY = this.targetY + (this.targetVelocityY * deltaTime * extrapolationFactor);
+
+    // Interpolazione lineare semplice con extrapolation
+    this.renderX += (extrapolatedX - this.renderX) * positionSmoothing;
+    this.renderY += (extrapolatedY - this.renderY) * positionSmoothing;
 
     // Interpolazione angolare con shortest path
     const angleDiff = this.calculateShortestAngle(this.renderRotation, this.targetRotation);

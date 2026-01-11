@@ -96,7 +96,7 @@ interface Bucket {
 // Rate limiting constants
 export const RATE_LIMITS = {
   POSITION_UPDATE: {
-    maxRequests: 20, // 20 aggiornamenti al secondo
+    maxRequests: 30, // 30 aggiornamenti al secondo (da 20 → 30 per fluidità)
     windowMs: 1000
   },
   HEARTBEAT: {

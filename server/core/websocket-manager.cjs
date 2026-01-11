@@ -382,7 +382,7 @@ class WebSocketConnectionManager {
                   type: 'remote_player_update',
                   clientId: existingClientId,
                   position: playerData.position,
-                  rotation: 0,
+                  rotation: playerData.position.rotation || 0,
                   tick: 0,
                   nickname: playerData.nickname,
                   playerId: playerData.playerId
@@ -460,9 +460,15 @@ class WebSocketConnectionManager {
             if (playerData) {
               playerData.lastInputAt = new Date().toISOString();
 
-              // Aggiorna posizione solo se i dati sono validi
+              // Aggiorna posizione e velocità solo se i dati sono validi
               if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
-                playerData.position = sanitizedData;
+                playerData.position = {
+                  x: sanitizedData.x,
+                  y: sanitizedData.y,
+                  rotation: sanitizedData.rotation,
+                  velocityX: sanitizedData.velocityX || 0,
+                  velocityY: sanitizedData.velocityY || 0
+                };
               }
 
               // Posizione aggiornata (logging limitato per evitare spam)
@@ -473,8 +479,11 @@ class WebSocketConnectionManager {
               }
 
               this.mapServer.positionUpdateQueue.get(data.clientId).push({
-                position: { x: data.x, y: data.y },
+                x: data.x,
+                y: data.y,
                 rotation: data.rotation,
+                velocityX: data.velocityX || 0,
+                velocityY: data.velocityY || 0,
                 tick: data.tick,
                 nickname: playerData.nickname,
                 playerId: playerData.playerId,

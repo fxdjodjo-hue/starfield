@@ -129,7 +129,7 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Aggiorna posizione e rotazione di un giocatore remoto esistente
    */
-  updateRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): void {
+  updateRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0, velocityX: number = 0, velocityY: number = 0): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (!entity) {
       // Player remoto non trovato - potrebbe essere normale se non ancora creato
@@ -143,7 +143,7 @@ export class RemotePlayerSystem extends BaseSystem {
 
       // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
       // Eliminazione completa degli scatti attraverso interpolazione continua
-      interpolation.updateTarget(x, y, rotation);
+      interpolation.updateTarget(x, y, rotation, velocityX, velocityY);
     } else {
       console.warn(`[REMOTE_PLAYER] No interpolation component found for ${clientId} entity ${entity.id}`);
     }

@@ -144,8 +144,11 @@ export interface BaseMessage {
  */
 export interface PositionUpdateMessage extends BaseMessage {
   type: 'position_update';
-  position: Position;
+  x: number;
+  y: number;
   rotation: number;
+  velocityX: number;
+  velocityY: number;
   tick: number;
 }
 

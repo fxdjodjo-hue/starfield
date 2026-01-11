@@ -525,6 +525,27 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.positionTracker.getLocalPlayerPosition();
   }
 
+  /**
+   * Gets the current player velocity for extrapolation
+   */
+  private getCurrentPlayerVelocity(): { x: number; y: number } {
+    try {
+      const playerEntity = this.ecs.getEntitiesWithComponents(Transform, Velocity)
+        .find(entity => !this.ecs.hasComponent(entity, Npc)); // Trova player (non NPC)
+
+      if (playerEntity) {
+        const velocity = this.ecs.getComponent(playerEntity, Velocity);
+        if (velocity) {
+          return { x: velocity.x, y: velocity.y };
+        }
+      }
+    } catch (error) {
+      console.warn('[CLIENT] Error getting player velocity:', error);
+    }
+
+    return { x: 0, y: 0 }; // Fallback
+  }
+
 
 
 
@@ -546,10 +567,15 @@ export class ClientNetworkSystem extends BaseSystem {
     while (normalizedRotation > Math.PI) normalizedRotation -= 2 * Math.PI;
     while (normalizedRotation < -Math.PI) normalizedRotation += 2 * Math.PI;
 
+    // OTTIENI VELOCITÀ DAL PLAYER (per extrapolation client-side)
+    const velocity = this.getCurrentPlayerVelocity();
+
     const normalizedPosition = {
       x: position.x,
       y: position.y,
-      rotation: normalizedRotation
+      rotation: normalizedRotation,
+      velocityX: velocity.x,
+      velocityY: velocity.y
     };
 
     // RATE LIMITING: Controlla se possiamo inviare aggiornamenti posizione
@@ -568,6 +594,8 @@ export class ClientNetworkSystem extends BaseSystem {
       normalizedPosition.x = 0;
       normalizedPosition.y = 0;
       normalizedPosition.rotation = 0;
+      normalizedPosition.velocityX = 0;
+      normalizedPosition.velocityY = 0;
     }
 
     this.connectionManager.send(JSON.stringify({
@@ -575,7 +603,9 @@ export class ClientNetworkSystem extends BaseSystem {
       clientId: this.clientId,
       x: normalizedPosition.x,
       y: normalizedPosition.y,
-      rotation: normalizedPosition.rotation, // Ora usa la rotazione normalizzata
+      rotation: normalizedRotation, // Ora usa la rotazione normalizzata
+      velocityX: normalizedPosition.velocityX,
+      velocityY: normalizedPosition.velocityY,
       tick: this.tickManager.getTickCounter()
     }));
   }
@@ -583,18 +613,25 @@ export class ClientNetworkSystem extends BaseSystem {
   /**
    * Valida che la posizione sia valida prima dell'invio
    */
-  private isValidPosition(pos: { x: number; y: number; rotation: number }): boolean {
+  private isValidPosition(pos: { x: number; y: number; rotation: number; velocityX?: number; velocityY?: number }): boolean {
     // Normalizza la rotation per accettare valori non normalizzati
     let normalizedRotation = pos.rotation;
     while (normalizedRotation > Math.PI) normalizedRotation -= 2 * Math.PI;
     while (normalizedRotation < -Math.PI) normalizedRotation += 2 * Math.PI;
 
+    const velocityX = pos.velocityX ?? 0;
+    const velocityY = pos.velocityY ?? 0;
+
     return Number.isFinite(pos.x) &&
            Number.isFinite(pos.y) &&
            Number.isFinite(pos.rotation) &&
+           Number.isFinite(velocityX) &&
+           Number.isFinite(velocityY) &&
            pos.x >= -50000 && pos.x <= 50000 &&
            pos.y >= -50000 && pos.y <= 50000 &&
-           normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI;
+           normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI &&
+           velocityX >= -2000 && velocityX <= 2000 &&
+           velocityY >= -2000 && velocityY <= 2000;
   }
 
 

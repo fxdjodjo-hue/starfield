@@ -44,7 +44,7 @@ class ServerInputValidator {
       return { isValid: false, errors };
     }
 
-    const { x, y, rotation } = data;
+    const { x, y, rotation, velocityX, velocityY } = data;
 
     // Validazione X
     if (typeof x !== 'number' || isNaN(x) || !isFinite(x)) {
@@ -69,6 +69,23 @@ class ServerInputValidator {
       }
     }
 
+    // Validazione velocità (opzionali per extrapolation)
+    if (velocityX !== undefined) {
+      if (typeof velocityX !== 'number' || isNaN(velocityX) || !isFinite(velocityX)) {
+        errors.push('VelocityX must be a valid finite number');
+      } else if (Math.abs(velocityX) > this.LIMITS.VELOCITY.MAX_SPEED) {
+        errors.push(`VelocityX too high: ${velocityX}`);
+      }
+    }
+
+    if (velocityY !== undefined) {
+      if (typeof velocityY !== 'number' || isNaN(velocityY) || !isFinite(velocityY)) {
+        errors.push('VelocityY must be a valid finite number');
+      } else if (Math.abs(velocityY) > this.LIMITS.VELOCITY.MAX_SPEED) {
+        errors.push(`VelocityY too high: ${velocityY}`);
+      }
+    }
+
     if (errors.length > 0) {
       return { isValid: false, errors };
     }
@@ -85,7 +102,9 @@ class ServerInputValidator {
     const sanitized = {
       x: Math.max(this.LIMITS.POSITION.X_MIN, Math.min(this.LIMITS.POSITION.X_MAX, x)),
       y: Math.max(this.LIMITS.POSITION.Y_MIN, Math.min(this.LIMITS.POSITION.Y_MAX, y)),
-      rotation: sanitizedRotation
+      rotation: sanitizedRotation,
+      velocityX: velocityX !== undefined ? Math.max(-this.LIMITS.VELOCITY.MAX_SPEED, Math.min(this.LIMITS.VELOCITY.MAX_SPEED, velocityX)) : 0,
+      velocityY: velocityY !== undefined ? Math.max(-this.LIMITS.VELOCITY.MAX_SPEED, Math.min(this.LIMITS.VELOCITY.MAX_SPEED, velocityY)) : 0
     };
 
     return {

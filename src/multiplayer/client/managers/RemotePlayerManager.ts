@@ -32,7 +32,7 @@ export class RemotePlayerManager {
       }
     } else {
       // Update existing remote player
-      this.updateRemotePlayer(clientId, position.x, position.y, rotation || 0);
+      this.updateRemotePlayer(clientId, position.x, position.y, rotation || 0, position.velocityX || 0, position.velocityY || 0);
       // Update info if provided
       if (nickname) {
         this.setPlayerInfo(clientId, nickname, rank || 'Recruit');
@@ -50,8 +50,8 @@ export class RemotePlayerManager {
   /**
    * Updates an existing remote player position
    */
-  private updateRemotePlayer(clientId: string, x: number, y: number, rotation: number): void {
-    this.remotePlayerSystem.updateRemotePlayer(clientId, x, y, rotation);
+  private updateRemotePlayer(clientId: string, x: number, y: number, rotation: number, velocityX: number = 0, velocityY: number = 0): void {
+    this.remotePlayerSystem.updateRemotePlayer(clientId, x, y, rotation, velocityX, velocityY);
   }
 
   /**
