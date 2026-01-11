@@ -19,6 +19,11 @@ export class InterpolationSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
+    // Debug: monitora deltaTime per identificare scatti
+    if (deltaTime > 50) { // DeltaTime > 50ms indica frame drop
+      console.warn(`[INTERPOLATION_DEBUG] Frame drop detected! deltaTime: ${deltaTime}ms`);
+    }
+
     // Trova tutti i remote player con interpolazione
     const entities = this.ecs.getEntitiesWithComponents(Transform, InterpolationTarget);
 
@@ -30,7 +35,7 @@ export class InterpolationSystem extends BaseSystem {
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
 
       if (transform && interpolation) {
-        // UPDATE RENDER con exponential smoothing adattivo
+        // UPDATE RENDER con smoothing ottimizzato per ridurre scatti
         interpolation.updateRender(deltaTime);
 
         // Log valori sospetti ogni 30 secondi per debug

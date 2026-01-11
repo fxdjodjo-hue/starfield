@@ -18,6 +18,8 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
   }
 
   handle(message: PlayerDataResponseMessage, networkSystem: ClientNetworkSystem): void {
+    console.log(`[DEBUG_RECEIVE] CLIENT received player_data_response - experience: ${message.inventory?.experience}, honor: ${message.inventory?.honor}`);
+
     // Aggiorna i dati del giocatore nel game context
     if (networkSystem.gameContext) {
       // Aggiorna inventory
@@ -36,15 +38,22 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       }
     }
 
-    // Notifica l'UI che i dati del giocatore sono stati aggiornati
-    const uiSystem = networkSystem.getUiSystem();
-    if (uiSystem && typeof uiSystem.updatePlayerData === 'function') {
-      uiSystem.updatePlayerData({
-        inventory: message.inventory,
-        upgrades: message.upgrades,
-        quests: message.quests
-      });
+    // AGGIORNA ECONOMY SYSTEM CON DATI DAL DATABASE (server authoritative)
+    const economySystem = networkSystem.getEconomySystem();
+    if (economySystem && message.inventory) {
+      console.log(`[DEBUG_ECONOMY] PlayerDataResponseHandler calling EconomySystem.setExperience(${message.inventory.experience})`);
+      economySystem.setExperience(message.inventory.experience, 'server_update');
+      economySystem.setCredits(message.inventory.credits, 'server_update');
+      economySystem.setCosmos(message.inventory.cosmos, 'server_update');
+      economySystem.setHonor(message.inventory.honor, 'server_update');
+      economySystem.setSkillPoints(message.inventory.skillPoints, 'server_update');
+
+      // ✅ L'ECONOMY SYSTEM TRIGGERA AUTOMATICAMENTE onExperienceChanged -> UiSystem.updatePlayerData
+    } else {
+      console.log(`[DEBUG_ECONOMY] ERROR: EconomySystem not available in PlayerDataResponseHandler`);
     }
+
+    // ✅ L'ECONOMY SYSTEM TRIGGERA AUTOMATICAMENTE onExperienceChanged -> UiSystem.updatePlayerData
 
     // INIZIALIZZA IL COMPONENTE ECS SKILLPOINTS (necessario per SkillsPanel)
     if (networkSystem.getPlayerSystem() && message.inventory) {
@@ -98,10 +107,6 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       }
     }
 
-    // Notifica gli altri sistemi che potrebbero aver bisogno di questi dati
-    const economySystem = networkSystem.getEconomySystem();
-    if (economySystem && typeof economySystem.updatePlayerInventory === 'function') {
-      economySystem.updatePlayerInventory(message.inventory);
-    }
+    // Gli altri sistemi vengono aggiornati sopra con i dati economici
   }
 }

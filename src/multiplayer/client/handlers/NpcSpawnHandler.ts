@@ -11,6 +11,7 @@ export class NpcSpawnHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    console.log(`[CLIENT] Received npc_spawn: ${message.npc.id} (${message.npc.type}) at ${message.npc.position.x.toFixed(0)},${message.npc.position.y.toFixed(0)}`);
 
     const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
     if (!remoteNpcSystem) {

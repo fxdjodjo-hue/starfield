@@ -82,6 +82,7 @@ export class PresentationSystem {
 
     if (economyData) {
       // Prepara i dati per l'HUD
+      console.log(`[DEBUG_EXP] PresentationSystem updating HUD - level: ${economyData.level}, exp: ${economyData.experience}`);
       const hudData = {
         level: economyData.level,
         credits: economyData.credits,

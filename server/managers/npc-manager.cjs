@@ -250,7 +250,10 @@ class ServerNpcManager {
     // Aggiungi ricompense all'inventario del giocatore (assicurati che siano numeri)
     playerData.inventory.credits = Number(playerData.inventory.credits || 0) + (rewards.credits || 0);
     playerData.inventory.cosmos = Number(playerData.inventory.cosmos || 0) + (rewards.cosmos || 0);
-    playerData.inventory.experience = Number(playerData.inventory.experience || 0) + (rewards.experience || 0);
+    const oldExp = Number(playerData.inventory.experience || 0);
+    const newExp = oldExp + (rewards.experience || 0);
+    playerData.inventory.experience = newExp;
+    console.log(`[DEBUG_EXP] SERVER: Added ${rewards.experience} XP to player ${playerId}, total: ${oldExp} → ${newExp}`);
     playerData.inventory.honor = Number(playerData.inventory.honor || 0) + (rewards.honor || 0);
     playerData.inventory.skillPoints = Number(playerData.inventory.skillPoints || 0) + skillPointsDrop;
 
@@ -412,8 +415,9 @@ class ServerNpcManager {
       }
     };
 
-    // Broadcast a tutti i client nel raggio di interesse
-    this.mapServer.broadcastNear(npc.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
+    // Broadcast GLOBALE per spawn NPC (minimappa globale richiede aggiornamenti globali)
+    console.log(`[SERVER] Broadcasting npc_spawn: ${npc.id} (${npc.type}) at ${npc.position.x.toFixed(0)},${npc.position.y.toFixed(0)} - radius: 50000`);
+    this.mapServer.broadcastNear(npc.position, 50000, message);
   }
 
   /**

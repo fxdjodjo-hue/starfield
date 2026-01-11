@@ -211,8 +211,7 @@ export class PlayState extends GameState {
     // Aggiorna il mondo di gioco
     this.world.update(deltaTime);
 
-    // Aggiorna le informazioni del player (HP)
-    this.uiSystem.showPlayerInfo();
+    // ✅ L'HUD si aggiorna automaticamente tramite EconomySystem.onExperienceChanged
 
     // Aggiorna posizione del nickname del player
     this.updateNicknamePosition();

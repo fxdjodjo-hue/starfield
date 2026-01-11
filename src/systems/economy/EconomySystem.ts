@@ -507,10 +507,8 @@ export class EconomySystem extends BaseSystem {
 
     const change = credits.credits - oldAmount;
 
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (reason !== 'server_update') {
-      this.onCreditsChanged?.(credits.credits, change);
-    }
+    // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
+    this.onCreditsChanged?.(credits.credits, change);
   }
 
   // ===== GESTIONE COSMOS =====
@@ -576,10 +574,8 @@ export class EconomySystem extends BaseSystem {
 
     const change = cosmos.cosmos - oldAmount;
 
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (reason !== 'server_update') {
-      this.onCosmosChanged?.(cosmos.cosmos, change);
-    }
+    // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
+    this.onCosmosChanged?.(cosmos.cosmos, change);
   }
 
   // ===== GESTIONE EXPERIENCE =====
@@ -602,10 +598,8 @@ export class EconomySystem extends BaseSystem {
       }
     });
 
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (reason !== 'server_update') {
-      this.onExperienceChanged?.(experience.totalExpEarned, amount, leveledUp);
-    }
+    // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
+    this.onExperienceChanged?.(experience.totalExpEarned, amount, leveledUp);
 
     return leveledUp;
   }
@@ -623,7 +617,10 @@ export class EconomySystem extends BaseSystem {
    */
   setExperience(totalExp: number, reason: string = 'server_update'): void {
     const experience = this.getPlayerExperience();
-    if (!experience) return;
+    if (!experience) {
+      console.log(`[DEBUG_EXP] ERROR: No Experience component found!`);
+      return;
+    }
 
     const oldTotalExp = experience.totalExpEarned;
     const targetTotalExp = Math.max(0, totalExp);
@@ -639,10 +636,8 @@ export class EconomySystem extends BaseSystem {
     const change = experience.totalExpEarned - oldTotalExp;
     const leveledUp = experience.level > Math.floor(oldTotalExp / 100) + 1;
 
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (reason !== 'server_update') {
-      this.onExperienceChanged?.(experience.exp, change, leveledUp);
-    }
+    // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
+    this.onExperienceChanged?.(experience.totalExpEarned, change, leveledUp);
   }
 
   // ===== GESTIONE HONOR =====
@@ -704,10 +699,8 @@ export class EconomySystem extends BaseSystem {
 
     const change = honor.honor - oldAmount;
 
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (reason !== 'server_update') {
-      this.onHonorChanged?.(honor.honor, change, honor.getRank());
-    }
+    // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
+    this.onHonorChanged?.(honor.honor, change, honor.getRank());
   }
 
   /**

@@ -7,12 +7,25 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
  * Delegates to RemotePlayerManager for actual player management
  */
 export class RemotePlayerUpdateHandler extends BaseMessageHandler {
+  private updateCount = 0;
+  private lastUpdateTime = 0;
+
   constructor() {
     super(MESSAGE_TYPES.REMOTE_PLAYER_UPDATE);
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     const { clientId, position, rotation, nickname, rank } = message;
+    const now = Date.now();
+
+    // Debug: monitora frequenza aggiornamenti ogni 5 secondi
+    this.updateCount++;
+    if (now - this.lastUpdateTime > 5000) {
+      const updatesPerSecond = this.updateCount / ((now - this.lastUpdateTime) / 1000);
+      console.log(`[REMOTE_UPDATE_DEBUG] ${this.updateCount} updates in ${now - this.lastUpdateTime}ms (${updatesPerSecond.toFixed(1)}/sec)`);
+      this.updateCount = 0;
+      this.lastUpdateTime = now;
+    }
 
     // Delegate to RemotePlayerManager for handling the update
     if (networkSystem.remotePlayerManager) {
