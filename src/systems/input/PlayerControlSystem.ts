@@ -117,12 +117,14 @@ export class PlayerControlSystem extends BaseSystem {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     if (selectedNpcs.length === 0) {
+      console.log('[PlayerControlSystem] No NPC selected, trying auto-selection');
       // 🎯 AUTO-SELEZIONE: Seleziona automaticamente l'NPC più vicino entro range
       const nearestNpc = this.findNearestNpcInRange();
       if (nearestNpc) {
         this.selectNpc(nearestNpc);
         console.log(`[PlayerControlSystem] Auto-selected nearest NPC for attack`);
       } else {
+        console.log('[PlayerControlSystem] Auto-selection failed, no NPC in range');
         if (this.logSystem) {
           this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
         }
@@ -151,30 +153,53 @@ export class PlayerControlSystem extends BaseSystem {
    */
   private findNearestNpcInRange(): any | null {
     const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) return null;
+    if (!playerEntity) {
+      console.log('[PlayerControlSystem] No player entity found');
+      return null;
+    }
 
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    if (!playerTransform) return null;
+    if (!playerTransform) {
+      console.log('[PlayerControlSystem] No player transform found');
+      return null;
+    }
+
+    console.log(`[PlayerControlSystem] Player position: (${playerTransform.x.toFixed(1)}, ${playerTransform.y.toFixed(1)})`);
 
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
+    const allTransforms = this.ecs.getEntitiesWithComponents(Transform);
     const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
+
+    console.log(`[PlayerControlSystem] Looking for NPCs: found ${npcs.length} NPCs with (Npc, Transform), ${allTransforms.length} total entities with Transform, range: ${PLAYER_RANGE}`);
 
     let nearestNpc: any = null;
     let nearestDistance = PLAYER_RANGE;
 
     for (const npcEntity of npcs) {
       const npcTransform = this.ecs.getComponent(npcEntity, Transform);
-      if (!npcTransform) continue;
+      if (!npcTransform) {
+        console.log(`[PlayerControlSystem] NPC ${npcEntity.id} has no transform`);
+        continue;
+      }
 
       const distance = Math.sqrt(
         Math.pow(playerTransform.x - npcTransform.x, 2) +
         Math.pow(playerTransform.y - npcTransform.y, 2)
       );
 
+      console.log(`[PlayerControlSystem] NPC ${npcEntity.id} at distance ${distance.toFixed(1)}`);
+
       if (distance < nearestDistance) {
         nearestNpc = npcEntity;
         nearestDistance = distance;
+        console.log(`[PlayerControlSystem] New nearest: NPC ${npcEntity.id} at ${distance.toFixed(1)}px`);
       }
+    }
+
+    if (nearestNpc) {
+      console.log(`[PlayerControlSystem] Selected nearest NPC ${nearestNpc.id} at ${nearestDistance.toFixed(1)}px`);
+    } else {
+      console.log('[PlayerControlSystem] No NPC found within range');
     }
 
     return nearestNpc;
