@@ -25,8 +25,9 @@ export class PlayerControlSystem extends BaseSystem {
   private lastMouseY = 0;
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
-    private attackActivated = false; // Flag per tracciare se l'attacco è stato attivato con SPACE
+    private attackActivated = false; // Flag per tracciare se l'attacco è attivo (toggle mode)
     private lastInputTime = 0; // Timestamp dell'ultimo input per rispettare attack speed
+    private lastSpacePressTime = 0; // Timestamp dell'ultima pressione SPACE per evitare toggle troppo rapidi
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
@@ -56,10 +57,20 @@ export class PlayerControlSystem extends BaseSystem {
    */
   handleKeyPress(key: string): void {
     if (key === 'Space') {
-      // Evita ripetizioni quando SPACE è già premuto (key repeat del browser)
-      if (!this.spaceKeyPressed) {
-        this.spaceKeyPressed = true;
-        this.handleSpacePress();
+      const now = Date.now();
+      // Evita toggle troppo rapidi (minimo 300ms tra pressioni)
+      if (now - this.lastSpacePressTime > 300) {
+        this.lastSpacePressTime = now;
+
+        // Toggle attacco: attiva/disattiva con ogni pressione
+        if (this.attackActivated) {
+          // Disattiva attacco se già attivo
+          this.attackActivated = false;
+          this.deactivateAttack();
+        } else {
+          // Attiva attacco se non attivo (con validazione)
+          this.handleSpacePress();
+        }
       }
     } else {
       // Gestisci movimento con WASD
@@ -68,25 +79,18 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Gestisce il rilascio dei tasti
+   * Gestisce il rilascio dei tasti (solo per movimento WASD)
    */
   handleKeyRelease(key: string): void {
-    if (key === 'Space') {
-      this.spaceKeyPressed = false;
-      // Disattiva l'attacco quando SPACE viene rilasciato
-      if (this.attackActivated) {
-        this.attackActivated = false;
-        this.deactivateAttack();
-      }
-    } else {
-      // Rimuovi dal set dei tasti premuti
+    if (key !== 'Space') {
+      // Rimuovi dal set dei tasti premuti (solo WASD)
       this.keysPressed.delete(key.toLowerCase());
     }
   }
 
   /**
-   * Gestisce la pressione del tasto SPACE per attivare l'attacco (hold-to-fire mode)
-   * ✅ PRE-VALIDATION: Controlla range prima di permettere attacco
+   * Gestisce l'attivazione dell'attacco con SPACE (toggle mode)
+   * ✅ PRE-VALIDATION: Controlla range e target prima di permettere attacco
    */
   private handleSpacePress(): void {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
