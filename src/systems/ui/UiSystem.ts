@@ -69,6 +69,7 @@ export class UiSystem extends System {
     // Imposta i callback per aggiornare l'HUD quando i valori economici cambiano
     if (this.economySystem) {
       this.economySystem.setCreditsChangedCallback((newAmount: number, change: number) => {
+        console.log(`[DEBUG_UI] Credits callback: ${newAmount} (change: ${change})`);
         const inventory = {
           credits: newAmount,
           cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
@@ -81,10 +82,10 @@ export class UiSystem extends System {
         this.updatePlayerData({ inventory });
 
         // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.playerId) {
+        if (this.clientNetworkSystem && this.context?.authId) {
           this.clientNetworkSystem.sendMessage({
             type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.playerId.toString(),
+            playerId: this.context.authId,
             field: 'credits',
             value: newAmount,
             change: change
@@ -93,6 +94,7 @@ export class UiSystem extends System {
       });
 
       this.economySystem.setCosmosChangedCallback((newAmount: number, change: number) => {
+        console.log(`[DEBUG_UI] Cosmos callback: ${newAmount} (change: ${change})`);
         const inventory = {
           credits: this.economySystem?.getPlayerCredits()?.credits || 0,
           cosmos: newAmount,
@@ -104,10 +106,10 @@ export class UiSystem extends System {
         this.updatePlayerData({ inventory });
 
         // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.playerId) {
+        if (this.clientNetworkSystem && this.context?.authId) {
           this.clientNetworkSystem.sendMessage({
             type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.playerId.toString(),
+            playerId: this.context.authId,
             field: 'cosmos',
             value: newAmount,
             change: change
@@ -116,6 +118,7 @@ export class UiSystem extends System {
       });
 
       this.economySystem.setExperienceChangedCallback((newAmount: number, change: number, leveledUp: boolean) => {
+        console.log(`[DEBUG_UI] Experience callback: ${newAmount} (change: ${change}, leveledUp: ${leveledUp})`);
         const inventory = {
           credits: this.economySystem?.getPlayerCredits()?.credits || 0,
           cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
@@ -127,10 +130,10 @@ export class UiSystem extends System {
         this.updatePlayerData({ inventory });
 
         // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.playerId) {
+        if (this.clientNetworkSystem && this.context?.authId) {
           this.clientNetworkSystem.sendMessage({
             type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.playerId.toString(),
+            playerId: this.context.authId,
             field: 'experience',
             value: newAmount,
             change: change
@@ -139,6 +142,7 @@ export class UiSystem extends System {
       });
 
       this.economySystem.setHonorChangedCallback((newAmount: number, change: number, newRank?: string) => {
+        console.log(`[DEBUG_UI] Honor callback: ${newAmount} (change: ${change})`);
         const inventory = {
           credits: this.economySystem?.getPlayerCredits()?.credits || 0,
           cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
@@ -150,10 +154,10 @@ export class UiSystem extends System {
         this.updatePlayerData({ inventory });
 
         // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.playerId) {
+        if (this.clientNetworkSystem && this.context?.authId) {
           this.clientNetworkSystem.sendMessage({
             type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.playerId.toString(),
+            playerId: this.context.authId,
             field: 'honor',
             value: newAmount,
             change: change
@@ -429,15 +433,46 @@ export class UiSystem extends System {
     let hudData = null;
 
     if (this.context && this.context.playerInventory) {
+      // Calcola livello basato su experience (stessa logica di Experience component)
+      const experience = this.context.playerInventory.experience || 0;
+      let level = 1;
+      let expForNextLevel = 10000; // Livello 2
+
+      // Trova il livello corretto basato sull'experience cumulativa
+      const levelRequirements = {
+        2: 10000, 3: 30000, 4: 70000, 5: 150000, 6: 310000, 7: 630000,
+        8: 1270000, 9: 2550000, 10: 5110000, 11: 10230000, 12: 20470000,
+        13: 40950000, 14: 81910000, 15: 163910000, 16: 327750000, 17: 655430000,
+        18: 1310790000, 19: 2621710000, 20: 5243410000, 21: 10487010000,
+        22: 20973860000, 23: 41951120000, 24: 83902400000, 25: 167808800000,
+        26: 335621600000, 27: 671248000000, 28: 1342496000000, 29: 2685000000000,
+        30: 5369700000000, 31: 10739200000000, 32: 21478400000000,
+        33: 42956800000000, 34: 85913600000000, 35: 171827200000000,
+        36: 343654400000000, 37: 687308800000000, 38: 1374617600000000,
+        39: 2749235200000000, 40: 5498470400000000, 41: 10996940800000000,
+        42: 21993881600000000, 43: 43987763200000000, 44: 87975526400000000
+      };
+
+      for (const [lvl, reqExp] of Object.entries(levelRequirements)) {
+        if (experience >= reqExp) {
+          level = parseInt(lvl);
+          expForNextLevel = levelRequirements[parseInt(lvl) + 1] || reqExp * 2;
+        } else {
+          expForNextLevel = reqExp;
+          break;
+        }
+      }
+
       hudData = {
-        level: 1, // TODO: calcolare livello basato su experience
+        level: level,
         playerId: this.context.playerId || this.playerId || 0,
         credits: this.context.playerInventory.credits || 0,
         cosmos: this.context.playerInventory.cosmos || 0,
-        experience: this.context.playerInventory.experience || 0,
-        expForNextLevel: 1000, // TODO: sistema livelli
+        experience: experience,
+        expForNextLevel: expForNextLevel - (levelRequirements[level - 1] || 0),
         honor: this.context.playerInventory.honor || 0
       };
+      console.log(`[DEBUG_HUD] GameContext data - exp: ${experience}, calculated level: ${level}, expForNextLevel: ${expForNextLevel}`);
     }
 
     // Seconda priorità: dati dall'EconomySystem (se non abbiamo GameContext)

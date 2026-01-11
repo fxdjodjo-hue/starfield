@@ -8,6 +8,7 @@ import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjecti
 import { Projectile } from '../../entities/combat/Projectile';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
+import { Authority } from '../../entities/spatial/Authority';
 
 // Nuovi sistemi specializzati
 import { ExplosionSystem } from '../../systems/client/ExplosionSystem';
@@ -530,11 +531,20 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   private getCurrentPlayerVelocity(): { x: number; y: number } {
     try {
-      const playerEntity = this.ecs.getEntitiesWithComponents(Transform, Velocity)
-        .find(entity => !this.ecs.hasComponent(entity, Npc)); // Trova player (non NPC)
+      if (!this.ecs) {
+        console.warn('[CLIENT] ECS not initialized in getCurrentPlayerVelocity');
+        return { x: 0, y: 0 };
+      }
+
+      // Find player entity by Authority component with our client ID
+      const playerEntity = this.ecs.getEntitiesWithComponents(Transform, Velocity, Authority)
+        .find(entity => {
+          const authority = this.ecs!.getComponent(entity, Authority);
+          return authority && authority.ownerId === this.clientId;
+        });
 
       if (playerEntity) {
-        const velocity = this.ecs.getComponent(playerEntity, Velocity);
+        const velocity = this.ecs!.getComponent(playerEntity, Velocity);
         if (velocity) {
           return { x: velocity.x, y: velocity.y };
         }
