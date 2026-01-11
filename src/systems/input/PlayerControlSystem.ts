@@ -4,6 +4,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { Npc } from '../../entities/ai/Npc';
 import { Camera } from '../../entities/spatial/Camera';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { LogSystem } from '../rendering/LogSystem';
@@ -68,8 +69,25 @@ export class PlayerControlSystem extends BaseSystem {
           this.attackActivated = false;
           this.deactivateAttack();
         } else {
-          // Attiva attacco se non attivo (con validazione)
-          this.handleSpacePress();
+          // Se non c'è NPC selezionato, prova a selezionarne uno vicino
+          const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+          if (selectedNpcs.length === 0) {
+            const selectedNpc = this.findNearbyNpcForSelection();
+            if (selectedNpc) {
+              this.selectNpc(selectedNpc);
+            }
+          }
+
+          // Attiva attacco se ora c'è un target selezionato
+          const selectedNpcsAfter = this.ecs.getEntitiesWithComponents(SelectedNpc);
+          if (selectedNpcsAfter.length > 0) {
+            this.handleSpacePress();
+          } else {
+            // Nessun NPC disponibile per l'attacco
+            if (this.logSystem) {
+              this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
+            }
+          }
         }
       }
     } else {
@@ -531,6 +549,81 @@ export class PlayerControlSystem extends BaseSystem {
       if (transform) {
         transform.rotation = angle;
       }
+    }
+  }
+
+  /**
+   * Trova l'NPC più vicino al player per la selezione automatica (entro 250px)
+   */
+  private findNearbyNpcForSelection(): any | null {
+    if (!this.playerEntity) return null;
+
+    const playerTransform = this.ecs.getComponent(this.playerEntity, Transform);
+    if (!playerTransform) return null;
+
+    const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
+
+    let closestNpc: any = null;
+    let closestDistance = 250; // Distanza massima per selezione automatica con SPACE (250px)
+
+    for (const npcEntity of npcs) {
+      const transform = this.ecs.getComponent(npcEntity, Transform);
+      if (transform) {
+        const distance = Math.sqrt(
+          Math.pow(playerTransform.x - transform.x, 2) +
+          Math.pow(playerTransform.y - transform.y, 2)
+        );
+
+        if (distance < closestDistance) {
+          closestNpc = npcEntity;
+          closestDistance = distance;
+        }
+      }
+    }
+
+    return closestNpc;
+  }
+
+  /**
+   * Seleziona un NPC specifico (copia della logica da NpcSelectionSystem)
+   */
+  private selectNpc(npcEntity: any): void {
+    // Disattiva attacco su qualsiasi selezione precedente
+    this.deactivateAttackOnAnySelection();
+
+    // Rimuovi selezione da tutti gli NPC
+    this.deselectAllNpcs();
+
+    // Aggiungi selezione al NPC selezionato
+    this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
+
+    // Log selezione
+    const npc = this.ecs.getComponent(npcEntity, Npc);
+    if (npc && this.logSystem) {
+      this.logSystem.addLogMessage(`Selected target: ${npc.npcType}`, LogType.INFO, 1500);
+    }
+  }
+
+  /**
+   * Disattiva attacco su qualsiasi selezione NPC (chiamato quando cambia selezione)
+   */
+  private deactivateAttackOnAnySelection(): void {
+    const playerControlSystem = this.ecs.systems?.find((system) =>
+      system instanceof PlayerControlSystem
+    ) as PlayerControlSystem | undefined;
+
+    if (playerControlSystem) {
+      playerControlSystem.deactivateAttack();
+    }
+  }
+
+  /**
+   * Deseleziona tutti gli NPC
+   */
+  private deselectAllNpcs(): void {
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    for (const npcEntity of selectedNpcs) {
+      this.ecs.removeComponent(npcEntity, SelectedNpc);
     }
   }
 }
