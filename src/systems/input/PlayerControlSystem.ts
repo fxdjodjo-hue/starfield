@@ -72,7 +72,9 @@ export class PlayerControlSystem extends BaseSystem {
         if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
             (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
           // Seleziona il nuovo NPC più vicino
-          this.selectNpc(nearbyNpc);
+          // NON disattivare attacco se stiamo già combattendo (cambio target fluido)
+          const shouldDeactivateAttack = !this.attackActivated;
+          this.selectNpc(nearbyNpc, shouldDeactivateAttack);
         }
 
         // Ora gestisci il toggle dell'attacco
@@ -120,7 +122,8 @@ export class PlayerControlSystem extends BaseSystem {
       // 🎯 AUTO-SELEZIONE: Seleziona automaticamente l'NPC più vicino entro range
       const nearestNpc = this.findNearestNpcInRange();
       if (nearestNpc) {
-        this.selectNpc(nearestNpc);
+        // Durante auto-selezione in handleSpacePress, stiamo iniziando un nuovo combattimento, quindi disattiviamo
+        this.selectNpc(nearestNpc, true);
       } else {
         if (this.logSystem) {
           this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
@@ -133,7 +136,6 @@ export class PlayerControlSystem extends BaseSystem {
     const inRange = this.isSelectedNpcInRange();
 
     if (!inRange) {
-      console.log('[PlayerControlSystem] NPC out of range - aborting attack');
       this.showOutOfRangeMessage();
       return;
     }
@@ -638,7 +640,8 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Trova l'NPC più vicino al player per la selezione automatica (entro 600px)
+   * Trova l'NPC più vicino al player per la selezione automatica con SPACE (entro 600px)
+   * Diverso dalla selezione con click che usa raggio 35px (cerchio selezione)
    */
   private findNearbyNpcForSelection(): any | null {
     if (!this.playerEntity) return null;
@@ -672,9 +675,11 @@ export class PlayerControlSystem extends BaseSystem {
   /**
    * Seleziona un NPC specifico (copia della logica da NpcSelectionSystem)
    */
-  private selectNpc(npcEntity: any): void {
-    // Disattiva attacco su qualsiasi selezione precedente
-    this.deactivateAttackOnAnySelection();
+  private selectNpc(npcEntity: any, deactivateAttack: boolean = true): void {
+    // Disattiva attacco su qualsiasi selezione precedente SOLO se richiesto
+    if (deactivateAttack) {
+      this.deactivateAttackOnAnySelection();
+    }
 
     // Rimuovi selezione da tutti gli NPC
     this.deselectAllNpcs();

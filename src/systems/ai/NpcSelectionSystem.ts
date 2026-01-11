@@ -26,7 +26,7 @@ export class NpcSelectionSystem extends BaseSystem {
   }
 
   /**
-   * Gestisce un click del mouse alle coordinate mondo
+   * Gestisce un click del mouse alle coordinate mondo (entro 35px dal centro NPC)
    * @returns true se ha selezionato un NPC, false altrimenti
    */
   handleMouseClick(worldX: number, worldY: number): boolean {
@@ -44,13 +44,13 @@ export class NpcSelectionSystem extends BaseSystem {
   }
 
   /**
-   * Trova l'NPC più vicino alla posizione mondo (se entro 600px - stesso range del combattimento)
+   * Trova l'NPC più vicino alla posizione mondo (entro raggio cerchio selezione)
    */
   private findNpcAtWorldPosition(worldX: number, worldY: number): any | null {
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
 
     let closestNpc: any = null;
-    let closestDistance = 600; // Distanza massima per il click (600px - stesso range del combattimento)
+    let closestDistance = 35; // Distanza massima per il click = raggio cerchio selezione
 
     for (const npcEntity of npcs) {
       const transform = this.ecs.getComponent(npcEntity, Transform);
