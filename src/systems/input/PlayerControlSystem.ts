@@ -27,7 +27,6 @@ export class PlayerControlSystem extends BaseSystem {
   private minimapTargetY: number | null = null;
     private attackActivated = false; // Flag per tracciare se l'attacco è stato attivato con SPACE
     private lastInputTime = 0; // Timestamp dell'ultimo input per rispettare attack speed
-    private spaceKeyPressed = false; // Flag per evitare ripetizioni quando SPACE è tenuto premuto
   private onMinimapMovementComplete?: () => void;
   private isEnginePlaying = false;
   private engineSoundPromise: Promise<void> | null = null;
@@ -77,7 +76,7 @@ export class PlayerControlSystem extends BaseSystem {
       // Disattiva l'attacco quando SPACE viene rilasciato
       if (this.attackActivated) {
         this.attackActivated = false;
-        this.handleAttackDeactivated();
+        this.deactivateAttack();
       }
     } else {
       // Rimuovi dal set dei tasti premuti
@@ -86,7 +85,7 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Gestisce la pressione del tasto SPACE per attivare/disattivare l'attacco
+   * Gestisce la pressione del tasto SPACE per attivare l'attacco (hold-to-fire mode)
    * ✅ PRE-VALIDATION: Controlla range prima di permettere attacco
    */
   private handleSpacePress(): void {

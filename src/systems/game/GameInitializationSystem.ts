@@ -420,6 +420,10 @@ export class GameInitializationSystem extends System {
       playerControlSystem.handleKeyPress(key);
     });
 
+    inputSystem.setKeyReleaseCallback((key: string) => {
+      playerControlSystem.handleKeyRelease(key);
+    });
+
     // Configura selezione NPC
     npcSelectionSystem.setOnNpcClickCallback((npcEntity: any) => {
       // La disattivazione dell'attacco è ora gestita direttamente nel NpcSelectionSystem

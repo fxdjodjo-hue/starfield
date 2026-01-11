@@ -80,15 +80,6 @@ export class NpcSystem extends System {
         case 'frigate':
           this.entityFactory.createFrigate(position);
           break;
-        case 'destroyer':
-          this.entityFactory.createDestroyer(position);
-          break;
-        case 'carrier':
-          this.entityFactory.createCarrier(position);
-          break;
-        case 'fighter':
-          this.entityFactory.createFighter(position);
-          break;
         default:
           console.warn(`Unknown NPC type: ${type}`);
       }

@@ -12,6 +12,7 @@ export class InputSystem extends BaseSystem {
   private onMouseState?: (pressed: boolean, x: number, y: number) => void;
   private onMouseMoveWhilePressed?: (x: number, y: number) => void;
   private onKeyPress?: (key: string) => void;
+  private onKeyRelease?: (key: string) => void;
 
   constructor(ecs: ECS, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -38,6 +39,13 @@ export class InputSystem extends BaseSystem {
    */
   setKeyPressCallback(callback: (key: string) => void): void {
     this.onKeyPress = callback;
+  }
+
+  /**
+   * Imposta il callback per il rilascio dei tasti
+   */
+  setKeyReleaseCallback(callback: (key: string) => void): void {
+    this.onKeyRelease = callback;
   }
 
 

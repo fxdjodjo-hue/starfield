@@ -193,28 +193,6 @@ export class EntityFactory {
     return this.createNpcFromType('Frigate', position);
   }
 
-  /**
-   * Crea un NPC Destroyer (metodo specializzato)
-   */
-  createDestroyer(position: Vector2): Entity {
-    return this.createNpcFromType('Destroyer', position);
-  }
-
-  /**
-   * Crea un NPC Carrier con logica di spawning (metodo specializzato)
-   */
-  createCarrier(position: Vector2): Entity {
-    const carrier = this.createNpcFromType('Carrier', position);
-    this.setupCarrierSpawning(carrier);
-    return carrier;
-  }
-
-  /**
-   * Crea un NPC Fighter (metodo specializzato)
-   */
-  createFighter(position: Vector2): Entity {
-    return this.createNpcFromType('Fighter', position);
-  }
 
   /**
    * Metodo helper per creare NPC da tipo
@@ -230,58 +208,6 @@ export class EntityFactory {
     });
   }
 
-  /**
-   * Setup logica specializzata per tipi NPC specifici
-   */
-  private setupSpecializedNpcLogic(entity: Entity, npcDef: any): void {
-    // Per ora solo i Carrier hanno logica specializzata
-    if (npcDef.type === 'Carrier' && npcDef.spawns) {
-      this.setupCarrierSpawning(entity);
-    }
-  }
-
-  /**
-   * Setup sistema di spawning per Carrier
-   */
-  private setupCarrierSpawning(carrier: Entity): void {
-    // Logica per far spawnare fighter dal carrier ogni 10 secondi
-    const spawnInterval = setInterval(() => {
-      this.spawnFighterForCarrier(carrier);
-    }, 10000); // 10 secondi
-
-    // Salva l'interval ID per poterlo fermare quando il carrier viene distrutto
-    // Nota: In un'implementazione reale, dovremmo avere un componente per gestire questo
-    (carrier as any)._spawnInterval = spawnInterval;
-  }
-
-  /**
-   * Spawna un fighter per un carrier
-   */
-  private spawnFighterForCarrier(carrier: Entity): void {
-    // Verifica se il carrier esiste ancora e ha componenti necessari
-    const transform = this.ecs.getComponent(carrier, Transform);
-    const health = this.ecs.getComponent(carrier, Health);
-
-    if (!transform || !health || health.current <= 0) {
-      // Carrier distrutto o non valido, ferma lo spawning
-      if ((carrier as any)._spawnInterval) {
-        clearInterval((carrier as any)._spawnInterval);
-      }
-      return;
-    }
-
-    // Crea un fighter vicino al carrier
-    const fighterPosition = {
-      x: transform.x + (Math.random() - 0.5) * 200,
-      y: transform.y + (Math.random() - 0.5) * 200
-    };
-
-    try {
-      this.createFighter(fighterPosition);
-    } catch (error) {
-      // Fighter spawn failed - silently ignore for now
-    }
-  }
 
   /**
    * Crea un'entità Remote Player
