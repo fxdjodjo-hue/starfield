@@ -58,7 +58,6 @@ export class PlayerControlSystem extends BaseSystem {
    */
   handleKeyPress(key: string): void {
     if (key === 'Space') {
-      console.log('[PlayerControlSystem] SPACE pressed - starting NPC selection/attack flow');
       const now = Date.now();
       // Evita toggle troppo rapidi (minimo 300ms tra pressioni)
       if (now - this.lastSpacePressTime > 300) {
@@ -69,32 +68,25 @@ export class PlayerControlSystem extends BaseSystem {
         const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
         const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
 
-        console.log(`[PlayerControlSystem] Found ${selectedNpcs.length} selected NPCs, nearbyNpc: ${nearbyNpc ? nearbyNpc.id : 'none'}`);
-
         // Se c'è un NPC vicino e (non ne abbiamo selezionato nessuno O è diverso da quello selezionato)
         if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
             (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
-          console.log(`[PlayerControlSystem] Selecting new NPC ${nearbyNpc.id}`);
           // Seleziona il nuovo NPC più vicino
           this.selectNpc(nearbyNpc);
         }
 
         // Ora gestisci il toggle dell'attacco
         const selectedNpcsAfter = this.ecs.getEntitiesWithComponents(SelectedNpc);
-        console.log(`[PlayerControlSystem] After selection: ${selectedNpcsAfter.length} selected NPCs`);
         if (selectedNpcsAfter.length > 0) {
           if (this.attackActivated) {
-            console.log('[PlayerControlSystem] Deactivating attack');
             // Disattiva attacco se già attivo
             this.attackActivated = false;
             this.deactivateAttack();
           } else {
-            console.log('[PlayerControlSystem] Activating attack - calling handleSpacePress');
             // Attiva attacco
             this.handleSpacePress();
           }
         } else {
-          console.log('[PlayerControlSystem] No NPCs available for attack');
           // Nessun NPC disponibile per l'attacco
           if (this.logSystem) {
             this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
@@ -125,14 +117,11 @@ export class PlayerControlSystem extends BaseSystem {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     if (selectedNpcs.length === 0) {
-      console.log('[PlayerControlSystem] No NPC selected, trying auto-selection');
       // 🎯 AUTO-SELEZIONE: Seleziona automaticamente l'NPC più vicino entro range
       const nearestNpc = this.findNearestNpcInRange();
       if (nearestNpc) {
         this.selectNpc(nearestNpc);
-        console.log(`[PlayerControlSystem] Auto-selected nearest NPC for attack`);
       } else {
-        console.log('[PlayerControlSystem] Auto-selection failed, no NPC in range');
         if (this.logSystem) {
           this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
         }
@@ -172,42 +161,25 @@ export class PlayerControlSystem extends BaseSystem {
       return null;
     }
 
-    console.log(`[PlayerControlSystem] Player position: (${playerTransform.x.toFixed(1)}, ${playerTransform.y.toFixed(1)})`);
-
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
-    const allTransforms = this.ecs.getEntitiesWithComponents(Transform);
     const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-
-    console.log(`[PlayerControlSystem] Looking for NPCs: found ${npcs.length} NPCs with (Npc, Transform), ${allTransforms.length} total entities with Transform, range: ${PLAYER_RANGE}`);
 
     let nearestNpc: any = null;
     let nearestDistance = PLAYER_RANGE;
 
     for (const npcEntity of npcs) {
       const npcTransform = this.ecs.getComponent(npcEntity, Transform);
-      if (!npcTransform) {
-        console.log(`[PlayerControlSystem] NPC ${npcEntity.id} has no transform`);
-        continue;
-      }
+      if (!npcTransform) continue;
 
       const distance = Math.sqrt(
         Math.pow(playerTransform.x - npcTransform.x, 2) +
         Math.pow(playerTransform.y - npcTransform.y, 2)
       );
 
-      console.log(`[PlayerControlSystem] NPC ${npcEntity.id} at distance ${distance.toFixed(1)}`);
-
       if (distance < nearestDistance) {
         nearestNpc = npcEntity;
         nearestDistance = distance;
-        console.log(`[PlayerControlSystem] New nearest: NPC ${npcEntity.id} at ${distance.toFixed(1)}px`);
       }
-    }
-
-    if (nearestNpc) {
-      console.log(`[PlayerControlSystem] Selected nearest NPC ${nearestNpc.id} at ${nearestDistance.toFixed(1)}px`);
-    } else {
-      console.log('[PlayerControlSystem] No NPC found within range');
     }
 
     return nearestNpc;
@@ -245,11 +217,8 @@ export class PlayerControlSystem extends BaseSystem {
 
     // Usa la costante centralizzata
     const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-    const inRange = distance <= PLAYER_RANGE;
 
-    console.log(`[PlayerControlSystem] Range check - distance: ${distance.toFixed(1)}, range: ${PLAYER_RANGE}, inRange: ${inRange}`);
-
-    return inRange;
+    return distance <= PLAYER_RANGE;
   }
 
   /**
@@ -271,11 +240,8 @@ export class PlayerControlSystem extends BaseSystem {
 
     // Usa la costante centralizzata
     const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-    const inRange = distance <= PLAYER_RANGE;
 
-    console.log(`[PlayerControlSystem] isNpcInPlayerRange: NPC ${npcEntity.id} distance ${distance.toFixed(1)}, range ${PLAYER_RANGE}, inRange: ${inRange}`);
-
-    return inRange;
+    return distance <= PLAYER_RANGE;
   }
 
   /**
@@ -672,30 +638,18 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
-   * Trova l'NPC più vicino al player per la selezione automatica (entro 250px)
+   * Trova l'NPC più vicino al player per la selezione automatica (entro 600px)
    */
   private findNearbyNpcForSelection(): any | null {
-    console.log('[PlayerControlSystem] findNearbyNpcForSelection called');
-
-    if (!this.playerEntity) {
-      console.log('[PlayerControlSystem] No player entity');
-      return null;
-    }
+    if (!this.playerEntity) return null;
 
     const playerTransform = this.ecs.getComponent(this.playerEntity, Transform);
-    if (!playerTransform) {
-      console.log('[PlayerControlSystem] No player transform');
-      return null;
-    }
-
-    console.log(`[PlayerControlSystem] Player at (${playerTransform.x.toFixed(1)}, ${playerTransform.y.toFixed(1)})`);
+    if (!playerTransform) return null;
 
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
-    console.log(`[PlayerControlSystem] Found ${npcs.length} NPCs with (Npc, Transform)`);
 
     let closestNpc: any = null;
-    let closestDistance = 250; // Distanza massima per selezione automatica con SPACE (250px)
-    console.log(`[PlayerControlSystem] Looking for NPCs within ${closestDistance}px`);
+    let closestDistance = 600; // Distanza massima per selezione automatica con SPACE (600px - stesso range combattimento)
 
     for (const npcEntity of npcs) {
       const transform = this.ecs.getComponent(npcEntity, Transform);
@@ -705,17 +659,13 @@ export class PlayerControlSystem extends BaseSystem {
           Math.pow(playerTransform.y - transform.y, 2)
         );
 
-        console.log(`[PlayerControlSystem] NPC ${npcEntity.id} at distance ${distance.toFixed(1)}`);
-
         if (distance < closestDistance) {
           closestNpc = npcEntity;
           closestDistance = distance;
-          console.log(`[PlayerControlSystem] New closest: NPC ${npcEntity.id} at ${distance.toFixed(1)}px`);
         }
       }
     }
 
-    console.log(`[PlayerControlSystem] Returning closest NPC: ${closestNpc ? closestNpc.id : 'none'}`);
     return closestNpc;
   }
 
