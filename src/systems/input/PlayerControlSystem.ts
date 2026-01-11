@@ -117,10 +117,17 @@ export class PlayerControlSystem extends BaseSystem {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     if (selectedNpcs.length === 0) {
-      if (this.logSystem) {
-        this.logSystem.addLogMessage('No target selected', LogType.ATTACK_FAILED, 2000);
+      // 🎯 AUTO-SELEZIONE: Seleziona automaticamente l'NPC più vicino entro range
+      const nearestNpc = this.findNearestNpcInRange();
+      if (nearestNpc) {
+        this.selectNpc(nearestNpc);
+        console.log(`[PlayerControlSystem] Auto-selected nearest NPC for attack`);
+      } else {
+        if (this.logSystem) {
+          this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
+        }
+        return;
       }
-      return;
     }
 
     // 🔥 PRE-VALIDATION: Controlla se l'NPC è in range prima di permettere l'attacco
@@ -138,6 +145,41 @@ export class PlayerControlSystem extends BaseSystem {
     this.attackActivated = true;
     this.lastInputTime = Date.now(); // Solo per controlli anti-spam UI
   }
+
+  /**
+   * Trova l'NPC più vicino entro il range di attacco del player
+   */
+  private findNearestNpcInRange(): any | null {
+    const playerEntity = this.ecs.getPlayerEntity();
+    if (!playerEntity) return null;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    if (!playerTransform) return null;
+
+    const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
+    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
+
+    let nearestNpc: any = null;
+    let nearestDistance = PLAYER_RANGE;
+
+    for (const npcEntity of npcs) {
+      const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+      if (!npcTransform) continue;
+
+      const distance = Math.sqrt(
+        Math.pow(playerTransform.x - npcTransform.x, 2) +
+        Math.pow(playerTransform.y - npcTransform.y, 2)
+      );
+
+      if (distance < nearestDistance) {
+        nearestNpc = npcEntity;
+        nearestDistance = distance;
+      }
+    }
+
+    return nearestNpc;
+  }
+
 
   /**
    * Controlla se l'NPC selezionato è nel range di attacco
