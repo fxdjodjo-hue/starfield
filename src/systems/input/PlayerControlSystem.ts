@@ -63,30 +63,33 @@ export class PlayerControlSystem extends BaseSystem {
       if (now - this.lastSpacePressTime > 300) {
         this.lastSpacePressTime = now;
 
-        // Toggle attacco: attiva/disattiva con ogni pressione
-        if (this.attackActivated) {
-          // Disattiva attacco se già attivo
-          this.attackActivated = false;
-          this.deactivateAttack();
-        } else {
-          // Se non c'è NPC selezionato, prova a selezionarne uno vicino
-          const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-          if (selectedNpcs.length === 0) {
-            const selectedNpc = this.findNearbyNpcForSelection();
-            if (selectedNpc) {
-              this.selectNpc(selectedNpc);
-            }
-          }
+        // Trova sempre l'NPC più vicino nel range
+        const nearbyNpc = this.findNearbyNpcForSelection();
+        const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+        const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
 
-          // Attiva attacco se ora c'è un target selezionato
-          const selectedNpcsAfter = this.ecs.getEntitiesWithComponents(SelectedNpc);
-          if (selectedNpcsAfter.length > 0) {
-            this.handleSpacePress();
+        // Se c'è un NPC vicino e (non ne abbiamo selezionato nessuno O è diverso da quello selezionato)
+        if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
+            (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
+          // Seleziona il nuovo NPC più vicino
+          this.selectNpc(nearbyNpc);
+        }
+
+        // Ora gestisci il toggle dell'attacco
+        const selectedNpcsAfter = this.ecs.getEntitiesWithComponents(SelectedNpc);
+        if (selectedNpcsAfter.length > 0) {
+          if (this.attackActivated) {
+            // Disattiva attacco se già attivo
+            this.attackActivated = false;
+            this.deactivateAttack();
           } else {
-            // Nessun NPC disponibile per l'attacco
-            if (this.logSystem) {
-              this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
-            }
+            // Attiva attacco
+            this.handleSpacePress();
+          }
+        } else {
+          // Nessun NPC disponibile per l'attacco
+          if (this.logSystem) {
+            this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
           }
         }
       }
@@ -111,9 +114,13 @@ export class PlayerControlSystem extends BaseSystem {
    * ✅ PRE-VALIDATION: Controlla range e target prima di permettere attacco
    */
   private handleSpacePress(): void {
+    console.log('[PlayerControlSystem] handleSpacePress called');
+
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    console.log(`[PlayerControlSystem] Found ${selectedNpcs.length} selected NPCs`);
 
     if (selectedNpcs.length === 0) {
+      console.log('[PlayerControlSystem] No target selected - aborting attack');
       if (this.logSystem) {
         this.logSystem.addLogMessage('No target selected', LogType.ATTACK_FAILED, 2000);
       }
@@ -121,11 +128,16 @@ export class PlayerControlSystem extends BaseSystem {
     }
 
     // 🔥 PRE-VALIDATION: Controlla se l'NPC è in range prima di permettere l'attacco
-    if (!this.isSelectedNpcInRange()) {
+    const inRange = this.isSelectedNpcInRange();
+    console.log(`[PlayerControlSystem] NPC in range: ${inRange}`);
+
+    if (!inRange) {
+      console.log('[PlayerControlSystem] NPC out of range - aborting attack');
       this.showOutOfRangeMessage();
       return;
     }
 
+    console.log('[PlayerControlSystem] Activating attack');
     // 🎯 ATTIVA combattimento al keydown
     // ✅ BEST PRACTICE: Client dichiara INTENTO, server gestisce TIMING
     // ❌ NO cooldown client-side - il server ha autorità completa
@@ -138,13 +150,48 @@ export class PlayerControlSystem extends BaseSystem {
    */
   private isSelectedNpcInRange(): boolean {
     const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) return false;
+    if (!playerEntity) {
+      console.log('[PlayerControlSystem] No player entity found');
+      return false;
+    }
 
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    if (selectedNpcs.length === 0) return false;
+    if (selectedNpcs.length === 0) {
+      console.log('[PlayerControlSystem] No selected NPCs found');
+      return false;
+    }
 
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
     const npcTransform = this.ecs.getComponent(selectedNpcs[0], Transform);
+
+    if (!playerTransform || !npcTransform) {
+      console.log('[PlayerControlSystem] Missing transforms - player:', !!playerTransform, 'npc:', !!npcTransform);
+      return false;
+    }
+
+    // Calcola distanza
+    const dx = playerTransform.x - npcTransform.x;
+    const dy = playerTransform.y - npcTransform.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Usa la costante centralizzata
+    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
+    const inRange = distance <= PLAYER_RANGE;
+
+    console.log(`[PlayerControlSystem] Range check - distance: ${distance.toFixed(1)}, range: ${PLAYER_RANGE}, inRange: ${inRange}`);
+
+    return inRange;
+  }
+
+  /**
+   * Controlla se un NPC specifico è nel range del player
+   */
+  private isNpcInPlayerRange(npcEntity: any): boolean {
+    const playerEntity = this.ecs.getPlayerEntity();
+    if (!playerEntity) return false;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
 
     if (!playerTransform || !npcTransform) return false;
 

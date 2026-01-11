@@ -410,6 +410,8 @@ export class CombatSystem extends BaseSystem {
     const inRange = distance <= playerDamage.attackRange; // 600px
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
+    console.log(`[CombatSystem] Combat check - inRange: ${inRange}, attackActivated: ${attackActivated}, currentTarget: ${this.currentAttackTarget}, selectedNpc: ${selectedNpc.id}`);
+
     // Debug range consistency
     if (playerDamage.attackRange !== 600) {
       console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected 600, got ${playerDamage.attackRange}`);
