@@ -114,13 +114,9 @@ export class PlayerControlSystem extends BaseSystem {
    * ✅ PRE-VALIDATION: Controlla range e target prima di permettere attacco
    */
   private handleSpacePress(): void {
-    console.log('[PlayerControlSystem] handleSpacePress called');
-
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    console.log(`[PlayerControlSystem] Found ${selectedNpcs.length} selected NPCs`);
 
     if (selectedNpcs.length === 0) {
-      console.log('[PlayerControlSystem] No target selected - aborting attack');
       if (this.logSystem) {
         this.logSystem.addLogMessage('No target selected', LogType.ATTACK_FAILED, 2000);
       }
@@ -129,7 +125,6 @@ export class PlayerControlSystem extends BaseSystem {
 
     // 🔥 PRE-VALIDATION: Controlla se l'NPC è in range prima di permettere l'attacco
     const inRange = this.isSelectedNpcInRange();
-    console.log(`[PlayerControlSystem] NPC in range: ${inRange}`);
 
     if (!inRange) {
       console.log('[PlayerControlSystem] NPC out of range - aborting attack');
@@ -137,7 +132,6 @@ export class PlayerControlSystem extends BaseSystem {
       return;
     }
 
-    console.log('[PlayerControlSystem] Activating attack');
     // 🎯 ATTIVA combattimento al keydown
     // ✅ BEST PRACTICE: Client dichiara INTENTO, server gestisce TIMING
     // ❌ NO cooldown client-side - il server ha autorità completa

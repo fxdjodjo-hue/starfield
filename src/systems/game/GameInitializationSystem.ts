@@ -103,9 +103,8 @@ export class GameInitializationSystem extends System {
 
     if (this.projectileCreationSystem && typeof this.projectileCreationSystem.setClientNetworkSystem === 'function') {
       this.projectileCreationSystem.setClientNetworkSystem(this.clientNetworkSystem);
-    } else {
-      // Il ClientNetworkSystem verrà impostato sul CombatSystem quando viene creato
     }
+
 
     // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
     if (this.minimapSystem && typeof this.minimapSystem.setClientNetworkSystem === 'function') {
@@ -234,6 +233,7 @@ export class GameInitializationSystem extends System {
       this.projectileCreationSystem.setPlayerSystem(this.playerSystem);
       this.projectileCreationSystem.setAudioSystem(this.audioSystem);
     }
+
 
     // Collega ClientNetworkSystem ai sistemi che ne hanno bisogno
     if (this.clientNetworkSystem) {

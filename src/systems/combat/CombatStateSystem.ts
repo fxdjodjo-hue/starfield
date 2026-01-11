@@ -90,7 +90,6 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     const selectedNpc = selectedNpcs[0];
-    console.log(`[CombatState] 🎯 Starting combat with NPC ${selectedNpc.id}`);
     this.sendStartCombat(selectedNpc);
     this.startAttackLogging(selectedNpc);
     this.currentAttackTarget = selectedNpc.id;
@@ -102,7 +101,6 @@ export class CombatStateSystem extends BaseSystem {
    */
   private handleAttackDeactivated(): void {
     if (this.currentAttackTarget !== null) {
-      console.log(`[CombatState] 🛑 Stopping combat with target ${this.currentAttackTarget}`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
@@ -121,7 +119,6 @@ export class CombatStateSystem extends BaseSystem {
 
     if (!targetStillSelected) {
       // Target non più selezionato - ferma combattimento
-      console.log('[CombatState] Target deselected - stopping combat');
       this.handleAttackDeactivated();
     }
   }
@@ -288,7 +285,6 @@ export class CombatStateSystem extends BaseSystem {
    * Ferma immediatamente il combattimento (chiamato quando disattivi manualmente l'attacco)
    */
   public stopCombatImmediately(): void {
-    console.log(`🛑 [CombatState] Combat stopped immediately`);
 
     this.deactivateAttackAfterCombatEnd();
 
@@ -305,7 +301,6 @@ export class CombatStateSystem extends BaseSystem {
     );
 
     if (playerControlSystem) {
-      console.log(`🛑 [COMBAT] Deactivating attack after combat end`);
       (playerControlSystem as any).deactivateAttack();
     }
   }

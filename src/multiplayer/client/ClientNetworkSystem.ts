@@ -790,7 +790,6 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
-    console.log(`⚔️ [CLIENT] Sending start_combat with clientId: ${this.clientId}, playerId: ${data.playerId}`);
 
     // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
     if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {

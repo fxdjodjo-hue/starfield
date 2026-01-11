@@ -12,7 +12,6 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   handle(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem): void {
-    console.log(`🎯 [CLIENT] Received projectile_fired: ${message.projectileId} from ${message.playerId} (target: ${message.targetId})`);
     const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
 
     // Riproduci suono sparo sincronizzato
@@ -49,7 +48,6 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         x: localPlayerPos.x,
         y: localPlayerPos.y
       };
-      console.log(`🎯 [CLIENT] Local projectile ${message.projectileId} centered at local player position (${localPlayerPos.x.toFixed(0)}, ${localPlayerPos.y.toFixed(0)})`);
     }
 
     remoteProjectileSystem.addRemoteProjectile(
