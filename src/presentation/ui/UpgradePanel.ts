@@ -393,9 +393,13 @@ export class UpgradePanel extends BasePanel {
 
     // Crea i quattro pulsanti di upgrade con statistiche integrate
     const hpUpgrade = this.createStatUpgradeButton('Hull', '+', '#10b981', 'hp');
+    hpUpgrade.classList.add('upgrade-hp');
     const shieldUpgrade = this.createStatUpgradeButton('Shield', '+', '#3b82f6', 'shield');
+    shieldUpgrade.classList.add('upgrade-shield');
     const speedUpgrade = this.createStatUpgradeButton('Speed', '+', '#f59e0b', 'speed');
+    speedUpgrade.classList.add('upgrade-speed');
     const damageUpgrade = this.createStatUpgradeButton('Laser', '+', '#ef4444', 'damage');
+    damageUpgrade.classList.add('upgrade-damage');
 
     section.appendChild(hpUpgrade);
     section.appendChild(shieldUpgrade);
@@ -585,10 +589,11 @@ export class UpgradePanel extends BasePanel {
     const damage = this.ecs.getComponent(playerEntity, Damage);
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
 
+    // Ottieni configurazione giocatore per limiti massimi
+    const playerDef = getPlayerDefinition();
+
     // Aggiorna statistiche nelle card di upgrade
     if (playerUpgrades) {
-      const playerDef = getPlayerDefinition();
-
       // Mostra HP reali dal server (già includono gli upgrade)
       if (health) {
         const hpValue = this.container.querySelector('.stat-current-hp') as HTMLElement;
@@ -624,6 +629,9 @@ export class UpgradePanel extends BasePanel {
           damageValue.textContent = calculatedDamage.toString();
         }
       }
+
+      // Aggiorna stato dei pulsanti di upgrade (abilitati/disabilitati)
+      this.updateUpgradeButtons(playerUpgrades, playerDef.upgrades);
     }
 
     // Aggiorna risorse attuali nel pannello
@@ -978,6 +986,65 @@ export class UpgradePanel extends BasePanel {
 
     // Forza aggiornamento UI
     this.updatePlayerStats();
+  }
+
+  /**
+   * Aggiorna lo stato dei pulsanti di upgrade in base ai limiti massimi
+   */
+  private updateUpgradeButtons(playerUpgrades: any, upgradeLimits: any): void {
+    // Mappa dei pulsanti per tipo di upgrade
+    const buttonClasses = {
+      hp: '.upgrade-hp',
+      shield: '.upgrade-shield',
+      speed: '.upgrade-speed',
+      damage: '.upgrade-damage'
+    };
+
+    Object.entries(buttonClasses).forEach(([statType, buttonClass]) => {
+      const currentValue = playerUpgrades[`${statType}Upgrades`];
+      const maxValue = upgradeLimits[`max${statType.charAt(0).toUpperCase() + statType.slice(1)}Upgrades`];
+
+      const upgradeButton = this.container.querySelector(buttonClass) as HTMLElement;
+      if (upgradeButton) {
+        if (currentValue >= maxValue) {
+          // Limite raggiunto - disabilita pulsante
+          upgradeButton.style.opacity = '0.5';
+          upgradeButton.style.pointerEvents = 'none';
+          upgradeButton.style.background = 'rgba(100, 100, 100, 0.3)';
+          upgradeButton.style.borderColor = 'rgba(100, 100, 100, 0.5)';
+
+          // Cambia il testo per mostrare che è maxato
+          const upgradeText = upgradeButton.querySelector('div:first-child');
+          if (upgradeText) {
+            upgradeText.textContent = 'MAX LEVEL';
+          }
+
+          // Rimuovi i costi dal pulsante dato che non è più disponibile
+          const costDetails = upgradeButton.querySelector('div:last-child');
+          if (costDetails) {
+            costDetails.style.display = 'none';
+          }
+        } else {
+          // Non al limite - abilita pulsante
+          upgradeButton.style.opacity = '1';
+          upgradeButton.style.pointerEvents = 'auto';
+          upgradeButton.style.background = 'rgba(255, 255, 255, 0.1)';
+          upgradeButton.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+
+          // Ripristina il testo
+          const upgradeText = upgradeButton.querySelector('div:first-child');
+          if (upgradeText) {
+            upgradeText.textContent = 'UPGRADE';
+          }
+
+          // Mostra i costi
+          const costDetails = upgradeButton.querySelector('div:last-child');
+          if (costDetails) {
+            costDetails.style.display = 'block';
+          }
+        }
+      }
+    });
   }
 
   /**

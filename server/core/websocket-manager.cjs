@@ -571,12 +571,19 @@ class WebSocketConnectionManager {
               damage: { credits: 10000, cosmos: 20 }
             };
 
-            // Verifica se il player ha abbastanza crediti e cosmos
-            const currentCredits = Number(playerData.inventory.credits || 0);
-            const currentCosmos = Number(playerData.inventory.cosmos || 0);
-            const cost = upgradeCosts[data.upgradeType];
+            // Definisci i limiti massimi per ogni upgrade
+            const upgradeLimits = {
+              hp: 100,
+              shield: 100,
+              speed: 100,
+              damage: 100
+            };
 
-            if (!cost) {
+            // Verifica se l'upgrade richiesto è valido
+            const cost = upgradeCosts[data.upgradeType];
+            const maxLimit = upgradeLimits[data.upgradeType];
+
+            if (!cost || maxLimit === undefined) {
               ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Invalid upgrade type',
@@ -584,6 +591,21 @@ class WebSocketConnectionManager {
               }));
               return;
             }
+
+            // Verifica se il giocatore ha già raggiunto il limite massimo
+            const currentLevel = playerData.upgrades[data.upgradeType + 'Upgrades'] || 0;
+            if (currentLevel >= maxLimit) {
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: `Maximum upgrades reached for ${data.upgradeType} (${maxLimit}/${maxLimit})`,
+                code: 'MAX_UPGRADES_REACHED'
+              }));
+              return;
+            }
+
+            // Verifica se il player ha abbastanza crediti e cosmos
+            const currentCredits = Number(playerData.inventory.credits || 0);
+            const currentCosmos = Number(playerData.inventory.cosmos || 0);
 
             if (currentCredits < cost.credits || currentCosmos < cost.cosmos) {
               console.log(`🚫 [SERVER] Insufficient resources for ${data.upgradeType}: has ${currentCredits} credits, ${currentCosmos} cosmos, needs ${cost.credits} credits, ${cost.cosmos} cosmos`);
