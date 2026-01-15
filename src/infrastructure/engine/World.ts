@@ -1,56 +1,57 @@
 import { ECS } from '../ecs/ECS';
 import { CONFIG } from '../../utils/config/Config';
-import { IRenderer } from '../rendering/IRenderer';
-import { Canvas2DRenderer } from '../rendering/Canvas2DRenderer';
 
 /**
  * World che gestisce il gioco, ECS e tutti i sistemi
  */
 export class World {
   private ecs: ECS;
-  private renderer: IRenderer;
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
 
-  constructor(canvas: HTMLCanvasElement, renderer?: IRenderer) {
-    // Usa il renderer fornito o crea un Canvas2DRenderer come default
-    this.renderer = renderer || new Canvas2DRenderer(canvas);
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Impossibile ottenere il contesto 2D del canvas');
+    }
+    this.ctx = ctx;
 
     // Inizializza ECS
     this.ecs = new ECS();
 
-    // Configura canvas se stiamo usando Canvas2DRenderer
-    if (this.renderer instanceof Canvas2DRenderer) {
-      this.setupCanvas(canvas);
-    }
+    // Configura canvas
+    this.setupCanvas();
   }
 
   /**
-   * Configura le dimensioni e proprietà del canvas (solo per Canvas2DRenderer)
+   * Configura le dimensioni e proprietà del canvas
    */
-  private setupCanvas(canvas: HTMLCanvasElement): void {
-    this.resizeCanvas(canvas);
-    canvas.style.backgroundColor = CONFIG.BACKGROUND_COLOR;
+  private setupCanvas(): void {
+    this.resizeCanvas();
+    this.canvas.style.backgroundColor = CONFIG.BACKGROUND_COLOR;
 
     // Ascolta gli eventi di resize della finestra
     window.addEventListener('resize', () => {
-      this.resizeCanvas(canvas);
+      this.resizeCanvas();
     });
   }
 
   /**
-   * Ridimensiona il canvas per adattarsi alla finestra (solo per Canvas2DRenderer)
+   * Ridimensiona il canvas per adattarsi alla finestra
    */
-  private resizeCanvas(canvas: HTMLCanvasElement): void {
+  private resizeCanvas(): void {
     // Usa le dimensioni della finestra del browser
     const width = window.innerWidth;
     const height = window.innerHeight;
 
     // Aggiorna le dimensioni del canvas
-    canvas.width = width;
-    canvas.height = height;
+    this.canvas.width = width;
+    this.canvas.height = height;
 
     // Aggiorna anche il CSS per sicurezza
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
+    this.canvas.style.width = width + 'px';
+    this.canvas.style.height = height + 'px';
   }
 
   /**

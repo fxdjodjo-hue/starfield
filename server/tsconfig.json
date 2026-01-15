@@ -15,9 +15,7 @@
     "sourceMap": true
   },
   "include": [
-    "**/*.ts",
-    "../shared/core/**/*.ts",
-    "../shared/server/**/*.ts"
+    "**/*.ts"
   ],
   "exclude": [
     "node_modules",

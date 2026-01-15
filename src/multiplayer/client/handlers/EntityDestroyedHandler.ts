@@ -21,7 +21,6 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log(`[CLIENT] Received entity_destroyed: ${message.entityId} (${message.entityType})`);
 
     if (message.entityType === 'npc') {
       // NPC distrutto - NON assegnare ricompense qui (fatto in PlayerStateUpdateHandler)

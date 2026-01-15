@@ -12,9 +12,7 @@ export class SaveResponseHandler extends BaseMessageHandler {
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     if (message.success) {
-      console.log('💾 [SAVE] Player data saved successfully:', message.message);
     } else {
-      console.warn('💾 [SAVE] Save failed:', message.message, message.error);
     }
 
     // Could emit an event or update UI to show save status

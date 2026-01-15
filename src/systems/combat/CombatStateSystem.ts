@@ -190,7 +190,6 @@ export class CombatStateSystem extends BaseSystem {
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento
       const reason = attackActivated ? "attack activated" : "unknown reason";
-      console.log(`🎯 [COMBAT] STARTING combat (${distance.toFixed(1)}px) - ${reason} with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;

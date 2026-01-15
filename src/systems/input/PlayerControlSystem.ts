@@ -72,26 +72,26 @@ export class PlayerControlSystem extends BaseSystem {
         if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
             (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
           // Seleziona il nuovo NPC più vicino
-          // NON disattivare attacco se stiamo già combattendo (cambio target fluido)
-          const shouldDeactivateAttack = !this.attackActivated;
-          this.selectNpc(nearbyNpc, shouldDeactivateAttack);
-        }
+          this.selectNpc(nearbyNpc, !this.attackActivated);
 
-        // Ora gestisci il toggle dell'attacco
-        const selectedNpcsAfter = this.ecs.getEntitiesWithComponents(SelectedNpc);
-        if (selectedNpcsAfter.length > 0) {
-          if (this.attackActivated) {
-            // Disattiva attacco se già attivo
-            this.attackActivated = false;
-            this.deactivateAttack();
-          } else {
-            // Attiva attacco
-            this.handleSpacePress();
-          }
+          // Attiva attacco
+          this.handleSpacePress();
         } else {
-          // Nessun NPC disponibile per l'attacco
-          if (this.logSystem) {
-            this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
+          // STESSO TARGET o NESSUN TARGET: toggle attacco
+          if (currentlySelectedNpc) {
+            if (this.attackActivated) {
+              // Disattiva attacco se già attivo
+              this.attackActivated = false;
+              this.deactivateAttack();
+            } else {
+              // Attiva attacco
+              this.handleSpacePress();
+            }
+          } else {
+            // Nessun NPC disponibile per l'attacco
+            if (this.logSystem) {
+              this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
+            }
           }
         }
       }
@@ -145,6 +145,9 @@ export class PlayerControlSystem extends BaseSystem {
     // ❌ NO cooldown client-side - il server ha autorità completa
     this.attackActivated = true;
     this.lastInputTime = Date.now(); // Solo per controlli anti-spam UI
+
+    // Forza controllo immediato combattimento per risolvere timing issues
+    this.forceCombatCheck();
   }
 
   /**
@@ -276,6 +279,18 @@ export class PlayerControlSystem extends BaseSystem {
   isAttackActivated(): boolean {
     // Log per debug quando viene chiamato durante combattimento
     return this.attackActivated;
+  }
+
+  /**
+   * Forza controllo immediato del combattimento (per risolvere timing issues)
+   */
+  private forceCombatCheck(): void {
+    const combatSystem = this.ecs.systems?.find((system: any) =>
+      typeof system.processPlayerCombat === 'function'
+    );
+    if (combatSystem) {
+      combatSystem.processPlayerCombat();
+    }
   }
 
   /**

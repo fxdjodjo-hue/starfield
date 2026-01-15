@@ -5,10 +5,10 @@ import { GameContext } from '../../infrastructure/engine/GameContext';
 import { AtlasParser } from '../../utils/AtlasParser';
 
 /**
- * Explosion System - gestisce creazione esplosioni remote
+ * Remote Explosion System - gestisce creazione esplosioni remote
  * Estratto da ClientNetworkSystem per separare responsabilità
  */
-export class ExplosionSystem extends BaseSystem {
+export class RemoteExplosionSystem extends BaseSystem {
   private gameContext: GameContext;
   private ecs: ECS;
   private explosionFramesCache: HTMLImageElement[] | null = null;
@@ -18,6 +18,25 @@ export class ExplosionSystem extends BaseSystem {
     super(ecs);
     this.ecs = ecs;
     this.gameContext = gameContext;
+
+    // Precarica i frame dell'esplosione all'avvio per evitare lag al primo utilizzo
+    this.preloadExplosionFrames();
+  }
+
+  /**
+   * Precarica i frame dell'esplosione in background per evitare lag al primo utilizzo
+   */
+  private async preloadExplosionFrames(): Promise<void> {
+    try {
+      // Carica in background senza await per non bloccare l'inizializzazione
+      this.loadExplosionFrames().then(frames => {
+        this.explosionFramesCache = frames;
+      }).catch(error => {
+        console.warn('[ExplosionSystem] Failed to preload explosion frames:', error);
+      });
+    } catch (error) {
+      console.warn('[ExplosionSystem] Error starting preload:', error);
+    }
   }
 
   /**
@@ -41,9 +60,10 @@ export class ExplosionSystem extends BaseSystem {
       // Crea entità temporanea per l'esplosione
       const explosionEntity = this.ecs.createEntity();
 
-      // Usa i frame cachati o caricali
+      // Usa i frame cachati o caricali (non dovrebbe mai essere necessario ora grazie al preload)
       let explosionFrames = this.explosionFramesCache;
       if (!explosionFrames) {
+        console.warn('[ExplosionSystem] Explosion frames not preloaded, loading synchronously (may cause lag)');
         explosionFrames = await this.loadExplosionFrames();
         this.explosionFramesCache = explosionFrames;
       }

@@ -72,6 +72,50 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
+   * Rollback upgrade HP (per errori)
+   */
+  rollbackHP(): boolean {
+    if (this._hpUpgrades > 0) {
+      this._hpUpgrades--;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Rollback upgrade Shield (per errori)
+   */
+  rollbackShield(): boolean {
+    if (this._shieldUpgrades > 0) {
+      this._shieldUpgrades--;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Rollback upgrade Speed (per errori)
+   */
+  rollbackSpeed(): boolean {
+    if (this._speedUpgrades > 0) {
+      this._speedUpgrades--;
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Rollback upgrade Damage (per errori)
+   */
+  rollbackDamage(): boolean {
+    if (this._damageUpgrades > 0) {
+      this._damageUpgrades--;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.01)
    */
   getHPBonus(): number {

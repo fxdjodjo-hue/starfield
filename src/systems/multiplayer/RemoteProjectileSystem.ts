@@ -218,7 +218,6 @@ export class RemoteProjectileSystem extends BaseSystem {
     if (stats.totalProjectiles > 0) {
       logger.logIfTime(
         'remote_projectile_status',
-        `🚀 [REMOTE_PROJECTILE] Status: ${stats.totalProjectiles} projectiles`,
         GAME_CONSTANTS.UI.LOG_INTERVAL
       );
     }

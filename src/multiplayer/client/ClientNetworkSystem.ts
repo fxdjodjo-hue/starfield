@@ -11,7 +11,7 @@ import { Velocity } from '../../entities/spatial/Velocity';
 import { Authority } from '../../entities/spatial/Authority';
 
 // Nuovi sistemi specializzati
-import { ExplosionSystem } from '../../systems/client/ExplosionSystem';
+import { RemoteExplosionSystem } from '../../systems/client/RemoteExplosionSystem';
 import { AudioNotificationSystem } from '../../systems/client/AudioNotificationSystem';
 import { UINotificationSystem } from '../../systems/client/UINotificationSystem';
 
@@ -432,7 +432,9 @@ export class ClientNetworkSystem extends BaseSystem {
   private handleMessage(data: string): void {
     try {
       const message: NetMessage = JSON.parse(data);
-      console.log(`📨 [CLIENT] Received message type: ${message.type}`);
+
+      if (message.type === 'player_state_update') {
+      }
 
       if (message.type === 'initial_npcs') {
       }
@@ -608,12 +610,10 @@ export class ClientNetworkSystem extends BaseSystem {
     });
 
     try {
-      console.log('🔌 [CLIENT] Starting connection...');
       this.socket = await this.connectionManager.connect();
 
       // Connection successful
       this.connectionState = ConnectionState.CONNECTED;
-      console.log('✅ [CLIENT] Connection established successfully');
 
       if (this.connectionResolver) {
         this.connectionResolver();
@@ -1149,6 +1149,7 @@ export class ClientNetworkSystem extends BaseSystem {
       upgradeType: upgradeType
     };
 
+    console.log(`🚀 [CLIENT] Message details:`, message);
     this.sendMessage(message);
 
     // Setup timeout per gestire risposte mancanti

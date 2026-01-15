@@ -605,7 +605,9 @@ export class UpgradePanel extends BasePanel {
    * Aggiorna le statistiche dal giocatore
    */
   public updatePlayerStats(): void {
-    if (!this.container || !this.playerSystem) return;
+    if (!this.container || !this.playerSystem) {
+      return;
+    }
 
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
@@ -672,16 +674,20 @@ export class UpgradePanel extends BasePanel {
         if (credits) {
           const creditsValue = this.container.querySelector('.current-credits') as HTMLElement;
           if (creditsValue) {
-            creditsValue.textContent = credits.credits.toLocaleString();
+            const creditsAmount = credits.credits || 0;
+            creditsValue.textContent = creditsAmount.toLocaleString();
           }
+        } else {
         }
 
         // Aggiorna cosmos attuali
         if (cosmos) {
           const cosmosValue = this.container.querySelector('.current-cosmos') as HTMLElement;
           if (cosmosValue) {
-            cosmosValue.textContent = cosmos.cosmos.toString();
+            const cosmosAmount = cosmos.cosmos || 0;
+            cosmosValue.textContent = cosmosAmount.toString();
           }
+        } else {
         }
       }
     }
@@ -713,34 +719,53 @@ export class UpgradePanel extends BasePanel {
    * Acquista un upgrade per una statistica
    */
   private upgradeStat(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
-    if (!this.playerSystem) return;
+    console.log(`🔧 [UPGRADE] Attempting to upgrade ${statType}`);
+
+    if (!this.playerSystem) {
+      console.log('🔧 [UPGRADE] No playerSystem available');
+      return;
+    }
 
     const playerEntity = this.playerSystem.getPlayerEntity();
-    if (!playerEntity) return;
+    if (!playerEntity) {
+      console.log('🔧 [UPGRADE] No playerEntity available');
+      return;
+    }
 
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
+    if (!playerUpgrades) {
+      console.log('🔧 [UPGRADE] No playerUpgrades component');
+      return;
+    }
 
-    if (!playerUpgrades) return;
+    // Controlla livello corrente
+    const currentLevel = playerUpgrades[`${statType}Upgrades`] || 0;
+    console.log(`🔧 [UPGRADE] Current ${statType} level: ${currentLevel}`);
 
     // SERVER AUTHORITATIVE: Non applicare upgrade localmente
     // Invia richiesta al server e aspetta risposta
 
     // Controlla se siamo già in attesa di una risposta del server per questo upgrade
     if (this.isUpgradeInProgress(statType)) {
+      console.log(`🔧 [UPGRADE] Upgrade ${statType} already in progress`);
       return;
     }
 
     if (this.clientNetworkSystem) {
       // Marca l'upgrade come in corso
       this.setUpgradeInProgress(statType, true);
+      console.log(`🔧 [UPGRADE] Sending upgrade request for ${statType} to server`);
 
       this.clientNetworkSystem.requestSkillUpgrade(statType);
 
       // Timeout di sicurezza - se non riceviamo risposta entro 5 secondi, resettiamo
       setTimeout(() => {
+        console.log(`🔧 [UPGRADE] Timeout reached for ${statType}, resetting progress`);
         this.setUpgradeInProgress(statType, false);
       }, 5000);
 
+    } else {
+      console.log('🔧 [UPGRADE] No clientNetworkSystem available');
     }
   }
 
@@ -998,16 +1023,16 @@ export class UpgradePanel extends BasePanel {
     // Rollback dell'upgrade specifico
     switch (statType) {
       case 'hp':
-        playerUpgrades.hpUpgrades = Math.max(0, playerUpgrades.hpUpgrades - 1);
+        playerUpgrades.rollbackHP();
         break;
       case 'shield':
-        playerUpgrades.shieldUpgrades = Math.max(0, playerUpgrades.shieldUpgrades - 1);
+        playerUpgrades.rollbackShield();
         break;
       case 'speed':
-        playerUpgrades.speedUpgrades = Math.max(0, playerUpgrades.speedUpgrades - 1);
+        playerUpgrades.rollbackSpeed();
         break;
       case 'damage':
-        playerUpgrades.damageUpgrades = Math.max(0, playerUpgrades.damageUpgrades - 1);
+        playerUpgrades.rollbackDamage();
         break;
     }
 
@@ -1031,6 +1056,7 @@ export class UpgradePanel extends BasePanel {
       const currentValue = playerUpgrades[`${statType}Upgrades`];
       const maxValue = upgradeLimits[`max${statType.charAt(0).toUpperCase() + statType.slice(1)}Upgrades`];
 
+
       const upgradeButton = this.container.querySelector(buttonClass) as HTMLElement;
       if (upgradeButton) {
         if (currentValue >= maxValue) {
@@ -1047,7 +1073,7 @@ export class UpgradePanel extends BasePanel {
           }
 
           // Rimuovi i costi dal pulsante dato che non è più disponibile
-          const costDetails = upgradeButton.querySelector('div:last-child');
+          const costDetails = upgradeButton.querySelector('div:last-child') as HTMLElement;
           if (costDetails) {
             costDetails.style.display = 'none';
           }
@@ -1065,7 +1091,7 @@ export class UpgradePanel extends BasePanel {
           }
 
           // Aggiorna i costi nel pulsante
-          const costDetails = upgradeButton.querySelector('div:last-child');
+          const costDetails = upgradeButton.querySelector('div:last-child') as HTMLElement;
           if (costDetails) {
             const newCost = this.calculateUpgradeCost(statType, currentValue);
             let costText = '';
@@ -1223,12 +1249,5 @@ export class UpgradePanel extends BasePanel {
     if (overlay) overlay.remove();
   }
 
-  /**
-   * Implementazione del metodo update richiesto da BasePanel
-   */
-  update(data: PanelData): void {
-    // Per UpgradePanel, l'update con PanelData non è necessario
-    // dato che aggiorna automaticamente le statistiche ogni frame
-    this.updatePlayerStats();
-  }
+
 }

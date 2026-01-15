@@ -357,19 +357,6 @@ export class CombatSystem extends BaseSystem {
       return;
     }
 
-      // Se dopo il tentativo di riselezione non abbiamo ancora un NPC selezionato, ferma il combattimento
-      const selectedNpcsAfterCheck = this.ecs.getEntitiesWithComponents(SelectedNpc);
-      if (selectedNpcsAfterCheck.length === 0) {
-        if (this.currentAttackTarget !== null) {
-          this.sendStopCombat();
-          this.endAttackLogging();
-        this.currentAttackTarget = null;
-        this.attackStartedLogged = false;
- // Reset wasInCombat if no NPC is selected
-        return;
-      }
-    }
-
     const selectedNpc = selectedNpcs[0];
 
     // Verifica che abbiamo il player (dovrebbe già essere stato controllato sopra)
@@ -415,14 +402,14 @@ export class CombatSystem extends BaseSystem {
       console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected 600, got ${playerDamage.attackRange}`);
     }
 
-    if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
-      // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento
-      const reason = attackActivated ? "attack activated" : "unknown reason";
-      this.sendStartCombat(selectedNpc);
-      this.startAttackLogging(selectedNpc);
-      this.currentAttackTarget = selectedNpc.id;
-      this.attackStartedLogged = true;
-      this.wasInCombat = false; // Reset - ora stiamo combattendo
+    if (inRange && attackActivated) {
+      // Player in range E attacco attivato - inizia combattimento se non già attivo con questo target
+      if (this.currentAttackTarget !== selectedNpc.id) {
+        this.sendStartCombat(selectedNpc);
+        this.startAttackLogging(selectedNpc);
+        this.currentAttackTarget = selectedNpc.id;
+        this.attackStartedLogged = true;
+      }
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
       // Player uscito dal range - ferma combattimento
       this.sendStopCombat();

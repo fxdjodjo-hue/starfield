@@ -1,6 +1,6 @@
 import { ECS } from '../../../infrastructure/ecs/ECS';
 import { GameContext } from '../../../infrastructure/engine/GameContext';
-import { ExplosionSystem } from '../../../systems/client/ExplosionSystem';
+import { RemoteExplosionSystem } from '../../../systems/client/RemoteExplosionSystem';
 import { AudioNotificationSystem } from '../../../systems/client/AudioNotificationSystem';
 import { UINotificationSystem } from '../../../systems/client/UINotificationSystem';
 
@@ -13,7 +13,7 @@ export class NetworkEventSystem {
   private gameContext: GameContext;
 
   // Specialized subsystems
-  private explosionSystem: ExplosionSystem;
+  private explosionSystem: RemoteExplosionSystem;
   private audioNotificationSystem: AudioNotificationSystem;
   private uiNotificationSystem: UINotificationSystem;
 
@@ -29,7 +29,7 @@ export class NetworkEventSystem {
     this.gameContext = gameContext;
 
     // Initialize specialized systems
-    this.explosionSystem = new ExplosionSystem(ecs, gameContext);
+    this.explosionSystem = new RemoteExplosionSystem(ecs, gameContext);
     this.audioNotificationSystem = new AudioNotificationSystem(ecs, gameContext);
     this.uiNotificationSystem = new UINotificationSystem(ecs, gameContext);
   }

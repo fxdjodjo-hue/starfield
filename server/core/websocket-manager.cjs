@@ -546,11 +546,16 @@ class WebSocketConnectionManager {
           // Gestisce richieste di upgrade skill (Server Authoritative)
           if (data.type === 'skill_upgrade_request') {
             console.log(`🔧 [SERVER] Received skill upgrade request for ${data.upgradeType} from ${data.clientId}`);
+            console.log(`🔧 [SERVER] Player data keys:`, Array.from(this.mapServer.players.keys()));
+
             const playerData = this.mapServer.players.get(data.clientId);
             if (!playerData) {
+              console.log(`🔧 [SERVER] Player data not found for clientId: ${data.clientId}`);
               logger.warn('SKILL_UPGRADE', `Player data not found for clientId: ${data.clientId}`);
               return;
             }
+
+            console.log(`🔧 [SERVER] Found player data for ${data.clientId}`);
 
             // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
             if (data.playerId !== playerData.userId) {
@@ -604,7 +609,9 @@ class WebSocketConnectionManager {
 
             // Calcola il costo per l'upgrade richiesto
             const currentLevel = playerData.upgrades[data.upgradeType + 'Upgrades'] || 0;
+            console.log(`🔧 [SERVER] Current level for ${data.upgradeType}: ${currentLevel}`);
             const cost = calculateUpgradeCost(data.upgradeType, currentLevel);
+            console.log(`🔧 [SERVER] Calculated cost for ${data.upgradeType}:`, cost);
 
             // Verifica se l'upgrade richiesto è valido
             const maxLimit = upgradeLimits[data.upgradeType];
@@ -631,6 +638,7 @@ class WebSocketConnectionManager {
             // Verifica se il player ha abbastanza crediti e cosmos
             const currentCredits = Number(playerData.inventory.credits || 0);
             const currentCosmos = Number(playerData.inventory.cosmos || 0);
+            console.log(`🔧 [SERVER] Player resources - Credits: ${currentCredits}, Cosmos: ${currentCosmos}`);
 
             if (currentCredits < cost.credits || currentCosmos < cost.cosmos) {
               console.log(`🚫 [SERVER] Insufficient resources for ${data.upgradeType}: has ${currentCredits} credits, ${currentCosmos} cosmos, needs ${cost.credits} credits, ${cost.cosmos} cosmos`);
@@ -660,24 +668,30 @@ class WebSocketConnectionManager {
             playerData.inventory.cosmos = currentCosmos - cost.cosmos;
 
             // Applica l'upgrade specifico
+            console.log(`🔧 [SERVER] Applying upgrade for ${data.upgradeType}`);
             switch (data.upgradeType) {
               case 'hp':
                 playerData.upgrades.hpUpgrades += 1;
+                console.log(`🔧 [SERVER] HP upgraded to level ${playerData.upgrades.hpUpgrades}`);
                 // Aggiorna maxHealth con il nuovo upgrade
                 playerData.maxHealth = this.calculateMaxHealth(playerData.upgrades.hpUpgrades);
                 break;
               case 'shield':
                 playerData.upgrades.shieldUpgrades += 1;
+                console.log(`🔧 [SERVER] Shield upgraded to level ${playerData.upgrades.shieldUpgrades}`);
                 // Aggiorna maxShield con il nuovo upgrade
                 playerData.maxShield = this.calculateMaxShield(playerData.upgrades.shieldUpgrades);
                 break;
               case 'speed':
                 playerData.upgrades.speedUpgrades += 1;
+                console.log(`🔧 [SERVER] Speed upgraded to level ${playerData.upgrades.speedUpgrades}`);
                 break;
               case 'damage':
                 playerData.upgrades.damageUpgrades += 1;
+                console.log(`🔧 [SERVER] Damage upgraded to level ${playerData.upgrades.damageUpgrades}`);
                 break;
               default:
+                console.log(`🔧 [SERVER] Invalid upgrade type: ${data.upgradeType}`);
                 // Rollback crediti e cosmos
                 playerData.inventory.credits = currentCredits;
                 playerData.inventory.cosmos = currentCosmos;
