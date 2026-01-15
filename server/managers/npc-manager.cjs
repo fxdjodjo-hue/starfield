@@ -246,15 +246,6 @@ class ServerNpcManager {
       return;
     }
 
-    // SkillPoints drop casuale (25-50% probabilità di 1-3 punti)
-    let skillPointsDrop = 0;
-    const dropChance = Math.random();
-    if (dropChance < 0.25) { // 25% probabilità
-      skillPointsDrop = 1;
-    } else if (dropChance < 0.50) { // Altri 25% probabilità (totale 50%)
-      skillPointsDrop = Math.floor(Math.random() * 3) + 1; // 1-3 punti
-    }
-
     // Aggiungi ricompense all'inventario del giocatore (assicurati che siano numeri)
     playerData.inventory.credits = Number(playerData.inventory.credits || 0) + (rewards.credits || 0);
     playerData.inventory.cosmos = Number(playerData.inventory.cosmos || 0) + (rewards.cosmos || 0);
@@ -262,14 +253,14 @@ class ServerNpcManager {
     const newExp = oldExp + (rewards.experience || 0);
     playerData.inventory.experience = newExp;
     playerData.inventory.honor = Number(playerData.inventory.honor || 0) + (rewards.honor || 0);
-    playerData.inventory.skillPoints = Number(playerData.inventory.skillPoints || 0) + skillPointsDrop;
+    // SkillPoints completamente rimossi dagli NPC - mai assegnati
 
-    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor, ${skillPointsDrop} skillPoints for killing ${npcType}`);
+    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor for killing ${npcType}`);
 
-    // Crea oggetto rewards completo includendo drop casuali
+    // Crea oggetto rewards (SkillPoints completamente rimossi)
     const finalRewards = {
       ...rewards,
-      skillPoints: skillPointsDrop
+      skillPoints: 0 // Sempre 0, SkillPoints non assegnati dagli NPC
     };
 
     // Invia notifica delle ricompense al client

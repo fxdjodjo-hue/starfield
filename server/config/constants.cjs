@@ -47,7 +47,7 @@ const NPC_CONFIG = {
       cosmos: 1,
       experience: 400,
       honor: 2,
-      skillPoints: 0 // Base reward, random drop will add more
+      skillPoints: 0 // NPC non assegnano mai SkillPoints
     },
     description: "Nemico base dello spazio profondo"
   },
@@ -67,7 +67,7 @@ const NPC_CONFIG = {
       cosmos: 2,
       experience: 800,
       honor: 4,
-      skillPoints: 0 // Base reward, random drop will add more
+      skillPoints: 0 // NPC non assegnano mai SkillPoints
     },
     description: "Nave da guerra di medie dimensioni"
   }
