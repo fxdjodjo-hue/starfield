@@ -362,7 +362,7 @@ export class PlayState extends GameState {
       this.uiSystem.setPlayerSystem(systems.playerSystem);
     }
 
-    // Collega il ClientNetworkSystem all'UiSystem (per SkillsPanel)
+    // Collega il ClientNetworkSystem all'UiSystem (per UpgradePanel)
     if (this.clientNetworkSystem) {
       this.uiSystem.setClientNetworkSystem(this.clientNetworkSystem);
 

@@ -29,10 +29,10 @@ export const PANEL_CONFIGS = {
     size: { width: 1300, height: 750 }
   },
 
-  skills: {
-    id: 'skills-panel',
+  upgrade: {
+    id: 'upgrade-panel',
     icon: '⊹',
-    title: 'Skills & Abilities',
+    title: 'Upgrade',
     position: 'center-left-below2' as const,
     size: { width: 1300, height: 750 }
   }

@@ -284,6 +284,7 @@ class WebSocketConnectionManager {
         this.messageCount.increment();
         try {
           const data = JSON.parse(message.toString());
+          console.log(`📨 [SERVER] Received message type: ${data.type} from ${data.clientId || 'unknown'}`);
 
           // INPUT VALIDATION: valida struttura messaggio
           const structureValidation = this.inputValidator.validateMessageStructure(data);
@@ -544,6 +545,7 @@ class WebSocketConnectionManager {
 
           // Gestisce richieste di upgrade skill (Server Authoritative)
           if (data.type === 'skill_upgrade_request') {
+            console.log(`🔧 [SERVER] Received skill upgrade request for ${data.upgradeType} from ${data.clientId}`);
             const playerData = this.mapServer.players.get(data.clientId);
             if (!playerData) {
               logger.warn('SKILL_UPGRADE', `Player data not found for clientId: ${data.clientId}`);
@@ -561,23 +563,46 @@ class WebSocketConnectionManager {
               return;
             }
 
-            // Verifica se il player ha abbastanza skill points
-            const currentSkillPoints = Number(playerData.inventory.skillPoints || 0);
-            if (currentSkillPoints < 1) {
+            // Definisci i costi degli upgrade in crediti e cosmos
+            const upgradeCosts = {
+              hp: { credits: 5000, cosmos: 10 },
+              shield: { credits: 3000, cosmos: 5 },
+              speed: { credits: 8000, cosmos: 15 },
+              damage: { credits: 10000, cosmos: 20 }
+            };
+
+            // Verifica se il player ha abbastanza crediti e cosmos
+            const currentCredits = Number(playerData.inventory.credits || 0);
+            const currentCosmos = Number(playerData.inventory.cosmos || 0);
+            const cost = upgradeCosts[data.upgradeType];
+
+            if (!cost) {
               ws.send(JSON.stringify({
                 type: 'error',
-                message: 'Not enough skill points for upgrade',
-                code: 'INSUFFICIENT_SKILL_POINTS'
+                message: 'Invalid upgrade type',
+                code: 'INVALID_UPGRADE_TYPE'
+              }));
+              return;
+            }
+
+            if (currentCredits < cost.credits || currentCosmos < cost.cosmos) {
+              console.log(`🚫 [SERVER] Insufficient resources for ${data.upgradeType}: has ${currentCredits} credits, ${currentCosmos} cosmos, needs ${cost.credits} credits, ${cost.cosmos} cosmos`);
+              ws.send(JSON.stringify({
+                type: 'error',
+                message: `Not enough resources for upgrade. Required: ${cost.credits} credits + ${cost.cosmos} cosmos`,
+                code: 'INSUFFICIENT_RESOURCES'
               }));
               return;
             }
 
             // Salva stato precedente per confronto
-            const oldSkillPoints = currentSkillPoints;
+            const oldCredits = currentCredits;
+            const oldCosmos = currentCosmos;
             const oldUpgrades = JSON.parse(JSON.stringify(playerData.upgrades));
 
-            // Sposta 1 skill point dall'inventory agli upgrade
-            playerData.inventory.skillPoints = currentSkillPoints - 1;
+            // Sottrai crediti e cosmos per l'upgrade
+            playerData.inventory.credits = currentCredits - cost.credits;
+            playerData.inventory.cosmos = currentCosmos - cost.cosmos;
 
             // Applica l'upgrade specifico
             switch (data.upgradeType) {
@@ -598,8 +623,9 @@ class WebSocketConnectionManager {
                 playerData.upgrades.damageUpgrades += 1;
                 break;
               default:
-                // Rollback skill points
-                playerData.inventory.skillPoints = currentSkillPoints;
+                // Rollback crediti e cosmos
+                playerData.inventory.credits = currentCredits;
+                playerData.inventory.cosmos = currentCosmos;
                 return;
             }
 

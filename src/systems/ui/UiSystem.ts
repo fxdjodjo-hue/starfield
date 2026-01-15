@@ -4,7 +4,7 @@ import { UIManager } from '../../presentation/ui/UIManager';
 import { PlayerHUD } from '../../presentation/ui/PlayerHUD';
 import { PlayerStatsPanel } from '../../presentation/ui/PlayerStatsPanel';
 import { QuestPanel } from '../../presentation/ui/QuestPanel';
-import { SkillsPanel } from '../../presentation/ui/SkillsPanel';
+import { UpgradePanel } from '../../presentation/ui/UpgradePanel';
 import { ChatPanel } from '../../presentation/ui/ChatPanel';
 import { ChatManager } from './ChatManager';
 import { ChatMessageHandler } from '../../multiplayer/client/handlers/ChatMessageHandler';
@@ -27,7 +27,7 @@ export class UiSystem extends System {
   private chatPanel: ChatPanel;
   private chatManager: ChatManager;
   private questSystem: QuestSystem;
-  private skillsPanel: SkillsPanel | null = null;
+  private upgradePanel: UpgradePanel | null = null;
   private playerSystem: PlayerSystem | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private economySystem: any = null;
@@ -305,10 +305,10 @@ export class UiSystem extends System {
   setPlayerSystem(playerSystem: PlayerSystem): void {
     this.playerSystem = playerSystem;
     // Aggiorna anche i pannelli che ne hanno bisogno
-    if (this.skillsPanel) {
-      this.skillsPanel.setPlayerSystem(playerSystem);
+    if (this.upgradePanel) {
+      this.upgradePanel.setPlayerSystem(playerSystem);
       if (this.clientNetworkSystem) {
-        this.skillsPanel.setClientNetworkSystem(this.clientNetworkSystem);
+        this.upgradePanel.setClientNetworkSystem(this.clientNetworkSystem);
       }
     }
     if (this.chatPanel) {
@@ -339,17 +339,17 @@ export class UiSystem extends System {
     clientNetworkSystem.getMessageRouter().registerHandler(errorHandler);
 
     // Aggiorna anche i pannelli che ne hanno bisogno
-    if (this.skillsPanel) {
-      this.skillsPanel.setClientNetworkSystem(clientNetworkSystem);
+    if (this.upgradePanel) {
+      this.upgradePanel.setClientNetworkSystem(clientNetworkSystem);
     }
   }
 
   /**
-   * Resetta tutti gli stati di progresso degli upgrade nel SkillsPanel
+   * Resetta tutti gli stati di progresso degli upgrade nel UpgradePanel
    */
   public resetAllUpgradeProgress(): void {
-    if (this.skillsPanel && typeof this.skillsPanel.resetUpgradeProgress === 'function') {
-      this.skillsPanel.resetUpgradeProgress();
+    if (this.upgradePanel && typeof this.upgradePanel.resetUpgradeProgress === 'function') {
+      this.upgradePanel.resetUpgradeProgress();
     }
   }
 
@@ -377,9 +377,9 @@ export class UiSystem extends System {
     this.uiManager.registerPanel(questPanel);
 
     // Crea e registra il pannello delle skills
-    const skillsConfig = getPanelConfig('skills');
-    this.skillsPanel = new SkillsPanel(skillsConfig, this.ecs, this.playerSystem || undefined, this.clientNetworkSystem || undefined);
-    this.uiManager.registerPanel(this.skillsPanel);
+    const upgradeConfig = getPanelConfig('upgrade');
+    this.upgradePanel = new UpgradePanel(upgradeConfig, this.ecs, this.playerSystem || undefined, this.clientNetworkSystem || undefined);
+    this.uiManager.registerPanel(this.upgradePanel);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
@@ -901,20 +901,20 @@ export class UiSystem extends System {
    * Aggiorna i pannelli che supportano aggiornamenti real-time
    */
   private updateRealtimePanels(deltaTime: number): void {
-    // Aggiorna pannello Skills se ha il metodo updateECS
-    const skillsPanel = this.uiManager.getPanel('skills-panel');
-    if (skillsPanel && typeof (skillsPanel as any).updateECS === 'function') {
-      (skillsPanel as any).updateECS(deltaTime);
+    // Aggiorna pannello Upgrade se ha il metodo updateECS
+    const upgradePanel = this.uiManager.getPanel('upgrade-panel');
+    if (upgradePanel && typeof (upgradePanel as any).updateECS === 'function') {
+      (upgradePanel as any).updateECS(deltaTime);
     }
 
     // Altri pannelli possono essere aggiunti qui se necessario
   }
 
   /**
-   * Ottiene il pannello Skills
+   * Ottiene il pannello Upgrade
    */
-  public getSkillsPanel(): SkillsPanel | null {
-    return this.uiManager.getPanel('skills-panel') as SkillsPanel;
+  public getUpgradePanel(): UpgradePanel | null {
+    return this.uiManager.getPanel('upgrade-panel') as UpgradePanel;
   }
 
   /**

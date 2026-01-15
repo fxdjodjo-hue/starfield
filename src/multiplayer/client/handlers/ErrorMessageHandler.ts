@@ -14,22 +14,29 @@ export class ErrorMessageHandler extends BaseMessageHandler {
   handle(message: ErrorMessage, networkSystem: ClientNetworkSystem): void {
     console.log('🚫 [ERROR] Received error from server:', message.message, message.code);
 
-    // Inoltra l'errore al ChatManager per la visualizzazione
-    this.chatManager.receiveError(message.message);
-
-    // Se è un errore di skill upgrade, resetta lo stato del pannello Skills
-    if (message.code === 'INSUFFICIENT_SKILL_POINTS') {
+    // Se è un errore di upgrade, mostra popup elegante
+    if (message.code === 'INSUFFICIENT_RESOURCES' || message.code === 'INSUFFICIENT_SKILL_POINTS') {
+      console.log('🔧 [INSUFFICIENT] Showing popup for insufficient resources');
       const uiSystem = networkSystem.getUiSystem();
       if (uiSystem) {
-        const skillsPanel = uiSystem.getSkillsPanel();
-        if (skillsPanel) {
-          // Resetta tutti gli upgrade in progress
-          console.log('🔧 [ERROR] Resetting skill upgrade progress due to insufficient skill points');
-          // Il pannello dovrebbe avere un metodo per resettare tutti gli stati
-          // Per ora, ricarichiamo il pannello per sicurezza
-          skillsPanel.updatePlayerStats();
+        const upgradePanel = uiSystem.getUpgradePanel();
+        if (upgradePanel) {
+          console.log('🔧 [INSUFFICIENT] Found upgrade panel, showing popup');
+          // Mostra popup elegante invece del messaggio chat
+          upgradePanel.showInsufficientResourcesPopup(message.message);
+        } else {
+          console.log('🔧 [INSUFFICIENT] No upgrade panel found');
+          // Fallback al chat se non c'è il pannello
+          this.chatManager.receiveError(message.message);
         }
+      } else {
+        console.log('🔧 [INSUFFICIENT] No UI system found');
+        // Fallback al chat se non c'è il sistema UI
+        this.chatManager.receiveError(message.message);
       }
+    } else {
+      // Inoltra altri errori al ChatManager
+      this.chatManager.receiveError(message.message);
     }
   }
 }

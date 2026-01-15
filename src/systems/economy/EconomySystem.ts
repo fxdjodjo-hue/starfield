@@ -3,7 +3,6 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Credits, Cosmos } from '../../entities/currency/Currency';
 import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
-import { SkillPoints } from '../../entities/currency/SkillPoints';
 
 /**
  * Sistema Economy - gestisce l'economia completa del giocatore
@@ -589,14 +588,8 @@ export class EconomySystem extends BaseSystem {
 
     const oldLevel = experience.level;
 
-    // Callback per assegnare skill points quando si sale di livello
-    const leveledUp = experience.addExp(amount, (newLevel) => {
-      // Assegna 10 skill points per livello salito
-      const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
-      if (skillPoints) {
-        skillPoints.addPoints(10);
-      }
-    });
+    // Skill points ora riservati per usi futuri (specializzazioni, abilità, ecc.)
+    const leveledUp = experience.addExp(amount);
 
     // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
     this.onExperienceChanged?.(experience.totalExpEarned, amount, leveledUp);
@@ -704,7 +697,8 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Aggiunge SkillPoints al giocatore
+   * Aggiunge SkillPoints al giocatore (per gestione futura - specializzazioni, abilità)
+   * Attualmente non utilizzato nel leveling automatico
    */
   addSkillPoints(amount: number, reason: string = 'unknown'): number {
     const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
@@ -725,6 +719,7 @@ export class EconomySystem extends BaseSystem {
 
   /**
    * IMPOSTA direttamente i SkillPoints del giocatore (Server Authoritative)
+   * Per gestione futura - specializzazioni e abilità avanzate
    */
   setSkillPoints(amount: number, reason: string = 'server_update'): void {
     const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);

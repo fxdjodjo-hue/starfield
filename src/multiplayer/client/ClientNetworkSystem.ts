@@ -432,6 +432,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private handleMessage(data: string): void {
     try {
       const message: NetMessage = JSON.parse(data);
+      console.log(`📨 [CLIENT] Received message type: ${message.type}`);
 
       if (message.type === 'initial_npcs') {
       }
@@ -450,9 +451,6 @@ export class ClientNetworkSystem extends BaseSystem {
           // World update - could be handled by dedicated system in future
           break;
 
-        case MESSAGE_TYPES.ERROR:
-          // console.error('🚨 Server error:', (message as any).message);
-          break;
 
         case 'projectile_updates':
           this.handleProjectileUpdates(message as any);
@@ -1135,13 +1133,15 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
-   * Requests a skill upgrade to the server (Server Authoritative)
+   * Requests a stat upgrade to the server (Server Authoritative)
+   * Costs credits and cosmos instead of skill points
    */
   requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage'): void {
     if (!this.socket || !this.isConnected) {
       return;
     }
 
+    console.log(`🚀 [CLIENT] Sending skill upgrade request for ${upgradeType}`);
     const message = {
       type: 'skill_upgrade_request',
       clientId: this.clientId,  // WebSocket client ID
@@ -1150,6 +1150,11 @@ export class ClientNetworkSystem extends BaseSystem {
     };
 
     this.sendMessage(message);
+
+    // Setup timeout per gestire risposte mancanti
+    setTimeout(() => {
+      console.log(`⏰ [CLIENT] Timeout waiting for skill upgrade response for ${upgradeType}`);
+    }, 3000);
   }
 
   /**

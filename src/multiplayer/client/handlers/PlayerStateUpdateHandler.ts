@@ -134,15 +134,15 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     if (uiSystem) {
       // L'UiSystem aggiornerà automaticamente l'HUD tramite i suoi meccanismi interni
 
-      // Aggiorna anche il pannello Skills per riflettere i valori reali
-      const skillsPanel = uiSystem.getSkillsPanel();
-      if (skillsPanel) {
+      // Aggiorna anche il pannello Upgrade per riflettere i valori reali
+      const upgradePanel = uiSystem.getUpgradePanel();
+      if (upgradePanel) {
         // Assicurati che abbia il riferimento al PlayerSystem
         const playerSystem = networkSystem.getPlayerSystem();
         if (playerSystem) {
-          skillsPanel.setPlayerSystem(playerSystem);
+          upgradePanel.setPlayerSystem(playerSystem);
         }
-        skillsPanel.updatePlayerStats();
+        upgradePanel.updatePlayerStats();
       }
 
       // Aggiorna l'HUD in tempo reale

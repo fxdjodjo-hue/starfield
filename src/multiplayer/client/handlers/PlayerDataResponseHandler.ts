@@ -52,7 +52,7 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
 
     // ✅ L'ECONOMY SYSTEM TRIGGERA AUTOMATICAMENTE onExperienceChanged -> UiSystem.updatePlayerData
 
-    // INIZIALIZZA IL COMPONENTE ECS SKILLPOINTS (necessario per SkillsPanel)
+    // INIZIALIZZA IL COMPONENTE ECS SKILLPOINTS (necessario per UpgradePanel)
     if (networkSystem.getPlayerSystem() && message.inventory) {
       const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
       if (playerEntity) {
