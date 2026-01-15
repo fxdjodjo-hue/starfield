@@ -42,7 +42,6 @@ class ServerCombatManager {
     const minTimeBetweenStarts = 500; // 500ms tra avvii combattimento
 
     if (now - lastCombatStart < minTimeBetweenStarts) {
-      console.log(`⚔️ [SERVER] Combat start blocked for ${playerId} - too frequent`);
       return;
     }
 
@@ -165,7 +164,6 @@ class ServerCombatManager {
    * Esegue attacco del player contro NPC
    */
   performPlayerAttack(playerId, playerData, npc, now) {
-    console.log(`🚀 [SERVER] Player ${playerId} firing projectile at NPC ${npc.id}`);
 
     // Usa posizione corrente del player dal server (più affidabile)
     const playerPos = playerData.position;
