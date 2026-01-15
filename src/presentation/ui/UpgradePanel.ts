@@ -12,7 +12,7 @@ import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSyste
 import type { PanelData } from './UIManager';
 
 /**
- * UpgradePanel - Pannello per visualizzare statistiche giocatore e gestire upgrade
+ * UpgradePanel - Panel to display player statistics and manage upgrades
  */
 export class UpgradePanel extends BasePanel {
   private ecs: ECS;
@@ -34,23 +34,23 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Imposta il riferimento al PlayerSystem
+   * Sets the reference to PlayerSystem
    */
   setPlayerSystem(playerSystem: PlayerSystem): void {
     this.playerSystem = playerSystem;
-    // Aggiorna immediatamente le statistiche quando riceviamo il riferimento
+    // Update statistics immediately when we receive the reference
     this.updatePlayerStats();
   }
 
   /**
-   * Imposta il riferimento al ClientNetworkSystem
+   * Sets the reference to ClientNetworkSystem
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
     this.clientNetworkSystem = clientNetworkSystem;
   }
 
   /**
-   * Crea il contenuto del pannello upgrade
+   * Creates the upgrade panel content
    */
   protected createPanelContent(): HTMLElement {
     const content = document.createElement('div');
@@ -75,7 +75,7 @@ export class UpgradePanel extends BasePanel {
     style.textContent = `.skills-content::-webkit-scrollbar { display: none; }`;
     content.appendChild(style);
 
-    // Pulsante di chiusura "X" nell'angolo superiore destro
+    // Close button "X" in the top right corner
     const closeButton = document.createElement('button');
     closeButton.textContent = 'X';
     closeButton.style.cssText = `
@@ -136,14 +136,10 @@ export class UpgradePanel extends BasePanel {
     title.textContent = 'Upgrade';
     title.style.cssText = `
       margin: 0;
-      color: rgba(255, 255, 255, 0.95);
+      color: #ffffff;
       font-size: 22px;
       font-weight: 700;
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      background: rgba(255, 255, 255, 0.08);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
     `;
 
     const subtitle = document.createElement('p');
@@ -181,7 +177,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Crea una sezione di statistiche
+   * Creates a statistics section
    */
   private createStatsSection(title: string, stats: Array<{ label: string, icon: string, value: string, color: string, upgradeKey?: string }>): HTMLElement {
     const section = document.createElement('div');
@@ -274,7 +270,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Calcola il costo di un upgrade basato sul livello corrente
+   * Calculates the cost of an upgrade based on current level
    */
   private calculateUpgradeCost(statType: string, currentLevel: number): { credits: number, cosmos: number } {
     const baseCosts = {
@@ -306,7 +302,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Crea la sezione degli upgrade con layout a griglia orizzontale
+   * Creates the upgrade section with horizontal grid layout
    */
   private createUpgradeSection(): HTMLElement {
     const section = document.createElement('div');
@@ -343,14 +339,14 @@ export class UpgradePanel extends BasePanel {
     const speedLevel = playerUpgrades ? playerUpgrades.speedUpgrades : 0;
     const damageLevel = playerUpgrades ? playerUpgrades.damageUpgrades : 0;
 
-    // Crea le quattro card di upgrade
-    const hpUpgrade = this.createUpgradeCard('Hull', '🛡️', '#10b981', 'hp', hpLevel);
+    // Create the four upgrade cards
+    const hpUpgrade = this.createUpgradeCard('Hull', '#10b981', 'hp', hpLevel);
     hpUpgrade.classList.add('upgrade-hp');
-    const shieldUpgrade = this.createUpgradeCard('Shield', '⚡', '#3b82f6', 'shield', shieldLevel);
+    const shieldUpgrade = this.createUpgradeCard('Shield', '#3b82f6', 'shield', shieldLevel);
     shieldUpgrade.classList.add('upgrade-shield');
-    const speedUpgrade = this.createUpgradeCard('Speed', '🚀', '#f59e0b', 'speed', speedLevel);
+    const speedUpgrade = this.createUpgradeCard('Speed', '#f59e0b', 'speed', speedLevel);
     speedUpgrade.classList.add('upgrade-speed');
-    const damageUpgrade = this.createUpgradeCard('Laser', '💥', '#ef4444', 'damage', damageLevel);
+    const damageUpgrade = this.createUpgradeCard('Laser', '#ef4444', 'damage', damageLevel);
     damageUpgrade.classList.add('upgrade-damage');
 
     upgradeGrid.appendChild(hpUpgrade);
@@ -364,9 +360,9 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Crea una card compatta per un upgrade con toggle descrizione
+   * Creates a compact card for an upgrade with description toggle
    */
-  private createUpgradeCard(statName: string, icon: string, color: string, upgradeType: string, currentLevel: number = 0): HTMLElement {
+  private createUpgradeCard(statName: string, color: string, upgradeType: string, currentLevel: number = 0): HTMLElement {
     const card = document.createElement('div');
     card.className = 'upgrade-card-container';
     card.style.cssText = `
@@ -407,10 +403,6 @@ export class UpgradePanel extends BasePanel {
     normalContent.className = 'card-normal-content';
     normalContent.style.cssText = `display: flex; flex-direction: column; align-items: center; gap: 4px;`;
 
-    const iconEl = document.createElement('div');
-    iconEl.textContent = icon;
-    iconEl.style.cssText = `font-size: 32px;`;
-
     const nameEl = document.createElement('div');
     nameEl.textContent = statName;
     nameEl.style.cssText = `font-size: 16px; font-weight: 700; color: #fff;`;
@@ -425,7 +417,6 @@ export class UpgradePanel extends BasePanel {
     valueEl.textContent = this.getInitialStatValue(upgradeType);
     valueEl.style.cssText = `font-size: 12px; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums;`;
 
-    normalContent.appendChild(iconEl);
     normalContent.appendChild(nameEl);
     normalContent.appendChild(levelEl);
     normalContent.appendChild(valueEl);
@@ -441,7 +432,7 @@ export class UpgradePanel extends BasePanel {
 
     descContent.appendChild(descText);
 
-    // Costo mostrato sopra il bottone
+    // Cost shown above the button
     const cost = this.calculateUpgradeCost(upgradeType, currentLevel);
     const costLabel = document.createElement('div');
     costLabel.className = 'upgrade-cost-label';
@@ -481,7 +472,7 @@ export class UpgradePanel extends BasePanel {
       costLabel.appendChild(cosmosLine);
     }
 
-    // Bottone upgrade
+    // Upgrade button
     const upgradeBtn = document.createElement('button');
     upgradeBtn.className = 'ui-upgrade-btn';
     upgradeBtn.textContent = 'UPGRADE';
@@ -542,7 +533,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Ottiene la descrizione breve di una statistica
+   * Gets the short description of a statistic
    */
   private getStatDescription(statType: string): string {
     switch (statType) {
@@ -555,7 +546,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Crea un pulsante di upgrade con statistica integrata
+   * Creates an upgrade button with integrated statistics
    */
   private createStatUpgradeButton(statName: string, icon: string, color: string, upgradeType: string, currentLevel: number = 0): HTMLElement {
     const container = document.createElement('div');
@@ -595,7 +586,7 @@ export class UpgradePanel extends BasePanel {
       container.style.boxShadow = 'none';
     });
 
-    // Click sul container mostra spiegazione
+    // Click on container shows explanation
     container.addEventListener('click', (e) => {
       if (!(e.target as HTMLElement).closest('.ui-upgrade-btn')) {
         this.showStatExplanation(statName, upgradeType, container);
@@ -677,7 +668,7 @@ export class UpgradePanel extends BasePanel {
     upgradeButton.appendChild(upgradeText);
     upgradeButton.appendChild(costDetails);
 
-    // Click sul bottone di upgrade
+    // Click on upgrade button
     upgradeButton.addEventListener('click', (e) => {
       e.stopPropagation();
       this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed' | 'damage');
@@ -707,7 +698,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Ottiene il valore iniziale di una statistica
+   * Gets the initial value of a statistic
    */
   private getInitialStatValue(statType: string): string {
     const playerDef = getPlayerDefinition();
@@ -727,7 +718,7 @@ export class UpgradePanel extends BasePanel {
 
 
   /**
-   * Aggiorna le statistiche dal giocatore
+   * Updates statistics from the player
    */
   public updatePlayerStats(): void {
     if (!this.container || !this.playerSystem) {
@@ -746,9 +737,9 @@ export class UpgradePanel extends BasePanel {
     // Ottieni configurazione giocatore per limiti massimi
     const playerDef = getPlayerDefinition();
 
-    // Aggiorna statistiche nelle card di upgrade
+    // Update statistics in upgrade cards
     if (playerUpgrades) {
-      // Mostra HP reali dal server (già includono gli upgrade)
+      // Show real HP from server (already includes upgrades)
       if (health) {
         const hpValue = this.container.querySelector('.stat-current-hp') as HTMLElement;
         if (hpValue) {
@@ -756,7 +747,7 @@ export class UpgradePanel extends BasePanel {
         }
       }
 
-      // Mostra Shield reali dal server (già includono gli upgrade)
+      // Show real Shield from server (already includes upgrades)
       if (shield) {
         const shieldValue = this.container.querySelector('.stat-current-shield') as HTMLElement;
         if (shieldValue) {
@@ -764,7 +755,7 @@ export class UpgradePanel extends BasePanel {
         }
       }
 
-      // Aggiorna velocità con bonus dagli upgrade
+      // Update speed with bonus from upgrades
       const speedBonus = playerUpgrades.getSpeedBonus();
       const calculatedSpeed = Math.floor(playerDef.stats.speed * speedBonus);
 
@@ -773,7 +764,7 @@ export class UpgradePanel extends BasePanel {
         speedValue.textContent = `${calculatedSpeed} u/s`;
       }
 
-      // Calcola e aggiorna damage con bonus dagli upgrade (stesso metodo di applyPlayerUpgrades)
+      // Calculate and update damage with bonus from upgrades (same method as applyPlayerUpgrades)
       if (damage && playerDef.stats.damage) {
         const damageBonus = playerUpgrades.getDamageBonus();
         const calculatedDamage = Math.floor(playerDef.stats.damage * damageBonus);
@@ -784,7 +775,7 @@ export class UpgradePanel extends BasePanel {
         }
       }
 
-      // Aggiorna i livelli mostrati
+      // Update displayed levels
       const hpLevel = this.container.querySelector('.stat-level-hp') as HTMLElement;
       if (hpLevel) hpLevel.textContent = `Lv.${playerUpgrades.hpUpgrades}`;
       
@@ -797,18 +788,18 @@ export class UpgradePanel extends BasePanel {
       const damageLevel = this.container.querySelector('.stat-level-damage') as HTMLElement;
       if (damageLevel) damageLevel.textContent = `Lv.${playerUpgrades.damageUpgrades}`;
 
-      // Aggiorna stato dei pulsanti di upgrade (abilitati/disabilitati)
+      // Update upgrade button states (enabled/disabled)
       this.updateUpgradeButtons(playerUpgrades, playerDef.upgrades);
     }
 
-    // Aggiorna risorse attuali nel pannello
+    // Update current resources in the panel
     if (this.playerSystem) {
       const playerEntity = this.playerSystem.getPlayerEntity();
       if (playerEntity) {
         const credits = this.ecs.getComponent(playerEntity, Credits);
         const cosmos = this.ecs.getComponent(playerEntity, Cosmos);
 
-        // Aggiorna crediti attuali
+        // Update current credits
         if (credits) {
           const creditsValue = this.container.querySelector('.current-credits') as HTMLElement;
           if (creditsValue) {
@@ -818,7 +809,7 @@ export class UpgradePanel extends BasePanel {
         } else {
         }
 
-        // Aggiorna cosmos attuali
+        // Update current cosmos
         if (cosmos) {
           const cosmosValue = this.container.querySelector('.current-cosmos') as HTMLElement;
           if (cosmosValue) {
@@ -832,21 +823,21 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Callback quando il pannello viene mostrato
+   * Callback when the panel is shown
    */
   protected onShow(): void {
-    // Reset tutte le card allo stato normale
+    // Reset all cards to normal state
     this.resetUpgradeCards();
     
-    // Aggiorna immediatamente quando viene mostrato
+    // Update immediately when shown
     this.updatePlayerStats();
 
-    // E continua ad aggiornare ogni frame mentre è visibile
+    // And continue updating every frame while visible
     this.startRealtimeUpdates();
   }
 
   /**
-   * Resetta tutte le card upgrade allo stato normale (non descrizione)
+   * Resets all upgrade cards to normal state (not description)
    */
   private resetUpgradeCards(): void {
     const cards = this.container.querySelectorAll('.upgrade-card-container');
@@ -865,12 +856,12 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Callback quando il pannello viene nascosto
+   * Callback when the panel is hidden
    */
   protected onHide(): void {
-    // Chiude eventuali tooltip aperti
+    // Closes any open tooltips
     this.hideTooltip();
-    // Ferma aggiornamenti real-time quando nascosto per risparmiare risorse
+    // Stop real-time updates when hidden to save resources
     this.stopRealtimeUpdates();
   }
 
@@ -894,13 +885,13 @@ export class UpgradePanel extends BasePanel {
       return;
     }
 
-    // Controlla livello corrente
+    // Check current level
     const currentLevel = playerUpgrades[`${statType}Upgrades`] || 0;
 
     // SERVER AUTHORITATIVE: Non applicare upgrade localmente
     // Invia richiesta al server e aspetta risposta
 
-    // Controlla se siamo già in attesa di una risposta del server per questo upgrade
+    // Check if we're already waiting for a server response for this upgrade
     if (this.isUpgradeInProgress(statType)) {
       return;
     }
@@ -921,7 +912,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Aggiorna le statistiche fisiche del giocatore (HP, Shield, Speed) dopo un upgrade
+   * Updates the player's physical statistics (HP, Shield, Speed) after an upgrade
    */
   private updatePlayerPhysicalStats(): void {
     if (!this.playerSystem) return;
@@ -932,7 +923,7 @@ export class UpgradePanel extends BasePanel {
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
     if (!playerUpgrades) return;
 
-    // Aggiorna HP
+    // Update HP
     const health = this.ecs.getComponent(playerEntity, Health);
     if (health) {
       const newMaxHP = Math.floor(playerDef.stats.health * playerUpgrades.getHPBonus());
@@ -941,7 +932,7 @@ export class UpgradePanel extends BasePanel {
       health.current = Math.floor(newMaxHP * currentHPPercent);
     }
 
-    // Aggiorna Shield
+    // Update Shield
     const shield = this.ecs.getComponent(playerEntity, Shield);
     if (shield && playerDef.stats.shield) {
       const newMaxShield = Math.floor(playerDef.stats.shield * playerUpgrades.getShieldBonus());
@@ -950,7 +941,7 @@ export class UpgradePanel extends BasePanel {
       shield.current = Math.floor(newMaxShield * currentShieldPercent);
     }
 
-    // Aggiorna Damage
+    // Update Damage
     const damage = this.ecs.getComponent(playerEntity, Damage);
     if (damage) {
       const bonus = playerUpgrades.getDamageBonus();
@@ -958,14 +949,14 @@ export class UpgradePanel extends BasePanel {
       damage.damage = newDamage;
     }
 
-    // Speed viene aggiornata automaticamente dal PlayerControlSystem
+    // Speed is updated automatically by PlayerControlSystem
   }
 
   /**
-   * Mostra una spiegazione della statistica selezionata
+   * Shows an explanation of the selected statistic
    */
   private showStatExplanation(statName: string, statType: string, buttonElement: HTMLElement): void {
-    // Nasconde tooltip esistente se presente
+    // Hide existing tooltip if present
     this.hideTooltip();
 
     let title = '';
@@ -1037,28 +1028,28 @@ export class UpgradePanel extends BasePanel {
       </p>
     `;
 
-    // Posiziona il tooltip vicino al pulsante
+    // Position tooltip near the button
     const buttonRect = buttonElement.getBoundingClientRect();
     const panelRect = this.container!.getBoundingClientRect();
 
-    // Posiziona sopra il pulsante se c'è spazio, altrimenti sotto
+    // Position above button if there's space, otherwise below
     const spaceAbove = buttonRect.top - panelRect.top;
-    const tooltipHeight = 120; // Altezza approssimativa
+    const tooltipHeight = 120; // Approximate height
 
     if (spaceAbove > tooltipHeight) {
-      // Posiziona sopra
+      // Position above
       this.tooltipElement.style.top = `${buttonRect.top - panelRect.top - tooltipHeight - 10}px`;
     } else {
-      // Posiziona sotto
+      // Position below
       this.tooltipElement.style.top = `${buttonRect.bottom - panelRect.top + 10}px`;
     }
 
     this.tooltipElement.style.left = `${buttonRect.left - panelRect.left}px`;
 
-    // Aggiunge il tooltip al container
+    // Add tooltip to container
     this.container!.appendChild(this.tooltipElement);
 
-    // Event listener per chiudere
+    // Event listener to close
     const closeButton = this.tooltipElement.querySelector('.tooltip-close') as HTMLElement;
     closeButton.addEventListener('click', () => this.hideTooltip());
 
@@ -1073,14 +1064,14 @@ export class UpgradePanel extends BasePanel {
       }
     };
 
-    // Aspetta un po' prima di aggiungere l'event listener per evitare che si chiuda immediatamente
+    // Wait a bit before adding event listener to avoid immediate closing
     setTimeout(() => {
       document.addEventListener('click', handleOutsideClick);
     }, 10);
   }
 
   /**
-   * Nasconde il tooltip se presente
+   * Hides the tooltip if present
    */
   private hideTooltip(): void {
     if (this.tooltipElement) {
@@ -1089,43 +1080,43 @@ export class UpgradePanel extends BasePanel {
     }
   }
 
-  // 🔴 SECURITY: syncUpgradesToServer RIMOSSO - gli upgrade passano SOLO da requestSkillUpgrade
+  // 🔴 SECURITY: syncUpgradesToServer REMOVED - upgrades pass ONLY through requestSkillUpgrade
 
   private realtimeUpdateActive: boolean = false;
 
   /**
-   * Avvia aggiornamenti real-time quando il pannello è visibile
+   * Starts real-time updates when the panel is visible
    */
   private startRealtimeUpdates(): void {
     this.realtimeUpdateActive = true;
   }
 
   /**
-   * Ferma aggiornamenti real-time quando il pannello è nascosto
+   * Stops real-time updates when the panel is hidden
    */
   private stopRealtimeUpdates(): void {
     this.realtimeUpdateActive = false;
   }
 
   /**
-   * Metodo update chiamato dal sistema ECS ogni frame
+   * Update method called by the ECS system every frame
    */
   updateECS(deltaTime: number): void {
-    // Aggiorna le statistiche solo se il pannello è attivo (visibile o ha aggiornamenti real-time attivi)
+    // Update statistics only if panel is active (visible or has active real-time updates)
     if (this.container && (this.isPanelVisible() || this.realtimeUpdateActive)) {
       this.updatePlayerStats();
     }
   }
 
   /**
-   * Controlla se un upgrade è attualmente in corso
+   * Checks if an upgrade is currently in progress
    */
   private isUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage'): boolean {
     return this.upgradeInProgress?.[statType] || false;
   }
 
   /**
-   * Imposta lo stato di progresso di un upgrade
+   * Sets the progress state of an upgrade
    */
   private setUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage', inProgress: boolean): void {
     if (!this.upgradeInProgress) {
@@ -1135,7 +1126,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Resetta tutti gli stati di progresso degli upgrade (chiamato quando riceviamo risposta dal server)
+   * Resets all upgrade progress states (called when we receive response from server)
    */
   public resetUpgradeProgress(): void {
     this.upgradeInProgress = {};
@@ -1167,15 +1158,15 @@ export class UpgradePanel extends BasePanel {
         break;
     }
 
-    // Forza aggiornamento UI
+    // Force UI update
     this.updatePlayerStats();
   }
 
   /**
-   * Aggiorna lo stato dei pulsanti di upgrade in base ai limiti massimi e costi
+   * Updates upgrade button states based on maximum limits and costs
    */
   private updateUpgradeButtons(playerUpgrades: any, upgradeLimits: any): void {
-    // Mappa dei container per tipo di upgrade
+    // Map of containers by upgrade type
     const containerClasses = {
       hp: '.upgrade-hp',
       shield: '.upgrade-shield',
@@ -1187,18 +1178,18 @@ export class UpgradePanel extends BasePanel {
       const currentValue = playerUpgrades[`${statType}Upgrades`];
       const maxValue = upgradeLimits[`max${statType.charAt(0).toUpperCase() + statType.slice(1)}Upgrades`];
 
-      // Trova il container e poi il bottone interno
+      // Find the container and then the internal button
       const container = this.container.querySelector(containerClass) as HTMLElement;
       if (!container) return;
 
       const upgradeButton = container.querySelector('.ui-upgrade-btn') as HTMLElement;
       if (!upgradeButton) return;
 
-      // Trova l'etichetta del costo
+      // Find the cost label
       const costLabel = container.querySelector('.upgrade-cost-label') as HTMLElement;
 
       if (currentValue >= maxValue) {
-        // Limite raggiunto - disabilita pulsante
+        // Limit reached - disable button
         upgradeButton.style.opacity = '0.5';
         upgradeButton.style.pointerEvents = 'none';
         upgradeButton.style.background = 'rgba(100, 100, 100, 0.3)';
@@ -1210,16 +1201,16 @@ export class UpgradePanel extends BasePanel {
           costLabel.style.display = 'none';
         }
       } else {
-        // Non al limite - abilita pulsante e aggiorna costi
+        // Not at limit - enable button and update costs
         upgradeButton.style.opacity = '1';
         upgradeButton.style.pointerEvents = 'auto';
         upgradeButton.textContent = 'UPGRADE';
 
-        // Aggiorna il costo
+        // Update the cost
         if (costLabel) {
           const newCost = this.calculateUpgradeCost(statType, currentValue);
           
-          // Aggiorna o crea la linea crediti
+          // Update or create the credits line
           let creditsLine = costLabel.querySelector('.cost-credits') as HTMLElement;
           if (newCost.credits > 0) {
             if (!creditsLine) {
@@ -1239,7 +1230,7 @@ export class UpgradePanel extends BasePanel {
             creditsLine.style.display = 'none';
           }
 
-          // Aggiorna o crea la linea cosmos
+          // Update or create the cosmos line
           let cosmosLine = costLabel.querySelector('.cost-cosmos') as HTMLElement;
           if (newCost.cosmos > 0) {
             if (!cosmosLine) {
@@ -1261,18 +1252,18 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Mostra un popup quando non si hanno abbastanza risorse
+   * Shows a popup when there are insufficient resources
    */
   public showInsufficientResourcesPopup(message: string): void {
-    // Controlla se il pannello è ancora valido e visibile
+    // Check if panel is still valid and visible
     if (!this.container || !document.body.contains(this.container) || !this.isPanelVisible()) {
       return;
     }
 
-    // Rimuovi popup esistente se presente
+    // Remove existing popup if present
     this.hideInsufficientResourcesPopup();
 
-    // Crea il popup
+    // Create the popup
     const popup = document.createElement('div');
     popup.id = 'insufficient-resources-popup';
     popup.style.cssText = `
@@ -1318,7 +1309,7 @@ export class UpgradePanel extends BasePanel {
 
     messageElement.textContent = message;
 
-    // Pulsante OK
+    // OK button
     const okButton = document.createElement('button');
     okButton.textContent = 'OK';
     okButton.style.cssText = `
@@ -1352,12 +1343,12 @@ export class UpgradePanel extends BasePanel {
       this.hideInsufficientResourcesPopup();
     });
 
-    // Assembla il popup
+    // Assemble the popup
     popup.appendChild(title);
     popup.appendChild(messageElement);
     popup.appendChild(okButton);
 
-    // Aggiungi overlay
+    // Add overlay
     const overlay = document.createElement('div');
     overlay.id = 'insufficient-resources-overlay';
     overlay.style.cssText = `
@@ -1377,18 +1368,18 @@ export class UpgradePanel extends BasePanel {
       this.hideInsufficientResourcesPopup();
     });
 
-    // Aggiungi al DOM
+    // Add to DOM
     document.body.appendChild(overlay);
     document.body.appendChild(popup);
 
-    // Auto-hide dopo 8 secondi
+    // Auto-hide after 8 seconds
     setTimeout(() => {
       this.hideInsufficientResourcesPopup();
     }, 8000);
   }
 
   /**
-   * Nasconde il popup di risorse insufficienti
+   * Hides the insufficient resources popup
    */
   public hideInsufficientResourcesPopup(): void {
     const popup = document.getElementById('insufficient-resources-popup');

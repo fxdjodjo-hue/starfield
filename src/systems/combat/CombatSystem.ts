@@ -618,7 +618,7 @@ export class CombatSystem extends BaseSystem {
       }, 1000);
 
     } catch (error) {
-      console.error('Errore nel creare l\'esplosione:', error);
+      console.error('Error creating explosion:', error);
       // Rimuovi dall'insieme e fallback: rimuovi l'entità se fallisce il caricamento
       this.explodingEntities.delete(entity.id);
       this.ecs.removeEntity(entity);

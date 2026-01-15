@@ -294,7 +294,7 @@ export class ClientNetworkSystem extends BaseSystem {
     const delay = this.jwtRetryDelay * Math.pow(2, this.jwtRetryCount - 1); // Exponential backoff
 
 
-    this.showAuthenticationErrorToUser(`Tentativo di riconnessione ${this.jwtRetryCount}/${this.maxJwtRetries}...`);
+    this.showAuthenticationErrorToUser(`Reconnection attempt ${this.jwtRetryCount}/${this.maxJwtRetries}...`);
 
     this.jwtRetryTimeout = setTimeout(async () => {
       try {
@@ -332,10 +332,10 @@ export class ClientNetworkSystem extends BaseSystem {
   private showAuthenticationErrorToUser(message: string): void {
     // Try to show error through UI system if available
     if (this.uiSystem && typeof this.uiSystem.showError === 'function') {
-      this.uiSystem.showError('Errore di Autenticazione', message);
+      this.uiSystem.showError('Authentication Error', message);
     } else {
       // Fallback: use browser alert (not ideal but better than silent failure)
-      alert(`Errore di Autenticazione: ${message}`);
+      alert(`Authentication Error: ${message}`);
     }
 
     // Disconnect from server
@@ -343,17 +343,17 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
-   * Mostra notifica di rate limiting all'utente
+   * Shows rate limiting notification to user
    */
   private showRateLimitNotification(actionType: string, waitTime?: number): void {
     const messages = {
-      'chat_message': 'Messaggi chat troppo frequenti. Riprova tra qualche secondo.',
-      'combat_action': 'Azioni di combattimento troppo frequenti. Rallenta il ritmo.',
-      'position_update': 'Aggiornamenti posizione troppo frequenti.',
-      'heartbeat': 'Connessione instabile - heartbeat rate limited.'
+      'chat_message': 'Chat messages too frequent. Please try again in a few seconds.',
+      'combat_action': 'Combat actions too frequent. Please slow down.',
+      'position_update': 'Position updates too frequent.',
+      'heartbeat': 'Unstable connection - heartbeat rate limited.'
     };
 
-    const message = messages[actionType as keyof typeof messages] || `Azione "${actionType}" rate limited. Riprova più tardi.`;
+    const message = messages[actionType as keyof typeof messages] || `Action "${actionType}" rate limited. Please try again later.`;
 
     // Try to show notification through UI system
     if (this.uiSystem && typeof this.uiSystem.showNotification === 'function') {
@@ -391,7 +391,7 @@ export class ClientNetworkSystem extends BaseSystem {
       console.error('❌ [CLIENT] Tentativo di connessione senza sessione valida - rilogin necessario');
       // Disconnetti e gestisci errore con retry invece di reload forzato
       this.connectionManager.disconnect();
-      this.handleJwtAuthenticationError('Sessione utente non valida');
+      this.handleJwtAuthenticationError('Invalid user session');
       return;
     }
 
@@ -400,7 +400,7 @@ export class ClientNetworkSystem extends BaseSystem {
     if (sessionError || !session?.access_token) {
       console.error('❌ [CLIENT] No valid JWT token available - rilogin necessario');
       this.connectionManager.disconnect();
-      this.handleJwtAuthenticationError('Token JWT non disponibile');
+      this.handleJwtAuthenticationError('JWT token not available');
       return;
     }
 

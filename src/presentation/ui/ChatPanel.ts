@@ -4,8 +4,8 @@ import { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { DisplayManager } from '../../infrastructure/display';
 
 /**
- * ChatPanel - Pannello chat semplice nell'angolo in basso a sinistra
- * Mostra sempre la chat senza possibilità di chiusura
+ * ChatPanel - Simple chat panel in the bottom left corner
+ * Always shows the chat without the ability to close it
  */
 export class ChatPanel {
   private container!: HTMLElement;

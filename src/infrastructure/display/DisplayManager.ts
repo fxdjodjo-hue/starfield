@@ -133,7 +133,7 @@ export class DisplayManager {
       try {
         callback(info);
       } catch (error) {
-        console.error('Errore in resize callback:', error);
+        console.error('Error in resize callback:', error);
       }
     });
   }

@@ -187,7 +187,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
       if (import.meta.env.DEV) {
       }
       this.playState.saveIfChanged().catch(error => {
-        console.error('❌ [QuestTrackingSystem] Errore salvataggio immediato quest:', error);
+        console.error('❌ [QuestTrackingSystem] Error saving quest immediately:', error);
       });
     }
   }
