@@ -115,6 +115,7 @@ export class AuthScreen {
   private createUI(): void {
     // Container principale
     this.container = document.createElement('div');
+    this.container.id = 'authscreen-container';
     this.container.style.cssText = `
       position: fixed;
       top: 0;
@@ -134,6 +135,10 @@ export class AuthScreen {
       padding: 20px;
       box-sizing: border-box;
       overflow: hidden;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     `;
 
     // Container loading
@@ -145,6 +150,10 @@ export class AuthScreen {
       justify-content: center;
       color: rgba(255, 255, 255, 0.9);
       text-align: center;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     `;
 
     const loadingTitle = document.createElement('h2');
@@ -189,6 +198,10 @@ export class AuthScreen {
       justify-content: center;
       width: 100%;
       max-width: 400px;
+      user-select: none;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
     `;
 
     // Versione
@@ -1072,6 +1085,22 @@ export class AuthScreen {
         border-top-color: #ffffff;
         animation: spin 1s ease-in-out infinite;
         flex-shrink: 0;
+      }
+
+      /* Disabilita selezione testo in tutta la schermata */
+      #authscreen-container * {
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+      }
+
+      /* Permetti selezione solo per input fields */
+      #authscreen-container input {
+        user-select: text;
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
       }
     `;
     document.head.appendChild(style);
