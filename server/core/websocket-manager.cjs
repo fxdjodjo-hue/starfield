@@ -912,7 +912,40 @@ class WebSocketConnectionManager {
           }
 
         } catch (error) {
-          logger.error('WEBSOCKET', 'Error parsing message', error.message);
+          // Enhanced error handling for WebSocket messages
+          const errorDetails = {
+            message: error.message,
+            stack: error.stack,
+            rawMessage: message.toString().substring(0, 200), // Limit log size
+            timestamp: new Date().toISOString(),
+            clientInfo: 'unknown'
+          };
+
+          // Try to extract client info from raw message for better debugging
+          try {
+            const rawData = JSON.parse(message.toString());
+            if (rawData.clientId) {
+              errorDetails.clientInfo = rawData.clientId;
+            }
+          } catch (parseError) {
+            // Raw message wasn't valid JSON, keep as 'unknown'
+          }
+
+          logger.error('WEBSOCKET', `Message processing error from ${errorDetails.clientInfo}:`, {
+            error: error.message,
+            rawMessage: errorDetails.rawMessage,
+            timestamp: errorDetails.timestamp
+          });
+
+          // For critical errors, consider disconnecting the client
+          if (error.message.includes('Invalid JSON') || error.message.includes('Maximum call stack')) {
+            logger.warn('WEBSOCKET', `Disconnecting client ${errorDetails.clientInfo} due to critical error`);
+            try {
+              ws.close(1003, 'Protocol error'); // 1003 = Unsupported data
+            } catch (closeError) {
+              logger.error('WEBSOCKET', 'Failed to close WebSocket connection:', closeError.message);
+            }
+          }
         }
       });
 

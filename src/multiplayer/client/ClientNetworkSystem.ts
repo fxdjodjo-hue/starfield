@@ -58,6 +58,15 @@ import { NETWORK_CONFIG, MESSAGE_TYPES } from '../../config/NetworkConfig';
 // Supabase client for JWT token
 import { supabase } from '../../lib/supabase';
 
+// Connection states to prevent race conditions
+enum ConnectionState {
+  DISCONNECTED = 'disconnected',
+  CONNECTING = 'connecting',
+  CONNECTED = 'connected',
+  RECONNECTING = 'reconnecting',
+  ERROR = 'error'
+}
+
 /**
  * Sistema di rete client modulare per multiplayer
  * Utilizza architettura a componenti per gestire connessioni, messaggi e giocatori remoti
@@ -110,6 +119,19 @@ export class ClientNetworkSystem extends BaseSystem {
   private initializationPromise: Promise<void> | null = null;
   private initializationResolver: (() => void) | null = null;
   private isInitialized = false;
+
+  // JWT Authentication retry management
+  private jwtRetryCount = 0;
+  private maxJwtRetries = 3;
+  private jwtRetryDelay = 2000; // Start with 2 seconds
+  private jwtRetryTimeout: NodeJS.Timeout | null = null;
+  private isRetryingJwt = false;
+
+  // Connection state management to prevent race conditions
+  private connectionState = ConnectionState.DISCONNECTED;
+  private connectionPromise: Promise<void> | null = null;
+  private connectionResolver: (() => void) | null = null;
+  private connectionRejector: ((error: Error) => void) | null = null;
 
   constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem, audioSystem?: any) {
     super(ecs);
@@ -251,10 +273,84 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Handles JWT authentication errors with retry logic instead of page reload
+   */
+  private handleJwtAuthenticationError(reason: string): void {
+    console.error(`❌ [CLIENT] JWT Authentication failed: ${reason}`);
+
+    if (this.jwtRetryCount >= this.maxJwtRetries) {
+      console.error(`🚨 [CLIENT] Max JWT retry attempts (${this.maxJwtRetries}) exceeded`);
+      this.showAuthenticationErrorToUser('Sessione scaduta. Ricarica la pagina per accedere nuovamente.');
+      return;
+    }
+
+    if (this.isRetryingJwt) {
+      console.warn('⚠️ [CLIENT] JWT retry already in progress');
+      return;
+    }
+
+    this.isRetryingJwt = true;
+    this.jwtRetryCount++;
+
+    const delay = this.jwtRetryDelay * Math.pow(2, this.jwtRetryCount - 1); // Exponential backoff
+
+    console.log(`🔄 [CLIENT] Retrying JWT authentication in ${delay}ms (attempt ${this.jwtRetryCount}/${this.maxJwtRetries})`);
+
+    this.showAuthenticationErrorToUser(`Tentativo di riconnessione ${this.jwtRetryCount}/${this.maxJwtRetries}...`);
+
+    this.jwtRetryTimeout = setTimeout(async () => {
+      try {
+        // Try to refresh the session
+        const { data, error } = await supabase.auth.refreshSession();
+
+        if (error) {
+          console.error('❌ [CLIENT] Session refresh failed:', error);
+          this.isRetryingJwt = false;
+          this.handleJwtAuthenticationError('Session refresh failed');
+          return;
+        }
+
+        if (data.session?.access_token) {
+          console.log('✅ [CLIENT] Session refreshed successfully, retrying connection');
+          this.isRetryingJwt = false;
+          this.jwtRetryCount = 0; // Reset on success
+          // Retry the connection
+          await this.connect();
+        } else {
+          console.error('❌ [CLIENT] Session refresh returned no token');
+          this.isRetryingJwt = false;
+          this.handleJwtAuthenticationError('No token after refresh');
+        }
+      } catch (error) {
+        console.error('❌ [CLIENT] JWT retry failed:', error);
+        this.isRetryingJwt = false;
+        this.handleJwtAuthenticationError('Retry failed');
+      }
+    }, delay);
+  }
+
+  /**
+   * Shows authentication error to user (requires UI system integration)
+   */
+  private showAuthenticationErrorToUser(message: string): void {
+    // Try to show error through UI system if available
+    if (this.uiSystem && typeof this.uiSystem.showError === 'function') {
+      this.uiSystem.showError('Errore di Autenticazione', message);
+    } else {
+      // Fallback: use browser alert (not ideal but better than silent failure)
+      alert(`Errore di Autenticazione: ${message}`);
+    }
+
+    // Disconnect from server
+    this.connectionManager.disconnect();
+  }
+
+  /**
    * Handles successful connection establishment
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
     this.socket = socket;
+    this.connectionState = ConnectionState.CONNECTED;
 
     // Reset tick manager timing on (re)connection
     this.tickManager.reset();
@@ -272,10 +368,9 @@ export class ClientNetworkSystem extends BaseSystem {
     // 🔴 CRITICAL SECURITY: Verifica che abbiamo sia una sessione valida che un token JWT
     if (!this.gameContext.localClientId || this.gameContext.localClientId.startsWith('client_')) {
       console.error('❌ [CLIENT] Tentativo di connessione senza sessione valida - rilogin necessario');
-      // Disconnetti e forza rilogin
+      // Disconnetti e gestisci errore con retry invece di reload forzato
       this.connectionManager.disconnect();
-      // Ricarica la pagina per tornare alla schermata di auth
-      window.location.reload();
+      this.handleJwtAuthenticationError('Sessione utente non valida');
       return;
     }
 
@@ -284,7 +379,7 @@ export class ClientNetworkSystem extends BaseSystem {
     if (sessionError || !session?.access_token) {
       console.error('❌ [CLIENT] No valid JWT token available - rilogin necessario');
       this.connectionManager.disconnect();
-      window.location.reload();
+      this.handleJwtAuthenticationError('Token JWT non disponibile');
       return;
     }
 
@@ -384,7 +479,20 @@ export class ClientNetworkSystem extends BaseSystem {
    * Handles disconnection events
    */
   private handleDisconnected(): void {
+    const wasConnected = this.connectionState === ConnectionState.CONNECTED;
     this.socket = null;
+    this.connectionState = ConnectionState.DISCONNECTED;
+
+    // Reset connection promise
+    if (this.connectionPromise && !wasConnected) {
+      // If we were connecting but not yet connected, reject the promise
+      if (this.connectionRejector) {
+        this.connectionRejector(new Error('Connection lost during establishment'));
+        this.connectionResolver = null;
+        this.connectionRejector = null;
+      }
+    }
+    this.connectionPromise = null;
 
     // Notify external systems
     if (this.onDisconnectedCallback) {
@@ -392,6 +500,7 @@ export class ClientNetworkSystem extends BaseSystem {
     }
 
     // Additional cleanup if needed
+    console.log('🔌 [CLIENT] Disconnected from server');
   }
 
   /**
@@ -454,15 +563,57 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
-   * Connects to the server using the connection manager
+   * Connects to the server using the connection manager with race condition prevention
    */
   async connect(): Promise<void> {
+    // Prevent multiple concurrent connection attempts
+    if (this.connectionState === ConnectionState.CONNECTING ||
+        this.connectionState === ConnectionState.CONNECTED) {
+      console.log(`🔌 [CLIENT] Connection already in progress or established (${this.connectionState})`);
+      return this.connectionPromise || Promise.resolve();
+    }
+
+    if (this.connectionState === ConnectionState.RECONNECTING) {
+      console.log('🔌 [CLIENT] Reconnection already in progress');
+      return this.connectionPromise || Promise.resolve();
+    }
+
+    // Set state and create promise
+    this.connectionState = ConnectionState.CONNECTING;
+    this.connectionPromise = new Promise<void>((resolve, reject) => {
+      this.connectionResolver = resolve;
+      this.connectionRejector = reject;
+    });
+
     try {
+      console.log('🔌 [CLIENT] Starting connection...');
       this.socket = await this.connectionManager.connect();
+
+      // Connection successful
+      this.connectionState = ConnectionState.CONNECTED;
+      console.log('✅ [CLIENT] Connection established successfully');
+
+      if (this.connectionResolver) {
+        this.connectionResolver();
+        this.connectionResolver = null;
+        this.connectionRejector = null;
+      }
+
     } catch (error) {
-      console.error(`🔌 [CLIENT] Socket connection failed:`, error);
+      // Connection failed
+      this.connectionState = ConnectionState.ERROR;
+      console.error(`❌ [CLIENT] Socket connection failed:`, error);
+
+      if (this.connectionRejector) {
+        this.connectionRejector(error as Error);
+        this.connectionResolver = null;
+        this.connectionRejector = null;
+      }
+
       throw error;
     }
+
+    return this.connectionPromise;
   }
 
 
@@ -597,15 +748,24 @@ export class ClientNetworkSystem extends BaseSystem {
     // CLIENT VALIDATION: usa fallback per dati invalidi
     if (!this.isValidPosition(normalizedPosition)) {
       if (Date.now() - this.lastInvalidPositionLog > 10000) {
-        console.warn('[CLIENT] Invalid position data, using fallback:', normalizedPosition);
+        console.warn('[CLIENT] Invalid position data, using fallback:', {
+          invalidData: normalizedPosition,
+          clientId: this.clientId,
+          timestamp: new Date().toISOString()
+        });
         this.lastInvalidPositionLog = Date.now();
       }
-      // Usa posizione di fallback invece di scartare
-      normalizedPosition.x = 0;
-      normalizedPosition.y = 0;
-      normalizedPosition.rotation = 0;
-      normalizedPosition.velocityX = 0;
+
+      // Use safer fallback values instead of hardcoded zeros
+      // Use network config fallback position for consistency
+      normalizedPosition.x = NETWORK_CONFIG.FALLBACK_POSITION.x;
+      normalizedPosition.y = NETWORK_CONFIG.FALLBACK_POSITION.y;
+      normalizedPosition.rotation = NETWORK_CONFIG.FALLBACK_POSITION.rotation;
+      normalizedPosition.velocityX = 0; // Always reset velocity on invalid data
       normalizedPosition.velocityY = 0;
+
+      // TODO: Consider disconnecting client after multiple consecutive invalid messages
+      // This could indicate cheating or serious client-side issues
     }
 
     this.connectionManager.send(JSON.stringify({
@@ -637,11 +797,11 @@ export class ClientNetworkSystem extends BaseSystem {
            Number.isFinite(pos.rotation) &&
            Number.isFinite(velocityX) &&
            Number.isFinite(velocityY) &&
-           pos.x >= -50000 && pos.x <= 50000 &&
-           pos.y >= -50000 && pos.y <= 50000 &&
+           pos.x >= -15000 && pos.x <= 15000 && // Tighter position bounds for space game
+           pos.y >= -15000 && pos.y <= 15000 && // Reasonable space area
            normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI &&
-           velocityX >= -2000 && velocityX <= 2000 &&
-           velocityY >= -2000 && velocityY <= 2000;
+           velocityX >= -500 && velocityX <= 500 && // Reasonable max speed for space ship
+           velocityY >= -500 && velocityY <= 500;   // Prevents speed hacking
   }
 
 
@@ -656,7 +816,14 @@ export class ClientNetworkSystem extends BaseSystem {
    * Checks if connected
    */
   isConnected(): boolean {
-    return this.connectionManager.isConnectionActive();
+    return this.connectionState === ConnectionState.CONNECTED && this.connectionManager.isConnectionActive();
+  }
+
+  /**
+   * Gets the current connection state
+   */
+  getConnectionState(): ConnectionState {
+    return this.connectionState;
   }
 
   /**
@@ -1172,5 +1339,36 @@ export class ClientNetworkSystem extends BaseSystem {
     };
 
     this.connectionManager.send(JSON.stringify(message));
+  }
+
+  /**
+   * Cleanup method to clear timeouts and prevent memory leaks
+   */
+  destroy(): void {
+    // Clear JWT retry timeout
+    if (this.jwtRetryTimeout) {
+      clearTimeout(this.jwtRetryTimeout);
+      this.jwtRetryTimeout = null;
+    }
+
+    // Reset connection state
+    this.connectionState = ConnectionState.DISCONNECTED;
+    if (this.connectionPromise && this.connectionRejector) {
+      this.connectionRejector(new Error('System destroyed during connection'));
+    }
+    this.connectionPromise = null;
+    this.connectionResolver = null;
+    this.connectionRejector = null;
+
+    // Disconnect from server
+    this.connectionManager.disconnect();
+
+    // Clear callbacks
+    this.onPlayerIdReceived = undefined;
+    this.onDisconnectedCallback = undefined;
+    this.onConnectionErrorCallback = undefined;
+    this.onReconnectingCallback = undefined;
+    this.onReconnectedCallback = undefined;
+    this.onConnectedCallback = undefined;
   }
 }
