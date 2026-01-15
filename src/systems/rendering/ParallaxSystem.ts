@@ -27,6 +27,32 @@ const STAR_LAYERS: StarLayer[] = [
 const STAR_GRID_SIZE = 400; // Dimensione cella griglia in pixel
 
 /**
+ * Configurazione meteore/stelle cadenti
+ */
+interface Meteor {
+  x: number;           // Posizione X corrente (screen space)
+  y: number;           // Posizione Y corrente (screen space)
+  vx: number;          // Velocità X
+  vy: number;          // Velocità Y
+  length: number;      // Lunghezza scia
+  alpha: number;       // Trasparenza
+  life: number;        // Vita rimanente (0-1)
+  maxLife: number;     // Vita massima in secondi
+}
+
+const METEOR_CONFIG = {
+  maxActive: 5,           // Max meteore attive contemporaneamente
+  spawnInterval: 3000,    // Intervallo spawn in ms (media)
+  spawnVariance: 2000,    // Varianza random spawn
+  minSpeed: 200,          // Velocità minima px/s (più lente, più visibili)
+  maxSpeed: 400,          // Velocità massima px/s
+  minLength: 60,          // Lunghezza minima scia
+  maxLength: 150,         // Lunghezza massima scia
+  minLife: 1.5,           // Durata minima secondi (più lunghe)
+  maxLife: 3.0,           // Durata massima secondi
+};
+
+/**
  * Sistema Parallax - gestisce elementi con effetto parallax
  * Gli elementi si muovono a velocità diverse per creare profondità
  */
@@ -35,10 +61,132 @@ export class ParallaxSystem extends BaseSystem {
   private lastCameraX: number = 0;
   private lastCameraY: number = 0;
   private initialized: boolean = false;
+  
+  // Sistema meteore
+  private meteors: Meteor[] = [];
+  private nextMeteorSpawn: number = 0;
+  private lastTime: number = 0;
 
   constructor(ecs: ECS, cameraSystem: CameraSystem) {
     super(ecs);
     this.cameraSystem = cameraSystem;
+    this.scheduleNextMeteor();
+  }
+
+  /**
+   * Pianifica il prossimo spawn di meteora
+   */
+  private scheduleNextMeteor(): void {
+    const delay = METEOR_CONFIG.spawnInterval + (Math.random() - 0.5) * METEOR_CONFIG.spawnVariance;
+    this.nextMeteorSpawn = Date.now() + delay;
+  }
+
+  /**
+   * Crea una nuova meteora nell'area visibile dello schermo
+   */
+  private spawnMeteor(screenWidth: number, screenHeight: number): void {
+    if (this.meteors.length >= METEOR_CONFIG.maxActive) return;
+
+    // Spawn nell'area centrale dello schermo (20%-80% della larghezza/altezza)
+    const marginX = screenWidth * 0.2;
+    const marginY = screenHeight * 0.2;
+    const x = marginX + Math.random() * (screenWidth - marginX * 2);
+    const y = marginY + Math.random() * (screenHeight - marginY * 2);
+
+    // Angolo casuale, preferibilmente diagonale verso il basso
+    const angle = Math.PI * 0.2 + Math.random() * Math.PI * 0.6; // 36° - 144° (diagonale)
+
+    const speed = METEOR_CONFIG.minSpeed + Math.random() * (METEOR_CONFIG.maxSpeed - METEOR_CONFIG.minSpeed);
+    const life = METEOR_CONFIG.minLife + Math.random() * (METEOR_CONFIG.maxLife - METEOR_CONFIG.minLife);
+
+    this.meteors.push({
+      x,
+      y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      length: METEOR_CONFIG.minLength + Math.random() * (METEOR_CONFIG.maxLength - METEOR_CONFIG.minLength),
+      alpha: 0.3 + Math.random() * 0.3, // Più trasparenti (sono lontane)
+      life: 1,
+      maxLife: life,
+    });
+  }
+
+  /**
+   * Aggiorna lo stato delle meteore
+   */
+  private updateMeteors(deltaTime: number, screenWidth: number, screenHeight: number): void {
+    const now = Date.now();
+
+    // Spawn nuova meteora se è il momento
+    if (now >= this.nextMeteorSpawn) {
+      this.spawnMeteor(screenWidth, screenHeight);
+      this.scheduleNextMeteor();
+    }
+
+    // Aggiorna meteore esistenti
+    for (let i = this.meteors.length - 1; i >= 0; i--) {
+      const meteor = this.meteors[i];
+      
+      // Muovi
+      meteor.x += meteor.vx * deltaTime;
+      meteor.y += meteor.vy * deltaTime;
+      
+      // Riduci vita
+      meteor.life -= deltaTime / meteor.maxLife;
+
+      // Rimuovi se morta o fuori schermo
+      if (meteor.life <= 0 || 
+          meteor.x < -200 || meteor.x > screenWidth + 200 ||
+          meteor.y < -200 || meteor.y > screenHeight + 200) {
+        this.meteors.splice(i, 1);
+      }
+    }
+  }
+
+  /**
+   * Renderizza le meteore
+   */
+  private renderMeteors(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+
+    for (const meteor of this.meteors) {
+      // Calcola fade in/out basato sulla vita
+      const fadeAlpha = meteor.life < 0.2 ? meteor.life / 0.2 : 
+                        meteor.life > 0.8 ? (1 - meteor.life) / 0.2 : 1;
+      const alpha = meteor.alpha * fadeAlpha;
+
+      // Calcola direzione normalizzata
+      const speed = Math.sqrt(meteor.vx * meteor.vx + meteor.vy * meteor.vy);
+      const dirX = meteor.vx / speed;
+      const dirY = meteor.vy / speed;
+
+      // Punto finale della scia (dietro la meteora)
+      const tailX = meteor.x - dirX * meteor.length;
+      const tailY = meteor.y - dirY * meteor.length;
+
+      // Crea gradiente per la scia
+      const gradient = ctx.createLinearGradient(tailX, tailY, meteor.x, meteor.y);
+      gradient.addColorStop(0, `rgba(255, 255, 255, 0)`);
+      gradient.addColorStop(0.7, `rgba(255, 255, 255, ${alpha * 0.5})`);
+      gradient.addColorStop(1, `rgba(255, 255, 255, ${alpha})`);
+
+      // Disegna scia
+      ctx.strokeStyle = gradient;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(meteor.x, meteor.y);
+      ctx.stroke();
+
+      // Punto luminoso alla testa
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(meteor.x, meteor.y, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
   }
 
   /**
@@ -51,6 +199,7 @@ export class ParallaxSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     const camera = this.cameraSystem.getCamera();
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
 
     // Inizializza la posizione precedente della camera
     if (!this.initialized) {
@@ -67,7 +216,8 @@ export class ParallaxSystem extends BaseSystem {
     // Aggiorna gli elementi parallax (stelle fisse)
     this.updateParallaxElements(deltaX, deltaY);
 
-    // Le stelle sono fisse nel cielo - non vengono riciclate
+    // DISABLED: Meteore - da riattivare quando funzionano
+    // this.updateMeteors(deltaTime, width, height);
 
     // Salva la posizione corrente per il prossimo frame
     this.lastCameraX = camera.x;
@@ -77,6 +227,9 @@ export class ParallaxSystem extends BaseSystem {
   render(ctx: CanvasRenderingContext2D): void {
     const camera = this.cameraSystem.getCamera();
     const { width, height } = DisplayManager.getInstance().getLogicalSize();
+
+    // DISABLED: Meteore - da riattivare quando funzionano
+    // this.renderMeteors(ctx);
 
     // Renderizza stelle procedurali (zero memoria, infinite stelle)
     this.renderProceduralStars(ctx, camera, width, height);

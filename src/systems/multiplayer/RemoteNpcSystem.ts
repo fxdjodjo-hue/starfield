@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
@@ -21,17 +22,21 @@ export class RemoteNpcSystem extends BaseSystem {
 
   // Cache degli sprite NPC per tipo (più efficiente)
   private npcSprites: Map<string, Sprite> = new Map();
+  private npcAnimatedSprites: Map<string, AnimatedSprite> = new Map();
+  private assetManager: any = null; // AssetManager per caricare spritesheet
 
   // Tracking per logging ridotto
   private lastBulkUpdateLog = 0;
 
-  constructor(ecs: ECS, npcSprites: Map<string, HTMLImageElement>) {
+  constructor(ecs: ECS, npcSprites: Map<string, HTMLImageElement>, assetManager?: any) {
     super(ecs);
+    this.assetManager = assetManager;
     this.initializeNpcSprites(npcSprites);
   }
 
   /**
    * Inizializza gli sprite NPC dal mapping fornito
+   * Supporta sia Sprite normali che AnimatedSprite (spritesheet)
    */
   private initializeNpcSprites(sprites: Map<string, HTMLImageElement>): void {
     // Scouter sprite
@@ -45,7 +50,29 @@ export class RemoteNpcSystem extends BaseSystem {
     if (frigateImage) {
       this.npcSprites.set('Frigate', new Sprite(frigateImage, frigateImage.width * 0.16, frigateImage.height * 0.16));
     }
+  }
 
+  /**
+   * Registra un AnimatedSprite per un tipo di NPC (spritesheet)
+   * @param type Tipo NPC (es. 'Scouter', 'Frigate')
+   * @param animatedSprite AnimatedSprite già caricato
+   */
+  registerNpcAnimatedSprite(type: string, animatedSprite: AnimatedSprite): void {
+    this.npcAnimatedSprites.set(type, animatedSprite);
+  }
+
+  /**
+   * Carica e registra uno spritesheet per un tipo di NPC
+   * @param type Tipo NPC (es. 'Scouter', 'Frigate')
+   * @param basePath Path base dello spritesheet (es. '/assets/npcs/scouter/scouter')
+   * @param scale Scala dello sprite
+   */
+  async loadNpcSpritesheet(type: string, basePath: string, scale: number = 1): Promise<void> {
+    if (!this.assetManager) {
+      throw new Error('AssetManager not available. Pass it to constructor.');
+    }
+    const animatedSprite = await this.assetManager.createAnimatedSprite(basePath, scale);
+    this.npcAnimatedSprites.set(type, animatedSprite);
   }
 
   /**
@@ -66,9 +93,11 @@ export class RemoteNpcSystem extends BaseSystem {
       return this.remoteNpcs.get(npcId)!.entityId;
     }
 
-    // Ottieni lo sprite per questo tipo di NPC
+    // Ottieni lo sprite o animatedSprite per questo tipo di NPC
+    const animatedSprite = this.npcAnimatedSprites.get(type);
     const sprite = this.npcSprites.get(type);
-    if (!sprite) {
+    
+    if (!animatedSprite && !sprite) {
       return -1;
     }
 
@@ -79,8 +108,12 @@ export class RemoteNpcSystem extends BaseSystem {
     this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation));
     this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation));
 
-    // Componenti visivi
-    this.ecs.addComponent(entity, Sprite, sprite.clone()); // Clone per evitare condivisione
+    // Componenti visivi - priorità ad AnimatedSprite se disponibile
+    if (animatedSprite) {
+      this.ecs.addComponent(entity, AnimatedSprite, animatedSprite);
+    } else if (sprite) {
+      this.ecs.addComponent(entity, Sprite, sprite.clone()); // Clone per evitare condivisione
+    }
 
     // Componenti di combattimento
     this.ecs.addComponent(entity, Health, new Health(health.current, health.max));

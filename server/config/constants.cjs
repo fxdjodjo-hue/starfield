@@ -6,8 +6,8 @@
 // Combat constants
 const SERVER_CONSTANTS = {
   PROJECTILE: {
-    SPEED: 400,     // Velocità proiettili player
-    NPC_SPEED: 800, // Velocità proiettili NPC (più veloci per homing efficace)
+    SPEED: 1000,     // Velocità proiettili player
+    NPC_SPEED: 800, // Velocità proiettili NPC (deve essere > player speed per raggiungerlo)
     LIFETIME: 3000,
     HIT_RADIUS: 15,
     SPAWN_OFFSET: 50  // Offset spawn per evitare auto-collisione (px)

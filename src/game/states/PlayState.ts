@@ -432,7 +432,10 @@ export class PlayState extends GameState {
 
         if (isVisible) {
           visibleNpcIds.add(entity.id);
-          this.uiSystem.ensureNpcNicknameElement(entity.id, npc.npcType);
+          // Crea/assicura elemento nickname + stato
+          this.uiSystem.ensureNpcNicknameElement(entity.id, npc.npcType, npc.behavior);
+          // Aggiorna contenuto (nome + behavior) e posizione ogni frame
+          this.uiSystem.updateNpcNicknameContent(entity.id, npc.npcType, npc.behavior);
           this.uiSystem.updateNpcNicknamePosition(entity.id, screenPos.x, screenPos.y);
         }
       }

@@ -4,15 +4,14 @@
  */
 
 export const PROJECTILE = {
-  SPEED: 400,                    // Velocità proiettili (px/s)
+  SPEED: 1000,                    // Velocità proiettili (px/s)
   LIFETIME: 3000,               // Durata proiettili (ms)
   SPAWN_OFFSET: 25,             // Offset spawn dalla nave (px)
   HIT_RADIUS: 15                // Raggio collisione (px)
 } as const;
 
 export const COMBAT = {
-  PLAYER_RANGE: 600,            // Range attacco player (px)
-  PLAYER_COOLDOWN: 1000,        // Cooldown attacco player (ms) - NON UTILIZZATO, vedi player-config.json
+  PLAYER_RANGE: 600,            // Range attacco player (px) - vedi anche player-config.json
   NPC_MIN_COOLDOWN: 500,        // Cooldown minimo NPC (ms)
   DAMAGE_TIMEOUT: 10000         // Timeout danno NPC (ms)
 } as const;

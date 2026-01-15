@@ -84,7 +84,8 @@ class ServerNpcManager {
       behavior: 'cruise',
       lastUpdate: Date.now(),
       lastSignificantMove: 0, // Non è stato ancora trasmesso, impostiamo a 0
-      lastDamage: 0 // Non danneggiato ancora
+      lastDamage: 0, // Non danneggiato ancora
+      lastAttackerId: null // Ultimo player che lo ha danneggiato
     };
 
     // Tutti gli NPC ora hanno comportamento normale (cruise)
@@ -165,6 +166,7 @@ class ServerNpcManager {
 
     npc.lastUpdate = Date.now();
     npc.lastDamage = Date.now(); // Traccia quando è stato danneggiato
+    npc.lastAttackerId = attackerId; // Traccia l'ultimo player che lo ha colpito
 
     logger.info('COMBAT', `NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`);
 

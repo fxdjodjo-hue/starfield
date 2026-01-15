@@ -2,6 +2,7 @@ import { ECS } from '../infrastructure/ecs/ECS';
 import { Entity } from '../infrastructure/ecs/Entity';
 import { Transform } from '../entities/spatial/Transform';
 import { Projectile } from '../entities/combat/Projectile';
+import { AnimatedSprite } from '../entities/AnimatedSprite';
 import { GAME_CONSTANTS } from '../config/GameConstants';
 import { calculateDirection } from '../utils/MathUtils';
 
@@ -11,6 +12,8 @@ import { calculateDirection } from '../utils/MathUtils';
 export class ProjectileFactory {
   /**
    * Crea un proiettile con tutti i componenti necessari
+   * @param animatedSprite Optional AnimatedSprite to calculate weapon spawn point from ship
+   * @param shipRotation Optional ship rotation for weapon spawn point calculation
    */
   static createProjectile(
     ecs: ECS,
@@ -21,14 +24,27 @@ export class ProjectileFactory {
     targetY: number,
     ownerId: number,
     targetId: number,
-    playerId?: string
+    playerId?: string,
+    animatedSprite?: AnimatedSprite,
+    shipRotation?: number
   ): Entity {
     // Calcola direzione usando utility centralizzata
     const { direction } = calculateDirection(startX, startY, targetX, targetY);
 
-    // Applica offset dalla posizione di partenza
-    const spawnX = startX + direction.x * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
-    const spawnY = startY + direction.y * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
+    // Calcola punto di spawn: usa weapon spawn point dalla nave se disponibile, altrimenti offset fisso
+    let spawnX: number;
+    let spawnY: number;
+    
+    if (animatedSprite && shipRotation !== undefined) {
+      // Usa punto di spawn dalla nave (punta anteriore)
+      const spawnPoint = animatedSprite.getWeaponSpawnPointWorld(startX, startY, shipRotation, 0.4);
+      spawnX = spawnPoint.x;
+      spawnY = spawnPoint.y;
+    } else {
+      // Fallback: offset fisso dalla posizione di partenza
+      spawnX = startX + direction.x * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
+      spawnY = startY + direction.y * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
+    }
 
     // Crea entità proiettile
     const entity = ecs.createEntity();

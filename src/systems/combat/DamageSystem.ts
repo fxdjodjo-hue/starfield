@@ -45,7 +45,8 @@ export class DamageSystem extends BaseSystem {
       offsetY = -30;
       offsetX = (Math.random() - 0.5) * 25; // ±12.5px
     } else {
-      textColor = isPlayerDamage ? '#ff4444' : '#ffffff'; // Rosso per danno al player, bianco per danno agli NPC
+      // Tutti i danni HP (player o NPC) usano il rosso
+      textColor = '#ff4444';
       offsetY = -30; // Default, sarà aggiustato sotto
       offsetX = (Math.random() - 0.5) * 20; // ±10px
     }

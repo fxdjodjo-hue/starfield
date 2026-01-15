@@ -48,7 +48,6 @@ import { PlayerDataResponseHandler } from './handlers/PlayerDataResponseHandler'
 import { SaveResponseHandler } from './handlers/SaveResponseHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
-import { ConnectionManager } from './managers/ConnectionManager';
 import { NetworkTickManager } from './managers/NetworkTickManager';
 
 // Types and Configuration
@@ -471,27 +470,39 @@ export class ClientNetworkSystem extends BaseSystem {
   private handleProjectileUpdates(message: any): void {
     if (!message.projectiles || !Array.isArray(message.projectiles)) return;
 
+    const remoteProjectileSystem = this.getRemoteProjectileSystem();
+    if (!remoteProjectileSystem) return;
+
     for (const projectileUpdate of message.projectiles) {
-      // Trova il proiettile nell'ECS
-      const projectileEntity = this.ecs.getEntitiesWithComponents(Projectile)
-        .find(entity => {
-          const projectile = this.ecs.getComponent(entity, Projectile);
-          return projectile && projectile.id === projectileUpdate.id;
-        });
+      // Usa RemoteProjectileSystem per trovare il proiettile tramite projectileId
+      const entityId = remoteProjectileSystem.getRemoteProjectileEntity(projectileUpdate.id);
+      if (!entityId) continue;
 
-      if (projectileEntity) {
-        // Aggiorna posizione e velocità del proiettile
-        const transform = this.ecs.getComponent(projectileEntity, Transform);
-        const velocity = this.ecs.getComponent(projectileEntity, Velocity);
+      const projectileEntity = this.ecs.getEntity(entityId);
+      if (!projectileEntity) continue;
 
-        if (transform && projectileUpdate.position) {
-          transform.x = projectileUpdate.position.x;
-          transform.y = projectileUpdate.position.y;
-        }
+      // Aggiorna posizione e velocità del proiettile
+      const transform = this.ecs.getComponent(projectileEntity, Transform);
+      const velocity = this.ecs.getComponent(projectileEntity, Velocity);
+      const projectile = this.ecs.getComponent(projectileEntity, Projectile);
 
-        if (velocity && projectileUpdate.velocity) {
-          velocity.x = projectileUpdate.velocity.x;
-          velocity.y = projectileUpdate.velocity.y;
+      if (transform && projectileUpdate.position) {
+        transform.x = projectileUpdate.position.x;
+        transform.y = projectileUpdate.position.y;
+      }
+
+      if (velocity && projectileUpdate.velocity) {
+        velocity.x = projectileUpdate.velocity.x;
+        velocity.y = projectileUpdate.velocity.y;
+      }
+      
+      // CRITICO: Aggiorna direzione e velocità del componente Projectile per rendering corretto
+      if (projectile && projectileUpdate.velocity) {
+        const speed = Math.sqrt(projectileUpdate.velocity.x * projectileUpdate.velocity.x + projectileUpdate.velocity.y * projectileUpdate.velocity.y);
+        if (speed > 0) {
+          projectile.directionX = projectileUpdate.velocity.x / speed;
+          projectile.directionY = projectileUpdate.velocity.y / speed;
+          projectile.speed = speed;
         }
       }
     }

@@ -57,7 +57,8 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       message.velocity,
       message.damage,
       message.projectileType,
-      message.targetId
+      message.targetId,
+      isLocalPlayer // Passa flag per indicare se è il player locale
     );
   }
 }

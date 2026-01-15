@@ -16,6 +16,7 @@ import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { NpcRenderer } from '../../utils/helpers/NpcRenderer';
 import { ProjectileRenderer } from '../../utils/helpers/ProjectileRenderer';
@@ -28,6 +29,8 @@ import type { ExplosionRenderParams } from '../../utils/helpers/ExplosionRendere
 import { ScreenSpace } from '../../utils/helpers/ScreenSpace';
 import { SpriteRenderer } from '../../utils/helpers/SpriteRenderer';
 import type { RenderableTransform } from '../../utils/helpers/SpriteRenderer';
+import { SpritesheetRenderer } from '../../utils/helpers/SpritesheetRenderer';
+import type { SpritesheetRenderTransform } from '../../utils/helpers/SpritesheetRenderer';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -71,6 +74,7 @@ export class RenderSystem extends BaseSystem {
         projectile: this.ecs.getComponent(entity, Projectile),
         parallax: this.ecs.getComponent(entity, ParallaxLayer),
         sprite: this.ecs.getComponent(entity, Sprite),
+        animatedSprite: this.ecs.getComponent(entity, AnimatedSprite),
         explosion: this.ecs.getComponent(entity, Explosion),
         velocity: this.ecs.getComponent(entity, Velocity),
         health: this.ecs.getComponent(entity, Health),
@@ -103,24 +107,34 @@ export class RenderSystem extends BaseSystem {
       explosion?: Explosion,
       npc?: Npc,
       sprite?: Sprite,
+      animatedSprite?: AnimatedSprite,
       velocity?: Velocity
     }
   ): void {
-    const { explosion, npc, sprite, velocity } = components;
+    const { explosion, npc, sprite, animatedSprite, velocity } = components;
 
     // Priority: Explosions > NPC > Player
     if (explosion) {
       this.renderExplosion(ctx, transform, explosion, screenX, screenY);
     } else if (npc) {
-      // Render NPC - differenzia tra locali e remoti
+      // Render NPC - supporta sia AnimatedSprite che Sprite
+      const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
       const entitySprite = this.ecs.getComponent(entity, Sprite);
-      if (entitySprite) {
-        // Controlla se è un NPC remoto (server authoritative)
-        const authority = this.ecs.getComponent(entity, Authority);
-        const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
+      
+      // Controlla se è un NPC remoto (server authoritative)
+      const authority = this.ecs.getComponent(entity, Authority);
+      const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
 
+      if (entityAnimatedSprite) {
+        // NPC con spritesheet: usa SpritesheetRenderer
+        const renderTransform: SpritesheetRenderTransform = {
+          x: screenX, y: screenY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
+        };
+        SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
+      } else if (entitySprite) {
+        // NPC con sprite normale
         if (isRemoteNpc) {
-          // NPC remoto: usa direttamente transform.rotation (come i remote player)
+          // NPC remoto: usa direttamente transform.rotation
           const renderTransform: RenderableTransform = {
             x: screenX, y: screenY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
           };
@@ -133,17 +147,26 @@ export class RenderSystem extends BaseSystem {
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
         }
+      }
 
-        // Disegna cerchio di selezione rosso attorno agli NPC selezionati
-        const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
-        if (isSelected) {
-          this.renderSelectionCircle(ctx, screenX, screenY);
-        }
+      // Disegna cerchio di selezione rosso attorno agli NPC selezionati
+      const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
+      if (isSelected) {
+        this.renderSelectionCircle(ctx, screenX, screenY);
       }
     } else {
       // Render player with float effect
-      if (sprite) {
-        const floatOffsetY = PlayerRenderer.getFloatOffset();
+      const floatOffsetY = PlayerRenderer.getFloatOffset();
+      
+      // Priority: AnimatedSprite > Sprite
+      if (animatedSprite) {
+        // Use spritesheet renderer (no canvas rotation - frame is pre-rotated)
+        const renderTransform: SpritesheetRenderTransform = {
+          x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
+        };
+        SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
+      } else if (sprite) {
+        // Fallback to old sprite renderer
         const renderTransform: RenderableTransform = {
           x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
         };
@@ -206,6 +229,7 @@ export class RenderSystem extends BaseSystem {
           explosion: components.explosion,
           npc: components.npc,
           sprite: components.sprite,
+          animatedSprite: components.animatedSprite,
           velocity: components.velocity
         });
 
@@ -271,13 +295,24 @@ export class RenderSystem extends BaseSystem {
     ctx.save();
 
     if (params.hasImage && params.imageSize && params.image) {
-      // Render as image-based projectile
+      // Render as image-based projectile with rotation
+      // Calculate rotation angle from projectile direction (sprite points right by default)
+      const rotation = Math.atan2(projectile.directionY, projectile.directionX);
+      
+      // Preserve original image aspect ratio
+      const img = params.image;
+      const aspectRatio = img.naturalWidth / img.naturalHeight;
+      const width = params.imageSize;
+      const height = params.imageSize / aspectRatio;
+      
+      ctx.translate(screenPos.x, screenPos.y);
+      ctx.rotate(rotation);
       ctx.drawImage(
-        params.image,
-        screenPos.x - params.imageSize / 2,
-        screenPos.y - params.imageSize / 2,
-        params.imageSize,
-        params.imageSize
+        img,
+        -width / 2,
+        -height / 2,
+        width,
+        height
       );
     } else {
       // Render as laser line

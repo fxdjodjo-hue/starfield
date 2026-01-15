@@ -65,14 +65,31 @@ export class ProjectileSystem extends BaseSystem {
         }
       }
 
-      // Per i proiettili homing (NPC verso player, o player verso NPC), aggiorna direzione verso il bersaglio
-      if (this.shouldBeHoming(projectileEntity)) {
-        this.updateHomingDirection(transform, projectile);
-      }
+      // Identifica proiettili NPC remoti
+      const isRemoteNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
+      
+      if (isRemoteNpcProjectile) {
+        // Proiettili NPC remoti: muovi localmente usando velocità aggiornata dal server
+        // Il server invia aggiornamenti di posizione e velocità, ma interpola localmente per movimento fluido
+        // Aggiorna direzione homing verso il bersaglio (player locale)
+        if (this.shouldBeHoming(projectileEntity)) {
+          this.updateHomingDirection(transform, projectile);
+        }
 
-      // Aggiorna posizione del proiettile
-      transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
-      transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
+        // Muovi il proiettile usando la velocità corrente (aggiornata dal server)
+        transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
+        transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
+      } else {
+        // Proiettili locali (player): aggiorna direzione e movimento
+        // Per i proiettili homing (player verso NPC), aggiorna direzione verso il bersaglio
+        if (this.shouldBeHoming(projectileEntity)) {
+          this.updateHomingDirection(transform, projectile);
+        }
+
+        // Aggiorna posizione del proiettile
+        transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
+        transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
+      }
 
       // Riduci il tempo di vita
       projectile.lifetime -= deltaTime;

@@ -497,7 +497,7 @@ export class PlayerControlSystem extends BaseSystem {
       velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
 
       // Ruota verso la direzione del movimento (sempre, dato che è navigazione)
-      const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
+      const angle = Math.atan2(dirY, dirX);
       transform.rotation = angle;
     } else {
       // Vicino alla destinazione, ferma il movimento e reset target
@@ -543,7 +543,7 @@ export class PlayerControlSystem extends BaseSystem {
 
       // Ruota sempre verso la direzione del movimento per movimento libero
       // L'agganciamento al bersaglio avviene solo durante combattimento attivo
-      const angle = Math.atan2(dirY, dirX) + Math.PI / 2;
+      const angle = Math.atan2(dirY, dirX);
       transform.rotation = angle;
     } else {
       // Vicino al mouse, ferma il movimento
@@ -600,7 +600,7 @@ export class PlayerControlSystem extends BaseSystem {
     const dy = npcTransform.y - playerTransform.y;
 
     // Calcola l'angolo e ruota la nave
-    const angle = Math.atan2(dy, dx) + Math.PI / 2;
+    const angle = Math.atan2(dy, dx);
     playerTransform.rotation = angle;
   }
 
@@ -643,7 +643,7 @@ export class PlayerControlSystem extends BaseSystem {
 
     // Ruota la nave verso la direzione del movimento
     if (vx !== 0 || vy !== 0) {
-      const angle = Math.atan2(vy, vx) + Math.PI / 2; // +90° per orientare la nave correttamente
+      const angle = Math.atan2(vy, vx);
       const transform = this.ecs.getComponent(this.playerEntity, Transform);
       if (transform) {
         transform.rotation = angle;

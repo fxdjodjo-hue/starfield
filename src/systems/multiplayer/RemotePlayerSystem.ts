@@ -255,7 +255,7 @@ export class RemotePlayerSystem extends BaseSystem {
         if (npcTransform && playerTransform) {
           const dx = npcTransform.x - playerTransform.x;
           const dy = npcTransform.y - playerTransform.y;
-          const angle = Math.atan2(dy, dx) + Math.PI / 2;
+          const angle = Math.atan2(dy, dx);
           playerTransform.rotation = angle;
         }
       }

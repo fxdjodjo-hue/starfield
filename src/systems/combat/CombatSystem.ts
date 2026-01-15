@@ -14,6 +14,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Npc } from '../../entities/ai/Npc';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { GameContext } from '../../infrastructure/engine/GameContext';
@@ -210,36 +211,93 @@ export class CombatSystem extends BaseSystem {
 
   /**
    * Crea un proiettile in una posizione e direzione specifica
+   * Per il player, crea 2 laser visivi (dual laser)
    */
   private createProjectileAt(attackerEntity: Entity, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: Entity): void {
-    // Genera ID univoco per il proiettile (per sincronizzazione multiplayer)
-    const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
     // Determina se è il player locale
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
 
+    // Ottieni AnimatedSprite se disponibile (per calcolare punto di spawn dalla nave)
+    const animatedSprite = this.ecs.getComponent(attackerEntity, AnimatedSprite);
+
     // Calcola posizione target per la factory
-    const targetX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2; // Moltiplica per 2 per compensare
+    const targetX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
     const targetY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
 
-    // Crea proiettile usando factory centralizzata
-    const projectileEntity = ProjectileFactory.createProjectile(
-      this.ecs,
-      damage,
-      attackerTransform.x,
-      attackerTransform.y,
-      targetX,
-      targetY,
-      attackerEntity.id,
-      targetEntity.id,
-      isLocalPlayer && this.clientNetworkSystem ? this.clientNetworkSystem.getLocalClientId() : `npc_${attackerEntity.id}`
-    );
-
-    // Aggiungi ID univoco al proiettile per tracking multiplayer
-    const projectileComponent = this.ecs.getComponent(projectileEntity, Projectile);
-    if (projectileComponent) {
-      (projectileComponent as any).id = projectileId;
+    if (isLocalPlayer) {
+      // Player: crea 2 laser visivi (dual laser)
+      const dualLaserOffset = 40; // Offset perpendicolare per i due laser (px)
+      
+      // Calcola direzione perpendicolare (ruota di 90 gradi)
+      const perpX = -directionY;
+      const perpY = directionX;
+      
+      // Posizioni spawn per i due laser (sinistra e destra)
+      const leftOffsetX = perpX * dualLaserOffset;
+      const leftOffsetY = perpY * dualLaserOffset;
+      const rightOffsetX = -perpX * dualLaserOffset;
+      const rightOffsetY = -perpY * dualLaserOffset;
+      
+      // Crea primo laser (sinistra) - con danno
+      const projectileId1 = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const projectileEntity1 = ProjectileFactory.createProjectile(
+        this.ecs,
+        damage, // Danno completo
+        attackerTransform.x + leftOffsetX,
+        attackerTransform.y + leftOffsetY,
+        targetX + leftOffsetX,
+        targetY + leftOffsetY,
+        attackerEntity.id,
+        targetEntity.id,
+        isLocalPlayer && this.clientNetworkSystem ? this.clientNetworkSystem.getLocalClientId() : `npc_${attackerEntity.id}`,
+        animatedSprite || undefined,
+        attackerTransform.rotation
+      );
+      const projectileComponent1 = this.ecs.getComponent(projectileEntity1, Projectile);
+      if (projectileComponent1) {
+        (projectileComponent1 as any).id = projectileId1;
+      }
+      
+      // Crea secondo laser (destra) - solo visivo (danno = 0)
+      const projectileId2 = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const projectileEntity2 = ProjectileFactory.createProjectile(
+        this.ecs,
+        0, // Danno 0 - solo visivo
+        attackerTransform.x + rightOffsetX,
+        attackerTransform.y + rightOffsetY,
+        targetX + rightOffsetX,
+        targetY + rightOffsetY,
+        attackerEntity.id,
+        targetEntity.id,
+        isLocalPlayer && this.clientNetworkSystem ? this.clientNetworkSystem.getLocalClientId() : `npc_${attackerEntity.id}`,
+        animatedSprite || undefined,
+        attackerTransform.rotation
+      );
+      const projectileComponent2 = this.ecs.getComponent(projectileEntity2, Projectile);
+      if (projectileComponent2) {
+        (projectileComponent2 as any).id = projectileId2;
+      }
+    } else {
+      // NPC: crea singolo laser
+      const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const projectileEntity = ProjectileFactory.createProjectile(
+        this.ecs,
+        damage,
+        attackerTransform.x,
+        attackerTransform.y,
+        targetX,
+        targetY,
+        attackerEntity.id,
+        targetEntity.id,
+        isLocalPlayer && this.clientNetworkSystem ? this.clientNetworkSystem.getLocalClientId() : `npc_${attackerEntity.id}`,
+        animatedSprite || undefined,
+        attackerTransform.rotation
+      );
+      const projectileComponent = this.ecs.getComponent(projectileEntity, Projectile);
+      if (projectileComponent) {
+        (projectileComponent as any).id = projectileId;
+      }
     }
 
     // 🚫 CLIENT NON INVIA PIÙ projectile_fired PER IL PLAYER
@@ -276,7 +334,8 @@ export class CombatSystem extends BaseSystem {
       offsetY = -30;
       offsetX = (Math.random() - 0.5) * 25; // ±12.5px
     } else {
-      textColor = isPlayerDamage ? '#ff4444' : '#ffffff'; // Rosso per danno al player, bianco per danno agli NPC
+      // Tutti i danni HP (player o NPC) usano il rosso
+      textColor = '#ff4444';
       offsetY = -30; // Default, sarà aggiustato sotto
       offsetX = (Math.random() - 0.5) * 20; // ±10px
     }
@@ -313,7 +372,7 @@ export class CombatSystem extends BaseSystem {
     const dy = targetTransform.y - attackerTransform.y;
 
     // Calcola l'angolo e ruota la nave
-    const angle = Math.atan2(dy, dx) + Math.PI / 2;
+    const angle = Math.atan2(dy, dx);
     attackerTransform.rotation = angle;
   }
 

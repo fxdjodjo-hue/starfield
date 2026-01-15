@@ -1,4 +1,7 @@
 import { Sprite } from '../entities/Sprite';
+import { AnimatedSprite } from '../entities/AnimatedSprite';
+import type { SpritesheetData } from '../entities/AnimatedSprite';
+import { AtlasParser } from './AtlasParser';
 
 /**
  * AssetManager handles loading and managing game assets (sprites, sounds, etc.)
@@ -6,6 +9,7 @@ import { Sprite } from '../entities/Sprite';
 export class AssetManager {
   private images: Map<string, HTMLImageElement> = new Map();
   private loadingPromises: Map<string, Promise<HTMLImageElement>> = new Map();
+  private spritesheets: Map<string, SpritesheetData> = new Map();
 
   /**
    * Load an image from the given path
@@ -95,6 +99,63 @@ export class AssetManager {
    */
   getOrLoadImage(path: string): HTMLImageElement {
     return this.images.get(path) || this.loadImageSync(path);
+  }
+
+  /**
+   * Load a spritesheet from atlas + png files
+   * @param basePath Path without extension (e.g., '/assets/ships/ship106/ship106')
+   */
+  async loadSpritesheet(basePath: string): Promise<SpritesheetData> {
+    // Check cache
+    if (this.spritesheets.has(basePath)) {
+      return this.spritesheets.get(basePath)!;
+    }
+
+    // Load atlas file
+    const atlasPath = `${basePath}.atlas`;
+    const atlasResponse = await fetch(atlasPath);
+    if (!atlasResponse.ok) {
+      throw new Error(`Failed to load atlas: ${atlasPath}`);
+    }
+    const atlasContent = await atlasResponse.text();
+
+    // Parse atlas
+    const atlasData = AtlasParser.parse(atlasContent);
+
+    // Load spritesheet image
+    const imagePath = `${basePath}.png`;
+    const image = await this.loadImage(imagePath);
+
+    // Get frame dimensions from first frame
+    const frameWidth = atlasData.frames.length > 0 ? atlasData.frames[0].width : 0;
+    const frameHeight = atlasData.frames.length > 0 ? atlasData.frames[0].height : 0;
+
+    const spritesheet: SpritesheetData = {
+      image,
+      frames: atlasData.frames,
+      frameWidth,
+      frameHeight
+    };
+
+    // Cache
+    this.spritesheets.set(basePath, spritesheet);
+
+    return spritesheet;
+  }
+
+  /**
+   * Create an AnimatedSprite from a spritesheet
+   */
+  async createAnimatedSprite(basePath: string, scale: number = 1): Promise<AnimatedSprite> {
+    const spritesheet = await this.loadSpritesheet(basePath);
+    return new AnimatedSprite(spritesheet, scale);
+  }
+
+  /**
+   * Get cached spritesheet if available
+   */
+  getSpritesheet(basePath: string): SpritesheetData | undefined {
+    return this.spritesheets.get(basePath);
   }
 }
 

@@ -36,6 +36,7 @@ import { CameraSystem } from '../rendering/CameraSystem';
 import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { DisplayManager } from '../../infrastructure/display';
@@ -154,8 +155,8 @@ export class GameInitializationSystem extends System {
    * Crea tutti i sistemi di gioco
    */
   private async createSystems(): Promise<any> {
-    // Load assets
-    const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
+    // Load assets - use spritesheet for player ship
+    const playerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.7);
     // DISABLED: Sfondo nero puro + stelle - riattivare per usare bg.jpg
     // const mapBackgroundImage = await this.context.assetManager.loadImage(`/assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`);
     const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
@@ -216,7 +217,7 @@ export class GameInitializationSystem extends System {
     const npcSprites = new Map<string, HTMLImageElement>();
     if (scouterImage) npcSprites.set('scouter', scouterImage);
     if (frigateImage) npcSprites.set('frigate', frigateImage);
-    const remoteNpcSystem = new RemoteNpcSystem(this.ecs, npcSprites);
+    const remoteNpcSystem = new RemoteNpcSystem(this.ecs, npcSprites, this.context.assetManager);
 
     // Sistema proiettili remoti per multiplayer
     const remoteProjectileSystem = new RemoteProjectileSystem(this.ecs);
@@ -277,7 +278,7 @@ export class GameInitializationSystem extends System {
       clientNetworkSystem: this.clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,
-      assets: { shipImage, scouterImage, frigateImage } // mapBackgroundImage disabled
+      assets: { playerSprite, scouterImage, frigateImage } // mapBackgroundImage disabled
     };
 
     return result;
@@ -450,14 +451,11 @@ export class GameInitializationSystem extends System {
     const playerAuthority = new Authority(this.context.localClientId, AuthorityLevel.CLIENT_PREDICTIVE);
     this.ecs.addComponent(playerEntity, Authority, playerAuthority);
 
-    // Imposta lo sprite del player
-    const sprite = this.ecs.getComponent(playerEntity, Sprite);
-    const playerDef = getPlayerDefinition();
-    if (sprite) {
-      sprite.image = assets.shipImage;
-      sprite.width = playerDef.spriteSize.width;
-      sprite.height = playerDef.spriteSize.height;
+    // Rimuovi il vecchio Sprite statico e usa AnimatedSprite per spritesheet
+    if (this.ecs.hasComponent(playerEntity, Sprite)) {
+      this.ecs.removeComponent(playerEntity, Sprite);
     }
+    this.ecs.addComponent(playerEntity, AnimatedSprite, assets.playerSprite);
 
     this.setPlayerEntityInSystems(playerEntity, systems);
 

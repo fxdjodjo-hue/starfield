@@ -18,12 +18,12 @@ export class NpcRenderer {
     } else if (npc.behavior === 'flee' && velocity) {
       const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
       if (speed > 0.1) {
-        return Math.atan2(velocity.y, velocity.x) + Math.PI / 2;
+        return Math.atan2(velocity.y, velocity.x);
       }
     } else if (velocity) {
       const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
       if (speed > 0.1) {
-        return Math.atan2(velocity.y, velocity.x) + Math.PI / 2;
+        return Math.atan2(velocity.y, velocity.x);
       }
     }
 

@@ -2,6 +2,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { AssetManager } from '../../infrastructure/AssetManager';
 import { Projectile } from '../../entities/combat/Projectile';
 import { PlayerSystem } from '../../systems/player/PlayerSystem';
+import { Npc } from '../../entities/ai/Npc';
 
 /**
  * Rendering parameters for projectiles
@@ -64,15 +65,32 @@ export class ProjectileRenderer {
         };
       }
     } else {
-      // Player projectile - red laser with glow
-      return {
-        color: '#ff0000', // Red
-        length: 15,
-        shadowColor: '#ff0000',
-        shadowBlur: 8,
-        lineWidth: 3,
-        hasImage: false
-      };
+      // Player projectile - try to use sprite first, fallback to red laser with glow
+      const playerLaserImage = this.assetManager.getOrLoadImage('/assets/laser/laser1/laser1.png');
+      
+      if (playerLaserImage && playerLaserImage.complete && playerLaserImage.width > 0) {
+        // Image-based projectile
+        const imageSize = 48; // Dimensione sprite laser player
+        
+        return {
+          color: '#ff0000', // Red (fallback)
+          length: 15,
+          lineWidth: 3,
+          hasImage: true,
+          imageSize,
+          image: playerLaserImage
+        };
+      } else {
+        // Laser-based projectile (fallback)
+        return {
+          color: '#ff0000', // Red
+          length: 15,
+          shadowColor: '#ff0000',
+          shadowBlur: 8,
+          lineWidth: 3,
+          hasImage: false
+        };
+      }
     }
   }
 
@@ -100,14 +118,14 @@ export class ProjectileRenderer {
       // È un proiettile NPC
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
       if (npcType === 'Frigate') {
-        return this.assetManager.getOrLoadImage('assets/npc_ships/frigate/npc_frigate_projectile.png');
+        return this.assetManager.getOrLoadImage('/assets/npc_ships/frigate/npc_frigate_projectile.png');
       } else {
-        return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
+        return this.assetManager.getOrLoadImage('/assets/npc_ships/scouter/npc_scouter_projectile.png');
       }
     }
 
     // Default: scouter projectile
-    return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
+    return this.assetManager.getOrLoadImage('/assets/npc_ships/scouter/npc_scouter_projectile.png');
   }
 
   /**
@@ -116,12 +134,18 @@ export class ProjectileRenderer {
   private getNpcTypeFromPlayerId(playerId: string): string | null {
     if (!playerId.startsWith('npc_')) return null;
 
-    const npcId = playerId.substring(4); // Rimuovi "npc_"
-    const npcEntity = this.ecs.getEntity(parseInt(npcId));
-    if (!npcEntity) return null;
+    // Sul client, l'ID entity dell'NPC NON coincide con la parte numerica di "npc_X".
+    // Il mapping corretto è tramite Npc.serverId, che contiene esattamente "npc_X".
+    const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
 
-    const npc = this.ecs.getComponent(npcEntity, 'Npc' as any);
-    return npc ? (npc as any).npcType : null;
+    for (const entity of npcEntities) {
+      const npc = this.ecs.getComponent(entity, Npc);
+      if (npc && npc.serverId === playerId) {
+        return npc.npcType;
+      }
+    }
+
+    return null;
   }
 
   /**
@@ -130,7 +154,8 @@ export class ProjectileRenderer {
   private getProjectileImageSize(projectile: Projectile): number {
     if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
-      return (npcType === 'Frigate') ? 28 : 36;
+      // Frigate: proiettile più grande, Scouter: default
+      return (npcType === 'Frigate') ? 48 : 36;
     }
     return 36; // Default size
   }

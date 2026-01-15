@@ -1,0 +1,143 @@
+/**
+ * Frame definition from spritesheet atlas
+ */
+export interface SpriteFrame {
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Spritesheet data with loaded image
+ */
+export interface SpritesheetData {
+  image: HTMLImageElement;
+  frames: SpriteFrame[];
+  frameWidth: number;
+  frameHeight: number;
+}
+
+/**
+ * AnimatedSprite component for spritesheet-based rendering
+ * Supports rotation-based frame selection (pre-rendered rotations)
+ * 
+ * Spritesheet convention:
+ * - Frame 0: ship pointing RIGHT (0 rad)
+ * - Frames ordered counter-clockwise
+ */
+export class AnimatedSprite {
+  public spritesheet: SpritesheetData;
+  public scale: number;
+  public offsetX: number;
+  public offsetY: number;
+
+  constructor(
+    spritesheet: SpritesheetData,
+    scale: number = 1,
+    offsetX: number = 0,
+    offsetY: number = 0
+  ) {
+    this.spritesheet = spritesheet;
+    this.scale = scale;
+    this.offsetX = offsetX;
+    this.offsetY = offsetY;
+  }
+
+  /**
+   * Get the frame index for a given rotation (in radians)
+   * Frames are ordered counter-clockwise, so we negate the rotation
+   */
+  getFrameForRotation(rotation: number): number {
+    const frameCount = this.spritesheet.frames.length;
+    const twoPi = Math.PI * 2;
+    
+    // Negate rotation: frames are counter-clockwise
+    let normalized = (-rotation) % twoPi;
+    if (normalized < 0) normalized += twoPi;
+    
+    return Math.floor((normalized / twoPi) * frameCount) % frameCount;
+  }
+
+  /**
+   * Get a specific frame by index
+   */
+  getFrame(index: number): SpriteFrame {
+    const safeIndex = Math.abs(index) % this.spritesheet.frames.length;
+    return this.spritesheet.frames[safeIndex];
+  }
+
+  /**
+   * Get the display width (scaled)
+   */
+  get width(): number {
+    return this.spritesheet.frameWidth * this.scale;
+  }
+
+  /**
+   * Get the display height (scaled)
+   */
+  get height(): number {
+    return this.spritesheet.frameHeight * this.scale;
+  }
+
+  /**
+   * Check if the spritesheet image is loaded
+   */
+  isLoaded(): boolean {
+    return this.spritesheet.image.complete && this.spritesheet.image.naturalWidth !== 0;
+  }
+
+  /**
+   * Get total frame count
+   */
+  get frameCount(): number {
+    return this.spritesheet.frames.length;
+  }
+
+  /**
+   * Get weapon spawn point relative to ship center (in local sprite coordinates)
+   * Returns position at the front of the ship (top of frame when pointing right)
+   * @param rotation Current ship rotation in radians
+   * @param offsetFromCenter Offset from center (0 = center, 0.5 = edge, 1.0 = front tip)
+   * @returns Local coordinates {x, y} relative to sprite center
+   */
+  getWeaponSpawnPoint(rotation: number, offsetFromCenter: number = 0.4): { x: number; y: number } {
+    const frameWidth = this.spritesheet.frameWidth;
+    const frameHeight = this.spritesheet.frameHeight;
+    
+    // Default spawn point: front of ship (top of frame when pointing right)
+    // Frame convention: Frame 0 points RIGHT, so front is at top of frame
+    const localX = 0; // Center horizontally
+    const localY = -(frameHeight / 2) * offsetFromCenter; // Front of ship (negative Y = up/forward)
+    
+    // Rotate the spawn point based on current rotation
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+    
+    return {
+      x: localX * cos - localY * sin,
+      y: localX * sin + localY * cos
+    };
+  }
+
+  /**
+   * Get weapon spawn point in world coordinates
+   * @param shipX Ship world X position
+   * @param shipY Ship world Y position
+   * @param rotation Current ship rotation in radians
+   * @param offsetFromCenter Offset from center (0 = center, 0.5 = edge, 1.0 = front tip)
+   * @returns World coordinates {x, y}
+   */
+  getWeaponSpawnPointWorld(shipX: number, shipY: number, rotation: number, offsetFromCenter: number = 0.4): { x: number; y: number } {
+    const local = this.getWeaponSpawnPoint(rotation, offsetFromCenter);
+    const scaledX = local.x * this.scale;
+    const scaledY = local.y * this.scale;
+    
+    return {
+      x: shipX + scaledX,
+      y: shipY + scaledY
+    };
+  }
+}

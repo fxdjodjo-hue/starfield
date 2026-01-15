@@ -721,8 +721,9 @@ export class UiSystem extends System {
 
   /**
    * Assicura che esista un elemento DOM per il nickname dell'NPC
+   * (contenente anche lo stato/behavior in una seconda riga per debug)
    */
-  ensureNpcNicknameElement(entityId: number, npcType: string): void {
+  ensureNpcNicknameElement(entityId: number, npcType: string, behavior: string): void {
     if (!this.npcNicknameElements.has(entityId)) {
       const element = document.createElement('div');
       element.id = `npc-nickname-${entityId}`;
@@ -744,9 +745,26 @@ export class UiSystem extends System {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.1);
       `;
-      element.textContent = npcType;
+      // Contenuto iniziale: nome + stato sotto (debug)
+      element.innerHTML = `
+        <div>${npcType}</div>
+        <div style="font-size: 11px; color: #00ffcc;">${behavior}</div>
+      `;
       document.body.appendChild(element);
       this.npcNicknameElements.set(entityId, element);
+    }
+  }
+
+  /**
+   * Aggiorna il contenuto (nome + stato) del nickname NPC
+   */
+  updateNpcNicknameContent(entityId: number, npcType: string, behavior: string): void {
+    const element = this.npcNicknameElements.get(entityId);
+    if (element) {
+      element.innerHTML = `
+        <div>${npcType}</div>
+        <div style="font-size: 11px; color: #00ffcc;">${behavior}</div>
+      `;
     }
   }
 

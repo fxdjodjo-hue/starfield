@@ -267,9 +267,22 @@ class ServerCombatManager {
       return;
     }
 
-    // Calcola direzione diretta verso il player per il proiettile
+    // Calcola direzione diretta verso la posizione CORRENTE del player
+    // Verifica che la posizione del player sia valida
+    if (!targetPlayer.position || !Number.isFinite(targetPlayer.position.x) || !Number.isFinite(targetPlayer.position.y)) {
+      console.error(`❌ [SERVER] Invalid player position for NPC ${npc.id} attack`);
+      return;
+    }
+    
     const dx = targetPlayer.position.x - npcPosition.x;
     const dy = targetPlayer.position.y - npcPosition.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Se la distanza è 0 o troppo piccola, non sparare
+    if (distance < 10) {
+      return;
+    }
+    
     const angle = Math.atan2(dy, dx);
 
     // Ruota NPC verso il target (per rendering visivo)
