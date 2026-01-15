@@ -85,7 +85,6 @@ export class CombatStateSystem extends BaseSystem {
   private handleAttackActivated(): void {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     if (selectedNpcs.length === 0) {
-      console.log('[CombatState] No NPC selected - cannot start combat');
       return;
     }
 
@@ -202,7 +201,6 @@ export class CombatStateSystem extends BaseSystem {
       this.attackStartedLogged = false;
     } else if (!attackActivated && this.currentAttackTarget !== null) {
       // Attacco disattivato - ferma qualsiasi combattimento in corso
-      console.log(`🛑 [COMBAT] ATTACK DEACTIVATED - stopping combat with target ${this.currentAttackTarget}`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;

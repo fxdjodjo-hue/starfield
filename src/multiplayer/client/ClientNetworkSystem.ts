@@ -294,7 +294,6 @@ export class ClientNetworkSystem extends BaseSystem {
 
     const delay = this.jwtRetryDelay * Math.pow(2, this.jwtRetryCount - 1); // Exponential backoff
 
-    console.log(`🔄 [CLIENT] Retrying JWT authentication in ${delay}ms (attempt ${this.jwtRetryCount}/${this.maxJwtRetries})`);
 
     this.showAuthenticationErrorToUser(`Tentativo di riconnessione ${this.jwtRetryCount}/${this.maxJwtRetries}...`);
 
@@ -311,7 +310,6 @@ export class ClientNetworkSystem extends BaseSystem {
         }
 
         if (data.session?.access_token) {
-          console.log('✅ [CLIENT] Session refreshed successfully, retrying connection');
           this.isRetryingJwt = false;
           this.jwtRetryCount = 0; // Reset on success
           // Retry the connection
@@ -524,7 +522,6 @@ export class ClientNetworkSystem extends BaseSystem {
     }
 
     // Additional cleanup if needed
-    console.log('🔌 [CLIENT] Disconnected from server');
   }
 
   /**
@@ -593,12 +590,10 @@ export class ClientNetworkSystem extends BaseSystem {
     // Prevent multiple concurrent connection attempts
     if (this.connectionState === ConnectionState.CONNECTING ||
         this.connectionState === ConnectionState.CONNECTED) {
-      console.log(`🔌 [CLIENT] Connection already in progress or established (${this.connectionState})`);
       return this.connectionPromise || Promise.resolve();
     }
 
     if (this.connectionState === ConnectionState.RECONNECTING) {
-      console.log('🔌 [CLIENT] Reconnection already in progress');
       return this.connectionPromise || Promise.resolve();
     }
 
@@ -1017,12 +1012,10 @@ export class ClientNetworkSystem extends BaseSystem {
     playerId: string;
   }): void {
     if (!this.connectionManager.isConnectionActive()) {
-      console.log(`⚔️ [CLIENT] Cannot send start_combat - not connected`);
       return;
     }
 
     if (!this.clientId) {
-      console.log(`⚔️ [CLIENT] Cannot send start_combat - clientId not set`);
       return;
     }
 
@@ -1141,7 +1134,6 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
-    console.log(`🚀 [CLIENT] Sending skill upgrade request for ${upgradeType}`);
     const message = {
       type: 'skill_upgrade_request',
       clientId: this.clientId,  // WebSocket client ID
@@ -1149,12 +1141,10 @@ export class ClientNetworkSystem extends BaseSystem {
       upgradeType: upgradeType
     };
 
-    console.log(`🚀 [CLIENT] Message details:`, message);
     this.sendMessage(message);
 
     // Setup timeout per gestire risposte mancanti
     setTimeout(() => {
-      console.log(`⏰ [CLIENT] Timeout waiting for skill upgrade response for ${upgradeType}`);
     }, 3000);
   }
 
@@ -1186,7 +1176,6 @@ export class ClientNetworkSystem extends BaseSystem {
     };
 
     if (import.meta.env.DEV) {
-      console.log('💬 [CHAT] Sending message to server:', message);
     }
 
     this.connectionManager.send(JSON.stringify(message));

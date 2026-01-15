@@ -12,7 +12,6 @@ export class StopCombatHandler extends BaseMessageHandler {
   }
 
   handle(message: StopCombatMessage, networkSystem: ClientNetworkSystem): void {
-    console.log(`🛑 [CLIENT] Received stop_combat from server (reason: ${message.reason || 'unknown'})`);
 
     // Usa il metodo del ClientNetworkSystem per fermare il combattimento
     networkSystem.stopCombat();

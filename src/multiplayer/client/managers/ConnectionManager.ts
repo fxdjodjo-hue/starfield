@@ -129,7 +129,6 @@ export class ConnectionManager {
         };
 
         this.socket.onclose = () => {
-          console.log('❌ Disconnected from server');
           this.isConnected = false;
 
           if (this.onDisconnected) {
@@ -170,7 +169,6 @@ export class ConnectionManager {
     }
 
     if (this.socket) {
-      console.log('🔌 Disconnecting from server...');
       this.socket.close();
       this.socket = null;
       this.isConnected = false;
@@ -186,7 +184,6 @@ export class ConnectionManager {
       // Debug specifico per messaggi di combattimento
       const dataStr = data.toString();
       if (dataStr.includes('combat') || dataStr.includes('start_combat')) {
-        console.log(`⚔️ [CONNECTION] Sending COMBAT data to server:`, dataStr);
       }
     } else {
       console.warn('⚠️ Cannot send data: WebSocket not connected', {
@@ -228,12 +225,10 @@ export class ConnectionManager {
     // Check circuit breaker first
     if (!this.circuitBreaker.shouldAttemptConnection()) {
       const status = this.circuitBreaker.getStatus();
-      console.log(`🚫 Circuit breaker open. Max failures reached (${status.failures}). Next retry in ${Math.ceil(status.nextRetryIn / 1000)}s`);
       return;
     }
 
     if (this.reconnectAttempts >= NETWORK_CONFIG.RECONNECT_ATTEMPTS) {
-      console.log('🚫 Max reconnection attempts reached, giving up');
       // Record failure in circuit breaker
       this.circuitBreaker.recordFailure();
       return;
@@ -242,7 +237,6 @@ export class ConnectionManager {
     this.reconnectAttempts++;
     const delay = NETWORK_CONFIG.RECONNECT_DELAY * Math.pow(2, this.reconnectAttempts - 1);
 
-    console.log(`🔄 Scheduling reconnection attempt ${this.reconnectAttempts}/${NETWORK_CONFIG.RECONNECT_ATTEMPTS} in ${delay}ms`);
 
     // Notify that reconnection is starting
     if (this.onReconnecting) {

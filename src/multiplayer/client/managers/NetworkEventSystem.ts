@@ -83,7 +83,6 @@ export class NetworkEventSystem {
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): void {
     // TODO: This should be moved to a higher level component that has network access
-    console.log('💥 [EVENT] Explosion created:', data);
   }
 
   /**
@@ -130,6 +129,5 @@ export class NetworkEventSystem {
    */
   destroy(): void {
     // Cleanup any resources if needed
-    console.log('🧹 [EVENT] NetworkEventSystem cleanup completed');
   }
 }

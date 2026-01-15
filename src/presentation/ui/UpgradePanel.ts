@@ -719,53 +719,44 @@ export class UpgradePanel extends BasePanel {
    * Acquista un upgrade per una statistica
    */
   private upgradeStat(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
-    console.log(`🔧 [UPGRADE] Attempting to upgrade ${statType}`);
 
     if (!this.playerSystem) {
-      console.log('🔧 [UPGRADE] No playerSystem available');
       return;
     }
 
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) {
-      console.log('🔧 [UPGRADE] No playerEntity available');
       return;
     }
 
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
     if (!playerUpgrades) {
-      console.log('🔧 [UPGRADE] No playerUpgrades component');
       return;
     }
 
     // Controlla livello corrente
     const currentLevel = playerUpgrades[`${statType}Upgrades`] || 0;
-    console.log(`🔧 [UPGRADE] Current ${statType} level: ${currentLevel}`);
 
     // SERVER AUTHORITATIVE: Non applicare upgrade localmente
     // Invia richiesta al server e aspetta risposta
 
     // Controlla se siamo già in attesa di una risposta del server per questo upgrade
     if (this.isUpgradeInProgress(statType)) {
-      console.log(`🔧 [UPGRADE] Upgrade ${statType} already in progress`);
       return;
     }
 
     if (this.clientNetworkSystem) {
       // Marca l'upgrade come in corso
       this.setUpgradeInProgress(statType, true);
-      console.log(`🔧 [UPGRADE] Sending upgrade request for ${statType} to server`);
 
       this.clientNetworkSystem.requestSkillUpgrade(statType);
 
       // Timeout di sicurezza - se non riceviamo risposta entro 5 secondi, resettiamo
       setTimeout(() => {
-        console.log(`🔧 [UPGRADE] Timeout reached for ${statType}, resetting progress`);
         this.setUpgradeInProgress(statType, false);
       }, 5000);
 
     } else {
-      console.log('🔧 [UPGRADE] No clientNetworkSystem available');
     }
   }
 
@@ -1116,7 +1107,6 @@ export class UpgradePanel extends BasePanel {
   public showInsufficientResourcesPopup(message: string): void {
     // Controlla se il pannello è ancora valido e visibile
     if (!this.container || !document.body.contains(this.container) || !this.isPanelVisible()) {
-      console.log('🔧 [POPUP] Panel not valid or not visible, skipping popup');
       return;
     }
 

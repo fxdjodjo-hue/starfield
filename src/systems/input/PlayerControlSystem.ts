@@ -156,13 +156,11 @@ export class PlayerControlSystem extends BaseSystem {
   private findNearestNpcInRange(): any | null {
     const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) {
-      console.log('[PlayerControlSystem] No player entity found');
       return null;
     }
 
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
     if (!playerTransform) {
-      console.log('[PlayerControlSystem] No player transform found');
       return null;
     }
 
@@ -197,13 +195,11 @@ export class PlayerControlSystem extends BaseSystem {
   private isSelectedNpcInRange(): boolean {
     const playerEntity = this.ecs.getPlayerEntity();
     if (!playerEntity) {
-      console.log('[PlayerControlSystem] No player entity found');
       return false;
     }
 
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     if (selectedNpcs.length === 0) {
-      console.log('[PlayerControlSystem] No selected NPCs found');
       return false;
     }
 
@@ -211,7 +207,6 @@ export class PlayerControlSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpcs[0], Transform);
 
     if (!playerTransform || !npcTransform) {
-      console.log('[PlayerControlSystem] Missing transforms - player:', !!playerTransform, 'npc:', !!npcTransform);
       return false;
     }
 

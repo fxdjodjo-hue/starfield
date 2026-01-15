@@ -337,13 +337,11 @@ export class MinimapSystem extends BaseSystem {
    */
   private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
     if (!this.clientNetworkSystem) {
-      console.log('❌ [MINIMAP] No clientNetworkSystem');
       return;
     }
 
     const remotePlayerSystem = this.clientNetworkSystem.getRemotePlayerSystem();
     if (!remotePlayerSystem) {
-      console.log('❌ [MINIMAP] No remotePlayerSystem');
       return;
     }
 
