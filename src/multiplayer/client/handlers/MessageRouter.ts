@@ -34,6 +34,9 @@ export class MessageRouter {
 
     if (handler) {
       try {
+        if (import.meta.env.DEV && message.type === 'chat_message') {
+          console.log('[MessageRouter] Routing chat_message to handler:', handler.constructor.name);
+        }
         handler.handle(message, networkSystem);
       } catch (error) {
         console.error(`[MessageRouter] Error handling message type '${message.type}':`, error);
@@ -41,7 +44,10 @@ export class MessageRouter {
     } else {
       // Log unknown messages only in development
       if (import.meta.env.DEV) {
-        console.warn(`[MessageRouter] No handler found for message type: ${message.type}`);
+        console.warn(`[MessageRouter] No handler found for message type: ${message.type}`, {
+          availableHandlers: this.handlers.map(h => h.constructor.name),
+          messageType: message.type
+        });
       }
     }
   }

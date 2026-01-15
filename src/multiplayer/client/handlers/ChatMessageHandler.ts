@@ -18,10 +18,17 @@ export class ChatMessageHandler extends BaseMessageHandler {
   handle(message: ChatMessage, networkSystem: ClientNetworkSystem): void {
     // Non mostrare messaggi propri (già mostrati localmente)
     if (message.clientId === networkSystem.clientId) {
+      if (import.meta.env.DEV) {
+        console.log('[ChatMessageHandler] Ignoring own message:', message.clientId);
+      }
       return;
     }
 
     // Inoltra il messaggio al ChatManager per la visualizzazione
+    if (import.meta.env.DEV) {
+      console.log('[ChatMessageHandler] Received chat from:', message.senderName, message.clientId);
+    }
+    
     this.chatManager.receiveNetworkMessage({
       id: `chat_${message.timestamp}_${message.clientId}`,
       senderId: message.clientId,

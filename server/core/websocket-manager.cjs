@@ -1027,14 +1027,18 @@ class WebSocketConnectionManager {
 
           // Gestisce messaggi chat
           if (data.type === 'chat_message') {
+            const now = Date.now();
+            logger.info('CHAT', `Received chat message from ${data.clientId}: ${data.content?.substring(0, 50)}`);
+            
             // VALIDAZIONE CONTENUTO
             if (!data.content || typeof data.content !== 'string') {
+              logger.warn('CHAT', 'Invalid content type');
               return;
             }
 
             // Verifica che il clientId corrisponda al mittente (previene spoofing nomi)
             if (data.clientId !== playerData?.clientId) {
-              logger.warn('SECURITY', `🚫 BLOCKED: Chat message with mismatched clientId from ${data.clientId}`);
+              logger.warn('SECURITY', `🚫 BLOCKED: Chat message with mismatched clientId. Received: ${data.clientId}, Expected: ${playerData?.clientId}`);
               ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Invalid client ID for chat message.',
@@ -1045,6 +1049,7 @@ class WebSocketConnectionManager {
 
             const content = data.content.trim();
             if (content.length === 0 || content.length > 200) {
+              logger.warn('CHAT', `Invalid message length: ${content.length}`);
               ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Chat message must be between 1 and 200 characters.'
@@ -1055,7 +1060,7 @@ class WebSocketConnectionManager {
             // FILTRAGGIO BASICO (espandi con bad words list)
             const filteredContent = this.filterChatMessage(content);
 
-            // BROADCAST A TUTTI I GIOCATORI CONNESSI
+            // BROADCAST A TUTTI I GIOCATORI CONNESSI (escluso il mittente)
             const chatBroadcast = {
               type: 'chat_message',
               clientId: data.clientId,
@@ -1064,7 +1069,9 @@ class WebSocketConnectionManager {
               timestamp: now
             };
 
-            this.mapServer.broadcastToMap(chatBroadcast);
+            const playersCount = this.mapServer.players.size;
+            logger.info('CHAT', `Broadcasting chat message from ${playerData.nickname} to ${playersCount} players (excluding sender)`);
+            this.mapServer.broadcastToMap(chatBroadcast, data.clientId);
           }
 
           // Gestisce richiesta di salvataggio immediato dal client

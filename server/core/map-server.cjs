@@ -85,13 +85,31 @@ class MapServer {
   // Broadcasting specifico della mappa
   broadcastToMap(message, excludeClientId = null) {
     const payload = JSON.stringify(message);
+    let sentCount = 0;
+    let excludedCount = 0;
+    let closedCount = 0;
 
     for (const [clientId, playerData] of this.players.entries()) {
-      if (excludeClientId && clientId === excludeClientId) continue;
+      if (excludeClientId && clientId === excludeClientId) {
+        excludedCount++;
+        continue;
+      }
 
       if (playerData.ws.readyState === WebSocket.OPEN) {
-        playerData.ws.send(payload);
+        try {
+          playerData.ws.send(payload);
+          sentCount++;
+        } catch (error) {
+          console.error(`[MapServer] Error sending to ${clientId}:`, error);
+        }
+      } else {
+        closedCount++;
       }
+    }
+
+    if (message.type === 'chat_message') {
+      const { logger } = require('../logger.cjs');
+      logger.info('MAP', `Chat broadcast: sent=${sentCount}, excluded=${excludedCount}, closed=${closedCount}, total=${this.players.size}`);
     }
   }
 

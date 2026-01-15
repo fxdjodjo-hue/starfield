@@ -459,10 +459,16 @@ export class ClientNetworkSystem extends BaseSystem {
 
         default:
           // Route to appropriate handler
+          if (import.meta.env.DEV && message.type === 'chat_message') {
+            console.log('[ClientNetworkSystem] Routing chat message:', message);
+          }
           this.messageRouter.route(message, this);
           break;
       }
     } catch (error) {
+      if (import.meta.env.DEV) {
+        console.error('[ClientNetworkSystem] Error handling message:', error);
+      }
     }
   }
 
@@ -1174,6 +1180,7 @@ export class ClientNetworkSystem extends BaseSystem {
     };
 
     if (import.meta.env.DEV) {
+      console.log('[CHAT] Sending message:', { clientId: this.clientId, content: content.trim().substring(0, 50) });
     }
 
     this.connectionManager.send(JSON.stringify(message));

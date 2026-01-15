@@ -22,6 +22,25 @@ export class WelcomeHandler extends BaseMessageHandler {
     // Update the network system's clientId to match the server-assigned ID
     networkSystem.clientId = serverClientId;
 
+    // Aggiorna ChatManager con il clientId corretto assegnato dal server
+    const uiSystem = networkSystem.getUiSystem();
+    if (uiSystem) {
+      try {
+        const chatManager = uiSystem.getChatManager();
+        if (chatManager) {
+          chatManager.setLocalPlayerId(serverClientId);
+          if (import.meta.env.DEV) {
+            console.log('[WelcomeHandler] Updated ChatManager localPlayerId to:', serverClientId);
+          }
+        }
+      } catch (error) {
+        // ChatManager potrebbe non essere ancora inizializzato, non è critico
+        if (import.meta.env.DEV) {
+          console.warn('[WelcomeHandler] Could not update ChatManager:', error);
+        }
+      }
+    }
+
     // Salva l'auth ID dell'utente (UUID Supabase)
     networkSystem.gameContext.authId = message.playerId;
 

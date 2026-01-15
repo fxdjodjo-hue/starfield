@@ -972,6 +972,13 @@ export class UiSystem extends System {
   }
 
   /**
+   * Ottiene il ChatManager per aggiornamenti diretti
+   */
+  getChatManager(): ChatManager {
+    return this.chatManager;
+  }
+
+  /**
    * Registra un callback per i messaggi inviati (per invio alla rete)
    */
   onChatMessageSent(callback: (message: any) => void): void {
