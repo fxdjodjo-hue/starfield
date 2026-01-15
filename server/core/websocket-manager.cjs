@@ -619,7 +619,6 @@ class WebSocketConnectionManager {
             }
 
             // Verifica se il giocatore ha già raggiunto il limite massimo
-            const currentLevel = playerData.upgrades[data.upgradeType + 'Upgrades'] || 0;
             if (currentLevel >= maxLimit) {
               ws.send(JSON.stringify({
                 type: 'error',
