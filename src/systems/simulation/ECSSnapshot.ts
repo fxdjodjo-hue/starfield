@@ -229,7 +229,6 @@ export class ECSSnapshotManager {
 
         if (playerEntities.length > 0) {
           entity = this.ecs.getEntity(playerEntities[0]);
-          console.log(`🔍 Mapped remote player ID ${entityId} to local entity ${playerEntities[0]}`);
         } else {
           console.warn(`⚠️ No local player entity found for remote ID ${entityId}, skipping`);
           continue;

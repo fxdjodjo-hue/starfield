@@ -69,7 +69,6 @@ export class UiSystem extends System {
     // Imposta i callback per aggiornare l'HUD quando i valori economici cambiano
     if (this.economySystem) {
       this.economySystem.setCreditsChangedCallback((newAmount: number, change: number) => {
-        console.log(`[DEBUG_UI] Credits callback: ${newAmount} (change: ${change})`);
         const inventory = {
           credits: newAmount,
           cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
@@ -94,7 +93,6 @@ export class UiSystem extends System {
       });
 
       this.economySystem.setCosmosChangedCallback((newAmount: number, change: number) => {
-        console.log(`[DEBUG_UI] Cosmos callback: ${newAmount} (change: ${change})`);
         const inventory = {
           credits: this.economySystem?.getPlayerCredits()?.credits || 0,
           cosmos: newAmount,
@@ -118,7 +116,6 @@ export class UiSystem extends System {
       });
 
       this.economySystem.setExperienceChangedCallback((newAmount: number, change: number, leveledUp: boolean) => {
-        console.log(`[DEBUG_UI] Experience callback: ${newAmount} (change: ${change}, leveledUp: ${leveledUp})`);
         const inventory = {
           credits: this.economySystem?.getPlayerCredits()?.credits || 0,
           cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
@@ -142,7 +139,6 @@ export class UiSystem extends System {
       });
 
       this.economySystem.setHonorChangedCallback((newAmount: number, change: number, newRank?: string) => {
-        console.log(`[DEBUG_UI] Honor callback: ${newAmount} (change: ${change})`);
         const inventory = {
           credits: this.economySystem?.getPlayerCredits()?.credits || 0,
           cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
@@ -472,7 +468,6 @@ export class UiSystem extends System {
         expForNextLevel: expForNextLevel - (levelRequirements[level - 1] || 0),
         honor: this.context.playerInventory.honor || 0
       };
-      console.log(`[DEBUG_HUD] GameContext data - exp: ${experience}, calculated level: ${level}, expForNextLevel: ${expForNextLevel}`);
     }
 
     // Seconda priorità: dati dall'EconomySystem (se non abbiamo GameContext)

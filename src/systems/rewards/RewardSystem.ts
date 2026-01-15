@@ -85,7 +85,6 @@ export class RewardSystem extends BaseSystem {
    * Assegna ricompense ricevute dal server quando un NPC viene ucciso
    */
   assignRewardsFromServer(rewards: { credits: number; experience: number; honor: number }, npcType: string): void {
-    console.log(`[DEBUG_EXP] RewardSystem.assignRewardsFromServer called - exp: ${rewards.experience}, credits: ${rewards.credits}, npcType: ${npcType}`);
     if (!this.economySystem) {
       console.warn('[RewardSystem] EconomySystem not available for server rewards');
       return;

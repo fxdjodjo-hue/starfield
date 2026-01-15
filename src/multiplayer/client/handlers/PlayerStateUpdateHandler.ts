@@ -17,7 +17,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    console.log(`[DEBUG_STATE] PlayerStateUpdateHandler called - inventory exp: ${message.inventory?.experience}, rewardsEarned: ${!!message.rewardsEarned}`);
     const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned } = message;
 
     // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
@@ -35,15 +34,12 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (server authoritative)
     const economySystem = networkSystem.getEconomySystem();
     if (economySystem && inventory) {
-      console.log(`[DEBUG_ECONOMY] PlayerStateUpdateHandler calling setExperience(${inventory.experience})`);
       // Imposta direttamente i valori dal server (server authoritative)
       economySystem.setCredits(inventory.credits, 'server_update');
       economySystem.setCosmos(inventory.cosmos, 'server_update');
       economySystem.setExperience(inventory.experience, 'server_update');
       economySystem.setHonor(inventory.honor, 'server_update');
       economySystem.setSkillPoints(inventory.skillPoints, 'server_update');
-    } else {
-      console.log(`[DEBUG_ECONOMY] PlayerStateUpdateHandler: economySystem=${!!economySystem}, inventory=${!!inventory}`);
     }
 
     // AGGIORNA IL COMPONENTE ECS SKILLPOINTS (dopo EconomySystem per coerenza)

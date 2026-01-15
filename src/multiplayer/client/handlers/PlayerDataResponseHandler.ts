@@ -18,8 +18,6 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
   }
 
   handle(message: PlayerDataResponseMessage, networkSystem: ClientNetworkSystem): void {
-    console.log(`[DEBUG_RECEIVE] CLIENT received player_data_response - experience: ${message.inventory?.experience}, honor: ${message.inventory?.honor}`);
-
     // Aggiorna i dati del giocatore nel game context
     if (networkSystem.gameContext) {
       // Aggiorna inventory
@@ -41,7 +39,6 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     // AGGIORNA ECONOMY SYSTEM CON DATI DAL DATABASE (server authoritative)
     const economySystem = networkSystem.getEconomySystem();
     if (economySystem && message.inventory) {
-      console.log(`[DEBUG_ECONOMY] PlayerDataResponseHandler calling EconomySystem.setExperience(${message.inventory.experience})`);
       economySystem.setExperience(message.inventory.experience, 'server_update');
       economySystem.setCredits(message.inventory.credits, 'server_update');
       economySystem.setCosmos(message.inventory.cosmos, 'server_update');

@@ -84,12 +84,6 @@ export class ProjectileCreationSystem extends BaseSystem {
     const playerEntity = this.playerSystem?.getPlayerEntity();
     const isLocalPlayer = playerEntity && attackerEntity.id === playerEntity.id;
 
-    console.log('🔍 [PROJECTILE] isLocalPlayer check:', {
-      attackerEntityId: attackerEntity.id,
-      playerEntityId: playerEntity?.id,
-      isLocalPlayer,
-    });
-
     // Calcola posizione target per la factory
     const targetX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
     const targetY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;

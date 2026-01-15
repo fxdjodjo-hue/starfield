@@ -103,8 +103,6 @@ export class RemotePlayerSystem extends BaseSystem {
       return existingEntity.id;
     }
 
-    console.log(`🎮 [REMOTE_PLAYER] Creating remote player entity for ${clientId} at (${x}, ${y})`);
-
     // Usa EntityFactory per creare il remote player
     const entity = this.entityFactory.createRemotePlayer({
       clientId,
@@ -122,7 +120,6 @@ export class RemotePlayerSystem extends BaseSystem {
       interpolation: true // Abilita interpolazione per movimento fluido
     });
 
-    console.log(`✅ [REMOTE_PLAYER] Created entity ${entity.id} for remote player ${clientId}`);
     return entity.id;
   }
 
