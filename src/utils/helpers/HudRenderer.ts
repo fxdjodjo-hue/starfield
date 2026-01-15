@@ -21,7 +21,7 @@ export interface HealthBarRenderParams {
 export class HudRenderer {
   private static readonly BAR_WIDTH = 40;
   private static readonly BAR_HEIGHT = 6;
-  private static readonly BAR_OFFSET_Y = 60;
+  private static readonly BAR_OFFSET_Y = 75;
   private static readonly BORDER_COLOR = '#ffffff';
   private static readonly BORDER_WIDTH = 1;
 
