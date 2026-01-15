@@ -45,16 +45,16 @@ export class RemoteNpcSystem extends BaseSystem {
       this.npcSprites.set('Scouter', new Sprite(scouterImage, scouterImage.width * 0.15, scouterImage.height * 0.15));
     }
 
-    // Frigate sprite
-    const frigateImage = sprites.get('frigate');
-    if (frigateImage) {
-      this.npcSprites.set('Frigate', new Sprite(frigateImage, frigateImage.width * 0.16, frigateImage.height * 0.16));
+    // Kronos sprite
+    const kronosImage = sprites.get('kronos');
+    if (kronosImage) {
+      this.npcSprites.set('Kronos', new Sprite(kronosImage, kronosImage.width * 0.16, kronosImage.height * 0.16));
     }
   }
 
   /**
    * Registra un AnimatedSprite per un tipo di NPC (spritesheet)
-   * @param type Tipo NPC (es. 'Scouter', 'Frigate')
+   * @param type Tipo NPC (es. 'Scouter', 'Kronos')
    * @param animatedSprite AnimatedSprite già caricato
    */
   registerNpcAnimatedSprite(type: string, animatedSprite: AnimatedSprite): void {
@@ -63,7 +63,7 @@ export class RemoteNpcSystem extends BaseSystem {
 
   /**
    * Carica e registra uno spritesheet per un tipo di NPC
-   * @param type Tipo NPC (es. 'Scouter', 'Frigate')
+   * @param type Tipo NPC (es. 'Scouter', 'Kronos')
    * @param basePath Path base dello spritesheet (es. '/assets/npcs/scouter/scouter')
    * @param scale Scala dello sprite
    */
@@ -86,7 +86,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Crea un nuovo NPC remoto
    */
-  addRemoteNpc(npcId: string, type: 'Scouter' | 'Frigate', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
+  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
     // Verifica se l'NPC esiste già
     if (this.remoteNpcs.has(npcId)) {
       this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, behavior);
@@ -105,7 +105,9 @@ export class RemoteNpcSystem extends BaseSystem {
     const entity = this.ecs.createEntity();
 
     // Componenti spaziali con interpolazione
-    this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation));
+    // Per Kronos, usa scala maggiore
+    const scale = type === 'Kronos' ? 4.5 : 1;
+    this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, scale, scale));
     this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation));
 
     // Componenti visivi - priorità ad AnimatedSprite se disponibile
@@ -230,7 +232,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Inizializza NPC dal messaggio initial_npcs
    */
-  initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Frigate', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
+  initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Kronos', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
     for (const npcData of npcs) {
       this.addRemoteNpc(
         npcData.id,
@@ -270,15 +272,15 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Ottiene statistiche sugli NPC remoti
    */
-  getStats(): { totalNpcs: number, scouters: number, frigates: number } {
+  getStats(): { totalNpcs: number, scouters: number, kronos: number } {
     const allNpcs = Array.from(this.remoteNpcs.values());
     const scouters = allNpcs.filter(npc => npc.type === 'Scouter').length;
-    const frigates = allNpcs.filter(npc => npc.type === 'Frigate').length;
+    const kronos = allNpcs.filter(npc => npc.type === 'Kronos').length;
 
     return {
       totalNpcs: allNpcs.length,
       scouters,
-      frigates
+      kronos
     };
   }
 

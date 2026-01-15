@@ -163,7 +163,7 @@ export function isValidMessageType(type: string): type is NetworkMessageType {
 export interface NpcJoinedMessage {
   type: typeof MESSAGE_TYPES.NPC_JOINED;
   npcId: NpcId;
-  npcType: 'Scouter' | 'Frigate';
+  npcType: 'Scouter' | 'Kronos';
   position: { x: number; y: number; rotation: number };
   health: { current: number; max: number };
   shield: { current: number; max: number };
@@ -177,7 +177,7 @@ export interface NpcSpawnMessage {
   type: typeof MESSAGE_TYPES.NPC_SPAWN;
   npc: {
     id: NpcId;
-    type: 'Scouter' | 'Frigate';
+    type: 'Scouter' | 'Kronos';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };
@@ -192,7 +192,7 @@ export interface InitialNpcsMessage {
   type: typeof MESSAGE_TYPES.INITIAL_NPCS;
   npcs: Array<{
     id: NpcId;
-    type: 'Scouter' | 'Frigate';
+    type: 'Scouter' | 'Kronos';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };

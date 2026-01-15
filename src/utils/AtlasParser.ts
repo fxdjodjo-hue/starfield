@@ -87,7 +87,7 @@ export class AtlasParser {
   /**
    * Parsea il contenuto testuale dell'atlas (tutte le sezioni)
    */
-  private static parseAtlasTextAll(atlasText: string): Array<{imagePath: string, frames: AtlasFrame[]}> {
+  static parseAtlasTextAll(atlasText: string): Array<{imagePath: string, frames: AtlasFrame[]}> {
     const lines = atlasText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
     const sections: Array<{imagePath: string, frames: AtlasFrame[]}> = [];
     let currentSection: {imagePath: string, frames: AtlasFrame[]} | null = null;

@@ -1,6 +1,6 @@
 import NPC_CONFIG from '../../shared/npc-config.json';
 
-export type NpcType = 'Scouter' | 'Frigate';
+export type NpcType = 'Scouter' | 'Kronos';
 
 export interface NpcStats {
   health: number;
@@ -47,7 +47,7 @@ export class NpcStatsManager {
 
   private loadNpcStats(): void {
     // Valida che tutti i tipi richiesti esistano
-    const requiredTypes: NpcType[] = ['Scouter', 'Frigate'];
+    const requiredTypes: NpcType[] = ['Scouter', 'Kronos'];
 
     for (const type of requiredTypes) {
       if (!NPC_CONFIG[type]) {

@@ -221,92 +221,81 @@ class MapServer {
 
       switch (npc.behavior) {
         case 'aggressive': {
-          // In aggressive: mantieni una certa distanza dal player
-          // - se troppo lontano: avvicinati
-          // - se troppo vicino: allontanati
-          // - se nel range ideale: movimento più naturale con direzione persistente + jitter leggero
+          // In aggressive: se player fermo, NPC fermo; se player si muove, NPC insegue
+          // Cerca sempre il player più vicino (anche se fuori dal range di attacco)
+          let targetPlayerData = null;
           let targetPlayerPos = null;
+          let closestDistSq = Infinity;
 
-          // 1) Prova con l'ultimo attacker noto
-          if (npc.lastAttackerId) {
+          // Cerca sempre il player più vicino tra tutti i players connessi
+          for (const [clientId, playerData] of this.players.entries()) {
+            if (!playerData || !playerData.position) continue;
+            const dx = playerData.position.x - npc.position.x;
+            const dy = playerData.position.y - npc.position.y;
+            const distanceSq = dx * dx + dy * dy;
+            if (distanceSq < closestDistSq) {
+              closestDistSq = distanceSq;
+              targetPlayerData = playerData;
+              targetPlayerPos = { x: playerData.position.x, y: playerData.position.y };
+            }
+          }
+
+          // Se non trovato, prova con l'ultimo attacker noto
+          if (!targetPlayerPos && npc.lastAttackerId) {
             const attackerData = this.players.get(npc.lastAttackerId);
             if (attackerData && attackerData.position) {
+              targetPlayerData = attackerData;
               targetPlayerPos = { x: attackerData.position.x, y: attackerData.position.y };
             }
           }
 
-          // 2) Se non c'è attacker valido, fallback al player più vicino
-          if (!targetPlayerPos) {
-            let closestPlayerPos = null;
-            let closestDistSq = Infinity;
-
-            for (const [clientId, playerData] of this.players.entries()) {
-              if (!playerData.position) continue;
-              const dx = playerData.position.x - npc.position.x;
-              const dy = playerData.position.y - npc.position.y;
-              const distanceSq = dx * dx + dy * dy;
-              if (distanceSq < closestDistSq) {
-                closestDistSq = distanceSq;
-                closestPlayerPos = { x: playerData.position.x, y: playerData.position.y };
-              }
-            }
-
-            if (closestPlayerPos) {
-              targetPlayerPos = closestPlayerPos;
-            }
-          }
-
-          if (targetPlayerPos) {
+          if (targetPlayerPos && targetPlayerData) {
             const dx = targetPlayerPos.x - npc.position.x;
             const dy = targetPlayerPos.y - npc.position.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const dirX = dx / dist;
-            const dirY = dy / dist;
+            
+            // Verifica se il player si sta muovendo
+            const playerSpeedThreshold = 10;
+            const velocityX = targetPlayerData.position.velocityX || 0;
+            const velocityY = targetPlayerData.position.velocityY || 0;
+            const playerIsMoving = 
+              Math.abs(velocityX) > playerSpeedThreshold ||
+              Math.abs(velocityY) > playerSpeedThreshold;
 
-            // Usa l'attackRange come riferimento di distanza (fascia più ampia per evitare flip continui)
-            const minDistance = attackRange * 0.7;        // troppo vicino
-            const maxDistance = attackRange * 1.4;        // troppo lontano
-            const dtSec = deltaTime / 1000;
+            // Se il player è FUORI dal range di attacco, inseguilo sempre (anche se velocity = 0)
+            // Questo risolve il problema quando il player esce dal range
+            const isPlayerOutOfRange = dist > attackRange;
 
-            if (dist > maxDistance) {
-              // Troppo lontano: avvicinati verso il player
+            if (isPlayerOutOfRange || playerIsMoving) {
+              // Player fuori range O si muove: insegue sempre
+              const dirX = dx / dist;
+              const dirY = dy / dist;
+              const dtSec = deltaTime / 1000;
+
+              // Insegue il player alla velocità base
               const moveSpeed = speed * dtSec;
               deltaX = dirX * moveSpeed;
               deltaY = dirY * moveSpeed;
               npc.velocity.x = dirX * speed;
               npc.velocity.y = dirY * speed;
-            } else if (dist < minDistance) {
-              // Troppo vicino: allontanati dal player
-              const moveSpeed = speed * dtSec;
-              deltaX = -dirX * moveSpeed;
-              deltaY = -dirY * moveSpeed;
-              npc.velocity.x = -dirX * speed;
-              npc.velocity.y = -dirY * speed;
+              npc.position.rotation = Math.atan2(dy, dx);
             } else {
-              // Nel range ideale: segui il player a distanza mantenendo la prua verso di lui
-              const moveSpeed = speed * 0.5 * dtSec;
-              deltaX = dirX * moveSpeed;
-              deltaY = dirY * moveSpeed;
-              npc.velocity.x = dirX * speed * 0.5;
-              npc.velocity.y = dirY * speed * 0.5;
+              // Player nel range E fermo: NPC resta fermo
+              npc.velocity.x = 0;
+              npc.velocity.y = 0;
+              deltaX = 0;
+              deltaY = 0;
+              // Mantieni la rotazione verso il player anche se fermo
+              if (dx !== 0 || dy !== 0) {
+                npc.position.rotation = Math.atan2(dy, dx);
+              }
             }
-
-            // In aggressive, lo sprite deve risultare "agganciato" al player:
-            // la rotazione segue sempre la direzione verso il player
-            npc.position.rotation = Math.atan2(dy, dx) + Math.PI / 2;
           } else {
-            // Nessun player valido: fallback a movimento tipo cruise
-            const cruiseSpeed = speed * 0.5;
-
-            // Se la velocity è quasi nulla, assegna una direzione casuale
-            if (Math.abs(npc.velocity.x) < 0.1 && Math.abs(npc.velocity.y) < 0.1) {
-              const angle = Math.random() * Math.PI * 2;
-              npc.velocity.x = Math.cos(angle) * cruiseSpeed;
-              npc.velocity.y = Math.sin(angle) * cruiseSpeed;
-            }
-
-            deltaX = npc.velocity.x * (deltaTime / 1000);
-            deltaY = npc.velocity.y * (deltaTime / 1000);
+            // Nessun player valido: resta fermo
+            npc.velocity.x = 0;
+            npc.velocity.y = 0;
+            deltaX = 0;
+            deltaY = 0;
           }
           break;
         }
@@ -342,15 +331,14 @@ class MapServer {
             }
 
             // Se il player è nel range di attacco, lo sprite guarda il player
-            // Altrimenti guarda nella direzione di fuga
+            // Altrimenti guarda nella direzione di fuga (stesso sistema del player)
             if (distToPlayer <= attackRange) {
-              npc.position.rotation = Math.atan2(dyToPlayer, dxToPlayer) + Math.PI / 2;
+              npc.position.rotation = Math.atan2(dyToPlayer, dxToPlayer);
             } else {
               // Fuori range: guarda nella direzione di fuga (velocity)
-              const fleeDirLen = Math.sqrt(npc.velocity.x * npc.velocity.x + npc.velocity.y * npc.velocity.y) || 1;
-              const fleeDirX = npc.velocity.x / fleeDirLen;
-              const fleeDirY = npc.velocity.y / fleeDirLen;
-              npc.position.rotation = Math.atan2(fleeDirY, fleeDirX) + Math.PI / 2;
+              if (npc.velocity.x !== 0 || npc.velocity.y !== 0) {
+                npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
+              }
             }
           }
 
@@ -420,12 +408,12 @@ class MapServer {
         npc.lastSignificantMove = Date.now();
       }
 
-      // Aggiorna rotazione dello sprite:
-      // - per aggressive usiamo già la direzione verso il player nel branch sopra
-      // - per gli altri comportamenti, riflettiamo la direzione del movimento
-      if (npc.behavior !== 'aggressive') {
-        if (deltaX !== 0 || deltaY !== 0) {
-          npc.position.rotation = Math.atan2(deltaY, deltaX) + Math.PI / 2;
+      // Aggiorna rotazione dello sprite basandosi sulla velocity (stesso sistema del player):
+      // - per aggressive e flee usiamo già la rotazione calcolata nel branch sopra
+      // - per cruise e altri comportamenti, usiamo la velocity
+      if (npc.behavior === 'cruise' || npc.behavior === 'idle') {
+        if (npc.velocity.x !== 0 || npc.velocity.y !== 0) {
+          npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
         }
       }
 

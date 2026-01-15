@@ -702,7 +702,7 @@ class ServerProjectileManager {
   calculateRewards(npc) {
     const baseRewards = {
       Scouter: { credits: 50, experience: 10, honor: 5 },
-      Frigate: { credits: 100, experience: 20, honor: 10 }
+      Kronos: { credits: 100, experience: 20, honor: 10 }
     };
 
     return baseRewards[npc.type] || { credits: 25, experience: 5, honor: 2 };

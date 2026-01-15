@@ -67,8 +67,8 @@ export class NpcBehaviorSystem extends BaseSystem {
       return;
     }
 
-    // Priorità 3: Frigate diventano aggressive se vedono il player (territoriali)
-    if (npc.npcType === 'Frigate' && this.isPlayerVisibleToNpc(entityId)) {
+    // Priorità 3: Kronos diventano aggressive se vedono il player (territoriali)
+    if (npc.npcType === 'Kronos' && this.isPlayerVisibleToNpc(entityId)) {
       if (npc.behavior !== 'aggressive') {
         npc.setBehavior('aggressive');
       }

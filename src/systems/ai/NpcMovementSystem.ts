@@ -36,6 +36,8 @@ export class NpcMovementSystem extends BaseSystem {
 
       if (npc && transform && velocity) {
         this.executeNpcMovement(npc, transform, velocity, deltaTime, entity.id);
+        // Aggiorna rotazione basandosi sulla velocity (come il player)
+        this.updateRotationFromVelocity(transform, velocity);
         this.enforceWorldBounds(transform, velocity, entity.id);
       }
     }
@@ -76,8 +78,6 @@ export class NpcMovementSystem extends BaseSystem {
   private executeFleeMovement(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
     if (!entityId) return;
 
-    // FORZA reset completo della rotazione per NPC in fuga!
-    transform.rotation = 0;
     velocity.setAngularVelocity(0);
 
     // Controlla se abbiamo già una direzione di fuga salvata per questo NPC
@@ -118,7 +118,7 @@ export class NpcMovementSystem extends BaseSystem {
     }
 
     // Usa SEMPRE la direzione salvata (non ricalcola mai!)
-    const baseSpeed = getNpcDefinition('Frigate')?.stats.speed || 150;
+    const baseSpeed = getNpcDefinition('Kronos')?.stats.speed || 150;
     const fleeSpeed = baseSpeed * 1.2;
 
     velocity.setVelocity(
@@ -146,67 +146,44 @@ export class NpcMovementSystem extends BaseSystem {
       return;
     }
 
-    // Calcola direzione e distanza dal player
+    // Verifica se il player si sta muovendo
+    const playerSpeedThreshold = 10;
+    const playerIsMoving =
+      !!playerVelocity &&
+      (Math.abs(playerVelocity.x) > playerSpeedThreshold ||
+       Math.abs(playerVelocity.y) > playerSpeedThreshold);
+
+    // Se il player è fermo, anche l'NPC rimane fermo
+    if (!playerIsMoving) {
+      this.executeIdleMovement(velocity);
+      return;
+    }
+
+    // Se il player si muove, l'NPC lo insegue
     const dx = playerTransform.x - transform.x;
     const dy = playerTransform.y - transform.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance > 0) {
-      // Normalizza la direzione
+      // Normalizza la direzione verso il player
       const directionX = dx / distance;
       const directionY = dy / distance;
 
-      // Usa sempre la velocità base dalla configurazione dell'NPC
-        const entity = this.ecs.getEntity(entityId!);
-        if (!entity) return;
-        const currentNpc = this.ecs.getComponent(entity, Npc);
-        const npcConfig = getNpcDefinition(currentNpc?.npcType || 'Frigate');
-        const baseSpeed = npcConfig?.stats.speed || 150; // Velocità base dal config
+      // Ottieni la velocità base dalla configurazione dell'NPC
+      const entity = this.ecs.getEntity(entityId!);
+      if (!entity) return;
+      const currentNpc = this.ecs.getComponent(entity, Npc);
+      const npcConfig = getNpcDefinition(currentNpc?.npcType || 'Kronos');
+      const baseSpeed = npcConfig?.stats.speed || 150;
 
-        // Logica di movimento semplificata - usa sempre la velocità base
-        let targetSpeed = baseSpeed; // Sempre la velocità base dell'NPC
-        let movementDirectionX = directionX;
-        let movementDirectionY = directionY;
-
-        const attackRange = 300;
-        const playerSpeedThreshold = 10;
-
-        const playerIsMoving =
-          !!playerVelocity &&
-          (Math.abs(playerVelocity.x) > playerSpeedThreshold ||
-           Math.abs(playerVelocity.y) > playerSpeedThreshold);
-
-        if (playerIsMoving) {
-          if (distance > attackRange) {
-            // Avvicinati velocemente
-          } else if (distance < 200) {
-            // Allontanati
-            movementDirectionX = -directionX;
-            movementDirectionY = -directionY;
-          } else {
-            // Mantieni posizione lentamente (ma non fermo)
-            targetSpeed = baseSpeed * 0.3;
-          }
-        } else {
-          // Player fermo (o velocity non disponibile): l'NPC NON deve mai restare fermo
-          if (distance <= attackRange) {
-            // Se è già in range, muoviti orbitando attorno al player
-            const orbitDirX = -directionY;
-            const orbitDirY = directionX;
-            movementDirectionX = orbitDirX;
-            movementDirectionY = orbitDirY;
-            targetSpeed = baseSpeed * 0.5;
-          } else {
-            // Fuori range: avvicinati alla velocità base
-            targetSpeed = baseSpeed;
-          }
-        }
-
-      // Per NPC senza state, usa movimento semplice
+      // Insegue il player alla velocità base
       velocity.setVelocity(
-        movementDirectionX * targetSpeed,
-        movementDirectionY * targetSpeed
+        directionX * baseSpeed,
+        directionY * baseSpeed
       );
+    } else {
+      // Se già nella stessa posizione, resta fermo
+      this.executeIdleMovement(velocity);
     }
   }
 
@@ -246,6 +223,16 @@ export class NpcMovementSystem extends BaseSystem {
     } else if (transform.y > worldBottom) {
       transform.y = worldBottom;
       velocity.y = -Math.abs(velocity.y);
+    }
+  }
+
+  /**
+   * Aggiorna la rotazione dell'NPC basandosi sulla velocity (stesso sistema del player)
+   */
+  private updateRotationFromVelocity(transform: Transform, velocity: Velocity): void {
+    if (velocity.x !== 0 || velocity.y !== 0) {
+      const angle = Math.atan2(velocity.y, velocity.x);
+      transform.rotation = angle;
     }
   }
 

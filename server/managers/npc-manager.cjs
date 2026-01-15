@@ -52,7 +52,7 @@ class ServerNpcManager {
 
   /**
    * Crea un nuovo NPC nel mondo
-   * @param {string} type - Tipo di NPC ('Scouter' o 'Frigate')
+   * @param {string} type - Tipo di NPC ('Scouter' o 'Kronos')
    * @param {number} x - Posizione X (opzionale, casuale se non specificata)
    * @param {number} y - Posizione Y (opzionale, casuale se non specificata)
    * @param {boolean} silent - Se true, non logga la creazione (per inizializzazione bulk)
@@ -463,12 +463,12 @@ class ServerNpcManager {
   getStats() {
     const allNpcs = this.getAllNpcs();
     const scouters = allNpcs.filter(npc => npc.type === 'Scouter').length;
-    const frigates = allNpcs.filter(npc => npc.type === 'Frigate').length;
+    const kronos = allNpcs.filter(npc => npc.type === 'Kronos').length;
 
     return {
       totalNpcs: allNpcs.length,
       scouters,
-      frigates
+      kronos
     };
   }
 
@@ -483,11 +483,11 @@ class ServerNpcManager {
     }
 
     for (let i = 0; i < frigateCount; i++) {
-      this.createNpc('Frigate', undefined, undefined, true);
+      this.createNpc('Kronos', undefined, undefined, true);
     }
 
     const stats = this.getStats();
-    logger.info('SERVER', `World initialization complete: ${stats.totalNpcs} NPCs (${stats.scouters} Scouters, ${stats.frigates} Frigates)`);
+    logger.info('SERVER', `World initialization complete: ${stats.totalNpcs} NPCs (${stats.scouters} Scouters, ${stats.kronos} Kronos)`);
   }
 }
 

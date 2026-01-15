@@ -100,7 +100,21 @@ export interface RemotePlayerConfig {
  * Implementa il pattern Factory con builder per garantire consistenza e centralizzazione
  */
 export class EntityFactory {
-  constructor(private ecs: ECS) {}
+  private assetManager: any = null;
+  private kronosAnimatedSprite: AnimatedSprite | null = null;
+
+  constructor(private ecs: ECS, assetManager?: any) {
+    this.assetManager = assetManager || null;
+  }
+
+  /**
+   * Carica lo spritesheet per Kronos (chiamato una volta all'inizializzazione)
+   */
+  async loadKronosSprite(): Promise<void> {
+    if (this.assetManager && !this.kronosAnimatedSprite) {
+      this.kronosAnimatedSprite = await this.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', 0.16);
+    }
+  }
 
   /**
    * Crea un'entità Player completa
@@ -175,6 +189,25 @@ export class EntityFactory {
       config.serverId
     ));
 
+    // Per Kronos, usa AnimatedSprite invece di Sprite e imposta scala maggiore
+    if (config.type === 'Kronos') {
+      // Imposta scala maggiore per Kronos
+      const transform = this.ecs.getComponent(entity, Transform);
+      if (transform) {
+        transform.scaleX = 4.5;
+        transform.scaleY = 4.5;
+      }
+      
+      if (this.kronosAnimatedSprite) {
+        // Rimuovi Sprite se presente
+        if (this.ecs.hasComponent(entity, Sprite)) {
+          this.ecs.removeComponent(entity, Sprite);
+        }
+        // Aggiungi AnimatedSprite
+        this.ecs.addComponent(entity, AnimatedSprite, this.kronosAnimatedSprite);
+      }
+    }
+
     // Logica specializzata per tipi specifici
     this.setupSpecializedNpcLogic(entity, npcDef);
 
@@ -189,10 +222,10 @@ export class EntityFactory {
   }
 
   /**
-   * Crea un NPC Frigate (metodo specializzato)
+   * Crea un NPC Kronos (metodo specializzato)
    */
   createFrigate(position: Vector2): Entity {
-    return this.createNpcFromType('Frigate', position);
+    return this.createNpcFromType('Kronos', position);
   }
 
 

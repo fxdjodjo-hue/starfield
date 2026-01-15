@@ -46,6 +46,7 @@ export class RenderSystem extends BaseSystem {
   private componentCache: Map<Entity, any> = new Map(); // Cache componenti per ottimizzazione
   private entityQueryCache: Entity[] = []; // Cache risultati query ECS
   private projectileQueryCache: Entity[] = []; // Cache risultati query proiettili
+  private aimImage: HTMLImageElement | null = null; // Immagine per la selezione NPC
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
@@ -121,12 +122,28 @@ export class RenderSystem extends BaseSystem {
       const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
       const entitySprite = this.ecs.getComponent(entity, Sprite);
       
+      // Renderizza aim PRIMA dello sprite NPC (sotto) con gli stessi offset dello sprite
+      const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
+      if (isSelected) {
+        // Ottieni offset dallo sprite per centrare correttamente l'aim
+        let offsetX = 0;
+        let offsetY = 0;
+        if (entityAnimatedSprite) {
+          offsetX = entityAnimatedSprite.offsetX;
+          offsetY = entityAnimatedSprite.offsetY;
+        } else if (entitySprite) {
+          offsetX = entitySprite.offsetX;
+          offsetY = entitySprite.offsetY;
+        }
+        this.renderSelectionCircle(ctx, screenX + offsetX, screenY + offsetY);
+      }
+      
       // Controlla se è un NPC remoto (server authoritative)
       const authority = this.ecs.getComponent(entity, Authority);
       const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
 
       if (entityAnimatedSprite) {
-        // NPC con spritesheet: usa SpritesheetRenderer
+        // NPC con spritesheet: usa SpritesheetRenderer (stesso sistema del player)
         const renderTransform: SpritesheetRenderTransform = {
           x: screenX, y: screenY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
         };
@@ -147,12 +164,6 @@ export class RenderSystem extends BaseSystem {
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
         }
-      }
-
-      // Disegna cerchio di selezione rosso attorno agli NPC selezionati
-      const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
-      if (isSelected) {
-        this.renderSelectionCircle(ctx, screenX, screenY);
       }
     } else {
       // Render player with float effect
@@ -385,31 +396,33 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
-   * Render selection circle around selected NPCs
+   * Render selection image around selected NPCs
    */
   private renderSelectionCircle(ctx: CanvasRenderingContext2D, screenX: number, screenY: number): void {
-    const radius = 35; // Raggio del cerchio di selezione
-    const lineWidth = 3; // Spessore del bordo
+    // Carica l'immagine in modo lazy se non è già caricata
+    if (!this.aimImage) {
+      this.aimImage = this.assetManager.getOrLoadImage('/assets/aim/aim.png');
+    }
+
+    // Se l'immagine non è ancora caricata, non renderizzare nulla
+    if (!this.aimImage || !this.aimImage.complete || this.aimImage.naturalWidth === 0) {
+      return;
+    }
 
     ctx.save();
 
-    // Cerchio esterno (bordo rosso)
-    ctx.strokeStyle = '#ff0000'; // Rosso
-    ctx.lineWidth = lineWidth;
-    ctx.globalAlpha = 0.8; // Semi-trasparente
+    const size = 180; // Dimensione dell'immagine
+    const halfSize = size / 2;
 
-    ctx.beginPath();
-    ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Cerchio interno più sottile per effetto visivo
-    ctx.strokeStyle = '#ff4444'; // Rosso più chiaro
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.6;
-
-    ctx.beginPath();
-    ctx.arc(screenX, screenY, radius - 2, 0, Math.PI * 2);
-    ctx.stroke();
+    // Disegna l'immagine centrata sulla posizione dell'NPC
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(
+      this.aimImage,
+      screenX - halfSize,
+      screenY - halfSize,
+      size,
+      size
+    );
 
     ctx.restore();
   }

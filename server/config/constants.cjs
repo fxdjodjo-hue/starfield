@@ -51,8 +51,8 @@ const NPC_CONFIG = {
     },
     description: "Nemico base dello spazio profondo"
   },
-  Frigate: {
-    type: "Frigate",
+  Kronos: {
+    type: "Kronos",
     defaultBehavior: "cruise",
     stats: {
       health: 2000,

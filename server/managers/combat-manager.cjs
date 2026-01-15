@@ -285,8 +285,8 @@ class ServerCombatManager {
     
     const angle = Math.atan2(dy, dx);
 
-    // Ruota NPC verso il target (per rendering visivo)
-    npc.position.rotation = angle + Math.PI / 2;
+    // Ruota NPC verso il target (stesso sistema del player)
+    npc.position.rotation = angle;
 
     // Crea proiettile NPC
     const projectileId = `npc_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

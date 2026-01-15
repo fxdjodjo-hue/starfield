@@ -10,9 +10,15 @@ import { EntityFactory } from '../../factories/EntityFactory';
 export class NpcSystem extends System {
   private entityFactory: EntityFactory;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, assetManager?: any) {
     super(ecs);
-    this.entityFactory = new EntityFactory(ecs);
+    this.entityFactory = new EntityFactory(ecs, assetManager);
+    // Carica spritesheet per Kronos se AssetManager è disponibile
+    if (assetManager) {
+      this.entityFactory.loadKronosSprite().catch(err => {
+        console.warn('Failed to load Kronos sprite:', err);
+      });
+    }
   }
 
   /**
@@ -77,7 +83,7 @@ export class NpcSystem extends System {
         case 'scouter':
           this.entityFactory.createScouter(position);
           break;
-        case 'frigate':
+        case 'kronos':
           this.entityFactory.createFrigate(position);
           break;
         default:

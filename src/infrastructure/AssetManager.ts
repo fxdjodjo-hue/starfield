@@ -2,6 +2,7 @@ import { Sprite } from '../entities/Sprite';
 import { AnimatedSprite } from '../entities/AnimatedSprite';
 import type { SpritesheetData } from '../entities/AnimatedSprite';
 import { AtlasParser } from './AtlasParser';
+import { AtlasParser as UtilsAtlasParser } from '../utils/AtlasParser';
 
 /**
  * AssetManager handles loading and managing game assets (sprites, sounds, etc.)
@@ -103,6 +104,7 @@ export class AssetManager {
 
   /**
    * Load a spritesheet from atlas + png files
+   * Supports multiple PNG images in one atlas
    * @param basePath Path without extension (e.g., '/assets/ships/ship106/ship106')
    */
   async loadSpritesheet(basePath: string): Promise<SpritesheetData> {
@@ -119,20 +121,101 @@ export class AssetManager {
     }
     const atlasContent = await atlasResponse.text();
 
-    // Parse atlas
-    const atlasData = AtlasParser.parse(atlasContent);
+    // Try to parse with utils parser first (supports multiple images)
+    let allFrames: Array<{name: string, x: number, y: number, width: number, height: number}> = [];
+    let combinedImage: HTMLImageElement;
+    let frameWidth = 0;
+    let frameHeight = 0;
 
-    // Load spritesheet image
-    const imagePath = `${basePath}.png`;
-    const image = await this.loadImage(imagePath);
+    try {
+      // Use utils parser to get all sections
+      const sections = UtilsAtlasParser.parseAtlasTextAll(atlasContent);
+      
+      if (sections.length > 1) {
+        // Multiple images: combine them into a single canvas
+        const images: HTMLImageElement[] = [];
+        const allFramesData: Array<{imageIndex: number, frame: any}> = [];
+        
+        // Load all images
+        const baseDir = basePath.substring(0, basePath.lastIndexOf('/'));
+        for (let i = 0; i < sections.length; i++) {
+          const section = sections[i];
+          const imagePath = `${baseDir}/${section.imagePath}`;
+          const img = await this.loadImage(imagePath);
+          images.push(img);
+          
+          // Add frames with image index
+          for (const frame of section.frames) {
+            allFramesData.push({ imageIndex: i, frame });
+          }
+        }
 
-    // Get frame dimensions from first frame
-    const frameWidth = atlasData.frames.length > 0 ? atlasData.frames[0].width : 0;
-    const frameHeight = atlasData.frames.length > 0 ? atlasData.frames[0].height : 0;
+        // Create combined canvas
+        const canvas = document.createElement('canvas');
+        let totalWidth = 0;
+        let maxHeight = 0;
+        
+        // Calculate dimensions
+        for (const img of images) {
+          totalWidth += img.width;
+          maxHeight = Math.max(maxHeight, img.height);
+        }
+        
+        canvas.width = totalWidth;
+        canvas.height = maxHeight;
+        const ctx = canvas.getContext('2d')!;
+        
+        // Draw all images side by side
+        let currentX = 0;
+        const imageOffsets: number[] = [];
+        for (const img of images) {
+          ctx.drawImage(img, currentX, 0);
+          imageOffsets.push(currentX);
+          currentX += img.width;
+        }
+        
+        // Convert canvas to image
+        combinedImage = await new Promise<HTMLImageElement>((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.src = canvas.toDataURL();
+        });
+        
+        // Adjust frame coordinates for combined image
+        for (const { imageIndex, frame } of allFramesData) {
+          allFrames.push({
+            name: frame.name,
+            x: frame.x + imageOffsets[imageIndex],
+            y: frame.y,
+            width: frame.width,
+            height: frame.height
+          });
+        }
+        
+        frameWidth = sections[0].frames[0]?.width || 0;
+        frameHeight = sections[0].frames[0]?.height || 0;
+      } else {
+        // Single image: use standard parser
+        const atlasData = AtlasParser.parse(atlasContent);
+        const imagePath = `${basePath}.png`;
+        combinedImage = await this.loadImage(imagePath);
+        allFrames = atlasData.frames;
+        frameWidth = atlasData.frames.length > 0 ? atlasData.frames[0].width : 0;
+        frameHeight = atlasData.frames.length > 0 ? atlasData.frames[0].height : 0;
+      }
+    } catch (error) {
+      // Fallback to standard parser
+      const atlasData = AtlasParser.parse(atlasContent);
+      const imagePath = `${basePath}.png`;
+      combinedImage = await this.loadImage(imagePath);
+      allFrames = atlasData.frames;
+      frameWidth = atlasData.frames.length > 0 ? atlasData.frames[0].width : 0;
+      frameHeight = atlasData.frames.length > 0 ? atlasData.frames[0].height : 0;
+    }
 
     const spritesheet: SpritesheetData = {
-      image,
-      frames: atlasData.frames,
+      image: combinedImage,
+      frames: allFrames,
       frameWidth,
       frameHeight
     };

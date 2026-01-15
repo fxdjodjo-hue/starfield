@@ -117,8 +117,8 @@ export class ProjectileRenderer {
     if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
       // È un proiettile NPC
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
-      if (npcType === 'Frigate') {
-        return this.assetManager.getOrLoadImage('/assets/npc_ships/frigate/npc_frigate_projectile.png');
+      if (npcType === 'Kronos') {
+        return this.assetManager.getOrLoadImage('/assets/npc_ships/kronos/npc_frigate_projectile.png');
       } else {
         return this.assetManager.getOrLoadImage('/assets/npc_ships/scouter/npc_scouter_projectile.png');
       }
@@ -154,8 +154,8 @@ export class ProjectileRenderer {
   private getProjectileImageSize(projectile: Projectile): number {
     if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
-      // Frigate: proiettile più grande, Scouter: default
-      return (npcType === 'Frigate') ? 48 : 36;
+      // Kronos: proiettile più grande, Scouter: default
+      return (npcType === 'Kronos') ? 48 : 36;
     }
     return 36; // Default size
   }

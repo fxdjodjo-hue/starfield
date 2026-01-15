@@ -160,7 +160,7 @@ export class GameInitializationSystem extends System {
     // DISABLED: Sfondo nero puro + stelle - riattivare per usare bg.jpg
     // const mapBackgroundImage = await this.context.assetManager.loadImage(`/assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`);
     const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
-    const frigateImage = await this.context.assetManager.loadImage('/assets/npc_ships/frigate/npc_frigate.png');
+    const kronosAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', 0.16);
 
     // Crea sistemi
     this.audioSystem = new AudioSystem(this.ecs, AUDIO_CONFIG);
@@ -216,8 +216,11 @@ export class GameInitializationSystem extends System {
     // Sistema NPC remoti per multiplayer
     const npcSprites = new Map<string, HTMLImageElement>();
     if (scouterImage) npcSprites.set('scouter', scouterImage);
-    if (frigateImage) npcSprites.set('frigate', frigateImage);
     const remoteNpcSystem = new RemoteNpcSystem(this.ecs, npcSprites, this.context.assetManager);
+    // Carica spritesheet per Kronos
+    if (kronosAnimatedSprite) {
+      remoteNpcSystem.registerNpcAnimatedSprite('Kronos', kronosAnimatedSprite);
+    }
 
     // Sistema proiettili remoti per multiplayer
     const remoteProjectileSystem = new RemoteProjectileSystem(this.ecs);
@@ -278,7 +281,7 @@ export class GameInitializationSystem extends System {
       clientNetworkSystem: this.clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,
-      assets: { playerSprite, scouterImage, frigateImage } // mapBackgroundImage disabled
+      assets: { playerSprite, scouterImage, kronosAnimatedSprite } // mapBackgroundImage disabled
     };
 
     return result;
@@ -581,10 +584,10 @@ export class GameInitializationSystem extends System {
   }
 
   /**
-   * Crea Frigate distribuite uniformemente su tutta la mappa
+   * Crea Kronos distribuite uniformemente su tutta la mappa
    */
-  private createFrigate(count: number, sprite?: HTMLImageElement): void {
-    const minDistance = 150; // Distanza minima tra Frigate (più grandi degli Scouter)
+  private createFrigate(count: number, animatedSprite?: AnimatedSprite): void {
+    const minDistance = 150; // Distanza minima tra Kronos (più grandi degli Scouter)
     const minDistanceFromPlayer = 300; // Distanza minima dal player (più lontane)
     const worldWidth = CONFIG.WORLD_WIDTH;
     const worldHeight = CONFIG.WORLD_HEIGHT;
@@ -623,7 +626,7 @@ export class GameInitializationSystem extends System {
           continue;
         }
 
-        // Verifica che non sia troppo vicino ad altre Frigate
+        // Verifica che non sia troppo vicino ad altre Kronos
         validPosition = positions.every(pos => {
           const distance = Math.sqrt(Math.pow(x - pos.x, 2) + Math.pow(y - pos.y, 2));
           return distance >= minDistance;
@@ -640,27 +643,28 @@ export class GameInitializationSystem extends System {
 
       positions.push({ x, y });
 
-      // Crea l'entità Frigate
+      // Crea l'entità Kronos
       const frigate = this.ecs.createEntity();
 
-      const npcDef = getNpcDefinition('Frigate');
+      const npcDef = getNpcDefinition('Kronos');
 
       if (!npcDef) {
         continue;
       }
 
-      // Aggiungi componenti alla Frigate
-      this.ecs.addComponent(frigate, Transform, new Transform(x, y, 0));
+      // Aggiungi componenti alla Kronos
+      const transform = new Transform(x, y, 0, 4.5, 4.5); // Scala maggiore per Kronos
+      this.ecs.addComponent(frigate, Transform, transform);
       this.ecs.addComponent(frigate, Velocity, new Velocity(0, 0, 0));
-      this.ecs.addComponent(frigate, Health, new Health(this.npcStatsManager.getHealth('Frigate'), this.npcStatsManager.getHealth('Frigate')));
-      this.ecs.addComponent(frigate, Shield, new Shield(this.npcStatsManager.getShield('Frigate'), this.npcStatsManager.getShield('Frigate')));
-      const frigateStats = this.npcStatsManager.getStats('Frigate')!;
+      this.ecs.addComponent(frigate, Health, new Health(this.npcStatsManager.getHealth('Kronos'), this.npcStatsManager.getHealth('Kronos')));
+      this.ecs.addComponent(frigate, Shield, new Shield(this.npcStatsManager.getShield('Kronos'), this.npcStatsManager.getShield('Kronos')));
+      const frigateStats = this.npcStatsManager.getStats('Kronos')!;
       this.ecs.addComponent(frigate, Damage, new Damage(frigateStats.damage, frigateStats.range, frigateStats.cooldown));
       this.ecs.addComponent(frigate, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
 
-      if (sprite) {
-        const frigateSprite = new Sprite(sprite, sprite.width * 0.16, sprite.height * 0.16); // Frigate leggermente più grandi degli Scouter
-        this.ecs.addComponent(frigate, Sprite, frigateSprite);
+      if (animatedSprite) {
+        // Usa AnimatedSprite per Kronos (spritesheet)
+        this.ecs.addComponent(frigate, AnimatedSprite, animatedSprite);
       }
     }
   }
