@@ -104,7 +104,7 @@ this.audioSystem.playSound('jump');
 
 // 2. Integrazione con ECS esistente
 // Il sistema è progettato per integrarsi con l'ECS attuale,
-// utilizzando ECSSnapshot per sincronizzare lo stato del mondo
+// con supporto per sincronizzazione dello stato del mondo
 
 // 3. Architettura Scalabile
 // - Event-driven per aggiornamenti real-time
@@ -206,7 +206,7 @@ this.merchant = new MerchantNpc(200, 300);
 - **Modular Design**: Facile estensione senza breaking changes
 - **Multiplayer Ready**: Componenti rete già implementati
 - **Adaptive Saving**: Salvataggi automatici disabilitabili per multiplayer
-- **State Synchronization**: ECSSnapshot per sincronizzazione multiplayer
+- **State Synchronization**: Supporto per sincronizzazione multiplayer
 - **Performance Logging**: Logging condizionale per produzione
 
 ## 🧪 Testing Strategy

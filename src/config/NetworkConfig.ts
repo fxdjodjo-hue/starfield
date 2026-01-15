@@ -3,8 +3,8 @@
  * Centralizes all network-related constants for maintainability
  */
 export const NETWORK_CONFIG = {
-  // Connection settings
-  DEFAULT_SERVER_URL: 'ws://localhost:3000',
+  // Connection settings - uses environment variable with fallback
+  DEFAULT_SERVER_URL: import.meta.env?.VITE_SERVER_URL || 'ws://localhost:3000',
 
   // Timing intervals (in milliseconds)
   HEARTBEAT_INTERVAL: 5000, // 5 seconds

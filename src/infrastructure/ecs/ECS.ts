@@ -9,6 +9,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 /**
  * Cache per ottimizzare le query ECS più frequenti
  * Riduce la complessità da O(n) a O(1) per query cached
+ * Implementa invalidazione intelligente basata sui tipi di componente modificati
  */
 class EntityQueryCache {
   private cache = new Map<string, Set<number>>();
@@ -45,7 +46,27 @@ class EntityQueryCache {
   }
 
   /**
-   * Invalida cache quando componenti vengono aggiunti/rimossi
+   * Invalida cache in modo intelligente - solo le cache che includono il tipo di componente modificato
+   */
+  invalidateForComponent(componentType: new (...args: any[]) => Component): void {
+    const componentTypeName = componentType.name;
+    const keysToRemove: string[] = [];
+
+    // Trova tutte le chiavi cache che includono questo tipo di componente
+    for (const cacheKey of this.cache.keys()) {
+      if (cacheKey.includes(componentTypeName)) {
+        keysToRemove.push(cacheKey);
+      }
+    }
+
+    // Rimuovi solo le cache influenzate
+    for (const key of keysToRemove) {
+      this.cache.delete(key);
+    }
+  }
+
+  /**
+   * Invalida completamente la cache (fallback per cambiamenti drastici)
    */
   invalidate(): void {
     this.cache.clear();
@@ -111,8 +132,8 @@ export class ECS {
 
     this.components.get(componentType)!.set(entity.id, component);
 
-    // Invalida cache quando componenti cambiano
-    this.queryCache.invalidate();
+    // Invalida cache in modo intelligente per questo tipo di componente
+    this.queryCache.invalidateForComponent(componentType);
   }
 
   /**
@@ -125,8 +146,8 @@ export class ECS {
     const componentMap = this.components.get(componentType);
     if (componentMap) {
       componentMap.delete(entity.id);
-      // Invalida cache quando componenti cambiano
-      this.queryCache.invalidate();
+      // Invalida cache in modo intelligente per questo tipo di componente
+      this.queryCache.invalidateForComponent(componentType);
     }
   }
 
@@ -319,11 +340,4 @@ export class ECS {
     return undefined;
   }
 
-  /**
-   * Verifica se il client locale ha autorità su una componente specifica
-   * Delega all'AuthorityManagerSystem - questa è l'unica interfaccia pubblica
-   */
-  hasAuthority(entity: Entity, componentType: new (...args: any[]) => Component, authorityManager: any): boolean {
-    return authorityManager.hasAuthority(entity, componentType);
-  }
 }

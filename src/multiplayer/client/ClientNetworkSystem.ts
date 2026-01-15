@@ -346,6 +346,30 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Mostra notifica di rate limiting all'utente
+   */
+  private showRateLimitNotification(actionType: string, waitTime?: number): void {
+    const messages = {
+      'chat_message': 'Messaggi chat troppo frequenti. Riprova tra qualche secondo.',
+      'combat_action': 'Azioni di combattimento troppo frequenti. Rallenta il ritmo.',
+      'position_update': 'Aggiornamenti posizione troppo frequenti.',
+      'heartbeat': 'Connessione instabile - heartbeat rate limited.'
+    };
+
+    const message = messages[actionType as keyof typeof messages] || `Azione "${actionType}" rate limited. Riprova più tardi.`;
+
+    // Try to show notification through UI system
+    if (this.uiSystem && typeof this.uiSystem.showNotification === 'function') {
+      this.uiSystem.showNotification('Rate Limit', message, 'warning');
+    } else if (this.uiSystem && typeof this.uiSystem.showError === 'function') {
+      this.uiSystem.showError('Rate Limit', message);
+    } else {
+      // Fallback: console warning (already present)
+      console.warn(`⚠️ [RATE_LIMIT] ${message}`);
+    }
+  }
+
+  /**
    * Handles successful connection establishment
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
@@ -1007,7 +1031,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
     if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
-      console.warn('⚔️ [COMBAT] Rate limit exceeded - combat action blocked');
+      this.showRateLimitNotification('combat_action');
       return;
     }
 
@@ -1062,7 +1086,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
     if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
-      console.warn('🚀 [PROJECTILE] Rate limit exceeded - projectile blocked');
+      this.showRateLimitNotification('combat_action');
       return;
     }
 
@@ -1144,7 +1168,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // RATE LIMITING: Controlla se possiamo inviare messaggi chat
     if (!this.rateLimiter.canSend('chat_message', RATE_LIMITS.CHAT_MESSAGE.maxRequests, RATE_LIMITS.CHAT_MESSAGE.windowMs)) {
-      console.warn('💬 [CHAT] Rate limit exceeded - please wait before sending another message');
+      this.showRateLimitNotification('chat_message');
       return;
     }
 
