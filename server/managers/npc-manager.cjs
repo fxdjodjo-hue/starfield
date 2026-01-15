@@ -261,7 +261,6 @@ class ServerNpcManager {
     const oldExp = Number(playerData.inventory.experience || 0);
     const newExp = oldExp + (rewards.experience || 0);
     playerData.inventory.experience = newExp;
-    console.log(`[DEBUG_EXP] SERVER: Added ${rewards.experience} XP to player ${playerId}, total: ${oldExp} → ${newExp}`);
     playerData.inventory.honor = Number(playerData.inventory.honor || 0) + (rewards.honor || 0);
     playerData.inventory.skillPoints = Number(playerData.inventory.skillPoints || 0) + skillPointsDrop;
 

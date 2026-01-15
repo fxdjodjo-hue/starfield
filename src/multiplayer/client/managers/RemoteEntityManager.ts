@@ -135,6 +135,5 @@ export class RemoteEntityManager {
    * Cleanup risorse
    */
   destroy(): void {
-    console.log('🧹 [REMOTE] RemoteEntityManager cleanup completed');
   }
 }

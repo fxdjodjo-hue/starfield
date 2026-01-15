@@ -99,7 +99,6 @@ class WebSocketConnectionManager {
 
       logger.info('DATABASE', `Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
       logger.info('DATABASE', `Loaded currencies:`, playerData.inventory);
-      console.log(`[DEBUG_LOAD] DATABASE: experience=${playerData.inventory.experience}, honor=${playerData.inventory.honor}, credits=${playerData.inventory.credits}`);
       return playerData;
 
     } catch (error) {
@@ -196,7 +195,6 @@ class WebSocketConnectionManager {
         skill_points_current: playerData.inventory.skillPoints || 0 // Aggiunto per compatibilità
       } : null;
 
-      console.log(`[DEBUG_EXP] SERVER SAVE: Experience being saved: ${currenciesData?.experience}`);
 
       // Use secure RPC function instead of direct table access
       logger.info('DATABASE', `Calling update_player_data_secure RPC for auth_id: ${playerId}`);
@@ -877,7 +875,6 @@ class WebSocketConnectionManager {
             }
 
             // Invia dati completi del giocatore
-            console.log(`[DEBUG_SEND] SERVER sending player_data_response - experience: ${playerData.inventory.experience}, honor: ${playerData.inventory.honor}`);
             const responseMessage = {
               type: 'player_data_response',
               playerId: data.playerId,

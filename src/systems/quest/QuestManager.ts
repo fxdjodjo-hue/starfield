@@ -165,7 +165,6 @@ export class QuestManager {
       if (result.error) {
         console.error('[QUEST_MANAGER] Failed to save quest progress:', result.error);
       } else {
-        console.log(`💾 [QUEST_MANAGER] Quest progress saved: ${quest.title}`);
       }
     } catch (error) {
       console.error('[QUEST_MANAGER] Error saving quest progress:', error);

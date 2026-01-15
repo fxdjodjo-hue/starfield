@@ -22,7 +22,6 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
     this.updateCount++;
     if (now - this.lastUpdateTime > 5000) {
       const updatesPerSecond = this.updateCount / ((now - this.lastUpdateTime) / 1000);
-      console.log(`[REMOTE_UPDATE_DEBUG] ${this.updateCount} updates in ${now - this.lastUpdateTime}ms (${updatesPerSecond.toFixed(1)}/sec)`);
       this.updateCount = 0;
       this.lastUpdateTime = now;
     }

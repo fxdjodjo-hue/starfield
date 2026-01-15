@@ -55,7 +55,6 @@ export class ProjectileCreationSystem extends BaseSystem {
   performAttack(attackerEntity: Entity, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: Entity): void {
     // 🚫 CLIENT NON CREA PIÙ PROIETTILI
     // Il server decide quando sparare basandosi su isAttacking state
-    console.log(`[ProjectileCreation] ⚠️ performAttack called but client no longer creates projectiles`);
 
     // Solo per backward compatibility - non fare nulla
     // I proiettili vengono creati dal SERVER quando riceve start_combat

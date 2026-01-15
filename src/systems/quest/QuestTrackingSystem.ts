@@ -185,7 +185,6 @@ export class QuestTrackingSystem implements QuestEventHandler {
       this.playState.markAsChanged();
       // Per quest completate, salva immediatamente (evento importante)
       if (import.meta.env.DEV) {
-        console.log('🏆 [QuestTrackingSystem] Quest completata - salvataggio immediato');
       }
       this.playState.saveIfChanged().catch(error => {
         console.error('❌ [QuestTrackingSystem] Errore salvataggio immediato quest:', error);

@@ -93,7 +93,6 @@ export class NpcSelectionSystem extends BaseSystem {
     );
 
     if (playerControlSystem) {
-      console.log(`[NpcSelection] Deactivating attack on any NPC selection (manual reactivation required)`);
       playerControlSystem.deactivateAttack();
     }
   }
