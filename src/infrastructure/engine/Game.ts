@@ -3,6 +3,7 @@ import { GameContext } from './GameContext';
 import { GameState } from '../../game/states/GameState';
 import { StartState } from '../../game/states/StartState';
 import { PlayState } from '../../game/states/PlayState';
+import { DisplayManager } from '../display';
 
 /**
  * Classe principale del gioco che coordina stati e game loop
@@ -14,8 +15,13 @@ export class Game {
   private currentState: GameState | null = null;
   private startState: StartState;
   private playState: PlayState;
+  private displayManager: DisplayManager;
 
   constructor(canvas: HTMLCanvasElement, gameContainer: HTMLElement) {
+    // Inizializza DisplayManager prima di tutto per gestione DPI/viewport
+    this.displayManager = DisplayManager.getInstance();
+    this.displayManager.initialize();
+
     this.gameLoop = new GameLoop();
     this.context = new GameContext(canvas, gameContainer);
 
@@ -64,6 +70,9 @@ export class Game {
       this.currentState.exit();
       this.currentState = null;
     }
+
+    // Cleanup DisplayManager
+    this.displayManager.destroy();
   }
 
   /**

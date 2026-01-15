@@ -38,6 +38,7 @@ import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { Sprite } from '../../entities/Sprite';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
+import { DisplayManager } from '../../infrastructure/display';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
@@ -390,8 +391,9 @@ export class GameInitializationSystem extends System {
         const inPlayerStatusHUD = this.playerStatusDisplaySystem.isClickInHUD(x, y);
 
         if (!minimapHandled && !inMinimapGlassPanel && !inPlayerStatusHUD) {
-          // Converti coordinate schermo in coordinate mondo per la selezione NPC
-          const worldPos = cameraSystem.getCamera().screenToWorld(x, y, this.context.canvas.width, this.context.canvas.height);
+          // Converti coordinate schermo in coordinate mondo per la selezione NPC usando dimensioni logiche
+          const { width, height } = DisplayManager.getInstance().getLogicalSize();
+          const worldPos = cameraSystem.getCamera().screenToWorld(x, y, width, height);
 
           // Prova prima la selezione NPC
           const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);

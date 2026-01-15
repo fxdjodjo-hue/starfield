@@ -5,6 +5,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Minimap } from '../../presentation/ui/Minimap';
 import { Camera } from '../../entities/spatial/Camera';
 import { CONFIG } from '../../utils/config/Config';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Sistema per gestire la minimappa quadrata
@@ -36,8 +37,8 @@ export class MinimapSystem extends BaseSystem {
     // Carica l'immagine di sfondo della mappa
     this.loadMapBackground(CONFIG.CURRENT_MAP);
 
-    // Ascolta eventi di resize finestra
-    window.addEventListener('resize', () => this.handleResize());
+    // Usa DisplayManager per gestire il resize in modo centralizzato
+    DisplayManager.getInstance().onResize(() => this.handleResize());
     this.handleResize(); // Imposta posizione iniziale
   }
 
@@ -179,10 +180,13 @@ export class MinimapSystem extends BaseSystem {
     const y = this.minimap.y;
     const w = this.minimap.width;
     const h = this.minimap.height;
+    
+    // Compensazione DPR dalla minimap
+    const c = this.minimap.getDprCompensation();
 
-    // Padding per il riquadro di sfondo glass
-    const padding = 20;
-    const headerHeight = 35; // Spazio per header con icona e titolo
+    // Padding per il riquadro di sfondo glass (compensato)
+    const padding = Math.round(20 * c);
+    const headerHeight = Math.round(35 * c); // Spazio per header con icona e titolo
     const bgX = x - padding;
     const bgY = y - padding - headerHeight;
     const bgW = w + (padding * 2);
@@ -201,8 +205,8 @@ export class MinimapSystem extends BaseSystem {
     glassGradient.addColorStop(1, 'rgba(255, 255, 255, 0.06)');
     ctx.fillStyle = glassGradient;
 
-    // Arrotondamento degli angoli come gli altri pannelli
-    this.roundedRect(ctx, bgX, bgY, bgW, bgH, 15);
+    // Arrotondamento degli angoli come gli altri pannelli (compensato)
+    this.roundedRect(ctx, bgX, bgY, bgW, bgH, Math.round(15 * c));
     ctx.fill();
 
     // Reset ombra per il bordo
@@ -212,7 +216,7 @@ export class MinimapSystem extends BaseSystem {
     // Bordo glass sottile intorno al riquadro
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
     ctx.lineWidth = 1;
-    this.roundedRect(ctx, bgX, bgY, bgW, bgH, 15);
+    this.roundedRect(ctx, bgX, bgY, bgW, bgH, Math.round(15 * c));
     ctx.stroke();
 
     // Sfondo della minimappa con immagine della mappa o gradiente di fallback
@@ -240,42 +244,45 @@ export class MinimapSystem extends BaseSystem {
     // Renderizza il nome della mappa sopra la minimappa nel pannello glass
     this.renderMapName(ctx, bgX, bgY, bgW, headerHeight);
 
-    // Indicatore centro mondo con glow
+    // Indicatore centro mondo con glow (dimensioni compensate)
     const centerX = x + w / 2;
     const centerY = y + h / 2;
+    const crossSize = Math.round(6 * c);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 1;
     ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
-    ctx.shadowBlur = 3;
+    ctx.shadowBlur = Math.round(3 * c);
     ctx.beginPath();
-    ctx.moveTo(centerX - 6, centerY);
-    ctx.lineTo(centerX + 6, centerY);
-    ctx.moveTo(centerX, centerY - 6);
-    ctx.lineTo(centerX, centerY + 6);
+    ctx.moveTo(centerX - crossSize, centerY);
+    ctx.lineTo(centerX + crossSize, centerY);
+    ctx.moveTo(centerX, centerY - crossSize);
+    ctx.lineTo(centerX, centerY + crossSize);
     ctx.stroke();
 
     // Coordinate del player nell'header
-    const headerY = bgY + 8;
+    const headerY = bgY + Math.round(8 * c);
+    const fontSize = Math.round(12 * c);
+    const textPadding = Math.round(15 * c);
 
     if (this.camera) {
       const playerX = Math.round(this.camera.x);
       const playerY = Math.round(this.camera.y);
 
       ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      ctx.font = '12px Arial';
+      ctx.font = `${fontSize}px Arial`;
       ctx.textAlign = 'left';
-      ctx.fillText(`X:${playerX}`, bgX + 15, headerY + 17);
+      ctx.fillText(`X:${playerX}`, bgX + textPadding, headerY + Math.round(17 * c));
 
       ctx.textAlign = 'right';
-      ctx.fillText(`Y:${playerY}`, bgX + bgW - 15, headerY + 17);
+      ctx.fillText(`Y:${playerY}`, bgX + bgW - textPadding, headerY + Math.round(17 * c));
     }
 
     // Separatore sottile sotto l'header
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(bgX + 10, bgY + headerHeight - 2);
-    ctx.lineTo(bgX + bgW - 10, bgY + headerHeight - 2);
+    ctx.moveTo(bgX + Math.round(10 * c), bgY + headerHeight - Math.round(2 * c));
+    ctx.lineTo(bgX + bgW - Math.round(10 * c), bgY + headerHeight - Math.round(2 * c));
     ctx.stroke();
 
     // Aggiungi linee di riferimento che attraversano tutta la minimappa
@@ -414,15 +421,16 @@ export class MinimapSystem extends BaseSystem {
   private renderDestinationLine(ctx: CanvasRenderingContext2D, playerX: number, playerY: number, destX: number, destY: number): void {
     const playerPos = this.minimap.worldToMinimap(playerX, playerY);
     const destPos = this.minimap.worldToMinimap(destX, destY);
+    const c = this.minimap.getDprCompensation();
 
     // Salva lo stato del contesto
     ctx.save();
 
     // Linea con glow effect glass
     ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
-    ctx.shadowBlur = 4;
+    ctx.shadowBlur = Math.round(4 * c);
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = Math.round(2 * c);
     ctx.lineCap = 'round';
     ctx.setLineDash([]); // Linea continua
 
@@ -434,12 +442,12 @@ export class MinimapSystem extends BaseSystem {
 
     // Cerchio alla destinazione con glow glass
     ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = Math.round(6 * c);
     ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(destPos.x, destPos.y, 5, 0, Math.PI * 2);
+    ctx.arc(destPos.x, destPos.y, Math.round(5 * c), 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
@@ -447,7 +455,7 @@ export class MinimapSystem extends BaseSystem {
     ctx.shadowBlur = 0;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.beginPath();
-    ctx.arc(destPos.x, destPos.y, 2, 0, Math.PI * 2);
+    ctx.arc(destPos.x, destPos.y, Math.round(2 * c), 0, Math.PI * 2);
     ctx.fill();
 
     // Ripristina lo stato del contesto
@@ -459,14 +467,15 @@ export class MinimapSystem extends BaseSystem {
    */
   private renderPlayerTriangle(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
     const pos = this.minimap.worldToMinimap(worldX, worldY);
-    const radius = 4;
+    const c = this.minimap.getDprCompensation();
+    const radius = Math.round(4 * c);
 
     // Salva stato
     ctx.save();
 
     // Semplice pallino blu con glow sottile
     ctx.shadowColor = '#0088ff';
-    ctx.shadowBlur = 4;
+    ctx.shadowBlur = Math.round(4 * c);
 
     ctx.fillStyle = '#0088ff';
 
@@ -482,7 +491,8 @@ export class MinimapSystem extends BaseSystem {
    * Gestisce il resize della finestra
    */
   private handleResize(): void {
-    this.minimap.updateViewport(window.innerWidth, window.innerHeight);
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    this.minimap.updateViewport(width, height);
   }
 
   /**
@@ -517,10 +527,13 @@ export class MinimapSystem extends BaseSystem {
     const y = this.minimap.y;
     const w = this.minimap.width;
     const h = this.minimap.height;
+    
+    // Compensazione DPR
+    const c = this.minimap.getDprCompensation();
 
-    // Padding del pannello glass
-    const padding = 20;
-    const headerHeight = 35;
+    // Padding del pannello glass (compensato)
+    const padding = Math.round(20 * c);
+    const headerHeight = Math.round(35 * c);
 
     // Coordinate del pannello glass completo
     const glassX = x - padding;
@@ -541,10 +554,13 @@ export class MinimapSystem extends BaseSystem {
     const y = this.minimap.y;
     const w = this.minimap.width;
     const h = this.minimap.height;
+    
+    // Compensazione DPR
+    const c = this.minimap.getDprCompensation();
 
-    // Padding del pannello glass
-    const padding = 20;
-    const headerHeight = 35;
+    // Padding del pannello glass (compensato)
+    const padding = Math.round(20 * c);
+    const headerHeight = Math.round(35 * c);
 
     // Coordinate del pannello glass completo
     const glassX = x - padding;
@@ -569,16 +585,20 @@ export class MinimapSystem extends BaseSystem {
   private renderMapName(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number): void {
     // Formatta il nome della mappa (tutto maiuscolo)
     const mapName = CONFIG.CURRENT_MAP.toUpperCase();
+    
+    // Compensazione DPR
+    const c = this.minimap.getDprCompensation();
+    const fontSize = Math.round(14 * c);
 
     // Configura il font e lo stile del testo
-    ctx.font = 'bold 14px "Courier New", monospace';
+    ctx.font = `bold ${fontSize}px "Courier New", monospace`;
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     // Aggiungi un leggero glow al testo
     ctx.shadowColor = 'rgba(0, 255, 136, 0.4)'; // Colore cyan/verde del tema, leggermente più tenue
-    ctx.shadowBlur = 4;
+    ctx.shadowBlur = Math.round(4 * c);
 
     // Posiziona il testo al centro sopra la minimappa
     const textX = x + width / 2;

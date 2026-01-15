@@ -23,6 +23,7 @@ import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSyste
 import AudioSystem from '../audio/AudioSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { AtlasParser } from '../../utils/AtlasParser';
+import { DisplayManager } from '../../infrastructure/display';
 import { calculateDirection } from '../../utils/MathUtils';
 import { ProjectileFactory } from '../../factories/ProjectileFactory';
 
@@ -367,10 +368,8 @@ export class CombatSystem extends BaseSystem {
 
     if (!playerTransform || !playerDamage || !npcTransform) return;
 
-    // Controlla se l'NPC è ancora visibile nella viewport
-    const canvasSize = (this.ecs as any).context?.canvas ?
-                      { width: (this.ecs as any).context.canvas.width, height: (this.ecs as any).context.canvas.height } :
-                      { width: window.innerWidth, height: window.innerHeight };
+    // Controlla se l'NPC è ancora visibile nella viewport usando dimensioni logiche
+    const canvasSize = DisplayManager.getInstance().getLogicalSize();
 
     const camera = this.cameraSystem.getCamera();
     const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);

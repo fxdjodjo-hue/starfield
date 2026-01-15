@@ -9,6 +9,7 @@ import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { Credits, Cosmos } from '../../entities/currency/Currency';
 import { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
+import type { PanelData } from './UIManager';
 
 /**
  * UpgradePanel - Pannello per visualizzare statistiche giocatore e gestire upgrade
@@ -25,6 +26,11 @@ export class UpgradePanel extends BasePanel {
     this.ecs = ecs;
     this.playerSystem = playerSystem || null;
     this.clientNetworkSystem = clientNetworkSystem || null;
+  }
+
+  update(data: PanelData): void {
+    // Aggiorniamo le statistiche se necessario
+    this.updatePlayerStats();
   }
 
   /**
@@ -52,17 +58,22 @@ export class UpgradePanel extends BasePanel {
     content.style.cssText = `
       padding: 24px;
       height: 100%;
+      box-sizing: border-box;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
       position: relative;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 25px;
-      overflow-y: auto;
+      overflow: hidden;
     `;
+    // Hide scrollbar for webkit browsers
+    const style = document.createElement('style');
+    style.textContent = `.skills-content::-webkit-scrollbar { display: none; }`;
+    content.appendChild(style);
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
     const closeButton = document.createElement('button');
@@ -148,19 +159,15 @@ export class UpgradePanel extends BasePanel {
     header.appendChild(subtitle);
     content.appendChild(header);
 
-    // Sezione Risorse e Costi
-    const resourcesSection = this.createResourcesSection();
-    content.appendChild(resourcesSection);
 
     // Contenitore principale per le statistiche
     const statsContainer = document.createElement('div');
     statsContainer.style.cssText = `
       flex: 1;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      overflow-y: auto;
-      padding: 8px 0;
+      overflow: hidden;
     `;
 
     // Sezione Upgrade con statistiche integrate
@@ -176,7 +183,7 @@ export class UpgradePanel extends BasePanel {
   /**
    * Crea una sezione di statistiche
    */
-  private createStatsSection(title: string, stats: Array<{label: string, icon: string, value: string, color: string, upgradeKey?: string}>): HTMLElement {
+  private createStatsSection(title: string, stats: Array<{ label: string, icon: string, value: string, color: string, upgradeKey?: string }>): HTMLElement {
     const section = document.createElement('div');
     section.style.cssText = `
       background: rgba(255, 255, 255, 0.05);
@@ -278,120 +285,28 @@ export class UpgradePanel extends BasePanel {
     };
 
     const baseCost = baseCosts[statType as keyof typeof baseCosts];
+    
+    // Moltiplicatore crescente basato sul livello (cresce del 15% per livello)
+    const levelMultiplier = 1 + (currentLevel * 0.15);
 
     if (currentLevel < 20) {
-      // Fase 1: Solo crediti (primi 20 livelli)
-      return { credits: baseCost.credits, cosmos: 0 };
+      // Fase 1: Solo crediti (primi 20 livelli) - costo crescente
+      const credits = Math.floor(baseCost.credits * levelMultiplier);
+      return { credits, cosmos: 0 };
     } else if (currentLevel < 40) {
-      // Fase 2: Crediti + Cosmos (livelli 21-40)
-      return { credits: baseCost.credits, cosmos: baseCost.cosmos };
+      // Fase 2: Crediti + Cosmos (livelli 21-40) - entrambi crescenti
+      const credits = Math.floor(baseCost.credits * levelMultiplier);
+      const cosmos = Math.floor(baseCost.cosmos * (1 + (currentLevel - 20) * 0.1));
+      return { credits, cosmos };
     } else {
-      // Fase 3: Solo Cosmos (livello 41+)
-      return { credits: 0, cosmos: baseCost.cosmos * 2 };
+      // Fase 3: Solo Cosmos (livello 41+) - cosmos crescente più velocemente
+      const cosmos = Math.floor(baseCost.cosmos * 2 * (1 + (currentLevel - 40) * 0.2));
+      return { credits: 0, cosmos };
     }
   }
 
   /**
-   * Crea la sezione risorse e costi
-   */
-  private createResourcesSection(): HTMLElement {
-    const section = document.createElement('div');
-    section.style.cssText = `
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    `;
-
-    const sectionTitle = document.createElement('h3');
-    sectionTitle.textContent = 'Current Resources';
-    sectionTitle.style.cssText = `
-      margin: 0 0 16px 0;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 16px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      text-align: center;
-    `;
-
-    section.appendChild(sectionTitle);
-
-    // Contenitore risorse attuali
-    const currentResources = document.createElement('div');
-    currentResources.style.cssText = `
-      display: flex;
-      gap: 20px;
-      justify-content: center;
-      align-items: center;
-    `;
-
-    // Crediti attuali
-    const creditsDisplay = document.createElement('div');
-    creditsDisplay.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: rgba(0, 255, 136, 0.1);
-      border: 1px solid rgba(0, 255, 136, 0.3);
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.9);
-    `;
-
-    const creditsIcon = document.createElement('span');
-    creditsIcon.textContent = 'CR';
-    creditsIcon.style.cssText = 'font-weight: bold;';
-
-    const creditsValue = document.createElement('span');
-    creditsValue.className = 'current-credits';
-    creditsValue.textContent = '0';
-    creditsValue.style.cssText = 'font-variant-numeric: tabular-nums;';
-
-    creditsDisplay.appendChild(creditsIcon);
-    creditsDisplay.appendChild(creditsValue);
-
-    // Cosmos attuali
-    const cosmosDisplay = document.createElement('div');
-    cosmosDisplay.style.cssText = `
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: rgba(0, 136, 255, 0.1);
-      border: 1px solid rgba(0, 136, 255, 0.3);
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.9);
-    `;
-
-    const cosmosIcon = document.createElement('span');
-    cosmosIcon.textContent = 'CO';
-    cosmosIcon.style.cssText = 'font-weight: bold;';
-
-    const cosmosValue = document.createElement('span');
-    cosmosValue.className = 'current-cosmos';
-    cosmosValue.textContent = '0';
-    cosmosValue.style.cssText = 'font-variant-numeric: tabular-nums;';
-
-    cosmosDisplay.appendChild(cosmosIcon);
-    cosmosDisplay.appendChild(cosmosValue);
-
-    currentResources.appendChild(creditsDisplay);
-    currentResources.appendChild(cosmosDisplay);
-
-
-    section.appendChild(currentResources);
-
-    return section;
-  }
-
-  /**
-   * Crea la sezione degli upgrade con statistiche integrate
+   * Crea la sezione degli upgrade con layout a griglia orizzontale
    */
   private createUpgradeSection(): HTMLElement {
     const section = document.createElement('div');
@@ -400,21 +315,24 @@ export class UpgradePanel extends BasePanel {
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
       padding: 16px;
+      box-sizing: border-box;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
     `;
 
-    const sectionTitle = document.createElement('h3');
-    sectionTitle.textContent = 'Statistics & Upgrades';
-    sectionTitle.style.cssText = `
-      margin: 0 0 16px 0;
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 16px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    // Griglia per le card degli upgrade (2x2) che occupa tutto lo spazio
+    const upgradeGrid = document.createElement('div');
+    upgradeGrid.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 1fr);
+      gap: 12px;
+      flex: 1;
+      min-height: 0;
     `;
-
-    section.appendChild(sectionTitle);
 
     // Ottieni i livelli correnti degli upgrade
     const playerEntity = this.playerSystem?.getPlayerEntity();
@@ -425,33 +343,228 @@ export class UpgradePanel extends BasePanel {
     const speedLevel = playerUpgrades ? playerUpgrades.speedUpgrades : 0;
     const damageLevel = playerUpgrades ? playerUpgrades.damageUpgrades : 0;
 
-    // Crea i quattro pulsanti di upgrade con statistiche integrate
-    const hpUpgrade = this.createStatUpgradeButton('Hull', '+', '#10b981', 'hp', hpLevel);
+    // Crea le quattro card di upgrade
+    const hpUpgrade = this.createUpgradeCard('Hull', '🛡️', '#10b981', 'hp', hpLevel);
     hpUpgrade.classList.add('upgrade-hp');
-    const shieldUpgrade = this.createStatUpgradeButton('Shield', '+', '#3b82f6', 'shield', shieldLevel);
+    const shieldUpgrade = this.createUpgradeCard('Shield', '⚡', '#3b82f6', 'shield', shieldLevel);
     shieldUpgrade.classList.add('upgrade-shield');
-    const speedUpgrade = this.createStatUpgradeButton('Speed', '+', '#f59e0b', 'speed', speedLevel);
+    const speedUpgrade = this.createUpgradeCard('Speed', '🚀', '#f59e0b', 'speed', speedLevel);
     speedUpgrade.classList.add('upgrade-speed');
-    const damageUpgrade = this.createStatUpgradeButton('Laser', '+', '#ef4444', 'damage', damageLevel);
+    const damageUpgrade = this.createUpgradeCard('Laser', '💥', '#ef4444', 'damage', damageLevel);
     damageUpgrade.classList.add('upgrade-damage');
 
-    section.appendChild(hpUpgrade);
-    section.appendChild(shieldUpgrade);
-    section.appendChild(speedUpgrade);
-    section.appendChild(damageUpgrade);
+    upgradeGrid.appendChild(hpUpgrade);
+    upgradeGrid.appendChild(shieldUpgrade);
+    upgradeGrid.appendChild(speedUpgrade);
+    upgradeGrid.appendChild(damageUpgrade);
+
+    section.appendChild(upgradeGrid);
 
     return section;
+  }
+
+  /**
+   * Crea una card compatta per un upgrade con toggle descrizione
+   */
+  private createUpgradeCard(statName: string, icon: string, color: string, upgradeType: string, currentLevel: number = 0): HTMLElement {
+    const card = document.createElement('div');
+    card.className = 'upgrade-card-container';
+    card.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 16px 12px;
+      height: 100%;
+      box-sizing: border-box;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid ${color}40;
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      user-select: none;
+    `;
+
+    card.addEventListener('mouseenter', () => {
+      card.style.background = `rgba(255, 255, 255, 0.08)`;
+      card.style.borderColor = color;
+      card.style.transform = 'translateY(-1px)';
+      card.style.boxShadow = `0 4px 12px ${color}20`;
+    });
+
+    card.addEventListener('mouseleave', () => {
+      card.style.background = `rgba(255, 255, 255, 0.03)`;
+      card.style.borderColor = `${color}40`;
+      card.style.transform = 'translateY(0)';
+      card.style.boxShadow = 'none';
+    });
+
+    // Contenuto normale (visibile di default)
+    const normalContent = document.createElement('div');
+    normalContent.className = 'card-normal-content';
+    normalContent.style.cssText = `display: flex; flex-direction: column; align-items: center; gap: 4px;`;
+
+    const iconEl = document.createElement('div');
+    iconEl.textContent = icon;
+    iconEl.style.cssText = `font-size: 32px;`;
+
+    const nameEl = document.createElement('div');
+    nameEl.textContent = statName;
+    nameEl.style.cssText = `font-size: 16px; font-weight: 700; color: #fff;`;
+
+    const levelEl = document.createElement('div');
+    levelEl.className = `stat-level-${upgradeType}`;
+    levelEl.textContent = `Lv.${currentLevel}`;
+    levelEl.style.cssText = `font-size: 14px; color: ${color}; font-weight: 600;`;
+
+    const valueEl = document.createElement('div');
+    valueEl.className = `stat-current-${upgradeType}`;
+    valueEl.textContent = this.getInitialStatValue(upgradeType);
+    valueEl.style.cssText = `font-size: 12px; color: rgba(255, 255, 255, 0.6); font-variant-numeric: tabular-nums;`;
+
+    normalContent.appendChild(iconEl);
+    normalContent.appendChild(nameEl);
+    normalContent.appendChild(levelEl);
+    normalContent.appendChild(valueEl);
+
+    // Contenuto descrizione (nascosto di default)
+    const descContent = document.createElement('div');
+    descContent.className = 'card-desc-content';
+    descContent.style.cssText = `display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 4px;`;
+
+    const descText = document.createElement('div');
+    descText.textContent = this.getStatDescription(upgradeType);
+    descText.style.cssText = `font-size: 14px; color: rgba(255, 255, 255, 0.95); text-align: center; line-height: 1.5; font-weight: 500; padding: 8px;`;
+
+    descContent.appendChild(descText);
+
+    // Costo mostrato sopra il bottone
+    const cost = this.calculateUpgradeCost(upgradeType, currentLevel);
+    const costLabel = document.createElement('div');
+    costLabel.className = 'upgrade-cost-label';
+    costLabel.style.cssText = `
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    `;
+
+    const costTitle = document.createElement('div');
+    costTitle.className = 'cost-title';
+    costTitle.textContent = 'Cost';
+    costTitle.style.cssText = `
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.5);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    `;
+    costLabel.appendChild(costTitle);
+
+    if (cost.credits > 0) {
+      const creditsLine = document.createElement('div');
+      creditsLine.className = 'cost-credits';
+      creditsLine.textContent = `${cost.credits.toLocaleString()} Credits`;
+      creditsLine.style.cssText = `font-size: 11px; color: #fbbf24; font-weight: 500;`;
+      costLabel.appendChild(creditsLine);
+    }
+
+    if (cost.cosmos > 0) {
+      const cosmosLine = document.createElement('div');
+      cosmosLine.className = 'cost-cosmos';
+      cosmosLine.textContent = `${cost.cosmos.toLocaleString()} Cosmos`;
+      cosmosLine.style.cssText = `font-size: 11px; color: #a78bfa; font-weight: 500;`;
+      costLabel.appendChild(cosmosLine);
+    }
+
+    // Bottone upgrade
+    const upgradeBtn = document.createElement('button');
+    upgradeBtn.className = 'ui-upgrade-btn';
+    upgradeBtn.textContent = 'UPGRADE';
+    upgradeBtn.style.cssText = `
+      margin-top: 6px;
+      padding: 8px 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 6px;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    `;
+
+    upgradeBtn.addEventListener('mouseenter', () => {
+      upgradeBtn.style.background = 'rgba(255, 255, 255, 0.2)';
+      upgradeBtn.style.borderColor = 'rgba(255, 255, 255, 0.5)';
+    });
+
+    upgradeBtn.addEventListener('mouseleave', () => {
+      upgradeBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+      upgradeBtn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    upgradeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed' | 'damage');
+    });
+
+    // Toggle contenuto al click
+    card.dataset.showingDesc = 'false';
+    card.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('.ui-upgrade-btn')) {
+        const showingDesc = card.dataset.showingDesc === 'true';
+        card.dataset.showingDesc = (!showingDesc).toString();
+        if (!showingDesc) {
+          normalContent.style.display = 'none';
+          descContent.style.display = 'flex';
+          costLabel.style.display = 'none';
+          upgradeBtn.style.display = 'none';
+        } else {
+          normalContent.style.display = 'flex';
+          descContent.style.display = 'none';
+          costLabel.style.display = 'block';
+          upgradeBtn.style.display = 'block';
+        }
+      }
+    });
+
+    card.appendChild(normalContent);
+    card.appendChild(descContent);
+    card.appendChild(costLabel);
+    card.appendChild(upgradeBtn);
+
+    return card;
+  }
+
+  /**
+   * Ottiene la descrizione breve di una statistica
+   */
+  private getStatDescription(statType: string): string {
+    switch (statType) {
+      case 'hp': return 'Hull integrity. More HP = more survival.';
+      case 'shield': return 'Energy barrier. Recharges over time.';
+      case 'speed': return 'Movement velocity. Better evasion.';
+      case 'damage': return 'Laser power. Faster kills.';
+      default: return '';
+    }
   }
 
   /**
    * Crea un pulsante di upgrade con statistica integrata
    */
   private createStatUpgradeButton(statName: string, icon: string, color: string, upgradeType: string, currentLevel: number = 0): HTMLElement {
-    const button = document.createElement('button');
-    button.style.cssText = `
-      display: flex;
+    const container = document.createElement('div');
+    container.className = 'upgrade-row-container';
+    container.style.cssText = `
+      display: grid;
+      grid-template-columns: 1fr auto;
       align-items: center;
-      justify-content: space-between;
+      gap: 10px;
       width: 100%;
       padding: 14px 16px;
       margin-bottom: 10px;
@@ -464,48 +577,61 @@ export class UpgradePanel extends BasePanel {
       cursor: pointer;
       transition: all 0.2s ease;
       position: relative;
+      user-select: none;
+      box-sizing: border-box;
     `;
 
-    button.addEventListener('mouseenter', () => {
-      button.style.background = `rgba(255, 255, 255, 0.1)`;
-      button.style.borderColor = color;
-      button.style.transform = 'translateY(-2px)';
-      button.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2)`;
+    container.addEventListener('mouseenter', () => {
+      container.style.background = `rgba(255, 255, 255, 0.1)`;
+      container.style.borderColor = color;
+      container.style.transform = 'translateY(-2px)';
+      container.style.boxShadow = `0 4px 12px rgba(0, 0, 0, 0.2)`;
     });
 
-    button.addEventListener('mouseleave', () => {
-      button.style.background = `rgba(255, 255, 255, 0.05)`;
-      button.style.borderColor = `${color}40`;
-      button.style.transform = 'translateY(0)';
-      button.style.boxShadow = 'none';
+    container.addEventListener('mouseleave', () => {
+      container.style.background = `rgba(255, 255, 255, 0.05)`;
+      container.style.borderColor = `${color}40`;
+      container.style.transform = 'translateY(0)';
+      container.style.boxShadow = 'none';
     });
 
-    // Click sul pulsante principale mostra spiegazione
-    button.addEventListener('click', (e) => {
-      // Se il click è sul bottone di upgrade, non mostrare la spiegazione
-      if (!(e.target as HTMLElement).closest('.upgrade-button')) {
-        this.showStatExplanation(statName, upgradeType, button);
+    // Click sul container mostra spiegazione
+    container.addEventListener('click', (e) => {
+      if (!(e.target as HTMLElement).closest('.ui-upgrade-btn')) {
+        this.showStatExplanation(statName, upgradeType, container);
       }
     });
 
-    // Parte sinistra: icona + nome statistica
-    const leftSide = document.createElement('div');
-    leftSide.style.cssText = 'display: flex; align-items: center; gap: 10px; flex: 1;';
+    // Parte sinistra: Label + Livello
+    const leftCol = document.createElement('div');
+    leftCol.style.cssText = 'display: flex; align-items: center; gap: 10px; overflow: hidden;';
 
     const statIcon = document.createElement('span');
     statIcon.textContent = icon;
-    statIcon.style.cssText = `font-size: 18px; color: ${color};`;
+    statIcon.style.cssText = `font-size: 18px; color: ${color}; display: inline-block; width: 24px; text-align: center; flex-shrink: 0;`;
 
     const statLabel = document.createElement('span');
     statLabel.textContent = statName;
-    statLabel.style.cssText = 'font-weight: 600; color: rgba(255, 255, 255, 0.9);';
+    statLabel.style.cssText = 'font-weight: 700; color: #ffffff; white-space: nowrap; font-size: 16px;';
 
-    leftSide.appendChild(statIcon);
-    leftSide.appendChild(statLabel);
+    const levelLabel = document.createElement('span');
+    levelLabel.className = `stat-level-${upgradeType}`;
+    levelLabel.textContent = `Lv.${currentLevel}`;
+    levelLabel.style.cssText = `
+      font-size: 12px;
+      color: ${color};
+      font-weight: 600;
+      opacity: 0.9;
+      margin-left: 4px;
+    `;
 
-    // Parte destra: valore corrente + pulsante upgrade
-    const rightSide = document.createElement('div');
-    rightSide.style.cssText = 'display: flex; align-items: center; gap: 12px;';
+    leftCol.appendChild(statIcon);
+    leftCol.appendChild(statLabel);
+    leftCol.appendChild(levelLabel);
+
+    // Parte destra: Valore + Bottone
+    const rightCol = document.createElement('div');
+    rightCol.style.cssText = 'display: flex; align-items: center; gap: 12px;';
 
     const currentValue = document.createElement('span');
     currentValue.className = `stat-current-${upgradeType}`;
@@ -518,7 +644,7 @@ export class UpgradePanel extends BasePanel {
     `;
 
     const upgradeButton = document.createElement('div');
-    upgradeButton.className = 'upgrade-button';
+    upgradeButton.className = 'ui-upgrade-btn';
     upgradeButton.style.cssText = `
       display: flex;
       flex-direction: column;
@@ -541,7 +667,7 @@ export class UpgradePanel extends BasePanel {
     const cost = this.calculateUpgradeCost(upgradeType, currentLevel);
 
     const upgradeText = document.createElement('div');
-    upgradeText.textContent = 'UPGRADE';
+    upgradeText.textContent = 'BUY'; // Changed to BUY
     upgradeText.style.cssText = 'font-size: 11px; font-weight: 700;';
 
     const costDetails = document.createElement('div');
@@ -557,7 +683,6 @@ export class UpgradePanel extends BasePanel {
       this.upgradeStat(upgradeType as 'hp' | 'shield' | 'speed' | 'damage');
     });
 
-    // Effetto hover sul pulsante interno
     upgradeButton.addEventListener('mouseenter', (e) => {
       e.stopPropagation();
       upgradeButton.style.background = color;
@@ -572,13 +697,13 @@ export class UpgradePanel extends BasePanel {
       upgradeButton.style.transform = 'scale(1)';
     });
 
-    rightSide.appendChild(currentValue);
-    rightSide.appendChild(upgradeButton);
+    rightCol.appendChild(currentValue);
+    rightCol.appendChild(upgradeButton);
 
-    button.appendChild(leftSide);
-    button.appendChild(rightSide);
+    container.appendChild(leftCol);
+    container.appendChild(rightCol);
 
-    return button;
+    return container;
   }
 
   /**
@@ -659,6 +784,19 @@ export class UpgradePanel extends BasePanel {
         }
       }
 
+      // Aggiorna i livelli mostrati
+      const hpLevel = this.container.querySelector('.stat-level-hp') as HTMLElement;
+      if (hpLevel) hpLevel.textContent = `Lv.${playerUpgrades.hpUpgrades}`;
+      
+      const shieldLevel = this.container.querySelector('.stat-level-shield') as HTMLElement;
+      if (shieldLevel) shieldLevel.textContent = `Lv.${playerUpgrades.shieldUpgrades}`;
+      
+      const speedLevel = this.container.querySelector('.stat-level-speed') as HTMLElement;
+      if (speedLevel) speedLevel.textContent = `Lv.${playerUpgrades.speedUpgrades}`;
+      
+      const damageLevel = this.container.querySelector('.stat-level-damage') as HTMLElement;
+      if (damageLevel) damageLevel.textContent = `Lv.${playerUpgrades.damageUpgrades}`;
+
       // Aggiorna stato dei pulsanti di upgrade (abilitati/disabilitati)
       this.updateUpgradeButtons(playerUpgrades, playerDef.upgrades);
     }
@@ -697,11 +835,33 @@ export class UpgradePanel extends BasePanel {
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
+    // Reset tutte le card allo stato normale
+    this.resetUpgradeCards();
+    
     // Aggiorna immediatamente quando viene mostrato
     this.updatePlayerStats();
 
     // E continua ad aggiornare ogni frame mentre è visibile
     this.startRealtimeUpdates();
+  }
+
+  /**
+   * Resetta tutte le card upgrade allo stato normale (non descrizione)
+   */
+  private resetUpgradeCards(): void {
+    const cards = this.container.querySelectorAll('.upgrade-card-container');
+    cards.forEach((card) => {
+      const htmlCard = card as HTMLElement;
+      htmlCard.dataset.showingDesc = 'false';
+      const normalContent = htmlCard.querySelector('.card-normal-content') as HTMLElement;
+      const descContent = htmlCard.querySelector('.card-desc-content') as HTMLElement;
+      const costLabel = htmlCard.querySelector('.upgrade-cost-label') as HTMLElement;
+      const upgradeBtn = htmlCard.querySelector('.ui-upgrade-btn') as HTMLElement;
+      if (normalContent) normalContent.style.display = 'flex';
+      if (descContent) descContent.style.display = 'none';
+      if (costLabel) costLabel.style.display = 'block';
+      if (upgradeBtn) upgradeBtn.style.display = 'block';
+    });
   }
 
   /**
@@ -813,33 +973,37 @@ export class UpgradePanel extends BasePanel {
 
     switch (statType) {
       case 'hp':
-        title = '💚 HEALTH POINTS (HP)';
-        description = 'They represent your ship\'s health. When they reach 0, the ship is destroyed. Upgrades increase damage resistance. More HP = more survival chances.';
+        title = 'HULL (HP)';
+        description = 'Represents your ship\'s structural integrity. When it reaches 0, the ship is destroyed. Upgrades increase maximum hull points. More HP = more survival chances.';
         break;
       case 'shield':
         title = 'ENERGY SHIELD';
-        description = 'Protects the ship from damage before HP. Recharges automatically over time. Upgrades increase maximum capacity. More shields = better initial protection.';
+        description = 'Protects the ship from damage before HP is affected. Recharges automatically over time. Upgrades increase maximum capacity. More shields = better protection.';
         break;
       case 'speed':
-        title = '💨 MOVEMENT SPEED';
-        description = 'Determines how fast the ship moves. Affects maneuverability in combat. Upgrades improve acceleration. More speed = better control in battle.';
+        title = 'MOVEMENT SPEED';
+        description = 'Determines how fast the ship moves. Affects maneuverability in combat. Upgrades improve maximum velocity. More speed = better evasion.';
+        break;
+      case 'damage':
+        title = 'LASER DAMAGE';
+        description = 'Determines the damage dealt by your laser weapons. Upgrades increase damage per shot. More damage = faster enemy destruction.';
         break;
     }
 
-    // Crea il tooltip
+    // Crea il tooltip - sfondo scuro con glass effect
     this.tooltipElement = document.createElement('div');
     this.tooltipElement.className = 'stat-tooltip';
     this.tooltipElement.style.cssText = `
       position: absolute;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 8px;
+      background: rgba(15, 20, 30, 0.9);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 15px;
       padding: 16px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
       z-index: 1000;
-      max-width: 300px;
+      max-width: 280px;
       font-size: 14px;
       line-height: 1.5;
       pointer-events: auto;
@@ -847,26 +1011,28 @@ export class UpgradePanel extends BasePanel {
 
     // Contenuto del tooltip
     this.tooltipElement.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
-        <h4 style="margin: 0; color: rgba(255, 255, 255, 0.9); font-size: 16px; font-weight: 600;">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;">
+        <h4 style="margin: 0; color: #ffffff; font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
           ${title}
         </h4>
         <button class="tooltip-close" style="
-          background: none;
-          border: none;
-          color: rgba(255, 255, 255, 0.7);
+          background: rgba(255, 255, 255, 0.1);
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: #ffffff;
           cursor: pointer;
-          font-size: 18px;
+          font-size: 14px;
           padding: 0;
           line-height: 1;
-          width: 20px;
-          height: 20px;
+          width: 22px;
+          height: 22px;
           display: flex;
           align-items: center;
           justify-content: center;
+          border-radius: 6px;
+          transition: all 0.2s ease;
         ">×</button>
       </div>
-      <p style="margin: 0; color: rgba(148, 163, 184, 0.8);">
+      <p style="margin: 0; color: rgba(200, 210, 230, 0.95); font-size: 12px; line-height: 1.6;">
         ${description}
       </p>
     `;
@@ -1035,67 +1201,86 @@ export class UpgradePanel extends BasePanel {
    * Aggiorna lo stato dei pulsanti di upgrade in base ai limiti massimi e costi
    */
   private updateUpgradeButtons(playerUpgrades: any, upgradeLimits: any): void {
-    // Mappa dei pulsanti per tipo di upgrade
-    const buttonClasses = {
+    // Mappa dei container per tipo di upgrade
+    const containerClasses = {
       hp: '.upgrade-hp',
       shield: '.upgrade-shield',
       speed: '.upgrade-speed',
       damage: '.upgrade-damage'
     };
 
-    Object.entries(buttonClasses).forEach(([statType, buttonClass]) => {
+    Object.entries(containerClasses).forEach(([statType, containerClass]) => {
       const currentValue = playerUpgrades[`${statType}Upgrades`];
       const maxValue = upgradeLimits[`max${statType.charAt(0).toUpperCase() + statType.slice(1)}Upgrades`];
 
+      // Trova il container e poi il bottone interno
+      const container = this.container.querySelector(containerClass) as HTMLElement;
+      if (!container) return;
 
-      const upgradeButton = this.container.querySelector(buttonClass) as HTMLElement;
-      if (upgradeButton) {
-        if (currentValue >= maxValue) {
-          // Limite raggiunto - disabilita pulsante
-          upgradeButton.style.opacity = '0.5';
-          upgradeButton.style.pointerEvents = 'none';
-          upgradeButton.style.background = 'rgba(100, 100, 100, 0.3)';
-          upgradeButton.style.borderColor = 'rgba(100, 100, 100, 0.5)';
+      const upgradeButton = container.querySelector('.ui-upgrade-btn') as HTMLElement;
+      if (!upgradeButton) return;
 
-          // Cambia il testo per mostrare che è maxato
-          const upgradeText = upgradeButton.querySelector('div:first-child');
-          if (upgradeText) {
-            upgradeText.textContent = 'MAX LEVEL';
-          }
+      // Trova l'etichetta del costo
+      const costLabel = container.querySelector('.upgrade-cost-label') as HTMLElement;
 
-          // Rimuovi i costi dal pulsante dato che non è più disponibile
-          const costDetails = upgradeButton.querySelector('div:last-child') as HTMLElement;
-          if (costDetails) {
-            costDetails.style.display = 'none';
-          }
-        } else {
-          // Non al limite - abilita pulsante e aggiorna costi
-          upgradeButton.style.opacity = '1';
-          upgradeButton.style.pointerEvents = 'auto';
-          upgradeButton.style.background = 'rgba(255, 255, 255, 0.1)';
-          upgradeButton.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+      if (currentValue >= maxValue) {
+        // Limite raggiunto - disabilita pulsante
+        upgradeButton.style.opacity = '0.5';
+        upgradeButton.style.pointerEvents = 'none';
+        upgradeButton.style.background = 'rgba(100, 100, 100, 0.3)';
+        upgradeButton.style.borderColor = 'rgba(100, 100, 100, 0.5)';
+        upgradeButton.textContent = 'MAX';
 
-          // Ripristina il testo
-          const upgradeText = upgradeButton.querySelector('div:first-child');
-          if (upgradeText) {
-            upgradeText.textContent = 'UPGRADE';
-          }
+        // Nascondi il costo
+        if (costLabel) {
+          costLabel.style.display = 'none';
+        }
+      } else {
+        // Non al limite - abilita pulsante e aggiorna costi
+        upgradeButton.style.opacity = '1';
+        upgradeButton.style.pointerEvents = 'auto';
+        upgradeButton.textContent = 'UPGRADE';
 
-          // Aggiorna i costi nel pulsante
-          const costDetails = upgradeButton.querySelector('div:last-child') as HTMLElement;
-          if (costDetails) {
-            const newCost = this.calculateUpgradeCost(statType, currentValue);
-            let costText = '';
-            if (newCost.credits > 0 && newCost.cosmos > 0) {
-              costText = `${newCost.credits}CR + ${newCost.cosmos}CO`;
-            } else if (newCost.credits > 0) {
-              costText = `${newCost.credits}CR`;
-            } else if (newCost.cosmos > 0) {
-              costText = `${newCost.cosmos}CO`;
+        // Aggiorna il costo
+        if (costLabel) {
+          const newCost = this.calculateUpgradeCost(statType, currentValue);
+          
+          // Aggiorna o crea la linea crediti
+          let creditsLine = costLabel.querySelector('.cost-credits') as HTMLElement;
+          if (newCost.credits > 0) {
+            if (!creditsLine) {
+              creditsLine = document.createElement('div');
+              creditsLine.className = 'cost-credits';
+              creditsLine.style.cssText = `font-size: 11px; color: #fbbf24; font-weight: 500;`;
+              const cosmosLine = costLabel.querySelector('.cost-cosmos');
+              if (cosmosLine) {
+                costLabel.insertBefore(creditsLine, cosmosLine);
+              } else {
+                costLabel.appendChild(creditsLine);
+              }
             }
-            costDetails.textContent = costText;
-            costDetails.style.display = 'block';
+            creditsLine.textContent = `${newCost.credits.toLocaleString()} Credits`;
+            creditsLine.style.display = 'block';
+          } else if (creditsLine) {
+            creditsLine.style.display = 'none';
           }
+
+          // Aggiorna o crea la linea cosmos
+          let cosmosLine = costLabel.querySelector('.cost-cosmos') as HTMLElement;
+          if (newCost.cosmos > 0) {
+            if (!cosmosLine) {
+              cosmosLine = document.createElement('div');
+              cosmosLine.className = 'cost-cosmos';
+              cosmosLine.style.cssText = `font-size: 11px; color: #a78bfa; font-weight: 500;`;
+              costLabel.appendChild(cosmosLine);
+            }
+            cosmosLine.textContent = `${newCost.cosmos.toLocaleString()} Cosmos`;
+            cosmosLine.style.display = 'block';
+          } else if (cosmosLine) {
+            cosmosLine.style.display = 'none';
+          }
+
+          costLabel.style.display = 'flex';
         }
       }
     });

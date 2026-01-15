@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { LogMessage, LogType } from '../../presentation/ui/LogMessage';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Sistema per gestire e renderizzare i messaggi di log centrati in alto
@@ -65,7 +66,7 @@ export class LogSystem extends BaseSystem {
    * Renderizza un singolo messaggio di log
    */
   private renderLogMessage(ctx: CanvasRenderingContext2D, message: LogMessage, startY: number): void {
-    const canvasWidth = ctx.canvas.width;
+    const { width: canvasWidth } = DisplayManager.getInstance().getLogicalSize();
     const alpha = message.getAlpha();
 
     // Usa la posizione Y fornita come punto di partenza per le righe

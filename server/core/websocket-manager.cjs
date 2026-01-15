@@ -578,27 +578,27 @@ class WebSocketConnectionManager {
               damage: 100
             };
 
-            // Calcola il costo basato sul livello corrente dell'upgrade
+            // Calcola il costo basato sul livello corrente dell'upgrade (costi crescenti)
             function calculateUpgradeCost(statType, currentLevel) {
               const baseCost = baseUpgradeCosts[statType];
-              let credits = 0;
-              let cosmos = 0;
+              
+              // Moltiplicatore crescente basato sul livello (cresce del 15% per livello)
+              const levelMultiplier = 1 + (currentLevel * 0.15);
 
               if (currentLevel < 20) {
-                // Fase 1: Solo crediti (primi 20 livelli)
-                credits = baseCost.credits;
-                cosmos = 0;
+                // Fase 1: Solo crediti (primi 20 livelli) - costo crescente
+                const credits = Math.floor(baseCost.credits * levelMultiplier);
+                return { credits, cosmos: 0 };
               } else if (currentLevel < 40) {
-                // Fase 2: Crediti + Cosmos (livelli 21-40)
-                credits = baseCost.credits;
-                cosmos = baseCost.cosmos;
+                // Fase 2: Crediti + Cosmos (livelli 21-40) - entrambi crescenti
+                const credits = Math.floor(baseCost.credits * levelMultiplier);
+                const cosmos = Math.floor(baseCost.cosmos * (1 + (currentLevel - 20) * 0.1));
+                return { credits, cosmos };
               } else {
-                // Fase 3: Solo Cosmos (livello 41+)
-                credits = 0;
-                cosmos = baseCost.cosmos * 2; // Doppio per rendere più impegnativo
+                // Fase 3: Solo Cosmos (livello 41+) - cosmos crescente più velocemente
+                const cosmos = Math.floor(baseCost.cosmos * 2 * (1 + (currentLevel - 40) * 0.2));
+                return { credits: 0, cosmos };
               }
-
-              return { credits, cosmos };
             }
 
             // Calcola il costo per l'upgrade richiesto

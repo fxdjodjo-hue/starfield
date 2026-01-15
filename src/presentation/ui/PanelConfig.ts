@@ -1,8 +1,26 @@
 /**
  * Configurazione centralizzata dei pannelli UI
  * Definisce dimensioni, posizioni e proprietà di tutti i pannelli dell'applicazione
- * Questo assicura consistenza e facilita la manutenzione
+ * Supporta dimensioni responsive basate sulla viewport
  */
+
+import { DisplayManager } from '../../infrastructure/display';
+
+/**
+ * Dimensioni di riferimento per il design (base 1920x1080)
+ */
+const DESIGN_REFERENCE = {
+  width: 1920,
+  height: 1080,
+} as const;
+
+/**
+ * Dimensioni base dei pannelli (riferimento per 1920x1080)
+ */
+const BASE_PANEL_SIZE = {
+  width: 1500,
+  height: 850,
+} as const;
 
 export interface PanelConfig {
   id: string;
@@ -12,13 +30,16 @@ export interface PanelConfig {
   size: { width: number; height: number };
 }
 
-export const PANEL_CONFIGS = {
+/**
+ * Configurazioni base dei pannelli (dimensioni di riferimento)
+ */
+const PANEL_CONFIGS_BASE = {
   stats: {
     id: 'player-stats',
     icon: '⊞',
     title: 'Player Statistics',
     position: 'center-left' as const,
-    size: { width: 1300, height: 750 }
+    size: { ...BASE_PANEL_SIZE }
   },
 
   quest: {
@@ -26,7 +47,7 @@ export const PANEL_CONFIGS = {
     icon: '⊳',
     title: 'Missions & Quests',
     position: 'center-left-below' as const,
-    size: { width: 1300, height: 750 }
+    size: { ...BASE_PANEL_SIZE }
   },
 
   upgrade: {
@@ -34,37 +55,82 @@ export const PANEL_CONFIGS = {
     icon: '⊹',
     title: 'Upgrade',
     position: 'center-left-below2' as const,
-    size: { width: 1300, height: 750 }
+    size: { ...BASE_PANEL_SIZE }
   }
 } as const;
 
 /**
  * Tipo per identificare i pannelli disponibili
  */
-export type PanelType = keyof typeof PANEL_CONFIGS;
+export type PanelType = keyof typeof PANEL_CONFIGS_BASE;
 
 /**
- * Ottiene la configurazione di un pannello specifico
+ * Calcola le dimensioni scalate per un pannello basandosi sulla viewport corrente
+ * Mantiene le proporzioni ma scala per adattarsi a schermi diversi
+ * I pannelli modali NON necessitano compensazione DPR perché sono già dimensionati
+ * in percentuale della viewport logica
+ */
+export function getScaledPanelSize(baseSize: { width: number; height: number }): { width: number; height: number } {
+  const displayManager = DisplayManager.getInstance();
+  const { width: viewportWidth, height: viewportHeight } = displayManager.getLogicalSize();
+  
+  // Calcola fattori di scala separati per width e height
+  const scaleX = viewportWidth / DESIGN_REFERENCE.width;
+  const scaleY = viewportHeight / DESIGN_REFERENCE.height;
+  
+  // Usa il fattore di scala minore per mantenere il pannello visibile
+  // ma limita tra 0.6 e 1.2 per evitare estremi
+  const scale = Math.min(Math.max(Math.min(scaleX, scaleY), 0.6), 1.2);
+  
+  // Assicura che il pannello non superi l'85% della viewport
+  const maxWidth = viewportWidth * 0.85;
+  const maxHeight = viewportHeight * 0.85;
+  
+  const scaledWidth = Math.min(baseSize.width * scale, maxWidth);
+  const scaledHeight = Math.min(baseSize.height * scale, maxHeight);
+  
+  return {
+    width: Math.round(scaledWidth),
+    height: Math.round(scaledHeight)
+  };
+}
+
+/**
+ * Ottiene la configurazione di un pannello con dimensioni scalate per la viewport corrente
  */
 export function getPanelConfig(type: PanelType): PanelConfig {
-  return PANEL_CONFIGS[type];
+  const baseConfig = PANEL_CONFIGS_BASE[type];
+  return {
+    ...baseConfig,
+    size: getScaledPanelSize(baseConfig.size)
+  };
 }
 
 /**
- * Ottiene tutte le configurazioni dei pannelli
+ * Ottiene tutte le configurazioni dei pannelli con dimensioni scalate
  */
 export function getAllPanelConfigs(): PanelConfig[] {
-  return Object.values(PANEL_CONFIGS);
+  return (Object.keys(PANEL_CONFIGS_BASE) as PanelType[]).map(type => getPanelConfig(type));
 }
 
 /**
- * Dimensioni standard per i pannelli principali
- * Garantisce consistenza tra tutti i pannelli
+ * Ottiene le dimensioni standard scalate per i pannelli principali
  */
-export const STANDARD_PANEL_SIZE = {
-  width: 1300,
-  height: 750
-} as const;
+export function getStandardPanelSize(): { width: number; height: number } {
+  return getScaledPanelSize(BASE_PANEL_SIZE);
+}
+
+/**
+ * Esporta PANEL_CONFIGS per retrocompatibilità (usa dimensioni base)
+ * Per dimensioni responsive, usa getPanelConfig() invece
+ */
+export const PANEL_CONFIGS = PANEL_CONFIGS_BASE;
+
+/**
+ * Dimensioni standard per i pannelli principali (base, non scalate)
+ * Per dimensioni scalate usa getStandardPanelSize()
+ */
+export const STANDARD_PANEL_SIZE = BASE_PANEL_SIZE;
 
 /**
  * Posizioni disponibili per le icone

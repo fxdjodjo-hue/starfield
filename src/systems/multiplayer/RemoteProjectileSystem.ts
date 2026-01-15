@@ -213,13 +213,7 @@ export class RemoteProjectileSystem extends BaseSystem {
    * Update periodico (principalmente per logging)
    */
   update(deltaTime: number): void {
-    // Logging periodico dello stato usando utility centralizzata
-    const stats = this.getStats();
-    if (stats.totalProjectiles > 0) {
-      logger.logIfTime(
-        'remote_projectile_status',
-        GAME_CONSTANTS.UI.LOG_INTERVAL
-      );
-    }
+    // Aggiorna proiettili remoti (nessun logging verbose necessario)
+    // I proiettili vengono gestiti automaticamente dal sistema
   }
 }

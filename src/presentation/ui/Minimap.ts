@@ -1,4 +1,5 @@
 import { CONFIG } from '../../utils/config/Config';
+import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
 
 /**
  * Componente Minimap per gestire la minimappa quadrata
@@ -28,6 +29,9 @@ export class Minimap {
   // Stato interattivo
   public visible: boolean;
   public enabled: boolean;
+  
+  // DPR compensation
+  private dprCompensation: number;
 
   constructor(
     x: number = 0,
@@ -37,11 +41,22 @@ export class Minimap {
     worldWidth: number = 21000,
     worldHeight: number = 13100
   ) {
-    // Posizione in basso a destra per default
-    this.x = x || window.innerWidth - width - 20;
-    this.y = y || window.innerHeight - height - 20;
-    this.width = width;
-    this.height = height;
+    // Calcola compensazione DPR
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    this.dprCompensation = 1 / dpr;
+    
+    // Dimensioni compensate per DPR
+    const compensatedWidth = Math.round(width * this.dprCompensation);
+    const compensatedHeight = Math.round(height * this.dprCompensation);
+    
+    // Posizione in basso a destra per default usando DisplayManager
+    const { width: viewportWidth, height: viewportHeight } = DisplayManager.getInstance().getLogicalSize();
+    const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN * this.dprCompensation);
+    
+    this.x = x || viewportWidth - compensatedWidth - margin;
+    this.y = y || viewportHeight - compensatedHeight - margin;
+    this.width = compensatedWidth;
+    this.height = compensatedHeight;
 
     // Colori tema glass spaziale
     this.backgroundColor = 'rgba(0, 0, 0, 0.8)';
@@ -56,11 +71,11 @@ export class Minimap {
 
     // Calcola la scala per adattare tutto il mondo nella minimappa mantenendo proporzioni
     // Scala uniformemente per far entrare tutto il mondo nella minimappa
-    const scaleX = width / worldWidth;
-    const scaleY = height / worldHeight;
+    const scaleX = this.width / worldWidth;
+    const scaleY = this.height / worldHeight;
     this.scale = Math.min(scaleX, scaleY); // Usa la scala più piccola per far entrare tutto
 
-    this.entityDotSize = 3; // Dimensione fissa dei pallini
+    this.entityDotSize = Math.round(3 * this.dprCompensation); // Dimensione compensata dei pallini
     this.visible = true;
     this.enabled = true;
   }
@@ -119,8 +134,16 @@ export class Minimap {
    * Aggiorna dimensioni e posizione se la finestra cambia
    */
   updateViewport(canvasWidth: number, canvasHeight: number): void {
-    // Ricalcola posizione per rimanere in basso a destra
-    this.x = canvasWidth - this.width - 20;
-    this.y = canvasHeight - this.height - 20;
+    // Ricalcola posizione per rimanere in basso a destra con margine compensato
+    const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN * this.dprCompensation);
+    this.x = canvasWidth - this.width - margin;
+    this.y = canvasHeight - this.height - margin;
+  }
+  
+  /**
+   * Restituisce il fattore di compensazione DPR
+   */
+  getDprCompensation(): number {
+    return this.dprCompensation;
   }
 }

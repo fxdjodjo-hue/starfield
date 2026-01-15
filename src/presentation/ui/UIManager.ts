@@ -5,6 +5,7 @@
  */
 
 import type { PanelConfig } from './PanelConfig';
+import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
 
 export interface PanelData {
   [key: string]: any; // Flexible data structure for different panels
@@ -35,6 +36,11 @@ export abstract class BasePanel {
     const container = document.createElement('div');
     container.id = `panel-${this.config.id}`;
     container.className = 'ui-panel';
+    
+    // Usa border-radius compensato per DPR
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    const borderRadius = Math.round(DISPLAY_CONSTANTS.BORDER_RADIUS_LG / dpr);
+    
     container.style.cssText = `
       position: fixed;
       ${this.getPositionStyles()}
@@ -44,7 +50,7 @@ export abstract class BasePanel {
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 25px;
+      border-radius: ${borderRadius}px;
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -73,8 +79,9 @@ export abstract class BasePanel {
    */
   private getPositionStyles(): string {
     // Calcola la posizione centrale basandosi sulle dimensioni del pannello
-    const centerX = window.innerWidth / 2 - this.config.size.width / 2;
-    const centerY = window.innerHeight / 2 - this.config.size.height / 2;
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    const centerX = width / 2 - this.config.size.width / 2;
+    const centerY = height / 2 - this.config.size.height / 2;
 
     return `top: ${centerY}px; left: ${centerX}px;`;
   }
@@ -115,6 +122,9 @@ export abstract class BasePanel {
       document.body.appendChild(this.container);
     }
 
+    // Assicura che sia visibile
+    this.container.style.display = 'block';
+
     // Ricalcola posizione centrale (responsive) - PRIMA degli stili di animazione
     this.updatePosition();
 
@@ -124,11 +134,6 @@ export abstract class BasePanel {
       this.container.style.transform = 'scale(1)';
       this.container.style.pointerEvents = 'auto';
     }, 10);
-
-    // Assicura che sia nel DOM
-    if (!document.body.contains(this.container)) {
-      document.body.appendChild(this.container);
-    }
 
     this.onShow();
   }
@@ -143,6 +148,13 @@ export abstract class BasePanel {
     this.container.style.opacity = '0';
     this.container.style.transform = 'scale(0.95)';
     this.container.style.pointerEvents = 'none';
+
+    // Nascondi completamente dopo l'animazione
+    setTimeout(() => {
+      if (!this.isVisible) {
+        this.container.style.display = 'none';
+      }
+    }, 300);
 
     // Emette evento per aggiornare l'icona corrispondente
     const event = new CustomEvent('panelVisibilityChanged', {
@@ -203,8 +215,9 @@ export abstract class BasePanel {
   updatePosition(): void {
     if (!this.isVisible) return;
 
-    const centerX = window.innerWidth / 2 - this.config.size.width / 2;
-    const centerY = window.innerHeight / 2 - this.config.size.height / 2;
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    const centerX = width / 2 - this.config.size.width / 2;
+    const centerY = height / 2 - this.config.size.height / 2;
 
     this.container.style.left = `${centerX}px`;
     this.container.style.top = `${centerY}px`;
@@ -248,20 +261,27 @@ export class FloatingIcon {
     icon.innerHTML = config.icon;
     icon.title = config.title;
 
+    // Usa dimensioni responsive con compensazione DPR
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    const dprCompensation = 1 / dpr;
+    const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE * dprCompensation);
+    const borderRadius = Math.round(DISPLAY_CONSTANTS.BORDER_RADIUS_SM * dprCompensation);
+    const fontSize = Math.round(20 * dprCompensation);
+    
     icon.style.cssText = `
       position: fixed;
       ${this.getIconPosition(config.position)}
-      width: 48px;
-      height: 48px;
+      width: ${iconSize}px;
+      height: ${iconSize}px;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: 12px;
+      border-radius: ${borderRadius}px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 20px;
+      font-size: ${fontSize}px;
       color: rgba(255, 255, 255, 0.8);
       cursor: pointer;
       z-index: 1500;
@@ -279,10 +299,12 @@ export class FloatingIcon {
   }
 
   /**
-   * Restituisce la posizione dell'icona
+   * Restituisce la posizione dell'icona usando margini responsive compensati per DPR
    */
   private getIconPosition(position: string): string {
-    const margin = 20;
+    // Usa il margine standard compensato per DPR
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
 
     switch (position) {
       case 'top-left':
@@ -404,7 +426,7 @@ export class UIManager {
   private panels: Map<string, BasePanel> = new Map();
   private icons: Map<string, FloatingIcon> = new Map();
   private isVisible: boolean = true;
-  private resizeHandler: (() => void) | null = null;
+  private unsubscribeResize: (() => void) | null = null;
 
   constructor() {
     this.setupResizeHandler();
@@ -423,19 +445,18 @@ export class UIManager {
   }
 
   /**
-   * Imposta l'event handler per il resize della finestra
+   * Imposta l'event handler per il resize usando DisplayManager
    */
   private setupResizeHandler(): void {
-    this.resizeHandler = () => {
+    // Usa DisplayManager per gestione centralizzata del resize
+    this.unsubscribeResize = DisplayManager.getInstance().onResize(() => {
       // Ricalcola la posizione di tutti i pannelli visibili quando la finestra viene ridimensionata
       this.panels.forEach(panel => {
         if (panel.isPanelVisible()) {
           panel.updatePosition();
         }
       });
-    };
-
-    window.addEventListener('resize', this.resizeHandler);
+    });
   }
 
   /**
@@ -561,10 +582,10 @@ export class UIManager {
    * Distrugge tutti i pannelli e icone
    */
   destroy(): void {
-    // Rimuovi l'event listener per il resize
-    if (this.resizeHandler) {
-      window.removeEventListener('resize', this.resizeHandler);
-      this.resizeHandler = null;
+    // Rimuovi la sottoscrizione al resize
+    if (this.unsubscribeResize) {
+      this.unsubscribeResize();
+      this.unsubscribeResize = null;
     }
 
     this.panels.forEach(panel => panel.destroy());

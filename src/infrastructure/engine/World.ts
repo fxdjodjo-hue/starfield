@@ -1,5 +1,6 @@
 import { ECS } from '../ecs/ECS';
 import { CONFIG } from '../../utils/config/Config';
+import { DisplayManager } from '../display';
 
 /**
  * World che gestisce il gioco, ECS e tutti i sistemi
@@ -8,50 +9,34 @@ export class World {
   private ecs: ECS;
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
+  private displayManager: DisplayManager;
+  private unsubscribeResize: (() => void) | null = null;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      throw new Error('Impossibile ottenere il contesto 2D del canvas');
-    }
-    this.ctx = ctx;
+    this.displayManager = DisplayManager.getInstance();
+
+    // Configura canvas con supporto HiDPI
+    this.ctx = this.displayManager.setupCanvas(canvas, {
+      fullscreen: true,
+      backgroundColor: CONFIG.BACKGROUND_COLOR,
+    });
 
     // Inizializza ECS
     this.ecs = new ECS();
 
-    // Configura canvas
-    this.setupCanvas();
-  }
-
-  /**
-   * Configura le dimensioni e proprietà del canvas
-   */
-  private setupCanvas(): void {
-    this.resizeCanvas();
-    this.canvas.style.backgroundColor = CONFIG.BACKGROUND_COLOR;
-
-    // Ascolta gli eventi di resize della finestra
-    window.addEventListener('resize', () => {
-      this.resizeCanvas();
+    // Registra per eventi di resize
+    this.unsubscribeResize = this.displayManager.onResize(() => {
+      this.handleResize();
     });
   }
 
   /**
-   * Ridimensiona il canvas per adattarsi alla finestra
+   * Gestisce il resize della finestra
+   * Riscala il canvas mantenendo il supporto HiDPI
    */
-  private resizeCanvas(): void {
-    // Usa le dimensioni della finestra del browser
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-
-    // Aggiorna le dimensioni del canvas
-    this.canvas.width = width;
-    this.canvas.height = height;
-
-    // Aggiorna anche il CSS per sicurezza
-    this.canvas.style.width = width + 'px';
-    this.canvas.style.height = height + 'px';
+  private handleResize(): void {
+    this.displayManager.rescaleCanvas(this.canvas, this.ctx);
   }
 
   /**
@@ -65,8 +50,9 @@ export class World {
    * Render del mondo (chiamato dal game loop)
    */
   render(): void {
-    // Clear canvas
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    // Clear canvas usando dimensioni logiche (il context è già scalato per DPR)
+    const { width, height } = this.displayManager.getLogicalSize();
+    this.ctx.clearRect(0, 0, width, height);
 
     // Render attraverso ECS
     this.ecs.render(this.ctx);
@@ -87,12 +73,20 @@ export class World {
   }
 
   /**
-   * Restituisce le dimensioni correnti del canvas
+   * Restituisce le dimensioni logiche del canvas (CSS pixels)
+   * Usa queste dimensioni per calcoli di gioco, rendering, coordinate camera
    */
   getCanvasSize(): { width: number; height: number } {
-    return {
-      width: this.canvas.width,
-      height: this.canvas.height
-    };
+    return this.displayManager.getLogicalSize();
+  }
+
+  /**
+   * Cleanup risorse
+   */
+  destroy(): void {
+    if (this.unsubscribeResize) {
+      this.unsubscribeResize();
+      this.unsubscribeResize = null;
+    }
   }
 }

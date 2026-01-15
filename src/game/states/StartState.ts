@@ -1,6 +1,7 @@
 import { GameState } from './GameState';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import { AuthScreen } from '../../presentation/ui/AuthScreen';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Stato della schermata iniziale
@@ -36,9 +37,10 @@ export class StartState extends GameState {
    * Renderizza lo stato (opzionale, la UI è HTML)
    */
   render(ctx: CanvasRenderingContext2D): void {
-    // Pulisce il canvas con uno sfondo scuro
+    // Pulisce il canvas con uno sfondo scuro usando dimensioni logiche
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
     ctx.fillStyle = '#000011';
-    ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.fillRect(0, 0, width, height);
 
     // Potrebbe renderizzare qualche effetto visivo di sfondo
     // ma per ora lasciamo solo il canvas pulito

@@ -1,3 +1,5 @@
+import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
+
 /**
  * Interfaccia per i dati del Player HUD
  * Definisce il contratto tra logica di business e presentazione
@@ -20,30 +22,44 @@ export class PlayerHUD {
   private container: HTMLElement;
   private isVisible: boolean = false;
   private _isExpanded: boolean = false;
+  private dprCompensation: number;
 
   constructor() {
+    // Calcola compensazione DPR per dimensioni UI corrette
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    this.dprCompensation = 1 / dpr;
     this.container = this.createHUDContainer();
   }
 
   /**
    * Crea il contenitore principale dell'HUD con stile glass
+   * Dimensioni compensate per DPR di Windows
    */
   private createHUDContainer(): HTMLElement {
     const container = document.createElement('div');
     container.id = 'player-hud';
+    
+    // Dimensioni compensate per DPR
+    const c = this.dprCompensation;
+    const margin = Math.round(20 * c);
+    const gap = Math.round(15 * c);
+    const borderRadius = Math.round(25 * c);
+    const paddingV = Math.round(12 * c);
+    const paddingH = Math.round(20 * c);
+    
     container.style.cssText = `
       position: fixed;
-      top: 20px;
-      left: 20px;
+      top: ${margin}px;
+      left: ${margin}px;
       display: flex;
       align-items: center;
-      gap: 15px;
+      gap: ${gap}px;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 25px;
-      padding: 12px 20px;
+      border-radius: ${borderRadius}px;
+      padding: ${paddingV}px ${paddingH}px;
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -85,14 +101,29 @@ export class PlayerHUD {
   }
 
   /**
-   * Applica gli stili glass moderni
+   * Applica gli stili glass moderni con dimensioni compensate per DPR
    */
   private attachGlassStyles(): void {
     const existingStyle = document.getElementById('player-hud-styles');
-    if (existingStyle) return;
+    if (existingStyle) {
+      existingStyle.remove(); // Rimuovi per aggiornare con nuovi valori DPR
+    }
 
     const style = document.createElement('style');
     style.id = 'player-hud-styles';
+    
+    // Calcola dimensioni compensate per DPR
+    const c = this.dprCompensation;
+    const circleSize = Math.round(50 * c);
+    const levelFontSize = Math.round(18 * c);
+    const idFontSize = Math.round(10 * c);
+    const labelFontSize = Math.round(9 * c);
+    const valueFontSize = Math.round(12 * c);
+    const gap4 = Math.round(4 * c);
+    const gap24 = Math.round(24 * c);
+    const marginLeft8 = Math.round(8 * c);
+    const minWidth90 = Math.round(90 * c);
+    
     style.textContent = `
       /* Container principale con effetto glassmorphism */
       #player-hud {
@@ -114,12 +145,12 @@ export class PlayerHUD {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 4px;
+        gap: ${gap4}px;
       }
 
       .level-circle {
-        width: 50px;
-        height: 50px;
+        width: ${circleSize}px;
+        height: ${circleSize}px;
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
@@ -133,7 +164,7 @@ export class PlayerHUD {
       .level-number {
         color: rgba(255, 255, 255, 0.95);
         font-weight: 800;
-        font-size: 18px;
+        font-size: ${levelFontSize}px;
         text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
         z-index: 1;
         user-select: none;
@@ -144,7 +175,7 @@ export class PlayerHUD {
 
       .player-id {
         color: rgba(255, 255, 255, 0.7);
-        font-size: 10px;
+        font-size: ${idFontSize}px;
         font-weight: 500;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
         user-select: none;
@@ -158,15 +189,15 @@ export class PlayerHUD {
       /* Riga statistiche orizzontale */
       .stats-row {
         display: flex;
-        gap: 24px;
+        gap: ${gap24}px;
         align-items: center;
-        margin-left: 8px;
+        margin-left: ${marginLeft8}px;
       }
 
 
       .stat-label {
         color: rgba(255, 255, 255, 0.8);
-        font-size: 9px;
+        font-size: ${labelFontSize}px;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.5px;
@@ -179,7 +210,7 @@ export class PlayerHUD {
 
       .stat-value {
         color: rgba(255, 255, 255, 0.95);
-        font-size: 12px;
+        font-size: ${valueFontSize}px;
         font-weight: 600;
         font-variant-numeric: tabular-nums;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -195,61 +226,61 @@ export class PlayerHUD {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 3px;
-        min-width: 90px;
+        gap: ${Math.round(3 * c)}px;
+        min-width: ${minWidth90}px;
         text-align: center;
       }
 
 
 
-      /* Responsive design */
+      /* Responsive design - dimensioni già compensate per DPR */
       @media (max-width: 1400px) {
         #player-hud {
-          padding: 10px 16px;
-          gap: 12px;
+          padding: ${Math.round(10 * c)}px ${Math.round(16 * c)}px;
+          gap: ${Math.round(12 * c)}px;
         }
 
         .level-circle {
-          width: 42px;
-          height: 42px;
+          width: ${Math.round(42 * c)}px;
+          height: ${Math.round(42 * c)}px;
         }
 
         .level-number {
-          font-size: 15px;
+          font-size: ${Math.round(15 * c)}px;
         }
 
         .player-id {
-          font-size: 9px;
+          font-size: ${Math.round(9 * c)}px;
         }
 
 
         .stats-row {
-          gap: 20px;
-          margin-left: 6px;
+          gap: ${Math.round(20 * c)}px;
+          margin-left: ${Math.round(6 * c)}px;
         }
 
         .stat-item {
-          min-width: 80px;
+          min-width: ${Math.round(80 * c)}px;
         }
       }
 
       @media (max-width: 1200px) {
         .stats-row {
-          gap: 16px;
+          gap: ${Math.round(16 * c)}px;
         }
 
         .stat-item {
-          min-width: 70px;
+          min-width: ${Math.round(70 * c)}px;
         }
       }
 
       @media (max-width: 1000px) {
         .stats-row {
-          gap: 12px;
+          gap: ${Math.round(12 * c)}px;
         }
 
         .stat-item {
-          min-width: 65px;
+          min-width: ${Math.round(65 * c)}px;
         }
       }
     `;

@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { AssetManager } from '../../infrastructure/AssetManager';
+import { DisplayManager } from '../../infrastructure/display';
 import { Transform } from '../../entities/spatial/Transform';
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { Npc } from '../../entities/ai/Npc';
@@ -37,6 +38,7 @@ export class RenderSystem extends BaseSystem {
   private playerSystem: PlayerSystem;
   private assetManager: AssetManager;
   private projectileRenderer: ProjectileRenderer;
+  private displayManager: DisplayManager;
   private damageTextSystem: any = null; // Sistema per renderizzare i testi di danno
   private componentCache: Map<Entity, any> = new Map(); // Cache componenti per ottimizzazione
   private entityQueryCache: Entity[] = []; // Cache risultati query ECS
@@ -48,6 +50,7 @@ export class RenderSystem extends BaseSystem {
     this.playerSystem = playerSystem;
     this.assetManager = assetManager;
     this.projectileRenderer = new ProjectileRenderer(ecs, playerSystem, assetManager);
+    this.displayManager = DisplayManager.getInstance();
   }
 
   /**
@@ -195,7 +198,8 @@ export class RenderSystem extends BaseSystem {
       if (components.parallax) continue;
 
       if (components.transform) {
-        const screenPos = ScreenSpace.toScreen(components.transform, camera, ctx.canvas.width, ctx.canvas.height);
+        const { width, height } = this.displayManager.getLogicalSize();
+        const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
 
         // Render entity
         this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
@@ -322,7 +326,8 @@ export class RenderSystem extends BaseSystem {
       if (!components.transform || !components.projectile) continue;
 
       // Convert world coordinates to screen coordinates
-      const screenPos = ScreenSpace.toScreen(components.transform, camera, ctx.canvas.width, ctx.canvas.height);
+      const { width, height } = this.displayManager.getLogicalSize();
+      const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
 
       this.renderProjectile(ctx, components.projectile, screenPos);
     }
@@ -385,7 +390,8 @@ export class RenderSystem extends BaseSystem {
     if (!playerTransform) return;
 
     // Converte posizione mondo a schermo
-    const screenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, ctx.canvas.width, ctx.canvas.height);
+    const { width, height } = this.displayManager.getLogicalSize();
+    const screenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, width, height);
 
     const radius = 600; // Raggio del range di attacco del player (600px)
     const screenRadius = radius * camera.zoom; // Scala con lo zoom della camera

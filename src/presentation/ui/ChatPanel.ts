@@ -1,6 +1,7 @@
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { ChatText } from '../../entities/combat/ChatText';
 import { PlayerSystem } from '../../systems/player/PlayerSystem';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * ChatPanel - Pannello chat semplice nell'angolo in basso a sinistra
@@ -22,12 +23,20 @@ export class ChatPanel {
   private escKeyListener: ((e: KeyboardEvent) => void) | null = null;
   private enterKeyListener: ((e: KeyboardEvent) => void) | null = null;
   private isEnabled: boolean = true;
+  private dprCompensation: number;
+  private targetHeight: number;
 
   constructor(ecs?: ECS, context?: any, playerSystem?: PlayerSystem) {
     this.ecs = ecs || null;
     this.context = context || null;
     this.playerSystem = playerSystem || null;
     this.isEnabled = true; // Abilita la chat quando viene creata
+    
+    // Calcola compensazione DPR
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    this.dprCompensation = 1 / dpr;
+    this.targetHeight = Math.round(300 * this.dprCompensation);
+    
     this.createPanel();
     this.setupEventListeners();
     // Inizializza in stato chiuso (solo header visibile)
@@ -42,24 +51,26 @@ export class ChatPanel {
   }
 
   /**
-   * Crea il contenitore principale della chat
+   * Crea il contenitore principale della chat con dimensioni compensate per DPR
    */
   private createPanel(): void {
+    const c = this.dprCompensation;
+    
     // Container principale
     this.container = document.createElement('div');
     this.container.id = 'chat-panel';
     this.container.className = 'chat-panel';
     this.container.style.cssText = `
       position: fixed;
-      bottom: 5px;
-      left: 5px;
-      width: 400px;
-      height: 300px;
+      bottom: ${Math.round(5 * c)}px;
+      left: ${Math.round(5 * c)}px;
+      width: ${Math.round(400 * c)}px;
+      height: ${this.targetHeight}px;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 25px;
+      border-radius: ${Math.round(25 * c)}px;
       box-shadow:
         0 8px 32px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -78,26 +89,26 @@ export class ChatPanel {
     this.header = document.createElement('div');
     this.header.className = 'chat-header';
     this.header.style.cssText = `
-      padding: 12px 16px;
+      padding: ${Math.round(12 * c)}px ${Math.round(16 * c)}px;
       background: rgba(255, 255, 255, 0.05);
       border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 25px 25px 0 0;
+      border-radius: ${Math.round(25 * c)}px ${Math.round(25 * c)}px 0 0;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: ${Math.round(8 * c)}px;
       cursor: pointer;
     `;
 
     // Container sinistro con titolo
     const titleContainer = document.createElement('div');
-    titleContainer.style.cssText = `display: flex; align-items: center; gap: 8px;`;
+    titleContainer.style.cssText = `display: flex; align-items: center; gap: ${Math.round(8 * c)}px;`;
 
     const title = document.createElement('span');
     title.textContent = '💬 Chat';
     title.style.cssText = `
       color: rgba(255, 255, 255, 0.9);
-      font-size: 14px;
+      font-size: ${Math.round(14 * c)}px;
       font-weight: 700;
       text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     `;
@@ -112,13 +123,13 @@ export class ChatPanel {
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.2);
       color: rgba(255, 255, 255, 0.8);
-      font-size: 16px;
+      font-size: ${Math.round(16 * c)}px;
       font-weight: 600;
       cursor: pointer;
       padding: 0;
-      border-radius: 12px;
-      width: 24px;
-      height: 24px;
+      border-radius: ${Math.round(12 * c)}px;
+      width: ${Math.round(24 * c)}px;
+      height: ${Math.round(24 * c)}px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -167,12 +178,12 @@ export class ChatPanel {
     this.messagesContainer.className = 'chat-messages';
     this.messagesContainer.style.cssText = `
       flex: 1;
-      padding: 12px 16px;
+      padding: ${Math.round(12 * c)}px ${Math.round(16 * c)}px;
       overflow-y: auto;
       overflow-x: hidden;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: ${Math.round(8 * c)}px;
       scrollbar-width: thin;
       scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
     `;
@@ -180,14 +191,14 @@ export class ChatPanel {
     // Personalizza scrollbar per WebKit
     this.messagesContainer.style.cssText += `
       &::-webkit-scrollbar {
-        width: 6px;
+        width: ${Math.round(6 * c)}px;
       }
       &::-webkit-scrollbar-track {
         background: transparent;
       }
       &::-webkit-scrollbar-thumb {
         background: rgba(148, 163, 184, 0.3);
-        border-radius: 3px;
+        border-radius: ${Math.round(3 * c)}px;
       }
       &::-webkit-scrollbar-thumb:hover {
         background: rgba(148, 163, 184, 0.5);
@@ -198,11 +209,11 @@ export class ChatPanel {
     this.inputContainer = document.createElement('div');
     this.inputContainer.className = 'chat-input-container';
     this.inputContainer.style.cssText = `
-      padding: 12px 16px;
+      padding: ${Math.round(12 * c)}px ${Math.round(16 * c)}px;
       border-top: 1px solid rgba(255, 255, 255, 0.1);
       background: rgba(255, 255, 255, 0.05);
       display: flex;
-      gap: 8px;
+      gap: ${Math.round(8 * c)}px;
       align-items: center;
     `;
 
@@ -215,12 +226,12 @@ export class ChatPanel {
     this.inputElement.spellcheck = false;
     this.inputElement.style.cssText = `
       flex: 1;
-      padding: 8px 12px;
+      padding: ${Math.round(8 * c)}px ${Math.round(12 * c)}px;
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 12px;
+      border-radius: ${Math.round(12 * c)}px;
       color: rgba(255, 255, 255, 0.9);
-      font-size: 14px;
+      font-size: ${Math.round(14 * c)}px;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       outline: none;
       transition: all 0.2s ease;
@@ -246,12 +257,12 @@ export class ChatPanel {
     sendButton.textContent = '↑';
     sendButton.className = 'chat-send-button';
     sendButton.style.cssText = `
-      padding: 8px 12px;
+      padding: ${Math.round(8 * c)}px ${Math.round(12 * c)}px;
       background: rgba(255, 255, 255, 0.1);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 12px;
+      border-radius: ${Math.round(12 * c)}px;
       color: rgba(255, 255, 255, 0.8);
-      font-size: 14px;
+      font-size: ${Math.round(14 * c)}px;
       cursor: pointer;
       transition: all 0.2s ease;
       display: flex;
@@ -360,7 +371,6 @@ export class ChatPanel {
 
     // Ottieni l'altezza attuale dell'header (quando è minimizzata)
     const currentHeight = this.container.offsetHeight;
-    const targetHeight = 300;
 
     // Imposta l'altezza iniziale (attuale) per l'animazione
     this.container.style.height = currentHeight + 'px';
@@ -368,8 +378,8 @@ export class ChatPanel {
 
     // Piccola pausa per permettere al browser di applicare l'altezza iniziale
     setTimeout(() => {
-      // Aggiungi animazione per espandere l'altezza
-      this.container.style.height = targetHeight + 'px';
+      // Aggiungi animazione per espandere l'altezza (usa targetHeight compensato)
+      this.container.style.height = this.targetHeight + 'px';
     }, 10);
 
     // Espandi messaggi e input quando l'animazione è completa
@@ -477,13 +487,14 @@ export class ChatPanel {
    * Crea un elemento per un messaggio (solo testo semplice)
    */
   private createMessageElement(message: ChatMessage): HTMLElement {
+    const c = this.dprCompensation;
     const messageDiv = document.createElement('div');
     messageDiv.className = 'chat-message';
     messageDiv.style.cssText = `
-      margin-bottom: 2px;
-      padding: 1px 0;
+      margin-bottom: ${Math.round(2 * c)}px;
+      padding: ${Math.round(1 * c)}px 0;
       color: rgba(255, 255, 255, 0.9);
-      font-size: 14px;
+      font-size: ${Math.round(14 * c)}px;
       line-height: 1.2;
       word-wrap: break-word;
     `;

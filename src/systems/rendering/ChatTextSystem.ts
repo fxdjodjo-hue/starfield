@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { ChatText } from '../../entities/combat/ChatText';
 import { Transform } from '../../entities/spatial/Transform';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Sistema per il rendering dei testi dei messaggi di chat
@@ -70,7 +71,7 @@ export class ChatTextSystem extends BaseSystem {
     const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
-    const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
+    const canvasSize = DisplayManager.getInstance().getLogicalSize();
     const chatTextEntities = this.ecs.getEntitiesWithComponents(ChatText);
 
 

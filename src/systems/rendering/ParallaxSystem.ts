@@ -4,6 +4,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
 import { CameraSystem } from './CameraSystem';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Sistema Parallax - gestisce elementi con effetto parallax
@@ -106,15 +107,16 @@ export class ParallaxSystem extends BaseSystem {
     const worldX = transform.x + parallax.offsetX;
     const worldY = transform.y + parallax.offsetY;
 
-    // Converte in coordinate schermo
-    const screenPos = camera.worldToScreen(worldX, worldY, ctx.canvas.width, ctx.canvas.height);
+    // Converte in coordinate schermo usando dimensioni logiche
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    const screenPos = camera.worldToScreen(worldX, worldY, width, height);
     const screenX = screenPos.x;
     const screenY = screenPos.y;
 
     // Salta se l'elemento è fuori dallo schermo (con margine aumentato per mappa grande)
     const margin = 200; // Aumentato a 200 per la mappa 21000x13100
-    if (screenX < -margin || screenX > ctx.canvas.width + margin ||
-        screenY < -margin || screenY > ctx.canvas.height + margin) {
+    if (screenX < -margin || screenX > width + margin ||
+        screenY < -margin || screenY > height + margin) {
       ctx.restore();
       return;
     }

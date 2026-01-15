@@ -12,6 +12,7 @@ import { LogType } from '../../presentation/ui/LogMessage';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { CONFIG } from '../../utils/config/Config';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo
@@ -522,8 +523,9 @@ export class PlayerControlSystem extends BaseSystem {
 
     if (!transform || !velocity) return;
 
-    // Converti coordinate schermo del mouse in coordinate mondo usando la camera
-    const worldMousePos = this.camera.screenToWorld(this.lastMouseX, this.lastMouseY, window.innerWidth, window.innerHeight);
+    // Converti coordinate schermo del mouse in coordinate mondo usando dimensioni logiche
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    const worldMousePos = this.camera.screenToWorld(this.lastMouseX, this.lastMouseY, width, height);
     const worldMouseX = worldMousePos.x;
     const worldMouseY = worldMousePos.y;
 

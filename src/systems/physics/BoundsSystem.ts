@@ -4,6 +4,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Health } from '../../entities/combat/Health';
 import { CONFIG } from '../../utils/config/Config';
 import { CameraSystem } from '../rendering/CameraSystem';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Sistema Bounds - Gestisce i limiti della mappa
@@ -137,11 +138,12 @@ export class BoundsSystem extends BaseSystem {
     const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
-    // Converti coordinate mondo in coordinate schermo
-    const topLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_TOP, ctx.canvas.width, ctx.canvas.height);
-    const topRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_TOP, ctx.canvas.width, ctx.canvas.height);
-    const bottomRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_BOTTOM, ctx.canvas.width, ctx.canvas.height);
-    const bottomLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_BOTTOM, ctx.canvas.width, ctx.canvas.height);
+    // Converti coordinate mondo in coordinate schermo usando dimensioni logiche
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    const topLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_TOP, width, height);
+    const topRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_TOP, width, height);
+    const bottomRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_BOTTOM, width, height);
+    const bottomLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_BOTTOM, width, height);
 
     // Disegna il rettangolo di confine
     ctx.beginPath();

@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { DamageText } from '../../entities/combat/DamageText';
 import { Transform } from '../../entities/spatial/Transform';
 import type { DamageSystem } from '../combat/DamageSystem';
+import { DisplayManager } from '../../infrastructure/display';
 
 /**
  * Sistema per il rendering dei testi di danno fluttuanti
@@ -83,7 +84,7 @@ export class DamageTextSystem extends BaseSystem {
     const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
-    const canvasSize = { width: ctx.canvas.width, height: ctx.canvas.height };
+    const canvasSize = DisplayManager.getInstance().getLogicalSize();
     const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
 
     for (const entity of damageTextEntities) {

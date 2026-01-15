@@ -106,7 +106,13 @@ export class QuestPanel extends BasePanel {
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 25px;
       overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     `;
+    // Hide scrollbar for webkit browsers
+    const style = document.createElement('style');
+    style.textContent = `.quest-panel-content::-webkit-scrollbar { display: none; }`;
+    content.appendChild(style);
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
     const closeButton = document.createElement('button');
@@ -160,7 +166,7 @@ export class QuestPanel extends BasePanel {
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
-      margin-top: 10px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
     `;
 
     const title = document.createElement('h2');
@@ -243,6 +249,8 @@ export class QuestPanel extends BasePanel {
       gap: 8px;
       max-height: 200px;
       overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     `;
 
     // Aggiungi quest placeholder se la lista è vuota

@@ -53,7 +53,13 @@ export class PlayerStatsPanel extends BasePanel {
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 25px;
       overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     `;
+    // Hide scrollbar for webkit browsers
+    const style = document.createElement('style');
+    style.textContent = `.player-stats-content::-webkit-scrollbar { display: none; }`;
+    content.appendChild(style);
 
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
