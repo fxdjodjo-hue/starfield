@@ -92,6 +92,12 @@ class ServerProjectileManager {
         }
       }
 
+      // Salva posizione precedente per verifica collisione continua
+      const previousPosition = {
+        x: projectile.position.x,
+        y: projectile.position.y
+      };
+
       // Simula movimento del proiettile (aggiorna posizione)
       const deltaTime = (now - projectile.lastUpdate) / 1000; // secondi
       projectile.position.x += projectile.velocity.x * deltaTime;
@@ -99,10 +105,18 @@ class ServerProjectileManager {
       projectile.lastUpdate = now;
 
       // Verifica collisioni con il TARGET SPECIFICO (se presente)
+      // IMPORTANTE: Verifica collisione DOPO il movimento per catturare collisioni durante il movimento veloce
       if (projectile.targetId && projectile.targetId !== -1) {
         // Questo proiettile ha un target specifico - verifica solo quel target
         const targetHit = this.checkSpecificTargetCollision(projectile);
         if (targetHit) {
+          // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
+          projectile.velocity.x = 0;
+          projectile.velocity.y = 0;
+          
+          // Salva posizione per il broadcast prima di rimuovere
+          const collisionPosition = { ...projectile.position };
+          
           if (targetHit.type === 'npc') {
             // Applica danno all'NPC target
             const npcDead = this.mapServer.npcManager.damageNpc(targetHit.entity.id, projectile.damage, projectile.playerId);
@@ -122,10 +136,11 @@ class ServerProjectileManager {
             }
           }
 
-          projectilesToRemove.push({
-            id: projectileId,
-            reason: 'target_hit'
-          });
+          // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
+          this.projectiles.delete(projectileId);
+          
+          // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
+          this.broadcastProjectileDestroyedAtPosition(projectileId, 'target_hit', collisionPosition);
           continue;
         } else {
           // MEMORY LEAK PREVENTION: Controlli multipli per rimuovere proiettili homing problematici
@@ -164,6 +179,13 @@ class ServerProjectileManager {
         // Fallback: verifica collisioni generiche per proiettili NPC
         const hitPlayer = this.checkPlayerCollision(projectile);
         if (hitPlayer) {
+          // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
+          projectile.velocity.x = 0;
+          projectile.velocity.y = 0;
+          
+          // Salva posizione per il broadcast prima di rimuovere
+          const collisionPosition = { ...projectile.position };
+          
           const playerDead = this.mapServer.npcManager.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
           this.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
 
@@ -171,7 +193,11 @@ class ServerProjectileManager {
             logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
           }
 
-          projectilesToRemove.push(projectileId);
+          // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
+          this.projectiles.delete(projectileId);
+          
+          // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
+          this.broadcastProjectileDestroyedAtPosition(projectileId, 'target_hit', collisionPosition);
           continue;
         }
       }
@@ -196,6 +222,13 @@ class ServerProjectileManager {
       // Verifica collisioni con giocatori
       const hitPlayer = this.checkPlayerCollision(projectile);
       if (hitPlayer) {
+        // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
+        projectile.velocity.x = 0;
+        projectile.velocity.y = 0;
+        
+        // Salva posizione per il broadcast prima di rimuovere
+        const collisionPosition = { ...projectile.position };
+        
         const playerDead = this.mapServer.npcManager.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
         this.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
 
@@ -203,7 +236,11 @@ class ServerProjectileManager {
           logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
         }
 
-        projectilesToRemove.push(projectileId);
+        // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
+        this.projectiles.delete(projectileId);
+        
+        // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
+        this.broadcastProjectileDestroyedAtPosition(projectileId, 'collision', collisionPosition);
         continue;
       }
 
@@ -221,10 +258,13 @@ class ServerProjectileManager {
       }
     }
 
-    // Rimuovi proiettili distrutti
+    // Rimuovi proiettili distrutti (solo quelli non già rimossi immediatamente)
     projectilesToRemove.forEach(item => {
       const id = typeof item === 'string' ? item : item.id;
       const projectile = this.projectiles.get(id);
+      
+      // Se il proiettile è già stato rimosso (rimozione immediata per collisioni), salta
+      if (!projectile) return;
 
       // Determina il motivo specifico della rimozione
       let reason = 'unknown';
@@ -284,10 +324,30 @@ class ServerProjectileManager {
         Math.pow(projectile.position.y - playerData.position.y, 2)
       );
 
-      // Distanza di collisione aumentata per proiettili NPC (per compensare movimento player)
-      // I proiettili NPC hanno homing ma possono passare vicino, quindi serve un raggio più grande
+      // Distanza di collisione dinamica basata sulla velocità relativa
       const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
-      const collisionRadius = isNpcProjectile ? 120 : 50;
+      
+      // Calcola velocità del player
+      const playerVelX = playerData.position.velocityX || 0;
+      const playerVelY = playerData.position.velocityY || 0;
+      const playerSpeed = Math.sqrt(playerVelX * playerVelX + playerVelY * playerVelY);
+      
+      // Velocità del proiettile
+      const projVelX = projectile.velocity.x || 0;
+      const projVelY = projectile.velocity.y || 0;
+      const projSpeed = Math.sqrt(projVelX * projVelX + projVelY * projVelY);
+      
+      // Velocità relativa
+      const relativeSpeed = Math.max(playerSpeed, projSpeed);
+      
+      // Raggio base
+      let collisionRadius = isNpcProjectile ? 120 : 50;
+      
+      // Aumenta raggio dinamicamente se il player si muove velocemente
+      if (relativeSpeed > 200) {
+        const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
+        collisionRadius += speedBonus;
+      }
       
       if (distance < collisionRadius) {
         return { playerData, clientId };
@@ -351,9 +411,30 @@ class ServerProjectileManager {
             Math.pow(projectile.position.y - playerData.position.y, 2)
           );
 
-          // Distanza di collisione aumentata per proiettili NPC (per compensare movimento player)
-          // I proiettili NPC hanno homing ma possono passare vicino, quindi serve un raggio più grande
-          const collisionRadius = isNpcProjectile ? 120 : 50;
+          // Distanza di collisione dinamica basata sulla velocità relativa
+          // Calcola velocità del player per aumentare raggio se si muove velocemente
+          const playerVelX = playerData.position.velocityX || 0;
+          const playerVelY = playerData.position.velocityY || 0;
+          const playerSpeed = Math.sqrt(playerVelX * playerVelX + playerVelY * playerVelY);
+          
+          // Velocità del proiettile
+          const projVelX = projectile.velocity.x || 0;
+          const projVelY = projectile.velocity.y || 0;
+          const projSpeed = Math.sqrt(projVelX * projVelX + projVelY * projVelY);
+          
+          // Velocità relativa (quanto velocemente si avvicinano)
+          const relativeSpeed = Math.max(playerSpeed, projSpeed);
+          
+          // Raggio base
+          let collisionRadius = isNpcProjectile ? 120 : 50;
+          
+          // Aumenta raggio dinamicamente se il player si muove velocemente
+          // Per ogni 100 px/s di velocità relativa, aggiungi 10px al raggio (max +80px)
+          if (relativeSpeed > 200) {
+            const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
+            collisionRadius += speedBonus;
+          }
+          
           if (distance < collisionRadius) {
             return { entity: playerData, type: 'player' };
           }
@@ -407,6 +488,20 @@ class ServerProjectileManager {
 
     // Interest radius per distruzione proiettili
     this.mapServer.broadcastNear(projectile.position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
+  }
+
+  /**
+   * Broadcast distruzione proiettile con posizione specifica (per rimozioni immediate)
+   */
+  broadcastProjectileDestroyedAtPosition(projectileId, reason, position) {
+    const message = {
+      type: 'projectile_destroyed',
+      projectileId,
+      reason
+    };
+
+    // Interest radius per distruzione proiettili
+    this.mapServer.broadcastNear(position, SERVER_CONSTANTS.NETWORK.INTEREST_RADIUS, message);
   }
 
   /**
@@ -551,7 +646,10 @@ class ServerProjectileManager {
     // Usa predizione uniforme per tutti i proiettili (NPC e player)
     const targetVelocity = targetData.velocity || { x: 0, y: 0 };
     
-    // PREDIZIONE: meno aggressiva per comportamenti più prevedibili
+    // Calcola velocità del target per predizione adattiva
+    const targetSpeed = Math.sqrt(targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y);
+    
+    // PREDIZIONE ADATTIVA: più aggressiva quando il target si muove velocemente
     let predictedX = targetPosition.x;
     let predictedY = targetPosition.y;
 
@@ -559,14 +657,28 @@ class ServerProjectileManager {
       const projectileSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
 
       if (projectileSpeed > 50) { // Evita divisione per zero
-        // Tempo stimato per raggiungere il target (con velocità più realistica)
+        // Tempo stimato per raggiungere il target
         const timeToTarget = distance / projectileSpeed;
 
-        // Predizione più conservativa - usa meno tempo per evitare posizioni estreme
-        const maxPredictionTime = Math.min(timeToTarget * 0.3, 0.8); // max 0.8 secondi, usa solo 30% del tempo stimato
+        // Predizione adattiva basata sulla velocità del target
+        // Se il target si muove velocemente (>400 px/s), usa predizione più aggressiva
+        let predictionFactor = 0.3; // Default conservativo
+        let maxPredictionTime = 0.8; // Default max 0.8s
+        
+        if (targetSpeed > 400) {
+          // Target veloce: aumenta predizione fino al 70% del tempo stimato, max 1.2s
+          predictionFactor = Math.min(0.7, 0.3 + (targetSpeed - 400) / 1000);
+          maxPredictionTime = Math.min(1.2, 0.8 + (targetSpeed - 400) / 500);
+        } else if (targetSpeed > 200) {
+          // Target medio: predizione moderata (50%)
+          predictionFactor = 0.5;
+          maxPredictionTime = 1.0;
+        }
 
-        predictedX = targetPosition.x + targetVelocity.x * maxPredictionTime;
-        predictedY = targetPosition.y + targetVelocity.y * maxPredictionTime;
+        const finalPredictionTime = Math.min(timeToTarget * predictionFactor, maxPredictionTime);
+
+        predictedX = targetPosition.x + targetVelocity.x * finalPredictionTime;
+        predictedY = targetPosition.y + targetVelocity.y * finalPredictionTime;
       }
     }
 
@@ -633,6 +745,7 @@ class ServerProjectileManager {
 
   /**
    * Ottiene dati completi del target (posizione e velocità per predizione)
+   * Calcola velocità in modo più accurato usando la queue di aggiornamenti per player veloci
    */
   getTargetData(targetId) {
     // Prima cerca tra i giocatori
@@ -640,11 +753,36 @@ class ServerProjectileManager {
       const playerData = this.mapServer.players.get(targetId);
       if (!playerData.position || playerData.isDead) return null;
 
-      // La velocità è salvata in playerData.position come velocityX/velocityY
-      const velocity = {
+      // Calcola velocità più accurata usando la queue di aggiornamenti recenti
+      let velocity = {
         x: playerData.position.velocityX || 0,
         y: playerData.position.velocityY || 0
       };
+
+      // Se c'è una queue di aggiornamenti, usa quella per calcolare velocità più accurata
+      const positionQueue = this.mapServer.positionUpdateQueue.get(targetId);
+      if (positionQueue && positionQueue.length >= 2) {
+        // Usa gli ultimi 2 aggiornamenti per calcolare velocità reale
+        const latest = positionQueue[positionQueue.length - 1];
+        const previous = positionQueue[positionQueue.length - 2];
+        const timeDelta = (latest.timestamp - previous.timestamp) / 1000; // secondi
+        
+        if (timeDelta > 0 && timeDelta < 0.5) { // Solo se il delta è ragionevole (max 500ms)
+          const posDeltaX = latest.x - previous.x;
+          const posDeltaY = latest.y - previous.y;
+          const calculatedVelX = posDeltaX / timeDelta;
+          const calculatedVelY = posDeltaY / timeDelta;
+          
+          // Usa la velocità calcolata se è più grande (player si muove velocemente)
+          // Altrimenti usa quella inviata dal client (più accurata per movimenti lenti)
+          const clientSpeed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+          const calculatedSpeed = Math.sqrt(calculatedVelX * calculatedVelX + calculatedVelY * calculatedVelY);
+          
+          if (calculatedSpeed > clientSpeed * 0.8) { // Se la velocità calcolata è almeno 80% di quella client
+            velocity = { x: calculatedVelX, y: calculatedVelY };
+          }
+        }
+      }
 
       return {
         position: playerData.position,
