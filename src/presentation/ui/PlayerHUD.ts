@@ -311,9 +311,10 @@ export class PlayerHUD {
    * Aggiorna i dati dell'HUD (solo presentazione, nessuna logica di business)
    */
   updateData(data: PlayerHUDData): void {
-    if (!this.isVisible) {
-      this.show();
-    }
+    // NON mostrare automaticamente - deve essere chiamato esplicitamente show()
+    // if (!this.isVisible) {
+    //   this.show();
+    // }
 
     // Aggiorna livello
     const levelElement = this.container.querySelector('.level-number') as HTMLElement;

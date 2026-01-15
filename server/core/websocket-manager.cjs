@@ -81,6 +81,9 @@ class WebSocketConnectionManager {
         throw new Error(`ACCESS DENIED: You must register and create a profile before playing. Please register first.`);
       }
 
+      // Calcola RecentHonor (media mobile ultimi 30 giorni)
+      const recentHonor = await this.getRecentHonorAverage(userId, 30);
+
       // Costruisci playerData con i dati reali del database
       const playerData = {
         playerId: playerDataRaw.player_id, // player_id NUMERICO per display/HUD
@@ -94,11 +97,23 @@ class WebSocketConnectionManager {
           return currencies;
         })(),
         upgrades: playerDataRaw.upgrades_data ? JSON.parse(playerDataRaw.upgrades_data) : this.getDefaultPlayerData().upgrades,
-        quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : []
+        quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [],
+        recentHonor: recentHonor // Media mobile honor ultimi 30 giorni
       };
+
+      // Crea snapshot iniziale dell'honor corrente (non bloccante)
+      // Questo assicura che i player esistenti abbiano uno snapshot per il calcolo della media mobile
+      const currentHonor = Number(playerData.inventory.honor || 0);
+      if (currentHonor > 0) {
+        // Chiama in modo asincrono senza bloccare il login
+        this.saveHonorSnapshot(userId, currentHonor, 'initial_load').catch(err => {
+          // Ignora errori, non blocca il flusso
+        });
+      }
 
       logger.info('DATABASE', `Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
       logger.info('DATABASE', `Loaded currencies:`, playerData.inventory);
+      logger.info('DATABASE', `RecentHonor (30 days):`, recentHonor);
       return playerData;
 
     } catch (error) {
@@ -234,9 +249,55 @@ class WebSocketConnectionManager {
         logger.info('DATABASE', `Quest progress saved successfully`);
       }
 
+      // Salva snapshot honor se presente
+      if (currenciesData && currenciesData.honor !== undefined) {
+        await this.saveHonorSnapshot(playerId, currenciesData.honor, 'server_update');
+      }
+
       logger.info('DATABASE', `Player data saved successfully for player ID: ${playerId}`);
     } catch (error) {
       logger.error('DATABASE', `Error saving player data: ${error.message}`);
+    }
+  }
+
+  /**
+   * Salva uno snapshot dell'honor nella tabella honor_history
+   */
+  async saveHonorSnapshot(authId, honorValue, reason = 'change') {
+    try {
+      const { error } = await supabase.rpc('insert_honor_snapshot', {
+        p_auth_id: authId,
+        p_honor_value: honorValue,
+        p_reason: reason
+      });
+
+      if (error) {
+        logger.warn('DATABASE', `Error saving honor snapshot: ${error.message}`);
+      }
+    } catch (error) {
+      logger.warn('DATABASE', `Error in saveHonorSnapshot: ${error.message}`);
+    }
+  }
+
+  /**
+   * Recupera la media mobile dell'honor degli ultimi N giorni
+   */
+  async getRecentHonorAverage(authId, days = 30) {
+    try {
+      const { data, error } = await supabase.rpc('get_recent_honor_average', {
+        p_auth_id: authId,
+        p_days: days
+      });
+
+      if (error) {
+        logger.warn('DATABASE', `Error getting recent honor average: ${error.message}`);
+        return 0;
+      }
+
+      return Number(data) || 0;
+    } catch (error) {
+      logger.warn('DATABASE', `Error in getRecentHonorAverage: ${error.message}`);
+      return 0;
     }
   }
 
@@ -662,6 +723,9 @@ class WebSocketConnectionManager {
                 return;
             }
 
+            // Ricalcola RecentHonor per includerlo nel messaggio
+            const recentHonor = await this.getRecentHonorAverage(playerData.userId, 30);
+            
             // Invia aggiornamento completo dello stato al client
             ws.send(JSON.stringify({
               type: 'player_state_update',
@@ -671,6 +735,7 @@ class WebSocketConnectionManager {
               maxHealth: playerData.maxHealth,
               shield: playerData.shield,
               maxShield: playerData.maxShield,
+              recentHonor: recentHonor,
               source: `skill_upgrade_${data.upgradeType}`
             }));
           }
@@ -840,6 +905,9 @@ class WebSocketConnectionManager {
               return;
             }
 
+            // Ricalcola RecentHonor per includerlo nel messaggio
+            const recentHonor = await this.getRecentHonorAverage(playerData.userId, 30);
+            
             // Invia dati completi del giocatore
             const responseMessage = {
               type: 'player_data_response',
@@ -847,6 +915,7 @@ class WebSocketConnectionManager {
               inventory: playerData.inventory,
               upgrades: playerData.upgrades,
               quests: playerData.quests || [],
+              recentHonor: recentHonor,
               timestamp: Date.now()
             };
 

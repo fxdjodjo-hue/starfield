@@ -166,6 +166,28 @@ export class Experience extends Component {
   }
 
   /**
+   * Imposta direttamente l'esperienza totale (per caricamento dati dal server)
+   */
+  setTotalExp(totalExp: number): void {
+    this._totalExpEarned = Math.max(0, totalExp);
+    
+    // Ricalcola il livello basato sulla nuova esperienza totale
+    let newLevel = 1;
+    for (let level = 1; level <= 50; level++) {
+      const requiredExp = this.getExpRequiredForLevel(level);
+      if (this._totalExpEarned >= requiredExp) {
+        newLevel = level;
+      } else {
+        break;
+      }
+    }
+    
+    this._level = newLevel;
+    this._expForNextLevel = this.getExpRequiredForLevel(newLevel);
+    this._exp = this._totalExpEarned - this.getExpRequiredForLevel(newLevel - 1);
+  }
+
+  /**
    * Formatta l'esperienza per display
    */
   formatForDisplay(): string {

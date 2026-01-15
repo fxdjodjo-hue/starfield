@@ -45,6 +45,7 @@ export class PlayState extends GameState {
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
   private nicknameCreated: boolean = false;
   private remotePlayerSpriteUpdated: boolean = false;
+  private lastDisplayedRank: string = 'Recruit';
 
   /**
    * Segnala che i dati del giocatore sono cambiati e dovrebbero essere salvati
@@ -83,41 +84,117 @@ export class PlayState extends GameState {
    * Avvia il gameplay
    */
   async enter(_context: GameContext): Promise<void> {
+    console.log('[PlayState] enter() chiamato');
+    
+    // Marca come inizializzato per evitare doppia inizializzazione
+    (this as any)._initialized = true;
+    
+    // Assicurati che lo spinner sia visibile fin dall'inizio
+    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+      this.context.authScreen.updateLoadingText('Initializing game systems...');
+    }
+    
     // Crea UiSystem solo ora (quando si entra nel PlayState)
     if (!this.uiSystem) {
+      console.log('[PlayState] Creando UiSystem...');
       this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem!, this.context);
       // Aggiorna il sistema di inizializzazione con l'UiSystem appena creato
       (this.gameInitSystem as any).uiSystem = this.uiSystem;
     }
 
-    // Nasconde il titolo principale
-    this.uiSystem.hideMainTitle();
+    // NON nascondere il titolo qui - verrà fatto DOPO che lo spinner è nascosto
+    // this.uiSystem.hideMainTitle();
 
+    // Aggiorna il testo di loading durante l'inizializzazione
+    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+      this.context.authScreen.updateLoadingText('Loading multiplayer systems...');
+    }
+    
+    console.log('[PlayState] Inizializzando sistemi multiplayer...');
     // Inizializza sistemi multiplayer PRIMA dell'inizializzazione del gioco
     await this.initializeMultiplayerSystems();
+    console.log('[PlayState] Sistemi multiplayer inizializzati');
+
+    // Aggiorna il testo di loading durante l'inizializzazione del gioco
+    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+      this.context.authScreen.updateLoadingText('Initializing game world...');
+    }
 
     try {
+      console.log('[PlayState] Inizializzando gioco...');
       // Inizializza il mondo e crea il giocatore PRIMA di mostrare l'HUD
       await this.initializeGame();
+      console.log('[PlayState] Gioco inizializzato');
     } catch (error) {
-      console.error('Failed to initialize game:', error);
+      console.error('[PlayState] Failed to initialize game:', error);
       throw error;
     }
 
-    // Inizializza il sistema UI dopo che tutti i sistemi sono stati creati
-    this.uiSystem.initialize();
+    // NON inizializzare UI qui - verrà fatto DOPO che lo spinner è nascosto
+    // this.uiSystem.initialize();
 
     // I sistemi remoti sono già stati collegati prima dell'inizializzazione del gioco
 
-    // Ora che tutti i sistemi sono collegati, connetti al server
-    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
-      this.clientNetworkSystem.connectToServer().catch(error => {
-        console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
-      });
+    // Aggiorna il testo di loading prima della connessione
+    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+      this.context.authScreen.updateLoadingText('Connecting to server...');
+    } else {
+      console.warn('[PlayState] AuthScreen non disponibile o updateLoadingText non disponibile!');
     }
 
+    // Ora che tutti i sistemi sono collegati, connetti al server e ASPETTA
+    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
+      try {
+        console.log('[PlayState] Connessione al server...');
+        // Il testo è già stato aggiornato sopra a "Connecting to server..."
+
+        await this.clientNetworkSystem.connectToServer();
+        console.log('[PlayState] Connesso al server');
+        
+        // Aggiorna il testo durante l'attesa della risposta del server
+        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+          this.context.authScreen.updateLoadingText('Synchronizing with server...');
+        }
+        
+        // Piccolo delay per dare tempo al server di processare la connessione
+        console.log('[PlayState] Attendo 500ms per processare connessione...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Aggiorna il testo di loading dopo la connessione
+        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+          this.context.authScreen.updateLoadingText('Loading player data...');
+        }
+        console.log('[PlayState] Testo aggiornato a "Loading player data..."');
+      } catch (error) {
+        console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
+        // Continua comunque, ma mostra errore
+        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+          this.context.authScreen.updateLoadingText('Connection error. Retrying...');
+        }
+      }
+    } else {
+      console.warn('[PlayState] ClientNetworkSystem o connectToServer non disponibile!');
+    }
+
+    // Aspetta che RecentHonor sia disponibile prima di procedere
+    console.log('[PlayState] Aspettando dati player (RecentHonor)...');
+    await this.waitForPlayerDataReady();
+    console.log('[PlayState] Dati player pronti!');
+
+    // Nascondi lo spinner di loading (se ancora visibile)
+    console.log('[PlayState] Nascondendo loading screen...');
+    this.hideLoadingScreen();
+
+    // SOLO ORA inizializza e mostra l'UI - dopo che lo spinner è nascosto
+    console.log('[PlayState] Inizializzando UI system...');
+    this.uiSystem.initialize();
+    
+    // Nasconde il titolo principale (ora che lo spinner è nascosto)
+    this.uiSystem.hideMainTitle();
+    
     // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
     this.uiSystem.showPlayerInfo();
+    console.log('[PlayState] enter() completato');
 
     // Collega l'AudioSystem al ClientNetworkSystem ora che è stato creato
     if (this.clientNetworkSystem && this.audioSystem) {
@@ -146,6 +223,116 @@ export class PlayState extends GameState {
     // HUD toggle gestito da UiSystem
 
     // I listener per i pannelli sono ora gestiti da UiSystem e QuestSystem
+  }
+
+  /**
+   * Aspetta che i dati del player siano pronti (RecentHonor disponibile)
+   */
+  private async waitForPlayerDataReady(): Promise<void> {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = 200; // 20 secondi max (200 * 100ms)
+      const checkInterval = 100; // Controlla ogni 100ms
+
+      console.log('[PlayState] waitForPlayerDataReady() iniziato');
+
+      const checkDataReady = () => {
+        attempts++;
+
+        // Verifica se RecentHonor è disponibile nel context
+        // Controlla anche se è stato impostato in RankSystem tramite EconomySystem
+        let hasRecentHonor = this.context.playerInventory?.recentHonor !== undefined;
+        
+        // Verifica anche in RankSystem (potrebbe essere impostato prima che arrivi nel context)
+        if (!hasRecentHonor && this.economySystem) {
+          const rankSystem = (this.economySystem as any).rankSystem;
+          if (rankSystem && (rankSystem as any).recentHonor !== null && (rankSystem as any).recentHonor !== undefined) {
+            hasRecentHonor = true;
+            console.log('[PlayState] RecentHonor trovato in RankSystem:', (rankSystem as any).recentHonor);
+          }
+        }
+
+        const hasInventory = this.context.playerInventory !== undefined && 
+                            this.context.playerInventory.experience > 0;
+
+        // Log ogni 10 tentativi (ogni secondo)
+        if (attempts % 10 === 0) {
+          const seconds = Math.floor(attempts / 10);
+          console.log(`[PlayState] Tentativo ${attempts} (${seconds}s):`, {
+            hasRecentHonor,
+            hasInventory,
+            recentHonorInContext: this.context.playerInventory?.recentHonor,
+            experience: this.context.playerInventory?.experience,
+            economySystem: !!this.economySystem,
+            rankSystemRecentHonor: this.economySystem ? (this.economySystem as any).rankSystem?.recentHonor : 'N/A'
+          });
+        }
+
+        // Aggiorna il testo di loading se AuthScreen è disponibile
+        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+          if (attempts % 10 === 0) { // Ogni secondo
+            const seconds = Math.floor(attempts / 10);
+            if (hasRecentHonor) {
+              console.log('[PlayState] RecentHonor disponibile! Mostrando "Ready!"');
+              this.context.authScreen.updateLoadingText('Ready!');
+              // Piccolo delay prima di risolvere per mostrare "Ready!"
+              setTimeout(() => {
+                console.log('[PlayState] Risolvendo waitForPlayerDataReady()');
+                resolve();
+              }, 300);
+              return;
+            } else {
+              this.context.authScreen.updateLoadingText(`Loading player data... (${seconds}s)`);
+            }
+          }
+        }
+
+        if (hasRecentHonor || attempts >= maxAttempts) {
+          // Dati pronti o timeout raggiunto
+          if (hasRecentHonor) {
+            console.log('[PlayState] RecentHonor trovato, risolvendo...');
+            resolve();
+          } else {
+            // Timeout: procedi comunque
+            console.warn('[PlayState] Timeout waiting for RecentHonor, proceeding anyway');
+            if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+              this.context.authScreen.updateLoadingText('Ready! (using default values)');
+            }
+            setTimeout(() => {
+              console.log('[PlayState] Risolvendo waitForPlayerDataReady() dopo timeout');
+              resolve();
+            }, 300);
+          }
+        } else {
+          setTimeout(checkDataReady, checkInterval);
+        }
+      };
+
+      checkDataReady();
+    });
+  }
+
+  /**
+   * Nasconde lo spinner di loading
+   */
+  private hideLoadingScreen(): void {
+    console.log('[PlayState] hideLoadingScreen() chiamato');
+    
+    // Nascondi AuthScreen se disponibile
+    if (this.context.authScreen && typeof this.context.authScreen.hide === 'function') {
+      console.log('[PlayState] Nascondendo AuthScreen tramite metodo hide()');
+      this.context.authScreen.hide();
+    } else {
+      console.warn('[PlayState] AuthScreen.hide() non disponibile, provo fallback');
+      // Fallback: cerca e nascondi manualmente
+      const authContainer = document.querySelector('[style*="position: fixed"][style*="z-index: 1000"]');
+      if (authContainer) {
+        console.log('[PlayState] Trovato authContainer, nascondendo...');
+        (authContainer as HTMLElement).style.display = 'none';
+      } else {
+        console.warn('[PlayState] authContainer non trovato nel DOM');
+      }
+    }
   }
 
   /**
@@ -282,15 +469,17 @@ export class PlayState extends GameState {
 
 
   /**
-   * Ottiene il rank corrente del player
+   * Ottiene il rank corrente del player usando RankSystem
    */
   private getPlayerRank(): string {
-    if (!this.economySystem) return 'Recruit';
+    if (!this.gameInitSystem) return 'Recruit';
 
-    // Ottieni il componente Honor del player per il rank
-    const honor = this.economySystem.getPlayerHonor?.();
-    if (honor && typeof honor.getRank === 'function') {
-      return honor.getRank();
+    // Ottieni RankSystem da GameInitializationSystem
+    const systems = this.gameInitSystem.getSystems();
+    const rankSystem = systems.rankSystem;
+    
+    if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
+      return rankSystem.calculateCurrentRank();
     }
 
     return 'Recruit';
@@ -390,12 +579,36 @@ export class PlayState extends GameState {
     // Usa il MovementSystem referenziato
     if (!this.movementSystem) return;
 
+    const nickname = this.context.playerNickname || 'Commander';
+    
+    // Ottieni RankSystem per verificare se RecentHonor è disponibile
+    let rank = 'Recruit';
+    if (this.gameInitSystem) {
+      const systems = this.gameInitSystem.getSystems();
+      const rankSystem = systems.rankSystem;
+      
+      // Mostra il rank solo se RecentHonor è disponibile (evita salti da Recruit a rank alto)
+      if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
+        // Verifica se RecentHonor è stato impostato (non null)
+        const recentHonor = (rankSystem as any).recentHonor;
+        if (recentHonor !== null && recentHonor !== undefined) {
+          rank = rankSystem.calculateCurrentRank();
+        }
+        // Altrimenti mantieni "Recruit" finché RecentHonor non arriva
+      }
+    }
+
     // Crea il nickname se non è ancora stato creato (solo una volta)
     if (!this.nicknameCreated) {
-      const nickname = this.context.playerNickname || 'Commander';
-      const rank = this.getPlayerRank();
       this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
       this.nicknameCreated = true; // Flag per evitare ricreazione
+      this.lastDisplayedRank = rank;
+    } else {
+      // Aggiorna il contenuto del nickname solo se il rank è cambiato
+      if (rank !== this.lastDisplayedRank) {
+        this.uiSystem.updatePlayerNicknameContent(`${nickname}\n[${rank}]`);
+        this.lastDisplayedRank = rank;
+      }
     }
 
     const camera = this.cameraSystem!.getCamera();

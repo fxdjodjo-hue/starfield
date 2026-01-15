@@ -63,6 +63,7 @@ export class GameContext {
     experience: number;
     honor: number;
     skillPoints: number;
+    recentHonor?: number; // Media mobile honor ultimi 30 giorni
   } = {
     credits: 0,
     cosmos: 0,
@@ -100,6 +101,9 @@ export class GameContext {
   public serverTick: number = 0;
   public clientTick: number = 0;
   public latency: number = 0;
+
+  // Riferimento a AuthScreen per aggiornare lo spinner
+  public authScreen: any = null;
 
   constructor(canvas: HTMLCanvasElement, gameContainer: HTMLElement) {
     this.canvas = canvas;

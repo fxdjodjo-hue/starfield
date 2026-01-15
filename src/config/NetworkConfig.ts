@@ -327,6 +327,7 @@ export interface PlayerStateUpdateMessage {
   upgrades: {
     [key: string]: number; // Upgrade levels
   };
+  recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
   health: number;
   maxHealth: number;
   shield: number;
@@ -429,6 +430,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
     speedUpgrades: number;
     damageUpgrades: number;
   };
+  recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
   quests: any[];
   timestamp: number;
 }

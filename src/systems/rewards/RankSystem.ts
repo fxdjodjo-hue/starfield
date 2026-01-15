@@ -2,14 +2,18 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
-import { PlayerStats } from '../../entities/player/PlayerStats';
 
 /**
  * Sistema Rank - gestisce il calcolo dei gradi militari
- * Il rank è calcolato in base a exp + honor del giocatore
+ * Formula semplificata: RankingPoints = exp + (RecentHonor × 2)
+ * Il rank può salire o scendere in base al comportamento recente
  */
 export class RankSystem extends BaseSystem {
   private playerEntity: any = null;
+  private recentHonor: number | null = null; // Media mobile honor ultimi 30 giorni (dal server)
+  
+  // Moltiplicatore per RecentHonor (configurabile tra 1.5-3)
+  private readonly honorMultiplier: number = 2;
 
   // Ranghi militari completi basati su punti ranking (exp + honor)
   private static readonly MILITARY_RANKS = [
@@ -49,26 +53,40 @@ export class RankSystem extends BaseSystem {
   }
 
   /**
-   * Calcola i punti ranking totali (exp + honor)
+   * Imposta RecentHonor (media mobile honor ultimi 30 giorni dal server)
+   */
+  setRecentHonor(recentHonor: number): void {
+    this.recentHonor = recentHonor;
+  }
+
+  /**
+   * Calcola i punti ranking totali usando formula semplificata
+   * RankingPoints = exp + (RecentHonor × multiplier)
+   * 
+   * Per ora usa honor corrente come RecentHonor.
+   * TODO: Implementare tracking storico per calcolare media mobile degli ultimi N giorni
    */
   calculateRankingPoints(): number {
     if (!this.playerEntity) return 0;
 
     const experience = this.ecs.getComponent(this.playerEntity, Experience);
     const honor = this.ecs.getComponent(this.playerEntity, Honor);
-    const playerStats = this.ecs.getComponent(this.playerEntity, PlayerStats);
 
-    if (!experience || !honor || !playerStats) return 0;
+    if (!experience || !honor) return 0;
 
-    // Formula migliorata: exp totale + (honor * 1.5) + (livello * 30) + (kills / 10)
-    // - Exp: base principale (100% del valore)
-    // - Honor: bonus moderato per comportamento (×1.5)
-    // - Level: vantaggio veterani significativo (×30)
-    // - Kills: bonus efficienza minima (÷10)
-    const points = experience.totalExpEarned + (honor.honor * 1.5) + (experience.level * 30) + (playerStats.kills / 10);
+    // Formula semplificata: exp + (RecentHonor × 2)
+    // - Exp: progressione permanente (base principale)
+    // - RecentHonor × 2: peso moderato, premia comportamento recente
+    // 
+    // Usa RecentHonor dal server se disponibile, altrimenti fallback a honor corrente
+    const recentHonorValue = this.recentHonor !== null ? this.recentHonor : honor.honor;
+    const points = experience.totalExpEarned + (recentHonorValue * this.honorMultiplier);
 
-    return points;
+    // Limite minimo: nessuno scende sotto la propria EXP
+    // Honor penalizza solo sopra la base
+    return Math.max(points, experience.totalExpEarned);
   }
+  
 
   /**
    * Calcola il rank attuale basato sui punti ranking

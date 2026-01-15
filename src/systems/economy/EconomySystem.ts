@@ -39,6 +39,23 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
+   * Imposta RecentHonor nel RankSystem (media mobile honor ultimi 30 giorni)
+   */
+  setRecentHonor(recentHonor: number): void {
+    if (this.rankSystem && typeof this.rankSystem.setRecentHonor === 'function') {
+      this.rankSystem.setRecentHonor(recentHonor);
+      
+      // Ricalcola il rank e notifica il cambio (se necessario)
+      const newRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
+      if (this.onHonorChanged) {
+        const honor = this.getPlayerHonor();
+        // Notifica il cambio di rank (senza cambiare l'honor stesso)
+        this.onHonorChanged(honor?.honor || 0, 0, newRank);
+      }
+    }
+  }
+
+  /**
    * Imposta i callbacks per quando i valori economici cambiano
    */
   setCreditsChangedCallback(callback: (newAmount: number, change: number) => void): void {
@@ -618,12 +635,17 @@ export class EconomySystem extends BaseSystem {
     const oldTotalExp = experience.totalExpEarned;
     const targetTotalExp = Math.max(0, totalExp);
 
-    // Calcola la differenza e usa addExp per raggiungere il target
-    if (targetTotalExp > oldTotalExp) {
-      experience.addExp(targetTotalExp - oldTotalExp);
-    } else if (targetTotalExp < oldTotalExp) {
-      // Per rimuovere esperienza, dovrei implementare un metodo removeExp
-      // Per ora, assumiamo che l'esperienza solo aumenti nel server authoritative
+    // Usa setTotalExp per impostare direttamente l'esperienza totale (server authoritative)
+    if (typeof experience.setTotalExp === 'function') {
+      experience.setTotalExp(targetTotalExp);
+    } else {
+      // Fallback: calcola la differenza e usa addExp per raggiungere il target
+      if (targetTotalExp > oldTotalExp) {
+        experience.addExp(targetTotalExp - oldTotalExp);
+      } else if (targetTotalExp < oldTotalExp) {
+        // Per rimuovere esperienza, dovrei implementare un metodo removeExp
+        // Per ora, assumiamo che l'esperienza solo aumenti nel server authoritative
+      }
     }
 
     const change = experience.totalExpEarned - oldTotalExp;
@@ -659,7 +681,8 @@ export class EconomySystem extends BaseSystem {
 
       // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
       if (change !== 0 && reason !== 'server_update') {
-        this.onHonorChanged?.(newAmount, change, honor.getRank());
+        const currentRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
+        this.onHonorChanged?.(newAmount, change, currentRank);
       }
     }
   }
@@ -693,7 +716,8 @@ export class EconomySystem extends BaseSystem {
     const change = honor.honor - oldAmount;
 
     // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
-    this.onHonorChanged?.(honor.honor, change, honor.getRank());
+    const currentRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
+    this.onHonorChanged?.(honor.honor, change, currentRank);
   }
 
   /**

@@ -395,7 +395,7 @@ export class UiSystem extends System {
       const container = this.chatPanel['container'];
       const headerHeight = this.chatPanel['header'].offsetHeight || 49;
       container.style.height = headerHeight + 'px';
-      container.style.display = 'flex';
+      container.style.display = 'none'; // NASCONDI durante il caricamento
       this.chatPanel['messagesContainer'].style.display = 'none';
       this.chatPanel['inputContainer'].style.display = 'none';
       this.chatPanel['toggleButton'].textContent = '+';
@@ -502,6 +502,18 @@ export class UiSystem extends System {
     // Aggiorna sempre l'HUD con i dati disponibili
     this.playerHUD.updateData(hudData);
     this.playerHUD.show();
+    
+    // Mostra anche la chat (ora che tutto è pronto)
+    if (this.chatPanel && this.chatPanel['container']) {
+      const container = this.chatPanel['container'];
+      const headerHeight = this.chatPanel['header'].offsetHeight || 49;
+      container.style.height = headerHeight + 'px';
+      container.style.display = 'flex'; // Mostra solo ora
+      this.chatPanel['messagesContainer'].style.display = 'none';
+      this.chatPanel['inputContainer'].style.display = 'none';
+      this.chatPanel['toggleButton'].textContent = '+';
+      this.chatPanel['_isVisible'] = false;
+    }
   }
 
   /**

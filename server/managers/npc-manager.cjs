@@ -254,8 +254,21 @@ class ServerNpcManager {
     const oldExp = Number(playerData.inventory.experience || 0);
     const newExp = oldExp + (rewards.experience || 0);
     playerData.inventory.experience = newExp;
-    playerData.inventory.honor = Number(playerData.inventory.honor || 0) + (rewards.honor || 0);
+    const oldHonor = Number(playerData.inventory.honor || 0);
+    const newHonor = oldHonor + (rewards.honor || 0);
+    playerData.inventory.honor = newHonor;
     // SkillPoints completamente rimossi dagli NPC - mai assegnati
+
+    // Salva snapshot honor se è cambiato (non bloccante)
+    if (rewards.honor && rewards.honor !== 0) {
+      const websocketManager = this.mapServer.websocketManager;
+      if (websocketManager && typeof websocketManager.saveHonorSnapshot === 'function') {
+        // Chiama in modo asincrono senza bloccare
+        websocketManager.saveHonorSnapshot(playerData.userId, newHonor, 'npc_kill').catch(err => {
+          // Ignora errori, non blocca il flusso
+        });
+      }
+    }
 
     logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor for killing ${npcType}`);
 
@@ -276,10 +289,25 @@ class ServerNpcManager {
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData || playerData.ws.readyState !== 1) return; // WebSocket.OPEN = 1
 
+    // Usa RecentHonor cached se disponibile, altrimenti usa honor corrente
+    // RecentHonor verrà aggiornato in background per il prossimo messaggio
+    const recentHonor = playerData.recentHonor !== undefined ? playerData.recentHonor : playerData.inventory.honor || 0;
+    
+    // Aggiorna RecentHonor in background per il prossimo messaggio (non blocca)
+    const websocketManager = this.mapServer.websocketManager;
+    if (websocketManager && typeof websocketManager.getRecentHonorAverage === 'function') {
+      websocketManager.getRecentHonorAverage(playerData.userId, 30).then(avg => {
+        playerData.recentHonor = avg;
+      }).catch(err => {
+        // Ignora errori, mantiene valore cached
+      });
+    }
+
     const message = {
       type: 'player_state_update',
       inventory: { ...playerData.inventory },
       upgrades: { ...playerData.upgrades },
+      recentHonor: recentHonor,
       source: `killed_${npcType}`,
       rewardsEarned: {
         ...rewards,

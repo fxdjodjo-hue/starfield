@@ -17,7 +17,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor } = message;
 
     // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
     if (networkSystem.gameContext) {
@@ -27,7 +27,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         cosmos: inventory.cosmos,
         experience: inventory.experience,
         honor: inventory.honor,
-        skillPoints: inventory.skillPoints
+        skillPoints: inventory.skillPoints,
+        recentHonor: recentHonor // Includi RecentHonor se disponibile
       };
     }
 
@@ -40,6 +41,11 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       economySystem.setExperience(inventory.experience, 'server_update');
       economySystem.setHonor(inventory.honor, 'server_update');
       economySystem.setSkillPoints(inventory.skillPoints, 'server_update');
+      
+      // Aggiorna RecentHonor in RankSystem se disponibile
+      if (recentHonor !== undefined) {
+        economySystem.setRecentHonor(recentHonor);
+      }
     }
 
     // AGGIORNA IL COMPONENTE ECS SKILLPOINTS (dopo EconomySystem per coerenza)

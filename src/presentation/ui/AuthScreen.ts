@@ -54,7 +54,7 @@ export class AuthScreen {
     if (!this.justLoggedIn) {
       await this.checkExistingSession();
     } else {
-      this.setState(AuthState.VERIFIED);
+      // NON chiamare setState(VERIFIED) - notifyAuthenticated() gestirà lo stato
       this.notifyAuthenticated();
     }
   }
@@ -70,14 +70,18 @@ export class AuthScreen {
    * Imposta lo stato corrente e aggiorna UI
    */
   private setState(state: AuthState): void {
+    console.log(`[AuthScreen] setState(${state}) chiamato`);
     this.currentState = state;
     this.updateUI();
+    console.log(`[AuthScreen] setState(${state}) completato`);
   }
 
   /**
    * Aggiorna l'interfaccia in base allo stato corrente
    */
   private updateUI(): void {
+    console.log(`[AuthScreen] updateUI() chiamato, stato corrente: ${this.currentState}`);
+    
     // Nascondi tutti i container
     this.loadingContainer.style.display = 'none';
     this.authContainer.style.display = 'none';
@@ -85,19 +89,24 @@ export class AuthScreen {
     // Mostra il container appropriato
     switch (this.currentState) {
       case AuthState.LOADING:
+        console.log('[AuthScreen] Mostrando loadingContainer');
         this.loadingContainer.style.display = 'flex';
         break;
       case AuthState.LOGIN:
       case AuthState.REGISTER:
       case AuthState.FORGOT_PASSWORD:
+        console.log('[AuthScreen] Mostrando authContainer');
         this.authContainer.style.display = 'flex';
         this.renderAuthForm();
         break;
       case AuthState.VERIFIED:
         // Giocatore autenticato, nascondi tutto
+        console.log('[AuthScreen] Stato VERIFIED - nascondendo container');
         this.container.style.display = 'none';
         break;
     }
+    
+    console.log(`[AuthScreen] updateUI() completato, container.display: ${this.container.style.display}`);
   }
 
   /**
@@ -433,6 +442,10 @@ export class AuthScreen {
       position: relative;
       overflow: hidden;
       margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     `;
 
     // Eventi pulsante
@@ -611,6 +624,10 @@ export class AuthScreen {
       position: relative;
       overflow: hidden;
       margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     `;
 
     // Eventi pulsante
@@ -692,6 +709,8 @@ export class AuthScreen {
       }
 
       if (data.user) {
+        console.log('[AuthScreen] Login riuscito, user:', data.user.id);
+        
         // Segna che abbiamo appena fatto login per evitare controlli di sessione
         this.justLoggedIn = true;
 
@@ -702,8 +721,15 @@ export class AuthScreen {
                                      data.user.user_metadata?.username ||
                                      'Player'; // Fallback
 
-        this.setState(AuthState.VERIFIED);
+        console.log('[AuthScreen] Impostato authId:', this.context.authId);
+        console.log('[AuthScreen] Impostato nickname:', this.context.playerNickname);
+        
+        // NON chiamare setState(VERIFIED) qui - notifyAuthenticated() gestirà lo stato
+        // Il container deve rimanere visibile per mostrare lo spinner
+        
+        console.log('[AuthScreen] Chiamando notifyAuthenticated()...');
         this.notifyAuthenticated();
+        console.log('[AuthScreen] notifyAuthenticated() completato');
       }
     } catch (error: any) {
       console.error('❌ [AuthScreen] Login failed:', error);
@@ -829,7 +855,7 @@ export class AuthScreen {
 
         if (data.user.email_confirmed_at) {
           // Email già confermata automaticamente
-          this.setState(AuthState.VERIFIED);
+          // NON chiamare setState(VERIFIED) - notifyAuthenticated() gestirà lo stato
           this.notifyAuthenticated();
         } else {
           // Email da confermare
@@ -968,12 +994,12 @@ export class AuthScreen {
     if (show) {
       button.disabled = true;
       button.style.cursor = 'not-allowed';
-      buttonText.style.opacity = '0';
+      buttonText.style.display = 'none';
       spinner.style.display = 'block';
     } else {
       button.disabled = false;
       button.style.cursor = 'pointer';
-      buttonText.style.opacity = '1';
+      buttonText.style.display = 'block';
       spinner.style.display = 'none';
     }
   }
@@ -1038,15 +1064,13 @@ export class AuthScreen {
       }
 
       .loading-spinner {
-        display: inline-block;
+        display: block;
         width: 18px;
         height: 18px;
         border: 2px solid rgba(255, 255, 255, 0.3);
         border-radius: 50%;
         border-top-color: #ffffff;
         animation: spin 1s ease-in-out infinite;
-        margin-right: 8px;
-        vertical-align: middle;
         flex-shrink: 0;
       }
     `;
@@ -1091,11 +1115,54 @@ export class AuthScreen {
 
   /**
    * Notifica che l'utente è stato autenticato
+   * Mostra lo spinner e passa al gioco (PlayState aspetterà i dati)
    */
   private notifyAuthenticated(): void {
-    if (this.onAuthenticated) {
-      this.onAuthenticated();
+    console.log('[AuthScreen] notifyAuthenticated() chiamato');
+    
+    // Assicurati che il container sia visibile prima di mostrare lo spinner
+    if (this.container.style.display === 'none') {
+      console.log('[AuthScreen] Container nascosto, mostrandolo...');
+      this.container.style.display = 'flex';
     }
+    
+    // Mostra lo spinner di loading
+    console.log('[AuthScreen] Cambiando stato a LOADING...');
+    this.setState(AuthState.LOADING);
+    this.updateLoadingText('Connecting to server...');
+    console.log('[AuthScreen] Spinner mostrato, testo: "Connecting to server..."');
+
+    // Passa al gioco - PlayState aspetterà che i dati siano pronti
+    if (this.onAuthenticated) {
+      console.log('[AuthScreen] Chiamando onAuthenticated callback...');
+      this.onAuthenticated();
+      console.log('[AuthScreen] onAuthenticated callback completato');
+    } else {
+      console.warn('[AuthScreen] onAuthenticated callback non impostato!');
+    }
+  }
+
+  /**
+   * Aggiorna il testo di loading
+   */
+  updateLoadingText(text: string): void {
+    console.log(`[AuthScreen] updateLoadingText("${text}")`);
+    const loadingText = this.loadingContainer.querySelector('p');
+    if (loadingText) {
+      loadingText.textContent = text;
+      console.log(`[AuthScreen] Testo aggiornato con successo`);
+    } else {
+      console.warn('[AuthScreen] loadingText element non trovato!');
+    }
+  }
+
+  /**
+   * Nasconde la schermata (chiamato quando i dati sono pronti)
+   */
+  hide(): void {
+    console.log('[AuthScreen] hide() chiamato - nascondendo schermata');
+    this.container.style.display = 'none';
+    console.log('[AuthScreen] Schermata nascosta');
   }
 
   /**

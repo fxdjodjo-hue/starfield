@@ -22,7 +22,10 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     if (networkSystem.gameContext) {
       // Aggiorna inventory
       if (message.inventory) {
-        networkSystem.gameContext.playerInventory = message.inventory;
+        networkSystem.gameContext.playerInventory = {
+          ...message.inventory,
+          recentHonor: message.recentHonor // Includi RecentHonor nell'inventory
+        };
       }
 
       // Aggiorna upgrades
@@ -44,6 +47,14 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       economySystem.setCosmos(message.inventory.cosmos, 'server_update');
       economySystem.setHonor(message.inventory.honor, 'server_update');
       economySystem.setSkillPoints(message.inventory.skillPoints, 'server_update');
+      
+      // Aggiorna RecentHonor in RankSystem se disponibile
+      if (message.recentHonor !== undefined) {
+        economySystem.setRecentHonor(message.recentHonor);
+        
+        // Notifica che i dati sono pronti (per PlayState)
+        // Questo viene fatto tramite il context che viene aggiornato sopra
+      }
 
       // ✅ L'ECONOMY SYSTEM TRIGGERA AUTOMATICAMENTE onExperienceChanged -> UiSystem.updatePlayerData
     } else {

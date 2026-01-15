@@ -71,42 +71,5 @@ export class Honor extends Component {
     this.updateOutlawStatus();
   }
 
-  /**
-   * Ottiene il grado/rank attuale basato sui punti onore
-   */
-  getRank(): string {
-    if (this._isAdministrator) {
-      return "Administrator";
-    }
-
-    if (this._isOutlaw) {
-      return "Outlaw";
-    }
-
-    // Rank system basato sui punti onore
-    if (this._honor >= 10000) return "Chief General";
-    if (this._honor >= 7500) return "General";
-    if (this._honor >= 5000) return "Basic General";
-    if (this._honor >= 3500) return "Chief Colonel";
-    if (this._honor >= 2500) return "Colonel";
-    if (this._honor >= 1500) return "Basic Colonel";
-    if (this._honor >= 1000) return "Chief Major";
-    if (this._honor >= 750) return "Major";
-    if (this._honor >= 500) return "Basic Major";
-    if (this._honor >= 350) return "Chief Captain";
-    if (this._honor >= 250) return "Captain";
-    if (this._honor >= 150) return "Basic Captain";
-    if (this._honor >= 100) return "Chief Lieutenant";
-    if (this._honor >= 75) return "Lieutenant";
-    if (this._honor >= 50) return "Basic Lieutenant";
-    if (this._honor >= 35) return "Chief Sergeant";
-    if (this._honor >= 25) return "Sergeant";
-    if (this._honor >= 15) return "Basic Sergeant";
-    if (this._honor >= 10) return "Chief Space Pilot";
-    if (this._honor >= 5) return "Space Pilot";
-    if (this._honor >= 0) return "Basic Space Pilot";
-
-    return "Civilian";
-  }
 
 }

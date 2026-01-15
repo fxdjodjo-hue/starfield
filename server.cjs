@@ -321,6 +321,8 @@ mapServer.combatManager = new ServerCombatManager(mapServer);
 
 // Inizializza WebSocket Connection Manager
 const wsManager = new WebSocketConnectionManager(wss, mapServer, messageCount);
+// Collega websocketManager a mapServer per accesso dai managers
+mapServer.websocketManager = wsManager;
 
 // Gestisce chiusura server
 process.on('SIGINT', () => {
