@@ -171,7 +171,10 @@ export class NpcMovementSystem extends BaseSystem {
         const attackRange = 300;
         const playerSpeedThreshold = 10;
 
-        const playerIsMoving = playerVelocity && (Math.abs(playerVelocity.x) > playerSpeedThreshold || Math.abs(playerVelocity.y) > playerSpeedThreshold);
+        const playerIsMoving =
+          !!playerVelocity &&
+          (Math.abs(playerVelocity.x) > playerSpeedThreshold ||
+           Math.abs(playerVelocity.y) > playerSpeedThreshold);
 
         if (playerIsMoving) {
           if (distance > attackRange) {
@@ -181,16 +184,22 @@ export class NpcMovementSystem extends BaseSystem {
             movementDirectionX = -directionX;
             movementDirectionY = -directionY;
           } else {
-            // Mantieni posizione lentamente
+            // Mantieni posizione lentamente (ma non fermo)
             targetSpeed = baseSpeed * 0.3;
           }
         } else {
+          // Player fermo (o velocity non disponibile): l'NPC NON deve mai restare fermo
           if (distance <= attackRange) {
-            // Nel range - stai fermo
-            velocity.setVelocity(0, 0);
-            return;
+            // Se è già in range, muoviti orbitando attorno al player
+            const orbitDirX = -directionY;
+            const orbitDirY = directionX;
+            movementDirectionX = orbitDirX;
+            movementDirectionY = orbitDirY;
+            targetSpeed = baseSpeed * 0.5;
+          } else {
+            // Fuori range: avvicinati alla velocità base
+            targetSpeed = baseSpeed;
           }
-          // Fuori range - avvicinati lentamente
         }
 
       // Per NPC senza state, usa movimento semplice
