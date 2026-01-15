@@ -5,6 +5,7 @@ import { Entity } from '../infrastructure/ecs/Entity';
 import { Transform } from '../entities/spatial/Transform';
 import { Velocity } from '../entities/spatial/Velocity';
 import { Sprite } from '../entities/Sprite';
+import { AnimatedSprite } from '../entities/AnimatedSprite';
 import { Health } from '../entities/combat/Health';
 import { Shield } from '../entities/combat/Shield';
 import { Damage } from '../entities/combat/Damage';
@@ -89,6 +90,7 @@ export interface RemotePlayerConfig {
   nickname?: string;
   rank?: string;
   position: SpatialConfig;
+  animatedSprite?: AnimatedSprite | null;
   combat?: CombatConfig;
   interpolation?: boolean;
 }
@@ -217,6 +219,14 @@ export class EntityFactory {
 
     // Componenti spaziali
     this.addSpatialComponents(entity, config.position);
+
+    // Aggiungi AnimatedSprite se fornito (rimuovi Sprite se presente)
+    if (this.ecs.hasComponent(entity, Sprite)) {
+      this.ecs.removeComponent(entity, Sprite);
+    }
+    if (config.animatedSprite) {
+      this.ecs.addComponent(entity, AnimatedSprite, config.animatedSprite);
+    }
 
     // Componenti di combattimento (valori base per remote players)
     this.addCombatComponents(entity, config.combat || {

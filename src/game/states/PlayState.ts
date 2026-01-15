@@ -17,6 +17,7 @@ import { EconomySystem } from '../../systems/economy/EconomySystem';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Npc } from '../../entities/ai/Npc';
 import AudioSystem from '../../systems/audio/AudioSystem';
 
@@ -151,11 +152,11 @@ export class PlayState extends GameState {
    * Inizializza i sistemi multiplayer prima dell'inizializzazione del gioco
    */
   private async initializeMultiplayerSystems(): Promise<void> {
-    // Carica gli asset necessari per i sistemi remoti
-    const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
+    // Carica AnimatedSprite per i remote player (stesso del player normale)
+    const remotePlayerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.7);
 
     // Crea sistema remote player
-    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), shipImage, 32, 32);
+    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), remotePlayerSprite);
     this.world.getECS().addSystem(this.remotePlayerSystem);
 
     // Prova a ottenere i sistemi remoti (potrebbero essere null se initialize() non è stato chiamato)
@@ -454,19 +455,15 @@ export class PlayState extends GameState {
 
 
   /**
-   * Aggiorna l'immagine del sprite per i remote player se necessario
+   * Aggiorna l'AnimatedSprite per i remote player se necessario
    */
   private updateRemotePlayerSpriteImage(): void {
     if (!this.remotePlayerSystem || !this.playerEntity || this.remotePlayerSpriteUpdated) return;
 
-    const playerSprite = this.world.getECS().getComponent(this.playerEntity, Sprite);
-    if (playerSprite && playerSprite.image && playerSprite.isLoaded()) {
-      // L'immagine del player è caricata, aggiorna il sprite condiviso dei remote player
-      this.remotePlayerSystem.updateSharedSpriteImage(
-        playerSprite.image,
-        playerSprite.width,
-        playerSprite.height
-      );
+    const playerAnimatedSprite = this.world.getECS().getComponent(this.playerEntity, AnimatedSprite);
+    if (playerAnimatedSprite && playerAnimatedSprite.isLoaded()) {
+      // L'AnimatedSprite del player è caricato, aggiorna l'AnimatedSprite condiviso dei remote player
+      this.remotePlayerSystem.updateSharedAnimatedSprite(playerAnimatedSprite);
       this.remotePlayerSpriteUpdated = true; // Evita aggiornamenti ripetuti
     }
   }

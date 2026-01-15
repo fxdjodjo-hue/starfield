@@ -2,39 +2,37 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
-import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { EntityFactory } from '../../factories/EntityFactory';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
  * Usa componenti ECS invece di Map manuale per maggiore robustezza
  */
 export class RemotePlayerSystem extends BaseSystem {
-  // Sprite condiviso per tutti i remote player (più efficiente)
-  private sharedSprite: Sprite;
+  // AnimatedSprite condiviso per tutti i remote player (più efficiente)
+  private sharedAnimatedSprite: AnimatedSprite | null;
   // Logging per evitare spam di aggiornamenti posizione
   private lastUpdateLog = new Map<string, number>();
   // Factory per creare entità
   private entityFactory: EntityFactory;
 
-  constructor(ecs: ECS, shipImage: HTMLImageElement | null = null, shipWidth?: number, shipHeight?: number) {
+  constructor(ecs: ECS, animatedSprite: AnimatedSprite | null = null) {
     super(ecs);
-    const width = shipWidth || 32;
-    const height = shipHeight || 32;
-    // Crea un singolo sprite condiviso per tutti i remote player
-    this.sharedSprite = new Sprite(shipImage, width, height);
+    // Usa AnimatedSprite condiviso per tutti i remote player
+    this.sharedAnimatedSprite = animatedSprite;
     this.entityFactory = new EntityFactory(ecs);
   }
 
   /**
-   * Aggiorna l'immagine del sprite condiviso (per quando l'immagine viene caricata)
+   * Aggiorna l'AnimatedSprite condiviso (per quando viene caricato)
    */
-  updateSharedSpriteImage(image: HTMLImageElement | null, width?: number, height?: number): void {
-    if (width) this.sharedSprite.width = width;
-    if (height) this.sharedSprite.height = height;
-    this.sharedSprite.image = image;
+  updateSharedAnimatedSprite(animatedSprite: AnimatedSprite | null): void {
+    this.sharedAnimatedSprite = animatedSprite;
   }
 
 
@@ -109,9 +107,9 @@ export class RemotePlayerSystem extends BaseSystem {
       position: {
         x,
         y,
-        rotation,
-        sprite: this.sharedSprite
+        rotation
       },
+      animatedSprite: this.sharedAnimatedSprite,
       combat: {
         health: { current: 100, max: 100 }, // HP completo per giocatori remoti
         shield: { current: 50, max: 50 },   // Scudo completo per giocatori remoti
