@@ -1095,28 +1095,7 @@ export class ClientNetworkSystem extends BaseSystem {
     this.connectionManager.send(JSON.stringify(message));
   }
 
-  /**
-   * Invia gli upgrade del player al server (Server Authoritative)
-   */
-  sendPlayerUpgrades(upgrades: {
-    hpUpgrades: number;
-    shieldUpgrades: number;
-    speedUpgrades: number;
-    damageUpgrades: number;
-  }): void {
-    if (!this.socket || !this.isConnected) {
-      return;
-    }
-
-    const message = {
-      type: 'player_upgrades_update',
-      clientId: this.clientId,
-      playerId: this.gameContext.authId,  // User/auth ID (UUID)
-      upgrades: upgrades
-    };
-
-    this.sendMessage(message);
-  }
+  // 🔴 SECURITY: sendPlayerUpgrades RIMOSSO - gli upgrade passano SOLO da requestSkillUpgrade
 
   /**
    * Gets the local client ID

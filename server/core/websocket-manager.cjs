@@ -518,28 +518,8 @@ class WebSocketConnectionManager {
             }));
           }
 
-          // Gestisce aggiornamenti upgrade del player (Server Authoritative)
-          if (data.type === 'player_upgrades_update') {
-            const playerData = this.mapServer.players.get(data.clientId);
-            if (!playerData) {
-              logger.warn('PLAYER_UPGRADES', `Player data not found for clientId: ${data.clientId}`);
-              return;
-            }
-
-            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
-            if (data.playerId !== playerData.userId) {
-              logger.error('SECURITY', `🚫 BLOCKED: Upgrade update attempt with mismatched playerId from ${data.clientId}`);
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: 'Invalid player ID for upgrade action.',
-                code: 'INVALID_PLAYER_ID'
-              }));
-              return;
-            }
-
-            // Aggiorna gli upgrade del player con quelli ricevuti dal client
-            playerData.upgrades = { ...data.upgrades };
-          }
+          // 🔴 SECURITY: player_upgrades_update RIMOSSO - gli upgrade devono passare SOLO da skill_upgrade_request
+          // Il client non può più inviare upgrade arbitrari
 
           // Gestisce richieste di upgrade skill (Server Authoritative)
           if (data.type === 'skill_upgrade_request') {
@@ -873,42 +853,8 @@ class WebSocketConnectionManager {
             ws.send(JSON.stringify(responseMessage));
           }
 
-          // Gestisce aggiornamenti economici dal client
-          if (data.type === 'economy_update') {
-
-            // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
-            if (data.playerId !== playerData?.userId) {
-              logger.error('SECURITY', `🚫 BLOCKED: Economy update attempt with mismatched playerId from ${data.clientId}`);
-              ws.send(JSON.stringify({
-                type: 'error',
-                message: 'Invalid player ID for economy update.',
-                code: 'INVALID_PLAYER_ID'
-              }));
-              return;
-            }
-
-            // Aggiorna i dati economici del giocatore (Server Authoritative)
-            if (playerData) {
-              // Supporta sia il vecchio formato (inventory) che il nuovo (field/value)
-              if (data.inventory) {
-                // Vecchio formato - ancora supportato per retrocompatibilità
-                playerData.inventory.credits = Math.max(0, data.inventory.credits || 0);
-                playerData.inventory.cosmos = Math.max(0, data.inventory.cosmos || 0);
-                playerData.inventory.experience = Math.max(0, data.inventory.experience || 0);
-                playerData.inventory.honor = Math.max(0, data.inventory.honor || 0);
-                playerData.inventory.skillPoints = Math.max(0, data.inventory.skillPoints || 0);
-              } else if (data.field && data.value !== undefined) {
-                // Nuovo formato - aggiorna solo il campo specifico
-                const field = data.field;
-                const value = Math.max(0, data.value);
-                if (playerData.inventory.hasOwnProperty(field)) {
-                  playerData.inventory[field] = value;
-                }
-              }
-
-              // I dati verranno salvati automaticamente dal periodic save o al disconnect
-            }
-          }
+          // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server
+          // Il client non può più modificare credits/cosmos/experience direttamente
 
           // Gestisce messaggi chat
           if (data.type === 'chat_message') {

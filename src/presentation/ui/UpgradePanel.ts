@@ -1089,33 +1089,7 @@ export class UpgradePanel extends BasePanel {
     }
   }
 
-  /**
-   * Sincronizza gli upgrade del player al server (Server Authoritative)
-   */
-  private syncUpgradesToServer(): void {
-
-    if (!this.clientNetworkSystem) {
-      return;
-    }
-
-    const playerEntity = this.playerSystem?.getPlayerEntity();
-    if (!playerEntity) {
-      return;
-    }
-
-    const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
-    if (!playerUpgrades) {
-      return;
-    }
-
-    // Invia upgrade aggiornati al server
-    this.clientNetworkSystem.sendPlayerUpgrades({
-      hpUpgrades: playerUpgrades.hpUpgrades,
-      shieldUpgrades: playerUpgrades.shieldUpgrades,
-      speedUpgrades: playerUpgrades.speedUpgrades,
-      damageUpgrades: playerUpgrades.damageUpgrades
-    });
-  }
+  // 🔴 SECURITY: syncUpgradesToServer RIMOSSO - gli upgrade passano SOLO da requestSkillUpgrade
 
   private realtimeUpdateActive: boolean = false;
 

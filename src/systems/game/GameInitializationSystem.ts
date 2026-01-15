@@ -156,7 +156,8 @@ export class GameInitializationSystem extends System {
   private async createSystems(): Promise<any> {
     // Load assets
     const shipImage = await this.context.assetManager.loadImage('/assets/ships/0/0.png');
-    const mapBackgroundImage = await this.context.assetManager.loadImage(`/assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`);
+    // DISABLED: Sfondo nero puro + stelle - riattivare per usare bg.jpg
+    // const mapBackgroundImage = await this.context.assetManager.loadImage(`/assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`);
     const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
     const frigateImage = await this.context.assetManager.loadImage('/assets/npc_ships/frigate/npc_frigate.png');
 
@@ -276,7 +277,7 @@ export class GameInitializationSystem extends System {
       clientNetworkSystem: this.clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,
-      assets: { shipImage, mapBackgroundImage, scouterImage, frigateImage }
+      assets: { shipImage, scouterImage, frigateImage } // mapBackgroundImage disabled
     };
 
     return result;
@@ -460,8 +461,8 @@ export class GameInitializationSystem extends System {
 
     this.setPlayerEntityInSystems(playerEntity, systems);
 
-    // Crea l'entità background della mappa
-    this.createMapBackground(assets.mapBackgroundImage);
+    // DISABLED: Sfondo nero puro + stelle
+    // this.createMapBackground(assets.mapBackgroundImage);
 
     // Nota: Gli NPC ora vengono creati e gestiti dal server
     // Non creiamo più NPC locali per garantire consistenza multiplayer
