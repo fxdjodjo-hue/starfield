@@ -563,8 +563,8 @@ class WebSocketConnectionManager {
               return;
             }
 
-            // Definisci i costi degli upgrade in crediti e cosmos
-            const upgradeCosts = {
+            // Definisci i costi base degli upgrade in crediti e cosmos
+            const baseUpgradeCosts = {
               hp: { credits: 5000, cosmos: 10 },
               shield: { credits: 3000, cosmos: 5 },
               speed: { credits: 8000, cosmos: 15 },
@@ -578,6 +578,33 @@ class WebSocketConnectionManager {
               speed: 100,
               damage: 100
             };
+
+            // Calcola il costo basato sul livello corrente dell'upgrade
+            function calculateUpgradeCost(statType, currentLevel) {
+              const baseCost = baseUpgradeCosts[statType];
+              let credits = 0;
+              let cosmos = 0;
+
+              if (currentLevel < 20) {
+                // Fase 1: Solo crediti (primi 20 livelli)
+                credits = baseCost.credits;
+                cosmos = 0;
+              } else if (currentLevel < 40) {
+                // Fase 2: Crediti + Cosmos (livelli 21-40)
+                credits = baseCost.credits;
+                cosmos = baseCost.cosmos;
+              } else {
+                // Fase 3: Solo Cosmos (livello 41+)
+                credits = 0;
+                cosmos = baseCost.cosmos * 2; // Doppio per rendere più impegnativo
+              }
+
+              return { credits, cosmos };
+            }
+
+            // Calcola il costo per l'upgrade richiesto
+            const currentLevel = playerData.upgrades[data.upgradeType + 'Upgrades'] || 0;
+            const cost = calculateUpgradeCost(data.upgradeType, currentLevel);
 
             // Verifica se l'upgrade richiesto è valido
             const cost = upgradeCosts[data.upgradeType];
@@ -609,9 +636,17 @@ class WebSocketConnectionManager {
 
             if (currentCredits < cost.credits || currentCosmos < cost.cosmos) {
               console.log(`🚫 [SERVER] Insufficient resources for ${data.upgradeType}: has ${currentCredits} credits, ${currentCosmos} cosmos, needs ${cost.credits} credits, ${cost.cosmos} cosmos`);
+              let costMessage = '';
+              if (cost.credits > 0 && cost.cosmos > 0) {
+                costMessage = `${cost.credits} credits + ${cost.cosmos} cosmos`;
+              } else if (cost.credits > 0) {
+                costMessage = `${cost.credits} credits`;
+              } else if (cost.cosmos > 0) {
+                costMessage = `${cost.cosmos} cosmos`;
+              }
               ws.send(JSON.stringify({
                 type: 'error',
-                message: `Not enough resources for upgrade. Required: ${cost.credits} credits + ${cost.cosmos} cosmos`,
+                message: `Not enough resources for upgrade. Required: ${costMessage}`,
                 code: 'INSUFFICIENT_RESOURCES'
               }));
               return;

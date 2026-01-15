@@ -267,6 +267,31 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
+   * Calcola il costo di un upgrade basato sul livello corrente
+   */
+  private calculateUpgradeCost(statType: string, currentLevel: number): { credits: number, cosmos: number } {
+    const baseCosts = {
+      hp: { credits: 5000, cosmos: 10 },
+      shield: { credits: 3000, cosmos: 5 },
+      speed: { credits: 8000, cosmos: 15 },
+      damage: { credits: 10000, cosmos: 20 }
+    };
+
+    const baseCost = baseCosts[statType as keyof typeof baseCosts];
+
+    if (currentLevel < 20) {
+      // Fase 1: Solo crediti (primi 20 livelli)
+      return { credits: baseCost.credits, cosmos: 0 };
+    } else if (currentLevel < 40) {
+      // Fase 2: Crediti + Cosmos (livelli 21-40)
+      return { credits: baseCost.credits, cosmos: baseCost.cosmos };
+    } else {
+      // Fase 3: Solo Cosmos (livello 41+)
+      return { credits: 0, cosmos: baseCost.cosmos * 2 };
+    }
+  }
+
+  /**
    * Crea la sezione risorse e costi
    */
   private createResourcesSection(): HTMLElement {
@@ -391,14 +416,23 @@ export class UpgradePanel extends BasePanel {
 
     section.appendChild(sectionTitle);
 
+    // Ottieni i livelli correnti degli upgrade
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    const playerUpgrades = playerEntity ? this.ecs.getComponent(playerEntity, PlayerUpgrades) : null;
+
+    const hpLevel = playerUpgrades ? playerUpgrades.hpUpgrades : 0;
+    const shieldLevel = playerUpgrades ? playerUpgrades.shieldUpgrades : 0;
+    const speedLevel = playerUpgrades ? playerUpgrades.speedUpgrades : 0;
+    const damageLevel = playerUpgrades ? playerUpgrades.damageUpgrades : 0;
+
     // Crea i quattro pulsanti di upgrade con statistiche integrate
-    const hpUpgrade = this.createStatUpgradeButton('Hull', '+', '#10b981', 'hp');
+    const hpUpgrade = this.createStatUpgradeButton('Hull', '+', '#10b981', 'hp', hpLevel);
     hpUpgrade.classList.add('upgrade-hp');
-    const shieldUpgrade = this.createStatUpgradeButton('Shield', '+', '#3b82f6', 'shield');
+    const shieldUpgrade = this.createStatUpgradeButton('Shield', '+', '#3b82f6', 'shield', shieldLevel);
     shieldUpgrade.classList.add('upgrade-shield');
-    const speedUpgrade = this.createStatUpgradeButton('Speed', '+', '#f59e0b', 'speed');
+    const speedUpgrade = this.createStatUpgradeButton('Speed', '+', '#f59e0b', 'speed', speedLevel);
     speedUpgrade.classList.add('upgrade-speed');
-    const damageUpgrade = this.createStatUpgradeButton('Laser', '+', '#ef4444', 'damage');
+    const damageUpgrade = this.createStatUpgradeButton('Laser', '+', '#ef4444', 'damage', damageLevel);
     damageUpgrade.classList.add('upgrade-damage');
 
     section.appendChild(hpUpgrade);
@@ -412,7 +446,7 @@ export class UpgradePanel extends BasePanel {
   /**
    * Crea un pulsante di upgrade con statistica integrata
    */
-  private createStatUpgradeButton(statName: string, icon: string, color: string, upgradeType: string): HTMLElement {
+  private createStatUpgradeButton(statName: string, icon: string, color: string, upgradeType: string, currentLevel: number = 0): HTMLElement {
     const button = document.createElement('button');
     button.style.cssText = `
       display: flex;
@@ -503,15 +537,8 @@ export class UpgradePanel extends BasePanel {
       text-align: center;
     `;
 
-    // Definisci i costi per ogni upgrade
-    const upgradeCosts = {
-      hp: { credits: 5000, cosmos: 10 },
-      shield: { credits: 3000, cosmos: 5 },
-      speed: { credits: 8000, cosmos: 15 },
-      damage: { credits: 10000, cosmos: 20 }
-    };
-
-    const cost = upgradeCosts[upgradeType as keyof typeof upgradeCosts];
+    // Calcola il costo basato sul livello corrente
+    const cost = this.calculateUpgradeCost(upgradeType, currentLevel);
 
     const upgradeText = document.createElement('div');
     upgradeText.textContent = 'UPGRADE';
@@ -989,7 +1016,7 @@ export class UpgradePanel extends BasePanel {
   }
 
   /**
-   * Aggiorna lo stato dei pulsanti di upgrade in base ai limiti massimi
+   * Aggiorna lo stato dei pulsanti di upgrade in base ai limiti massimi e costi
    */
   private updateUpgradeButtons(playerUpgrades: any, upgradeLimits: any): void {
     // Mappa dei pulsanti per tipo di upgrade
@@ -1025,7 +1052,7 @@ export class UpgradePanel extends BasePanel {
             costDetails.style.display = 'none';
           }
         } else {
-          // Non al limite - abilita pulsante
+          // Non al limite - abilita pulsante e aggiorna costi
           upgradeButton.style.opacity = '1';
           upgradeButton.style.pointerEvents = 'auto';
           upgradeButton.style.background = 'rgba(255, 255, 255, 0.1)';
@@ -1037,9 +1064,19 @@ export class UpgradePanel extends BasePanel {
             upgradeText.textContent = 'UPGRADE';
           }
 
-          // Mostra i costi
+          // Aggiorna i costi nel pulsante
           const costDetails = upgradeButton.querySelector('div:last-child');
           if (costDetails) {
+            const newCost = this.calculateUpgradeCost(statType, currentValue);
+            let costText = '';
+            if (newCost.credits > 0 && newCost.cosmos > 0) {
+              costText = `${newCost.credits}CR + ${newCost.cosmos}CO`;
+            } else if (newCost.credits > 0) {
+              costText = `${newCost.credits}CR`;
+            } else if (newCost.cosmos > 0) {
+              costText = `${newCost.cosmos}CO`;
+            }
+            costDetails.textContent = costText;
             costDetails.style.display = 'block';
           }
         }
