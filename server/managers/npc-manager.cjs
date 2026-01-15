@@ -52,8 +52,12 @@ class ServerNpcManager {
 
   /**
    * Crea un nuovo NPC nel mondo
+   * @param {string} type - Tipo di NPC ('Scouter' o 'Frigate')
+   * @param {number} x - Posizione X (opzionale, casuale se non specificata)
+   * @param {number} y - Posizione Y (opzionale, casuale se non specificata)
+   * @param {boolean} silent - Se true, non logga la creazione (per inizializzazione bulk)
    */
-  createNpc(type, x, y) {
+  createNpc(type, x, y, silent = false) {
     const npcId = `npc_${this.npcIdCounter++}`;
 
     // Se non specificate, genera posizioni casuali ENTRO i confini del mondo
@@ -87,7 +91,11 @@ class ServerNpcManager {
     // Non ci sono più NPC aggressivi automatici
 
     this.npcs.set(npcId, npc);
-    logger.info('NPC', `Created ${npcId} (${type}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)}) [${npc.behavior}]`);
+
+    // Log solo se non è modalità silenziosa (per evitare spam durante inizializzazione)
+    if (!silent) {
+      logger.info('NPC', `Created ${npcId} (${type}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)}) [${npc.behavior}]`);
+    }
 
     return npcId;
   }
@@ -449,13 +457,13 @@ class ServerNpcManager {
    */
   initializeWorldNpcs(scouterCount = 25, frigateCount = 25) {
 
-    // Distribuisci uniformemente gli NPC nel mondo
+    // Distribuisci uniformemente gli NPC nel mondo (modalità silenziosa per evitare spam)
     for (let i = 0; i < scouterCount; i++) {
-      this.createNpc('Scouter');
+      this.createNpc('Scouter', undefined, undefined, true);
     }
 
     for (let i = 0; i < frigateCount; i++) {
-      this.createNpc('Frigate');
+      this.createNpc('Frigate', undefined, undefined, true);
     }
 
     const stats = this.getStats();
