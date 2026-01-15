@@ -607,10 +607,9 @@ class WebSocketConnectionManager {
             const cost = calculateUpgradeCost(data.upgradeType, currentLevel);
 
             // Verifica se l'upgrade richiesto è valido
-            const cost = upgradeCosts[data.upgradeType];
             const maxLimit = upgradeLimits[data.upgradeType];
 
-            if (!cost || maxLimit === undefined) {
+            if (maxLimit === undefined) {
               ws.send(JSON.stringify({
                 type: 'error',
                 message: 'Invalid upgrade type',
