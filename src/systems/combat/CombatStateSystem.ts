@@ -253,10 +253,16 @@ export class CombatStateSystem extends BaseSystem {
   private startAttackLogging(targetEntity: Entity): void {
     if (!this.logSystem) return;
 
+    // Evita doppi log: se è già stato loggato per questo target, non loggare di nuovo
+    if (this.attackStartedLogged && this.currentAttackTarget === targetEntity.id) {
+      return;
+    }
+
     const npc = this.ecs.getComponent(targetEntity, Npc);
     if (npc) {
       this.logSystem.logAttackStart(npc.npcType);
       this.currentAttackTarget = targetEntity.id;
+      this.attackStartedLogged = true;
     }
   }
 
