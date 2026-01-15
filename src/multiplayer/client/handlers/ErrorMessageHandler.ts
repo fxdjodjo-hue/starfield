@@ -12,25 +12,20 @@ export class ErrorMessageHandler extends BaseMessageHandler {
   }
 
   handle(message: ErrorMessage, networkSystem: ClientNetworkSystem): void {
-    console.log('🚫 [ERROR] Received error from server:', message.message, message.code);
 
     // Se è un errore di upgrade, mostra popup elegante
     if (message.code === 'INSUFFICIENT_RESOURCES' || message.code === 'INSUFFICIENT_SKILL_POINTS' || message.code === 'MAX_UPGRADES_REACHED') {
-      console.log('🔧 [UPGRADE_ERROR] Showing popup for upgrade error:', message.code);
       const uiSystem = networkSystem.getUiSystem();
       if (uiSystem) {
         const upgradePanel = uiSystem.getUpgradePanel();
         if (upgradePanel) {
-          console.log('🔧 [UPGRADE_ERROR] Found upgrade panel, showing popup');
           // Mostra popup elegante invece del messaggio chat
           upgradePanel.showInsufficientResourcesPopup(message.message);
         } else {
-          console.log('🔧 [UPGRADE_ERROR] No upgrade panel found');
           // Fallback al chat se non c'è il pannello
           this.chatManager.receiveError(message.message);
         }
       } else {
-        console.log('🔧 [UPGRADE_ERROR] No UI system found');
         // Fallback al chat se non c'è il sistema UI
         this.chatManager.receiveError(message.message);
       }

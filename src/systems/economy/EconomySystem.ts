@@ -612,7 +612,6 @@ export class EconomySystem extends BaseSystem {
   setExperience(totalExp: number, reason: string = 'server_update'): void {
     const experience = this.getPlayerExperience();
     if (!experience) {
-      console.log(`[DEBUG_EXP] ERROR: No Experience component found!`);
       return;
     }
 

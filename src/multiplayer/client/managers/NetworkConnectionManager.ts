@@ -67,7 +67,6 @@ export class NetworkConnectionManager {
         };
 
         this.socket.onclose = () => {
-          console.log('🔌 [CONNECTION] WebSocket disconnected');
           this.cleanup();
           this.handleDisconnected();
         };
@@ -188,7 +187,6 @@ export class NetworkConnectionManager {
    */
   disconnect(): void {
     if (this.socket) {
-      console.log('🔌 [CONNECTION] Disconnecting...');
       this.socket.close();
       this.cleanup();
     }

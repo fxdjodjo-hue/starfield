@@ -47,7 +47,6 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
 
       // ✅ L'ECONOMY SYSTEM TRIGGERA AUTOMATICAMENTE onExperienceChanged -> UiSystem.updatePlayerData
     } else {
-      console.log(`[DEBUG_ECONOMY] ERROR: EconomySystem not available in PlayerDataResponseHandler`);
     }
 
     // ✅ L'ECONOMY SYSTEM TRIGGERA AUTOMATICAMENTE onExperienceChanged -> UiSystem.updatePlayerData
