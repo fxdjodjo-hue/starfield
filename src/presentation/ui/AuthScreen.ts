@@ -1,6 +1,7 @@
 import type { GameContext } from '../../infrastructure/engine/GameContext';
 import { getFormattedVersion } from '../../utils/config/Version';
 import { supabase } from '../../lib/supabase';
+import { getApiBaseUrl } from '../../config/NetworkConfig';
 
 /**
  * Stati dell'autenticazione
@@ -830,7 +831,7 @@ export class AuthScreen {
             attempts++;
             try {
               // Quick verification call - usa endpoint esistente
-              const response = await fetch('http://localhost:3000/api/player-data/' + data.user.id, {
+              const response = await fetch(`${getApiBaseUrl()}/api/player-data/` + data.user.id, {
                 headers: {
                   'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
                 }

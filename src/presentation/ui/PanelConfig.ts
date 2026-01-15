@@ -35,9 +35,9 @@ export interface PanelConfig {
  */
 const PANEL_CONFIGS_BASE = {
   stats: {
-    id: 'player-stats',
-    icon: '⊞',
-    title: 'Player Statistics',
+    id: 'leaderboard',
+    icon: '🏆',
+    title: 'Leaderboard',
     position: 'center-left' as const,
     size: { ...BASE_PANEL_SIZE }
   },

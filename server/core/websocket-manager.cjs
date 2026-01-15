@@ -893,6 +893,106 @@ class WebSocketConnectionManager {
           }
 
           // Gestisce richiesta dati completi del giocatore (dopo welcome)
+          if (data.type === 'request_leaderboard') {
+            // Leaderboard è pubblica, non richiede autenticazione specifica
+            try {
+              const sortBy = data.sortBy || 'ranking_points';
+              const limit = data.limit || 100;
+
+              const { data: leaderboardData, error: leaderboardError } = await supabase.rpc(
+                'get_leaderboard',
+                {
+                  p_limit: limit,
+                  p_sort_by: sortBy
+                }
+              );
+
+              if (leaderboardError) {
+                logger.error('DATABASE', `Error getting leaderboard: ${leaderboardError.message}`);
+                logger.error('DATABASE', `Leaderboard error details: ${JSON.stringify(leaderboardError)}`);
+                ws.send(JSON.stringify({
+                  type: 'leaderboard_response',
+                  entries: [],
+                  sortBy: sortBy,
+                  error: `Failed to load leaderboard: ${leaderboardError.message}`
+                }));
+                return;
+              }
+
+              // Debug: log risultati query
+              logger.info('LEADERBOARD', `Query returned ${leaderboardData?.length || 0} entries`);
+              if (leaderboardData && leaderboardData.length > 0) {
+                logger.info('LEADERBOARD', `First entry: ${JSON.stringify(leaderboardData[0])}`);
+              } else {
+                logger.warn('LEADERBOARD', 'No leaderboard data returned - check if players have data in player_currencies/player_stats');
+                // Debug: verifica se ci sono player nel database
+                const { data: profileCheck, error: profileError } = await supabase
+                  .from('user_profiles')
+                  .select('player_id, username')
+                  .limit(5);
+                if (profileError) {
+                  logger.error('LEADERBOARD', `Error checking profiles: ${profileError.message}`);
+                } else {
+                  logger.info('LEADERBOARD', `Found ${profileCheck?.length || 0} profiles in database`);
+                  if (profileCheck && profileCheck.length > 0) {
+                    logger.info('LEADERBOARD', `Sample profiles: ${JSON.stringify(profileCheck)}`);
+                  }
+                }
+              }
+
+              // Calcola rank del giocatore corrente se autenticato
+              let playerRank = undefined;
+              if (playerData?.userId) {
+                const playerEntry = leaderboardData?.find((entry) => {
+                  // Trova il player per userId (dobbiamo fare una query per ottenere player_id da auth_id)
+                  // Per ora usiamo il playerId se disponibile
+                  return entry.player_id === playerData.playerId;
+                });
+                if (playerEntry) {
+                  playerRank = playerEntry.rank_position;
+                }
+              }
+
+              // Calcola rank name per ogni entry
+              const entries = (leaderboardData || []).map((entry) => {
+                const rankingPoints = parseFloat(entry.ranking_points) || 0;
+                const rankName = this.calculateRankName(rankingPoints);
+                
+                return {
+                  rank: parseInt(entry.rank_position) || 0,
+                  playerId: parseInt(entry.player_id) || 0,
+                  username: entry.username || `Player #${entry.player_id}`,
+                  experience: parseInt(entry.experience) || 0,
+                  honor: parseInt(entry.honor) || 0,
+                  recentHonor: parseFloat(entry.recent_honor) || 0,
+                  rankingPoints: rankingPoints,
+                  kills: parseInt(entry.kills) || 0,
+                  playTime: parseInt(entry.play_time) || 0,
+                  level: parseInt(entry.level) || 1,
+                  rankName: rankName
+                };
+              });
+
+              ws.send(JSON.stringify({
+                type: 'leaderboard_response',
+                entries: entries,
+                sortBy: sortBy,
+                playerRank: playerRank
+              }));
+
+              logger.info('LEADERBOARD', `Sent leaderboard to ${data.clientId} (${entries.length} entries, sort: ${sortBy})`);
+            } catch (error) {
+              logger.error('LEADERBOARD', `Error processing leaderboard request: ${error.message}`);
+              ws.send(JSON.stringify({
+                type: 'leaderboard_response',
+                entries: [],
+                sortBy: data.sortBy || 'ranking_points',
+                error: 'Failed to load leaderboard'
+              }));
+            }
+            return;
+          }
+
           if (data.type === 'request_player_data') {
             // 🔴 CRITICAL SECURITY: Verifica che il playerId corrisponda al client autenticato
             if (data.playerId !== playerData?.userId) {
@@ -1069,6 +1169,44 @@ class WebSocketConnectionManager {
         logger.error('WEBSOCKET', 'WebSocket error', error.message);
       });
     });
+  }
+
+  /**
+   * Calcola il rank militare basato sui ranking points
+   */
+  calculateRankName(rankingPoints) {
+    const ranks = [
+      { name: 'Chief General', minPoints: 100000 },
+      { name: 'General', minPoints: 75000 },
+      { name: 'Basic General', minPoints: 50000 },
+      { name: 'Chief Colonel', minPoints: 35000 },
+      { name: 'Colonel', minPoints: 25000 },
+      { name: 'Basic Colonel', minPoints: 15000 },
+      { name: 'Chief Major', minPoints: 10000 },
+      { name: 'Major', minPoints: 7500 },
+      { name: 'Basic Major', minPoints: 5000 },
+      { name: 'Chief Captain', minPoints: 3500 },
+      { name: 'Captain', minPoints: 2500 },
+      { name: 'Basic Captain', minPoints: 1500 },
+      { name: 'Chief Lieutenant', minPoints: 1000 },
+      { name: 'Lieutenant', minPoints: 750 },
+      { name: 'Basic Lieutenant', minPoints: 500 },
+      { name: 'Chief Sergeant', minPoints: 350 },
+      { name: 'Sergeant', minPoints: 250 },
+      { name: 'Basic Sergeant', minPoints: 150 },
+      { name: 'Chief Space Pilot', minPoints: 100 },
+      { name: 'Space Pilot', minPoints: 50 },
+      { name: 'Basic Space Pilot', minPoints: 25 },
+      { name: 'Recruit', minPoints: 0 }
+    ];
+
+    for (const rank of ranks) {
+      if (rankingPoints >= rank.minPoints) {
+        return rank.name;
+      }
+    }
+
+    return 'Recruit';
   }
 
   /**

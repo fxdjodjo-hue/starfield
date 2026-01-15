@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { getApiBaseUrl } from '../config/NetworkConfig'
 
 // Supabase configuration
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'
@@ -230,7 +231,7 @@ export const gameAPI = {
       }
 
       // Call server endpoint to create profile (server will use secure RPC)
-      const response = await fetch('http://localhost:3000/api/create-profile', {
+      const response = await fetch(`${getApiBaseUrl()}/api/create-profile`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -256,7 +257,7 @@ export const gameAPI = {
       }
 
       // Request data through secure server API using auth_id
-      const response = await fetch(`http://localhost:3000/api/player-data/${user.id}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/player-data/${user.id}`, {
         headers: {
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         }
@@ -279,7 +280,7 @@ export const gameAPI = {
       }
 
       // Send data through secure server API using auth_id
-      const response = await fetch(`http://localhost:3000/api/player-data/${user.id}`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/player-data/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

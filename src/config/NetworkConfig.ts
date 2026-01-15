@@ -1,10 +1,57 @@
+import type { EntityId } from '../infrastructure/ecs/Entity';
+
+/**
+ * Base interface for all network messages
+ */
+export interface BaseMessage {
+  type: string;
+}
+
+/**
+ * Determines the server URL based on environment
+ * Automatically detects production vs development
+ */
+function getServerUrl(): string {
+  // Check for explicit environment variable
+  if (import.meta.env?.VITE_SERVER_URL) {
+    return import.meta.env.VITE_SERVER_URL;
+  }
+
+  // Auto-detect production environment
+  const isProduction = window.location.hostname !== 'localhost' && 
+                       window.location.hostname !== '127.0.0.1' &&
+                       !window.location.hostname.startsWith('192.168.');
+
+  if (isProduction) {
+    // Production: use Render server with WSS (secure WebSocket)
+    return 'wss://starfield-n5ix.onrender.com';
+  }
+
+  // Development: use localhost
+  return 'ws://localhost:3000';
+}
+
+/**
+ * Gets the HTTP/HTTPS API base URL from WebSocket URL
+ */
+export function getApiBaseUrl(): string {
+  const wsUrl = getServerUrl();
+  // Convert ws:// to http:// or wss:// to https://
+  if (wsUrl.startsWith('wss://')) {
+    return wsUrl.replace('wss://', 'https://');
+  } else if (wsUrl.startsWith('ws://')) {
+    return wsUrl.replace('ws://', 'http://');
+  }
+  return wsUrl;
+}
+
 /**
  * Network configuration constants
  * Centralizes all network-related constants for maintainability
  */
 export const NETWORK_CONFIG = {
-  // Connection settings - uses environment variable with fallback
-  DEFAULT_SERVER_URL: import.meta.env?.VITE_SERVER_URL || 'ws://localhost:3000',
+  // Connection settings - auto-detects environment
+  DEFAULT_SERVER_URL: getServerUrl(),
 
   // Timing intervals (in milliseconds)
   HEARTBEAT_INTERVAL: 5000, // 5 seconds
@@ -90,7 +137,11 @@ export const MESSAGE_TYPES = {
   PLAYER_DATA_RESPONSE: 'player_data_response',
   ECONOMY_UPDATE: 'economy_update',
   SAVE_REQUEST: 'save_request',
-  SAVE_RESPONSE: 'save_response'
+  SAVE_RESPONSE: 'save_response',
+  
+  // Leaderboard messages
+  REQUEST_LEADERBOARD: 'request_leaderboard',
+  LEADERBOARD_RESPONSE: 'leaderboard_response'
 } as const;
 
 /**
@@ -465,6 +516,37 @@ export interface EconomyUpdateMessage extends BaseMessage {
   };
 }
 
+/**
+ * Richiesta leaderboard dal client al server
+ */
+export interface LeaderboardRequestMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.REQUEST_LEADERBOARD;
+  sortBy?: 'honor' | 'experience' | 'kills' | 'playTime';
+  limit?: number;
+}
+
+/**
+ * Risposta leaderboard dal server al client
+ */
+export interface LeaderboardResponseMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.LEADERBOARD_RESPONSE;
+  entries: Array<{
+    rank: number;
+    playerId: number;
+    username: string;
+    experience: number;
+    honor: number;
+    recentHonor?: number;
+    rankingPoints: number;
+    kills: number;
+    playTime: number;
+    level: number;
+    rankName: string;
+  }>;
+  sortBy: string;
+  playerRank?: number;
+}
+
 // Type union per tutti i messaggi di rete
 export type NetworkMessageUnion =
   | ConnectionMessage
@@ -475,4 +557,6 @@ export type NetworkMessageUnion =
   | PlayerDataResponseMessage
   | EconomyUpdateMessage
   | SaveRequestMessage
-  | SaveResponseMessage;
+  | SaveResponseMessage
+  | LeaderboardRequestMessage
+  | LeaderboardResponseMessage;

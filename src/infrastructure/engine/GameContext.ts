@@ -1,4 +1,5 @@
 import { AssetManager } from '../AssetManager';
+import { NETWORK_CONFIG } from '../../config/NetworkConfig';
 
 /**
  * Stato di connessione al server
@@ -88,7 +89,7 @@ export class GameContext {
 
   // Stato connessione
   public connectionState: ConnectionState = ConnectionState.DISCONNECTED;
-  public serverUrl: string = 'ws://localhost:3000'; // URL del server di gioco
+  public serverUrl: string = ''; // URL del server di gioco (inizializzato nel costruttore)
 
   // Gestione giocatori
   public players: Map<string, PlayerState> = new Map();
@@ -109,6 +110,9 @@ export class GameContext {
     this.canvas = canvas;
     this.gameContainer = gameContainer;
     this.assetManager = new AssetManager();
+    
+    // Initialize server URL from network config
+    this.serverUrl = NETWORK_CONFIG.DEFAULT_SERVER_URL;
   }
 
   /**

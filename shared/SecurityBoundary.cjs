@@ -163,6 +163,10 @@ class BoundaryEnforcement {
         // Il client può richiedere i propri dati dal server
         return { allowed: true };
 
+      case 'request_leaderboard':
+        // Il client può richiedere la leaderboard (dati pubblici)
+        return { allowed: true };
+
       // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server
 
       case 'save_request':
@@ -179,7 +183,7 @@ class BoundaryEnforcement {
 
       default:
         // Per default, consentire ma loggare per review con più dettagli
-        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, skill_upgrade_request`);
+        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, request_leaderboard, skill_upgrade_request`);
         return { allowed: true };
     }
   }

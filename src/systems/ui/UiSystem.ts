@@ -2,7 +2,7 @@ import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { UIManager } from '../../presentation/ui/UIManager';
 import { PlayerHUD } from '../../presentation/ui/PlayerHUD';
-import { PlayerStatsPanel } from '../../presentation/ui/PlayerStatsPanel';
+import { LeaderboardPanel } from '../../presentation/ui/LeaderboardPanel';
 import { QuestPanel } from '../../presentation/ui/QuestPanel';
 import { UpgradePanel } from '../../presentation/ui/UpgradePanel';
 import { ChatPanel } from '../../presentation/ui/ChatPanel';
@@ -342,6 +342,12 @@ export class UiSystem extends System {
     if (this.upgradePanel) {
       this.upgradePanel.setClientNetworkSystem(clientNetworkSystem);
     }
+
+    // Aggiorna leaderboard panel se esiste
+    const leaderboardPanel = this.uiManager.getPanel('leaderboard');
+    if (leaderboardPanel && typeof (leaderboardPanel as any).setClientNetworkSystem === 'function') {
+      (leaderboardPanel as any).setClientNetworkSystem(clientNetworkSystem);
+    }
   }
 
   /**
@@ -366,10 +372,10 @@ export class UiSystem extends System {
    * Inizializza i pannelli UI
    */
   private initializePanels(): void {
-    // Crea e registra il pannello delle statistiche giocatore
+    // Crea e registra il pannello leaderboard
     const statsConfig = getPanelConfig('stats');
-    const statsPanel = new PlayerStatsPanel(statsConfig);
-    this.uiManager.registerPanel(statsPanel);
+    const leaderboardPanel = new LeaderboardPanel(statsConfig, this.clientNetworkSystem || null);
+    this.uiManager.registerPanel(leaderboardPanel);
 
     // Crea e registra il pannello delle quest
     const questConfig = getPanelConfig('quest');

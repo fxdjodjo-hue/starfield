@@ -45,6 +45,7 @@ import { EntityDestroyedHandler } from './handlers/EntityDestroyedHandler';
 import { ExplosionCreatedHandler } from './handlers/ExplosionCreatedHandler';
 import { StopCombatHandler } from './handlers/StopCombatHandler';
 import { PlayerDataResponseHandler } from './handlers/PlayerDataResponseHandler';
+import { LeaderboardResponseHandler } from './handlers/LeaderboardResponseHandler';
 import { SaveResponseHandler } from './handlers/SaveResponseHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
@@ -239,7 +240,8 @@ export class ClientNetworkSystem extends BaseSystem {
       new PlayerRespawnHandler(),
       new PlayerStateUpdateHandler(),
       new PlayerDataResponseHandler(),
-      new SaveResponseHandler()
+      new SaveResponseHandler(),
+      new LeaderboardResponseHandler()
     ];
 
     // Aggiungi handlers NPC se il sistema è disponibile
@@ -835,9 +837,15 @@ export class ClientNetworkSystem extends BaseSystem {
 
   /**
    * Sends a message to the server
+   * Automatically adds clientId if not present
    */
   private sendMessage(message: NetMessage): void {
-    this.connectionManager.send(JSON.stringify(message));
+    // Ensure clientId is always included
+    const messageWithClientId = {
+      ...message,
+      clientId: message.clientId || this.clientId
+    };
+    this.connectionManager.send(JSON.stringify(messageWithClientId));
   }
 
   /**

@@ -308,6 +308,31 @@ class ServerInputValidator {
               projectileType: data.projectileType || 'laser'
             }
           };
+        case 'request_leaderboard':
+          // Valida richiesta leaderboard
+          const leaderboardErrors = [];
+          
+          if (data.sortBy && !['ranking_points', 'honor', 'experience', 'kills'].includes(data.sortBy)) {
+            leaderboardErrors.push('Invalid sortBy value');
+          }
+          
+          if (data.limit && (typeof data.limit !== 'number' || data.limit < 1 || data.limit > 1000)) {
+            leaderboardErrors.push('Invalid limit value (must be 1-1000)');
+          }
+          
+          if (leaderboardErrors.length > 0) {
+            return { isValid: false, errors: leaderboardErrors };
+          }
+          
+          return {
+            isValid: true,
+            errors: [],
+            sanitizedData: {
+              sortBy: data.sortBy || 'ranking_points',
+              limit: data.limit || 100
+            }
+          };
+
         case 'skill_upgrade_request':
           // Valida richiesta di upgrade skill
           const skillErrors = [];
