@@ -298,10 +298,10 @@ class ServerCombatManager {
       y: npcPosition.y + Math.sin(angle) * spawnOffset
     };
 
-    // Velocità iniziale verso il target (sarà corretta dal homing)
+    // TEST: Usa velocità player invece di NPC_SPEED
     const velocity = {
-      x: Math.cos(angle) * SERVER_CONSTANTS.PROJECTILE.NPC_SPEED,
-      y: Math.sin(angle) * SERVER_CONSTANTS.PROJECTILE.NPC_SPEED
+      x: Math.cos(angle) * SERVER_CONSTANTS.PROJECTILE.SPEED,
+      y: Math.sin(angle) * SERVER_CONSTANTS.PROJECTILE.SPEED
     };
 
     // Registra proiettile

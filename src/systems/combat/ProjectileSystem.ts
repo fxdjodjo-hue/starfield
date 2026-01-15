@@ -69,16 +69,14 @@ export class ProjectileSystem extends BaseSystem {
       const isRemoteNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
       
       if (isRemoteNpcProjectile) {
-        // Proiettili NPC remoti: muovi localmente usando velocità aggiornata dal server
-        // Il server invia aggiornamenti di posizione e velocità, ma interpola localmente per movimento fluido
-        // Aggiorna direzione homing verso il bersaglio (player locale)
+        // Proiettili NPC remoti: aggiorna homing lato client per reattività (come proiettili player)
+        // Il server rimane autoritativo per posizione e collisioni
+        // L'InterpolationSystem gestisce il movimento fluido basato sugli aggiornamenti del server
+        // Aggiorna direzione lato client per rendering fluido (60Hz invece di 20Hz)
         if (this.shouldBeHoming(projectileEntity)) {
           this.updateHomingDirection(transform, projectile);
         }
-
-        // Muovi il proiettile usando la velocità corrente (aggiornata dal server)
-        transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
-        transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
+        // NON muovere localmente: l'interpolazione gestisce il movimento basato sugli aggiornamenti server
       } else {
         // Proiettili locali (player): aggiorna direzione e movimento
         // Per i proiettili homing (player verso NPC), aggiorna direzione verso il bersaglio
@@ -94,8 +92,13 @@ export class ProjectileSystem extends BaseSystem {
       // Riduci il tempo di vita
       projectile.lifetime -= deltaTime;
 
-      // Controlla collisioni con bersagli
-      this.checkCollisions(projectileEntity, transform, projectile);
+      // Per proiettili NPC remoti: NON verificare collisioni lato client
+      // Il server è autoritativo e invia già i messaggi di distruzione quando colpiscono
+      // Le collisioni lato client causerebbero falsi positivi perché usano posizione interpolata (indietro)
+      if (!isRemoteNpcProjectile) {
+        // Controlla collisioni con bersagli solo per proiettili locali
+        this.checkCollisions(projectileEntity, transform, projectile);
+      }
 
       // Rimuovi proiettili scaduti
       if (projectile.lifetime <= 0) {
@@ -119,12 +122,24 @@ export class ProjectileSystem extends BaseSystem {
    * Aggiorna la direzione di un proiettile homing verso il bersaglio corrente
    */
   private updateHomingDirection(projectileTransform: Transform, projectile: Projectile): void {
+    // Verifica se è un proiettile NPC che targetizza il player locale
+    const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
+    const localPlayer = this.playerSystem.getPlayerEntity();
+    
+    // Per proiettili NPC: target è sempre il player locale (indipendentemente dal targetId)
+    if (isNpcProjectile && localPlayer) {
+      const targetTransform = this.ecs.getComponent(localPlayer, Transform);
+      if (targetTransform) {
+        this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
+        return;
+      }
+    }
+    
+    // Per proiettili player: cerca il target specifico
     // Trova il bersaglio tra tutte le entità con Health
-    // STESSO ORDINE del server: prima giocatori, poi NPC
     const allTargets = this.ecs.getEntitiesWithComponents(Health);
 
     // Prima cerca tra i giocatori locali (se siamo il target)
-    const localPlayer = this.playerSystem.getPlayerEntity();
     if (localPlayer && localPlayer.id === projectile.targetId) {
       const targetTransform = this.ecs.getComponent(localPlayer, Transform);
       if (targetTransform) {

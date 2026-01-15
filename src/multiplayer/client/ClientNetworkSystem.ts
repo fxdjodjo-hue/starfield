@@ -8,6 +8,7 @@ import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjecti
 import { Projectile } from '../../entities/combat/Projectile';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Authority } from '../../entities/spatial/Authority';
 
 // Nuovi sistemi specializzati
@@ -493,8 +494,16 @@ export class ClientNetworkSystem extends BaseSystem {
       const transform = this.ecs.getComponent(projectileEntity, Transform);
       const velocity = this.ecs.getComponent(projectileEntity, Velocity);
       const projectile = this.ecs.getComponent(projectileEntity, Projectile);
+      
+      // Verifica se è un proiettile NPC remoto con interpolazione
+      const isNpcProjectile = projectile && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
+      const interpolation = isNpcProjectile ? this.ecs.getComponent(projectileEntity, InterpolationTarget) : null;
 
-      if (transform && projectileUpdate.position) {
+      if (interpolation && projectileUpdate.position) {
+        // Usa interpolazione per movimento fluido (elimina glitch)
+        interpolation.updateTarget(projectileUpdate.position.x, projectileUpdate.position.y, 0);
+      } else if (transform && projectileUpdate.position) {
+        // Fallback: aggiornamento diretto per proiettili senza interpolazione
         transform.x = projectileUpdate.position.x;
         transform.y = projectileUpdate.position.y;
       }

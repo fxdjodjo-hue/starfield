@@ -146,15 +146,19 @@ class ServerProjectileManager {
           // MEMORY LEAK PREVENTION: Controlli multipli per rimuovere proiettili homing problematici
 
           // 1. Se è troppo lontano dal target originale, rimuovilo
-          const maxDistance = this.getMaxTargetDistance(projectile);
-          if (maxDistance > 0) {
-            const currentDistance = this.getDistanceToTarget(projectile);
-            if (currentDistance > maxDistance) {
-              projectilesToRemove.push({
-                id: projectileId,
-                reason: 'target_too_far'
-              });
-              continue;
+          // DISABILITATO per proiettili NPC: il player può muoversi velocemente aumentando la distanza
+          // Il controllo target_too_far causava rimozione prematura quando il player si muove velocemente
+          if (!isNpcProjectile) {
+            const maxDistance = this.getMaxTargetDistance(projectile);
+            if (maxDistance > 0) {
+              const currentDistance = this.getDistanceToTarget(projectile);
+              if (currentDistance > maxDistance) {
+                projectilesToRemove.push({
+                  id: projectileId,
+                  reason: 'target_too_far'
+                });
+                continue;
+              }
             }
           }
 
@@ -170,13 +174,9 @@ class ServerProjectileManager {
         }
       }
 
-      // Per proiettili CON target specifico: verifica anche collisioni generiche come fallback
-      // (soprattutto per proiettili NPC che potrebbero mancare il target se si muove velocemente)
-      // isNpcProjectile è già dichiarato sopra alla riga 81
-      
-      // Se è un proiettile NPC con target, verifica anche collisioni generiche come fallback
-      if (isNpcProjectile && projectile.targetId && projectile.targetId !== -1) {
-        // Fallback: verifica collisioni generiche per proiettili NPC
+      // Per proiettili NPC: verifica SEMPRE collisioni con player (garantisce rimozione in tutti i casi)
+      // Questo assicura che i proiettili NPC vengano sempre rimossi quando colpiscono il player
+      if (isNpcProjectile) {
         const hitPlayer = this.checkPlayerCollision(projectile);
         if (hitPlayer) {
           // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
@@ -219,29 +219,31 @@ class ServerProjectileManager {
         continue;
       }
 
-      // Verifica collisioni con giocatori
-      const hitPlayer = this.checkPlayerCollision(projectile);
-      if (hitPlayer) {
-        // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
-        projectile.velocity.x = 0;
-        projectile.velocity.y = 0;
-        
-        // Salva posizione per il broadcast prima di rimuovere
-        const collisionPosition = { ...projectile.position };
-        
-        const playerDead = this.mapServer.npcManager.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
-        this.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
+      // Verifica collisioni con giocatori (solo per proiettili NON NPC, perché gli NPC sono già gestiti sopra)
+      if (!isNpcProjectile) {
+        const hitPlayer = this.checkPlayerCollision(projectile);
+        if (hitPlayer) {
+          // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
+          projectile.velocity.x = 0;
+          projectile.velocity.y = 0;
+          
+          // Salva posizione per il broadcast prima di rimuovere
+          const collisionPosition = { ...projectile.position };
+          
+          const playerDead = this.mapServer.npcManager.damagePlayer(hitPlayer.clientId, projectile.damage, projectile.playerId);
+          this.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
 
-        if (playerDead) {
-          logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
+          if (playerDead) {
+            logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
+          }
+
+          // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
+          this.projectiles.delete(projectileId);
+          
+          // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
+          this.broadcastProjectileDestroyedAtPosition(projectileId, 'collision', collisionPosition);
+          continue;
         }
-
-        // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
-        this.projectiles.delete(projectileId);
-        
-        // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
-        this.broadcastProjectileDestroyedAtPosition(projectileId, 'collision', collisionPosition);
-        continue;
       }
 
       // Verifica se proiettile è fuori dai confini del mondo
@@ -300,8 +302,31 @@ class ServerProjectileManager {
         Math.pow(projectile.position.y - npc.position.y, 2)
       );
 
-      // Collisione se distanza < 50 pixel (dimensione nave)
-      if (distance < 50) {
+      // Distanza di collisione dinamica basata sulla velocità relativa (stesso sistema del player)
+      // Calcola velocità dell'NPC
+      const npcVelX = npc.velocity?.x || 0;
+      const npcVelY = npc.velocity?.y || 0;
+      const npcSpeed = Math.sqrt(npcVelX * npcVelX + npcVelY * npcVelY);
+      
+      // Velocità del proiettile
+      const projVelX = projectile.velocity.x || 0;
+      const projVelY = projectile.velocity.y || 0;
+      const projSpeed = Math.sqrt(projVelX * projVelX + projVelY * projVelY);
+      
+      // Velocità relativa (quanto velocemente si avvicinano)
+      const relativeSpeed = Math.max(npcSpeed, projSpeed);
+      
+      // Raggio base (stesso del player)
+      let collisionRadius = 50;
+      
+      // Aumenta raggio dinamicamente se l'NPC si muove velocemente (stesso sistema del player)
+      // Per ogni 100 px/s di velocità relativa, aggiungi 10px al raggio (max +80px)
+      if (relativeSpeed > 200) {
+        const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
+        collisionRadius += speedBonus;
+      }
+      
+      if (distance < collisionRadius) {
         return npc;
       }
     }
@@ -340,14 +365,8 @@ class ServerProjectileManager {
       // Velocità relativa
       const relativeSpeed = Math.max(playerSpeed, projSpeed);
       
-      // Raggio base
-      let collisionRadius = isNpcProjectile ? 120 : 50;
-      
-      // Aumenta raggio dinamicamente se il player si muove velocemente
-      if (relativeSpeed > 200) {
-        const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
-        collisionRadius += speedBonus;
-      }
+      // Raggio fisso 50px per tutti i casi
+      const collisionRadius = 50;
       
       if (distance < collisionRadius) {
         return { playerData, clientId };
@@ -387,7 +406,31 @@ class ServerProjectileManager {
             Math.pow(projectile.position.y - npc.position.y, 2)
           );
 
-          if (distance < 50) {
+          // Distanza di collisione dinamica basata sulla velocità relativa (stesso sistema del player)
+          // Calcola velocità dell'NPC
+          const npcVelX = npc.velocity?.x || 0;
+          const npcVelY = npc.velocity?.y || 0;
+          const npcSpeed = Math.sqrt(npcVelX * npcVelX + npcVelY * npcVelY);
+          
+          // Velocità del proiettile
+          const projVelX = projectile.velocity.x || 0;
+          const projVelY = projectile.velocity.y || 0;
+          const projSpeed = Math.sqrt(projVelX * projVelX + projVelY * projVelY);
+          
+          // Velocità relativa (quanto velocemente si avvicinano)
+          const relativeSpeed = Math.max(npcSpeed, projSpeed);
+          
+          // Raggio base (stesso del player)
+          let collisionRadius = 50;
+          
+          // Aumenta raggio dinamicamente se l'NPC si muove velocemente (stesso sistema del player)
+          // Per ogni 100 px/s di velocità relativa, aggiungi 10px al raggio (max +80px)
+          if (relativeSpeed > 200) {
+            const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
+            collisionRadius += speedBonus;
+          }
+          
+          if (distance < collisionRadius) {
             return { entity: npc, type: 'npc' };
           }
           break; // Trovato l'NPC target, non cercare altri
@@ -425,15 +468,8 @@ class ServerProjectileManager {
           // Velocità relativa (quanto velocemente si avvicinano)
           const relativeSpeed = Math.max(playerSpeed, projSpeed);
           
-          // Raggio base
-          let collisionRadius = isNpcProjectile ? 120 : 50;
-          
-          // Aumenta raggio dinamicamente se il player si muove velocemente
-          // Per ogni 100 px/s di velocità relativa, aggiungi 10px al raggio (max +80px)
-          if (relativeSpeed > 200) {
-            const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
-            collisionRadius += speedBonus;
-          }
+          // Raggio fisso 50px per tutti i casi
+          const collisionRadius = 50;
           
           if (distance < collisionRadius) {
             return { entity: playerData, type: 'player' };
@@ -625,97 +661,50 @@ class ServerProjectileManager {
 
   /**
    * Aggiorna direzione di un proiettile homing verso il suo target
-   * Usa la stessa logica per tutti i proiettili (NPC e player) per comportamento uniforme
+   * Logica semplificata: direzione diretta verso target con predizione base
    * @returns {boolean} true se target trovato e homing applicato, false se target scomparso
    */
   updateProjectileHoming(projectile) {
+    const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
+    
     // Trova posizione corrente del target
     const targetData = this.getTargetData(projectile.targetId);
     if (!targetData || !targetData.position) {
-      // Target morto/disconnesso - segnala rimozione immediata
       return false;
     }
 
     const targetPosition = targetData.position;
+    const targetVelocity = targetData.velocity || { x: 0, y: 0 };
+    const projectileSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
 
-    // Calcola distanza attuale
-    const dx = targetPosition.x - projectile.position.x;
-    const dy = targetPosition.y - projectile.position.y;
+    // Calcola direzione verso target
+    let dx = targetPosition.x - projectile.position.x;
+    let dy = targetPosition.y - projectile.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Usa predizione uniforme per tutti i proiettili (NPC e player)
-    const targetVelocity = targetData.velocity || { x: 0, y: 0 };
-    
-    // Calcola velocità del target per predizione adattiva
-    const targetSpeed = Math.sqrt(targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y);
-    
-    // PREDIZIONE ADATTIVA: più aggressiva quando il target si muove velocemente
-    let predictedX = targetPosition.x;
-    let predictedY = targetPosition.y;
-
-    if (distance > 10) { // Solo se siamo abbastanza lontani
-      const projectileSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
-
-      if (projectileSpeed > 50) { // Evita divisione per zero
-        // Tempo stimato per raggiungere il target
-        const timeToTarget = distance / projectileSpeed;
-
-        // Predizione adattiva basata sulla velocità del target
-        // Se il target si muove velocemente (>400 px/s), usa predizione più aggressiva
-        let predictionFactor = 0.3; // Default conservativo
-        let maxPredictionTime = 0.8; // Default max 0.8s
-        
-        if (targetSpeed > 400) {
-          // Target veloce: aumenta predizione fino al 70% del tempo stimato, max 1.2s
-          predictionFactor = Math.min(0.7, 0.3 + (targetSpeed - 400) / 1000);
-          maxPredictionTime = Math.min(1.2, 0.8 + (targetSpeed - 400) / 500);
-        } else if (targetSpeed > 200) {
-          // Target medio: predizione moderata (50%)
-          predictionFactor = 0.5;
-          maxPredictionTime = 1.0;
-        }
-
-        const finalPredictionTime = Math.min(timeToTarget * predictionFactor, maxPredictionTime);
-
-        predictedX = targetPosition.x + targetVelocity.x * finalPredictionTime;
-        predictedY = targetPosition.y + targetVelocity.y * finalPredictionTime;
-      }
+    // Predizione semplice: se target si muove, predici posizione futura
+    if (distance > 10 && projectileSpeed > 50) {
+      const timeToTarget = distance / projectileSpeed;
+      const predictionTime = Math.min(timeToTarget * 0.5, 0.5); // 50% del tempo, max 0.5s
+      dx = targetPosition.x + targetVelocity.x * predictionTime - projectile.position.x;
+      dy = targetPosition.y + targetVelocity.y * predictionTime - projectile.position.y;
     }
 
-    // Calcola direzione verso la posizione predetta
-    const predDx = predictedX - projectile.position.x;
-    const predDy = predictedY - projectile.position.y;
-    const predDistance = Math.sqrt(predDx * predDx + predDy * predDy);
+    // Normalizza direzione
+    const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
+    if (distanceToTarget > 0) {
+      const directionX = dx / distanceToTarget;
+      const directionY = dy / distanceToTarget;
 
-    // Se siamo molto vicini al target (anche predetto), accelera per colpire
-    const CLOSE_DISTANCE = 25; // pixel
-    if (predDistance < CLOSE_DISTANCE && predDistance > 0) {
-      // Aumenta velocità quando vicino al target per garantire il colpo
-      const boostMultiplier = 1.8;
-      const currentSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
-      const boostedSpeed = Math.min(currentSpeed * boostMultiplier, currentSpeed * 2.5); // max 2.5x velocità
+      // Imposta velocità: direzione diretta, velocità costante
+      const speed = Math.max(50, Math.min(projectileSpeed, 2000));
+      projectile.velocity.x = directionX * speed;
+      projectile.velocity.y = directionY * speed;
 
-      projectile.velocity.x = (predDx / predDistance) * boostedSpeed;
-      projectile.velocity.y = (predDy / predDistance) * boostedSpeed;
-    } else if (predDistance > 0) {
-      // Normalizza direzione
-      const targetDirectionX = predDx / predDistance;
-      const targetDirectionY = predDy / predDistance;
-
-      // Usa velocità corrente con limiti (stessa logica per NPC e player)
-      const currentSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
-      const maxSpeed = 2000;
-      const safeSpeed = Math.max(50, Math.min(currentSpeed, maxSpeed));
-      projectile.velocity.x = targetDirectionX * safeSpeed;
-      projectile.velocity.y = targetDirectionY * safeSpeed;
-
-      // Validazione finale per NaN/Infinity
+      // Validazione
       if (!Number.isFinite(projectile.velocity.x) || !Number.isFinite(projectile.velocity.y)) {
-        // Reset a velocità sicura se qualcosa va storto
-        const safeDirectionX = predDx > 0 ? 1 : -1;
-        const safeDirectionY = predDy > 0 ? 1 : -1;
-        projectile.velocity.x = safeDirectionX * 400;
-        projectile.velocity.y = safeDirectionY * 400;
+        projectile.velocity.x = dx > 0 ? 400 : -400;
+        projectile.velocity.y = dy > 0 ? 400 : -400;
       }
     }
 
@@ -821,13 +810,17 @@ class ServerProjectileManager {
    * Calcola il tempo di vita massimo di un proiettile basato sul suo tipo
    */
   calculateProjectileLifetime(projectile) {
+    const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
+    
     if (projectile.targetId && projectile.initialDistance) {
       // Per proiettili homing: tempo basato sulla distanza + margine
       const speed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
       const baseTime = (projectile.initialDistance / speed) * 1000; // millisecondi
       const marginTime = Math.min(3000, baseTime * 0.5); // fino al 50% di margine, max 3 secondi
 
-      return Math.min(baseTime + marginTime, 8000); // max 8 secondi per homing
+      // Proiettili NPC hanno più tempo per raggiungere il player (può muoversi velocemente)
+      const maxLifetime = isNpcProjectile ? 12000 : 8000; // NPC: 12s, player: 8s
+      return Math.min(baseTime + marginTime, maxLifetime);
     } else {
       // Per proiettili normali: timeout fisso
       return 10000; // 10 secondi

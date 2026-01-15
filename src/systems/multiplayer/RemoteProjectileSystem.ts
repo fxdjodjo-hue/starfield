@@ -5,6 +5,7 @@ import { Velocity } from '../../entities/spatial/Velocity';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Sprite } from '../../entities/Sprite';
 import { Npc } from '../../entities/ai/Npc';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { ProjectileFactory } from '../../factories/ProjectileFactory';
 import { logger } from '../../utils/Logger';
@@ -108,6 +109,12 @@ export class RemoteProjectileSystem extends BaseSystem {
     // Componente proiettile
     const projectile = new Projectile(damage, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
     this.ecs.addComponent(entity, Projectile, projectile);
+
+    // Per proiettili NPC remoti, aggiungi InterpolationTarget per movimento fluido
+    // Il server invia aggiornamenti ogni 50ms, l'interpolazione elimina glitch
+    if (typeof playerId === 'string' && playerId.startsWith('npc_')) {
+      this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(position.x, position.y, 0));
+    }
 
     // Sprite per rendering (se necessario)
     // TODO: Aggiungere sprite appropriati per i diversi tipi di proiettile

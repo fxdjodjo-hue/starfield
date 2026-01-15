@@ -223,6 +223,9 @@ export class RenderSystem extends BaseSystem {
     // Render player range circle (for debugging)
     this.renderPlayerRange(ctx, camera);
 
+    // Render player collision radius circle
+    this.renderPlayerCollisionRadius(ctx, camera);
+
     // Render damage text (floating numbers)
     if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
       this.damageTextSystem.render(ctx);
@@ -502,6 +505,42 @@ export class RenderSystem extends BaseSystem {
     ctx.lineWidth = 2;
     ctx.globalAlpha = 0.3; // Molto trasparente
     ctx.setLineDash([10, 5]); // Linea tratteggiata
+
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza il cerchio di collisione del player (stesso sistema del server)
+   * Mostra il raggio usato dai proiettili NPC (120px base + bonus dinamico)
+   */
+  private renderPlayerCollisionRadius(ctx: CanvasRenderingContext2D, camera: Camera): void {
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const playerVelocity = this.ecs.getComponent(playerEntity, Velocity);
+    if (!playerTransform) return;
+
+    // Converte posizione mondo a schermo
+    const { width, height } = this.displayManager.getLogicalSize();
+    const screenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, width, height);
+
+    // Raggio di collisione fisso 50px (stesso per tutti i casi)
+    const collisionRadius = 50;
+
+    const screenRadius = collisionRadius * camera.zoom; // Scala con lo zoom della camera
+
+    ctx.save();
+
+    // Cerchio di collisione - rosso semitrasparente
+    ctx.strokeStyle = '#ff0000'; // Rosso
+    ctx.lineWidth = 2;
+    ctx.globalAlpha = 0.5; // Semitrasparente
+    ctx.setLineDash([]); // Linea continua
 
     ctx.beginPath();
     ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
