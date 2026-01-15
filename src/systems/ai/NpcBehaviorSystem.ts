@@ -67,14 +67,6 @@ export class NpcBehaviorSystem extends BaseSystem {
       return;
     }
 
-    // Priorità 3: Kronos diventano aggressive se vedono il player (territoriali)
-    if (npc.npcType === 'Kronos' && this.isPlayerVisibleToNpc(entityId)) {
-      if (npc.behavior !== 'aggressive') {
-        npc.setBehavior('aggressive');
-      }
-      return;
-    }
-
     // Default: tutti gli NPC non aggressivi rimangono in cruise
     if (npc.behavior !== 'cruise') {
       npc.setBehavior('cruise');

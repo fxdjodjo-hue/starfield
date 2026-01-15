@@ -72,21 +72,49 @@ export class AnimatedSprite {
    * Get the display width (scaled)
    */
   get width(): number {
-    return this.spritesheet.frameWidth * this.scale;
+    // Fallback: calcola da frame se frameWidth non è disponibile
+    const frameWidth = this.spritesheet.frameWidth || (this.spritesheet.frames.length > 0 ? this.spritesheet.frames[0].width : 0);
+    return frameWidth * this.scale;
   }
 
   /**
    * Get the display height (scaled)
    */
   get height(): number {
-    return this.spritesheet.frameHeight * this.scale;
+    // Fallback: calcola da frame se frameHeight non è disponibile
+    const frameHeight = this.spritesheet.frameHeight || (this.spritesheet.frames.length > 0 ? this.spritesheet.frames[0].height : 0);
+    return frameHeight * this.scale;
   }
 
   /**
-   * Check if the spritesheet image is loaded
+   * Check if the spritesheet image is loaded and ready for rendering
+   * More robust check that handles edge cases
    */
   isLoaded(): boolean {
-    return this.spritesheet.image.complete && this.spritesheet.image.naturalWidth !== 0;
+    if (!this.spritesheet || !this.spritesheet.image) {
+      return false;
+    }
+    
+    const img = this.spritesheet.image;
+    
+    // Check if image is complete and has valid dimensions
+    // naturalWidth/Height are 0 if image failed to load or is not ready
+    const isComplete = img.complete;
+    const hasValidDimensions = img.naturalWidth > 0 && img.naturalHeight > 0;
+    
+    // Additional check: verify image source is set (not empty string)
+    const hasSource = img.src && img.src.length > 0;
+    
+    return isComplete && hasValidDimensions && hasSource;
+  }
+  
+  /**
+   * Check if the spritesheet has valid frame data
+   */
+  hasValidFrames(): boolean {
+    return this.spritesheet && 
+           Array.isArray(this.spritesheet.frames) && 
+           this.spritesheet.frames.length > 0;
   }
 
   /**
@@ -104,8 +132,9 @@ export class AnimatedSprite {
    * @returns Local coordinates {x, y} relative to sprite center
    */
   getWeaponSpawnPoint(rotation: number, offsetFromCenter: number = 0.4): { x: number; y: number } {
-    const frameWidth = this.spritesheet.frameWidth;
-    const frameHeight = this.spritesheet.frameHeight;
+    // Fallback: calcola da frame se non disponibile
+    const frameWidth = this.spritesheet.frameWidth || (this.spritesheet.frames.length > 0 ? this.spritesheet.frames[0].width : 0);
+    const frameHeight = this.spritesheet.frameHeight || (this.spritesheet.frames.length > 0 ? this.spritesheet.frames[0].height : 0);
     
     // Default spawn point: front of ship (top of frame when pointing right)
     // Frame convention: Frame 0 points RIGHT, so front is at top of frame

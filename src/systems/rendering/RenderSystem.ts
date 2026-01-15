@@ -113,6 +113,9 @@ export class RenderSystem extends BaseSystem {
     }
   ): void {
     const { explosion, npc, sprite, animatedSprite, velocity } = components;
+    
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    const isPlayerEntity = playerEntity === entity;
 
     // Priority: Explosions > NPC > Player
     if (explosion) {
@@ -166,22 +169,37 @@ export class RenderSystem extends BaseSystem {
         }
       }
     } else {
-      // Render player with float effect
-      const floatOffsetY = PlayerRenderer.getFloatOffset();
+      // Render player - verifica esplicitamente che sia il player
+      const playerEntity = this.playerSystem.getPlayerEntity();
+      const isPlayer = playerEntity === entity;
       
-      // Priority: AnimatedSprite > Sprite
-      if (animatedSprite) {
-        // Use spritesheet renderer (no canvas rotation - frame is pre-rotated)
-        const renderTransform: SpritesheetRenderTransform = {
-          x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
-        };
-        SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
-      } else if (sprite) {
-        // Fallback to old sprite renderer
-        const renderTransform: RenderableTransform = {
-          x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
-        };
-        SpriteRenderer.render(ctx, renderTransform, sprite);
+      if (isPlayer) {
+        // IMPORTANTE: Recupera AnimatedSprite direttamente dall'ECS invece di usare la cache
+        // La cache potrebbe non essere aggiornata se il componente è stato aggiunto dopo
+        const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
+        const entitySprite = this.ecs.getComponent(entity, Sprite);
+        
+        const floatOffsetY = PlayerRenderer.getFloatOffset();
+        
+        // Priority: AnimatedSprite > Sprite
+        // Forza il rendering anche se isLoaded() ritorna false, verifica solo dimensioni
+        if (entityAnimatedSprite) {
+          // Verifica che l'immagine esista e abbia dimensioni valide
+          const img = entityAnimatedSprite.spritesheet?.image;
+          if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+            // Use spritesheet renderer (no canvas rotation - frame is pre-rotated)
+            const renderTransform: SpritesheetRenderTransform = {
+              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX || 1, scaleY: transform.scaleY || 1
+            };
+            SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
+          }
+        } else if (entitySprite && entitySprite.isLoaded()) {
+          // Fallback to old sprite renderer
+          const renderTransform: RenderableTransform = {
+            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX || 1, scaleY: transform.scaleY || 1
+          };
+          SpriteRenderer.render(ctx, renderTransform, entitySprite);
+        }
       }
     }
   }
@@ -221,6 +239,36 @@ export class RenderSystem extends BaseSystem {
     }
     const entities = this.entityQueryCache;
 
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    
+    // Render player separately if it's not in the entities list
+    // This handles the case where the player entity exists but wasn't found by the query
+    // The cache might be populated before the player has Transform, or the query might miss it
+    if (playerEntity) {
+      const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+      const isPlayerInList = entities.includes(playerEntity);
+      
+      if (playerTransform && !isPlayerInList) {
+        const { width, height } = this.displayManager.getLogicalSize();
+        const screenPos = ScreenSpace.toScreen(playerTransform, camera, width, height);
+        const components = this.getCachedComponents(playerEntity);
+        
+        // Render player entity
+        this.renderGameEntity(ctx, playerEntity, playerTransform, screenPos.x, screenPos.y, {
+          explosion: components.explosion,
+          npc: components.npc,
+          sprite: components.sprite,
+          animatedSprite: components.animatedSprite,
+          velocity: components.velocity
+        });
+
+        // Render health/shield bars
+        if (components.health || components.shield) {
+          this.renderHealthBars(ctx, screenPos.x, screenPos.y, components.health || null, components.shield || null);
+        }
+      }
+    }
+    
     for (const entity of entities) {
       // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
       const components = this.getCachedComponents(entity);
@@ -230,6 +278,9 @@ export class RenderSystem extends BaseSystem {
 
       // Skip parallax entities (rendered by ParallaxSystem)
       if (components.parallax) continue;
+
+      // Skip player if already rendered above
+      if (playerEntity === entity) continue;
 
       if (components.transform) {
         const { width, height } = this.displayManager.getLogicalSize();

@@ -159,7 +159,7 @@ export class GameInitializationSystem extends System {
     const playerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.7);
     // DISABLED: Sfondo nero puro + stelle - riattivare per usare bg.jpg
     // const mapBackgroundImage = await this.context.assetManager.loadImage(`/assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`);
-    const scouterImage = await this.context.assetManager.loadImage('/assets/npc_ships/scouter/npc_scouter.png');
+    const scouterAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/npc_ships/scouter/alien120', 0.15);
     const kronosAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', 0.16);
 
     // Crea sistemi
@@ -215,9 +215,11 @@ export class GameInitializationSystem extends System {
 
     // Sistema NPC remoti per multiplayer
     const npcSprites = new Map<string, HTMLImageElement>();
-    if (scouterImage) npcSprites.set('scouter', scouterImage);
     const remoteNpcSystem = new RemoteNpcSystem(this.ecs, npcSprites, this.context.assetManager);
-    // Carica spritesheet per Kronos
+    // Registra AnimatedSprite per Scouter e Kronos
+    if (scouterAnimatedSprite) {
+      remoteNpcSystem.registerNpcAnimatedSprite('Scouter', scouterAnimatedSprite);
+    }
     if (kronosAnimatedSprite) {
       remoteNpcSystem.registerNpcAnimatedSprite('Kronos', kronosAnimatedSprite);
     }
@@ -281,7 +283,7 @@ export class GameInitializationSystem extends System {
       clientNetworkSystem: this.clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,
-      assets: { playerSprite, scouterImage, kronosAnimatedSprite } // mapBackgroundImage disabled
+      assets: { playerSprite, scouterAnimatedSprite, kronosAnimatedSprite } // mapBackgroundImage disabled
     };
 
     return result;
@@ -497,7 +499,7 @@ export class GameInitializationSystem extends System {
   /**
    * Crea Scouter distribuiti uniformemente su tutta la mappa
    */
-  private createScouter(count: number, sprite?: HTMLImageElement): void {
+  private createScouter(count: number, animatedSprite?: AnimatedSprite): void {
     const minDistance = 100; // Distanza minima tra Scouter
     const minDistanceFromPlayer = 200; // Distanza minima dal player (centro)
     const worldWidth = CONFIG.WORLD_WIDTH;
@@ -576,9 +578,8 @@ export class GameInitializationSystem extends System {
       this.ecs.addComponent(streuner, Damage, new Damage(scouterStats.damage, scouterStats.range, scouterStats.cooldown));
       this.ecs.addComponent(streuner, Npc, new Npc(npcDef.type, npcDef.defaultBehavior));
 
-      if (sprite) {
-        const scouterSprite = new Sprite(sprite, sprite.width * 0.15, sprite.height * 0.15);
-        this.ecs.addComponent(streuner, Sprite, scouterSprite);
+      if (animatedSprite) {
+        this.ecs.addComponent(streuner, AnimatedSprite, animatedSprite);
       }
     }
   }

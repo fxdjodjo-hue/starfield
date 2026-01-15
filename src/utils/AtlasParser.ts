@@ -86,12 +86,35 @@ export class AtlasParser {
 
   /**
    * Parsea il contenuto testuale dell'atlas (tutte le sezioni)
+   * Supporta due formati:
+   * 1. Formato completo: xy:, size:, orig:, offset:, rotate:
+   * 2. Formato semplice: bounds:x,y,w,h
    */
   static parseAtlasTextAll(atlasText: string): Array<{imagePath: string, frames: AtlasFrame[]}> {
     const lines = atlasText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    if (lines.length < 4) {
+      throw new Error('Invalid atlas format: not enough lines');
+    }
+
     const sections: Array<{imagePath: string, frames: AtlasFrame[]}> = [];
     let currentSection: {imagePath: string, frames: AtlasFrame[]} | null = null;
     let currentFrame: Partial<AtlasFrame> = {};
+    let isBoundsFormat = false;
+
+    // Rileva formato: cerca "bounds:" in qualsiasi riga dopo l'immagine
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].endsWith('.png')) {
+        // Cerca "bounds:" nelle righe successive (non solo i+2)
+        for (let j = i + 1; j < Math.min(i + 10, lines.length); j++) {
+          if (lines[j].startsWith('bounds:')) {
+            isBoundsFormat = true;
+            break;
+          }
+        }
+        if (isBoundsFormat) break;
+      }
+    }
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -115,8 +138,41 @@ export class AtlasParser {
         continue;
       }
 
-      // Riga con il nome del frame
-      if (!line.includes(':') && currentSection) {
+      // Formato bounds: (semplice)
+      if (isBoundsFormat && line.startsWith('bounds:') && currentSection && currentFrame.name) {
+        const boundsStr = line.substring(7);
+        const [x, y, w, h] = boundsStr.split(',').map(s => parseInt(s.trim()));
+        currentFrame.x = x;
+        currentFrame.y = y;
+        currentFrame.width = w;
+        currentFrame.height = h;
+        currentFrame.rotated = false;
+        
+        // Verifica che width e height siano validi
+        if (isNaN(w) || isNaN(h) || w <= 0 || h <= 0) {
+          console.warn(`[AtlasParser] Frame ${currentFrame.name} ha dimensioni invalide: width=${w}, height=${h} da bounds: ${boundsStr}`);
+        }
+        
+        // Assicurati che il frame abbia tutte le proprietà richieste
+        const frameToAdd: AtlasFrame = {
+          name: currentFrame.name!,
+          x: x,
+          y: y,
+          width: w,
+          height: h,
+          rotated: false,
+          offsetX: currentFrame.offsetX,
+          offsetY: currentFrame.offsetY,
+          origWidth: currentFrame.origWidth,
+          origHeight: currentFrame.origHeight
+        };
+        currentSection.frames.push(frameToAdd);
+        currentFrame = {};
+        continue;
+      }
+
+      // Riga con il nome del frame (formato completo o semplice)
+      if (!line.includes(':') && currentSection && !isBoundsFormat) {
         // Salva il frame precedente se esiste
         if (currentFrame.name) {
           currentSection.frames.push(currentFrame as AtlasFrame);
@@ -130,8 +186,17 @@ export class AtlasParser {
         continue;
       }
 
-      // Proprietà del frame
-      if (line.includes(':') && currentSection) {
+      // Nome frame per formato bounds (riga che inizia con N o altro nome)
+      if (isBoundsFormat && !line.includes(':') && currentSection && !currentFrame.name && line.length > 0) {
+        currentFrame = {
+          name: line,
+          rotated: false
+        };
+        continue;
+      }
+
+      // Proprietà del frame (formato completo)
+      if (line.includes(':') && currentSection && !isBoundsFormat) {
         const [key, value] = line.split(':').map(s => s.trim());
 
         switch (key) {
@@ -163,7 +228,7 @@ export class AtlasParser {
     }
 
     // Salva l'ultimo frame e sezione
-    if (currentSection && currentFrame.name) {
+    if (currentSection && currentFrame.name && !isBoundsFormat) {
       currentSection.frames.push(currentFrame as AtlasFrame);
     }
     if (currentSection) {
@@ -239,5 +304,69 @@ export class AtlasParser {
   static async extractFrames(atlasData: AtlasData): Promise<HTMLImageElement[]> {
     const framePromises = atlasData.frames.map(frame => this.extractFrame(atlasData.image, frame));
     return await Promise.all(framePromises);
+  }
+
+  /**
+   * Parse atlas file content into structured data (compatibilità con infrastructure/AtlasParser)
+   * Supporta formato bounds:
+   */
+  static parse(content: string): { imagePath: string; size: { width: number; height: number }; frames: Array<{name: string; x: number; y: number; width: number; height: number}> } {
+    const sections = this.parseAtlasTextAll(content);
+    
+    if (sections.length === 0) {
+      throw new Error('No sections found in atlas');
+    }
+
+    const firstSection = sections[0];
+    const lines = content.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    
+    // Estrai size dall'header
+    let size = { width: 0, height: 0 };
+    for (const line of lines) {
+      if (line.startsWith('size:')) {
+        const sizeStr = line.substring(5).trim();
+        const [w, h] = sizeStr.split(',').map(Number);
+        size = { width: w, height: h };
+        break;
+      }
+    }
+
+    // Converti frames al formato semplice
+    const frames = firstSection.frames.map(frame => ({
+      name: frame.name,
+      x: frame.x || 0,
+      y: frame.y || 0,
+      width: frame.width || 0,
+      height: frame.height || 0
+    }));
+
+    // Verifica che i frame abbiano dimensioni valide
+    const invalidFrames = frames.filter(f => !f.width || !f.height);
+    if (invalidFrames.length > 0 && frames.length > 0) {
+      console.warn(`[AtlasParser] Trovati ${invalidFrames.length} frame senza dimensioni valide. Primo frame valido:`, frames.find(f => f.width > 0 && f.height > 0));
+    }
+
+    // Ordina frames per nome
+    frames.sort((a, b) => a.name.localeCompare(b.name));
+
+    return {
+      imagePath: firstSection.imagePath,
+      size,
+      frames
+    };
+  }
+
+  /**
+   * Get frame index from rotation angle
+   * @param rotation Rotation in radians
+   * @param frameCount Total number of frames
+   * @returns Frame index (0 to frameCount-1)
+   */
+  static getRotationFrameIndex(rotation: number, frameCount: number): number {
+    const twoPi = Math.PI * 2;
+    let normalized = rotation % twoPi;
+    if (normalized < 0) normalized += twoPi;
+    const frameIndex = Math.floor((normalized / twoPi) * frameCount) % frameCount;
+    return frameIndex;
   }
 }

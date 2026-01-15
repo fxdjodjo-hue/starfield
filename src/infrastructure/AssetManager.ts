@@ -1,8 +1,7 @@
 import { Sprite } from '../entities/Sprite';
 import { AnimatedSprite } from '../entities/AnimatedSprite';
 import type { SpritesheetData } from '../entities/AnimatedSprite';
-import { AtlasParser } from './AtlasParser';
-import { AtlasParser as UtilsAtlasParser } from '../utils/AtlasParser';
+import { AtlasParser } from '../utils/AtlasParser';
 
 /**
  * AssetManager handles loading and managing game assets (sprites, sounds, etc.)
@@ -31,9 +30,25 @@ export class AssetManager {
       const img = new Image();
 
       img.onload = () => {
-        this.images.set(path, img);
-        this.loadingPromises.delete(path);
-        resolve(img);
+        // Verify image is actually loaded with valid dimensions
+        // Sometimes onload fires before image is fully decoded
+        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+          // Wait a bit and check again (handles edge cases)
+          setTimeout(() => {
+            if (img.naturalWidth > 0 && img.naturalHeight > 0) {
+              this.images.set(path, img);
+              this.loadingPromises.delete(path);
+              resolve(img);
+            } else {
+              this.loadingPromises.delete(path);
+              reject(new Error(`Image loaded but has invalid dimensions: ${path}`));
+            }
+          }, 0);
+        } else {
+          this.images.set(path, img);
+          this.loadingPromises.delete(path);
+          resolve(img);
+        }
       };
 
       img.onerror = () => {
@@ -41,7 +56,15 @@ export class AssetManager {
         reject(new Error(`Failed to load image: ${path}`));
       };
 
+      // Set src after attaching handlers to ensure handlers are ready
       img.src = path;
+      
+      // Fallback: if image is already cached and complete, resolve immediately
+      if (img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+        this.images.set(path, img);
+        this.loadingPromises.delete(path);
+        resolve(img);
+      }
     });
 
     this.loadingPromises.set(path, loadPromise);
@@ -128,8 +151,8 @@ export class AssetManager {
     let frameHeight = 0;
 
     try {
-      // Use utils parser to get all sections
-      const sections = UtilsAtlasParser.parseAtlasTextAll(atlasContent);
+      // Use parser to get all sections
+      const sections = AtlasParser.parseAtlasTextAll(atlasContent);
       
       if (sections.length > 1) {
         // Multiple images: combine them into a single canvas
@@ -200,8 +223,22 @@ export class AssetManager {
         const imagePath = `${basePath}.png`;
         combinedImage = await this.loadImage(imagePath);
         allFrames = atlasData.frames;
-        frameWidth = atlasData.frames.length > 0 ? atlasData.frames[0].width : 0;
-        frameHeight = atlasData.frames.length > 0 ? atlasData.frames[0].height : 0;
+        
+        // Calcola frameWidth e frameHeight dal primo frame valido
+        if (atlasData.frames.length > 0) {
+          const firstFrame = atlasData.frames[0];
+          frameWidth = firstFrame.width || 0;
+          frameHeight = firstFrame.height || 0;
+          
+          // Se ancora 0, prova a calcolarli dalla media dei frame
+          if (frameWidth === 0 || frameHeight === 0) {
+            const validFrames = atlasData.frames.filter(f => f.width > 0 && f.height > 0);
+            if (validFrames.length > 0) {
+              frameWidth = validFrames[0].width;
+              frameHeight = validFrames[0].height;
+            }
+          }
+        }
       }
     } catch (error) {
       // Fallback to standard parser
@@ -209,15 +246,57 @@ export class AssetManager {
       const imagePath = `${basePath}.png`;
       combinedImage = await this.loadImage(imagePath);
       allFrames = atlasData.frames;
-      frameWidth = atlasData.frames.length > 0 ? atlasData.frames[0].width : 0;
-      frameHeight = atlasData.frames.length > 0 ? atlasData.frames[0].height : 0;
+      
+      // Calcola frameWidth e frameHeight dal primo frame valido
+      if (atlasData.frames.length > 0) {
+        const firstFrame = atlasData.frames[0];
+        frameWidth = firstFrame.width || 0;
+        frameHeight = firstFrame.height || 0;
+        
+        // Se ancora 0, prova a calcolarli dalla media dei frame
+        if (frameWidth === 0 || frameHeight === 0) {
+          const validFrames = atlasData.frames.filter(f => f.width > 0 && f.height > 0);
+          if (validFrames.length > 0) {
+            frameWidth = validFrames[0].width;
+            frameHeight = validFrames[0].height;
+          }
+        }
+      }
+    }
+
+    // Verify image is ready before creating spritesheet
+    if (!combinedImage || combinedImage.naturalWidth === 0 || combinedImage.naturalHeight === 0) {
+      throw new Error(`Spritesheet image not ready: ${basePath}.png`);
+    }
+    
+    // Validate frames data
+    if (!allFrames || allFrames.length === 0) {
+      throw new Error(`No frames found in atlas: ${basePath}.atlas`);
+    }
+    
+    // DEBUG: Verifica frameWidth e frameHeight
+    if (frameWidth === 0 || frameHeight === 0 || frameWidth === undefined || frameHeight === undefined) {
+      // Calcola da tutti i frame disponibili
+      const validFrames = allFrames.filter(f => f.width > 0 && f.height > 0);
+      if (validFrames.length > 0) {
+        frameWidth = validFrames[0].width;
+        frameHeight = validFrames[0].height;
+        console.log(`[AssetManager] Calcolati frameWidth: ${frameWidth}, frameHeight: ${frameHeight} da frame valido`);
+      } else {
+        console.warn(`[AssetManager] Nessun frame valido trovato per ${basePath}, usando dimensioni default`);
+        // Fallback: usa dimensioni del primo frame anche se 0
+        if (allFrames.length > 0) {
+          frameWidth = allFrames[0].width || 189; // Default per ship106
+          frameHeight = allFrames[0].height || 189;
+        }
+      }
     }
 
     const spritesheet: SpritesheetData = {
       image: combinedImage,
       frames: allFrames,
-      frameWidth,
-      frameHeight
+      frameWidth: frameWidth || 189, // Fallback se ancora undefined
+      frameHeight: frameHeight || 189
     };
 
     // Cache
