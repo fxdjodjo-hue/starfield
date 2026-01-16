@@ -1,53 +1,31 @@
 /**
- * ServerNpcManager - Gestione centralizzata degli NPC
- * Responsabile della creazione, gestione, movimento e respawn degli NPC
+ * ServerNpcManager - Orchestratore gestione NPC
+ * Responsabilità: Coordinamento moduli specializzati per gestione NPC
+ * Dipendenze: NpcSpawner, NpcRespawnSystem, NpcDamageHandler, NpcRewardSystem, NpcBroadcaster
  */
 
 const { logger } = require('../logger.cjs');
-const { SERVER_CONSTANTS, NPC_CONFIG } = require('../config/constants.cjs');
+const NpcSpawner = require('./npc/NpcSpawner.cjs');
+const NpcRespawnSystem = require('./npc/NpcRespawnSystem.cjs');
+const NpcDamageHandler = require('./npc/NpcDamageHandler.cjs');
+const NpcRewardSystem = require('./npc/NpcRewardSystem.cjs');
+const NpcBroadcaster = require('./npc/NpcBroadcaster.cjs');
 
 class ServerNpcManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
     this.npcs = new Map();
-    this.npcIdCounter = 0;
+    this.npcIdCounter = { value: 0 }; // Oggetto per riferimento condiviso
 
-    // Sistema di respawn server-authoritative
-    this.respawnQueue = []; // Coda di NPC da respawnare
-    this.respawnCheckInterval = null; // Timer per controllare la coda
-
-    // Usa le dimensioni dalla mappa
-    this.WORLD_WIDTH = mapServer.WORLD_WIDTH;
-    this.WORLD_HEIGHT = mapServer.WORLD_HEIGHT;
-    this.WORLD_LEFT = -this.WORLD_WIDTH / 2;
-    this.WORLD_RIGHT = this.WORLD_WIDTH / 2;
-    this.WORLD_TOP = -this.WORLD_HEIGHT / 2;
-    this.WORLD_BOTTOM = this.WORLD_HEIGHT / 2;
+    // Inizializza moduli specializzati con dependency injection
+    this.spawner = new NpcSpawner(mapServer, this.npcs, this.npcIdCounter);
+    this.broadcaster = new NpcBroadcaster(mapServer, this.npcs);
+    this.respawnSystem = new NpcRespawnSystem(mapServer, this.spawner, this.broadcaster);
+    this.rewardSystem = new NpcRewardSystem(mapServer);
+    this.damageHandler = new NpcDamageHandler(mapServer, this.npcs, this.respawnSystem, this.rewardSystem);
 
     // Avvia il controllo periodico della coda respawn
-    this.startRespawnTimer();
-  }
-
-  /**
-   * Avvia il timer per controllare la coda di respawn
-   */
-  startRespawnTimer() {
-    // Controlla la coda ogni secondo
-    this.respawnCheckInterval = setInterval(() => {
-      this.processRespawnQueue();
-    }, 1000);
-    logger.info('NPC', 'Respawn timer started');
-  }
-
-  /**
-   * Ferma il timer di respawn (per cleanup)
-   */
-  stopRespawnTimer() {
-    if (this.respawnCheckInterval) {
-      clearInterval(this.respawnCheckInterval);
-      this.respawnCheckInterval = null;
-      logger.info('NPC', 'Respawn timer stopped');
-    }
+    this.respawnSystem.startRespawnTimer();
   }
 
   /**
@@ -56,76 +34,19 @@ class ServerNpcManager {
    * @param {number} x - Posizione X (opzionale, casuale se non specificata)
    * @param {number} y - Posizione Y (opzionale, casuale se non specificata)
    * @param {boolean} silent - Se true, non logga la creazione (per inizializzazione bulk)
+   * @returns {string} npcId
    */
   createNpc(type, x, y, silent = false) {
-    const npcId = `npc_${this.npcIdCounter++}`;
-
-    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos)
-    const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' ? normalizedType : type;
-
-    // Se non specificate, genera posizioni casuali ENTRO i confini del mondo
-    const finalX = x ?? (Math.random() * (this.WORLD_RIGHT - this.WORLD_LEFT) + this.WORLD_LEFT);
-    const finalY = y ?? (Math.random() * (this.WORLD_BOTTOM - this.WORLD_TOP) + this.WORLD_TOP);
-
-    // Statistiche base per tipo dal config condiviso
-    const stats = NPC_CONFIG[validType].stats;
-
-    const npc = {
-      id: npcId,
-      type: validType,
-      position: { x: finalX, y: finalY, rotation: Math.random() * Math.PI * 2 },
-      velocity: {
-        x: (Math.random() - 0.5) * 200,
-        y: (Math.random() - 0.5) * 200
-      },
-      health: stats.health,
-      maxHealth: stats.health,
-      shield: stats.shield,
-      maxShield: stats.shield,
-      damage: stats.damage, // Aggiungi danno per combat
-      lastBounce: 0, // Timestamp dell'ultimo rimbalzo ai confini
-      behavior: 'cruise',
-      lastUpdate: Date.now(),
-      lastSignificantMove: 0, // Non è stato ancora trasmesso, impostiamo a 0
-      lastDamage: 0, // Non danneggiato ancora
-      lastAttackerId: null // Ultimo player che lo ha danneggiato
-    };
-
-    // Tutti gli NPC ora hanno comportamento normale (cruise)
-    // Non ci sono più NPC aggressivi automatici
-
-    this.npcs.set(npcId, npc);
-
-    // Log solo se non è modalità silenziosa (per evitare spam durante inizializzazione)
-    if (!silent) {
-      logger.info('NPC', `Created ${npcId} (${validType}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)}) [${npc.behavior}]`);
-    }
-
-    return npcId;
+    return this.spawner.createNpc(type, x, y, silent);
   }
 
   /**
    * Aggiorna lo stato di un NPC
+   * @param {string} npcId - ID dell'NPC
+   * @param {Object} updates - Aggiornamenti da applicare
    */
   updateNpc(npcId, updates) {
-    const npc = this.npcs.get(npcId);
-    if (!npc) {
-      console.warn(`[SERVER] Attempted to update non-existent NPC: ${npcId}`);
-      return;
-    }
-
-    // Controlla se ci sono movimenti significativi
-    const hasSignificantMovement = updates.position &&
-      (Math.abs(updates.position.x - npc.position.x) > 5 ||
-       Math.abs(updates.position.y - npc.position.y) > 5);
-
-    Object.assign(npc, updates);
-    npc.lastUpdate = Date.now();
-
-    if (hasSignificantMovement) {
-      npc.lastSignificantMove = Date.now();
-    }
+    this.spawner.updateNpc(npcId, updates);
   }
 
   /**
@@ -151,318 +72,57 @@ class ServerNpcManager {
 
   /**
    * Applica danno a un NPC
+   * @param {string} npcId - ID dell'NPC
+   * @param {number} damage - Quantità di danno
+   * @param {string} attackerId - ID dell'attaccante (playerId)
+   * @returns {boolean} True se l'NPC è morto
    */
   damageNpc(npcId, damage, attackerId) {
-    const npc = this.npcs.get(npcId);
-    if (!npc) return false;
-
-    // Prima danneggia lo scudo
-    if (npc.shield > 0) {
-      const shieldDamage = Math.min(damage, npc.shield);
-      npc.shield -= shieldDamage;
-      damage -= shieldDamage;
-    }
-
-    // Poi danneggia la salute
-    if (damage > 0) {
-      npc.health = Math.max(0, npc.health - damage);
-    }
-
-    npc.lastUpdate = Date.now();
-    npc.lastDamage = Date.now(); // Traccia quando è stato danneggiato
-    npc.lastAttackerId = attackerId; // Traccia l'ultimo player che lo ha colpito
-
-    logger.info('COMBAT', `NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`);
-
-    // Se morto, rimuovi l'NPC e assegna ricompense
-    if (npc.health <= 0) {
-      this.removeNpc(npcId);
-      this.awardNpcKillRewards(attackerId, npc.type);
-      return true; // NPC morto
-    }
-
-    return false; // NPC sopravvissuto
+    return this.damageHandler.damageNpc(npcId, damage, attackerId);
   }
 
   /**
    * Applica danno a un giocatore (server authoritative)
+   * @param {string} clientId - ID del client
+   * @param {number} damage - Quantità di danno
+   * @param {string} attackerId - ID dell'attaccante
+   * @returns {boolean} True se il player è morto
    */
   damagePlayer(clientId, damage, attackerId) {
-    const playerData = this.mapServer.players.get(clientId);
-    if (!playerData || playerData.isDead) return false;
-
-    // Prima danneggia lo scudo
-    if (playerData.shield > 0) {
-      const shieldDamage = Math.min(damage, playerData.shield);
-      playerData.shield -= shieldDamage;
-      damage -= shieldDamage;
-    }
-
-    // Poi danneggia la salute
-    if (damage > 0) {
-      playerData.health = Math.max(0, playerData.health - damage);
-    }
-
-    playerData.lastDamage = Date.now();
-
-    logger.info('COMBAT', `Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`);
-
-    // Se morto, gestisci la morte
-    if (playerData.health <= 0) {
-      this.handlePlayerDeath(clientId, attackerId);
-      return true; // Player morto
-    }
-
-    return false; // Player sopravvissuto
+    return this.damageHandler.damagePlayer(clientId, damage, attackerId);
   }
 
   /**
    * Rimuove un NPC dal mondo e pianifica il respawn
+   * @param {string} npcId - ID dell'NPC
+   * @returns {boolean} True se l'NPC esisteva ed è stato rimosso
    */
   removeNpc(npcId) {
-    const npc = this.npcs.get(npcId);
-    if (!npc) return false;
-
-    const npcType = npc.type;
-    const existed = this.npcs.delete(npcId);
-
-    if (existed) {
-      logger.info('NPC', `Removed NPC ${npcId} (${npcType})`);
-
-      // Pianifica automaticamente il respawn per mantenere la popolazione
-      this.scheduleRespawn(npcType);
-    }
-
-    return existed;
+    return this.damageHandler.removeNpc(npcId);
   }
 
   /**
-   * Assegna ricompense al giocatore che ha ucciso un NPC
+   * Inizializza NPC del mondo (chiamato all'avvio del server)
+   * @param {number} scouterCount - Numero di Scouters
+   * @param {number} frigateCount - Numero di Kronos
    */
-  awardNpcKillRewards(playerId, npcType) {
-    const playerData = this.mapServer.players.get(playerId);
-    if (!playerData) {
-      logger.warn('REWARDS', `Cannot award rewards to unknown player: ${playerId}`);
-      return;
-    }
-
-    const rewards = NPC_CONFIG[npcType]?.rewards;
-    if (!rewards) {
-      logger.warn('REWARDS', `No rewards defined for NPC type: ${npcType}`);
-      return;
-    }
-
-    // Aggiungi ricompense all'inventario del giocatore (assicurati che siano numeri)
-    playerData.inventory.credits = Number(playerData.inventory.credits || 0) + (rewards.credits || 0);
-    playerData.inventory.cosmos = Number(playerData.inventory.cosmos || 0) + (rewards.cosmos || 0);
-    const oldExp = Number(playerData.inventory.experience || 0);
-    const newExp = oldExp + (rewards.experience || 0);
-    playerData.inventory.experience = newExp;
-    const oldHonor = Number(playerData.inventory.honor || 0);
-    const newHonor = oldHonor + (rewards.honor || 0);
-    playerData.inventory.honor = newHonor;
-    // SkillPoints completamente rimossi dagli NPC - mai assegnati
-
-    // Salva snapshot honor se è cambiato (non bloccante)
-    if (rewards.honor && rewards.honor !== 0) {
-      const websocketManager = this.mapServer.websocketManager;
-      if (websocketManager && typeof websocketManager.saveHonorSnapshot === 'function') {
-        // Chiama in modo asincrono senza bloccare
-        websocketManager.saveHonorSnapshot(playerData.userId, newHonor, 'npc_kill').catch(err => {
-          // Ignora errori, non blocca il flusso
-        });
-      }
-    }
-
-    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor for killing ${npcType}`);
-
-    // Crea oggetto rewards (SkillPoints completamente rimossi)
-    const finalRewards = {
-      ...rewards,
-      skillPoints: 0 // Sempre 0, SkillPoints non assegnati dagli NPC
-    };
-
-    // Invia notifica delle ricompense al client
-    this.sendRewardsNotification(playerId, finalRewards, npcType);
-  }
-
-  /**
-   * Invia notifica delle ricompense al client
-   */
-  sendRewardsNotification(playerId, rewards, npcType) {
-    const playerData = this.mapServer.players.get(playerId);
-    if (!playerData || playerData.ws.readyState !== 1) return; // WebSocket.OPEN = 1
-
-    // Usa RecentHonor cached se disponibile, altrimenti usa honor corrente
-    // RecentHonor verrà aggiornato in background per il prossimo messaggio
-    const recentHonor = playerData.recentHonor !== undefined ? playerData.recentHonor : playerData.inventory.honor || 0;
-    
-    // Aggiorna RecentHonor in background per il prossimo messaggio (non blocca)
-    const websocketManager = this.mapServer.websocketManager;
-    if (websocketManager && typeof websocketManager.getRecentHonorAverage === 'function') {
-      websocketManager.getRecentHonorAverage(playerData.userId, 30).then(avg => {
-        playerData.recentHonor = avg;
-      }).catch(err => {
-        // Ignora errori, mantiene valore cached
-      });
-    }
-
-    const message = {
-      type: 'player_state_update',
-      inventory: { ...playerData.inventory },
-      upgrades: { ...playerData.upgrades },
-      recentHonor: recentHonor,
-      source: `killed_${npcType}`,
-      rewardsEarned: {
-        ...rewards,
-        npcType: npcType
-      }
-    };
-
-    playerData.ws.send(JSON.stringify(message));
-  }
-
-  /**
-   * Pianifica il respawn di un NPC morto
-   */
-  scheduleRespawn(npcType) {
-    const respawnDelay = 10000; // 10 secondi
-
-    const respawnEntry = {
-      npcType: npcType,
-      respawnTime: Date.now() + respawnDelay,
-      scheduledAt: Date.now()
-    };
-
-    this.respawnQueue.push(respawnEntry);
-  }
-
-  /**
-   * Processa la coda di respawn
-   */
-  processRespawnQueue() {
-    const now = Date.now();
-    const readyForRespawn = [];
-
-    // Trova tutti gli NPC pronti per il respawn
-    this.respawnQueue = this.respawnQueue.filter(entry => {
-      if (now >= entry.respawnTime) {
-        readyForRespawn.push(entry);
-        return false; // Rimuovi dalla coda
-      }
-      return true; // Mantieni in coda
-    });
-
-    // Respawna gli NPC pronti
-    for (const entry of readyForRespawn) {
-      this.respawnNpc(entry.npcType);
-    }
-  }
-
-  /**
-   * Respawna un NPC in una posizione sicura
-   */
-  respawnNpc(npcType) {
-    try {
-      // Trova una posizione sicura per il respawn
-      const safePosition = this.findSafeRespawnPosition();
-
-      // Crea il nuovo NPC
-      const npcId = this.createNpc(npcType, safePosition.x, safePosition.y);
-
-      if (npcId) {
-        logger.info('NPC', `Successfully respawned ${npcType} at (${safePosition.x.toFixed(0)}, ${safePosition.y.toFixed(0)})`);
-
-        // Broadcast il nuovo NPC a tutti i client
-        this.broadcastNpcSpawn(npcId);
-      }
-    } catch (error) {
-      console.error(`❌ [SERVER] Failed to respawn ${npcType}:`, error);
-    }
-  }
-
-  /**
-   * Trova una posizione sicura per il respawn lontana dai giocatori
-   */
-  findSafeRespawnPosition() {
-    const attempts = 10; // Numero massimo di tentativi
-
-    for (let i = 0; i < attempts; i++) {
-      // Genera posizione casuale nel mondo
-      const x = (Math.random() * (this.WORLD_RIGHT - this.WORLD_LEFT) + this.WORLD_LEFT);
-      const y = (Math.random() * (this.WORLD_BOTTOM - this.WORLD_TOP) + this.WORLD_TOP);
-
-      // Verifica che sia abbastanza lontana dai giocatori
-      if (this.isPositionSafeFromPlayers(x, y)) {
-        return { x, y };
-      }
-    }
-
-    // Fallback: posizione casuale semplice se non trova posizione sicura
-    console.warn('⚠️ [SERVER] Could not find safe respawn position, using fallback');
-    const fallbackX = (Math.random() - 0.5) * (this.WORLD_WIDTH * 0.8); // 80% del mondo
-    const fallbackY = (Math.random() - 0.5) * (this.WORLD_HEIGHT * 0.8);
-    return { x: fallbackX, y: fallbackY };
-  }
-
-  /**
-   * Verifica se una posizione è sicura (lontana dai giocatori)
-   */
-  isPositionSafeFromPlayers(x, y) {
-    const minDistanceFromPlayers = 1000; // Distanza minima dai giocatori (pixel)
-    const minDistanceSq = minDistanceFromPlayers * minDistanceFromPlayers;
-
-    // Controlla tutti i giocatori connessi
-    for (const [clientId, playerData] of this.mapServer.players.entries()) {
-      if (!playerData.position) continue;
-
-      const dx = x - playerData.position.x;
-      const dy = y - playerData.position.y;
-      const distanceSq = dx * dx + dy * dy;
-
-      if (distanceSq < minDistanceSq) {
-        return false; // Troppo vicino a un giocatore
-      }
-    }
-
-    return true; // Posizione sicura
-  }
-
-  /**
-   * Broadcast la creazione di un nuovo NPC a tutti i client
-   */
-  broadcastNpcSpawn(npcId) {
-    const npc = this.npcs.get(npcId);
-    if (!npc) return;
-
-    const message = {
-      type: 'npc_spawn',
-      npc: {
-        id: npc.id,
-        type: npc.type,
-        position: npc.position,
-        health: { current: npc.health, max: npc.maxHealth },
-        shield: { current: npc.shield, max: npc.maxShield },
-        behavior: npc.behavior
-      }
-    };
-
-    // Broadcast GLOBALE per spawn NPC (minimappa globale richiede aggiornamenti globali)
-    console.log(`[SERVER] Broadcasting npc_spawn: ${npc.id} (${npc.type}) at ${npc.position.x.toFixed(0)},${npc.position.y.toFixed(0)} - radius: 50000`);
-    this.mapServer.broadcastNear(npc.position, 50000, message);
+  initializeWorldNpcs(scouterCount = 25, frigateCount = 25) {
+    this.spawner.initializeWorldNpcs(scouterCount, frigateCount);
+    const stats = this.getStats();
+    logger.info('SERVER', `World initialization complete: ${stats.totalNpcs} NPCs (${stats.scouters} Scouters, ${stats.kronos} Kronos)`);
   }
 
   /**
    * Cleanup risorse del manager
    */
   destroy() {
-    this.stopRespawnTimer();
-    this.respawnQueue = [];
+    this.respawnSystem.destroy();
     logger.info('NPC', 'ServerNpcManager cleanup completed');
   }
 
   /**
    * Statistiche del manager
+   * @returns {{totalNpcs: number, scouters: number, kronos: number}}
    */
   getStats() {
     const allNpcs = this.getAllNpcs();
@@ -477,21 +137,39 @@ class ServerNpcManager {
   }
 
   /**
-   * Inizializza NPC del mondo (chiamato all'avvio del server)
+   * Getter per coordinate mondo (backward compatibility con map-server.cjs)
+   * @returns {{WORLD_LEFT: number, WORLD_RIGHT: number, WORLD_TOP: number, WORLD_BOTTOM: number}}
    */
-  initializeWorldNpcs(scouterCount = 25, frigateCount = 25) {
+  getWorldBounds() {
+    return this.spawner.getWorldBounds();
+  }
 
-    // Distribuisci uniformemente gli NPC nel mondo (modalità silenziosa per evitare spam)
-    for (let i = 0; i < scouterCount; i++) {
-      this.createNpc('Scouter', undefined, undefined, true);
-    }
+  /**
+   * Getter per WORLD_LEFT (backward compatibility)
+   */
+  get WORLD_LEFT() {
+    return this.getWorldBounds().WORLD_LEFT;
+  }
 
-    for (let i = 0; i < frigateCount; i++) {
-      this.createNpc('Kronos', undefined, undefined, true);
-    }
+  /**
+   * Getter per WORLD_RIGHT (backward compatibility)
+   */
+  get WORLD_RIGHT() {
+    return this.getWorldBounds().WORLD_RIGHT;
+  }
 
-    const stats = this.getStats();
-    logger.info('SERVER', `World initialization complete: ${stats.totalNpcs} NPCs (${stats.scouters} Scouters, ${stats.kronos} Kronos)`);
+  /**
+   * Getter per WORLD_TOP (backward compatibility)
+   */
+  get WORLD_TOP() {
+    return this.getWorldBounds().WORLD_TOP;
+  }
+
+  /**
+   * Getter per WORLD_BOTTOM (backward compatibility)
+   */
+  get WORLD_BOTTOM() {
+    return this.getWorldBounds().WORLD_BOTTOM;
   }
 }
 
