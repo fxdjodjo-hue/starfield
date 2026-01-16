@@ -1,9 +1,10 @@
 // MessageRouter - Routing e gestione di tutti i tipi di messaggio WebSocket
 // Responsabilità: Gestisce tutti i tipi di messaggio (join, position, combat, chat, etc.)
-// Dipendenze: logger.cjs, mapServer, playerDataManager, authManager, messageBroadcaster
+// Dipendenze: logger.cjs, mapServer, playerDataManager, authManager, messageBroadcaster, core/combat/DamageCalculationSystem.cjs
 
 const { logger } = require('../../logger.cjs');
 const WebSocket = require('ws');
+const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
 
 /**
  * Handler per messaggio 'join'
@@ -402,12 +403,12 @@ function handleProjectileFired(data, sanitizedData, context) {
     }
   }
 
-  // Server authoritative damage calculation
-  let calculatedDamage = 500;
-  if (playerData && playerData.upgrades) {
-    const damageBonus = 1.0 + (playerData.upgrades.damageUpgrades * 0.01);
-    calculatedDamage = Math.floor(500 * damageBonus);
-  }
+  // Server authoritative damage calculation (usa DamageCalculationSystem)
+  const baseDamage = DamageCalculationSystem.getBasePlayerDamage();
+  const calculatedDamage = DamageCalculationSystem.calculatePlayerDamage(
+    baseDamage,
+    playerData?.upgrades
+  );
 
   mapServer.projectileManager.addProjectile(
     data.projectileId,
@@ -768,7 +769,8 @@ function handleChatMessage(data, sanitizedData, context) {
     data.clientId,
     playerData.nickname || 'Unknown Player',
     filteredContent,
-    now
+    now,
+    playerData.playerId || null
   );
 
   const playersCount = mapServer.players.size;

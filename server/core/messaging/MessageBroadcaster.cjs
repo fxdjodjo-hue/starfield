@@ -119,19 +119,21 @@ class MessageBroadcaster {
 
   /**
    * Formatta messaggio chat_message
-   * @param {string} clientId - Client ID
+   * @param {string} clientId - Client ID (WebSocket connection)
    * @param {string} senderName - Nome del mittente
    * @param {string} content - Contenuto del messaggio
    * @param {number} timestamp - Timestamp (opzionale)
+   * @param {number} playerId - Player ID (database ID, opzionale)
    * @returns {Object} Chat message
    */
-  formatChatMessage(clientId, senderName, content, timestamp = null) {
+  formatChatMessage(clientId, senderName, content, timestamp = null, playerId = null) {
     return {
       type: 'chat_message',
       clientId: clientId,
       senderName: senderName,
       content: content,
-      timestamp: timestamp || Date.now()
+      timestamp: timestamp || Date.now(),
+      playerId: playerId || null
     };
   }
 
