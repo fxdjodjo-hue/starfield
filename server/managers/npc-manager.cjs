@@ -60,16 +60,20 @@ class ServerNpcManager {
   createNpc(type, x, y, silent = false) {
     const npcId = `npc_${this.npcIdCounter++}`;
 
+    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos)
+    const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' ? normalizedType : type;
+
     // Se non specificate, genera posizioni casuali ENTRO i confini del mondo
     const finalX = x ?? (Math.random() * (this.WORLD_RIGHT - this.WORLD_LEFT) + this.WORLD_LEFT);
     const finalY = y ?? (Math.random() * (this.WORLD_BOTTOM - this.WORLD_TOP) + this.WORLD_TOP);
 
     // Statistiche base per tipo dal config condiviso
-    const stats = NPC_CONFIG[type].stats;
+    const stats = NPC_CONFIG[validType].stats;
 
     const npc = {
       id: npcId,
-      type,
+      type: validType,
       position: { x: finalX, y: finalY, rotation: Math.random() * Math.PI * 2 },
       velocity: {
         x: (Math.random() - 0.5) * 200,
@@ -95,7 +99,7 @@ class ServerNpcManager {
 
     // Log solo se non è modalità silenziosa (per evitare spam durante inizializzazione)
     if (!silent) {
-      logger.info('NPC', `Created ${npcId} (${type}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)}) [${npc.behavior}]`);
+      logger.info('NPC', `Created ${npcId} (${validType}) at (${finalX.toFixed(0)}, ${finalY.toFixed(0)}) [${npc.behavior}]`);
     }
 
     return npcId;

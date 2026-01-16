@@ -50,12 +50,12 @@ CREATE TABLE public.player_upgrades (
 -- Player currencies (combines all currency components: Credits, Cosmos, Experience, Honor, SkillPoints)
 CREATE TABLE public.player_currencies (
   auth_id UUID REFERENCES public.user_profiles(auth_id) ON DELETE CASCADE PRIMARY KEY,
-  credits BIGINT DEFAULT 1000,
-  cosmos BIGINT DEFAULT 100,
-  experience BIGINT DEFAULT 0,
-  honor INTEGER DEFAULT 0,
-  skill_points BIGINT DEFAULT 0,
-  skill_points_total BIGINT DEFAULT 0,
+  credits BIGINT NOT NULL DEFAULT 1000,
+  cosmos BIGINT NOT NULL DEFAULT 100,
+  experience BIGINT NOT NULL DEFAULT 0,
+  honor INTEGER NOT NULL DEFAULT 0,
+  skill_points BIGINT NOT NULL DEFAULT 0,
+  skill_points_total BIGINT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -160,13 +160,38 @@ BEGIN
   VALUES (auth_id_param, new_player_id, username_param);
 
   -- Create default player data using auth_id
-  INSERT INTO public.player_stats (auth_id) VALUES (auth_id_param);
-  INSERT INTO public.player_upgrades (auth_id) VALUES (auth_id_param);
-  INSERT INTO public.player_currencies (auth_id) VALUES (auth_id_param);
+  INSERT INTO public.player_stats (auth_id, kills, deaths, missions_completed, play_time)
+  VALUES (auth_id_param, 0, 0, 0, 0);
+  
+  INSERT INTO public.player_upgrades (auth_id, hp_upgrades, shield_upgrades, speed_upgrades, damage_upgrades)
+  VALUES (auth_id_param, 0, 0, 0, 0);
+  
+  -- 🔴 FIX CRITICO: Imposta SEMPRE esplicitamente tutti i valori per currencies
+  -- NON fare affidamento sui DEFAULT della tabella - imposta tutto esplicitamente
+  INSERT INTO public.player_currencies (
+    auth_id, 
+    credits, 
+    cosmos, 
+    experience, 
+    honor, 
+    skill_points, 
+    skill_points_total
+  )
+  VALUES (
+    auth_id_param, 
+    1000::BIGINT, 
+    100::BIGINT, 
+    0::BIGINT, 
+    0::INTEGER, 
+    0::BIGINT, 
+    0::BIGINT
+  );
 
   RETURN QUERY SELECT new_player_id, TRUE, NULL::TEXT;
 EXCEPTION
   WHEN OTHERS THEN
+    -- Log l'errore per debug
+    RAISE WARNING 'Error in create_player_profile for auth_id %: %', auth_id_param, SQLERRM;
     RETURN QUERY SELECT NULL::BIGINT, FALSE, SQLERRM::TEXT;
 END;
 $$ LANGUAGE plpgsql;
@@ -329,6 +354,14 @@ BEGIN
 
   -- Update currencies if provided
   IF currencies_data IS NOT NULL THEN
+    -- Log per debug (solo in sviluppo)
+    RAISE WARNING 'Updating currencies for auth_id %: credits=%, cosmos=%, experience=%, honor=%', 
+      auth_id_param,
+      currencies_data->>'credits',
+      currencies_data->>'cosmos',
+      currencies_data->>'experience',
+      currencies_data->>'honor';
+    
     INSERT INTO public.player_currencies (
       auth_id, credits, cosmos, experience, honor, skill_points, skill_points_total
     ) VALUES (
@@ -445,12 +478,12 @@ BEGIN
     TRUE as found,
     CASE WHEN pc.auth_id IS NOT NULL THEN
       jsonb_build_object(
-        'credits', pc.credits,
-        'cosmos', pc.cosmos,
-        'experience', pc.experience,
-        'honor', pc.honor,
-        'skill_points_current', pc.skill_points,
-        'skill_points_total', pc.skill_points_total
+        'credits', COALESCE(pc.credits, 1000),
+        'cosmos', COALESCE(pc.cosmos, 100),
+        'experience', COALESCE(pc.experience, 0),
+        'honor', COALESCE(pc.honor, 0),
+        'skill_points_current', COALESCE(pc.skill_points, 0),
+        'skill_points_total', COALESCE(pc.skill_points_total, 0)
       )::text
     ELSE
       jsonb_build_object(
@@ -528,3 +561,176 @@ GRANT EXECUTE ON FUNCTION get_player_complete_data_secure(UUID) TO service_role;
 -- MMO SECURITY: No guest users allowed
 -- Every player MUST register and create a profile before playing
 -- auth_id (UUID) + player_id (BIGINT display) for complete user identification
+
+-- FIX: Aggiorna tutti i record esistenti con NULL a valori di default
+UPDATE public.player_currencies 
+SET 
+  credits = COALESCE(credits, 1000),
+  cosmos = COALESCE(cosmos, 100),
+  experience = COALESCE(experience, 0),
+  honor = COALESCE(honor, 0),
+  skill_points = COALESCE(skill_points, 0),
+  skill_points_total = COALESCE(skill_points_total, 0)
+WHERE 
+  credits IS NULL 
+  OR cosmos IS NULL 
+  OR experience IS NULL 
+  OR honor IS NULL 
+  OR skill_points IS NULL 
+  OR skill_points_total IS NULL;
+
+-- =================================================================================
+-- HONOR SNAPSHOTS: Tabella per calcolare media mobile honor
+-- =================================================================================
+CREATE TABLE IF NOT EXISTS public.honor_snapshots (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  auth_id UUID REFERENCES public.user_profiles(auth_id) ON DELETE CASCADE,
+  honor_value INTEGER NOT NULL,
+  reason VARCHAR(50),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_honor_snapshots_auth_id ON public.honor_snapshots(auth_id);
+CREATE INDEX IF NOT EXISTS idx_honor_snapshots_created_at ON public.honor_snapshots(created_at);
+
+ALTER TABLE public.honor_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Service role can manage honor snapshots" ON public.honor_snapshots;
+CREATE POLICY "Service role can manage honor snapshots" ON public.honor_snapshots
+  FOR ALL USING (auth.role() = 'service_role');
+
+-- Funzione per inserire honor snapshot
+DROP FUNCTION IF EXISTS insert_honor_snapshot(UUID, INTEGER, VARCHAR);
+CREATE FUNCTION insert_honor_snapshot(
+  p_auth_id UUID,
+  p_honor_value INTEGER,
+  p_reason VARCHAR DEFAULT 'change'
+)
+RETURNS void
+SECURITY DEFINER
+AS $$
+BEGIN
+  INSERT INTO public.honor_snapshots (auth_id, honor_value, reason)
+  VALUES (p_auth_id, p_honor_value, p_reason);
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION insert_honor_snapshot(UUID, INTEGER, VARCHAR) TO service_role;
+
+-- Funzione per calcolare media mobile honor ultimi N giorni
+DROP FUNCTION IF EXISTS get_recent_honor_average(UUID, INTEGER);
+CREATE FUNCTION get_recent_honor_average(
+  p_auth_id UUID,
+  p_days INTEGER DEFAULT 30
+)
+RETURNS NUMERIC
+SECURITY DEFINER
+AS $$
+DECLARE
+  avg_honor NUMERIC;
+BEGIN
+  SELECT COALESCE(AVG(honor_value), 0) INTO avg_honor
+  FROM public.honor_snapshots
+  WHERE auth_id = p_auth_id
+    AND created_at >= NOW() - (p_days || ' days')::INTERVAL;
+  
+  RETURN COALESCE(avg_honor, 0);
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION get_recent_honor_average(UUID, INTEGER) TO service_role;
+
+-- =================================================================================
+-- LEADERBOARD: Funzione per ottenere classifica giocatori
+-- =================================================================================
+DROP FUNCTION IF EXISTS get_leaderboard(INTEGER, VARCHAR);
+CREATE FUNCTION get_leaderboard(
+  p_limit INTEGER DEFAULT 100,
+  p_sort_by VARCHAR DEFAULT 'ranking_points'
+)
+RETURNS TABLE(
+  rank_position BIGINT,
+  player_id BIGINT,
+  username VARCHAR(50),
+  experience BIGINT,
+  honor INTEGER,
+  recent_honor NUMERIC,
+  ranking_points NUMERIC,
+  kills INTEGER,
+  play_time INTEGER,
+  level INTEGER
+)
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  WITH player_ranking AS (
+    SELECT
+      up.player_id,
+      up.username,
+      COALESCE(pc.experience, 0)::BIGINT as experience,
+      COALESCE(pc.honor, 0)::INTEGER as honor,
+      COALESCE(
+        (SELECT AVG(hs.honor_value)::NUMERIC
+         FROM honor_snapshots hs
+         WHERE hs.auth_id = up.auth_id
+           AND hs.created_at >= NOW() - INTERVAL '30 days'),
+        COALESCE(pc.honor, 0)::NUMERIC,
+        0::NUMERIC
+      ) as recent_honor,
+      COALESCE(ps.kills, 0)::INTEGER as kills,
+      COALESCE(ps.play_time, 0)::INTEGER as play_time,
+      -- Calcola ranking_points: experience + (recent_honor * 2)
+      (
+        COALESCE(pc.experience, 0)::NUMERIC +
+        (COALESCE(
+          (SELECT AVG(hs.honor_value)::NUMERIC
+           FROM honor_snapshots hs
+           WHERE hs.auth_id = up.auth_id
+             AND hs.created_at >= NOW() - INTERVAL '30 days'),
+          COALESCE(pc.honor, 0)::NUMERIC,
+          0::NUMERIC
+        ) * 2)
+      ) as ranking_points,
+      -- Calcola level: floor(experience / 1000) + 1
+      (FLOOR(COALESCE(pc.experience, 0)::NUMERIC / 1000) + 1)::INTEGER as level
+    FROM public.user_profiles up
+    LEFT JOIN public.player_currencies pc ON up.auth_id = pc.auth_id
+    LEFT JOIN public.player_stats ps ON up.auth_id = ps.auth_id
+  )
+  SELECT
+    ROW_NUMBER() OVER (
+      ORDER BY
+        CASE p_sort_by
+          WHEN 'ranking_points' THEN pr.ranking_points
+          WHEN 'honor' THEN pr.honor::NUMERIC
+          WHEN 'experience' THEN pr.experience::NUMERIC
+          WHEN 'kills' THEN pr.kills::NUMERIC
+          ELSE pr.ranking_points
+        END DESC,
+        pr.player_id ASC
+    )::BIGINT as rank_position,
+    pr.player_id,
+    pr.username,
+    pr.experience,
+    pr.honor,
+    pr.recent_honor,
+    pr.ranking_points,
+    pr.kills,
+    pr.play_time,
+    pr.level
+  FROM player_ranking pr
+  ORDER BY
+    CASE p_sort_by
+      WHEN 'ranking_points' THEN pr.ranking_points
+      WHEN 'honor' THEN pr.honor::NUMERIC
+      WHEN 'experience' THEN pr.experience::NUMERIC
+      WHEN 'kills' THEN pr.kills::NUMERIC
+      ELSE pr.ranking_points
+    END DESC,
+    pr.player_id ASC
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION get_leaderboard(INTEGER, VARCHAR) TO service_role;

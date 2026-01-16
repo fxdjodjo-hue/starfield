@@ -39,16 +39,20 @@ export class RemoteNpcSystem extends BaseSystem {
    * Supporta sia Sprite normali che AnimatedSprite (spritesheet)
    */
   private initializeNpcSprites(sprites: Map<string, HTMLImageElement>): void {
-    // Scouter sprite
+    // Scouter sprite - usa scala dal config (single source of truth)
+    const scouterDef = getNpcDefinition('Scouter');
     const scouterImage = sprites.get('scouter');
     if (scouterImage) {
-      this.npcSprites.set('Scouter', new Sprite(scouterImage, scouterImage.width * 0.15, scouterImage.height * 0.15));
+      const scale = scouterDef?.spriteScale || 0.8;
+      this.npcSprites.set('Scouter', new Sprite(scouterImage, scouterImage.width * scale, scouterImage.height * scale));
     }
 
-    // Kronos sprite
+    // Kronos sprite - usa scala dal config
+    const kronosDef = getNpcDefinition('Kronos');
     const kronosImage = sprites.get('kronos');
     if (kronosImage) {
-      this.npcSprites.set('Kronos', new Sprite(kronosImage, kronosImage.width * 0.16, kronosImage.height * 0.16));
+      const scale = kronosDef?.spriteScale || 0.16;
+      this.npcSprites.set('Kronos', new Sprite(kronosImage, kronosImage.width * scale, kronosImage.height * scale));
     }
   }
 
@@ -79,7 +83,9 @@ export class RemoteNpcSystem extends BaseSystem {
    * Aggiorna l'immagine di uno sprite NPC (se caricata dinamicamente)
    */
   updateNpcSprite(type: string, image: HTMLImageElement): void {
-    const scale = type === 'Scouter' ? 0.15 : 0.16;
+    // Usa scala dal config (single source of truth)
+    const npcDef = getNpcDefinition(type);
+    const scale = npcDef?.spriteScale || (type === 'Scouter' ? 0.8 : 0.16);
     this.npcSprites.set(type, new Sprite(image, image.width * scale, image.height * scale));
   }
 
@@ -93,9 +99,13 @@ export class RemoteNpcSystem extends BaseSystem {
       return this.remoteNpcs.get(npcId)!.entityId;
     }
 
+    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos)
+    const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' ? normalizedType : type;
+
     // Ottieni lo sprite o animatedSprite per questo tipo di NPC
-    const animatedSprite = this.npcAnimatedSprites.get(type);
-    const sprite = this.npcSprites.get(type);
+    const animatedSprite = this.npcAnimatedSprites.get(validType);
+    const sprite = this.npcSprites.get(validType);
     
     if (!animatedSprite && !sprite) {
       return -1;
@@ -105,9 +115,10 @@ export class RemoteNpcSystem extends BaseSystem {
     const entity = this.ecs.createEntity();
 
     // Componenti spaziali con interpolazione
-    // Per Kronos, usa scala maggiore
-    const scale = type === 'Kronos' ? 4.5 : 1;
-    this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, scale, scale));
+    // Usa scala dal config (single source of truth)
+    const npcDef = getNpcDefinition(validType);
+    const transformScale = npcDef?.transformScale || (npcDef?.spriteScale || 1);
+    this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, transformScale, transformScale));
     this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation));
 
     // Componenti visivi - priorità ad AnimatedSprite se disponibile
@@ -121,11 +132,10 @@ export class RemoteNpcSystem extends BaseSystem {
     this.ecs.addComponent(entity, Health, new Health(health.current, health.max));
     this.ecs.addComponent(entity, Shield, new Shield(shield.current, shield.max));
 
-    // Componenti NPC
-    const npcDef = getNpcDefinition(type);
+    // Componenti NPC - usa il tipo normalizzato
     if (npcDef) {
       this.ecs.addComponent(entity, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
-      this.ecs.addComponent(entity, Npc, new Npc(type, behavior, npcId)); // npcId è l'ID server
+      this.ecs.addComponent(entity, Npc, new Npc(validType, behavior, npcId)); // Usa validType normalizzato
     }
 
     // Authority: NPC controllati SOLO dal server

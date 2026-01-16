@@ -68,7 +68,15 @@ export class RewardSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.economySystem) return;
 
-    // Trova tutti gli NPC morti che non sono ancora stati processati per le ricompense
+    // In modalità multiplayer, gli NPC sono gestiti dal server
+    // e le ricompense vengono assegnate tramite assignRewardsFromServer
+    // Non processare NPC morti localmente per evitare duplicazioni
+    if (this.playState?.clientNetworkSystem) {
+      // Modalità multiplayer: skip processamento NPC locali
+      return;
+    }
+
+    // Modalità single-player: processa NPC morti localmente
     const deadNpcs = this.ecs.getEntitiesWithComponents(Npc, Health).filter((entity: any) => {
       const health = this.ecs.getComponent(entity, Health);
       const alreadyProcessed = this.ecs.hasComponent(entity, RewardProcessed);
@@ -83,6 +91,12 @@ export class RewardSystem extends BaseSystem {
 
   /**
    * Assegna ricompense ricevute dal server quando un NPC viene ucciso
+   * NOTA: Le ricompense economiche sono già state aggiunte dal server all'inventario
+   * e sincronizzate tramite player_state_update. Questo metodo gestisce solo:
+   * - Statistiche (kills)
+   * - Quest tracking
+   * - Logging
+   * - Salvataggio stato
    */
   assignRewardsFromServer(rewards: { credits: number; experience: number; honor: number }, npcType: string): void {
     if (!this.economySystem) {
@@ -98,24 +112,12 @@ export class RewardSystem extends BaseSystem {
       }
     }
 
-    // Assegna ricompense economiche ricevute dal server
-    if (rewards.credits > 0) {
-      this.economySystem.addCredits(rewards.credits, 'server_update');
-    }
+    // NON aggiungere ricompense economiche qui - sono già state aggiunte dal server
+    // e sincronizzate tramite player_state_update che imposta i valori totali
+    // Le ricompense economiche vengono gestite direttamente dal server e sincronizzate
+    // tramite EconomySystem.setCredits/setCosmos/setExperience/setHonor in PlayerStateUpdateHandler
 
-    if (rewards.cosmos > 0) {
-      this.economySystem.addCosmos(rewards.cosmos, 'server_update');
-    }
-
-    if (rewards.experience > 0) {
-      this.economySystem.addExperience(rewards.experience, 'server_update');
-    }
-
-    if (rewards.honor > 0) {
-      this.economySystem.addHonor(rewards.honor, 'server_update');
-    }
-
-    // Trigger quest event for NPC kill
+    // Notifica il sistema quest per aggiornare il progresso
     if (this.questTrackingSystem && this.questTrackingSystem.playerEntity) {
       const event = {
         type: QuestEventType.NPC_KILLED,
@@ -124,6 +126,8 @@ export class RewardSystem extends BaseSystem {
         amount: 1
       };
       this.questTrackingSystem.triggerEvent(event);
+    } else if (this.questTrackingSystem && !this.questTrackingSystem.playerEntity) {
+      console.warn(`⚠️ [QUEST] QuestTrackingSystem has no playerEntity yet - skipping quest update for ${npcType}`);
     }
 
     // Segnala cambiamento per salvataggio event-driven
@@ -136,24 +140,7 @@ export class RewardSystem extends BaseSystem {
       this.logSystem.logNpcKilled(npcType);
     }
 
-    // Notifica il sistema quest per aggiornare il progresso
-    if (this.questTrackingSystem && this.questTrackingSystem.playerEntity) {
-      const event = {
-        type: QuestEventType.NPC_KILLED,
-        targetId: npcType,
-        targetType: npcType.toLowerCase(),
-        amount: 1
-      };
-
-      this.questTrackingSystem.triggerEvent(event);
-    } else if (this.questTrackingSystem && !this.questTrackingSystem.playerEntity) {
-      console.warn(`⚠️ [QUEST] QuestTrackingSystem has no playerEntity yet - skipping quest update for ${npcType}`);
-    }
-
-    // Pianifica il respawn dell'NPC morto
-    if (this.respawnSystem) {
-      this.respawnSystem.scheduleRespawn(npcType, Date.now());
-    }
+    // Nota: Il respawn degli NPC è gestito lato server
   }
 
   /**
