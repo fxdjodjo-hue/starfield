@@ -112,6 +112,12 @@ server/
 │   │   ├── NpcRewardSystem.cjs    # Ricompense e notifiche
 │   │   └── NpcBroadcaster.cjs     # Broadcasting spawn
 │   └── npc-manager.cjs            # Orchestratore (154 righe)
+└── core/
+    ├── map/                       # Map system (FASE 1.5)
+    │   ├── NpcMovementSystem.cjs  # Movimento e comportamenti NPC
+    │   ├── MapBroadcaster.cjs     # Broadcasting messaggi
+    │   └── PositionUpdateProcessor.cjs # Processamento queue posizioni
+    └── map-server.cjs             # Orchestratore (111 righe)
 └── ...
 ```
 
@@ -147,6 +153,11 @@ server/
 #### FASE 1.4 - NPC Manager
 - **npc-manager.cjs**: 154 righe (orchestratore)
 - **Moduli specializzati**: Spawner, RespawnSystem, DamageHandler, RewardSystem, Broadcaster
+- **API invariata**: Nessun cambiamento di gameplay
+
+#### FASE 1.5 - Map Server
+- **map-server.cjs**: 111 righe (orchestratore)
+- **Moduli specializzati**: NpcMovementSystem, MapBroadcaster, PositionUpdateProcessor
 - **API invariata**: Nessun cambiamento di gameplay
 
 ## 🎮 Come Giocare

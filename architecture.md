@@ -334,6 +334,20 @@ this.merchant = new MerchantNpc(200, 300);
 - `npc/NpcRewardSystem.cjs` - Ricompense e notifiche
 - `npc/NpcBroadcaster.cjs` - Broadcasting spawn NPC
 
+#### FASE 1.5 - Map Server
+**Obiettivo**: Modularizzare map server (488 → 111 righe orchestratore).
+
+**Risultato**:
+- `map-server.cjs`: 111 righe (orchestratore)
+- 3 moduli specializzati con responsabilità singola
+- API pubblica invariata (backward compatible)
+- Separazione logica movimento, broadcasting, posizioni
+
+**Moduli creati**:
+- `map/NpcMovementSystem.cjs` - Movimento e comportamenti NPC (aggressive, flee, cruise)
+- `map/MapBroadcaster.cjs` - Broadcasting messaggi ai client
+- `map/PositionUpdateProcessor.cjs` - Processamento queue posizioni
+
 ### 🔄 Prossimi Passi Multiplayer
 - **Client-Side Prediction**: Implementare input smoothing
 - **Server Reconciliation**: Sistema correzione stato
