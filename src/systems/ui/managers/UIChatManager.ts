@@ -13,6 +13,7 @@ export class UIChatManager {
   private chatPanel: ChatPanel;
   private chatManager: ChatManager;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
+  private handlersRegistered: boolean = false;
 
   constructor(
     ecs: ECS,
@@ -63,23 +64,38 @@ export class UIChatManager {
    * Configura il ClientNetworkSystem per la chat
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
+    // Preveni doppia configurazione
+    if (this.clientNetworkSystem === clientNetworkSystem && this.handlersRegistered) {
+      if (import.meta.env.DEV) {
+        console.log('[UIChatManager] setClientNetworkSystem already called for this instance, skipping');
+      }
+      return;
+    }
+
     this.clientNetworkSystem = clientNetworkSystem;
 
     // Abilita modalità multiplayer per il ChatManager
-    this.chatManager.setMultiplayerMode(true, clientNetworkSystem.clientId);
+    // Usa playerId se disponibile, altrimenti clientId come fallback
+    const playerId = clientNetworkSystem.gameContext?.playerId;
+    const localPlayerId = playerId ? `player_${playerId}` : clientNetworkSystem.clientId;
+    this.chatManager.setMultiplayerMode(true, localPlayerId);
 
-    // Registra callback per inviare messaggi alla rete
-    this.chatManager.onMessageSent((message) => {
-      if (this.clientNetworkSystem) {
-        this.clientNetworkSystem.sendChatMessage(message.content);
-      }
-    });
+    // Registra callback per inviare messaggi alla rete (solo se non già registrato)
+    if (!this.handlersRegistered) {
+      this.chatManager.onMessageSent((message) => {
+        if (this.clientNetworkSystem) {
+          this.clientNetworkSystem.sendChatMessage(message.content);
+        }
+      });
 
-    // Registra gli handler per ricevere messaggi dalla rete
-    const chatHandler = new ChatMessageHandler(this.chatManager);
-    const errorHandler = new ErrorMessageHandler(this.chatManager);
-    clientNetworkSystem.getMessageRouter().registerHandler(chatHandler);
-    clientNetworkSystem.getMessageRouter().registerHandler(errorHandler);
+      // Registra gli handler per ricevere messaggi dalla rete
+      const chatHandler = new ChatMessageHandler(this.chatManager);
+      const errorHandler = new ErrorMessageHandler(this.chatManager);
+      clientNetworkSystem.getMessageRouter().registerHandler(chatHandler);
+      clientNetworkSystem.getMessageRouter().registerHandler(errorHandler);
+      
+      this.handlersRegistered = true;
+    }
   }
 
   /**

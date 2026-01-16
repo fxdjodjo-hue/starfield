@@ -22,15 +22,23 @@ export class WelcomeHandler extends BaseMessageHandler {
     // Update the network system's clientId to match the server-assigned ID
     networkSystem.clientId = serverClientId;
 
-    // Aggiorna ChatManager con il clientId corretto assegnato dal server
+    // Aggiorna ChatManager con il playerId corretto (se disponibile)
+    // Usa playerId se disponibile, altrimenti clientId come fallback
     const uiSystem = networkSystem.getUiSystem();
     if (uiSystem) {
       try {
         const chatManager = uiSystem.getChatManager();
         if (chatManager) {
-          chatManager.setLocalPlayerId(serverClientId);
+          // Usa playerId se disponibile (più stabile, identifica il player nel database)
+          // Altrimenti usa clientId come fallback (identifica la connessione WebSocket)
+          const playerId = message.playerDbId;
+          const localPlayerId = playerId ? `player_${playerId}` : serverClientId;
+          chatManager.setLocalPlayerId(localPlayerId);
           if (import.meta.env.DEV) {
-            console.log('[WelcomeHandler] Updated ChatManager localPlayerId to:', serverClientId);
+            console.log('[WelcomeHandler] Updated ChatManager localPlayerId to:', localPlayerId, {
+              playerId: playerId,
+              clientId: serverClientId
+            });
           }
         }
       } catch (error) {

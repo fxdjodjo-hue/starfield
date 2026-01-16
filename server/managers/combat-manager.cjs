@@ -1,8 +1,9 @@
 // ServerCombatManager - Gestione centralizzata del combat lato server
-// Dipendenze consentite: logger.cjs, config/constants.cjs
+// Dipendenze consentite: logger.cjs, config/constants.cjs, core/combat/DamageCalculationSystem.cjs
 
 const { logger } = require('../logger.cjs');
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('../config/constants.cjs');
+const DamageCalculationSystem = require('../core/combat/DamageCalculationSystem.cjs');
 
 class ServerCombatManager {
   constructor(mapServer) {
@@ -195,13 +196,12 @@ class ServerCombatManager {
       y: playerPos.y
     };
 
-    // Calcola danno basato sugli upgrade del player (Server Authoritative)
-    let calculatedDamage = 500; // Base damage
-    if (playerData.upgrades) {
-      // Calculate damage bonus: 1.0 + (damageUpgrades * 0.01)
-      const damageBonus = 1.0 + (playerData.upgrades.damageUpgrades * 0.01);
-      calculatedDamage = Math.floor(500 * damageBonus);
-    }
+    // Calcola danno usando DamageCalculationSystem (logica di gioco)
+    const baseDamage = DamageCalculationSystem.getBasePlayerDamage();
+    const calculatedDamage = DamageCalculationSystem.calculatePlayerDamage(
+      baseDamage,
+      playerData.upgrades
+    );
 
     // Registra proiettile
     this.mapServer.projectileManager.addProjectile(

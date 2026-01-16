@@ -10,21 +10,13 @@
 5. ~~**PlayState.ts**~~ - 646 → 215 righe ✅
 6. ~~**CombatSystem.ts**~~ - 634 → 155 righe ✅
 7. ~~**PlayerControlSystem.ts**~~ - 613 → 227 righe ✅
+8. ~~**ChatPanel.ts**~~ - 577 → 173 righe ✅
 
 ### 🔴 File Grandi Rimanenti
 
 #### Priorità ALTA (600-700 righe)
 
 #### Priorità MEDIA (500-600 righe)
-   - **Tipo**: System (ECS)
-   - **Responsabilità**: Controlli player, input, movimento
-   - **Candidato per**: Estrazione in moduli
-   - **Moduli proposti**:
-     - `PlayerInputManager` (gestione input)
-     - `PlayerMovementManager` (movimento)
-     - `PlayerActionManager` (azioni speciali)
-
-5. **ChatPanel.ts** - 577 righe
    - **Tipo**: Presentation/UI Component
    - **Responsabilità**: Pannello chat, messaggi, UI chat
    - **Candidato per**: Estrazione in moduli
@@ -100,7 +92,7 @@
 
 ## 📈 Statistiche
 
-- **File > 500 righe rimanenti**: 6 file
-- **File già refactorizzati**: 7 file (UpgradePanel, AuthScreen, UiSystem, EconomySystem, PlayState, CombatSystem, PlayerControlSystem)
-- **Riduzione totale finora**: ~4547 righe
-- **Target rimanente**: ~4000 righe da modularizzare
+- **File > 500 righe rimanenti**: 5 file
+- **File già refactorizzati**: 8 file (UpgradePanel, AuthScreen, UiSystem, EconomySystem, PlayState, CombatSystem, PlayerControlSystem, ChatPanel)
+- **Riduzione totale finora**: ~5124 righe
+- **Target rimanente**: ~3500 righe da modularizzare

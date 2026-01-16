@@ -10,6 +10,7 @@ export class ChatManager {
   private localPlayerId: string = 'local-player';
   private context: any = null;
   private messageCallbacks: ((message: ChatMessage) => void)[] = [];
+  private recentMessageIds: Set<string> = new Set();
 
   constructor(chatPanel: ChatPanel, context?: any) {
     this.chatPanel = chatPanel;
@@ -56,8 +57,28 @@ export class ChatManager {
     }
 
     // Non mostrare messaggi propri (già mostrati localmente)
+    // Controllo multiplo per sicurezza
     if (message.senderId === this.localPlayerId) {
+      if (import.meta.env.DEV) {
+        console.log('[ChatManager] Ignoring own message (senderId match):', message.senderId);
+      }
       return;
+    }
+
+    // Controllo duplicati per ID (prevenzione aggiuntiva)
+    if (message.id && this.recentMessageIds.has(message.id)) {
+      if (import.meta.env.DEV) {
+        console.log('[ChatManager] Ignoring duplicate message (ID match):', message.id);
+      }
+      return;
+    }
+
+    // Aggiungi ID alla lista dei messaggi recenti (pulizia dopo 5 minuti)
+    if (message.id) {
+      this.recentMessageIds.add(message.id);
+      setTimeout(() => {
+        this.recentMessageIds.delete(message.id);
+      }, 5 * 60 * 1000); // 5 minuti
     }
 
     // Aggiungi alla chat
