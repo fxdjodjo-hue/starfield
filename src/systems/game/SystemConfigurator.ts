@@ -18,7 +18,7 @@ export class SystemConfigurator {
   /**
    * Aggiunge tutti i sistemi all'ECS nell'ordine corretto
    */
-  static addSystemsToECS(ecs: ECS, systems: CreatedSystems): void {
+  static addSystemsToECS(ecs: ECS, systems: CreatedSystems, interpolationSystem?: any): void {
     const {
       inputSystem, playerControlSystem, npcSelectionSystem,
       damageSystem, projectileCreationSystem, combatStateSystem,
@@ -26,7 +26,7 @@ export class SystemConfigurator {
       parallaxSystem, renderSystem, boundsSystem, minimapSystem,
       damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
       rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
-      playerSystem, remoteNpcSystem, remoteProjectileSystem
+      playerSystem, portalSystem, remoteNpcSystem, remoteProjectileSystem
     } = systems;
 
     // Ordine importante per l'esecuzione
@@ -40,6 +40,10 @@ export class SystemConfigurator {
     ecs.addSystem(explosionSystem);
     ecs.addSystem(projectileSystem);
     ecs.addSystem(cameraSystem);
+    // InterpolationSystem deve essere eseguito PRIMA di MovementSystem per aggiornare posizioni interpolate
+    if (interpolationSystem) {
+      ecs.addSystem(interpolationSystem);
+    }
     ecs.addSystem(movementSystem);
     ecs.addSystem(parallaxSystem);
     ecs.addSystem(renderSystem);
@@ -52,6 +56,7 @@ export class SystemConfigurator {
     ecs.addSystem(rankSystem);
     ecs.addSystem(rewardSystem);
     ecs.addSystem(questSystem);
+    ecs.addSystem(portalSystem);
     ecs.addSystem(remoteNpcSystem);
     ecs.addSystem(remoteProjectileSystem);
     ecs.addSystem(uiSystem);
@@ -67,7 +72,7 @@ export class SystemConfigurator {
       movementSystem, playerControlSystem, npcSelectionSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, damageSystem, projectileCreationSystem, combatStateSystem,
       logSystem, boundsSystem, questTrackingSystem, inputSystem,
-      chatTextSystem, uiSystem, cameraSystem, audioSystem
+      chatTextSystem, uiSystem, cameraSystem, audioSystem, portalSystem
     } = systems;
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
@@ -151,8 +156,18 @@ export class SystemConfigurator {
       }
     });
 
+    // Collega InputSystem al PortalSystem
+    if (portalSystem && typeof portalSystem.setInputSystem === 'function') {
+      portalSystem.setInputSystem(inputSystem);
+    }
+
     // Configura gestione tasti
     inputSystem.setKeyPressCallback((key: string) => {
+      // Gestisci tasto E per portali
+      if (key === 'e' && portalSystem && typeof portalSystem.handleEKeyPress === 'function') {
+        portalSystem.handleEKeyPress();
+      }
+      // Gestisci altri tasti per player
       playerControlSystem.handleKeyPress(key);
     });
 

@@ -32,6 +32,7 @@ import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
 import { PlayerStatusDisplaySystem } from '../player/PlayerStatusDisplaySystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import AudioSystem from '../audio/AudioSystem';
+import { PortalSystem } from './PortalSystem';
 import { AUDIO_CONFIG } from '../../config/AudioConfig';
 import { ParallaxSystem } from '../rendering/ParallaxSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
@@ -77,6 +78,7 @@ export interface CreatedSystems {
   playerStatusDisplaySystem: PlayerStatusDisplaySystem;
   playerSystem: PlayerSystem;
   audioSystem: AudioSystem;
+  portalSystem: PortalSystem;
   clientNetworkSystem?: any;
   remoteNpcSystem: RemoteNpcSystem;
   remoteProjectileSystem: RemoteProjectileSystem;
@@ -126,6 +128,7 @@ export class SystemFactory {
     const questTrackingSystem = new QuestTrackingSystem(world, questManager, playState);
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs);
     const playerSystem = new PlayerSystem(ecs);
+    const portalSystem = new PortalSystem(ecs, playerSystem);
     const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);
     renderSystem.setEngflamesSprite(engflamesAnimatedSprite);
     
@@ -154,6 +157,9 @@ export class SystemFactory {
     if (renderSystem && typeof renderSystem.setDamageTextSystem === 'function') {
       renderSystem.setDamageTextSystem(damageTextSystem);
     }
+    
+    // Collega l'AudioSystem al PortalSystem
+    portalSystem.setAudioSystem(audioSystem);
 
     const projectileSystem = new ProjectileSystem(ecs, playerSystem, uiSystem || undefined);
 
@@ -222,6 +228,7 @@ export class SystemFactory {
       playerStatusDisplaySystem,
       playerSystem,
       audioSystem,
+      portalSystem,
       clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,

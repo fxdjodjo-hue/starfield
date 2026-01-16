@@ -16,6 +16,7 @@ import { Camera } from '../../entities/spatial/Camera';
 import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
+import { Portal } from '../../entities/spatial/Portal';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -57,6 +58,8 @@ export class RenderSystem extends BaseSystem {
   private engflamesWasMoving: boolean = false; // Stato movimento precedente per fade
   private readonly ENGFLAMES_FADE_SPEED = 0.15; // Velocità fade in/out (per frame)
   private frameTime: number = 0; // Timestamp sincronizzato con frame rate per float offset
+  private portalAnimationTime: number = 0; // Tempo per l'animazione del portale
+  private readonly PORTAL_ANIMATION_FRAME_DURATION = 16.67; // ms per frame (~60fps)
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
@@ -198,11 +201,8 @@ export class RenderSystem extends BaseSystem {
         }
       }
     } else {
-      // Render player - verifica esplicitamente che sia il player
-      const playerEntity = this.playerSystem.getPlayerEntity();
-      const isPlayer = playerEntity === entity;
-      
-      if (isPlayer) {
+      // Render player - usa isPlayerEntity già definito all'inizio del metodo
+      if (isPlayerEntity) {
         // IMPORTANTE: Recupera AnimatedSprite direttamente dall'ECS invece di usare la cache
         // La cache potrebbe non essere aggiornata se il componente è stato aggiunto dopo
         const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
@@ -254,6 +254,7 @@ export class RenderSystem extends BaseSystem {
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
+        return; // Player renderizzato, esci immediatamente per evitare doppio rendering
       } else if (isRemotePlayer) {
         // Render remote player - similar to local player but without engine flames
         const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
@@ -284,6 +285,55 @@ export class RenderSystem extends BaseSystem {
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
+      } else {
+        // Render portals only - no generic entities
+        const isPortal = this.ecs.hasComponent(entity, Portal);
+        
+        if (isPortal) {
+          const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
+          const entitySprite = this.ecs.getComponent(entity, Sprite);
+          
+          if (entityAnimatedSprite) {
+            // Verifica che l'immagine esista e abbia dimensioni valide
+            const img = entityAnimatedSprite.spritesheet?.image;
+            if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+              const zoom = camera?.zoom || 1;
+              const renderTransform: SpritesheetRenderTransform = {
+                x: screenX, y: screenY, rotation: transform.rotation, 
+                scaleX: (transform.scaleX || 1) * zoom, 
+                scaleY: (transform.scaleY || 1) * zoom
+              };
+              
+              // Portali: usa animazione temporale (come GIF)
+              const totalFrames = entityAnimatedSprite.frameCount;
+              if (totalFrames > 0) {
+                // Verifica se il portale è attivato (velocizzato)
+                const portal = this.ecs.getComponent(entity, Portal);
+                const isActivated = portal?.isActivated() || false;
+                
+                // Velocizza animazione se attivato (3x più veloce)
+                const frameDuration = isActivated 
+                  ? this.PORTAL_ANIMATION_FRAME_DURATION / 3 
+                  : this.PORTAL_ANIMATION_FRAME_DURATION;
+                
+                const frameIndex = Math.floor((this.portalAnimationTime / frameDuration) % totalFrames);
+                SpritesheetRenderer.renderByIndex(ctx, renderTransform, entityAnimatedSprite, frameIndex);
+              } else {
+                // Fallback a rendering normale se non ci sono frame
+                SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
+              }
+            }
+          } else if (entitySprite && entitySprite.isLoaded()) {
+            const zoom = camera?.zoom || 1;
+            const renderTransform: RenderableTransform = {
+              x: screenX, y: screenY, rotation: transform.rotation, 
+              scaleX: (transform.scaleX || 1) * zoom, 
+              scaleY: (transform.scaleY || 1) * zoom
+            };
+            SpriteRenderer.render(ctx, renderTransform, entitySprite);
+          }
+        }
+        // Se non è un portale e non è player/remote player/NPC/explosion, non renderizzare
       }
     }
   }
@@ -292,6 +342,8 @@ export class RenderSystem extends BaseSystem {
     // Il rendering avviene nel metodo render()
     // Aggiorna animazione fiamme usando deltaTime
     this.engflamesAnimationTime += deltaTime;
+    // Aggiorna animazione portale
+    this.portalAnimationTime += deltaTime;
     // Aggiorna timestamp frame per sincronizzare float offset
     this.frameTime += deltaTime;
     
@@ -357,20 +409,28 @@ export class RenderSystem extends BaseSystem {
 
     const playerEntity = this.playerSystem.getPlayerEntity();
     
-    // Render player separately if it's not in the entities list
-    // This handles the case where the player entity exists but wasn't found by the query
-    // The cache might be populated before the player has Transform, or the query might miss it
-    if (playerEntity) {
-      const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-      const isPlayerInList = entities.includes(playerEntity);
-      
-      if (playerTransform && !isPlayerInList) {
+    // Rimuovi il player dalla lista per evitare doppio rendering
+    const entitiesWithoutPlayer = playerEntity 
+      ? entities.filter(entity => entity !== playerEntity)
+      : entities;
+    
+    // Render altre entità PRIMA (portali, NPC, ecc.) - player verrà renderizzato dopo
+    for (const entity of entitiesWithoutPlayer) {
+      // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
+      const components = this.getCachedComponents(entity);
+
+      // Skip projectiles (rendered separately)
+      if (components.projectile) continue;
+
+      // Skip parallax entities (rendered by ParallaxSystem)
+      if (components.parallax) continue;
+
+      if (components.transform) {
         const { width, height } = this.displayManager.getLogicalSize();
-        const screenPos = ScreenSpace.toScreen(playerTransform, camera, width, height);
-        const components = this.getCachedComponents(playerEntity);
-        
-        // Render player entity
-        this.renderGameEntity(ctx, playerEntity, playerTransform, screenPos.x, screenPos.y, {
+        const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
+
+        // Render entity
+        this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
           explosion: components.explosion,
           npc: components.npc,
           sprite: components.sprite,
@@ -393,25 +453,18 @@ export class RenderSystem extends BaseSystem {
       }
     }
     
-    for (const entity of entities) {
-      // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
-      const components = this.getCachedComponents(entity);
-
-      // Skip projectiles (rendered separately)
-      if (components.projectile) continue;
-
-      // Skip parallax entities (rendered by ParallaxSystem)
-      if (components.parallax) continue;
-
-      // Skip player if already rendered above
-      if (playerEntity === entity) continue;
-
-      if (components.transform) {
+    // Render player DOPO tutte le altre entità (sopra portali e NPC)
+    // This ensures the player is rendered on top with proper priority
+    if (playerEntity) {
+      const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+      
+      if (playerTransform) {
         const { width, height } = this.displayManager.getLogicalSize();
-        const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
-
-        // Render entity
-        this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
+        const screenPos = ScreenSpace.toScreen(playerTransform, camera, width, height);
+        const components = this.getCachedComponents(playerEntity);
+        
+        // Render player entity
+        this.renderGameEntity(ctx, playerEntity, playerTransform, screenPos.x, screenPos.y, {
           explosion: components.explosion,
           npc: components.npc,
           sprite: components.sprite,

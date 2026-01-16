@@ -132,9 +132,26 @@ export class SpritesheetRenderer {
     sprite: AnimatedSprite,
     frameIndex: number
   ): void {
-    if (!sprite || !sprite.isLoaded()) return;
+    if (!sprite) return;
+    
+    // Robust check: verify sprite has valid data structure
+    if (!sprite.spritesheet || !sprite.spritesheet.image) return;
+    
+    // Check if image is loaded - use same lenient check as render()
+    const img = sprite.spritesheet.image;
+    const isImageReady = sprite.isLoaded() || 
+                        (img.naturalWidth > 0 && img.naturalHeight > 0);
+    
+    if (!isImageReady) return;
+    
+    // Verify we have valid frames
+    if (!sprite.hasValidFrames()) return;
 
     const frame = sprite.getFrame(frameIndex);
+    
+    // Validate frame before rendering
+    if (!frame || frame.width <= 0 || frame.height <= 0) return;
+    
     this.renderFrame(ctx, transform, sprite, frame);
   }
 }

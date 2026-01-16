@@ -108,10 +108,13 @@ export class InputSystem extends BaseSystem {
         return;
       }
 
-      // Gestisci tasti di movimento WASD e Space
+      // Gestisci tasti di movimento WASD, Space e E
       if (event.code === 'Space') {
         event.preventDefault();
         this.onKeyPress?.('Space');
+      } else if (event.code === 'KeyE') {
+        event.preventDefault();
+        this.onKeyPress?.('e');
       } else if (event.code === 'KeyW' || event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD') {
         event.preventDefault();
         const key = event.code.toLowerCase().replace('key', ''); // 'w', 'a', 's', 'd'

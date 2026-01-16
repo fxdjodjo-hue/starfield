@@ -27,7 +27,8 @@ export const AUDIO_ASSETS = {
     upgrade: 'effects/upgrade.wav',
     damage: 'effects/damage.wav',
     engine: 'effects/engine/enginesoundeffect.mp3',
-    playerLogin: 'effects/playerlogin/bubbleSounds.mp3'
+    playerLogin: 'effects/playerlogin/bubbleSounds.mp3',
+    portal: 'effects/portal/portal.mp3'
   },
 
   // Musica

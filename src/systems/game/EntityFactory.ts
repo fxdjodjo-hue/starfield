@@ -10,6 +10,7 @@ import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Transform } from '../../entities/spatial/Transform';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
+import { Portal } from '../../entities/spatial/Portal';
 import { CONFIG } from '../../utils/config/Config';
 
 export interface EntityFactoryDependencies {
@@ -57,14 +58,18 @@ export class EntityFactory {
   static createTeleport(ecs: ECS, x: number, y: number, animatedSprite: AnimatedSprite): void {
     const entity = ecs.createEntity();
     
-    // Componenti spaziali
-    ecs.addComponent(entity, Transform, new Transform(x, y, 0, 1, 1));
+    // Componenti spaziali - scala aumentata per renderlo più visibile (2.5x)
+    ecs.addComponent(entity, Transform, new Transform(x, y, 0, 2.5, 2.5));
     
     // Componente visivo
     ecs.addComponent(entity, AnimatedSprite, animatedSprite);
     
+    // Componente Portal per identificare questa entità come portale
+    ecs.addComponent(entity, Portal, new Portal());
+    
     // Autorità: entità statica, nessuna autorità necessaria
     // Il portale è puramente visivo per ora, senza logica
+    console.log(`[EntityFactory] Portal created at (${x}, ${y})`);
   }
 
   /**
