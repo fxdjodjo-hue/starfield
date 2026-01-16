@@ -4,7 +4,7 @@
 
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-import { CreatedSystems } from './SystemFactory';
+import type { CreatedSystems } from './SystemFactory';
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';

@@ -16,7 +16,8 @@ import { PlayerStatusDisplaySystem } from '../player/PlayerStatusDisplaySystem';
 import { DamageSystem } from '../combat/DamageSystem';
 import { ProjectileCreationSystem } from '../combat/ProjectileCreationSystem';
 import { CombatStateSystem } from '../combat/CombatStateSystem';
-import { SystemFactory, CreatedSystems } from './SystemFactory';
+import { SystemFactory } from './SystemFactory';
+import type { CreatedSystems } from './SystemFactory';
 import { SystemConfigurator } from './SystemConfigurator';
 import { EntityFactory } from './EntityFactory';
 
