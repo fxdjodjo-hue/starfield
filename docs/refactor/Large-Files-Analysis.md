@@ -8,19 +8,11 @@
 3. ~~**UiSystem.ts**~~ - 872 → 278 righe ✅
 4. ~~**EconomySystem.ts**~~ - 674 → 406 righe ✅
 5. ~~**PlayState.ts**~~ - 646 → 215 righe ✅
+6. ~~**CombatSystem.ts**~~ - 634 → 155 righe ✅
 
 ### 🔴 File Grandi Rimanenti
 
 #### Priorità ALTA (600-700 righe)
-
-3. **CombatSystem.ts** - 634 righe
-   - **Tipo**: System (ECS)
-   - **Responsabilità**: Logica combattimento, danni, proiettili
-   - **Candidato per**: Estrazione in moduli
-   - **Moduli proposti**:
-     - `CombatDamageManager` (calcolo danni)
-     - `CombatProjectileManager` (gestione proiettili)
-     - `CombatStateManager` (stati combattimento)
 
 #### Priorità MEDIA (500-600 righe)
 
@@ -85,8 +77,7 @@
 
 ### Prossimi Target (in ordine di priorità)
 
-1. **CombatSystem.ts** (634 righe) - Sistema core, logica combattimento
-2. **PlayerControlSystem.ts** (613 righe) - Sistema input/movimento
+1. **PlayerControlSystem.ts** (613 righe) - Sistema input/movimento
 5. **ChatPanel.ts** (577 righe) - UI component, simile a UpgradePanel
 6. **LeaderboardPanel.ts** (558 righe) - UI component
 7. **QuestPanel.ts** (539 righe) - UI component
@@ -112,7 +103,7 @@
 
 ## 📈 Statistiche
 
-- **File > 500 righe rimanenti**: 8 file
-- **File già refactorizzati**: 5 file (UpgradePanel, AuthScreen, UiSystem, EconomySystem, PlayState)
-- **Riduzione totale finora**: ~3300 righe
-- **Target rimanente**: ~5000 righe da modularizzare
+- **File > 500 righe rimanenti**: 7 file
+- **File già refactorizzati**: 6 file (UpgradePanel, AuthScreen, UiSystem, EconomySystem, PlayState, CombatSystem)
+- **Riduzione totale finora**: ~3934 righe
+- **Target rimanente**: ~4500 righe da modularizzare
