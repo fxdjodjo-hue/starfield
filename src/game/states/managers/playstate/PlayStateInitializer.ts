@@ -81,6 +81,40 @@ export class PlayStateInitializer {
       }
     }
     
+    // Funzione helper per mostrare la UI
+    const showUI = () => {
+      // Mostra il display HP/Shield
+      const systems = this.gameInitSystem.getSystems();
+      if (systems?.playerStatusDisplaySystem && typeof systems.playerStatusDisplaySystem.show === 'function') {
+        console.log('[PlayState] Mostrando PlayerStatusDisplaySystem (dopo animazione camera)');
+        systems.playerStatusDisplaySystem.show();
+      }
+      
+      // Mostra anche la minimap
+      if (systems?.minimapSystem && typeof systems.minimapSystem.show === 'function') {
+        console.log('[PlayState] Mostrando Minimap (dopo animazione camera)');
+        systems.minimapSystem.show();
+      }
+      
+      // Mostra anche il PlayerHUD (barra in alto a sinistra) se disponibile
+      const uiSystem = this.getUiSystem();
+      if (uiSystem) {
+        if (typeof uiSystem.getPlayerHUD === 'function') {
+          const playerHUD = uiSystem.getPlayerHUD();
+          if (playerHUD && typeof playerHUD.show === 'function') {
+            console.log('[PlayState] Mostrando PlayerHUD (dopo animazione camera)');
+            playerHUD.show();
+          }
+        }
+        
+        // Mostra anche la chat
+        if (typeof uiSystem.showChat === 'function') {
+          console.log('[PlayState] Mostrando Chat (dopo animazione camera)');
+          uiSystem.showChat();
+        }
+      }
+    };
+    
     // Zoom out dalla nave quando il player logga
     const cameraSystem = this.getCameraSystem();
     if (cameraSystem && typeof cameraSystem.animateZoomOut === 'function') {
@@ -91,34 +125,22 @@ export class PlayStateInitializer {
         if (transform) {
           // Parte molto zoomato (5x) sul centro della nave e fa zoom out fino a visione normale (1x)
           // Durata aumentata a 2.5 secondi per renderla più visibile
-          cameraSystem.animateZoomOut(5, 1, 2500, transform.x, transform.y);
+          // La UI verrà mostrata quando l'animazione è completata
+          cameraSystem.animateZoomOut(5, 1, 2500, transform.x, transform.y, showUI);
           console.log('[PlayState] Animazione zoom out avviata dal centro della nave (5x -> 1x)');
         } else {
           // Fallback: usa valori di default se non troviamo la posizione
-          cameraSystem.animateZoomOut(5, 1, 2500);
+          cameraSystem.animateZoomOut(5, 1, 2500, undefined, undefined, showUI);
           console.log('[PlayState] Animazione zoom out avviata (posizione player non disponibile)');
         }
       } else {
-        cameraSystem.animateZoomOut(5, 1, 2500);
+        cameraSystem.animateZoomOut(5, 1, 2500, undefined, undefined, showUI);
         console.log('[PlayState] Animazione zoom out avviata (player entity non disponibile)');
       }
-    }
-    
-    // Mostra il display HP/Shield ora che la schermata di autenticazione è nascosta
-    const systems = this.gameInitSystem.getSystems();
-    if (systems?.playerStatusDisplaySystem && typeof systems.playerStatusDisplaySystem.show === 'function') {
-      console.log('[PlayState] Mostrando PlayerStatusDisplaySystem');
-      systems.playerStatusDisplaySystem.show();
-    }
-    
-    // Mostra anche il PlayerHUD (barra in alto a sinistra) se disponibile
-    const uiSystem = this.getUiSystem();
-    if (uiSystem && typeof uiSystem.getPlayerHUD === 'function') {
-      const playerHUD = uiSystem.getPlayerHUD();
-      if (playerHUD && typeof playerHUD.show === 'function') {
-        console.log('[PlayState] Mostrando PlayerHUD');
-        playerHUD.show();
-      }
+    } else {
+      // Se non c'è animazione camera, mostra UI immediatamente (fallback)
+      console.log('[PlayState] CameraSystem non disponibile, mostrando UI immediatamente');
+      showUI();
     }
   }
 
@@ -514,13 +536,15 @@ export class PlayStateInitializer {
     console.log('[PlayState] Nascondendo loading screen...');
     this.hideLoadingScreen();
 
-    // SOLO ORA inizializza e mostra l'UI - dopo che lo spinner è nascosto
+    // SOLO ORA inizializza l'UI - dopo che lo spinner è nascosto
+    // La UI verrà mostrata quando l'animazione della camera finisce
     console.log('[PlayState] Inizializzando UI system...');
     uiSystem = this.getUiSystem();
     if (uiSystem) {
       uiSystem.initialize();
       uiSystem.hideMainTitle();
-      uiSystem.showPlayerInfo();
+      // Aggiorna i dati dell'HUD senza mostrare la chat (verrà mostrata dopo l'animazione)
+      uiSystem.showPlayerInfo(false);
     }
     console.log('[PlayState] enter() completato');
 

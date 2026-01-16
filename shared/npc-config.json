@@ -4,7 +4,7 @@
     "defaultBehavior": "cruise",
     "spriteScale": 0.8,
     "stats": {
-      "health": 800,
+      "health": 80000,
       "shield": 400,
       "damage": 20,
       "range": 300,
@@ -30,7 +30,7 @@
     "spriteScale": 0.16,
     "transformScale": 4.5,
     "stats": {
-      "health": 2000,
+      "health": 20000,
       "shield": 2000,
       "damage": 80,
       "range": 300,

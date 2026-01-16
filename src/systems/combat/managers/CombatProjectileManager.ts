@@ -16,8 +16,16 @@ import { Npc } from '../../../entities/ai/Npc';
  */
 export class CombatProjectileManager {
   private lastPlayerFireTime: number = 0;
-  private static readonly PLAYER_FIRE_RATE_MS = 800; // 1 proiettile ogni 0.8s
+  private useFastInterval: boolean = false; // Alterna tra veloce e normale
+  private static readonly FIRE_RATE_SLOW = 800; // 0.8s
+  private static readonly FIRE_RATE_FAST = 500; // 0.5s
   private static readonly MAX_PLAYER_PROJECTILES = 4; // Cap massimo proiettili attivi
+  
+  // Reset pattern quando inizia un nuovo combattimento
+  resetFirePattern(): void {
+    this.useFastInterval = false;
+    this.lastPlayerFireTime = 0;
+  }
 
   constructor(
     private readonly ecs: ECS,
@@ -59,9 +67,13 @@ export class CombatProjectileManager {
   private createSingleLaser(attackerEntity: Entity, attackerTransform: Transform, attackerDamage: Damage, targetTransform: Transform, targetEntity: Entity, directionX: number, directionY: number): void {
     const now = Date.now();
     
-    // Controlla fire rate: almeno 800ms dall'ultimo sparo
+    // Alterna tra intervallo veloce (0.5s) e normale (0.8s)
+    const currentFireRate = this.useFastInterval 
+      ? CombatProjectileManager.FIRE_RATE_FAST 
+      : CombatProjectileManager.FIRE_RATE_SLOW;
+    
     const timeSinceLastFire = now - this.lastPlayerFireTime;
-    if (timeSinceLastFire < CombatProjectileManager.PLAYER_FIRE_RATE_MS) {
+    if (timeSinceLastFire < currentFireRate) {
       return; // Troppo presto, blocca lo sparo
     }
 
@@ -76,6 +88,9 @@ export class CombatProjectileManager {
 
     const laserDamage = attackerDamage.damage;
     this.createProjectileAt(attackerEntity, attackerTransform, laserDamage, directionX, directionY, targetEntity);
+    
+    // Alterna per il prossimo sparo (prima di aggiornare lastPlayerFireTime)
+    this.useFastInterval = !this.useFastInterval;
     this.lastPlayerFireTime = now;
     attackerDamage.performAttack(now);
   }

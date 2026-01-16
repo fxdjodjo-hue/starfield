@@ -261,10 +261,11 @@ export class RenderSystem extends BaseSystem {
     // Aggiorna timestamp frame per sincronizzare float offset
     this.frameTime += deltaTime;
     
-    // Gestisci fade in/out delle fiamme
+    // Gestisci fade in/out delle fiamme e aggiorna tracce
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (playerEntity && this.engflamesSprite) {
       const velocity = this.ecs.getComponent(playerEntity, Velocity);
+      const transform = this.ecs.getComponent(playerEntity, Transform);
       const isMoving = velocity ? (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1) : false;
       
       // Fade in quando inizia a muoversi, fade out quando si ferma
@@ -431,21 +432,58 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
-   * Render a single health bar using parameters
+   * Render a single health bar using parameters (modern style)
    */
   private renderHealthBar(ctx: CanvasRenderingContext2D, params: HealthBarRenderParams): void {
-    // Background
-    ctx.fillStyle = params.backgroundColor;
-    ctx.fillRect(params.x, params.y, HudRenderer.getBarWidth(), params.height);
+    const barWidth = HudRenderer.getBarWidth();
 
-    // Fill
-    ctx.fillStyle = params.fillColor;
-    ctx.fillRect(params.x, params.y, params.width, params.height);
+    // Background con ombra
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+    ctx.shadowBlur = 3;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 1;
+    ctx.fillStyle = params.backgroundColor;
+    ctx.fillRect(params.x, params.y, barWidth, params.height);
+    
+    // Reset shadow
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
+
+    // Fill con gradiente se disponibile
+    if (params.width > 0) {
+      if (params.fillColorEnd) {
+        // Gradiente orizzontale
+        const gradient = ctx.createLinearGradient(
+          params.x, params.y,
+          params.x + params.width, params.y
+        );
+        gradient.addColorStop(0, params.fillColor);
+        gradient.addColorStop(1, params.fillColorEnd);
+        ctx.fillStyle = gradient;
+      } else {
+        ctx.fillStyle = params.fillColor;
+      }
+      ctx.fillRect(params.x, params.y, params.width, params.height);
+      
+      // Effetto luce/riflesso sulla parte superiore
+      if (params.width > 4) {
+        const highlightGradient = ctx.createLinearGradient(
+          params.x, params.y,
+          params.x, params.y + params.height / 2
+        );
+        highlightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+        highlightGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = highlightGradient;
+        ctx.fillRect(params.x, params.y, params.width, params.height / 2);
+      }
+    }
 
     // Border
     ctx.strokeStyle = params.borderColor;
     ctx.lineWidth = params.borderWidth;
-    ctx.strokeRect(params.x, params.y, HudRenderer.getBarWidth(), params.height);
+    ctx.globalAlpha = 0.9;
+    ctx.strokeRect(params.x, params.y, barWidth, params.height);
+    ctx.globalAlpha = 1;
   }
 
 

@@ -120,7 +120,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
   private handleQuestCompletion(quest: any, activeQuestComponent: ActiveQuest): void {
     // Mostra messaggio di completamento quest nel log
     if (this.logSystem) {
-      this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completed!`, LogType.REWARD, 5000);
+      this.logSystem.addLogMessage(`Quest "${quest.title}" completed!`, LogType.REWARD, 5000);
     }
 
     // Completa la quest e ottieni le ricompense

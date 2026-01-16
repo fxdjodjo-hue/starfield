@@ -14,6 +14,7 @@ export class CameraSystem extends BaseSystem {
     targetZoom: number;
     duration: number;
     elapsed: number;
+    onComplete?: () => void;
   } | null = null;
   private isZoomAnimating: boolean = false;
 
@@ -45,7 +46,7 @@ export class CameraSystem extends BaseSystem {
    * Avvia un'animazione di zoom out dalla nave
    * Parte molto zoomato sul centro della nave e fa zoom out fino alla visione normale
    */
-  animateZoomOut(startZoom: number = 5, targetZoom: number = 1, duration: number = 2500, centerX?: number, centerY?: number): void {
+  animateZoomOut(startZoom: number = 5, targetZoom: number = 1, duration: number = 2500, centerX?: number, centerY?: number, onComplete?: () => void): void {
     // Centra la camera sulla posizione specificata se fornita
     if (centerX !== undefined && centerY !== undefined) {
       this.camera.centerOn(centerX, centerY);
@@ -57,7 +58,8 @@ export class CameraSystem extends BaseSystem {
       startZoom,
       targetZoom,
       duration,
-      elapsed: 0
+      elapsed: 0,
+      onComplete
     };
     this.camera.setZoom(startZoom);
     console.log(`[CameraSystem] Zoom animation started: ${startZoom}x -> ${targetZoom}x over ${duration}ms`);
@@ -88,9 +90,15 @@ export class CameraSystem extends BaseSystem {
       
       if (progress >= 1) {
         this.zoomAnimation.active = false;
+        const onComplete = this.zoomAnimation.onComplete;
         this.zoomAnimation = null;
         this.isZoomAnimating = false;
         console.log('[CameraSystem] Zoom animation completed');
+        
+        // Chiama il callback se presente
+        if (onComplete) {
+          onComplete();
+        }
       }
     }
   }

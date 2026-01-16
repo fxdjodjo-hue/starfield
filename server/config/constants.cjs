@@ -29,49 +29,20 @@ const SERVER_CONSTANTS = {
   }
 };
 
-// Configurazione NPC integrata
-const NPC_CONFIG = {
-  Scouter: {
-    type: "Scouter",
-    defaultBehavior: "cruise",
-    stats: {
-      health: 800,
-      shield: 400,
-      damage: 20,
-      range: 600,
-      cooldown: 1200,
-      speed: 250
-    },
+// Configurazione NPC caricata da file condiviso (single source of truth)
+// Aggiungi skillPoints: 0 a ogni NPC (non assegnano mai SkillPoints)
+const npcConfigData = require('../../shared/npc-config.json');
+const NPC_CONFIG = {};
+
+for (const [npcType, npcData] of Object.entries(npcConfigData)) {
+  NPC_CONFIG[npcType] = {
+    ...npcData,
     rewards: {
-      credits: 400,
-      cosmos: 1,
-      experience: 400,
-      honor: 2,
+      ...npcData.rewards,
       skillPoints: 0 // NPC non assegnano mai SkillPoints
-    },
-    description: "Nemico base dello spazio profondo"
-  },
-  Kronos: {
-    type: "Kronos",
-    defaultBehavior: "cruise",
-    stats: {
-      health: 2000,
-      shield: 2000,
-      damage: 80,
-      range: 600,
-      cooldown: 1500,
-      speed: 200
-    },
-    rewards: {
-      credits: 800,
-      cosmos: 2,
-      experience: 800,
-      honor: 4,
-      skillPoints: 0 // NPC non assegnano mai SkillPoints
-    },
-    description: "Nave da guerra di medie dimensioni"
-  }
-};
+    }
+  };
+}
 
 module.exports = {
   SERVER_CONSTANTS,

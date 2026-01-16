@@ -5,6 +5,7 @@ import { ErrorMessageHandler } from '../../../multiplayer/client/handlers/ErrorM
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { PlayerSystem } from '../../player/PlayerSystem';
+import { applyFadeIn } from '../../../utils/helpers/UIFadeAnimation';
 
 /**
  * Manages chat UI, input, and message rendering
@@ -52,11 +53,14 @@ export class UIChatManager {
       const container = this.chatPanel['container'];
       const headerHeight = this.chatPanel['header'].offsetHeight || 49;
       container.style.height = headerHeight + 'px';
-      container.style.display = 'flex'; // Mostra solo ora
+      container.style.display = 'flex';
       this.chatPanel['messagesContainer'].style.display = 'none';
       this.chatPanel['inputContainer'].style.display = 'none';
       this.chatPanel['toggleButton'].textContent = '+';
       this.chatPanel['_isVisible'] = false;
+      
+      // Usa fade-in sincronizzato
+      applyFadeIn(container);
     }
   }
 

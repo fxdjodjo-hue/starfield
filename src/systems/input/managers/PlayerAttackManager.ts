@@ -72,7 +72,9 @@ export class PlayerAttackManager {
 
         if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
             (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
-          this.selectNpc(nearbyNpc, !this.attackActivated);
+          // Non disattivare l'attacco quando selezioni un nuovo NPC con spazio,
+          // perché stai già per attivarlo subito dopo
+          this.selectNpc(nearbyNpc, false);
           this.handleSpacePress();
         } else {
           if (currentlySelectedNpc) {
@@ -280,13 +282,7 @@ export class PlayerAttackManager {
 
     this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
 
-    if (!alreadySelected) {
-      const npc = this.ecs.getComponent(npcEntity, Npc);
-      const logSystem = this.getLogSystem();
-      if (npc && logSystem) {
-        logSystem.addLogMessage(`Selected target: ${npc.npcType}`, LogType.INFO, 1500);
-      }
-    }
+    // Selection logged removed
   }
 
   /**

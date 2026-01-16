@@ -21,6 +21,8 @@ export class MinimapSystem extends BaseSystem {
   private isMouseDownInMinimap: boolean = false;
   private mapBackgroundImage: HTMLImageElement | null = null;
   private clientNetworkSystem: any = null;
+  private fadeStartTime: number | null = null;
+  private fadeDuration: number = 600; // millisecondi, sincronizzato con altri elementi UI
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -156,6 +158,24 @@ export class MinimapSystem extends BaseSystem {
   render(ctx: CanvasRenderingContext2D): void {
     if (!this.minimap.visible) return;
 
+    // Calcola opacità per fade-in sincronizzato
+    let opacity = 1;
+    if (this.fadeStartTime !== null) {
+      const elapsed = Date.now() - this.fadeStartTime;
+      if (elapsed < this.fadeDuration) {
+        // Easing cubic-bezier(0.4, 0, 0.2, 1) approssimato
+        const progress = elapsed / this.fadeDuration;
+        const easedProgress = progress < 1 ? 1 - Math.pow(1 - progress, 3) : 1;
+        opacity = easedProgress;
+      } else {
+        this.fadeStartTime = null; // Fade completato
+      }
+    }
+
+    // Applica opacità al rendering
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
     // Trova la posizione del player per le linee di riferimento
     let playerPos: { x: number, y: number } | null = null;
     if (this.camera) {
@@ -167,6 +187,8 @@ export class MinimapSystem extends BaseSystem {
     this.renderEntities(ctx);
     this.renderRemotePlayers(ctx);
     this.renderPlayerIndicator(ctx);
+
+    ctx.restore();
   }
 
   /**
@@ -508,6 +530,21 @@ export class MinimapSystem extends BaseSystem {
    */
   toggleVisibility(): void {
     this.minimap.visible = !this.minimap.visible;
+  }
+
+  /**
+   * Mostra la minimappa
+   */
+  show(): void {
+    this.minimap.visible = true;
+    this.fadeStartTime = Date.now();
+  }
+
+  /**
+   * Nasconde la minimappa
+   */
+  hide(): void {
+    this.minimap.visible = false;
   }
 
   /**

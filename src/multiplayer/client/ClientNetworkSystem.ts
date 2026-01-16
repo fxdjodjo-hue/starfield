@@ -18,6 +18,7 @@ import { NetworkPositionSyncManager } from './managers/NetworkPositionSyncManage
 import { NetworkCombatManager } from './managers/NetworkCombatManager';
 import { NetworkPlayerDataManager } from './managers/NetworkPlayerDataManager';
 import { NetworkChatManager } from './managers/NetworkChatManager';
+import { RhythmicAnimationManager } from '../../utils/helpers/RhythmicAnimationManager';
 
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
@@ -57,6 +58,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private readonly combatManager: NetworkCombatManager;
   private readonly playerDataManager: NetworkPlayerDataManager;
   private readonly chatManager: NetworkChatManager;
+  private readonly rhythmicAnimationManager: RhythmicAnimationManager;
 
   // Legacy components (to be phased out)
   public readonly remotePlayerManager: RemotePlayerManager;
@@ -179,6 +181,9 @@ export class ClientNetworkSystem extends BaseSystem {
       this.eventSystem,
       this.clientId
     );
+
+    // Initialize rhythmic animation manager (per pattern ritmico animazione visiva)
+    this.rhythmicAnimationManager = new RhythmicAnimationManager();
 
     // Register message handlers
     this.initManager.registerMessageHandlers();
@@ -427,6 +432,10 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.remoteProjectileSystem;
   }
 
+  getRhythmicAnimationManager(): RhythmicAnimationManager {
+    return this.rhythmicAnimationManager;
+  }
+
   getECS(): ECS | null {
     return this.ecs;
   }
@@ -473,7 +482,7 @@ export class ClientNetworkSystem extends BaseSystem {
     npcId: string;
     playerId: string;
   }): void {
-    this.combatManager.sendStartCombat(data);
+    this.combatManager.sendStartCombat(data, this);
   }
 
   sendStopCombat(data: {

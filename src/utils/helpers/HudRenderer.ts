@@ -7,6 +7,7 @@ import { Shield } from '../../entities/combat/Shield';
 export interface HealthBarRenderParams {
   backgroundColor: string;
   fillColor: string;
+  fillColorEnd?: string; // Colore finale per gradiente
   borderColor: string;
   x: number;
   y: number;
@@ -19,11 +20,12 @@ export interface HealthBarRenderParams {
  * Helper for HUD rendering logic (health/shield bars)
  */
 export class HudRenderer {
-  private static readonly BAR_WIDTH = 40;
-  private static readonly BAR_HEIGHT = 6;
+  private static readonly BAR_WIDTH = 70;
+  private static readonly BAR_HEIGHT = 4;
   private static readonly BAR_OFFSET_Y = 95; // Spostato più in alto
   private static readonly BORDER_COLOR = '#ffffff';
-  private static readonly BORDER_WIDTH = 1;
+  private static readonly BORDER_WIDTH = 0.5;
+  private static readonly CORNER_RADIUS = 2; // Bordi leggermente arrotondati
 
   /**
    * Get rendering parameters for health bar
@@ -34,21 +36,29 @@ export class HudRenderer {
     const barY = screenY - this.BAR_OFFSET_Y;
     const healthPercent = health.getPercentage();
 
-    // Color logic: green → yellow → red
-    let healthColor = '#00ff00'; // Green
+    // Color logic: green → yellow → red (con gradienti moderni)
+    let fillColorStart = '#00ff88'; // Verde brillante
+    let fillColorEnd = '#00cc66'; // Verde scuro
+    let bgColor = '#1a1a1a'; // Background scuro moderno
+    
     if (healthPercent < 0.3) {
-      healthColor = '#ff0000'; // Red
+      fillColorStart = '#ff4444'; // Rosso brillante
+      fillColorEnd = '#cc0000'; // Rosso scuro
+      bgColor = '#2a0a0a'; // Background rosso scuro
     } else if (healthPercent < 0.6) {
-      healthColor = '#ffff00'; // Yellow
+      fillColorStart = '#ffaa00'; // Arancione/giallo brillante
+      fillColorEnd = '#cc8800'; // Arancione scuro
+      bgColor = '#2a1a0a'; // Background arancione scuro
     }
 
     return {
-      backgroundColor: '#330000', // Dark red background
-      fillColor: healthColor,
-      borderColor: this.BORDER_COLOR,
+      backgroundColor: bgColor,
+      fillColor: fillColorStart, // Colore iniziale per gradiente
+      fillColorEnd: fillColorEnd, // Colore finale per gradiente
+      borderColor: '#ffffff',
       x: screenX - this.BAR_WIDTH / 2,
       y: barY,
-      width: this.BAR_WIDTH * healthPercent, // ← CORRETTO: width proporzionale alla %
+      width: this.BAR_WIDTH * healthPercent,
       height: this.BAR_HEIGHT,
       borderWidth: this.BORDER_WIDTH
     };
@@ -63,8 +73,9 @@ export class HudRenderer {
     const barY = screenY - this.BAR_OFFSET_Y;
 
     return {
-      backgroundColor: '#001133', // Dark blue background
-      fillColor: '#4444ff', // Blue fill
+      backgroundColor: '#0a0a1a', // Background blu scuro moderno
+      fillColor: '#4488ff', // Blu brillante
+      fillColorEnd: '#2266cc', // Blu scuro
       borderColor: this.BORDER_COLOR,
       x: screenX - this.BAR_WIDTH / 2,
       y: barY,

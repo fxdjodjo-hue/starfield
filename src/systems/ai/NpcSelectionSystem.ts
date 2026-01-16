@@ -89,18 +89,7 @@ export class NpcSelectionSystem extends BaseSystem {
     // Aggiungi selezione al NPC selezionato
     this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
 
-    // Log selezione solo se non era già selezionato (evita log duplicati)
-    if (!alreadySelected) {
-      const npc = this.ecs.getComponent(npcEntity, Npc);
-      if (npc) {
-        const logSystem = this.ecs.systems?.find((system: any) =>
-          system instanceof LogSystem
-        ) as LogSystem | undefined;
-        if (logSystem) {
-          logSystem.addLogMessage(`Selected target: ${npc.npcType}`, LogType.INFO, 1500);
-        }
-      }
-    }
+    // Selection logged removed
   }
 
   /**

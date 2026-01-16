@@ -27,7 +27,7 @@ export class NetworkCombatManager {
   sendStartCombat(data: {
     npcId: string;
     playerId: string;
-  }): void {
+  }, networkSystem?: any): void {
     if (!this.connectionManager.isConnectionActive()) {
       return;
     }
@@ -40,6 +40,11 @@ export class NetworkCombatManager {
     if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
       this.eventSystem.showRateLimitNotification('combat_action');
       return;
+    }
+
+    // Reset pattern ritmico quando inizia un nuovo combattimento
+    if (networkSystem && networkSystem.getRhythmicAnimationManager) {
+      networkSystem.getRhythmicAnimationManager().reset();
     }
 
     // Salva l'NPC corrente per stop_combat

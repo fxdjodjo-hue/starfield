@@ -14,22 +14,36 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   handle(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem): void {
     const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
 
-    // Riproduci suono sparo sincronizzato
-    const audioSystem = networkSystem.getAudioSystem();
-    const timestamp = Date.now();
-
-    if (audioSystem) {
-      if (isLocalPlayer) {
-        // Suono laser del player
-        audioSystem.playSound('laser', 0.4, false, true);
-      } else if (message.playerId.startsWith('npc_')) {
-        // Suono laser degli NPC
-        audioSystem.playSound('scouterLaser', 0.25, false, true);
-      } else {
-      }
+    // Per il player locale, applica pattern ritmico per animazione visiva
+    // Il danno è sempre applicato ogni 800ms dal server, ma l'animazione segue il pattern
+    if (isLocalPlayer) {
+      const rhythmicManager = networkSystem.getRhythmicAnimationManager();
+      
+      // Schedula animazione (suono + proiettile) seguendo pattern ritmico
+      rhythmicManager.scheduleAnimation(() => {
+        // Riproduci suono sparo
+        const audioSystem = networkSystem.getAudioSystem();
+        if (audioSystem) {
+          audioSystem.playSound('laser', 0.4, false, true);
+        }
+        
+        // Mostra proiettile (sempre mostrato, ma con timing ritmico)
+        this.showProjectile(message, networkSystem, isLocalPlayer);
+      });
     } else {
-      console.warn(`🔊 [AUDIO] No audio system available for projectile ${message.projectileId} at ${timestamp}`);
+      // Per altri player/NPC, mostra subito (no pattern ritmico)
+      const audioSystem = networkSystem.getAudioSystem();
+      if (audioSystem) {
+        if (message.playerId.startsWith('npc_')) {
+          audioSystem.playSound('scouterLaser', 0.25, false, true);
+        }
+      }
+      
+      this.showProjectile(message, networkSystem, isLocalPlayer);
     }
+  }
+
+  private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) {

@@ -9,9 +9,13 @@ class ServerCombatManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
     this.npcAttackCooldowns = new Map(); // npcId -> lastAttackTime
-    this.playerCombats = new Map(); // playerId -> { npcId, lastAttackTime, attackCooldown }
+    this.playerCombats = new Map(); // playerId -> { npcId, lastAttackTime, attackCooldown, useFastInterval }
     this.combatStartCooldowns = new Map(); // playerId -> lastCombatStartTime
   }
+
+  // Pattern ritmico come moltiplicatori rispetto al cooldown base (800ms)
+  // Pattern: 0.870-0.870-1.217-1.043 = 696-696-974-835ms quando cooldown base è 800ms
+  // Media = 1.0 → fire rate medio = 800ms (cooldown base preservato)
 
   /**
    * Aggiorna logica di combat per tutti gli NPC e player
@@ -37,12 +41,13 @@ class ServerCombatManager {
   startPlayerCombat(playerId, npcId) {
     logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId}`);
 
-    // Anti-spam: controlla se il player ha avviato un combattimento recentemente
+    // 🔒 SECURITY: Anti-spam - previene spam di start_combat per bypassare cooldown
     const now = Date.now();
     const lastCombatStart = this.combatStartCooldowns.get(playerId) || 0;
     const minTimeBetweenStarts = 500; // 500ms tra avvii combattimento
 
     if (now - lastCombatStart < minTimeBetweenStarts) {
+      // Ignora richieste troppo frequenti
       return;
     }
 
@@ -150,19 +155,24 @@ class ServerCombatManager {
       return;
     }
 
-    // Verifica cooldown
+    // 🔒 SECURITY: Cooldown fisso 800ms (server-authoritative)
+    // Il danno viene applicato sempre ogni 800ms
+    // L'animazione ritmica è gestita lato client (solo visiva)
+    const baseCooldown = combat.attackCooldown; // 800ms dal config (server-authoritative)
+    
     const timeSinceLastAttack = now - combat.lastAttackTime;
-    if (timeSinceLastAttack < combat.attackCooldown) {
-      return; // Non ancora tempo di attaccare
+    if (timeSinceLastAttack < baseCooldown) {
+      return; // Non ancora tempo di attaccare - il client non può forzare attacchi
     }
 
-    // Esegui attacco
+    // Esegui attacco (danno applicato ogni 800ms)
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
   }
 
   /**
    * Esegue attacco del player contro NPC
+   * @returns {string|null} ID del proiettile creato
    */
   performPlayerAttack(playerId, playerData, npc, now) {
 
@@ -203,7 +213,7 @@ class ServerCombatManager {
       playerData.upgrades
     );
 
-    // Registra proiettile
+    // Registra proiettile (broadcast immediato - animazione ritmica gestita lato client)
     this.mapServer.projectileManager.addProjectile(
       projectileId,
       playerId,
@@ -214,6 +224,8 @@ class ServerCombatManager {
       npc.id, // targetId - ID dell'NPC bersaglio per homing
       false // excludeSender - il client deve vedere i suoi proiettili
     );
+    
+    return projectileId;
   }
 
   /**

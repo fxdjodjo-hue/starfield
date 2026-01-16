@@ -1,4 +1,5 @@
 import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
+import { applyFadeIn } from '../../utils/helpers/UIFadeAnimation';
 
 /**
  * Interfaccia per i dati del Player HUD
@@ -296,18 +297,11 @@ export class PlayerHUD {
       document.body.appendChild(this.container);
     }
     
-    // Animazione di apertura: scale + fade (stile chat)
-    this.container.style.opacity = '0';
-    this.container.style.transform = 'scale(0.85)';
     this.container.style.display = 'flex';
-    this.container.style.transition = 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
     this.isVisible = true;
     
-    // Applica animazione dopo che il display è stato impostato
-    requestAnimationFrame(() => {
-      this.container.style.opacity = '1';
-      this.container.style.transform = 'scale(1)';
-    });
+    // Usa fade-in sincronizzato
+    applyFadeIn(this.container);
   }
 
   /**

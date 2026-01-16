@@ -172,6 +172,46 @@ function handlePositionUpdate(data, sanitizedData, context) {
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
+  // 🔒 SECURITY: Rate limiting lato server per position_update
+  const now = Date.now();
+  if (!playerData.lastPositionUpdateTime) {
+    playerData.lastPositionUpdateTime = now;
+    playerData.positionUpdateCount = 0;
+  }
+  
+  // Reset counter ogni secondo
+  if (now - playerData.lastPositionUpdateTime >= 1000) {
+    playerData.positionUpdateCount = 0;
+    playerData.lastPositionUpdateTime = now;
+  }
+  
+  // Max 35 position updates al secondo (leggermente più del client per margine)
+  const MAX_POSITION_UPDATES_PER_SECOND = 35;
+  if (playerData.positionUpdateCount >= MAX_POSITION_UPDATES_PER_SECOND) {
+    // Rate limit superato - ignora questo update
+    return;
+  }
+  playerData.positionUpdateCount++;
+
+  // 🔒 SECURITY: Anti-teleport - verifica che il movimento sia fisicamente possibile
+  const PLAYER_CONFIG = require('../../../shared/player-config.json');
+  const baseSpeed = PLAYER_CONFIG.stats.speed || 300; // 300 unità/secondo
+  const maxSpeedWithUpgrades = baseSpeed * 2; // Max speed con upgrade (100 upgrade = +100% = 2x)
+  const MAX_MOVEMENT_DISTANCE_PER_UPDATE = maxSpeedWithUpgrades * 0.1; // Max distanza in 100ms (10 updates/sec worst case)
+  
+  if (playerData.position && Number.isFinite(playerData.position.x) && Number.isFinite(playerData.position.y)) {
+    const dx = sanitizedData.x - playerData.position.x;
+    const dy = sanitizedData.y - playerData.position.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    // Se la distanza è troppo grande, potrebbe essere un teleport hack
+    if (distance > MAX_MOVEMENT_DISTANCE_PER_UPDATE * 2) { // Margine 2x per lag/network
+      logger.warn('SECURITY', `🚫 Possible teleport hack from ${data.clientId}: distance ${distance.toFixed(2)} > max ${(MAX_MOVEMENT_DISTANCE_PER_UPDATE * 2).toFixed(2)}`);
+      // Ignora questo update invece di applicarlo
+      return;
+    }
+  }
+
   playerData.lastInputAt = new Date().toISOString();
 
   if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {

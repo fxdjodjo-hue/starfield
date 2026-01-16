@@ -56,7 +56,10 @@ export class MovementSystem extends BaseSystem {
       velocity.y * dt
     );
 
-    // Aggiorna rotazione
-    transform.rotation += velocity.angular * dt;
+    // Aggiorna rotazione solo se velocity.angular è diverso da 0
+    // (il player imposta direttamente transform.rotation, quindi non usa velocity.angular)
+    if (velocity.angular !== 0) {
+      transform.rotation += velocity.angular * dt;
+    }
   }
 }

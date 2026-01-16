@@ -146,8 +146,21 @@ export class UiSystem extends System {
   /**
    * Mostra le informazioni del giocatore
    */
-  showPlayerInfo(): void {
-    this.hudManager.showPlayerInfo(() => this.chatManager.show());
+  showPlayerInfo(showChat: boolean = true): void {
+    if (showChat) {
+      this.hudManager.showPlayerInfo(() => this.chatManager.show());
+    } else {
+      this.hudManager.showPlayerInfo();
+    }
+  }
+
+  /**
+   * Mostra la chat
+   */
+  showChat(): void {
+    if (this.chatManager && typeof this.chatManager.show === 'function') {
+      this.chatManager.show();
+    }
   }
 
   /**
@@ -213,6 +226,16 @@ export class UiSystem extends System {
   }
   getUIManager(): any {
     return this.panelManager.getUIManager();
+  }
+
+  /**
+   * Mostra le icone dei pannelli UI
+   */
+  showPanelIcons(): void {
+    const uiManager = this.panelManager.getUIManager();
+    if (uiManager && typeof uiManager.showUI === 'function') {
+      uiManager.showUI();
+    }
   }
   getPlayerHUD(): PlayerHUD {
     return this.hudManager.getPlayerHUD();

@@ -6,6 +6,7 @@
 
 import type { PanelConfig } from './PanelConfig';
 import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
+import { applyFadeIn } from '../../utils/helpers/UIFadeAnimation';
 
 export interface PanelData {
   [key: string]: any; // Flexible data structure for different panels
@@ -385,6 +386,9 @@ export class FloatingIcon {
       document.body.appendChild(this.element);
     }
     this.element.style.display = 'flex';
+    
+    // Usa fade-in sincronizzato
+    applyFadeIn(this.element);
   }
 
   /**
@@ -425,7 +429,7 @@ export class FloatingIcon {
 export class UIManager {
   private panels: Map<string, BasePanel> = new Map();
   private icons: Map<string, FloatingIcon> = new Map();
-  private isVisible: boolean = true;
+  private isVisible: boolean = false; // Inizia nascosto, verrà mostrato dopo l'animazione camera
   private unsubscribeResize: (() => void) | null = null;
 
   constructor() {

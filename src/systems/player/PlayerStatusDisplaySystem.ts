@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { DisplayManager } from '../../infrastructure/display';
+import { applyFadeIn } from '../../utils/helpers/UIFadeAnimation';
 
 /**
  * PlayerStatusDisplaySystem - Sistema semplice per mostrare HP e Shield del giocatore
@@ -224,20 +225,9 @@ export class PlayerStatusDisplaySystem extends System {
    */
   show(): void {
     if (this.statusElement) {
-      // Animazione di apertura: scale + fade (stile chat)
-      // Mantiene translateX(-50%) per centrare l'elemento
-      this.statusElement.style.opacity = '0';
-      this.statusElement.style.transform = 'translateX(-50%) scale(0.85)';
       this.statusElement.style.display = 'flex';
-      this.statusElement.style.transition = 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
-      
-      // Applica animazione dopo che il display è stato impostato
-      requestAnimationFrame(() => {
-        if (this.statusElement) {
-          this.statusElement.style.opacity = '1';
-          this.statusElement.style.transform = 'translateX(-50%) scale(1)';
-        }
-      });
+      // Usa fade-in sincronizzato (mantiene translateX(-50%) per centrare)
+      applyFadeIn(this.statusElement, 'translateX(-50%)');
     }
   }
 
