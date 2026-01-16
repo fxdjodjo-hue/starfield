@@ -13,6 +13,7 @@ import { Npc } from '../entities/ai/Npc';
 import { RemotePlayer } from '../entities/player/RemotePlayer';
 import { PlayerStats } from '../entities/player/PlayerStats';
 import { PlayerUpgrades } from '../entities/player/PlayerUpgrades';
+import { PlayerRole } from '../entities/player/PlayerRole';
 import { SkillPoints } from '../entities/currency/SkillPoints';
 import { Credits } from '../entities/currency/Currency';
 import { Cosmos } from '../entities/currency/Currency';
@@ -59,6 +60,7 @@ export interface ProgressionConfig {
   cosmos?: number;
   experience?: number;
   honor?: number;
+  isAdministrator?: boolean;
 }
 
 /**
@@ -394,5 +396,8 @@ export class EntityFactory {
     this.ecs.addComponent(entity, Cosmos, new Cosmos(config.cosmos || 0));
     this.ecs.addComponent(entity, Experience, new Experience(config.experience || 0));
     this.ecs.addComponent(entity, Honor, new Honor(config.honor || 0));
+    
+    // Ruoli del giocatore
+    this.ecs.addComponent(entity, PlayerRole, new PlayerRole(config.isAdministrator || false));
   }
 }

@@ -21,6 +21,7 @@ CREATE TABLE public.user_profiles (
   auth_id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE, -- Supabase Auth ID
   player_id BIGINT UNIQUE NOT NULL, -- Display ID (sequential numeric)
   username VARCHAR(50) UNIQUE NOT NULL,
+  is_administrator BOOLEAN NOT NULL DEFAULT FALSE, -- Admin status
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -250,6 +251,7 @@ BEGIN
     jsonb_build_object(
       'auth_id', up.auth_id,
       'username', up.username,
+      'is_administrator', COALESCE(up.is_administrator, FALSE),
       'created_at', up.created_at
     ) as profile_data,
     CASE WHEN ps.auth_id IS NOT NULL THEN
@@ -308,7 +310,8 @@ CREATE OR REPLACE FUNCTION update_player_data_secure(
   stats_data JSONB DEFAULT NULL,
   upgrades_data JSONB DEFAULT NULL,
   currencies_data JSONB DEFAULT NULL,
-  quests_data JSONB DEFAULT NULL
+  quests_data JSONB DEFAULT NULL,
+  profile_data JSONB DEFAULT NULL
 )
 RETURNS BOOLEAN
 SECURITY DEFINER
@@ -383,6 +386,15 @@ BEGIN
       updated_at = NOW();
   END IF;
 
+  -- Update profile data if provided (e.g., is_administrator)
+  IF profile_data IS NOT NULL THEN
+    UPDATE public.user_profiles
+    SET 
+      is_administrator = COALESCE((profile_data->>'is_administrator')::BOOLEAN, is_administrator),
+      updated_at = NOW()
+    WHERE auth_id = auth_id_param;
+  END IF;
+
   -- Update quests if provided (this would need more complex logic for quest updates)
   -- For now, we'll handle quest updates separately
 
@@ -397,7 +409,7 @@ $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION create_player_profile(UUID, VARCHAR(50)) TO service_role;
 GRANT EXECUTE ON FUNCTION get_player_profile_secure(UUID) TO service_role;
 GRANT EXECUTE ON FUNCTION get_player_data_secure(UUID) TO service_role;
-GRANT EXECUTE ON FUNCTION update_player_data_secure(UUID, JSONB, JSONB, JSONB, JSONB) TO service_role;
+GRANT EXECUTE ON FUNCTION update_player_data_secure(UUID, JSONB, JSONB, JSONB, JSONB, JSONB) TO service_role;
 
 -- =================================================================================
 -- RLS ALREADY ENABLED ABOVE - Policies created in original section
@@ -462,6 +474,7 @@ RETURNS TABLE(
   auth_id UUID,
   player_id BIGINT,
   username VARCHAR(50),
+  is_administrator BOOLEAN,
   found BOOLEAN,
   currencies_data TEXT,
   upgrades_data TEXT,
@@ -475,6 +488,7 @@ BEGIN
     up.auth_id,
     up.player_id,
     up.username,
+    COALESCE(up.is_administrator, FALSE) as is_administrator,
     TRUE as found,
     CASE WHEN pc.auth_id IS NOT NULL THEN
       jsonb_build_object(
@@ -534,6 +548,7 @@ BEGIN
       NULL::UUID,
       NULL::BIGINT,
       NULL::VARCHAR(50),
+      FALSE::BOOLEAN,
       FALSE,
       '{"credits": 1000, "cosmos": 100, "experience": 0, "honor": 0, "skill_points_current": 0, "skill_points_total": 0}',
       '{"hpUpgrades": 0, "shieldUpgrades": 0, "speedUpgrades": 0, "damageUpgrades": 0}',
@@ -543,6 +558,7 @@ BEGIN
       result_record.auth_id,
       result_record.player_id,
       result_record.username,
+      result_record.is_administrator,
       result_record.found,
       result_record.currencies_data,
       result_record.upgrades_data,
@@ -692,11 +708,59 @@ BEGIN
           0::NUMERIC
         ) * 2)
       ) as ranking_points,
-      -- Calcola level: floor(experience / 1000) + 1
-      (FLOOR(COALESCE(pc.experience, 0)::NUMERIC / 1000) + 1)::INTEGER as level
+      -- Calcola level usando requisiti cumulativi (stessa logica del client)
+      (
+        CASE
+          WHEN COALESCE(pc.experience, 0) >= 87975526400000000 THEN 44
+          WHEN COALESCE(pc.experience, 0) >= 43987763200000000 THEN 43
+          WHEN COALESCE(pc.experience, 0) >= 21993881600000000 THEN 42
+          WHEN COALESCE(pc.experience, 0) >= 10996940800000000 THEN 41
+          WHEN COALESCE(pc.experience, 0) >= 5498470400000000 THEN 40
+          WHEN COALESCE(pc.experience, 0) >= 2749235200000000 THEN 39
+          WHEN COALESCE(pc.experience, 0) >= 1374617600000000 THEN 38
+          WHEN COALESCE(pc.experience, 0) >= 687308800000000 THEN 37
+          WHEN COALESCE(pc.experience, 0) >= 343654400000000 THEN 36
+          WHEN COALESCE(pc.experience, 0) >= 171827200000000 THEN 35
+          WHEN COALESCE(pc.experience, 0) >= 85913600000000 THEN 34
+          WHEN COALESCE(pc.experience, 0) >= 42956800000000 THEN 33
+          WHEN COALESCE(pc.experience, 0) >= 21478400000000 THEN 32
+          WHEN COALESCE(pc.experience, 0) >= 10739200000000 THEN 31
+          WHEN COALESCE(pc.experience, 0) >= 5369700000000 THEN 30
+          WHEN COALESCE(pc.experience, 0) >= 2685000000000 THEN 29
+          WHEN COALESCE(pc.experience, 0) >= 1342496000000 THEN 28
+          WHEN COALESCE(pc.experience, 0) >= 671248000000 THEN 27
+          WHEN COALESCE(pc.experience, 0) >= 335621600000 THEN 26
+          WHEN COALESCE(pc.experience, 0) >= 167808800000 THEN 25
+          WHEN COALESCE(pc.experience, 0) >= 83902400000 THEN 24
+          WHEN COALESCE(pc.experience, 0) >= 41951120000 THEN 23
+          WHEN COALESCE(pc.experience, 0) >= 20973860000 THEN 22
+          WHEN COALESCE(pc.experience, 0) >= 10487010000 THEN 21
+          WHEN COALESCE(pc.experience, 0) >= 5243410000 THEN 20
+          WHEN COALESCE(pc.experience, 0) >= 2621710000 THEN 19
+          WHEN COALESCE(pc.experience, 0) >= 1310790000 THEN 18
+          WHEN COALESCE(pc.experience, 0) >= 655430000 THEN 17
+          WHEN COALESCE(pc.experience, 0) >= 327750000 THEN 16
+          WHEN COALESCE(pc.experience, 0) >= 163910000 THEN 15
+          WHEN COALESCE(pc.experience, 0) >= 81910000 THEN 14
+          WHEN COALESCE(pc.experience, 0) >= 40950000 THEN 13
+          WHEN COALESCE(pc.experience, 0) >= 20470000 THEN 12
+          WHEN COALESCE(pc.experience, 0) >= 10230000 THEN 11
+          WHEN COALESCE(pc.experience, 0) >= 5110000 THEN 10
+          WHEN COALESCE(pc.experience, 0) >= 2550000 THEN 9
+          WHEN COALESCE(pc.experience, 0) >= 1270000 THEN 8
+          WHEN COALESCE(pc.experience, 0) >= 630000 THEN 7
+          WHEN COALESCE(pc.experience, 0) >= 310000 THEN 6
+          WHEN COALESCE(pc.experience, 0) >= 150000 THEN 5
+          WHEN COALESCE(pc.experience, 0) >= 70000 THEN 4
+          WHEN COALESCE(pc.experience, 0) >= 30000 THEN 3
+          WHEN COALESCE(pc.experience, 0) >= 10000 THEN 2
+          ELSE 1
+        END
+      )::INTEGER as level
     FROM public.user_profiles up
     LEFT JOIN public.player_currencies pc ON up.auth_id = pc.auth_id
     LEFT JOIN public.player_stats ps ON up.auth_id = ps.auth_id
+    WHERE up.is_administrator = FALSE
   )
   SELECT
     ROW_NUMBER() OVER (

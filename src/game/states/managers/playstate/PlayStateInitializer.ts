@@ -14,6 +14,7 @@ import { InterpolationSystem } from '../../../../systems/physics/InterpolationSy
  * Manages PlayState initialization, setup, and resource loading
  */
 export class PlayStateInitializer {
+
   constructor(
     private readonly context: GameContext,
     private readonly world: World,
@@ -65,6 +66,34 @@ export class PlayStateInitializer {
         (authContainer as HTMLElement).style.display = 'none';
       } else {
         console.warn('[PlayState] authContainer non trovato nel DOM');
+      }
+    }
+    
+    // Riproduci suono di login quando il giocatore entra in gioco
+    const audioSystem = this.getAudioSystem();
+    if (audioSystem && typeof audioSystem.playSound === 'function') {
+      try {
+        audioSystem.playSound('playerLogin', 0.1, false, false, 'effects');
+        console.log('[PlayState] Suono di login riprodotto');
+      } catch (error) {
+        console.warn('[PlayState] Errore nella riproduzione del suono di login:', error);
+      }
+    }
+    
+    // Mostra il display HP/Shield ora che la schermata di autenticazione è nascosta
+    const systems = this.gameInitSystem.getSystems();
+    if (systems?.playerStatusDisplaySystem && typeof systems.playerStatusDisplaySystem.show === 'function') {
+      console.log('[PlayState] Mostrando PlayerStatusDisplaySystem');
+      systems.playerStatusDisplaySystem.show();
+    }
+    
+    // Mostra anche il PlayerHUD (barra in alto a sinistra) se disponibile
+    const uiSystem = this.getUiSystem();
+    if (uiSystem && typeof uiSystem.getPlayerHUD === 'function') {
+      const playerHUD = uiSystem.getPlayerHUD();
+      if (playerHUD && typeof playerHUD.show === 'function') {
+        console.log('[PlayState] Mostrando PlayerHUD');
+        playerHUD.show();
       }
     }
   }

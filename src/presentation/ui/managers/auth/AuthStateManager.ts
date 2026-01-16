@@ -7,13 +7,28 @@ export class AuthStateManager {
   private currentState: AuthState = AuthState.LOADING;
   private isProcessing: boolean = false;
   private justLoggedIn: boolean = false;
+  private readonly container: HTMLElement;
+  private readonly loadingContainer: HTMLElement;
+  private readonly authContainer: HTMLElement;
+  private readonly renderAuthForm: (() => void) | null;
+  private readonly showDiscordIcon?: () => void;
+  private readonly hideDiscordIcon?: () => void;
 
   constructor(
-    private readonly container: HTMLElement,
-    private readonly loadingContainer: HTMLElement,
-    private readonly authContainer: HTMLElement,
-    private readonly renderAuthForm: (() => void) | null
-  ) {}
+    container: HTMLElement,
+    loadingContainer: HTMLElement,
+    authContainer: HTMLElement,
+    renderAuthForm: (() => void) | null,
+    showDiscordIcon?: () => void,
+    hideDiscordIcon?: () => void
+  ) {
+    this.container = container;
+    this.loadingContainer = loadingContainer;
+    this.authContainer = authContainer;
+    this.renderAuthForm = renderAuthForm;
+    this.showDiscordIcon = showDiscordIcon;
+    this.hideDiscordIcon = hideDiscordIcon;
+  }
 
   /**
    * Imposta lo stato corrente e aggiorna UI
@@ -40,12 +55,20 @@ export class AuthStateManager {
       case AuthState.LOADING:
         console.log('[AuthScreen] Mostrando loadingContainer');
         this.loadingContainer.style.display = 'flex';
+        // Nascondi icona Discord durante il caricamento
+        if (this.hideDiscordIcon) {
+          this.hideDiscordIcon();
+        }
         break;
       case AuthState.LOGIN:
       case AuthState.REGISTER:
       case AuthState.FORGOT_PASSWORD:
         console.log('[AuthScreen] Mostrando authContainer');
         this.authContainer.style.display = 'flex';
+        // Mostra icona Discord solo durante login/register
+        if (this.showDiscordIcon) {
+          this.showDiscordIcon();
+        }
         if (this.renderAuthForm) {
           this.renderAuthForm();
         }
@@ -54,6 +77,10 @@ export class AuthStateManager {
         // Giocatore autenticato, nascondi tutto
         console.log('[AuthScreen] Stato VERIFIED - nascondendo container');
         this.container.style.display = 'none';
+        // Nascondi icona Discord quando autenticato
+        if (this.hideDiscordIcon) {
+          this.hideDiscordIcon();
+        }
         break;
     }
     

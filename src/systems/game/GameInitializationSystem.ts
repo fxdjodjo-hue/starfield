@@ -143,7 +143,8 @@ export class GameInitializationSystem extends System {
       movementSystem: this.movementSystem,
       damageSystem: this.damageSystem,
       projectileCreationSystem: this.projectileCreationSystem,
-      combatStateSystem: this.combatStateSystem
+      combatStateSystem: this.combatStateSystem,
+      playerStatusDisplaySystem: this.playerStatusDisplaySystem
     };
   }
 

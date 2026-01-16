@@ -6,7 +6,6 @@ import { Component } from '../../infrastructure/ecs/Component';
  */
 export class Honor extends Component {
   private _honor: number;
-  private _isAdministrator: boolean = false;
   private _isOutlaw: boolean = false;
 
   constructor(initialHonor: number = 0) {
@@ -22,28 +21,11 @@ export class Honor extends Component {
     return this._honor;
   }
 
-
-
-  /**
-   * Verifica se il giocatore è un Administrator
-   */
-  get isAdministrator(): boolean {
-    return this._isAdministrator;
-  }
-
   /**
    * Verifica se il giocatore è un Outlaw
    */
   get isOutlaw(): boolean {
     return this._isOutlaw;
-  }
-
-
-  /**
-   * Imposta lo status di Administrator
-   */
-  setAdministrator(isAdmin: boolean): void {
-    this._isAdministrator = isAdmin;
   }
 
   /**

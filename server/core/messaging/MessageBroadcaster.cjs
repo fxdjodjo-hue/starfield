@@ -160,9 +160,10 @@ class MessageBroadcaster {
    * @param {Object} upgrades - Upgrades data
    * @param {Array} quests - Quests array
    * @param {number} recentHonor - Recent honor value
+   * @param {boolean} isAdministrator - Admin status
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false) {
     return {
       type: 'player_data_response',
       playerId: playerId,
@@ -170,6 +171,7 @@ class MessageBroadcaster {
       upgrades: upgrades,
       quests: quests || [],
       recentHonor: recentHonor,
+      isAdministrator: isAdministrator,
       timestamp: Date.now()
     };
   }

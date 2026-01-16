@@ -59,6 +59,7 @@ async function handleJoin(data, sanitizedData, context) {
     nickname: data.nickname,
     playerId: loadedData.playerId,
     userId: data.userId,
+    isAdministrator: loadedData.isAdministrator || false, // Admin status
     connectedAt: new Date().toISOString(),
     lastInputAt: null,
     position: data.position,
@@ -719,7 +720,8 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.inventory,
     playerData.upgrades,
     playerData.quests,
-    recentHonor
+    recentHonor,
+    playerData.isAdministrator
   );
   ws.send(JSON.stringify(responseMessage));
 }

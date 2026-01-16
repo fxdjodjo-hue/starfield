@@ -51,7 +51,7 @@ export class PlayerHUD {
       position: fixed;
       top: ${margin}px;
       left: ${margin}px;
-      display: flex;
+      display: none;
       align-items: center;
       gap: ${gap}px;
       background: rgba(255, 255, 255, 0.1);
@@ -295,8 +295,19 @@ export class PlayerHUD {
     if (!document.body.contains(this.container)) {
       document.body.appendChild(this.container);
     }
+    
+    // Animazione di apertura: scale + fade (stile chat)
+    this.container.style.opacity = '0';
+    this.container.style.transform = 'scale(0.85)';
     this.container.style.display = 'flex';
+    this.container.style.transition = 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
     this.isVisible = true;
+    
+    // Applica animazione dopo che il display è stato impostato
+    requestAnimationFrame(() => {
+      this.container.style.opacity = '1';
+      this.container.style.transform = 'scale(1)';
+    });
   }
 
   /**

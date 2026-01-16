@@ -1,6 +1,7 @@
 import { ECS } from '../../../infrastructure/ecs/ECS';
 import { Honor } from '../../../entities/currency/Honor';
 import { SkillPoints } from '../../../entities/currency/SkillPoints';
+import { PlayerRole } from '../../../entities/player/PlayerRole';
 
 /**
  * Manages Honor, Rank, and Skill Points
@@ -38,9 +39,11 @@ export class HonorManager {
    * Imposta lo status di Administrator
    */
   setPlayerAdministrator(isAdmin: boolean): void {
-    const honor = this.getPlayerHonor();
-    if (honor) {
-      honor.setAdministrator(isAdmin);
+    const playerEntity = this.getPlayerEntity();
+    if (!playerEntity) return;
+    const playerRole = this.ecs.getComponent(playerEntity, PlayerRole);
+    if (playerRole) {
+      playerRole.setAdministrator(isAdmin);
     }
   }
 

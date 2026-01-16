@@ -64,7 +64,7 @@ export class AuthValidationManager {
     `;
 
     // Inserisci dopo il form
-    const form = this.authContainer.querySelector('.auth-form');
+    const form = this.authContainer.querySelector('.auth-form-card') || this.authContainer.querySelector('.auth-form');
     if (form) {
       form.appendChild(errorDiv);
     }
@@ -104,7 +104,7 @@ export class AuthValidationManager {
     `;
 
     // Inserisci dopo il form
-    const form = this.authContainer.querySelector('.auth-form');
+    const form = this.authContainer.querySelector('.auth-form-card') || this.authContainer.querySelector('.auth-form');
     if (form) {
       form.appendChild(successDiv);
     }

@@ -44,7 +44,7 @@ export class PlayerStatusDisplaySystem extends System {
       bottom: ${Math.round(20 * c)}px;
       left: 50%;
       transform: translateX(-50%);
-      display: flex;
+      display: none;
       align-items: stretch;
       gap: ${Math.round(32 * c)}px;
       background: rgba(255, 255, 255, 0.1);
@@ -63,6 +63,9 @@ export class PlayerStatusDisplaySystem extends System {
 
     document.body.appendChild(this.statusElement);
     this.updateDisplay();
+    
+    // Nascondi inizialmente - verrà mostrato quando la schermata di autenticazione viene nascosta
+    this.hide();
   }
 
   /**
@@ -214,6 +217,37 @@ export class PlayerStatusDisplaySystem extends System {
     const rect = this.statusElement.getBoundingClientRect();
     return screenX >= rect.left && screenX <= rect.right &&
            screenY >= rect.top && screenY <= rect.bottom;
+  }
+
+  /**
+   * Mostra il display HP/Shield
+   */
+  show(): void {
+    if (this.statusElement) {
+      // Animazione di apertura: scale + fade (stile chat)
+      // Mantiene translateX(-50%) per centrare l'elemento
+      this.statusElement.style.opacity = '0';
+      this.statusElement.style.transform = 'translateX(-50%) scale(0.85)';
+      this.statusElement.style.display = 'flex';
+      this.statusElement.style.transition = 'opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)';
+      
+      // Applica animazione dopo che il display è stato impostato
+      requestAnimationFrame(() => {
+        if (this.statusElement) {
+          this.statusElement.style.opacity = '1';
+          this.statusElement.style.transform = 'translateX(-50%) scale(1)';
+        }
+      });
+    }
+  }
+
+  /**
+   * Nasconde il display HP/Shield
+   */
+  hide(): void {
+    if (this.statusElement) {
+      this.statusElement.style.display = 'none';
+    }
   }
 
   /**

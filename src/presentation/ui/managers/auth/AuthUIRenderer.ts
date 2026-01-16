@@ -1,13 +1,18 @@
 import { getFormattedVersion } from '../../../../utils/config/Version';
+import { DiscordIcon } from '../../DiscordIcon';
 
 /**
  * Manages UI rendering (container, loading, styles, background)
+ * Modern, minimal design with animated space background
  */
 export class AuthUIRenderer {
   private container!: HTMLDivElement;
   private loadingContainer!: HTMLDivElement;
   private authContainer!: HTMLDivElement;
   private versionElement!: HTMLDivElement;
+  private discordIcon!: DiscordIcon;
+  private stars: HTMLDivElement[] = [];
+  private animationFrameId?: number;
 
   /**
    * Crea l'interfaccia utente
@@ -18,7 +23,10 @@ export class AuthUIRenderer {
     authContainer: HTMLDivElement;
     versionElement: HTMLDivElement;
   } {
-    // Container principale
+    // Aggiungi stili globali prima di creare gli elementi
+    this.addGlobalStyles();
+
+    // Container principale con sfondo nero e gradienti animati
     this.container = document.createElement('div');
     this.container.id = 'authscreen-container';
     this.container.style.cssText = `
@@ -27,15 +35,12 @@ export class AuthUIRenderer {
       left: 0;
       width: 100%;
       height: 100%;
-      background:
-        radial-gradient(circle at 20% 80%, rgba(20, 40, 80, 0.15) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(40, 20, 60, 0.15) 0%, transparent 50%),
-        linear-gradient(135deg, #000011 0%, #001122 50%, #000018 100%);
+      background: #000000;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
       z-index: 1000;
       padding: 20px;
       box-sizing: border-box;
@@ -46,7 +51,8 @@ export class AuthUIRenderer {
       -ms-user-select: none;
     `;
 
-    // Container loading
+
+    // Container loading - minimal e elegante
     this.loadingContainer = document.createElement('div');
     this.loadingContainer.style.cssText = `
       display: none;
@@ -56,45 +62,38 @@ export class AuthUIRenderer {
       color: rgba(255, 255, 255, 0.9);
       text-align: center;
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-    `;
-
-    const loadingTitle = document.createElement('h2');
-    loadingTitle.textContent = 'STARFIELD MMO';
-    loadingTitle.style.cssText = `
-      color: #00ff88;
-      font-size: 36px;
-      margin: 0 0 20px 0;
-      text-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
-      letter-spacing: 2px;
+      z-index: 10;
     `;
 
     const loadingText = document.createElement('p');
     loadingText.textContent = 'Loading...';
     loadingText.style.cssText = `
-      font-size: 18px;
-      margin: 20px 0;
-      opacity: 0.8;
+      font-size: 14px;
+      margin: 0 0 32px 0;
+      opacity: 0.6;
+      font-weight: 300;
+      letter-spacing: 2px;
+      opacity: 0;
+      animation: fadeInUp 0.8s ease-out 0.4s both;
     `;
 
     const loadingSpinner = document.createElement('div');
+    loadingSpinner.className = 'modern-spinner';
     loadingSpinner.style.cssText = `
-      width: 40px;
-      height: 40px;
-      border: 3px solid rgba(255, 255, 255, 0.1);
+      width: 48px;
+      height: 48px;
+      border: 2px solid rgba(255, 255, 255, 0.1);
       border-radius: 50%;
-      border-top-color: #00ff88;
-      animation: spin 1s ease-in-out infinite;
-      margin: 20px 0;
+      border-top-color: rgba(255, 255, 255, 0.8);
+      animation: spin 1s linear infinite;
+      opacity: 0;
+      animation: spin 1s linear infinite, fadeIn 0.8s ease-out 0.6s both;
     `;
 
-    this.loadingContainer.appendChild(loadingTitle);
     this.loadingContainer.appendChild(loadingText);
     this.loadingContainer.appendChild(loadingSpinner);
 
-    // Container autenticazione
+    // Container autenticazione - centrato e pulito
     this.authContainer = document.createElement('div');
     this.authContainer.style.cssText = `
       display: none;
@@ -102,29 +101,30 @@ export class AuthUIRenderer {
       align-items: center;
       justify-content: center;
       width: 100%;
-      max-width: 400px;
+      max-width: 420px;
       user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
+      z-index: 10;
     `;
 
-    // Versione
+    // Versione - discreta in basso
     this.versionElement = document.createElement('div');
     this.versionElement.className = 'authscreen-version';
-    this.versionElement.textContent = `Version ${getFormattedVersion()}`;
+    this.versionElement.textContent = `v${getFormattedVersion()}`;
     this.versionElement.style.cssText = `
-      color: rgba(255, 255, 255, 0.8);
-      font-size: 14px;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: 11px;
       font-family: 'Courier New', monospace;
-      letter-spacing: 2px;
+      letter-spacing: 1px;
       text-align: center;
       width: 100%;
-      margin-top: 20px;
+      margin-top: 32px;
       opacity: 0;
+      animation: fadeIn 1s ease-out 1.5s both;
+      position: absolute;
+      bottom: 24px;
     `;
 
-    // Aggiungi stelle di sfondo
+    // Crea stelle animate
     this.createStarsBackground();
 
     // Assembla tutto
@@ -135,6 +135,12 @@ export class AuthUIRenderer {
     // Aggiungi al DOM
     document.body.appendChild(this.container);
 
+    // Crea icona Discord (non mostrata subito, solo durante login)
+    this.discordIcon = new DiscordIcon('https://discord.gg/eCa927g2mm');
+
+    // Avvia animazione stelle
+    this.animateStars();
+
     return {
       container: this.container,
       loadingContainer: this.loadingContainer,
@@ -144,7 +150,7 @@ export class AuthUIRenderer {
   }
 
   /**
-   * Aggiunge stili CSS globali
+   * Aggiunge stili CSS globali moderni
    */
   addGlobalStyles(): void {
     const existingStyle = document.getElementById('authscreen-styles');
@@ -153,10 +159,11 @@ export class AuthUIRenderer {
     const style = document.createElement('style');
     style.id = 'authscreen-styles';
     style.textContent = `
+      /* Animazioni principali */
       @keyframes fadeInUp {
         0% {
           opacity: 0;
-          transform: translateY(30px);
+          transform: translateY(20px);
         }
         100% {
           opacity: 1;
@@ -173,47 +180,79 @@ export class AuthUIRenderer {
         }
       }
 
-      @keyframes starTwinkle {
-        0%, 100% { opacity: 0.3; transform: scale(1); }
-        50% { opacity: 1; transform: scale(1.2); }
-      }
-
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
 
+      @keyframes starFloat {
+        0%, 100% {
+          transform: translate(0, 0) scale(1);
+          opacity: 0.4;
+        }
+        50% {
+          transform: translate(10px, -10px) scale(1.1);
+          opacity: 0.8;
+        }
+      }
+
+      @keyframes starTwinkle {
+        0%, 100% { 
+          opacity: 0.3;
+        }
+        50% { 
+          opacity: 1;
+        }
+      }
+
+      @keyframes cardAppear {
+        0% {
+          opacity: 0;
+          transform: translateY(20px) scale(0.98);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+
+      /* Stelle animate */
       .star-particle {
         position: absolute;
         background: #ffffff;
         border-radius: 50%;
         pointer-events: none;
-        animation: starTwinkle 4s ease-in-out infinite;
+        will-change: transform, opacity;
       }
 
-      .star-particle:nth-child(odd) {
-        animation-delay: -2s;
+      .star-particle.small {
+        width: 1px;
+        height: 1px;
+        box-shadow: 0 0 2px rgba(255, 255, 255, 0.8);
       }
 
-      .star-particle:nth-child(3n) {
-        animation-duration: 6s;
+      .star-particle.medium {
+        width: 2px;
+        height: 2px;
+        box-shadow: 0 0 3px rgba(255, 255, 255, 0.9);
       }
 
+      .star-particle.large {
+        width: 3px;
+        height: 3px;
+        box-shadow: 0 0 4px rgba(255, 255, 255, 1);
+      }
+
+      /* Spinner moderno */
+      .modern-spinner {
+        will-change: transform;
+      }
+
+      /* Versione */
       .authscreen-version {
-        animation: fadeInUp 1.5s ease-out 1.5s both;
+        font-weight: 300;
       }
 
-      .loading-spinner {
-        display: block;
-        width: 18px;
-        height: 18px;
-        border: 2px solid rgba(255, 255, 255, 0.3);
-        border-radius: 50%;
-        border-top-color: #ffffff;
-        animation: spin 1s ease-in-out infinite;
-        flex-shrink: 0;
-      }
-
-      /* Disabilita selezione testo in tutta la schermata */
+      /* Disabilita selezione testo */
       #authscreen-container * {
         user-select: none;
         -webkit-user-select: none;
@@ -233,31 +272,103 @@ export class AuthUIRenderer {
   }
 
   /**
-   * Crea stelle di sfondo per atmosfera spaziale
+   * Crea stelle animate per effetto spaziale
    */
   createStarsBackground(): void {
-    const starCount = 50;
+    const starCount = 80;
+    const sizes = ['small', 'medium', 'large'];
 
     for (let i = 0; i < starCount; i++) {
       const star = document.createElement('div');
-      star.className = 'star-particle';
+      const sizeClass = sizes[Math.floor(Math.random() * sizes.length)];
+      star.className = `star-particle ${sizeClass}`;
 
       // Posizione casuale
       const x = Math.random() * 100;
       const y = Math.random() * 100;
 
-      // Dimensione casuale (più piccole per essere rilassanti)
-      const size = Math.random() * 2 + 1;
+      // Velocità e delay casuali per movimento fluido
+      const duration = 8 + Math.random() * 12; // 8-20s
+      const delay = Math.random() * 4;
+      const floatDelay = Math.random() * 2;
 
       star.style.cssText = `
         left: ${x}%;
         top: ${y}%;
-        width: ${size}px;
-        height: ${size}px;
-        animation-delay: ${Math.random() * 4}s;
+        animation: starTwinkle ${duration}s ease-in-out infinite,
+                   starFloat ${duration * 1.5}s ease-in-out infinite;
+        animation-delay: ${delay}s, ${floatDelay}s;
       `;
 
       this.container.appendChild(star);
+      this.stars.push(star);
+    }
+  }
+
+  /**
+   * Anima le stelle con movimento continuo
+   */
+  private animateStars(): void {
+    let lastTime = performance.now();
+
+    const animate = (currentTime: number) => {
+      const delta = currentTime - lastTime;
+      lastTime = currentTime;
+
+      // Movimento lento e continuo delle stelle
+      this.stars.forEach((star, index) => {
+        const speed = 0.0001 + (index % 3) * 0.00005;
+        const currentLeft = parseFloat(star.style.left) || 0;
+        const currentTop = parseFloat(star.style.top) || 0;
+
+        // Movimento orbitale lento
+        const newLeft = (currentLeft + speed * delta) % 100;
+        const newTop = (currentTop + speed * delta * 0.5) % 100;
+
+        star.style.left = `${newLeft}%`;
+        star.style.top = `${newTop}%`;
+      });
+
+      this.animationFrameId = requestAnimationFrame(animate);
+    };
+
+    this.animationFrameId = requestAnimationFrame(animate);
+  }
+
+  /**
+   * Mostra il DiscordIcon
+   */
+  showDiscordIcon(): void {
+    if (this.discordIcon) {
+      this.discordIcon.show();
+    }
+  }
+
+  /**
+   * Nasconde il DiscordIcon
+   */
+  hideDiscordIcon(): void {
+    if (this.discordIcon) {
+      this.discordIcon.hide();
+    }
+  }
+
+  /**
+   * Nasconde il DiscordIcon (metodo legacy per compatibilità)
+   */
+  hide(): void {
+    this.hideDiscordIcon();
+  }
+
+  /**
+   * Pulisce le animazioni quando il componente viene distrutto
+   */
+  destroy(): void {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
+    }
+    if (this.discordIcon) {
+      this.discordIcon.destroy();
     }
   }
 

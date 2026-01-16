@@ -104,6 +104,7 @@ class PlayerDataManager {
         playerId: playerDataRaw.player_id, // player_id NUMERICO per display/HUD
         userId: userId,     // auth_id per identificazione
         nickname: playerDataRaw.username || 'Unknown',
+        isAdministrator: playerDataRaw.is_administrator || false, // Admin status
         position: { x: 0, y: 0, rotation: 0 }, // Posizione verrà impostata dal client
         inventory: (() => {
           const defaultInventory = this.getDefaultPlayerData().inventory;
@@ -271,6 +272,11 @@ class PlayerDataManager {
       // Rimuovi il flag interno prima di salvare (non più necessario)
       delete playerData.inventory._hadNullInDb;
 
+      // Prepare profile data (e.g., is_administrator)
+      // 🔒 SECURITY: NON salvare is_administrator dal client - è gestito solo dal database
+      // Il flag admin può essere modificato solo direttamente nel database, non tramite gameplay
+      const profileData = null;
+
       // Use secure RPC function instead of direct table access
       logger.info('DATABASE', `Calling update_player_data_secure RPC for auth_id: ${playerId}`);
       logger.info('DATABASE', `Currencies data to save:`, currenciesData);
@@ -280,7 +286,8 @@ class PlayerDataManager {
           auth_id_param: playerId,
           stats_data: statsData,
           upgrades_data: upgradesData,
-          currencies_data: currenciesData
+          currencies_data: currenciesData,
+          profile_data: profileData
         }
       );
 

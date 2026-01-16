@@ -2,6 +2,7 @@ import { supabase } from '../../../../lib/supabase';
 import { getApiBaseUrl } from '../../../../config/NetworkConfig';
 import type { GameContext } from '../../../../infrastructure/engine/GameContext';
 import { AuthState } from './AuthState';
+import { AlphaDisclaimerModal } from './AlphaDisclaimerModal';
 
 /**
  * Manages Supabase authentication (login, registration, sessions)
@@ -18,6 +19,7 @@ export class AuthSessionManager {
   private readonly showButtonLoading: (button: HTMLButtonElement, show: boolean) => void;
   private readonly isValidEmail: (email: string) => boolean;
   private readonly getFriendlyErrorMessage: (error: any) => string;
+  private disclaimerModal: AlphaDisclaimerModal;
 
   constructor(
     context: GameContext,
@@ -43,6 +45,7 @@ export class AuthSessionManager {
     this.isValidEmail = isValidEmail;
     this.getFriendlyErrorMessage = getFriendlyErrorMessage;
     this.onAuthenticatedCallback = onAuthenticated;
+    this.disclaimerModal = new AlphaDisclaimerModal();
   }
 
   /**
@@ -124,18 +127,13 @@ export class AuthSessionManager {
    */
   async handleRegister(email: string, password: string, confirmPassword: string, nickname: string, button: HTMLButtonElement): Promise<void> {
     // Validazione input
-    if (!email || !password || !confirmPassword || !nickname) {
+    if (!email || !password || !nickname) {
       this.showError('Please fill in all fields');
       return;
     }
 
     if (!this.isValidEmail(email)) {
       this.showError('Please enter a valid email address');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      this.showError('Passwords do not match');
       return;
     }
 
@@ -232,8 +230,10 @@ export class AuthSessionManager {
 
         if (data.user.email_confirmed_at) {
           // Email già confermata automaticamente
-          // NON chiamare setState(VERIFIED) - notifyAuthenticated() gestirà lo stato
-          this.notifyAuthenticated();
+          // Mostra popup disclaimer prima di procedere
+          this.showAlphaDisclaimer(() => {
+            this.notifyAuthenticated();
+          });
         } else {
           // Email da confermare
           this.showSuccess('Registration successful! Please check your email to confirm your account.');
@@ -246,6 +246,13 @@ export class AuthSessionManager {
       this.setProcessing(false);
       this.showButtonLoading(button, false);
     }
+  }
+
+  /**
+   * Mostra il popup disclaimer alpha
+   */
+  private showAlphaDisclaimer(onAccept: () => void): void {
+    this.disclaimerModal.show(onAccept);
   }
 
   /**

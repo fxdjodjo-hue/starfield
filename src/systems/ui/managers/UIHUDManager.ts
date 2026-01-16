@@ -180,7 +180,8 @@ export class UIHUDManager {
 
     // Aggiorna sempre l'HUD con i dati disponibili
     this.playerHUD.updateData(hudData);
-    this.playerHUD.show();
+    // NON mostrare automaticamente - viene mostrato da hideLoadingScreen() quando la schermata di autenticazione è nascosta
+    // this.playerHUD.show();
     
     // Mostra anche la chat (ora che tutto è pronto)
     if (showChatCallback) {

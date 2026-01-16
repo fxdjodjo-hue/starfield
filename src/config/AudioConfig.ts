@@ -26,7 +26,8 @@ export const AUDIO_ASSETS = {
     collect: 'effects/collect.wav',
     upgrade: 'effects/upgrade.wav',
     damage: 'effects/damage.wav',
-    engine: 'effects/engine/enginesoundeffect.mp3'
+    engine: 'effects/engine/enginesoundeffect.mp3',
+    playerLogin: 'effects/playerlogin/bubbleSounds.mp3'
   },
 
   // Musica

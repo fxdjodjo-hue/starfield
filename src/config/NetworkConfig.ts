@@ -482,6 +482,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
     damageUpgrades: number;
   };
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
+  isAdministrator?: boolean; // Admin status
   quests: any[];
   timestamp: number;
 }

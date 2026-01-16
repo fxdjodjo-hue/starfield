@@ -63,7 +63,9 @@ export class AuthScreen {
       container,
       loadingContainer,
       authContainer,
-      () => formManagerRef?.renderForm() || null
+      () => formManagerRef?.renderForm() || null,
+      () => this.initManager.showDiscordIcon(),
+      () => this.initManager.hideDiscordIcon()
     );
 
     // Initialize session manager

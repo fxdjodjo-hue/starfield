@@ -4,6 +4,7 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { PlayerDataResponseMessage } from '../../../config/NetworkConfig';
 import { SkillPoints } from '../../../entities/currency/SkillPoints';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
+import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
 import { getPlayerDefinition } from '../../../config/PlayerConfig';
@@ -70,6 +71,18 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
         if (skillPointsComponent) {
           // Inizializza i punti abilità ricevuti dal server
           skillPointsComponent.setPoints(message.inventory.skillPoints || 0);
+        }
+      }
+    }
+
+    // SINCRONIZZA IL RUOLO DEL PLAYER (Server Authoritative)
+    if (networkSystem.getPlayerSystem() && message.isAdministrator !== undefined) {
+      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+      if (playerEntity && networkSystem.getECS()) {
+        const ecs = networkSystem.getECS();
+        const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
+        if (playerRole) {
+          playerRole.setAdministrator(message.isAdministrator);
         }
       }
     }

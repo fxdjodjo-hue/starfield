@@ -45,9 +45,20 @@ export class AuthInitializationManager {
    * Nasconde la schermata (chiamato quando i dati sono pronti)
    */
   hide(): void {
-    console.log('[AuthScreen] hide() chiamato - nascondendo schermata');
-    this.container.style.display = 'none';
-    console.log('[AuthScreen] Schermata nascosta');
+    console.log('[AuthScreen] hide() chiamato - nascondendo schermata con fade out');
+    
+    // Fade out animato più duraturo
+    this.container.style.transition = 'opacity 1.2s ease-out';
+    this.container.style.opacity = '0';
+    
+    // Nascondi anche il DiscordIcon
+    this.uiRenderer.hide();
+    
+    // Dopo l'animazione, nascondi completamente
+    setTimeout(() => {
+      this.container.style.display = 'none';
+      console.log('[AuthScreen] Schermata nascosta completamente');
+    }, 1200);
   }
 
   /**
@@ -84,5 +95,19 @@ export class AuthInitializationManager {
    */
   getAuthContainer(): HTMLDivElement {
     return this.authContainer;
+  }
+
+  /**
+   * Mostra l'icona Discord
+   */
+  showDiscordIcon(): void {
+    this.uiRenderer.showDiscordIcon();
+  }
+
+  /**
+   * Nasconde l'icona Discord
+   */
+  hideDiscordIcon(): void {
+    this.uiRenderer.hideDiscordIcon();
   }
 }

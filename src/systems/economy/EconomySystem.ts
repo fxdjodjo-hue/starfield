@@ -4,6 +4,7 @@ import { Credits, Cosmos } from '../../entities/currency/Currency';
 import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
 import { SkillPoints } from '../../entities/currency/SkillPoints';
+import { PlayerRole } from '../../entities/player/PlayerRole';
 
 // Modular architecture managers
 import { CurrencyManager } from './managers/CurrencyManager';
@@ -339,9 +340,10 @@ export class EconomySystem extends BaseSystem {
    * Imposta lo status di Administrator
    */
   setPlayerAdministrator(isAdmin: boolean): void {
-    const honor = this.getPlayerHonor();
-    if (honor) {
-      honor.setAdministrator(isAdmin);
+    if (!this.playerEntity) return;
+    const playerRole = this.ecs.getComponent(this.playerEntity, PlayerRole);
+    if (playerRole) {
+      playerRole.setAdministrator(isAdmin);
     }
   }
 
