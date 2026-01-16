@@ -11,6 +11,7 @@ import { Shield } from '../../entities/combat/Shield';
 import { Explosion } from '../../entities/combat/Explosion';
 import { Projectile } from '../../entities/combat/Projectile';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { Camera } from '../../entities/spatial/Camera';
 import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
@@ -80,6 +81,7 @@ export class RenderSystem extends BaseSystem {
     this.engflamesSprite = sprite;
   }
 
+
   /**
    * Ottieni componenti con caching per ottimizzazione performance
    */
@@ -95,7 +97,8 @@ export class RenderSystem extends BaseSystem {
         explosion: this.ecs.getComponent(entity, Explosion),
         velocity: this.ecs.getComponent(entity, Velocity),
         health: this.ecs.getComponent(entity, Health),
-        shield: this.ecs.getComponent(entity, Shield)
+        shield: this.ecs.getComponent(entity, Shield),
+        remotePlayer: this.ecs.getComponent(entity, RemotePlayer)
       });
     }
     return this.componentCache.get(entity);
@@ -112,7 +115,7 @@ export class RenderSystem extends BaseSystem {
 
 
   /**
-   * Render game entity (NPC, Player, or Explosion)
+   * Render game entity (NPC, Player, Remote Player, or Explosion)
    */
   private renderGameEntity(
     ctx: CanvasRenderingContext2D,
@@ -133,8 +136,9 @@ export class RenderSystem extends BaseSystem {
     
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isPlayerEntity = playerEntity === entity;
+    const isRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
 
-    // Priority: Explosions > NPC > Player
+    // Priority: Explosions > NPC > Player > Remote Player
     if (explosion) {
       this.renderExplosion(ctx, transform, explosion, screenX, screenY);
     } else if (npc) {
@@ -206,10 +210,10 @@ export class RenderSystem extends BaseSystem {
         
         const floatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime);
         
+        
         // Renderizza fiamme del motore PRIMA della nave (sotto nello z-order)
-        const playerVelocity = this.ecs.getComponent(entity, Velocity);
-        if (playerVelocity && this.engflamesSprite && this.engflamesOpacity > 0) {
-          const isMoving = Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.y) > 0.1;
+        if (velocity && this.engflamesSprite && this.engflamesOpacity > 0) {
+          const isMoving = Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1;
           if (isMoving) {
             const params = EngineFlamesRenderer.getRenderParams(
               transform,
@@ -250,6 +254,36 @@ export class RenderSystem extends BaseSystem {
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
+      } else if (isRemotePlayer) {
+        // Render remote player - similar to local player but without engine flames
+        const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
+        const entitySprite = this.ecs.getComponent(entity, Sprite);
+        
+        // Aggiungi float offset per allineare con player locale
+        const floatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime);
+        
+        if (entityAnimatedSprite) {
+          // Verifica che l'immagine esista e abbia dimensioni valide
+          const img = entityAnimatedSprite.spritesheet?.image;
+          if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+            const zoom = camera?.zoom || 1;
+            const renderTransform: SpritesheetRenderTransform = {
+              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
+              scaleX: (transform.scaleX || 1) * zoom, 
+              scaleY: (transform.scaleY || 1) * zoom
+            };
+            SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
+          }
+        } else if (entitySprite && entitySprite.isLoaded()) {
+          // Fallback to sprite renderer
+          const zoom = camera?.zoom || 1;
+          const renderTransform: RenderableTransform = {
+            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
+            scaleX: (transform.scaleX || 1) * zoom, 
+            scaleY: (transform.scaleY || 1) * zoom
+          };
+          SpriteRenderer.render(ctx, renderTransform, entitySprite);
+        }
       }
     }
   }
@@ -261,24 +295,23 @@ export class RenderSystem extends BaseSystem {
     // Aggiorna timestamp frame per sincronizzare float offset
     this.frameTime += deltaTime;
     
-    // Gestisci fade in/out delle fiamme e aggiorna tracce
     const playerEntity = this.playerSystem.getPlayerEntity();
-    if (playerEntity && this.engflamesSprite) {
-      const velocity = this.ecs.getComponent(playerEntity, Velocity);
-      const transform = this.ecs.getComponent(playerEntity, Transform);
-      const isMoving = velocity ? (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1) : false;
-      
+    if (!playerEntity) return;
+
+    const velocity = this.ecs.getComponent(playerEntity, Velocity);
+    const isMoving = velocity ? (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1) : false;
+    
+    // Gestisci fiamme del motore
+    if (this.engflamesSprite) {
       // Fade in quando inizia a muoversi, fade out quando si ferma
       if (isMoving) {
-        // Fade in
         this.engflamesOpacity = Math.min(1, this.engflamesOpacity + this.ENGFLAMES_FADE_SPEED);
       } else {
-        // Fade out
         this.engflamesOpacity = Math.max(0, this.engflamesOpacity - this.ENGFLAMES_FADE_SPEED);
       }
-      
       this.engflamesWasMoving = isMoving;
     }
+
   }
 
   render(ctx: CanvasRenderingContext2D): void {
