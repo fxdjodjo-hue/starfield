@@ -99,17 +99,8 @@ export class EconomySystem extends BaseSystem {
    * Imposta RecentHonor nel RankSystem (media mobile honor ultimi 30 giorni)
    */
   setRecentHonor(recentHonor: number): void {
-    if (this.rankSystem && typeof this.rankSystem.setRecentHonor === 'function') {
-      this.rankSystem.setRecentHonor(recentHonor);
-      
-      // Ricalcola il rank e notifica il cambio (se necessario)
-      const newRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
-      if (this.onHonorChanged) {
-        const honor = this.getPlayerHonor();
-        // Notifica il cambio di rank (senza cambiare l'honor stesso)
-        this.onHonorChanged(honor?.honor || 0, 0, newRank);
-      }
-    }
+    this.initializeManagers();
+    this.honorManager.setRecentHonor(recentHonor);
   }
 
   /**
@@ -161,20 +152,72 @@ export class EconomySystem extends BaseSystem {
       (newAmount, change, newRank) => this.eventManager.getOnHonorChanged()?.(newAmount, change, newRank),
       (newAmount, change) => this.eventManager.getOnSkillPointsChanged()?.(newAmount, change)
     );
+    // Update status manager with new honor manager
+    this.statusManager = new EconomyStatusManager(
+      this.currencyManager,
+      this.progressionManager,
+      this.honorManager,
+      () => this.rankSystem
+    );
   }
 
   /**
    * I valori economici sono ora integrati nell'HUD del giocatore
+   * @deprecated UI displays are now handled by PlayerHUD
    */
   createEconomyDisplays(): void {
-    // Non crea più pannelli separati - i valori sono nell'HUD del PlayState
+    this.initializeManagers();
+    // Delegated to EconomyUIDisplayManager (deprecated)
   }
 
+  /**
+   * Rimuove tutti gli elementi UI economici
+   * @deprecated UI displays are now handled by PlayerHUD
+   */
+  removeEconomyDisplays(): void {
+    this.initializeManagers();
+    // Delegated to EconomyUIDisplayManager (deprecated)
+  }
 
   /**
-   * Crea l'elemento UI per i Credits
+   * I valori economici sono ora nell'HUD del giocatore
+   * @deprecated UI displays are now handled by PlayerHUD
    */
-  private createCreditsDisplay(): void {
+  showEconomyDisplays(): void {
+    this.initializeManagers();
+    // Delegated to EconomyUIDisplayManager (deprecated)
+  }
+
+  /**
+   * Nasconde tutti gli elementi UI economici
+   * @deprecated UI displays are now handled by PlayerHUD
+   */
+  hideEconomyDisplays(): void {
+    this.initializeManagers();
+    // Delegated to EconomyUIDisplayManager (deprecated)
+  }
+
+  /**
+   * Aggiorna tutti gli elementi UI economici
+   * @deprecated UI displays are now handled by PlayerHUD
+   */
+  updateEconomyDisplays(): void {
+    this.initializeManagers();
+    // Delegated to EconomyUIDisplayManager (deprecated)
+  }
+
+  // ========== REMOVED UI METHODS - Now in EconomyUIDisplayManager (deprecated) ==========
+  // All private UI display methods have been removed (deprecated, no longer used):
+  // - createCreditsDisplay(), createCosmosDisplay(), createExperienceDisplay(), createHonorDisplay()
+  // - removeCreditsDisplay(), removeCosmosDisplay(), removeExperienceDisplay(), removeHonorDisplay()
+  // - showCreditsDisplay(), showCosmosDisplay(), showExperienceDisplay(), showHonorDisplay()
+  // - hideCreditsDisplay(), hideCosmosDisplay(), hideExperienceDisplay(), hideHonorDisplay()
+  // - updateCreditsDisplay(), updateCosmosDisplay(), updateExperienceDisplay(), updateHonorDisplay()
+  // These methods are deprecated - UI displays are now handled by PlayerHUD
+
+  /**
+   * Ottiene i componenti economici del giocatore
+   */
     this.removeCreditsDisplay();
 
     this.creditsDisplayElement = document.createElement('div');
@@ -543,8 +586,8 @@ export class EconomySystem extends BaseSystem {
   }
 
   getPlayerHonor(): Honor | null {
-    if (!this.playerEntity) return null;
-    return this.ecs.getComponent(this.playerEntity, Honor) || null;
+    this.initializeManagers();
+    return this.honorManager.getPlayerHonor();
   }
 
   // ===== GESTIONE CREDITS =====
@@ -772,24 +815,8 @@ export class EconomySystem extends BaseSystem {
     honor: number;
     honorRank: string;
   } | null {
-    const credits = this.getPlayerCredits();
-    const cosmos = this.getPlayerCosmos();
-    const experience = this.getPlayerExperience();
-    const honor = this.getPlayerHonor();
-
-    if (!credits || !cosmos || !experience || !honor) return null;
-
-    const result = {
-      credits: credits.credits,
-      cosmos: cosmos.cosmos,
-      level: experience.level,
-      experience: experience.exp,
-      expForNextLevel: experience.expForCurrentLevel,
-      honor: honor.honor,
-      honorRank: this.rankSystem?.calculateCurrentRank() || 'Recruit'
-    };
-
-    return result;
+    this.initializeManagers();
+    return this.statusManager.getPlayerEconomyStatus();
   }
 
   update(deltaTime: number): void {
