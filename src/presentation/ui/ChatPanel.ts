@@ -1,5 +1,5 @@
-import { ECS } from '../../infrastructure/ecs/ECS';
-import { PlayerSystem } from '../../systems/player/PlayerSystem';
+import type { ECS } from '../../infrastructure/ecs/ECS';
+import type { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { DisplayManager } from '../../infrastructure/display';
 
 // Modular architecture managers
@@ -19,9 +19,7 @@ export class ChatPanel {
   private inputContainer!: HTMLElement;
   private inputElement!: HTMLInputElement;
   private toggleButton!: HTMLElement;
-  private ecs: ECS | null = null;
   private context: any = null;
-  private playerSystem: PlayerSystem | null = null;
   private isEnabled: boolean = true;
   private dprCompensation: number;
   private targetHeight: number;
@@ -34,9 +32,8 @@ export class ChatPanel {
   private managersInitialized: boolean = false;
 
   constructor(ecs?: ECS, context?: any, playerSystem?: PlayerSystem) {
-    this.ecs = ecs || null;
+    // ecs and playerSystem parameters kept for API compatibility but no longer used
     this.context = context || null;
-    this.playerSystem = playerSystem || null;
     this.isEnabled = true;
     
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
@@ -93,13 +90,8 @@ export class ChatPanel {
       () => this.visibilityManager.show(),
       () => this.visibilityManager.hideWithAnimation(),
       () => {
-        const message = this.inputManager.sendMessage();
-        if (message) {
-          this.inputManager.createChatTextAbovePlayer(message);
-        }
-      },
-      this.ecs,
-      this.playerSystem
+        this.inputManager.sendMessage();
+      }
     );
 
     // Setup event listeners
@@ -112,10 +104,7 @@ export class ChatPanel {
         }
       },
       () => {
-        const message = this.inputManager.sendMessage();
-        if (message) {
-          this.inputManager.createChatTextAbovePlayer(message);
-        }
+        this.inputManager.sendMessage();
       }
     );
 
@@ -124,13 +113,10 @@ export class ChatPanel {
 
   /**
    * Imposta il riferimento al PlayerSystem
+   * @deprecated No longer used, kept for API compatibility
    */
   setPlayerSystem(playerSystem: PlayerSystem): void {
-    this.playerSystem = playerSystem;
-    // Aggiorna il riferimento nel ChatInputManager se già inizializzato
-    if (this.managersInitialized) {
-      this.inputManager.updateReferences(this.ecs, this.playerSystem);
-    }
+    // No longer needed - chat text above player feature removed
   }
 
 
