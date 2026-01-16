@@ -80,16 +80,8 @@ export class UiSystem extends System {
         // Aggiorna UI locale
         this.updatePlayerData({ inventory });
 
-        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.authId) {
-          this.clientNetworkSystem.sendMessage({
-            type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.authId,
-            field: 'credits',
-            value: newAmount,
-            change: change
-          });
-        }
+        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
+        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
       });
 
       this.economySystem.setCosmosChangedCallback((newAmount: number, change: number) => {
@@ -103,16 +95,8 @@ export class UiSystem extends System {
 
         this.updatePlayerData({ inventory });
 
-        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.authId) {
-          this.clientNetworkSystem.sendMessage({
-            type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.authId,
-            field: 'cosmos',
-            value: newAmount,
-            change: change
-          });
-        }
+        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
+        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
       });
 
       this.economySystem.setExperienceChangedCallback((newAmount: number, change: number, leveledUp: boolean) => {
@@ -126,16 +110,8 @@ export class UiSystem extends System {
 
         this.updatePlayerData({ inventory });
 
-        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.authId) {
-          this.clientNetworkSystem.sendMessage({
-            type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.authId,
-            field: 'experience',
-            value: newAmount,
-            change: change
-          });
-        }
+        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
+        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
       });
 
       this.economySystem.setHonorChangedCallback((newAmount: number, change: number, newRank?: string) => {
@@ -149,16 +125,8 @@ export class UiSystem extends System {
 
         this.updatePlayerData({ inventory });
 
-        // Sincronizza con il server - invia solo il campo cambiato per sicurezza
-        if (this.clientNetworkSystem && this.context?.authId) {
-          this.clientNetworkSystem.sendMessage({
-            type: MESSAGE_TYPES.ECONOMY_UPDATE,
-            playerId: this.context.authId,
-            field: 'honor',
-            value: newAmount,
-            change: change
-          });
-        }
+        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
+        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
       });
     }
   }

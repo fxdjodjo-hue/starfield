@@ -28,6 +28,8 @@ export interface NpcAI {
 export interface NpcDefinition {
   type: string;
   defaultBehavior: string;
+  spriteScale?: number; // Scala dello sprite (per AnimatedSprite e Sprite)
+  transformScale?: number; // Scala del Transform (opzionale, default 1)
   stats: NpcStats;
   rewards: NpcRewards;
   spawns?: string[]; // Tipi di NPC che questo NPC può generare

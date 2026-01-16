@@ -159,8 +159,13 @@ export class GameInitializationSystem extends System {
     const playerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.7);
     // DISABLED: Sfondo nero puro + stelle - riattivare per usare bg.jpg
     // const mapBackgroundImage = await this.context.assetManager.loadImage(`/assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`);
-    const scouterAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/npc_ships/scouter/alien120', 0.15);
-    const kronosAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', 0.16);
+    
+    // Carica sprite NPC usando scala dal config (single source of truth)
+    const scouterDef = getNpcDefinition('Scouter');
+    const kronosDef = getNpcDefinition('Kronos');
+    const scouterAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/npc_ships/scouter/alien120', scouterDef?.spriteScale || 0.8);
+    const kronosAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', kronosDef?.spriteScale || 0.16);
+    const teleportAnimatedSprite = await this.context.assetManager.createAnimatedSprite('/assets/teleport/teleport', 1.0);
 
     // Crea sistemi
     this.audioSystem = new AudioSystem(this.ecs, AUDIO_CONFIG);
@@ -283,7 +288,7 @@ export class GameInitializationSystem extends System {
       clientNetworkSystem: this.clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,
-      assets: { playerSprite, scouterAnimatedSprite, kronosAnimatedSprite } // mapBackgroundImage disabled
+      assets: { playerSprite, scouterAnimatedSprite, kronosAnimatedSprite, teleportAnimatedSprite } // mapBackgroundImage disabled
     };
 
     return result;
@@ -470,7 +475,26 @@ export class GameInitializationSystem extends System {
     // Nota: Gli NPC ora vengono creati e gestiti dal server
     // Non creiamo più NPC locali per garantire consistenza multiplayer
 
+    // Crea portale a X=9000, Y=0
+    this.createTeleport(9000, 0, assets.teleportAnimatedSprite);
+
     return playerEntity;
+  }
+
+  /**
+   * Crea un'entità portale statica
+   */
+  private createTeleport(x: number, y: number, animatedSprite: AnimatedSprite): void {
+    const entity = this.ecs.createEntity();
+    
+    // Componenti spaziali
+    this.ecs.addComponent(entity, Transform, new Transform(x, y, 0, 1, 1));
+    
+    // Componente visivo
+    this.ecs.addComponent(entity, AnimatedSprite, animatedSprite);
+    
+    // Autorità: entità statica, nessuna autorità necessaria
+    // Il portale è puramente visivo per ora, senza logica
   }
 
   /**

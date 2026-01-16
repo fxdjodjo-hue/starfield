@@ -688,6 +688,10 @@ export class PlayerControlSystem extends BaseSystem {
    * Seleziona un NPC specifico (copia della logica da NpcSelectionSystem)
    */
   private selectNpc(npcEntity: any, deactivateAttack: boolean = true): void {
+    // Verifica se l'NPC è già selezionato PRIMA di deselezionare tutti (per evitare log duplicati)
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    const alreadySelected = selectedNpcs.length > 0 && selectedNpcs[0].id === npcEntity.id;
+    
     // Disattiva attacco su qualsiasi selezione precedente SOLO se richiesto
     if (deactivateAttack) {
       this.deactivateAttackOnAnySelection();
@@ -699,10 +703,12 @@ export class PlayerControlSystem extends BaseSystem {
     // Aggiungi selezione al NPC selezionato
     this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
 
-    // Log selezione
-    const npc = this.ecs.getComponent(npcEntity, Npc);
-    if (npc && this.logSystem) {
-      this.logSystem.addLogMessage(`Selected target: ${npc.npcType}`, LogType.INFO, 1500);
+    // Log selezione solo se non era già selezionato (evita log duplicati)
+    if (!alreadySelected) {
+      const npc = this.ecs.getComponent(npcEntity, Npc);
+      if (npc && this.logSystem) {
+        this.logSystem.addLogMessage(`Selected target: ${npc.npcType}`, LogType.INFO, 1500);
+      }
     }
   }
 
