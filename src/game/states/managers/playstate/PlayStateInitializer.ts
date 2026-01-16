@@ -220,15 +220,24 @@ export class PlayStateInitializer {
    * Initializes the game world and creates entities
    */
   async initializeGame(): Promise<void> {
-    // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
-    const playerEntity = await this.gameInitSystem.initialize();
-    this.setPlayerEntity(playerEntity);
+    console.log('[PlayStateInitializer] initializeGame() iniziato');
+    
+    try {
+      // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
+      console.log('[PlayStateInitializer] Chiamando gameInitSystem.initialize()...');
+      const playerEntity = await this.gameInitSystem.initialize();
+      console.log('[PlayStateInitializer] gameInitSystem.initialize() completato, playerEntity:', playerEntity);
+      this.setPlayerEntity(playerEntity);
 
-    // Ora che i sistemi sono stati creati, imposta il ClientNetworkSystem
-    this.setupClientNetworkSystem();
+      // Ora che i sistemi sono stati creati, imposta il ClientNetworkSystem
+      console.log('[PlayStateInitializer] Impostando ClientNetworkSystem...');
+      this.setupClientNetworkSystem();
+      console.log('[PlayStateInitializer] ClientNetworkSystem impostato');
 
     // Ottieni riferimenti ai sistemi creati
+    console.log('[PlayStateInitializer] Ottenendo riferimenti ai sistemi...');
     const systems = this.gameInitSystem.getSystems();
+    console.log('[PlayStateInitializer] Sistemi ottenuti:', Object.keys(systems));
     this.setQuestSystem(systems.questSystem);
     const uiSystem = this.getUiSystem();
     if (!uiSystem && systems.uiSystem) {
@@ -237,6 +246,7 @@ export class PlayStateInitializer {
     this.setQuestManager(systems.questManager);
     this.setCameraSystem(systems.cameraSystem);
     this.setMovementSystem(systems.movementSystem);
+    console.log('[PlayStateInitializer] Riferimenti sistemi impostati');
 
     // Ora che i sistemi sono stati creati, imposta NPC e proiettili remoti nel ClientNetworkSystem
     if (systems.remoteNpcSystem) {
@@ -278,19 +288,30 @@ export class PlayStateInitializer {
     }
 
     // Collega il ClientNetworkSystem all'UiSystem (per UpgradePanel)
+    console.log('[PlayStateInitializer] Collegando ClientNetworkSystem all\'UiSystem...');
     const clientNetworkSystem = this.getClientNetworkSystem();
     if (clientNetworkSystem) {
       const uiSystem = this.getUiSystem();
       if (uiSystem) {
         uiSystem.setClientNetworkSystem(clientNetworkSystem);
         // 🔧 FIX RACE CONDITION: Usa il nuovo sistema di inizializzazione sequenziale
+        console.log('[PlayStateInitializer] Inizializzando sistema di rete...');
         await this.initializeNetworkSystem();
+        console.log('[PlayStateInitializer] Sistema di rete inizializzato');
       }
+    } else {
+      console.warn('[PlayStateInitializer] ClientNetworkSystem non disponibile');
     }
 
     // Collega il PlayerSystem al ClientNetworkSystem (per sincronizzazione upgrade)
     if (systems.playerSystem && clientNetworkSystem) {
       clientNetworkSystem.setPlayerSystem(systems.playerSystem);
+    }
+    
+    console.log('[PlayStateInitializer] initializeGame() completato');
+    } catch (error) {
+      console.error('[PlayStateInitializer] Errore in initializeGame():', error);
+      throw error;
     }
   }
 
@@ -300,11 +321,16 @@ export class PlayStateInitializer {
    */
   async initializeNetworkSystem(): Promise<void> {
     const clientNetworkSystem = this.getClientNetworkSystem();
-    if (!clientNetworkSystem) return;
+    if (!clientNetworkSystem) {
+      console.warn('[PlayStateInitializer] initializeNetworkSystem: ClientNetworkSystem non disponibile');
+      return;
+    }
 
     try {
       // Inizializza il sistema di rete
+      console.log('[PlayStateInitializer] Chiamando clientNetworkSystem.initialize()...');
       await clientNetworkSystem.initialize();
+      console.log('[PlayStateInitializer] clientNetworkSystem.initialize() completato');
 
       // Ora che il sistema è inizializzato, possiamo configurare i callback in sicurezza
       clientNetworkSystem.setOnPlayerIdReceived((playerId: number) => {
