@@ -17,8 +17,8 @@ import { logger } from '../../utils/Logger';
 export class RemoteProjectileSystem extends BaseSystem {
   // Mappa projectileId -> entity data
   private remoteProjectiles: Map<string, {entityId: number, playerId: string, type: string}> = new Map();
-  // Contatore sparo per alternanza visiva (2 laser / 3 laser)
-  private playerShotCount: number = 0;
+  // Contatori sparo per alternanza visiva (2 laser / 3 laser) - uno per ogni playerId
+  private playerShotCounts: Map<string, number> = new Map();
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -126,11 +126,12 @@ export class RemoteProjectileSystem extends BaseSystem {
       type: projectileType
     });
 
-    // Per il player locale, crea laser visivi alternati (2 o 3 laser totali)
-    if (isLocalPlayer && typeof playerId === 'string' && !playerId.startsWith('npc_')) {
-      // Incrementa contatore sparo e alterna tra 3 e 2 laser
-      this.playerShotCount++;
-      const isTripleShot = (this.playerShotCount % 2) === 1; // Spari dispari = 3 laser, pari = 2 laser
+    // Per tutti i player (non NPC), crea laser visivi alternati (2 o 3 laser totali)
+    if (typeof playerId === 'string' && !playerId.startsWith('npc_')) {
+      // Incrementa contatore sparo per questo playerId specifico e alterna tra 3 e 2 laser
+      const currentCount = (this.playerShotCounts.get(playerId) || 0) + 1;
+      this.playerShotCounts.set(playerId, currentCount);
+      const isTripleShot = (currentCount % 2) === 1; // Spari dispari = 3 laser, pari = 2 laser
       
       const dualLaserOffset = 40; // Offset perpendicolare per i laser laterali (px)
       const perpX = -directionY;
@@ -177,7 +178,7 @@ export class RemoteProjectileSystem extends BaseSystem {
       } else {
         // Sparo dispari: 2 laser totali (1 server + 1 visivo laterale)
         // Alterna tra sinistra e destra
-        const sideOffset = (this.playerShotCount % 4 === 1) ? 1 : -1; // Alterna ogni 2 spari
+        const sideOffset = (currentCount % 4 === 1) ? 1 : -1; // Alterna ogni 2 spari
         const sideOffsetX = perpX * dualLaserOffset * sideOffset;
         const sideOffsetY = perpY * dualLaserOffset * sideOffset;
         

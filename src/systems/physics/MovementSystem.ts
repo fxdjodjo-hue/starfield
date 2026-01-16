@@ -4,6 +4,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { Npc } from '../../entities/ai/Npc';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 
 /**
  * Sistema di movimento che aggiorna le posizioni delle entità basandosi sulla velocity
@@ -19,7 +20,9 @@ export class MovementSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     // Prima aggiorna le posizioni delle entità
-    const entities = this.ecs.getEntitiesWithComponents(Transform, Velocity);
+    // ESCLUDI entità con InterpolationTarget (remote player) - gestite da InterpolationSystem
+    const entities = this.ecs.getEntitiesWithComponents(Transform, Velocity)
+      .filter(entity => !this.ecs.hasComponent(entity, InterpolationTarget));
 
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);

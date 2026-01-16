@@ -288,6 +288,7 @@ export interface ProjectileFiredMessage {
   velocity: { x: number; y: number };
   damage: number;
   projectileType: 'laser' | 'plasma' | 'missile';
+  targetId?: string | null;
 }
 
 /**

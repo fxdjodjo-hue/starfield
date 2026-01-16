@@ -24,7 +24,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         // Riproduci suono sparo
         const audioSystem = networkSystem.getAudioSystem();
         if (audioSystem) {
-          audioSystem.playSound('laser', 0.4, false, true);
+          audioSystem.playSound('laser', 0.05, false, true);
         }
         
         // Mostra proiettile (sempre mostrato, ma con timing ritmico)
@@ -35,7 +35,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       const audioSystem = networkSystem.getAudioSystem();
       if (audioSystem) {
         if (message.playerId.startsWith('npc_')) {
-          audioSystem.playSound('scouterLaser', 0.25, false, true);
+          audioSystem.playSound('scouterLaser', 0.05, false, true);
         }
       }
       

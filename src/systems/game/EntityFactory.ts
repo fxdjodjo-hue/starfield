@@ -11,6 +11,7 @@ import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Transform } from '../../entities/spatial/Transform';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
+import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { CONFIG } from '../../utils/config/Config';
 
 export interface EntityFactoryDependencies {
@@ -46,6 +47,9 @@ export class EntityFactory {
     // Crea portale a X=9000, Y=0
     EntityFactory.createTeleport(ecs, 9000, 0, assets.teleportAnimatedSprite);
 
+    // Crea space station a X=0, Y=0
+    EntityFactory.createSpaceStation(ecs, 0, 0, assets.spaceStationSprite);
+
     // Crea background della mappa come entità parallax
     await EntityFactory.createMapBackground(ecs, context);
 
@@ -70,6 +74,24 @@ export class EntityFactory {
     // Autorità: entità statica, nessuna autorità necessaria
     // Il portale è puramente visivo per ora, senza logica
     console.log(`[EntityFactory] Portal created at (${x}, ${y})`);
+  }
+
+  /**
+   * Crea un'entità space station statica
+   */
+  static createSpaceStation(ecs: ECS, x: number, y: number, sprite: Sprite): void {
+    const entity = ecs.createEntity();
+    
+    // Componenti spaziali
+    ecs.addComponent(entity, Transform, new Transform(x, y, 0, 1, 1));
+    
+    // Componente visivo
+    ecs.addComponent(entity, Sprite, sprite);
+    
+    // Componente SpaceStation per identificare questa entità come space station
+    ecs.addComponent(entity, SpaceStation, new SpaceStation());
+    
+    console.log(`[EntityFactory] Space station created at (${x}, ${y})`);
   }
 
   /**

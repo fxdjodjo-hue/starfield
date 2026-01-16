@@ -50,8 +50,8 @@ export class InterpolationTarget {
   // ==========================================
   // SMOOTHING OTTIMIZZATO PER FLUIDITÀ
   // ==========================================
-  private smoothingFactor: number = 0.4;   // Smoothing bilanciato (40% per frame) per ridurre scatti mantenendo stabilità
-  private angularSmoothing: number = 0.6;  // Smoothing separato per rotazione - aumentato per più fluidità
+  private smoothingFactor: number = 0.1;   // Smoothing basso (10% per frame) - elimina effetto "lag" mantenendo movimento fluido
+  private angularSmoothing: number = 0.1;  // Smoothing rotazione basso (10% per frame) - rotazioni fluide e reattive senza lag visivo
 
   constructor(initialX: number, initialY: number, initialRotation: number) {
     // Inizializza render = target
@@ -83,23 +83,20 @@ export class InterpolationTarget {
 
   /**
    * UPDATE RENDER - Versione ottimizzata per ridurre scatti
-   * Interpolazione lineare semplice con smoothing bilanciato
+   * Interpolazione lineare semplice con smoothing fisso per frame (non dipendente da deltaTime)
    */
   updateRender(deltaTime: number): void {
-    // Normalizza deltaTime per frame-rate independence (max 2x velocità)
-    const normalizedDelta = Math.min(deltaTime / 16.67, 2.0);
-
-    // Calcola smoothing finale
-    const positionSmoothing = this.smoothingFactor * normalizedDelta;
-    const rotationSmoothing = this.angularSmoothing * normalizedDelta;
-
+    // Usa smoothing fisso per frame - non dipendente da deltaTime
+    // Questo garantisce comportamento consistente indipendentemente dal framerate
+    // e permette di raggiungere il target rapidamente con aggiornamenti a 20 FPS
+    
     // Interpolazione lineare semplice ottimizzata per ridurre scatti irregolari
-    this.renderX += (this.targetX - this.renderX) * positionSmoothing;
-    this.renderY += (this.targetY - this.renderY) * positionSmoothing;
+    this.renderX += (this.targetX - this.renderX) * this.smoothingFactor;
+    this.renderY += (this.targetY - this.renderY) * this.smoothingFactor;
 
     // Interpolazione angolare con shortest path
     const angleDiff = this.calculateShortestAngle(this.renderRotation, this.targetRotation);
-    this.renderRotation += angleDiff * rotationSmoothing;
+    this.renderRotation += angleDiff * this.angularSmoothing;
     this.renderRotation = this.normalizeAngle(this.renderRotation);
 
     // Validazione finale: assicurati che i valori renderizzati siano ancora validi

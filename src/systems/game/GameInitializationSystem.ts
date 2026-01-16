@@ -20,6 +20,7 @@ import { SystemFactory } from './SystemFactory';
 import type { CreatedSystems } from './SystemFactory';
 import { SystemConfigurator } from './SystemConfigurator';
 import { EntityFactory } from './EntityFactory';
+import { InterpolationSystem } from '../physics/InterpolationSystem';
 
 /**
  * Sistema di orchestrazione per l'inizializzazione del gioco
@@ -107,8 +108,11 @@ export class GameInitializationSystem extends System {
     this.combatStateSystem = this.systemsCache.combatStateSystem;
     this.minimapSystem = this.systemsCache.minimapSystem;
 
+    // Crea InterpolationSystem prima di aggiungere i sistemi per garantire ordine corretto
+    const interpolationSystem = new InterpolationSystem(this.ecs);
+
     // Aggiungi sistemi all'ECS nell'ordine corretto
-    SystemConfigurator.addSystemsToECS(this.ecs, this.systemsCache);
+    SystemConfigurator.addSystemsToECS(this.ecs, this.systemsCache, interpolationSystem);
 
     // Configura le interazioni tra sistemi
     SystemConfigurator.configureSystemInteractions({

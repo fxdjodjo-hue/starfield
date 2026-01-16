@@ -345,10 +345,13 @@ export class PlayStateInitializer {
       }
     }
 
-    // Inizializza il sistema di interpolazione per movimenti fluidi
-    const interpolationSystem = new InterpolationSystem(this.world.getECS());
-    this.world.getECS().addSystem(interpolationSystem);
-    this.setInterpolationSystem(interpolationSystem);
+    // InterpolationSystem è già stato creato e aggiunto in GameInitializationSystem
+    // Recuperalo dall'ECS per impostare il riferimento
+    const allSystems = this.world.getECS().getSystems();
+    const interpolationSystem = allSystems.find(s => s.constructor.name === 'InterpolationSystem');
+    if (interpolationSystem) {
+      this.setInterpolationSystem(interpolationSystem);
+    }
     this.setAudioSystem(systems.audioSystem);
 
     // Collega l'EconomySystem all'UiSystem

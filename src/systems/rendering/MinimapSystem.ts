@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { Portal } from '../../entities/spatial/Portal';
 import { Minimap } from '../../presentation/ui/Minimap';
 import { Camera } from '../../entities/spatial/Camera';
 import { CONFIG } from '../../utils/config/Config';
@@ -193,6 +194,7 @@ export class MinimapSystem extends BaseSystem {
 
     this.renderMinimapBackground(ctx, playerPos);
     this.renderEntities(ctx);
+    this.renderPortals(ctx);
     this.renderRemotePlayers(ctx);
     this.renderPlayerIndicator(ctx);
 
@@ -370,6 +372,20 @@ export class MinimapSystem extends BaseSystem {
   }
 
   /**
+   * Renderizza i portali sulla minimappa come cerchi bianchi
+   */
+  private renderPortals(ctx: CanvasRenderingContext2D): void {
+    const portalEntities = this.ecs.getEntitiesWithComponents(Portal);
+
+    portalEntities.forEach(entityId => {
+      const transform = this.ecs.getComponent(entityId, Transform);
+      if (transform) {
+        this.renderPortalDot(ctx, transform.x, transform.y);
+      }
+    });
+  }
+
+  /**
    * Renderizza i giocatori remoti sulla minimappa
    */
   private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
@@ -439,6 +455,28 @@ export class MinimapSystem extends BaseSystem {
     ctx.shadowBlur = 2;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Ripristina stato
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza un portale come cerchio bianco vuoto
+   */
+  private renderPortalDot(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
+    const pos = this.minimap.worldToMinimap(worldX, worldY);
+    const c = this.minimap.getDprCompensation();
+    const radius = Math.round(6 * c);
+
+    // Salva stato
+    ctx.save();
+
+    // Cerchio bianco vuoto (solo contorno)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
     ctx.stroke();
 
     // Ripristina stato

@@ -39,6 +39,7 @@ import { CameraSystem } from '../rendering/CameraSystem';
 import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
+import { Sprite } from '../../entities/Sprite';
 
 export interface SystemFactoryDependencies {
   ecs: ECS;
@@ -88,6 +89,7 @@ export interface CreatedSystems {
     kronosAnimatedSprite: AnimatedSprite;
     teleportAnimatedSprite: AnimatedSprite;
     engflamesAnimatedSprite: AnimatedSprite;
+    spaceStationSprite: Sprite;
   };
 }
 
@@ -108,6 +110,7 @@ export class SystemFactory {
     const kronosAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', kronosDef?.spriteScale || 0.16);
     const teleportAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/teleport/teleport', 1.0);
     const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/engflames/engflames', 0.5);
+    const spaceStationSprite = await context.assetManager.createSprite('/assets/spacestation/spacestation.png');
 
     // Crea sistemi
     const audioSystem = new AudioSystem(ecs, AUDIO_CONFIG);
@@ -237,7 +240,8 @@ export class SystemFactory {
         scouterAnimatedSprite,
         kronosAnimatedSprite,
         teleportAnimatedSprite,
-        engflamesAnimatedSprite
+        engflamesAnimatedSprite,
+        spaceStationSprite
       }
     };
   }

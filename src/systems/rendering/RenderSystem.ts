@@ -17,6 +17,7 @@ import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
+import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -24,6 +25,7 @@ import { NpcRenderer } from '../../utils/helpers/NpcRenderer';
 import { ProjectileRenderer } from '../../utils/helpers/ProjectileRenderer';
 import type { ProjectileRenderParams } from '../../utils/helpers/ProjectileRenderer';
 import { PlayerRenderer } from '../../utils/helpers/PlayerRenderer';
+import { SpaceStationRenderer } from '../../utils/helpers/SpaceStationRenderer';
 import { HudRenderer } from '../../utils/helpers/HudRenderer';
 import type { HealthBarRenderParams } from '../../utils/helpers/HudRenderer';
 import { ExplosionRenderer } from '../../utils/helpers/ExplosionRenderer';
@@ -286,8 +288,9 @@ export class RenderSystem extends BaseSystem {
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
       } else {
-        // Render portals only - no generic entities
+        // Render portals and space stations
         const isPortal = this.ecs.hasComponent(entity, Portal);
+        const isSpaceStation = this.ecs.hasComponent(entity, SpaceStation);
         
         if (isPortal) {
           const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
@@ -332,8 +335,23 @@ export class RenderSystem extends BaseSystem {
             };
             SpriteRenderer.render(ctx, renderTransform, entitySprite);
           }
+        } else if (isSpaceStation) {
+          // Render space station con fluttuazione verticale
+          const entitySprite = this.ecs.getComponent(entity, Sprite);
+          
+          if (entitySprite && entitySprite.isLoaded()) {
+            const floatOffsetY = SpaceStationRenderer.getFloatOffset(this.frameTime);
+            
+            const zoom = camera?.zoom || 1;
+            const renderTransform: RenderableTransform = {
+              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
+              scaleX: (transform.scaleX || 1) * zoom, 
+              scaleY: (transform.scaleY || 1) * zoom
+            };
+            SpriteRenderer.render(ctx, renderTransform, entitySprite);
+          }
         }
-        // Se non è un portale e non è player/remote player/NPC/explosion, non renderizzare
+        // Se non è un portale/space station e non è player/remote player/NPC/explosion, non renderizzare
       }
     }
   }
