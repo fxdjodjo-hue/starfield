@@ -80,7 +80,7 @@ export class CameraSystem extends BaseSystem {
       this.zoomAnimation.elapsed += deltaTime;
       const progress = Math.min(this.zoomAnimation.elapsed / this.zoomAnimation.duration, 1);
       
-      // Ease-out curve per animazione più naturale
+      // Easing smooth ease-out
       const easedProgress = 1 - Math.pow(1 - progress, 3);
       
       const currentZoom = this.zoomAnimation.startZoom + 
@@ -101,5 +101,22 @@ export class CameraSystem extends BaseSystem {
         }
       }
     }
+  }
+
+  /**
+   * Ottiene l'opacità del mondo durante l'animazione zoom (per fade-in)
+   */
+  getWorldOpacity(): number {
+    if (!this.zoomAnimation || !this.zoomAnimation.active) {
+      return 1;
+    }
+    
+    const progress = Math.min(this.zoomAnimation.elapsed / this.zoomAnimation.duration, 1);
+    // Fade-in più veloce: inizia a 0.3 e arriva a 1.0 entro il 40% dell'animazione
+    if (progress < 0.4) {
+      const fadeProgress = progress / 0.4;
+      return 0.3 + (0.7 * fadeProgress);
+    }
+    return 1;
   }
 }

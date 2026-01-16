@@ -112,6 +112,12 @@ export class PlayStateInitializer {
           console.log('[PlayState] Mostrando Chat (dopo animazione camera)');
           uiSystem.showChat();
         }
+        
+        // Mostra anche le icone dei pannelli (3 icone a sinistra)
+        if (typeof uiSystem.showPanelIcons === 'function') {
+          console.log('[PlayState] Mostrando icone pannelli (dopo animazione camera)');
+          uiSystem.showPanelIcons();
+        }
       }
     };
     

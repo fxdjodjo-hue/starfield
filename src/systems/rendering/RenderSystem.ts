@@ -282,6 +282,16 @@ export class RenderSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
+    // Applica fade-in del mondo durante animazione zoom
+    const isZoomAnimating = this.cameraSystem.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
+    let worldOpacity = 1;
+    if (isZoomAnimating && this.cameraSystem.getWorldOpacity) {
+      worldOpacity = this.cameraSystem.getWorldOpacity();
+    }
+    
+    // Salva stato e applica opacità
+    ctx.save();
+    ctx.globalAlpha = worldOpacity;
     // Svuota cache componenti ad ogni frame per dati freschi
     this.clearComponentCache();
 
@@ -293,13 +303,13 @@ export class RenderSystem extends BaseSystem {
     // Render projectiles
     this.renderProjectiles(ctx, camera);
 
-    // Render player range circle (for debugging)
-    this.renderPlayerRange(ctx, camera);
-
     // Render damage text (floating numbers)
     if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
       this.damageTextSystem.render(ctx);
     }
+    
+    // Ripristina opacità
+    ctx.restore();
   }
 
   /**
@@ -616,38 +626,5 @@ export class RenderSystem extends BaseSystem {
 
     ctx.restore();
   }
-
-  /**
-   * Render player attack range circle (600px radius)
-   */
-  private renderPlayerRange(ctx: CanvasRenderingContext2D, camera: Camera): void {
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    if (!playerEntity) return;
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    if (!playerTransform) return;
-
-    // Converte posizione mondo a schermo
-    const { width, height } = this.displayManager.getLogicalSize();
-    const screenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, width, height);
-
-    const radius = 600; // Raggio del range di attacco del player (600px)
-    const screenRadius = radius * camera.zoom; // Scala con lo zoom della camera
-
-    ctx.save();
-
-    // Cerchio di range - giallo semitrasparente
-    ctx.strokeStyle = '#ffff00'; // Giallo
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.3; // Molto trasparente
-    ctx.setLineDash([10, 5]); // Linea tratteggiata
-
-    ctx.beginPath();
-    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
 
 }
