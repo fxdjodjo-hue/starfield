@@ -173,10 +173,16 @@ export default class AudioSystem extends System {
     if (!this.config.enabled) return;
 
     try {
-      // Ferma musica precedente se presente
-      if (this.musicInstance) {
-        this.musicInstance.pause();
-        this.musicInstance.currentTime = 0;
+      // Ferma musica precedente se presente (solo se è una chiave diversa)
+      if (this.musicInstance && this.musicInstance.src) {
+        const currentKey = this.musicInstance.src.split('/').pop()?.replace('.mp3', '') || '';
+        if (currentKey !== key) {
+          this.musicInstance.pause();
+          this.musicInstance.currentTime = 0;
+        } else {
+          // Stessa musica, non fare nulla
+          return;
+        }
       }
 
       // Cerca il path nell'AUDIO_ASSETS
@@ -186,15 +192,39 @@ export default class AudioSystem extends System {
         return;
       }
 
-      this.musicInstance = new Audio(`/assets/audio/${assetPath}`);
+      const audioUrl = `/assets/audio/${assetPath}`;
+      console.log(`Audio system: Creating music '${key}' from ${audioUrl}`);
+      
+      this.musicInstance = new Audio(audioUrl);
       this.musicInstance.volume = this.config.masterVolume * volume;
       this.musicInstance.loop = true;
 
-      this.musicInstance.play().catch(error => {
-        // console.warn(`Audio system: Failed to play music '${key}':`, error);
+      // Verifica errori di caricamento
+      this.musicInstance.addEventListener('error', (e) => {
+        console.error(`Audio system: Error loading music '${key}':`, e);
+        if (this.musicInstance?.error) {
+          console.error(`Audio system: Error code: ${this.musicInstance.error.code}, message: ${this.musicInstance.error.message}`);
+        }
       });
+
+      // Stesso approccio semplice dei suoni normali
+      const playMusic = async (retryCount = 0) => {
+        try {
+          await this.musicInstance!.play();
+          console.log(`Audio system: Music '${key}' playing successfully`);
+        } catch (error) {
+          if (retryCount < 2) {
+            console.warn(`Audio system: Failed to play music '${key}' (attempt ${retryCount + 1}), retrying...`, error);
+            setTimeout(() => playMusic(retryCount + 1), 50 * (retryCount + 1));
+          } else {
+            console.warn(`Audio system: Failed to play music '${key}' after ${retryCount + 1} attempts:`, error);
+          }
+        }
+      };
+
+      playMusic();
     } catch (error) {
-      // console.warn(`Audio system: Failed to play music '${key}':`, error);
+      console.warn(`Audio system: Failed to create music '${key}':`, error);
     }
   }
 
@@ -370,4 +400,5 @@ export default class AudioSystem extends System {
     }
     return null;
   }
+
 }

@@ -9,6 +9,7 @@ import type { RemoteProjectileSystem } from '../../../../systems/multiplayer/Rem
 import type { Entity } from '../../../../infrastructure/ecs/Entity';
 import { NETWORK_CONFIG } from '../../../../config/NetworkConfig';
 import { InterpolationSystem } from '../../../../systems/physics/InterpolationSystem';
+import { Transform } from '../../../../entities/spatial/Transform';
 
 /**
  * Manages PlayState initialization, setup, and resource loading
@@ -77,6 +78,29 @@ export class PlayStateInitializer {
         console.log('[PlayState] Suono di login riprodotto');
       } catch (error) {
         console.warn('[PlayState] Errore nella riproduzione del suono di login:', error);
+      }
+    }
+    
+    // Zoom out dalla nave quando il player logga
+    const cameraSystem = this.getCameraSystem();
+    if (cameraSystem && typeof cameraSystem.animateZoomOut === 'function') {
+      // Ottieni la posizione del player per centrare la camera
+      const playerEntity = this.getPlayerEntity();
+      if (playerEntity) {
+        const transform = this.world.getECS().getComponent(playerEntity, Transform);
+        if (transform) {
+          // Parte molto zoomato (5x) sul centro della nave e fa zoom out fino a visione normale (1x)
+          // Durata aumentata a 2.5 secondi per renderla più visibile
+          cameraSystem.animateZoomOut(5, 1, 2500, transform.x, transform.y);
+          console.log('[PlayState] Animazione zoom out avviata dal centro della nave (5x -> 1x)');
+        } else {
+          // Fallback: usa valori di default se non troviamo la posizione
+          cameraSystem.animateZoomOut(5, 1, 2500);
+          console.log('[PlayState] Animazione zoom out avviata (posizione player non disponibile)');
+        }
+      } else {
+        cameraSystem.animateZoomOut(5, 1, 2500);
+        console.log('[PlayState] Animazione zoom out avviata (player entity non disponibile)');
       }
     }
     
@@ -509,11 +533,12 @@ export class PlayStateInitializer {
     // Avvia musica di background e suoni ambientali
     if (audioSystem) {
       audioSystem.init();
-      audioSystem.playMusic('background');
+      // Usa playSound invece di playMusic per permettere più tracce contemporanee
+      audioSystem.playSound('background', audioSystem.getConfig().musicVolume, true, false, 'music');
       // Piccolo delay prima di avviare ambience per evitare conflitti
       setTimeout(() => {
         if (audioSystem) {
-          audioSystem.playMusic('ambience');
+          audioSystem.playSound('ambience', audioSystem.getConfig().musicVolume, true, false, 'music');
         }
       }, 100);
     }
