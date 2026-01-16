@@ -1,18 +1,13 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
-import { Transform } from '../../entities/spatial/Transform';
-import { Velocity } from '../../entities/spatial/Velocity';
-import { Damage } from '../../entities/combat/Damage';
-import { SelectedNpc } from '../../entities/combat/SelectedNpc';
-import { Npc } from '../../entities/ai/Npc';
 import { Camera } from '../../entities/spatial/Camera';
-import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { LogSystem } from '../rendering/LogSystem';
-import { LogType } from '../../presentation/ui/LogMessage';
-import { getPlayerDefinition } from '../../config/PlayerConfig';
-import { CONFIG } from '../../utils/config/Config';
-import { GAME_CONSTANTS } from '../../config/GameConstants';
-import { DisplayManager } from '../../infrastructure/display';
+
+// Modular architecture managers
+import { PlayerAudioManager } from './managers/PlayerAudioManager';
+import { PlayerInputManager } from './managers/PlayerInputManager';
+import { PlayerMovementManager } from './managers/PlayerMovementManager';
+import { PlayerAttackManager } from './managers/PlayerAttackManager';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo
@@ -22,22 +17,60 @@ export class PlayerControlSystem extends BaseSystem {
   private camera: Camera | null = null;
   private audioSystem: any = null;
   private onMouseStateCallback?: (pressed: boolean, x: number, y: number) => void;
-  private isMousePressed = false;
-  private lastMouseX = 0;
-  private lastMouseY = 0;
-  private minimapTargetX: number | null = null;
-  private minimapTargetY: number | null = null;
-    private attackActivated = false; // Flag per tracciare se l'attacco è attivo (toggle mode)
-    private lastInputTime = 0; // Timestamp dell'ultimo input per rispettare attack speed
-    private lastSpacePressTime = 0; // Timestamp dell'ultima pressione SPACE per evitare toggle troppo rapidi
   private onMinimapMovementComplete?: () => void;
-  private isEnginePlaying = false;
-  private engineSoundPromise: Promise<void> | null = null;
   private logSystem: LogSystem | null = null;
-  private keysPressed = new Set<string>();
+  private attackActivated = false;
+
+  // Modular architecture managers (lazy initialization)
+  private audioManager!: PlayerAudioManager;
+  private inputManager!: PlayerInputManager;
+  private movementManager!: PlayerMovementManager;
+  private attackManager!: PlayerAttackManager;
+  private managersInitialized: boolean = false;
 
   constructor(ecs: ECS) {
     super(ecs);
+  }
+
+  /**
+   * Initializes managers with dependency injection
+   */
+  private initializeManagers(): void {
+    if (this.managersInitialized) return;
+
+    // Initialize audio manager first (simplest)
+    this.audioManager = new PlayerAudioManager(() => this.audioSystem);
+
+    // Initialize attack manager (needs callbacks)
+    this.attackManager = new PlayerAttackManager(
+      this.ecs,
+      () => this.playerEntity,
+      () => this.logSystem,
+      () => this.forceCombatCheck(),
+      () => this.stopCombatIfActive(),
+      (activated) => { this.attackActivated = activated; }
+    );
+
+    // Initialize input manager (needs attack callback)
+    this.inputManager = new PlayerInputManager(
+      this.ecs,
+      () => this.attackManager.handleSpacePress(),
+      this.onMouseStateCallback
+    );
+
+    // Initialize movement manager (needs input callbacks)
+    this.movementManager = new PlayerMovementManager(
+      this.ecs,
+      () => this.playerEntity,
+      () => this.camera,
+      () => this.inputManager.getIsMousePressed(),
+      () => this.inputManager.getLastMouseX(),
+      () => this.inputManager.getLastMouseY(),
+      () => this.inputManager.getKeysPressed(),
+      (pressed) => { this.inputManager.setIsMousePressed(pressed); }
+    );
+
+    this.managersInitialized = true;
   }
 
   /**
@@ -52,53 +85,25 @@ export class PlayerControlSystem extends BaseSystem {
    */
   setMouseStateCallback(callback: (pressed: boolean, x: number, y: number) => void): void {
     this.onMouseStateCallback = callback;
+    if (this.managersInitialized) {
+      // Recreate input manager with new callback
+      this.inputManager = new PlayerInputManager(
+        this.ecs,
+        () => this.attackManager.handleSpacePress(),
+        callback
+      );
+    }
   }
 
   /**
    * Gestisce la pressione dei tasti
    */
   handleKeyPress(key: string): void {
+    this.initializeManagers();
     if (key === 'Space') {
-      const now = Date.now();
-      // Evita toggle troppo rapidi (minimo 300ms tra pressioni)
-      if (now - this.lastSpacePressTime > 300) {
-        this.lastSpacePressTime = now;
-
-        // Trova sempre l'NPC più vicino nel range
-        const nearbyNpc = this.findNearbyNpcForSelection();
-        const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-        const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
-
-        // Se c'è un NPC vicino e (non ne abbiamo selezionato nessuno O è diverso da quello selezionato)
-        if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
-            (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
-          // Seleziona il nuovo NPC più vicino
-          this.selectNpc(nearbyNpc, !this.attackActivated);
-
-          // Attiva attacco
-          this.handleSpacePress();
-        } else {
-          // STESSO TARGET o NESSUN TARGET: toggle attacco
-          if (currentlySelectedNpc) {
-            if (this.attackActivated) {
-              // Disattiva attacco se già attivo
-              this.attackActivated = false;
-              this.deactivateAttack();
-            } else {
-              // Attiva attacco
-              this.handleSpacePress();
-            }
-          } else {
-            // Nessun NPC disponibile per l'attacco
-            if (this.logSystem) {
-              this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
-            }
-          }
-        }
-      }
+      this.attackManager.handleKeyPress(key);
     } else {
-      // Gestisci movimento con WASD
-      this.keysPressed.add(key.toLowerCase());
+      this.inputManager.handleKeyPress(key);
     }
   }
 
@@ -106,175 +111,16 @@ export class PlayerControlSystem extends BaseSystem {
    * Gestisce il rilascio dei tasti (solo per movimento WASD)
    */
   handleKeyRelease(key: string): void {
-    if (key !== 'Space') {
-      // Rimuovi dal set dei tasti premuti (solo WASD)
-      this.keysPressed.delete(key.toLowerCase());
-    }
+    this.initializeManagers();
+    this.inputManager.handleKeyRelease(key);
   }
-
-  /**
-   * Gestisce l'attivazione dell'attacco con SPACE (toggle mode)
-   * ✅ PRE-VALIDATION: Controlla range e target prima di permettere attacco
-   */
-  private handleSpacePress(): void {
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-
-    if (selectedNpcs.length === 0) {
-      // 🎯 AUTO-SELEZIONE: Seleziona automaticamente l'NPC più vicino entro range
-      const nearestNpc = this.findNearestNpcInRange();
-      if (nearestNpc) {
-        // Durante auto-selezione in handleSpacePress, stiamo iniziando un nuovo combattimento, quindi disattiviamo
-        this.selectNpc(nearestNpc, true);
-      } else {
-        if (this.logSystem) {
-          this.logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
-        }
-        return;
-      }
-    }
-
-    // 🔥 PRE-VALIDATION: Controlla se l'NPC è in range prima di permettere l'attacco
-    const inRange = this.isSelectedNpcInRange();
-
-    if (!inRange) {
-      this.showOutOfRangeMessage();
-      return;
-    }
-
-    // 🎯 ATTIVA combattimento al keydown
-    // ✅ BEST PRACTICE: Client dichiara INTENTO, server gestisce TIMING
-    // ❌ NO cooldown client-side - il server ha autorità completa
-    this.attackActivated = true;
-    this.lastInputTime = Date.now(); // Solo per controlli anti-spam UI
-
-    // Forza controllo immediato combattimento per risolvere timing issues
-    this.forceCombatCheck();
-  }
-
-  /**
-   * Trova l'NPC più vicino entro il range di attacco del player
-   */
-  private findNearestNpcInRange(): any | null {
-    const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) {
-      return null;
-    }
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    if (!playerTransform) {
-      return null;
-    }
-
-    const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
-    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-
-    let nearestNpc: any = null;
-    let nearestDistance = PLAYER_RANGE;
-
-    for (const npcEntity of npcs) {
-      const npcTransform = this.ecs.getComponent(npcEntity, Transform);
-      if (!npcTransform) continue;
-
-      const distance = Math.sqrt(
-        Math.pow(playerTransform.x - npcTransform.x, 2) +
-        Math.pow(playerTransform.y - npcTransform.y, 2)
-      );
-
-      if (distance < nearestDistance) {
-        nearestNpc = npcEntity;
-        nearestDistance = distance;
-      }
-    }
-
-    return nearestNpc;
-  }
-
-
-  /**
-   * Controlla se l'NPC selezionato è nel range di attacco
-   */
-  private isSelectedNpcInRange(): boolean {
-    const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) {
-      return false;
-    }
-
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    if (selectedNpcs.length === 0) {
-      return false;
-    }
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    const npcTransform = this.ecs.getComponent(selectedNpcs[0], Transform);
-
-    if (!playerTransform || !npcTransform) {
-      return false;
-    }
-
-    // Calcola distanza
-    const dx = playerTransform.x - npcTransform.x;
-    const dy = playerTransform.y - npcTransform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // Usa la costante centralizzata
-    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-
-    return distance <= PLAYER_RANGE;
-  }
-
-  /**
-   * Controlla se un NPC specifico è nel range del player
-   */
-  private isNpcInPlayerRange(npcEntity: any): boolean {
-    const playerEntity = this.ecs.getPlayerEntity();
-    if (!playerEntity) return false;
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
-
-    if (!playerTransform || !npcTransform) return false;
-
-    // Calcola distanza
-    const dx = playerTransform.x - npcTransform.x;
-    const dy = playerTransform.y - npcTransform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // Usa la costante centralizzata
-    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-
-    return distance <= PLAYER_RANGE;
-  }
-
-  /**
-   * Mostra messaggio quando NPC è fuori range
-   */
-  private showOutOfRangeMessage(): void {
-    // Mostra nei log di gioco
-    if (this.logSystem) {
-      this.logSystem.addLogMessage('Target out of range! Move closer to attack.', LogType.ATTACK_FAILED, 2000);
-    }
-
-    // TODO: Implementare feedback visivo nell'UI
-    // this.uiSystem?.showNotification('NPC fuori gittata! Avvicinati per attaccare.');
-  }
-
-  /**
-   * Ottiene il cooldown dell'attacco del player per sincronizzare input e bilanciamento
-   */
-  private getPlayerAttackCooldown(): number {
-    if (!this.playerEntity) return 1000; // Default 1 secondo
-
-    const damage = this.ecs.getComponent(this.playerEntity, Damage);
-    return damage ? damage.attackCooldown : 1000;
-  }
-
 
   /**
    * Restituisce se l'attacco è attualmente attivato
    */
   isAttackActivated(): boolean {
-    // Log per debug quando viene chiamato durante combattimento
-    return this.attackActivated;
+    this.initializeManagers();
+    return this.attackManager.isAttackActivated();
   }
 
   /**
@@ -293,12 +139,8 @@ export class PlayerControlSystem extends BaseSystem {
    * Disattiva forzatamente l'attacco (chiamato quando finisce il combattimento o cambia selezione)
    */
   deactivateAttack(): void {
-    if (this.attackActivated) {
-      this.attackActivated = false;
-
-      // Ferma immediatamente qualsiasi combattimento in corso
-      this.stopCombatIfActive();
-    }
+    this.initializeManagers();
+    this.attackManager.deactivateAttack();
   }
 
   /**
@@ -322,109 +164,51 @@ export class PlayerControlSystem extends BaseSystem {
     this.logSystem = logSystem;
   }
 
-  /**
-   * Avvia il suono del motore con fade in
-   */
-  private async startEngineSound(): Promise<void> {
-    if (!this.audioSystem) return;
-
-    try {
-      // Se è già in riproduzione, non fare nulla
-      if (this.isEnginePlaying) return;
-
-      this.isEnginePlaying = true;
-
-      // Avvia il suono con volume 0 per evitare pop iniziale
-      this.audioSystem.playSound('engine', 0, true);
-
-      // Fade in graduale (volume ridotto)
-      this.audioSystem.fadeInSound('engine', 800, 0.05);
-    } catch (error) {
-      console.warn('PlayerControlSystem: Error starting engine sound:', error);
-      this.isEnginePlaying = false;
-    }
-  }
-
-  /**
-   * Ferma il suono del motore con fade out
-   */
-  private async stopEngineSound(): Promise<void> {
-    if (!this.audioSystem) return;
-
-    try {
-      // Se non è in riproduzione, non fare nulla
-      if (!this.isEnginePlaying) return;
-
-      this.isEnginePlaying = false;
-
-      // Fade out graduale
-      await this.audioSystem.fadeOutSound('engine', 500);
-    } catch (error) {
-      console.warn('PlayerControlSystem: Error stopping engine sound:', error);
-      // Reset dello stato in caso di errore
-      this.isEnginePlaying = false;
-    }
-  }
-
-  /**
-   * Ottiene la velocità del player calcolata con bonus dagli upgrade
-   */
-  private getPlayerSpeed(): number {
-    if (!this.playerEntity) return 300;
-
-    const playerDef = getPlayerDefinition();
-    const playerUpgrades = this.ecs.getComponent(this.playerEntity, PlayerUpgrades);
-
-    if (playerUpgrades) {
-      const speedBonus = playerUpgrades.getSpeedBonus();
-      return Math.floor(playerDef.stats.speed * speedBonus);
-    }
-
-    // Fallback se non ci sono upgrade
-    return playerDef.stats.speed;
-  }
 
   /**
    * Imposta callback per quando finisce il movimento dalla minimappa
    */
   setMinimapMovementCompleteCallback(callback: () => void): void {
     this.onMinimapMovementComplete = callback;
+    this.initializeManagers();
+    this.movementManager.setMinimapMovementCompleteCallback(callback);
   }
 
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
+    this.initializeManagers();
 
-    const isMoving = (this.minimapTargetX !== null && this.minimapTargetY !== null) ||
-                     this.isKeyboardMoving() ||
-                     this.isMousePressed;
+    const isMoving = this.movementManager.hasMinimapTarget() ||
+                     this.inputManager.isKeyboardMoving() ||
+                     this.inputManager.getIsMousePressed();
 
     // Gestisci suono del motore - evita chiamate multiple rapide
-    if (isMoving && !this.isEnginePlaying && !this.engineSoundPromise) {
-      this.engineSoundPromise = this.startEngineSound().finally(() => {
-        this.engineSoundPromise = null;
+    if (isMoving && !this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
+      const promise = this.audioManager.start().finally(() => {
+        this.audioManager.setEngineSoundPromise(null);
       });
-    } else if (!isMoving && this.isEnginePlaying && !this.engineSoundPromise) {
-      this.engineSoundPromise = this.stopEngineSound().finally(() => {
-        this.engineSoundPromise = null;
+      this.audioManager.setEngineSoundPromise(promise);
+    } else if (!isMoving && this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
+      const promise = this.audioManager.stop().finally(() => {
+        this.audioManager.setEngineSoundPromise(null);
       });
+      this.audioManager.setEngineSoundPromise(promise);
     }
 
     // Priorità: movimento minimappa > movimento tastiera > movimento mouse > fermo
-    if (this.minimapTargetX !== null && this.minimapTargetY !== null) {
-      this.movePlayerTowardsMinimapTarget();
-    } else if (this.isKeyboardMoving()) {
-      this.movePlayerWithKeyboard();
-    } else if (this.isMousePressed) {
-      this.movePlayerTowardsMouse();
+    if (this.movementManager.hasMinimapTarget()) {
+      this.movementManager.movePlayerTowardsMinimapTarget();
+    } else if (this.inputManager.isKeyboardMoving()) {
+      this.movementManager.movePlayerWithKeyboard();
+    } else if (this.inputManager.getIsMousePressed()) {
+      this.movementManager.movePlayerTowardsMouse();
     } else {
-      // Quando non c'è movimento richiesto, ferma il player
-      this.stopPlayerMovement();
+      this.movementManager.stopPlayerMovement();
     }
 
     // Ruota verso l'NPC selezionato SOLO se l'attacco è attivo
-    // Questo previene l'agganciamento precoce prima dell'inizio del combattimento
     if (this.attackActivated) {
-      this.faceSelectedNpc();
+      this.attackManager.faceSelectedNpc();
     }
   }
 
@@ -433,29 +217,23 @@ export class PlayerControlSystem extends BaseSystem {
    */
   handleMouseState(pressed: boolean, x: number, y: number): void {
     if (!this.playerEntity) return;
+    this.initializeManagers();
 
     // Se si clicca con il mouse normale, cancella il target della minimappa
     if (pressed) {
-      this.minimapTargetX = null;
-      this.minimapTargetY = null;
+      this.movementManager.clearMinimapTarget();
     }
 
-    this.isMousePressed = pressed;
-    if (pressed) {
-      this.lastMouseX = x;
-      this.lastMouseY = y;
-    }
+    this.inputManager.handleMouseState(pressed, x, y);
   }
 
   /**
    * Gestisce il movimento del mouse mentre è premuto
    */
   handleMouseMoveWhilePressed(x: number, y: number): void {
-    if (!this.playerEntity || !this.isMousePressed) return;
-
-    // Aggiorna continuamente la posizione target mentre il mouse si muove
-    this.lastMouseX = x;
-    this.lastMouseY = y;
+    if (!this.playerEntity) return;
+    this.initializeManagers();
+    this.inputManager.handleMouseMoveWhilePressed(x, y);
   }
 
   /**
@@ -464,274 +242,20 @@ export class PlayerControlSystem extends BaseSystem {
    */
   movePlayerTo(worldX: number, worldY: number): void {
     if (!this.playerEntity) return;
-
-    // Salva la destinazione mondo per il movimento dalla minimappa
-    this.minimapTargetX = worldX;
-    this.minimapTargetY = worldY;
-
-    // Disabilita il movimento normale con mouse
-    this.isMousePressed = false;
-  }
-
-  /**
-   * Muove il player verso la destinazione della minimappa
-   */
-  private movePlayerTowardsMinimapTarget(): void {
-    if (!this.playerEntity || this.minimapTargetX === null || this.minimapTargetY === null) return;
-
-    const transform = this.ecs.getComponent(this.playerEntity, Transform);
-    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
-
-    if (!transform || !velocity) return;
-
-    const dx = this.minimapTargetX - transform.x;
-    const dy = this.minimapTargetY - transform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance > 50) { // Se siamo abbastanza lontani (soglia più alta per minimappa)
-      // Normalizza la direzione
-      const dirX = dx / distance;
-      const dirY = dy / distance;
-
-      // Imposta velocity verso la destinazione (stessa velocità del player)
-      velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
-
-      // Ruota verso la direzione del movimento (sempre, dato che è navigazione)
-      const angle = Math.atan2(dirY, dirX);
-      transform.rotation = angle;
-    } else {
-      // Vicino alla destinazione, ferma il movimento e reset target
-      velocity.stop();
-      this.minimapTargetX = null;
-      this.minimapTargetY = null;
-
-      // Notifica che il movimento dalla minimappa è completato
-      if (this.onMinimapMovementComplete) {
-        this.onMinimapMovementComplete();
-      }
-    }
-  }
-
-  /**
-   * Muove il player verso la posizione del mouse
-   */
-  private movePlayerTowardsMouse(): void {
-    if (!this.playerEntity || !this.camera) return;
-
-    const transform = this.ecs.getComponent(this.playerEntity, Transform);
-    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
-
-    if (!transform || !velocity) return;
-
-    // Converti coordinate schermo del mouse in coordinate mondo usando dimensioni logiche
-    const { width, height } = DisplayManager.getInstance().getLogicalSize();
-    const worldMousePos = this.camera.screenToWorld(this.lastMouseX, this.lastMouseY, width, height);
-    const worldMouseX = worldMousePos.x;
-    const worldMouseY = worldMousePos.y;
-
-    const dx = worldMouseX - transform.x;
-    const dy = worldMouseY - transform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    if (distance > 10) { // Se siamo abbastanza lontani
-      // Normalizza la direzione
-      const dirX = dx / distance;
-      const dirY = dy / distance;
-
-      // Imposta velocity verso il mouse
-      velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
-
-      // Ruota sempre verso la direzione del movimento per movimento libero
-      // L'agganciamento al bersaglio avviene solo durante combattimento attivo
-      const angle = Math.atan2(dirY, dirX);
-      transform.rotation = angle;
-    } else {
-      // Vicino al mouse, ferma il movimento
-      velocity.stop();
-      this.isMousePressed = false; // Reset mouse pressed state
-    }
-  }
-
-  /**
-   * Ferma il movimento del player
-   */
-  private stopPlayerMovement(): void {
-    if (!this.playerEntity) return;
-
-    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
-    if (velocity) {
-      velocity.stop();
-    }
+    this.initializeManagers();
+    this.movementManager.movePlayerTo(worldX, worldY);
   }
 
   /**
    * Ferma il combattimento attivo quando disattivi manualmente l'attacco
    */
   private stopCombatIfActive(): void {
-    // Trova il CombatSystem nell'ECS
     const combatSystem = this.ecs.systems?.find((system: any) =>
       typeof system.stopCombatImmediately === 'function'
     );
 
     if (combatSystem) {
       combatSystem.stopCombatImmediately();
-    }
-  }
-
-  /**
-   * Ruota il player verso l'NPC selezionato SOLO durante il combattimento attivo
-   * (chiamato solo quando attackActivated è true)
-   */
-  private faceSelectedNpc(): void {
-    if (!this.playerEntity) return;
-
-    // Trova l'NPC selezionato
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    if (selectedNpcs.length === 0) return;
-
-    const selectedNpc = selectedNpcs[0];
-    const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
-    const playerTransform = this.ecs.getComponent(this.playerEntity, Transform);
-
-    if (!npcTransform || !playerTransform) return;
-
-    // Calcola l'angolo verso l'NPC
-    const dx = npcTransform.x - playerTransform.x;
-    const dy = npcTransform.y - playerTransform.y;
-
-    // Calcola l'angolo e ruota la nave
-    const angle = Math.atan2(dy, dx);
-    playerTransform.rotation = angle;
-  }
-
-  /**
-   * Controlla se ci sono tasti di movimento premuti
-   */
-  private isKeyboardMoving(): boolean {
-    return this.keysPressed.has('w') || this.keysPressed.has('a') ||
-           this.keysPressed.has('s') || this.keysPressed.has('d');
-  }
-
-  /**
-   * Muove il player basato sui tasti WASD premuti
-   */
-  private movePlayerWithKeyboard(): void {
-    if (!this.playerEntity) return;
-
-    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
-    if (!velocity) return;
-
-    const speed = this.getPlayerSpeed();
-    let vx = 0;
-    let vy = 0;
-
-    // Calcola direzione basata sui tasti premuti
-    if (this.keysPressed.has('w')) vy -= 1; // Su
-    if (this.keysPressed.has('s')) vy += 1; // Giù
-    if (this.keysPressed.has('a')) vx -= 1; // Sinistra
-    if (this.keysPressed.has('d')) vx += 1; // Destra
-
-    // Normalizza il vettore se si muovono due direzioni contemporaneamente
-    if (vx !== 0 && vy !== 0) {
-      const length = Math.sqrt(vx * vx + vy * vy);
-      vx /= length;
-      vy /= length;
-    }
-
-    // Applica velocità
-    velocity.setVelocity(vx * speed, vy * speed);
-
-    // Ruota la nave verso la direzione del movimento
-    if (vx !== 0 || vy !== 0) {
-      const angle = Math.atan2(vy, vx);
-      const transform = this.ecs.getComponent(this.playerEntity, Transform);
-      if (transform) {
-        transform.rotation = angle;
-      }
-    }
-  }
-
-  /**
-   * Trova l'NPC più vicino al player per la selezione automatica con SPACE (entro 600px)
-   * Diverso dalla selezione con click che usa raggio 35px (cerchio selezione)
-   */
-  private findNearbyNpcForSelection(): any | null {
-    if (!this.playerEntity) return null;
-
-    const playerTransform = this.ecs.getComponent(this.playerEntity, Transform);
-    if (!playerTransform) return null;
-
-    const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
-
-    let closestNpc: any = null;
-    let closestDistance = 600; // Distanza massima per selezione automatica con SPACE (600px - stesso range combattimento)
-
-    for (const npcEntity of npcs) {
-      const transform = this.ecs.getComponent(npcEntity, Transform);
-      if (transform) {
-        const distance = Math.sqrt(
-          Math.pow(playerTransform.x - transform.x, 2) +
-          Math.pow(playerTransform.y - transform.y, 2)
-        );
-
-        if (distance < closestDistance) {
-          closestNpc = npcEntity;
-          closestDistance = distance;
-        }
-      }
-    }
-
-    return closestNpc;
-  }
-
-  /**
-   * Seleziona un NPC specifico (copia della logica da NpcSelectionSystem)
-   */
-  private selectNpc(npcEntity: any, deactivateAttack: boolean = true): void {
-    // Verifica se l'NPC è già selezionato PRIMA di deselezionare tutti (per evitare log duplicati)
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    const alreadySelected = selectedNpcs.length > 0 && selectedNpcs[0].id === npcEntity.id;
-    
-    // Disattiva attacco su qualsiasi selezione precedente SOLO se richiesto
-    if (deactivateAttack) {
-      this.deactivateAttackOnAnySelection();
-    }
-
-    // Rimuovi selezione da tutti gli NPC
-    this.deselectAllNpcs();
-
-    // Aggiungi selezione al NPC selezionato
-    this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
-
-    // Log selezione solo se non era già selezionato (evita log duplicati)
-    if (!alreadySelected) {
-      const npc = this.ecs.getComponent(npcEntity, Npc);
-      if (npc && this.logSystem) {
-        this.logSystem.addLogMessage(`Selected target: ${npc.npcType}`, LogType.INFO, 1500);
-      }
-    }
-  }
-
-  /**
-   * Disattiva attacco su qualsiasi selezione NPC (chiamato quando cambia selezione)
-   */
-  private deactivateAttackOnAnySelection(): void {
-    const playerControlSystem = this.ecs.systems?.find((system) =>
-      system instanceof PlayerControlSystem
-    ) as PlayerControlSystem | undefined;
-
-    if (playerControlSystem) {
-      playerControlSystem.deactivateAttack();
-    }
-  }
-
-  /**
-   * Deseleziona tutti gli NPC
-   */
-  private deselectAllNpcs(): void {
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    for (const npcEntity of selectedNpcs) {
-      this.ecs.removeComponent(npcEntity, SelectedNpc);
     }
   }
 }
