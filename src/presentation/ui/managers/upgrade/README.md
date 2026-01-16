@@ -73,3 +73,57 @@ UpgradePanel
 - Le dipendenze tra manager sono gestite via dependency injection
 - Nessuna dipendenza circolare tra manager
 - `UpgradePanel` agisce come orchestratore e mantiene le API pubbliche
+
+## Lazy Initialization
+
+I manager vengono inizializzati in modo lazy (quando necessario) perché `BasePanel` chiama `createPanelContent()` nel costruttore, prima che i manager possano essere inizializzati. Il metodo `initializeManagers()` viene chiamato automaticamente quando necessario.
+
+## Esempi di Utilizzo
+
+### UpgradePanel (Orchestratore)
+```typescript
+const upgradePanel = new UpgradePanel(config, ecs, playerSystem, clientNetworkSystem);
+upgradePanel.setPlayerSystem(playerSystem);
+upgradePanel.setClientNetworkSystem(clientNetworkSystem);
+upgradePanel.updatePlayerStats();
+upgradePanel.showInsufficientResourcesPopup("Not enough credits");
+```
+
+### Manager Individuali (per testing)
+```typescript
+// Test isolato di UpgradeValidationManager
+const validationManager = new UpgradeValidationManager(ecs, playerSystem);
+const cost = validationManager.calculateUpgradeCost('hp', 5);
+console.log(cost); // { credits: 8750, cosmos: 0 }
+
+// Test isolato di UpgradeTooltipManager
+const tooltipManager = new UpgradeTooltipManager(container);
+tooltipManager.showStatExplanation('Hull', 'hp', buttonElement);
+```
+
+## Migrazione da Codice Legacy
+
+Se stai migrando codice che usava direttamente i metodi privati di `UpgradePanel`, usa i manager corrispondenti:
+
+- `calculateUpgradeCost()` → `UpgradeValidationManager.calculateUpgradeCost()`
+- `updatePlayerStats()` → `UpgradeStatsManager.updateStats()`
+- `showStatExplanation()` → `UpgradeTooltipManager.showStatExplanation()`
+- `upgradeStat()` → `UpgradeActionManager.requestUpgrade()`
+
+## Testing
+
+Ogni manager può essere testato in isolamento mockando le dipendenze:
+
+```typescript
+// Esempio test UpgradeValidationManager
+const mockEcs = createMockECS();
+const mockPlayerSystem = createMockPlayerSystem();
+const manager = new UpgradeValidationManager(mockEcs, mockPlayerSystem);
+const cost = manager.calculateUpgradeCost('hp', 10);
+expect(cost.credits).toBeGreaterThan(0);
+```
+
+## Changelog
+
+- **v2.0** (Refactoring): Modularizzazione completa, riduzione da 1206 a 190 righe
+- **v1.0**: Implementazione monolitica originale
