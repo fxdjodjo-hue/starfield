@@ -21,6 +21,11 @@ import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Npc } from '../../entities/ai/Npc';
 import AudioSystem from '../../systems/audio/AudioSystem';
 
+// Modular architecture managers
+import { PlayStateInitializer } from './managers/playstate/PlayStateInitializer';
+import { PlayStateLifecycleManager } from './managers/playstate/PlayStateLifecycleManager';
+import { PlayStateResourceManager } from './managers/playstate/PlayStateResourceManager';
+
 /**
  * Stato del gameplay attivo
  * Gestisce il mondo di gioco, ECS e tutti i sistemi di gameplay
@@ -43,9 +48,12 @@ export class PlayState extends GameState {
   private remotePlayerSystem: RemotePlayerSystem | null = null;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
-  private nicknameCreated: boolean = false;
-  private remotePlayerSpriteUpdated: boolean = false;
-  private lastDisplayedRank: string = 'Recruit';
+
+  // Modular architecture managers (lazy initialization)
+  private initializer!: PlayStateInitializer;
+  private lifecycleManager!: PlayStateLifecycleManager;
+  private resourceManager!: PlayStateResourceManager;
+  private managersInitialized: boolean = false;
 
   /**
    * Segnala che i dati del giocatore sono cambiati e dovrebbero essere salvati
@@ -81,311 +89,82 @@ export class PlayState extends GameState {
   }
 
   /**
+   * Initializes managers with dependency injection
+   */
+  private initializeManagers(): void {
+    if (this.managersInitialized) return;
+
+    // Initialize resource manager first (simplest)
+    this.resourceManager = new PlayStateResourceManager(
+      this.world,
+      this.context,
+      this.gameInitSystem,
+      () => this.uiSystem,
+      () => this.playerEntity,
+      () => this.remotePlayerSystem,
+      () => this.cameraSystem,
+      () => this.movementSystem,
+      () => this.economySystem
+    );
+
+    // Initialize lifecycle manager
+    this.lifecycleManager = new PlayStateLifecycleManager(
+      this.world,
+      () => this.clientNetworkSystem,
+      () => this.uiSystem,
+      () => this.playerEntity,
+      () => this.resourceManager.updateNicknamePosition(),
+      () => this.resourceManager.updateNpcNicknames(),
+      () => this.resourceManager.updateRemotePlayerNicknames()
+    );
+
+    // Initialize initializer (most complex, depends on other managers)
+    this.initializer = new PlayStateInitializer(
+      this.context,
+      this.world,
+      this.gameInitSystem,
+      () => this.uiSystem,
+      (uiSystem) => { this.uiSystem = uiSystem; },
+      () => this.clientNetworkSystem,
+      (system) => { this.clientNetworkSystem = system; },
+      () => this.remotePlayerSystem,
+      (system) => { this.remotePlayerSystem = system; },
+      () => this.remoteNpcSystem,
+      (system) => { this.remoteNpcSystem = system; },
+      () => this.remoteProjectileSystem,
+      (system) => { this.remoteProjectileSystem = system; },
+      () => this.playerEntity,
+      (entity) => { this.playerEntity = entity; },
+      () => this.economySystem,
+      (system) => { this.economySystem = system; },
+      () => this.questSystem,
+      (system) => { this.questSystem = system; },
+      () => this.questManager,
+      (manager) => { this.questManager = manager; },
+      () => this.cameraSystem,
+      (system) => { this.cameraSystem = system; },
+      () => this.movementSystem,
+      (system) => { this.movementSystem = system; },
+      () => this.interpolationSystem,
+      (system) => { this.interpolationSystem = system; },
+      () => this.audioSystem,
+      (system) => { this.audioSystem = system; }
+    );
+
+    this.managersInitialized = true;
+  }
+
+  /**
    * Avvia il gameplay
    */
   async enter(_context: GameContext): Promise<void> {
-    console.log('[PlayState] enter() chiamato');
-    
     // Marca come inizializzato per evitare doppia inizializzazione
     (this as any)._initialized = true;
     
-    // Assicurati che lo spinner sia visibile fin dall'inizio
-    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-      this.context.authScreen.updateLoadingText('Initializing game systems...');
-    }
-    
-    // Crea UiSystem solo ora (quando si entra nel PlayState)
-    if (!this.uiSystem) {
-      console.log('[PlayState] Creando UiSystem...');
-      this.uiSystem = new UiSystem(this.world.getECS(), this.questSystem!, this.context);
-      // Aggiorna il sistema di inizializzazione con l'UiSystem appena creato
-      (this.gameInitSystem as any).uiSystem = this.uiSystem;
-    }
-
-    // NON nascondere il titolo qui - verrà fatto DOPO che lo spinner è nascosto
-    // this.uiSystem.hideMainTitle();
-
-    // Aggiorna il testo di loading durante l'inizializzazione
-    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-      this.context.authScreen.updateLoadingText('Loading multiplayer systems...');
-    }
-    
-    console.log('[PlayState] Inizializzando sistemi multiplayer...');
-    // Inizializza sistemi multiplayer PRIMA dell'inizializzazione del gioco
-    await this.initializeMultiplayerSystems();
-    console.log('[PlayState] Sistemi multiplayer inizializzati');
-
-    // Aggiorna il testo di loading durante l'inizializzazione del gioco
-    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-      this.context.authScreen.updateLoadingText('Initializing game world...');
-    }
-
-    try {
-      console.log('[PlayState] Inizializzando gioco...');
-      // Inizializza il mondo e crea il giocatore PRIMA di mostrare l'HUD
-      await this.initializeGame();
-      console.log('[PlayState] Gioco inizializzato');
-    } catch (error) {
-      console.error('[PlayState] Failed to initialize game:', error);
-      throw error;
-    }
-
-    // NON inizializzare UI qui - verrà fatto DOPO che lo spinner è nascosto
-    // this.uiSystem.initialize();
-
-    // I sistemi remoti sono già stati collegati prima dell'inizializzazione del gioco
-
-    // Aggiorna il testo di loading prima della connessione
-    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-      this.context.authScreen.updateLoadingText('Connecting to server...');
-    } else {
-      console.warn('[PlayState] AuthScreen non disponibile o updateLoadingText non disponibile!');
-    }
-
-    // Ora che tutti i sistemi sono collegati, connetti al server e ASPETTA
-    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.connectToServer === 'function') {
-      try {
-        console.log('[PlayState] Connessione al server...');
-        // Il testo è già stato aggiornato sopra a "Connecting to server..."
-
-        await this.clientNetworkSystem.connectToServer();
-        console.log('[PlayState] Connesso al server');
-        
-        // Aggiorna il testo durante l'attesa della risposta del server
-        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-          this.context.authScreen.updateLoadingText('Synchronizing with server...');
-        }
-        
-        // Piccolo delay per dare tempo al server di processare la connessione
-        console.log('[PlayState] Attendo 500ms per processare connessione...');
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Aggiorna il testo di loading dopo la connessione
-        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-          this.context.authScreen.updateLoadingText('Loading player data...');
-        }
-        console.log('[PlayState] Testo aggiornato a "Loading player data..."');
-      } catch (error) {
-        console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
-        // Continua comunque, ma mostra errore
-        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-          this.context.authScreen.updateLoadingText('Connection error. Retrying...');
-        }
-      }
-    } else {
-      console.warn('[PlayState] ClientNetworkSystem o connectToServer non disponibile!');
-    }
-
-    // Aspetta che RecentHonor sia disponibile prima di procedere
-    console.log('[PlayState] Aspettando dati player (RecentHonor)...');
-    await this.waitForPlayerDataReady();
-    console.log('[PlayState] Dati player pronti!');
-
-    // Nascondi lo spinner di loading (se ancora visibile)
-    console.log('[PlayState] Nascondendo loading screen...');
-    this.hideLoadingScreen();
-
-    // SOLO ORA inizializza e mostra l'UI - dopo che lo spinner è nascosto
-    console.log('[PlayState] Inizializzando UI system...');
-    this.uiSystem.initialize();
-    
-    // Nasconde il titolo principale (ora che lo spinner è nascosto)
-    this.uiSystem.hideMainTitle();
-    
-    // Mostra info del giocatore DOPO l'inizializzazione dei sistemi
-    this.uiSystem.showPlayerInfo();
-    console.log('[PlayState] enter() completato');
-
-    // Collega l'AudioSystem al ClientNetworkSystem ora che è stato creato
-    if (this.clientNetworkSystem && this.audioSystem) {
-      this.clientNetworkSystem.setAudioSystem(this.audioSystem);
-    }
-
-    // Avvia musica di background e suoni ambientali
-    if (this.audioSystem) {
-      this.audioSystem.init();
-      this.audioSystem.playMusic('background');
-      // Piccolo delay prima di avviare ambience per evitare conflitti
-      setTimeout(() => {
-        if (this.audioSystem) {
-          this.audioSystem.playMusic('ambience'); // Suono ambientale in loop
-        }
-      }, 100);
-    }
-
-    // Messaggio di benvenuto nella chat
-    setTimeout(() => {
-      this.uiSystem.addSystemMessage('Welcome to Starfield! Use the chat to communicate.');
-    }, 1000);
-
-    // Il nickname verrà creato al primo update quando tutti i sistemi sono pronti
-
-    // HUD toggle gestito da UiSystem
-
-    // I listener per i pannelli sono ora gestiti da UiSystem e QuestSystem
+    this.initializeManagers();
+    await this.initializer.enter();
   }
 
-  /**
-   * Aspetta che i dati del player siano pronti (RecentHonor disponibile)
-   */
-  private async waitForPlayerDataReady(): Promise<void> {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const maxAttempts = 200; // 20 secondi max (200 * 100ms)
-      const checkInterval = 100; // Controlla ogni 100ms
-
-      console.log('[PlayState] waitForPlayerDataReady() iniziato');
-
-      const checkDataReady = () => {
-        attempts++;
-
-        // Verifica se RecentHonor è disponibile nel context
-        // Controlla anche se è stato impostato in RankSystem tramite EconomySystem
-        let hasRecentHonor = this.context.playerInventory?.recentHonor !== undefined;
-        
-        // Verifica anche in RankSystem (potrebbe essere impostato prima che arrivi nel context)
-        if (!hasRecentHonor && this.economySystem) {
-          const rankSystem = (this.economySystem as any).rankSystem;
-          if (rankSystem && (rankSystem as any).recentHonor !== null && (rankSystem as any).recentHonor !== undefined) {
-            hasRecentHonor = true;
-            console.log('[PlayState] RecentHonor trovato in RankSystem:', (rankSystem as any).recentHonor);
-          }
-        }
-
-        const hasInventory = this.context.playerInventory !== undefined && 
-                            this.context.playerInventory.experience > 0;
-
-        // Log ogni 10 tentativi (ogni secondo)
-        if (attempts % 10 === 0) {
-          const seconds = Math.floor(attempts / 10);
-          console.log(`[PlayState] Tentativo ${attempts} (${seconds}s):`, {
-            hasRecentHonor,
-            hasInventory,
-            recentHonorInContext: this.context.playerInventory?.recentHonor,
-            experience: this.context.playerInventory?.experience,
-            economySystem: !!this.economySystem,
-            rankSystemRecentHonor: this.economySystem ? (this.economySystem as any).rankSystem?.recentHonor : 'N/A'
-          });
-        }
-
-        // Aggiorna il testo di loading se AuthScreen è disponibile
-        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-          if (attempts % 10 === 0) { // Ogni secondo
-            const seconds = Math.floor(attempts / 10);
-            if (hasRecentHonor) {
-              console.log('[PlayState] RecentHonor disponibile! Mostrando "Ready!"');
-              this.context.authScreen.updateLoadingText('Ready!');
-              // Piccolo delay prima di risolvere per mostrare "Ready!"
-              setTimeout(() => {
-                console.log('[PlayState] Risolvendo waitForPlayerDataReady()');
-                resolve();
-              }, 300);
-              return;
-            } else {
-              this.context.authScreen.updateLoadingText(`Loading player data... (${seconds}s)`);
-            }
-          }
-        }
-
-        if (hasRecentHonor || attempts >= maxAttempts) {
-          // Dati pronti o timeout raggiunto
-          if (hasRecentHonor) {
-            console.log('[PlayState] RecentHonor trovato, risolvendo...');
-            resolve();
-          } else {
-            // Timeout: procedi comunque
-            console.warn('[PlayState] Timeout waiting for RecentHonor, proceeding anyway');
-            if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-              this.context.authScreen.updateLoadingText('Ready! (using default values)');
-            }
-            setTimeout(() => {
-              console.log('[PlayState] Risolvendo waitForPlayerDataReady() dopo timeout');
-              resolve();
-            }, 300);
-          }
-        } else {
-          setTimeout(checkDataReady, checkInterval);
-        }
-      };
-
-      checkDataReady();
-    });
-  }
-
-  /**
-   * Nasconde lo spinner di loading
-   */
-  private hideLoadingScreen(): void {
-    console.log('[PlayState] hideLoadingScreen() chiamato');
-    
-    // Nascondi AuthScreen se disponibile
-    if (this.context.authScreen && typeof this.context.authScreen.hide === 'function') {
-      console.log('[PlayState] Nascondendo AuthScreen tramite metodo hide()');
-      this.context.authScreen.hide();
-    } else {
-      console.warn('[PlayState] AuthScreen.hide() non disponibile, provo fallback');
-      // Fallback: cerca e nascondi manualmente
-      const authContainer = document.querySelector('[style*="position: fixed"][style*="z-index: 1000"]');
-      if (authContainer) {
-        console.log('[PlayState] Trovato authContainer, nascondendo...');
-        (authContainer as HTMLElement).style.display = 'none';
-      } else {
-        console.warn('[PlayState] authContainer non trovato nel DOM');
-      }
-    }
-  }
-
-  /**
-   * Inizializza i sistemi multiplayer prima dell'inizializzazione del gioco
-   */
-  private async initializeMultiplayerSystems(): Promise<void> {
-    // Carica AnimatedSprite per i remote player (stesso del player normale)
-    const remotePlayerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.7);
-
-    // Crea sistema remote player
-    this.remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), remotePlayerSprite);
-    this.world.getECS().addSystem(this.remotePlayerSystem);
-
-    // Prova a ottenere i sistemi remoti (potrebbero essere null se initialize() non è stato chiamato)
-    const systems = this.gameInitSystem.getSystems();
-    this.remoteNpcSystem = systems.remoteNpcSystem || null;
-    this.remoteProjectileSystem = systems.remoteProjectileSystem || null;
-
-    // Inizializza il sistema di rete multiplayer
-    this.clientNetworkSystem = new ClientNetworkSystem(
-      this.world.getECS(),
-      this.context,
-      this.remotePlayerSystem,
-      NETWORK_CONFIG.DEFAULT_SERVER_URL, // Server configurato
-      this.remoteNpcSystem, // Sistema NPC (potrebbe essere null inizialmente)
-      this.remoteProjectileSystem, // Sistema proiettili (potrebbe essere null inizialmente)
-      this.audioSystem // Sistema audio
-    );
-    this.world.getECS().addSystem(this.clientNetworkSystem);
-
-    // Il nickname viene preso direttamente dal GameContext nel ClientNetworkSystem
-
-    // Il ClientNetworkSystem verrà impostato dopo l'inizializzazione del gioco
-    // this.setupClientNetworkSystem(); // Spostato dopo initializeGame()
-
-    // Collega il callback per processare le richieste pendenti quando la connessione è stabilita
-    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
-      this.clientNetworkSystem.onConnected(() => {
-        // Notifica il CombatStateSystem che può processare le richieste pendenti
-        const systems = this.gameInitSystem.getSystems();
-        if (systems.combatStateSystem && typeof systems.combatStateSystem.processPlayerCombat === 'function') {
-          // Il CombatStateSystem gestisce automaticamente il processamento delle richieste nel suo update
-        }
-      });
-    }
-
-    // Imposta callback per notificare il CombatSystem quando la connessione è stabilita
-    if (this.clientNetworkSystem && typeof this.clientNetworkSystem.onConnected === 'function') {
-      this.clientNetworkSystem.onConnected(() => {
-        // Il CombatStateSystem gestisce automaticamente le richieste pendenti nel suo update
-      });
-    }
-  }
 
 
 
@@ -396,59 +175,32 @@ export class PlayState extends GameState {
    * Aggiorna il gameplay
    */
   update(deltaTime: number): void {
-    // Aggiorna il mondo di gioco
-    this.world.update(deltaTime);
-
-    // ✅ L'HUD si aggiorna automaticamente tramite EconomySystem.onExperienceChanged
-
-    // Aggiorna posizione del nickname del player
-    this.updateNicknamePosition();
-
-    // Aggiorna posizioni nickname NPC e remote player (delegato a UiSystem)
-    this.updateNpcNicknames();
-    this.updateRemotePlayerNicknames();
-
-    // Aggiorna il sistema di rete multiplayer
-    if (this.clientNetworkSystem) {
-      this.clientNetworkSystem.update(deltaTime);
-    }
+    this.initializeManagers();
+    this.lifecycleManager.update(deltaTime);
   }
 
   /**
    * Renderizza il gioco
    */
   render(_ctx: CanvasRenderingContext2D): void {
-    // Renderizza il mondo di gioco
-    this.world.render();
+    this.initializeManagers();
+    this.lifecycleManager.render(_ctx);
   }
 
   /**
    * Gestisce input di gioco
    */
   handleInput(_event: Event): void {
-    // Gli input sono gestiti dai sistemi ECS (InputSystem)
-    // Questo metodo Ã¨ disponibile per input speciali se necessario
+    this.initializeManagers();
+    this.lifecycleManager.handleInput(_event);
   }
 
   /**
    * Termina il gameplay
    */
   exit(): void {
-    // Ferma musica di background e suoni ambientali
-    if (this.audioSystem) {
-      this.audioSystem.stopSound('background');
-      this.audioSystem.stopSound('ambience');
-    }
-
-    // Cleanup completo dell'HUD
-    this.uiSystem.destroy();
-
-    // Rimuovi elementi DOM dei nickname (delegato all'UiSystem)
-
-    // Rimuovi eventuali riferimenti ai timer di comportamento (ora non usati)
-
-    this.uiSystem.showMainTitle();
-    // Qui potremmo fare altro cleanup se necessario
+    this.initializeManagers();
+    this.lifecycleManager.exit();
   }
 
   /**
@@ -472,262 +224,39 @@ export class PlayState extends GameState {
    * Ottiene il rank corrente del player usando RankSystem
    */
   private getPlayerRank(): string {
-    if (!this.gameInitSystem) return 'Recruit';
-
-    // Ottieni RankSystem da GameInitializationSystem
-    const systems = this.gameInitSystem.getSystems();
-    const rankSystem = systems.rankSystem;
-    
-    if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
-      return rankSystem.calculateCurrentRank();
-    }
-
-    return 'Recruit';
+    this.initializeManagers();
+    return this.resourceManager.getPlayerRank();
   }
 
 
 
 
 
-  /**
-   * Imposta il ClientNetworkSystem nel GameInitializationSystem
-   */
-  private setupClientNetworkSystem(): void {
-    if (this.clientNetworkSystem && this.gameInitSystem) {
-      this.gameInitSystem.setClientNetworkSystem(this.clientNetworkSystem);
-    } else {
-      console.warn('[PLAYSTATE] ClientNetworkSystem or GameInitializationSystem not available');
-    }
-  }
-
-  /**
-   * Inizializza il mondo di gioco e crea entitÃ
-   */
-  private async initializeGame(): Promise<void> {
-
-    // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
-    this.playerEntity = await this.gameInitSystem.initialize();
-
-    // Ora che i sistemi sono stati creati, imposta il ClientNetworkSystem
-    this.setupClientNetworkSystem();
-
-    // Ottieni riferimenti ai sistemi creati
-    const systems = this.gameInitSystem.getSystems();
-    this.questSystem = systems.questSystem;
-    this.uiSystem = systems.uiSystem;
-    this.questManager = systems.questManager;
-    this.cameraSystem = systems.cameraSystem;
-    this.movementSystem = systems.movementSystem;
-
-    // Ora che i sistemi sono stati creati, imposta NPC e proiettili remoti nel ClientNetworkSystem
-    if (systems.remoteNpcSystem) {
-      this.remoteNpcSystem = systems.remoteNpcSystem;
-      // Imposta il remoteNpcSystem nel ClientNetworkSystem
-      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setRemoteNpcSystem === 'function') {
-        this.clientNetworkSystem.setRemoteNpcSystem(this.remoteNpcSystem);
-      }
-    }
-    if (systems.remoteProjectileSystem) {
-      this.remoteProjectileSystem = systems.remoteProjectileSystem;
-      // Imposta il remoteProjectileSystem nel ClientNetworkSystem
-      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.setRemoteProjectileSystem === 'function') {
-        this.clientNetworkSystem.setRemoteProjectileSystem(this.remoteProjectileSystem);
-      }
-    }
-
-
-    // Inizializza il sistema di interpolazione per movimenti fluidi
-    this.interpolationSystem = new InterpolationSystem(this.world.getECS());
-    this.world.getECS().addSystem(this.interpolationSystem);
-    this.audioSystem = systems.audioSystem;
-
-    // Collega l'EconomySystem all'UiSystem
-    if (systems.economySystem && this.uiSystem) {
-      this.uiSystem.setEconomySystem(systems.economySystem);
-    }
-
-
-    // Collega il PlayerSystem all'UiSystem
-    if (systems.playerSystem) {
-      this.uiSystem.setPlayerSystem(systems.playerSystem);
-    }
-
-    // Collega il ClientNetworkSystem all'UiSystem (per UpgradePanel)
-    if (this.clientNetworkSystem) {
-      this.uiSystem.setClientNetworkSystem(this.clientNetworkSystem);
-
-      // 🔧 FIX RACE CONDITION: Usa il nuovo sistema di inizializzazione sequenziale
-      this.initializeNetworkSystem();
-    }
-
-    // Collega il PlayerSystem al ClientNetworkSystem (per sincronizzazione upgrade)
-    if (systems.playerSystem && this.clientNetworkSystem) {
-      this.clientNetworkSystem.setPlayerSystem(systems.playerSystem);
-    }
-  }
 
   /**
    * Aggiorna la posizione del nickname delegando all'UiSystem
    */
   private updateNicknamePosition(): void {
-    if (!this.playerEntity) return;
-
-    // Ottieni le coordinate del player
-    const transform = this.world.getECS().getComponent(this.playerEntity, Transform);
-    if (!transform) return;
-
-    // Usa il MovementSystem referenziato
-    if (!this.movementSystem) return;
-
-    const nickname = this.context.playerNickname || 'Commander';
-    
-    // Ottieni RankSystem per verificare se RecentHonor è disponibile
-    let rank = 'Recruit';
-    if (this.gameInitSystem) {
-      const systems = this.gameInitSystem.getSystems();
-      const rankSystem = systems.rankSystem;
-      
-      // Mostra il rank solo se RecentHonor è disponibile (evita salti da Recruit a rank alto)
-      if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
-        // Verifica se RecentHonor è stato impostato (non null)
-        const recentHonor = (rankSystem as any).recentHonor;
-        if (recentHonor !== null && recentHonor !== undefined) {
-          rank = rankSystem.calculateCurrentRank();
-        }
-        // Altrimenti mantieni "Recruit" finché RecentHonor non arriva
-      }
-    }
-
-    // Crea il nickname se non è ancora stato creato (solo una volta)
-    if (!this.nicknameCreated) {
-      this.uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
-      this.nicknameCreated = true; // Flag per evitare ricreazione
-      this.lastDisplayedRank = rank;
-    } else {
-      // Aggiorna il contenuto del nickname solo se il rank è cambiato
-      if (rank !== this.lastDisplayedRank) {
-        this.uiSystem.updatePlayerNicknameContent(`${nickname}\n[${rank}]`);
-        this.lastDisplayedRank = rank;
-      }
-    }
-
-    const camera = this.cameraSystem!.getCamera();
-    const canvasSize = this.world.getCanvasSize();
-
-    // Delega all'UiSystem
-    this.uiSystem.updatePlayerNicknamePosition(transform.x, transform.y, camera, canvasSize);
+    this.initializeManagers();
+    this.resourceManager.updateNicknamePosition();
   }
 
   /**
    * Aggiorna posizioni e visibilità dei nickname NPC (elementi DOM stabili)
    */
   private updateNpcNicknames(): void {
-    if (!this.movementSystem || !this.uiSystem) return;
-
-    const camera = this.cameraSystem!.getCamera();
-    const canvasSize = this.world.getCanvasSize();
-    const ecs = this.world.getECS();
-
-    // Trova tutti gli NPC nel sistema
-    const npcs = ecs.getEntitiesWithComponents(Npc, Transform);
-
-    // Track quali NPC sono ancora visibili per cleanup
-    const visibleNpcIds = new Set<number>();
-
-    for (const entity of npcs) {
-      const npc = ecs.getComponent(entity, Npc);
-      const transform = ecs.getComponent(entity, Transform);
-
-      if (npc && transform) {
-        // Verifica se l'NPC è visibile sulla schermata
-        const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
-        const isVisible = screenPos.x >= -100 && screenPos.x <= canvasSize.width + 100 &&
-                         screenPos.y >= -100 && screenPos.y <= canvasSize.height + 100;
-
-        if (isVisible) {
-          visibleNpcIds.add(entity.id);
-          // Crea/assicura elemento nickname + stato
-          this.uiSystem.ensureNpcNicknameElement(entity.id, npc.npcType, npc.behavior);
-          // Aggiorna contenuto (nome + behavior) e posizione ogni frame
-          this.uiSystem.updateNpcNicknameContent(entity.id, npc.npcType, npc.behavior);
-          this.uiSystem.updateNpcNicknamePosition(entity.id, screenPos.x, screenPos.y);
-        }
-      }
-    }
-
-    // Rimuovi elementi DOM per NPC non più visibili
-    const activeNpcIds = this.uiSystem.getNpcNicknameEntityIds();
-    for (const entityId of activeNpcIds) {
-      if (!visibleNpcIds.has(entityId)) {
-        this.uiSystem.removeNpcNicknameElement(entityId);
-      }
-    }
-  }
-
-
-
-
-  /**
-   * Aggiorna l'AnimatedSprite per i remote player se necessario
-   */
-  private updateRemotePlayerSpriteImage(): void {
-    if (!this.remotePlayerSystem || !this.playerEntity || this.remotePlayerSpriteUpdated) return;
-
-    const playerAnimatedSprite = this.world.getECS().getComponent(this.playerEntity, AnimatedSprite);
-    if (playerAnimatedSprite && playerAnimatedSprite.isLoaded()) {
-      // L'AnimatedSprite del player è caricato, aggiorna l'AnimatedSprite condiviso dei remote player
-      this.remotePlayerSystem.updateSharedAnimatedSprite(playerAnimatedSprite);
-      this.remotePlayerSpriteUpdated = true; // Evita aggiornamenti ripetuti
-    }
+    this.initializeManagers();
+    this.resourceManager.updateNpcNicknames();
   }
 
   /**
    * Aggiorna posizioni e contenuti dei nickname remote player
    */
   private updateRemotePlayerNicknames(): void {
-    if (!this.remotePlayerSystem) return;
-
-    // Controlla se dobbiamo aggiornare l'immagine del sprite condiviso
-    this.updateRemotePlayerSpriteImage();
-
-    // Per ogni remote player attivo
-    for (const clientId of this.remotePlayerSystem.getActiveRemotePlayers()) {
-      const entityId = this.remotePlayerSystem.getRemotePlayerEntity(clientId);
-      if (!entityId) continue;
-
-      const entity = this.world.getECS().getEntity(entityId);
-      if (!entity) continue;
-
-      const transform = this.world.getECS().getComponent(entity, Transform);
-      if (!transform) continue;
-
-      // Converti posizione world a schermo
-      const camera = this.cameraSystem?.getCamera();
-      if (!camera) continue;
-
-      const canvasSize = this.world.getCanvasSize();
-      const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
-
-      // Assicura che esista l'elemento DOM per questo remote player
-      const playerInfo = this.remotePlayerSystem.getRemotePlayerInfo(clientId);
-      if (playerInfo) {
-        this.uiSystem.ensureRemotePlayerNicknameElement(clientId, playerInfo.nickname, playerInfo.rank);
-        this.uiSystem.updateRemotePlayerNicknamePosition(clientId, screenPos.x, screenPos.y);
-      }
-    }
-
-    // Rimuovi elementi per remote player che non esistono più
-    const activeClientIds = this.uiSystem.getRemotePlayerNicknameClientIds();
-    for (const clientId of activeClientIds) {
-      if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
-        this.uiSystem.removeRemotePlayerNicknameElement(clientId);
-      }
-    }
+    this.initializeManagers();
+    this.resourceManager.updateRemotePlayerNicknames();
   }
 
-  /**
-   * Assicura che esista un elemento DOM per il nickname del remote player
-   */
 
 
 
@@ -739,42 +268,6 @@ export class PlayState extends GameState {
 
 
 
-
-  /**
-   * 🔧 FIX RACE CONDITION: Inizializza il sistema di rete con gestione sequenziale
-   * per prevenire callback chiamati prima che i sistemi siano pronti
-   */
-  private async initializeNetworkSystem(): Promise<void> {
-    if (!this.clientNetworkSystem) return;
-
-    try {
-      // Inizializza il sistema di rete
-      await this.clientNetworkSystem.initialize();
-
-      // Ora che il sistema è inizializzato, possiamo configurare i callback in sicurezza
-      this.clientNetworkSystem.setOnPlayerIdReceived((playerId: number) => {
-        if (this.questManager) {
-          this.questManager.setPlayerId(playerId);
-        }
-        if (this.uiSystem) {
-          this.uiSystem.setPlayerId(playerId);
-        }
-      });
-
-      // Verifica se abbiamo già ricevuto il playerId (caso di riconnessione)
-      if (this.clientNetworkSystem.isSystemInitialized() && this.clientNetworkSystem.gameContext.playerId) {
-        // Richiama manualmente il callback per i sistemi che potrebbero essere stati inizializzati dopo
-        if (this.questManager) {
-          this.questManager.setPlayerId(this.clientNetworkSystem.gameContext.playerId);
-        }
-        if (this.uiSystem) {
-          this.uiSystem.setPlayerId(this.clientNetworkSystem.gameContext.playerId);
-        }
-      }
-    } catch (error) {
-      console.error('❌ [PLAYSTATE] Network system initialization failed:', error);
-    }
-  }
 
   /**
    * Restituisce il mondo di gioco per accesso esterno

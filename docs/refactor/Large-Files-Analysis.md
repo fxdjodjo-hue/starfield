@@ -6,23 +6,13 @@
 1. ~~**UpgradePanel.ts**~~ - 1206 → 190 righe ✅
 2. ~~**AuthScreen.ts**~~ - 1080 → 154 righe ✅
 3. ~~**UiSystem.ts**~~ - 872 → 278 righe ✅
+4. ~~**EconomySystem.ts**~~ - 674 → 406 righe ✅
 
 ### 🔴 File Grandi Rimanenti
 
 #### Priorità ALTA (600-700 righe)
 
-1. **EconomySystem.ts** - 674 righe
-   - **Tipo**: System (ECS)
-   - **Responsabilità**: Gestione economia (credits, cosmos, experience, honor, skill points)
-   - **Candidato per**: Estrazione in moduli
-   - **Moduli proposti**: 
-     - `CurrencyManager` (credits, cosmos)
-     - `ProgressionManager` (experience, leveling)
-     - `HonorManager` (honor, rank)
-     - `SkillPointsManager` (skill points)
-     - `EconomyEventManager` (callbacks, events)
-
-2. **PlayState.ts** - 646 righe
+1. **PlayState.ts** - 646 righe
    - **Tipo**: Game State
    - **Responsabilità**: Stato di gioco principale, inizializzazione, lifecycle
    - **Candidato per**: Estrazione in moduli
@@ -103,9 +93,8 @@
 
 ### Prossimi Target (in ordine di priorità)
 
-1. **EconomySystem.ts** (674 righe) - Sistema core, logica complessa
-2. **PlayState.ts** (646 righe) - Lifecycle complesso, inizializzazione multi-step
-3. **CombatSystem.ts** (634 righe) - Sistema core, logica combattimento
+1. **PlayState.ts** (646 righe) - Lifecycle complesso, inizializzazione multi-step
+2. **CombatSystem.ts** (634 righe) - Sistema core, logica combattimento
 4. **PlayerControlSystem.ts** (613 righe) - Sistema input/movimento
 5. **ChatPanel.ts** (577 righe) - UI component, simile a UpgradePanel
 6. **LeaderboardPanel.ts** (558 righe) - UI component
@@ -121,7 +110,7 @@
 - Impatto rapido sulla manutenibilità UI
 
 **Opzione B: Refactoring Game Systems**
-- EconomySystem, CombatSystem, PlayerControlSystem
+- CombatSystem, PlayerControlSystem
 - Sistemi core del gioco
 - Maggiore complessità ma alto impatto
 
@@ -132,7 +121,7 @@
 
 ## 📈 Statistiche
 
-- **File > 500 righe rimanenti**: 10 file
-- **File già refactorizzati**: 3 file
-- **Riduzione totale finora**: ~2000 righe
-- **Target rimanente**: ~6000 righe da modularizzare
+- **File > 500 righe rimanenti**: 9 file
+- **File già refactorizzati**: 4 file (UpgradePanel, AuthScreen, UiSystem, EconomySystem)
+- **Riduzione totale finora**: ~2700 righe
+- **Target rimanente**: ~5500 righe da modularizzare
