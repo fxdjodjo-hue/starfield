@@ -119,7 +119,8 @@ export class GameInitializationSystem extends System {
       ecs: this.ecs,
       context: this.context,
       systems: this.systemsCache,
-      playerStatusDisplaySystem: this.playerStatusDisplaySystem
+      playerStatusDisplaySystem: this.playerStatusDisplaySystem,
+      clientNetworkSystem: this.clientNetworkSystem
     });
 
     // Crea le entità di gioco e restituisci il player entity

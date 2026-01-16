@@ -12,6 +12,7 @@ export interface SystemConfiguratorDependencies {
   context: GameContext;
   systems: CreatedSystems;
   playerStatusDisplaySystem: any;
+  clientNetworkSystem?: any;
 }
 
 export class SystemConfigurator {
@@ -22,7 +23,7 @@ export class SystemConfigurator {
     const {
       inputSystem, playerControlSystem, npcSelectionSystem,
       damageSystem, projectileCreationSystem, combatStateSystem,
-      cameraSystem, explosionSystem, projectileSystem, movementSystem,
+      cameraSystem, explosionSystem, repairEffectSystem, projectileSystem, movementSystem,
       parallaxSystem, renderSystem, boundsSystem, minimapSystem,
       damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
       rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
@@ -38,6 +39,7 @@ export class SystemConfigurator {
     ecs.addSystem(projectileCreationSystem);
     ecs.addSystem(combatStateSystem);
     ecs.addSystem(explosionSystem);
+    ecs.addSystem(repairEffectSystem);
     ecs.addSystem(projectileSystem);
     ecs.addSystem(cameraSystem);
     // InterpolationSystem deve essere eseguito PRIMA di MovementSystem per aggiornare posizioni interpolate
@@ -67,7 +69,7 @@ export class SystemConfigurator {
    * Configura le interazioni e dipendenze tra sistemi
    */
   static configureSystemInteractions(deps: SystemConfiguratorDependencies): void {
-    const { ecs, context, systems, playerStatusDisplaySystem } = deps;
+    const { ecs, context, systems, playerStatusDisplaySystem, clientNetworkSystem } = deps;
     const {
       movementSystem, playerControlSystem, npcSelectionSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, damageSystem, projectileCreationSystem, combatStateSystem,
@@ -167,8 +169,10 @@ export class SystemConfigurator {
       if (key === 'e' && portalSystem && typeof portalSystem.handleEKeyPress === 'function') {
         portalSystem.handleEKeyPress();
       }
-      // Gestisci altri tasti per player
-      playerControlSystem.handleKeyPress(key);
+      // Gestisci altri tasti per player (tasto T verrà gestito in configureClientNetworkSystem)
+      else {
+        playerControlSystem.handleKeyPress(key);
+      }
     });
 
     inputSystem.setKeyReleaseCallback((key: string) => {
@@ -224,6 +228,33 @@ export class SystemConfigurator {
       if (systemsCache.rewardSystem) {
         clientNetworkSystem.setRewardSystem(systemsCache.rewardSystem);
       }
+    }
+
+    // Configura il callback del tasto T per test damage (dopo che clientNetworkSystem è disponibile)
+    if (systems.inputSystem && clientNetworkSystem) {
+      // Sostituisci il callback con uno che include il supporto per il tasto T
+      systems.inputSystem.setKeyPressCallback((key: string) => {
+        // Gestisci tasto T per test damage
+        if (key === 't') {
+          console.log('🔧 [TEST] T key pressed');
+          if (clientNetworkSystem && typeof clientNetworkSystem.sendTestDamage === 'function') {
+            console.log('🔧 [TEST] Calling sendTestDamage');
+            clientNetworkSystem.sendTestDamage();
+          } else {
+            console.warn('🔧 [TEST] sendTestDamage not available');
+          }
+          return;
+        }
+        // Gestisci tasto E per portali
+        if (key === 'e' && systems.portalSystem && typeof systems.portalSystem.handleEKeyPress === 'function') {
+          systems.portalSystem.handleEKeyPress();
+          return;
+        }
+        // Gestisci altri tasti per player
+        if (systems.playerControlSystem) {
+          systems.playerControlSystem.handleKeyPress(key);
+        }
+      });
     }
   }
 }

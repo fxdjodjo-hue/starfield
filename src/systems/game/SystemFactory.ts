@@ -64,6 +64,7 @@ export interface CreatedSystems {
   projectileCreationSystem: ProjectileCreationSystem;
   combatStateSystem: CombatStateSystem;
   explosionSystem: ExplosionSystem;
+  repairEffectSystem: any;
   damageTextSystem: DamageTextSystem;
   chatTextSystem: ChatTextSystem;
   projectileSystem: ProjectileSystem;
@@ -121,6 +122,8 @@ export class SystemFactory {
     const playerControlSystem = new PlayerControlSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
     const explosionSystem = new ExplosionSystem(ecs);
+    const { RepairEffectSystem } = await import('../../systems/combat/RepairEffectSystem');
+    const repairEffectSystem = new RepairEffectSystem(ecs);
     const chatTextSystem = new ChatTextSystem(ecs, cameraSystem);
     const minimapSystem = new MinimapSystem(ecs, context.canvas);
     const logSystem = new LogSystem(ecs);
@@ -216,6 +219,7 @@ export class SystemFactory {
       projectileCreationSystem,
       combatStateSystem,
       explosionSystem,
+      repairEffectSystem,
       damageTextSystem,
       chatTextSystem,
       projectileSystem,

@@ -198,6 +198,39 @@ class ServerInputValidator {
   }
 
   /**
+   * Valida test_damage - richiede solo playerId (UUID auth)
+   */
+  validateTestDamage(data) {
+    const errors = [];
+
+    if (!data || typeof data !== 'object') {
+      errors.push('Test damage data must be an object');
+      return { isValid: false, errors };
+    }
+
+    const { playerId } = data;
+
+    // Validazione Player ID (UUID auth)
+    if (!playerId || typeof playerId !== 'string') {
+      errors.push('Player ID must be a non-empty string');
+    } else if (playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Player ID too long');
+    } else if (!this.LIMITS.IDENTIFIERS.UUID_PATTERN.test(playerId)) {
+      errors.push('Player ID must be a valid UUID');
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    return {
+      isValid: true,
+      errors: [],
+      sanitizedData: { playerId: playerId }
+    };
+  }
+
+  /**
    * Valida heartbeat - connessione keep-alive
    */
   validateHeartbeat(data) {
@@ -294,6 +327,9 @@ class ServerInputValidator {
           return this.validateCombat(data);
         case 'chat_message':
           return this.validateChat(data);
+        case 'test_damage':
+          // Valida test_damage (solo per testing) - richiede solo playerId, non npcId
+          return this.validateTestDamage(data);
         case 'projectile_fired':
           // Valida sia posizione che velocità
           const posResult = this.validatePosition(data.position);

@@ -70,9 +70,10 @@ export class AtlasParser {
         throw new Error(`Target image "${targetImageName}" not found in atlas ${atlasPath}. Available: ${atlasSections.map(s => s.imagePath).join(', ')}`);
       }
 
-      // Costruisci il path dell'immagine relativo alla directory assets
-      // Le immagini esplosione sono in /assets/explosions/explosions_npc/
-      const fullImagePath = `/assets/explosions/explosions_npc/${targetSection.imagePath}`;
+      // Costruisci il path dell'immagine basandosi sulla directory dell'atlas
+      // Estrai la directory base dall'atlasPath (es. /assets/repair/hprestore/hprestore.atlas -> /assets/repair/hprestore/)
+      const atlasDir = atlasPath.substring(0, atlasPath.lastIndexOf('/') + 1);
+      const fullImagePath = `${atlasDir}${targetSection.imagePath}`;
 
       // Carica l'immagine atlas
       const image = await this.loadImage(fullImagePath);

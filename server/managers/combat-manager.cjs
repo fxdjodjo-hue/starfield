@@ -91,6 +91,11 @@ class ServerCombatManager {
   stopPlayerCombat(playerId) {
     if (this.playerCombats.has(playerId)) {
       this.playerCombats.delete(playerId);
+      
+      // Notifica repair manager che il combattimento è terminato
+      if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
+        this.mapServer.repairManager.onCombatEnded(playerId);
+      }
     }
   }
 
@@ -143,6 +148,11 @@ class ServerCombatManager {
     // I proiettili già sparati continueranno il loro volo, ma non verranno sparati altri
     if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_START_RANGE) {
       this.playerCombats.delete(playerId);
+
+      // Notifica repair manager che il combattimento è terminato
+      if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
+        this.mapServer.repairManager.onCombatEnded(playerId);
+      }
 
       // Notifica il client che il combattimento è stato fermato automaticamente per range
       const stopCombatMessage = {

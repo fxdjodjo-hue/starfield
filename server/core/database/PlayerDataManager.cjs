@@ -173,7 +173,26 @@ class PlayerDataManager {
           return { ...defaultUpgrades };
         })(),
         quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [],
-        recentHonor: recentHonor // Media mobile honor ultimi 30 giorni
+        recentHonor: recentHonor, // Media mobile honor ultimi 30 giorni
+        // Carica HP/shield salvati (NULL significa full health/shield)
+        currentHealth: (() => {
+          if (playerDataRaw.currencies_data) {
+            const currencies = JSON.parse(playerDataRaw.currencies_data);
+            return currencies.current_health !== null && currencies.current_health !== undefined 
+              ? currencies.current_health 
+              : null; // NULL significa "usa max health"
+          }
+          return null;
+        })(),
+        currentShield: (() => {
+          if (playerDataRaw.currencies_data) {
+            const currencies = JSON.parse(playerDataRaw.currencies_data);
+            return currencies.current_shield !== null && currencies.current_shield !== undefined 
+              ? currencies.current_shield 
+              : null; // NULL significa "usa max shield"
+          }
+          return null;
+        })()
       };
 
       // Crea snapshot iniziale dell'honor corrente (non bloccante)
@@ -262,7 +281,14 @@ class PlayerDataManager {
         experience: Number(playerData.inventory.experience ?? 0),
         honor: Number(playerData.inventory.honor ?? 0),
         skill_points: Number(playerData.inventory.skillPoints ?? 0),
-        skill_points_total: Number(playerData.inventory.skillPointsTotal ?? playerData.inventory.skillPoints ?? 0)
+        skill_points_total: Number(playerData.inventory.skillPointsTotal ?? playerData.inventory.skillPoints ?? 0),
+        // Salva HP/shield correnti (NULL se full, altrimenti il valore attuale)
+        current_health: playerData.health !== null && playerData.health !== undefined 
+          ? (playerData.health >= playerData.maxHealth ? null : Number(playerData.health))
+          : null,
+        current_shield: playerData.shield !== null && playerData.shield !== undefined 
+          ? (playerData.shield >= playerData.maxShield ? null : Number(playerData.shield))
+          : null
       };
       
       // 🔴 FIX: Salva SEMPRE i currencies quando vengono modificati durante il gameplay

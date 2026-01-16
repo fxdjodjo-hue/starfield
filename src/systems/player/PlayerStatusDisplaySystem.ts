@@ -71,8 +71,9 @@ export class PlayerStatusDisplaySystem extends System {
 
   /**
    * Aggiorna il display con i valori attuali di HP e Shield
+   * Metodo pubblico per permettere aggiornamenti forzati da altri sistemi
    */
-  private updateDisplay(): void {
+  public updateDisplay(): void {
     if (!this.statusElement || !this.playerEntity) return;
 
     const health = this.ecs.getComponent(this.playerEntity, Health);

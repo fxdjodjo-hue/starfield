@@ -54,6 +54,18 @@ async function handleJoin(data, sanitizedData, context) {
     return null;
   }
 
+  // Calcola max health/shield basati sugli upgrade
+  const maxHealth = authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades);
+  const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades);
+  
+  // Usa HP/shield salvati se disponibili, altrimenti usa max (NULL = full health/shield)
+  const savedHealth = loadedData.currentHealth !== null && loadedData.currentHealth !== undefined 
+    ? Math.min(loadedData.currentHealth, maxHealth) // Assicurati che non superi max
+    : maxHealth;
+  const savedShield = loadedData.currentShield !== null && loadedData.currentShield !== undefined 
+    ? Math.min(loadedData.currentShield, maxShield) // Assicurati che non superi max
+    : maxShield;
+
   const playerData = {
     clientId: data.clientId,
     nickname: data.nickname,
@@ -65,10 +77,10 @@ async function handleJoin(data, sanitizedData, context) {
     position: data.position,
     ws: ws,
     upgrades: loadedData.upgrades,
-    health: authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades),
-    maxHealth: authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades),
-    shield: authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades),
-    maxShield: authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades),
+    health: savedHealth,
+    maxHealth: maxHealth,
+    shield: savedShield,
+    maxShield: maxShield,
     lastDamage: null,
     isDead: false,
     respawnTime: null,
@@ -822,6 +834,58 @@ function handleChatMessage(data, sanitizedData, context) {
 }
 
 /**
+ * Handler per messaggio 'test_damage' (solo per testing)
+ */
+function handleTestDamage(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster } = context;
+  
+  logger.info('TEST', `Received test_damage request from ${data.clientId}, playerId: ${data.playerId}`);
+  
+  // Fallback a mapServer se playerData non è nel context
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) {
+    logger.warn('TEST', `Player data not found for clientId: ${data.clientId}`);
+    return;
+  }
+
+  logger.info('TEST', `Player found: ${playerData.nickname}, current HP: ${playerData.health}/${playerData.maxHealth}, Shield: ${playerData.shield}/${playerData.maxShield}`);
+
+  // Security check
+  const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
+  if (!playerIdValidation.valid) {
+    logger.error('SECURITY', `🚫 BLOCKED: Test damage attempt with mismatched playerId from ${data.clientId}. Expected: ${playerData.playerId}, Got: ${data.playerId}`);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid player ID for test damage.',
+      code: 'INVALID_PLAYER_ID'
+    }));
+    return;
+  }
+
+  // Infliggi 1k danno usando NpcDamageHandler tramite npcManager
+  const damageAmount = 1000;
+  logger.info('TEST', `Applying ${damageAmount} damage to player ${data.clientId}`);
+  const wasKilled = mapServer.npcManager.damagePlayer(data.clientId, damageAmount, 'test_system');
+  
+  logger.info('TEST', `Test damage applied: ${damageAmount} to player ${data.clientId} (${playerData.nickname}). New HP: ${playerData.health}/${playerData.maxHealth}, Shield: ${playerData.shield}/${playerData.maxShield}. Was killed: ${wasKilled}`);
+
+  // Broadcast aggiornamento stato player (formato come in ProjectileBroadcaster)
+  const damageMessage = {
+    type: 'entity_damaged',
+    entityId: data.clientId,
+    entityType: 'player',
+    damage: damageAmount,
+    attackerId: 'test_system',
+    newHealth: playerData.health,
+    newShield: playerData.shield,
+    position: playerData.position || { x: 0, y: 0 }
+  };
+  
+  mapServer.broadcastToMap(damageMessage);
+  logger.info('TEST', 'Broadcasted damage message to all players');
+}
+
+/**
  * Handler per messaggio 'save_request'
  */
 async function handleSaveRequest(data, sanitizedData, context) {
@@ -881,7 +945,8 @@ const handlers = {
   request_leaderboard: handleRequestLeaderboard,
   request_player_data: handleRequestPlayerData,
   chat_message: handleChatMessage,
-  save_request: handleSaveRequest
+  save_request: handleSaveRequest,
+  test_damage: handleTestDamage
 };
 
 /**

@@ -9,6 +9,7 @@ import { Npc } from '../../entities/ai/Npc';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Explosion } from '../../entities/combat/Explosion';
+import { RepairEffect } from '../../entities/combat/RepairEffect';
 import { Projectile } from '../../entities/combat/Projectile';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
@@ -30,6 +31,7 @@ import { HudRenderer } from '../../utils/helpers/HudRenderer';
 import type { HealthBarRenderParams } from '../../utils/helpers/HudRenderer';
 import { ExplosionRenderer } from '../../utils/helpers/ExplosionRenderer';
 import type { ExplosionRenderParams } from '../../utils/helpers/ExplosionRenderer';
+import { RepairEffectRenderer } from '../../utils/helpers/RepairEffectRenderer';
 import { EngineFlamesRenderer } from '../../utils/helpers/EngineFlamesRenderer';
 import { ScreenSpace } from '../../utils/helpers/ScreenSpace';
 import { SpriteRenderer } from '../../utils/helpers/SpriteRenderer';
@@ -100,6 +102,7 @@ export class RenderSystem extends BaseSystem {
         sprite: this.ecs.getComponent(entity, Sprite),
         animatedSprite: this.ecs.getComponent(entity, AnimatedSprite),
         explosion: this.ecs.getComponent(entity, Explosion),
+        repairEffect: this.ecs.getComponent(entity, RepairEffect),
         velocity: this.ecs.getComponent(entity, Velocity),
         health: this.ecs.getComponent(entity, Health),
         shield: this.ecs.getComponent(entity, Shield),
@@ -130,6 +133,7 @@ export class RenderSystem extends BaseSystem {
     screenY: number,
     components: {
       explosion?: Explosion,
+      repairEffect?: RepairEffect,
       npc?: Npc,
       sprite?: Sprite,
       animatedSprite?: AnimatedSprite,
@@ -137,15 +141,17 @@ export class RenderSystem extends BaseSystem {
     },
     camera?: Camera
   ): void {
-    const { explosion, npc, sprite, animatedSprite, velocity } = components;
+    const { explosion, repairEffect, npc, sprite, animatedSprite, velocity } = components;
     
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isPlayerEntity = playerEntity === entity;
     const isRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
 
-    // Priority: Explosions > NPC > Player > Remote Player
+    // Priority: Explosions > Repair Effects > NPC > Player > Remote Player
     if (explosion) {
       this.renderExplosion(ctx, transform, explosion, screenX, screenY);
+    } else if (repairEffect) {
+      this.renderRepairEffect(ctx, transform, repairEffect, screenX, screenY);
     } else if (npc) {
       // Render NPC - supporta sia AnimatedSprite che Sprite
       const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
@@ -450,6 +456,7 @@ export class RenderSystem extends BaseSystem {
         // Render entity
         this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
           explosion: components.explosion,
+          repairEffect: components.repairEffect,
           npc: components.npc,
           sprite: components.sprite,
           animatedSprite: components.animatedSprite,
@@ -484,6 +491,7 @@ export class RenderSystem extends BaseSystem {
         // Render player entity
         this.renderGameEntity(ctx, playerEntity, playerTransform, screenPos.x, screenPos.y, {
           explosion: components.explosion,
+          repairEffect: components.repairEffect,
           npc: components.npc,
           sprite: components.sprite,
           animatedSprite: components.animatedSprite,
@@ -691,6 +699,19 @@ export class RenderSystem extends BaseSystem {
    */
   private renderExplosion(ctx: CanvasRenderingContext2D, transform: Transform, explosion: Explosion, screenX: number, screenY: number): void {
     const params = ExplosionRenderer.getRenderParams(explosion, screenX, screenY);
+
+    if (params && params.image) {
+      ctx.save();
+      ctx.drawImage(params.image, params.x, params.y, params.width, params.height);
+      ctx.restore();
+    }
+  }
+
+  /**
+   * Render repair effect
+   */
+  private renderRepairEffect(ctx: CanvasRenderingContext2D, transform: Transform, repairEffect: RepairEffect, screenX: number, screenY: number): void {
+    const params = RepairEffectRenderer.getRenderParams(repairEffect, transform, screenX, screenY);
 
     if (params && params.image) {
       ctx.save();

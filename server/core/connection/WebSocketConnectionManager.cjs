@@ -246,6 +246,11 @@ class WebSocketConnectionManager {
           // Rimuovi anche dalla queue degli aggiornamenti posizione
           this.mapServer.positionUpdateQueue.delete(playerData.clientId);
 
+          // Rimuovi stato riparazione
+          if (this.mapServer.repairManager) {
+            this.mapServer.repairManager.removePlayer(playerData.clientId);
+          }
+
           logger.info('SERVER', `Remaining players: ${this.mapServer.players.size}`);
         } else {
           logger.warn('PLAYER', 'Unknown client disconnected');

@@ -369,22 +369,24 @@ export interface PlayerRespawnMessage {
  */
 export interface PlayerStateUpdateMessage {
   type: typeof MESSAGE_TYPES.PLAYER_STATE_UPDATE;
-  inventory: {
+  inventory?: {
     credits: number;
     cosmos: number;
     experience: number;
     honor: number;
     skillPoints: number;
   };
-  upgrades: {
+  upgrades?: {
     [key: string]: number; // Upgrade levels
   };
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
-  health: number;
-  maxHealth: number;
-  shield: number;
-  maxShield: number;
-  source: string;
+  health?: number;
+  maxHealth?: number;
+  shield?: number;
+  maxShield?: number;
+  source?: string;
+  healthRepaired?: number; // Valore HP riparato (per messaggi di riparazione)
+  shieldRepaired?: number; // Valore Shield riparato (per messaggi di riparazione)
   rewardsEarned?: {
     credits: number;
     cosmos: number;

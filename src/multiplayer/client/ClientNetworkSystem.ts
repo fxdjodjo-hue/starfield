@@ -341,6 +341,38 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 
+  /**
+   * Sends a test damage request to the server (for testing repair system)
+   */
+  sendTestDamage(): void {
+    if (!this.connectionManager.isConnectionActive()) {
+      console.warn('🔧 [TEST] Cannot send test damage: not connected');
+      return;
+    }
+    
+    if (!this.clientId) {
+      console.warn('🔧 [TEST] Cannot send test damage: no clientId');
+      return;
+    }
+    
+    // validatePlayerId confronta con playerData.userId (UUID auth), non playerId numerico
+    if (!this.gameContext.authId) {
+      console.warn('🔧 [TEST] Cannot send test damage: no authId');
+      return;
+    }
+    
+    console.log('🔧 [TEST] Sending test damage request', {
+      clientId: this.clientId,
+      playerId: this.gameContext.authId
+    });
+    
+    this.sendMessage({
+      type: 'test_damage',
+      clientId: this.clientId,
+      playerId: this.gameContext.authId  // Usa authId (UUID) invece di playerId numerico
+    });
+  }
+
   isConnected(): boolean {
     return this.stateManager.isConnected();
   }

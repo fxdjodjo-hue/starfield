@@ -34,6 +34,7 @@ import { ProjectileDestroyedHandler } from '../handlers/ProjectileDestroyedHandl
 import { EntityDamagedHandler } from '../handlers/EntityDamagedHandler';
 import { EntityDestroyedHandler } from '../handlers/EntityDestroyedHandler';
 import { ExplosionCreatedHandler } from '../handlers/ExplosionCreatedHandler';
+import { RepairStartedHandler, RepairStoppedHandler, RepairCompleteHandler } from '../handlers/RepairStateHandler';
 import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHandler';
 
 /**
@@ -98,6 +99,13 @@ export class NetworkInitializationManager {
       new SaveResponseHandler(),
       new LeaderboardResponseHandler()
     ];
+
+    // Aggiungi handler per repair system (opzionali, solo per evitare errori)
+    handlers.push(
+      new RepairStartedHandler(),
+      new RepairStoppedHandler(),
+      new RepairCompleteHandler()
+    );
 
     // Aggiungi handlers NPC se il sistema è disponibile
     if (this.remoteNpcSystem) {

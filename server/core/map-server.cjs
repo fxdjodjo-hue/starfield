@@ -80,6 +80,11 @@ class MapServer {
       // 5. Processa aggiornamenti posizione giocatori
       PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);
 
+      // 6. Processa riparazioni player
+      if (this.repairManager) {
+        this.repairManager.updateRepairs(Date.now());
+      }
+
     } catch (error) {
       console.error(`❌ [MapServer:${this.mapId}] Error in tick:`, error);
     }
