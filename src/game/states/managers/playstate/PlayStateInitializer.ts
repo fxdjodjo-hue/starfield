@@ -228,7 +228,7 @@ export class PlayStateInitializer {
    */
   async initializeMultiplayerSystems(): Promise<void> {
     // Carica AnimatedSprite per i remote player (stesso del player normale)
-    const remotePlayerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.7);
+    const remotePlayerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.8);
 
     // Crea sistema remote player
     const remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), remotePlayerSprite);

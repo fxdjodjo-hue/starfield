@@ -97,7 +97,7 @@ export class SystemFactory {
     const { ecs, context, world, questManager, questSystem, uiSystem, playState, clientNetworkSystem } = deps;
 
     // Load assets - use spritesheet for player ship
-    const playerSprite = await context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.7);
+    const playerSprite = await context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.8);
     
     // Carica sprite NPC usando scala dal config (single source of truth)
     const scouterDef = getNpcDefinition('Scouter');

@@ -26,6 +26,7 @@ import { HudRenderer } from '../../utils/helpers/HudRenderer';
 import type { HealthBarRenderParams } from '../../utils/helpers/HudRenderer';
 import { ExplosionRenderer } from '../../utils/helpers/ExplosionRenderer';
 import type { ExplosionRenderParams } from '../../utils/helpers/ExplosionRenderer';
+import { EngineFlamesRenderer } from '../../utils/helpers/EngineFlamesRenderer';
 import { ScreenSpace } from '../../utils/helpers/ScreenSpace';
 import { SpriteRenderer } from '../../utils/helpers/SpriteRenderer';
 import type { RenderableTransform } from '../../utils/helpers/SpriteRenderer';
@@ -51,6 +52,10 @@ export class RenderSystem extends BaseSystem {
   private readonly HEALTH_BARS_FADE_DURATION = 500; // Durata fade in millisecondi
   private engflamesSprite: AnimatedSprite | null = null; // Sprite per le fiamme del motore
   private engflamesAnimationTime: number = 0; // Tempo per l'animazione delle fiamme
+  private engflamesOpacity: number = 0; // Opacità delle fiamme (0-1) per fade in/out
+  private engflamesWasMoving: boolean = false; // Stato movimento precedente per fade
+  private readonly ENGFLAMES_FADE_SPEED = 0.15; // Velocità fade in/out (per frame)
+  private frameTime: number = 0; // Timestamp sincronizzato con frame rate per float offset
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
@@ -199,12 +204,25 @@ export class RenderSystem extends BaseSystem {
         const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
         const entitySprite = this.ecs.getComponent(entity, Sprite);
         
-        const floatOffsetY = PlayerRenderer.getFloatOffset();
+        const floatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime);
         
         // Renderizza fiamme del motore PRIMA della nave (sotto nello z-order)
         const playerVelocity = this.ecs.getComponent(entity, Velocity);
-        if (playerVelocity && this.engflamesSprite && (Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.y) > 0.1)) {
-          this.renderEngineFlames(ctx, transform, playerVelocity, screenX, screenY + floatOffsetY, camera);
+        if (playerVelocity && this.engflamesSprite && this.engflamesOpacity > 0) {
+          const isMoving = Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.y) > 0.1;
+          if (isMoving) {
+            const params = EngineFlamesRenderer.getRenderParams(
+              transform,
+              screenX,
+              screenY + floatOffsetY,
+              this.engflamesAnimationTime,
+              this.engflamesOpacity,
+              camera
+            );
+            if (params) {
+              EngineFlamesRenderer.render(ctx, this.engflamesSprite, params);
+            }
+          }
         }
         
         // Priority: AnimatedSprite > Sprite
@@ -238,8 +256,28 @@ export class RenderSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     // Il rendering avviene nel metodo render()
-    // Aggiorna animazione fiamme
+    // Aggiorna animazione fiamme usando deltaTime
     this.engflamesAnimationTime += deltaTime;
+    // Aggiorna timestamp frame per sincronizzare float offset
+    this.frameTime += deltaTime;
+    
+    // Gestisci fade in/out delle fiamme
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (playerEntity && this.engflamesSprite) {
+      const velocity = this.ecs.getComponent(playerEntity, Velocity);
+      const isMoving = velocity ? (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1) : false;
+      
+      // Fade in quando inizia a muoversi, fade out quando si ferma
+      if (isMoving) {
+        // Fade in
+        this.engflamesOpacity = Math.min(1, this.engflamesOpacity + this.ENGFLAMES_FADE_SPEED);
+      } else {
+        // Fade out
+        this.engflamesOpacity = Math.max(0, this.engflamesOpacity - this.ENGFLAMES_FADE_SPEED);
+      }
+      
+      this.engflamesWasMoving = isMoving;
+    }
   }
 
   render(ctx: CanvasRenderingContext2D): void {
@@ -256,9 +294,6 @@ export class RenderSystem extends BaseSystem {
 
     // Render player range circle (for debugging)
     this.renderPlayerRange(ctx, camera);
-
-    // Render player collision radius circle
-    this.renderPlayerCollisionRadius(ctx, camera);
 
     // Render damage text (floating numbers)
     if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
@@ -576,96 +611,5 @@ export class RenderSystem extends BaseSystem {
     ctx.restore();
   }
 
-  /**
-   * Renderizza il cerchio di collisione del player (stesso sistema del server)
-   * Mostra il raggio usato dai proiettili NPC (120px base + bonus dinamico)
-   */
-  private renderPlayerCollisionRadius(ctx: CanvasRenderingContext2D, camera: Camera): void {
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    if (!playerEntity) return;
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    const playerVelocity = this.ecs.getComponent(playerEntity, Velocity);
-    if (!playerTransform) return;
-
-    // Converte posizione mondo a schermo
-    const { width, height } = this.displayManager.getLogicalSize();
-    const screenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, width, height);
-
-    // Raggio di collisione fisso 50px (stesso per tutti i casi)
-    const collisionRadius = 50;
-
-    const screenRadius = collisionRadius * camera.zoom; // Scala con lo zoom della camera
-
-    ctx.save();
-
-    // Cerchio di collisione - rosso semitrasparente
-    ctx.strokeStyle = '#ff0000'; // Rosso
-    ctx.lineWidth = 2;
-    ctx.globalAlpha = 0.5; // Semitrasparente
-    ctx.setLineDash([]); // Linea continua
-
-    ctx.beginPath();
-    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.restore();
-  }
-
-  /**
-   * Renderizza le fiamme del motore dietro la nave del player
-   */
-  private renderEngineFlames(
-    ctx: CanvasRenderingContext2D,
-    transform: Transform,
-    velocity: Velocity,
-    screenX: number,
-    screenY: number,
-    camera?: Camera
-  ): void {
-    if (!this.engflamesSprite) return;
-
-    // Calcola velocità per verificare se il player si sta muovendo
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-    if (speed < 0.1) return;
-
-    // Usa la rotazione della nave per posizionare le fiamme dietro
-    // Il retro della nave è nella direzione opposta alla rotazione
-    const shipRotation = transform.rotation;
-    const flameRotation = shipRotation + Math.PI; // Opposta alla direzione della nave
-    
-    // Posizione delle fiamme: dietro la nave rispetto alla sua rotazione
-    const flameOffset = 65; // Distanza dietro la nave
-    const offsetX = Math.cos(flameRotation) * flameOffset;
-    const offsetY = Math.sin(flameRotation) * flameOffset;
-    
-    // Aggiorna animazione (32 frame totali, ~60fps)
-    const frameIndex = Math.floor((this.engflamesAnimationTime / 100) % 32);
-    
-    // Le fiamme nello sprite sono orientate verticalmente, quindi aggiungiamo -Math.PI/2 per renderle orizzontali
-    const flameSpriteRotation = flameRotation - Math.PI / 2;
-    
-    const zoom = camera?.zoom || 1;
-    
-    // Renderizza frame con rotazione manuale (SpritesheetRenderer non applica rotazione)
-    const frame = this.engflamesSprite.getFrame(frameIndex);
-    if (!frame) return;
-    
-    const scale = this.engflamesSprite.scale * 0.65 * zoom;
-    const destWidth = frame.width * scale;
-    const destHeight = frame.height * scale;
-    const destX = screenX + offsetX - destWidth / 2;
-    const destY = screenY + offsetY - destHeight / 2;
-    
-    ctx.save();
-    ctx.translate(screenX + offsetX, screenY + offsetY);
-    ctx.rotate(flameSpriteRotation);
-    ctx.drawImage(
-      this.engflamesSprite.spritesheet.image,
-      frame.x, frame.y, frame.width, frame.height,
-      -destWidth / 2, -destHeight / 2, destWidth, destHeight
-    );
-    ctx.restore();
-  }
 
 }

@@ -65,7 +65,7 @@ export class UINicknameManager {
 
     // Posiziona il nickname centrato orizzontalmente sotto la nave
     const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
-    const nicknameY = screenPos.y + 45; // Sotto la nave
+    const nicknameY = screenPos.y + 60; // Sotto la nave (spostato più sotto)
 
     this.playerNicknameElement.style.left = `${nicknameX}px`;
     this.playerNicknameElement.style.top = `${nicknameY}px`;
