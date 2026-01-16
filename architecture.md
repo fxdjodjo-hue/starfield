@@ -256,7 +256,7 @@ this.merchant = new MerchantNpc(200, 300);
 - **Naming**: Convenzioni coerenti (PascalCase classi, camelCase metodi)
 - **Database Safety**: Transazioni e recovery automatica
 
-## 🚀 Status Attuale: Multiplayer-First Architecture
+## 🚀 Status Attuale: Multiplayer-First Architecture + Phase 1 Refactor
 
 ### ✅ Rifattorizzato per Multiplayer-Only
 - **GameContext Multiplayer**: Gestione giocatori multipli e stanze
@@ -270,6 +270,54 @@ this.merchant = new MerchantNpc(200, 300);
 - **Connection Management**: Stati connessione e gestione stanze
 - **ECS Networking**: Foundation per entity sincronizzate
 
+### 🔄 Phase 1 Refactor (Completato)
+
+#### FASE 1.1 - WebSocket & Messaging
+**Obiettivo**: Separare gestione connessioni dal routing messaggi.
+
+**Risultato**:
+- `WebSocketConnectionManager.cjs`: 245 righe (connessioni + validazione)
+- `MessageRouter.cjs`: Routing centralizzato con handler puri
+- Handler isolati e testabili
+- Context esplicito per dipendenze
+
+**Moduli creati**:
+- `connection/WebSocketConnectionManager.cjs` - Gestione connessioni WebSocket
+- `connection/MessageRouter.cjs` - Routing e dispatch messaggi
+- `database/PlayerDataManager.cjs` - Operazioni database Supabase
+- `auth/AuthenticationManager.cjs` - Security validation
+- `messaging/MessageBroadcaster.cjs` - Formattazione e broadcast
+
+#### FASE 1.2 - Projectile System
+**Obiettivo**: Modularizzare sistema proiettili (819 → 316 righe orchestratore).
+
+**Risultato**:
+- `projectile-manager.cjs`: 316 righe (orchestratore)
+- 6 moduli specializzati con responsabilità singola
+- API pubblica invariata (backward compatible)
+- Dependency injection per testabilità
+
+**Moduli creati**:
+- `projectile/ProjectileSpawner.cjs` - Creazione e setup iniziale
+- `projectile/ProjectilePhysics.cjs` - Movimento e fisica
+- `projectile/ProjectileCollision.cjs` - Rilevamento collisioni
+- `projectile/ProjectileHoming.cjs` - Logica homing avanzata
+- `projectile/ProjectileBroadcaster.cjs` - Eventi di rete
+- `projectile/ProjectileDamageHandler.cjs` - Danno e ricompense
+
+#### FASE 1.3 - Game Initialization
+**Obiettivo**: Separare creazione, configurazione e inizializzazione (631 → 153 righe).
+
+**Risultato**:
+- `GameInitializationSystem.ts`: 153 righe (orchestratore)
+- 3 moduli factory con responsabilità chiare
+- Zero logica di business nell'orchestratore
+
+**Moduli creati**:
+- `game/SystemFactory.ts` - Creazione sistemi e caricamento asset
+- `game/SystemConfigurator.ts` - Configurazione interazioni tra sistemi
+- `game/EntityFactory.ts` - Creazione entità iniziali (player, teleport)
+
 ### 🔄 Prossimi Passi Multiplayer
 - **Client-Side Prediction**: Implementare input smoothing
 - **Server Reconciliation**: Sistema correzione stato
@@ -282,5 +330,7 @@ this.merchant = new MerchantNpc(200, 300);
 - **Error Handling**: Robusto con recovery automatico
 - **Code Coverage**: >70% sui sistemi core
 - **Performance**: Logging condizionale per produzione
+- **File Size**: Orchestratori < 400 righe, moduli < 300 righe
+- **Single Responsibility**: Ogni modulo con responsabilità unica
 
-Questa architettura garantisce un progetto **maintainibile, estensibile e scalabile** per lo sviluppo di giochi complessi, ora **pronto per la produzione e l'espansione multiplayer**.
+Questa architettura garantisce un progetto **maintainibile, estensibile e scalabile** per lo sviluppo di giochi complessi, ora **pronto per la produzione e l'espansione multiplayer** con codebase modulare e testabile.
