@@ -49,6 +49,8 @@ export class RenderSystem extends BaseSystem {
   private aimImage: HTMLImageElement | null = null; // Immagine per la selezione NPC
   private healthBarsFadeStartTime: number | null = null; // Timestamp quando inizia il fade delle health bars
   private readonly HEALTH_BARS_FADE_DURATION = 500; // Durata fade in millisecondi
+  private engflamesSprite: AnimatedSprite | null = null; // Sprite per le fiamme del motore
+  private engflamesAnimationTime: number = 0; // Tempo per l'animazione delle fiamme
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
@@ -64,6 +66,13 @@ export class RenderSystem extends BaseSystem {
    */
   setDamageTextSystem(damageTextSystem: any): void {
     this.damageTextSystem = damageTextSystem;
+  }
+
+  /**
+   * Imposta lo sprite per le fiamme del motore
+   */
+  setEngflamesSprite(sprite: AnimatedSprite): void {
+    this.engflamesSprite = sprite;
   }
 
   /**
@@ -192,6 +201,12 @@ export class RenderSystem extends BaseSystem {
         
         const floatOffsetY = PlayerRenderer.getFloatOffset();
         
+        // Renderizza fiamme del motore PRIMA della nave (sotto nello z-order)
+        const playerVelocity = this.ecs.getComponent(entity, Velocity);
+        if (playerVelocity && this.engflamesSprite && (Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.y) > 0.1)) {
+          this.renderEngineFlames(ctx, transform, playerVelocity, screenX, screenY + floatOffsetY, camera);
+        }
+        
         // Priority: AnimatedSprite > Sprite
         // Forza il rendering anche se isLoaded() ritorna false, verifica solo dimensioni
         if (entityAnimatedSprite) {
@@ -223,6 +238,8 @@ export class RenderSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     // Il rendering avviene nel metodo render()
+    // Aggiorna animazione fiamme
+    this.engflamesAnimationTime += deltaTime;
   }
 
   render(ctx: CanvasRenderingContext2D): void {
@@ -592,6 +609,62 @@ export class RenderSystem extends BaseSystem {
     ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
     ctx.stroke();
 
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza le fiamme del motore dietro la nave del player
+   */
+  private renderEngineFlames(
+    ctx: CanvasRenderingContext2D,
+    transform: Transform,
+    velocity: Velocity,
+    screenX: number,
+    screenY: number,
+    camera?: Camera
+  ): void {
+    if (!this.engflamesSprite) return;
+
+    // Calcola velocità per verificare se il player si sta muovendo
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+    if (speed < 0.1) return;
+
+    // Usa la rotazione della nave per posizionare le fiamme dietro
+    // Il retro della nave è nella direzione opposta alla rotazione
+    const shipRotation = transform.rotation;
+    const flameRotation = shipRotation + Math.PI; // Opposta alla direzione della nave
+    
+    // Posizione delle fiamme: dietro la nave rispetto alla sua rotazione
+    const flameOffset = 65; // Distanza dietro la nave
+    const offsetX = Math.cos(flameRotation) * flameOffset;
+    const offsetY = Math.sin(flameRotation) * flameOffset;
+    
+    // Aggiorna animazione (32 frame totali, ~60fps)
+    const frameIndex = Math.floor((this.engflamesAnimationTime / 100) % 32);
+    
+    // Le fiamme nello sprite sono orientate verticalmente, quindi aggiungiamo -Math.PI/2 per renderle orizzontali
+    const flameSpriteRotation = flameRotation - Math.PI / 2;
+    
+    const zoom = camera?.zoom || 1;
+    
+    // Renderizza frame con rotazione manuale (SpritesheetRenderer non applica rotazione)
+    const frame = this.engflamesSprite.getFrame(frameIndex);
+    if (!frame) return;
+    
+    const scale = this.engflamesSprite.scale * 0.65 * zoom;
+    const destWidth = frame.width * scale;
+    const destHeight = frame.height * scale;
+    const destX = screenX + offsetX - destWidth / 2;
+    const destY = screenY + offsetY - destHeight / 2;
+    
+    ctx.save();
+    ctx.translate(screenX + offsetX, screenY + offsetY);
+    ctx.rotate(flameSpriteRotation);
+    ctx.drawImage(
+      this.engflamesSprite.spritesheet.image,
+      frame.x, frame.y, frame.width, frame.height,
+      -destWidth / 2, -destHeight / 2, destWidth, destHeight
+    );
     ctx.restore();
   }
 

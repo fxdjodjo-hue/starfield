@@ -85,6 +85,7 @@ export interface CreatedSystems {
     scouterAnimatedSprite: AnimatedSprite;
     kronosAnimatedSprite: AnimatedSprite;
     teleportAnimatedSprite: AnimatedSprite;
+    engflamesAnimatedSprite: AnimatedSprite;
   };
 }
 
@@ -104,6 +105,7 @@ export class SystemFactory {
     const scouterAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/scouter/alien120', scouterDef?.spriteScale || 0.8);
     const kronosAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', kronosDef?.spriteScale || 0.16);
     const teleportAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/teleport/teleport', 1.0);
+    const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/engflames/engflames', 0.5);
 
     // Crea sistemi
     const audioSystem = new AudioSystem(ecs, AUDIO_CONFIG);
@@ -125,6 +127,7 @@ export class SystemFactory {
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs);
     const playerSystem = new PlayerSystem(ecs);
     const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);
+    renderSystem.setEngflamesSprite(engflamesAnimatedSprite);
     
     // Sistemi di combattimento modulari
     const damageSystem = new DamageSystem(ecs);
@@ -226,7 +229,8 @@ export class SystemFactory {
         playerSprite,
         scouterAnimatedSprite,
         kronosAnimatedSprite,
-        teleportAnimatedSprite
+        teleportAnimatedSprite,
+        engflamesAnimatedSprite
       }
     };
   }
