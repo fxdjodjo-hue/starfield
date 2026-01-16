@@ -294,10 +294,8 @@ export class PlayStateInitializer {
       const uiSystem = this.getUiSystem();
       if (uiSystem) {
         uiSystem.setClientNetworkSystem(clientNetworkSystem);
-        // 🔧 FIX RACE CONDITION: Usa il nuovo sistema di inizializzazione sequenziale
-        console.log('[PlayStateInitializer] Inizializzando sistema di rete...');
-        await this.initializeNetworkSystem();
-        console.log('[PlayStateInitializer] Sistema di rete inizializzato');
+        // NOTA: initializeNetworkSystem() verrà chiamato DOPO la connessione al server
+        // perché ha bisogno del messaggio "welcome" per completare
       }
     } else {
       console.warn('[PlayStateInitializer] ClientNetworkSystem non disponibile');
@@ -428,6 +426,11 @@ export class PlayStateInitializer {
         if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
           this.context.authScreen.updateLoadingText('Synchronizing with server...');
         }
+        
+        // 🔧 FIX: Inizializza il sistema di rete DOPO la connessione (ha bisogno del welcome message)
+        console.log('[PlayState] Inizializzando sistema di rete dopo connessione...');
+        await this.initializeNetworkSystem();
+        console.log('[PlayState] Sistema di rete inizializzato');
         
         // Piccolo delay per dare tempo al server di processare la connessione
         console.log('[PlayState] Attendo 500ms per processare connessione...');
