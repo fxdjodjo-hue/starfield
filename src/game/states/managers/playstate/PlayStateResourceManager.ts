@@ -5,7 +5,7 @@ import type { UiSystem } from '../../../../systems/ui/UiSystem';
 import type { RemotePlayerSystem } from '../../../../systems/multiplayer/RemotePlayerSystem';
 import type { Entity } from '../../../../infrastructure/ecs/Entity';
 import { Transform } from '../../../../entities/spatial/Transform';
-import type { AnimatedSprite } from '../../../../entities/AnimatedSprite';
+import { AnimatedSprite } from '../../../../entities/AnimatedSprite';
 import { Npc } from '../../../../entities/ai/Npc';
 
 /**
