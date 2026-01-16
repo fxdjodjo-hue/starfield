@@ -1,5 +1,5 @@
-import type { GameContext } from '../../../infrastructure/engine/GameContext';
-import { World } from '../../../infrastructure/engine/World';
+import type { GameContext } from '../../../../infrastructure/engine/GameContext';
+import { World } from '../../../../infrastructure/engine/World';
 import type { GameInitializationSystem } from '../../../../systems/game/GameInitializationSystem';
 import { ClientNetworkSystem } from '../../../../multiplayer/client/ClientNetworkSystem';
 import { UiSystem } from '../../../../systems/ui/UiSystem';

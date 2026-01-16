@@ -1,4 +1,4 @@
-import type { World } from '../../../infrastructure/engine/World';
+import type { World } from '../../../../infrastructure/engine/World';
 import type { ClientNetworkSystem } from '../../../../multiplayer/client/ClientNetworkSystem';
 import type { UiSystem } from '../../../../systems/ui/UiSystem';
 import type { Entity } from '../../../../infrastructure/ecs/Entity';
