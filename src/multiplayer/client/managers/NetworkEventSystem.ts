@@ -125,6 +125,48 @@ export class NetworkEventSystem {
   }
 
   /**
+   * Shows authentication error to user (requires UI system integration)
+   */
+  showAuthenticationError(message: string, disconnectCallback?: () => void): void {
+    // Try to show error through UI system if available
+    if (this.uiSystem && typeof this.uiSystem.showError === 'function') {
+      this.uiSystem.showError('Authentication Error', message);
+    } else {
+      // Fallback: use browser alert (not ideal but better than silent failure)
+      alert(`Authentication Error: ${message}`);
+    }
+
+    // Disconnect from server if callback provided
+    if (disconnectCallback) {
+      disconnectCallback();
+    }
+  }
+
+  /**
+   * Shows rate limiting notification to user
+   */
+  showRateLimitNotification(actionType: string, waitTime?: number): void {
+    const messages = {
+      'chat_message': 'Chat messages too frequent. Please try again in a few seconds.',
+      'combat_action': 'Combat actions too frequent. Please slow down.',
+      'position_update': 'Position updates too frequent.',
+      'heartbeat': 'Unstable connection - heartbeat rate limited.'
+    };
+
+    const message = messages[actionType as keyof typeof messages] || `Action "${actionType}" rate limited. Please try again later.`;
+
+    // Try to show notification through UI system
+    if (this.uiSystem && typeof this.uiSystem.showNotification === 'function') {
+      this.uiSystem.showNotification('Rate Limit', message, 'warning');
+    } else if (this.uiSystem && typeof this.uiSystem.showError === 'function') {
+      this.uiSystem.showError('Rate Limit', message);
+    } else {
+      // Fallback: console warning (already present)
+      console.warn(`⚠️ [RATE_LIMIT] ${message}`);
+    }
+  }
+
+  /**
    * Cleanup risorse
    */
   destroy(): void {

@@ -1,0 +1,241 @@
+import { ECS } from '../../../infrastructure/ecs/ECS';
+import { GameContext } from '../../../infrastructure/engine/GameContext';
+import { RemoteNpcSystem } from '../../../systems/multiplayer/RemoteNpcSystem';
+import { RemoteProjectileSystem } from '../../../systems/multiplayer/RemoteProjectileSystem';
+import { MessageRouter } from '../handlers/MessageRouter';
+import { NetworkConnectionManager } from './NetworkConnectionManager';
+import { NetworkEventSystem } from './NetworkEventSystem';
+import { NetworkTickManager } from './NetworkTickManager';
+import { PlayerPositionTracker } from './PlayerPositionTracker';
+import { NetworkStateManager, ConnectionState } from './NetworkStateManager';
+import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import type { NetMessage } from '../types/MessageTypes';
+
+// Handler imports
+import { WelcomeHandler } from '../handlers/WelcomeHandler';
+import { RemotePlayerUpdateHandler } from '../handlers/RemotePlayerUpdateHandler';
+import { PlayerJoinedHandler } from '../handlers/PlayerJoinedHandler';
+import { PlayerLeftHandler } from '../handlers/PlayerLeftHandler';
+import { PlayerRespawnHandler } from '../handlers/PlayerRespawnHandler';
+import { PlayerStateUpdateHandler } from '../handlers/PlayerStateUpdateHandler';
+import { PlayerDataResponseHandler } from '../handlers/PlayerDataResponseHandler';
+import { SaveResponseHandler } from '../handlers/SaveResponseHandler';
+import { LeaderboardResponseHandler } from '../handlers/LeaderboardResponseHandler';
+import { InitialNpcsHandler } from '../handlers/InitialNpcsHandler';
+import { NpcJoinedHandler } from '../handlers/NpcJoinedHandler';
+import { NpcSpawnHandler } from '../handlers/NpcSpawnHandler';
+import { NpcBulkUpdateHandler } from '../handlers/NpcBulkUpdateHandler';
+import { NpcLeftHandler } from '../handlers/NpcLeftHandler';
+import { CombatUpdateHandler } from '../handlers/CombatUpdateHandler';
+import { StopCombatHandler } from '../handlers/StopCombatHandler';
+import { ProjectileFiredHandler } from '../handlers/ProjectileFiredHandler';
+import { ProjectileUpdateHandler } from '../handlers/ProjectileUpdateHandler';
+import { ProjectileDestroyedHandler } from '../handlers/ProjectileDestroyedHandler';
+import { EntityDamagedHandler } from '../handlers/EntityDamagedHandler';
+import { EntityDestroyedHandler } from '../handlers/EntityDestroyedHandler';
+import { ExplosionCreatedHandler } from '../handlers/ExplosionCreatedHandler';
+import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHandler';
+
+/**
+ * Interface for JWT authentication validation
+ */
+export interface JwtAuthValidator {
+  validateSession(): Promise<{ session: { access_token: string } | null; error: any }>;
+  validateLocalClientId(): boolean;
+  handleAuthError(reason: string): void;
+}
+
+/**
+ * NetworkInitializationManager - Setup rete, inizializzazione stati, handshake, init client state
+ * Estratto da ClientNetworkSystem per Separation of Concerns
+ */
+export class NetworkInitializationManager {
+  // Initialization state management
+  private initializationPromise: Promise<void> | null = null;
+  private initializationResolver: (() => void) | null = null;
+  private isInitialized = false;
+
+  private remoteNpcSystem?: RemoteNpcSystem;
+  private remoteProjectileSystem?: RemoteProjectileSystem;
+
+  constructor(
+    private readonly messageRouter: MessageRouter,
+    private readonly connectionManager: NetworkConnectionManager,
+    private readonly eventSystem: NetworkEventSystem,
+    private readonly tickManager: NetworkTickManager,
+    private readonly positionTracker: PlayerPositionTracker,
+    private readonly stateManager: NetworkStateManager,
+    private readonly gameContext: GameContext,
+    private readonly clientId: string,
+    remoteNpcSystem?: RemoteNpcSystem,
+    remoteProjectileSystem?: RemoteProjectileSystem
+  ) {
+    this.remoteNpcSystem = remoteNpcSystem;
+    this.remoteProjectileSystem = remoteProjectileSystem;
+  }
+
+  /**
+   * Updates remote system references
+   */
+  setRemoteSystems(remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem): void {
+    this.remoteNpcSystem = remoteNpcSystem;
+    this.remoteProjectileSystem = remoteProjectileSystem;
+  }
+
+  /**
+   * Registers all message handlers with the message router
+   */
+  registerMessageHandlers(): void {
+    // Crea lista base di handler sempre presenti
+    const handlers = [
+      new WelcomeHandler(),
+      new RemotePlayerUpdateHandler(),
+      new PlayerJoinedHandler(),
+      new PlayerLeftHandler(),
+      new PlayerRespawnHandler(),
+      new PlayerStateUpdateHandler(),
+      new PlayerDataResponseHandler(),
+      new SaveResponseHandler(),
+      new LeaderboardResponseHandler()
+    ];
+
+    // Aggiungi handlers NPC se il sistema è disponibile
+    if (this.remoteNpcSystem) {
+      handlers.push(
+        new InitialNpcsHandler(),
+        new NpcJoinedHandler(),
+        new NpcSpawnHandler(),
+        new NpcBulkUpdateHandler(),
+        new NpcLeftHandler()
+      );
+    }
+
+    // Aggiungi handlers di combattimento se il sistema è disponibile
+    if (this.remoteProjectileSystem) {
+      handlers.push(
+        new CombatUpdateHandler(),
+        new StopCombatHandler(),
+        new ProjectileFiredHandler(),
+        new ProjectileUpdateHandler(),
+        new ProjectileBulkUpdateHandler(),
+        new ProjectileDestroyedHandler(),
+        new EntityDamagedHandler(),
+        new EntityDestroyedHandler(),
+        new ExplosionCreatedHandler()
+      );
+    }
+
+    // Registra tutti gli handler (questo sovrascrive quelli precedenti)
+    this.messageRouter.registerHandlers(handlers);
+  }
+
+  /**
+   * Handles successful connection establishment
+   * Validates JWT and sends JOIN message
+   */
+  async handleConnected(socket: WebSocket, jwtValidator: JwtAuthValidator): Promise<void> {
+    // Set connection state
+    this.stateManager.setConnectionState(ConnectionState.CONNECTED);
+
+    // Reset tick manager timing on (re)connection
+    this.tickManager.reset();
+
+    // Notify external systems of successful (re)connection
+    this.stateManager.notifyReconnected();
+
+    // Notify external systems of successful connection
+    this.stateManager.notifyConnected();
+
+    // 🔴 CRITICAL SECURITY: Verifica che abbiamo sia una sessione valida che un token JWT
+    if (!jwtValidator.validateLocalClientId()) {
+      console.error('❌ [CLIENT] Tentativo di connessione senza sessione valida - rilogin necessario');
+      // Disconnetti e gestisci errore con retry invece di reload forzato
+      this.connectionManager.disconnect();
+      jwtValidator.handleAuthError('Invalid user session');
+      return;
+    }
+
+    // 🔴 CRITICAL SECURITY: Ottieni il JWT token corrente da Supabase
+    const { session, error: sessionError } = await jwtValidator.validateSession();
+    if (sessionError || !session?.access_token) {
+      console.error('❌ [CLIENT] No valid JWT token available - rilogin necessario');
+      this.connectionManager.disconnect();
+      jwtValidator.handleAuthError('JWT token not available');
+      return;
+    }
+
+    // Invalidate position tracker cache on connection (player might have moved)
+    this.positionTracker.invalidateCache();
+
+    // Send SECURE join message with JWT token
+    const currentPosition = this.positionTracker.getLocalPlayerPosition();
+    const nicknameToSend = this.gameContext.playerNickname || 'Player';
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.JOIN,
+      clientId: this.clientId,
+      nickname: nicknameToSend,
+      // 🔴 CRITICAL SECURITY: Include JWT token for server-side validation
+      authToken: session.access_token,
+      // playerId sarà assegnato dal server nel welcome message
+      userId: this.gameContext.localClientId,
+      position: currentPosition
+    });
+  }
+
+  /**
+   * Sends a message to the server
+   * Automatically adds clientId if not present
+   */
+  private sendMessage(message: NetMessage): void {
+    // Ensure clientId is always included
+    const messageWithClientId = {
+      ...message,
+      clientId: message.clientId || this.clientId
+    };
+    this.connectionManager.send(JSON.stringify(messageWithClientId));
+  }
+
+  /**
+   * Inizializza il sistema di rete con gestione dello stato di inizializzazione
+   * Previene race conditions nei callback
+   */
+  initialize(): Promise<void> {
+    if (this.initializationPromise) {
+      return this.initializationPromise;
+    }
+
+    this.initializationPromise = new Promise((resolve) => {
+      this.initializationResolver = resolve;
+    });
+
+    return this.initializationPromise;
+  }
+
+  /**
+   * Segna il sistema come inizializzato e risolve eventuali promise in attesa
+   */
+  markAsInitialized(): void {
+    this.isInitialized = true;
+    if (this.initializationResolver) {
+      this.initializationResolver();
+      this.initializationResolver = null;
+    }
+  }
+
+  /**
+   * Verifica se il sistema è completamente inizializzato
+   */
+  isSystemInitialized(): boolean {
+    return this.isInitialized;
+  }
+
+  /**
+   * Cleanup method
+   */
+  destroy(): void {
+    this.initializationPromise = null;
+    this.initializationResolver = null;
+    this.isInitialized = false;
+  }
+}
