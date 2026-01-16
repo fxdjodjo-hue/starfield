@@ -7,19 +7,11 @@
 2. ~~**AuthScreen.ts**~~ - 1080 → 154 righe ✅
 3. ~~**UiSystem.ts**~~ - 872 → 278 righe ✅
 4. ~~**EconomySystem.ts**~~ - 674 → 406 righe ✅
+5. ~~**PlayState.ts**~~ - 646 → 215 righe ✅
 
 ### 🔴 File Grandi Rimanenti
 
 #### Priorità ALTA (600-700 righe)
-
-1. **PlayState.ts** - 646 righe
-   - **Tipo**: Game State
-   - **Responsabilità**: Stato di gioco principale, inizializzazione, lifecycle
-   - **Candidato per**: Estrazione in moduli
-   - **Moduli proposti**:
-     - `PlayStateInitializer` (inizializzazione sistemi)
-     - `PlayStateLifecycleManager` (enter, exit, update)
-     - `PlayStateResourceManager` (gestione risorse, cleanup)
 
 3. **CombatSystem.ts** - 634 righe
    - **Tipo**: System (ECS)
@@ -93,9 +85,8 @@
 
 ### Prossimi Target (in ordine di priorità)
 
-1. **PlayState.ts** (646 righe) - Lifecycle complesso, inizializzazione multi-step
-2. **CombatSystem.ts** (634 righe) - Sistema core, logica combattimento
-4. **PlayerControlSystem.ts** (613 righe) - Sistema input/movimento
+1. **CombatSystem.ts** (634 righe) - Sistema core, logica combattimento
+2. **PlayerControlSystem.ts** (613 righe) - Sistema input/movimento
 5. **ChatPanel.ts** (577 righe) - UI component, simile a UpgradePanel
 6. **LeaderboardPanel.ts** (558 righe) - UI component
 7. **QuestPanel.ts** (539 righe) - UI component
@@ -121,7 +112,7 @@
 
 ## 📈 Statistiche
 
-- **File > 500 righe rimanenti**: 9 file
-- **File già refactorizzati**: 4 file (UpgradePanel, AuthScreen, UiSystem, EconomySystem)
-- **Riduzione totale finora**: ~2700 righe
-- **Target rimanente**: ~5500 righe da modularizzare
+- **File > 500 righe rimanenti**: 8 file
+- **File già refactorizzati**: 5 file (UpgradePanel, AuthScreen, UiSystem, EconomySystem, PlayState)
+- **Riduzione totale finora**: ~3300 righe
+- **Target rimanente**: ~5000 righe da modularizzare
