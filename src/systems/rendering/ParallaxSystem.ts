@@ -231,12 +231,16 @@ export class ParallaxSystem extends BaseSystem {
     // DISABLED: Meteore - da riattivare quando funzionano
     // this.renderMeteors(ctx);
 
-    // Renderizza stelle procedurali (zero memoria, infinite stelle)
-    this.renderProceduralStars(ctx, camera, width, height);
-
-    // Renderizza entità parallax esistenti (es. background sprite se riattivato)
+    // Renderizza entità parallax esistenti (background, ecc.) PRIMA delle stelle
+    // Ordina per zIndex per controllare l'ordine di rendering
     const parallaxEntities = this.ecs.getEntitiesWithComponents(Transform, ParallaxLayer);
-    for (const entity of parallaxEntities) {
+    const sortedEntities = parallaxEntities.slice().sort((a, b) => {
+      const parallaxA = this.ecs.getComponent(a, ParallaxLayer);
+      const parallaxB = this.ecs.getComponent(b, ParallaxLayer);
+      return (parallaxA?.zIndex || 0) - (parallaxB?.zIndex || 0);
+    });
+
+    for (const entity of sortedEntities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const parallax = this.ecs.getComponent(entity, ParallaxLayer);
       const sprite = this.ecs.getComponent(entity, Sprite);
@@ -245,6 +249,9 @@ export class ParallaxSystem extends BaseSystem {
         this.renderParallaxElement(ctx, transform, parallax, camera, sprite);
       }
     }
+
+    // Renderizza stelle procedurali DOPO il background (zero memoria, infinite stelle)
+    this.renderProceduralStars(ctx, camera, width, height);
   }
 
   /**
@@ -384,12 +391,34 @@ export class ParallaxSystem extends BaseSystem {
     const screenX = screenPos.x;
     const screenY = screenPos.y;
 
-    // Salta se l'elemento è fuori dallo schermo (con margine aumentato per mappa grande)
-    const margin = 200; // Aumentato a 200 per la mappa 21000x13100
-    if (screenX < -margin || screenX > width + margin ||
-        screenY < -margin || screenY > height + margin) {
-      ctx.restore();
-      return;
+    // Culling intelligente: per elementi con sprite (es. background), controlla se il rettangolo è visibile
+    // Per elementi piccoli (stelle), usa il culling semplice sul centro
+    if (sprite && sprite.isLoaded() && sprite.image) {
+      // Calcola le dimensioni scalate dello sprite
+      const spriteWidth = sprite.width * transform.scaleX;
+      const spriteHeight = sprite.height * transform.scaleY;
+      
+      // Calcola i bordi del rettangolo dello sprite (centrato su screenX, screenY)
+      const spriteLeft = screenX - spriteWidth / 2;
+      const spriteRight = screenX + spriteWidth / 2;
+      const spriteTop = screenY - spriteHeight / 2;
+      const spriteBottom = screenY + spriteHeight / 2;
+      
+      // Controlla se il rettangolo interseca lo schermo (con margine)
+      const margin = 100;
+      if (spriteRight < -margin || spriteLeft > width + margin ||
+          spriteBottom < -margin || spriteTop > height + margin) {
+        ctx.restore();
+        return;
+      }
+    } else {
+      // Culling semplice per elementi piccoli (stelle)
+      const margin = 200;
+      if (screenX < -margin || screenX > width + margin ||
+          screenY < -margin || screenY > height + margin) {
+        ctx.restore();
+        return;
+      }
     }
 
     // Applica trasformazioni
@@ -398,7 +427,11 @@ export class ParallaxSystem extends BaseSystem {
     ctx.scale(transform.scaleX, transform.scaleY);
 
     // Renderizza sprite se disponibile, altrimenti punto luminoso
-    if (sprite && sprite.isLoaded()) {
+    if (sprite && sprite.isLoaded() && sprite.image) {
+      // Abilita image smoothing per qualità migliore
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
       // Renderizza l'immagine sprite
       const spriteX = -sprite.width / 2 + sprite.offsetX;
       const spriteY = -sprite.height / 2 + sprite.offsetY;
