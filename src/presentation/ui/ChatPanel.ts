@@ -185,4 +185,5 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   type: 'user' | 'system' | 'other';
+  isAdministrator?: boolean;
 }

@@ -47,6 +47,8 @@ export class RenderSystem extends BaseSystem {
   private entityQueryCache: Entity[] = []; // Cache risultati query ECS
   private projectileQueryCache: Entity[] = []; // Cache risultati query proiettili
   private aimImage: HTMLImageElement | null = null; // Immagine per la selezione NPC
+  private healthBarsFadeStartTime: number | null = null; // Timestamp quando inizia il fade delle health bars
+  private readonly HEALTH_BARS_FADE_DURATION = 500; // Durata fade in millisecondi
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
     super(ecs);
@@ -110,7 +112,8 @@ export class RenderSystem extends BaseSystem {
       sprite?: Sprite,
       animatedSprite?: AnimatedSprite,
       velocity?: Velocity
-    }
+    },
+    camera?: Camera
   ): void {
     const { explosion, npc, sprite, animatedSprite, velocity } = components;
     
@@ -147,23 +150,31 @@ export class RenderSystem extends BaseSystem {
 
       if (entityAnimatedSprite) {
         // NPC con spritesheet: usa SpritesheetRenderer (stesso sistema del player)
+        const zoom = camera?.zoom || 1;
         const renderTransform: SpritesheetRenderTransform = {
-          x: screenX, y: screenY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
+          x: screenX, y: screenY, rotation: transform.rotation, 
+          scaleX: (transform.scaleX || 1) * zoom, 
+          scaleY: (transform.scaleY || 1) * zoom
         };
         SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
       } else if (entitySprite) {
         // NPC con sprite normale
+        const zoom = camera?.zoom || 1;
         if (isRemoteNpc) {
           // NPC remoto: usa direttamente transform.rotation
           const renderTransform: RenderableTransform = {
-            x: screenX, y: screenY, rotation: transform.rotation, scaleX: transform.scaleX, scaleY: transform.scaleY
+            x: screenX, y: screenY, rotation: transform.rotation, 
+            scaleX: (transform.scaleX || 1) * zoom, 
+            scaleY: (transform.scaleY || 1) * zoom
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         } else {
           // NPC locale: usa NpcRenderer per calcolare la rotazione
           const rotationAngle = NpcRenderer.getRenderRotation(npc, transform, velocity);
           const renderTransform: RenderableTransform = {
-            x: screenX, y: screenY, rotation: 0, scaleX: transform.scaleX, scaleY: transform.scaleY
+            x: screenX, y: screenY, rotation: 0, 
+            scaleX: (transform.scaleX || 1) * zoom, 
+            scaleY: (transform.scaleY || 1) * zoom
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
         }
@@ -188,15 +199,21 @@ export class RenderSystem extends BaseSystem {
           const img = entityAnimatedSprite.spritesheet?.image;
           if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
             // Use spritesheet renderer (no canvas rotation - frame is pre-rotated)
+            const zoom = camera?.zoom || 1;
             const renderTransform: SpritesheetRenderTransform = {
-              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX || 1, scaleY: transform.scaleY || 1
+              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
+              scaleX: (transform.scaleX || 1) * zoom, 
+              scaleY: (transform.scaleY || 1) * zoom
             };
             SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
           }
         } else if (entitySprite && entitySprite.isLoaded()) {
           // Fallback to old sprite renderer
+          const zoom = camera?.zoom || 1;
           const renderTransform: RenderableTransform = {
-            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, scaleX: transform.scaleX || 1, scaleY: transform.scaleY || 1
+            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
+            scaleX: (transform.scaleX || 1) * zoom, 
+            scaleY: (transform.scaleY || 1) * zoom
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
@@ -263,11 +280,19 @@ export class RenderSystem extends BaseSystem {
           sprite: components.sprite,
           animatedSprite: components.animatedSprite,
           velocity: components.velocity
-        });
+        }, camera);
 
-        // Render health/shield bars
-        if (components.health || components.shield) {
+        // Render health/shield bars con fade quando l'animazione zoom è completata
+        const isZoomAnimating = this.cameraSystem.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
+        if (!isZoomAnimating && (components.health || components.shield)) {
+          // Inizia il fade quando l'animazione è appena completata
+          if (this.healthBarsFadeStartTime === null) {
+            this.healthBarsFadeStartTime = Date.now();
+          }
           this.renderHealthBars(ctx, screenPos.x, screenPos.y, components.health || null, components.shield || null);
+        } else if (isZoomAnimating) {
+          // Reset fade quando l'animazione ricomincia
+          this.healthBarsFadeStartTime = null;
         }
       }
     }
@@ -296,11 +321,19 @@ export class RenderSystem extends BaseSystem {
           sprite: components.sprite,
           animatedSprite: components.animatedSprite,
           velocity: components.velocity
-        });
+        }, camera);
 
-        // Render health/shield bars
-        if (components.health || components.shield) {
+        // Render health/shield bars con fade quando l'animazione zoom è completata
+        const isZoomAnimating = this.cameraSystem.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
+        if (!isZoomAnimating && (components.health || components.shield)) {
+          // Inizia il fade quando l'animazione è appena completata
+          if (this.healthBarsFadeStartTime === null) {
+            this.healthBarsFadeStartTime = Date.now();
+          }
           this.renderHealthBars(ctx, screenPos.x, screenPos.y, components.health || null, components.shield || null);
+        } else if (isZoomAnimating) {
+          // Reset fade quando l'animazione ricomincia
+          this.healthBarsFadeStartTime = null;
         }
       }
     }
@@ -312,6 +345,17 @@ export class RenderSystem extends BaseSystem {
    * Render health and shield bars using HUD helper
    */
   private renderHealthBars(ctx: CanvasRenderingContext2D, screenX: number, screenY: number, health: Health | null, shield: Shield | null): void {
+    // Calcola opacity per fade-in
+    let opacity = 1;
+    if (this.healthBarsFadeStartTime !== null) {
+      const elapsed = Date.now() - this.healthBarsFadeStartTime;
+      const fadeProgress = Math.min(elapsed / this.HEALTH_BARS_FADE_DURATION, 1);
+      opacity = fadeProgress; // Fade da 0 a 1
+    }
+
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
     let currentY = screenY;
 
     // Render shield bar first (if present)
@@ -330,6 +374,8 @@ export class RenderSystem extends BaseSystem {
         this.renderHealthBar(ctx, healthParams);
       }
     }
+
+    ctx.restore();
   }
 
   /**

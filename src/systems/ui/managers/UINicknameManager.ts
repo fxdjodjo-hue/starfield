@@ -50,14 +50,18 @@ export class UINicknameManager {
   /**
    * Aggiorna la posizione del nickname del giocatore basata sulla posizione world
    */
-  updatePlayerNicknamePosition(worldX: number, worldY: number, camera: any, canvasSize: any): void {
+  updatePlayerNicknamePosition(worldX: number, worldY: number, camera: any, canvasSize: any, isZoomAnimating: boolean = false): void {
     if (!this.playerNicknameElement) return;
+
+    // Nascondi durante l'animazione zoom
+    if (isZoomAnimating) {
+      this.playerNicknameElement.style.opacity = '0';
+      this.playerNicknameElement.style.transition = 'none';
+      return;
+    }
 
     // Converte coordinate mondo in coordinate schermo
     const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
-
-    // Forza la visibilità e ricalcola dimensioni
-    this.playerNicknameElement.style.display = 'block';
 
     // Posiziona il nickname centrato orizzontalmente sotto la nave
     const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
@@ -67,6 +71,12 @@ export class UINicknameManager {
     this.playerNicknameElement.style.top = `${nicknameY}px`;
     this.playerNicknameElement.style.transform = 'none';
     this.playerNicknameElement.style.display = 'block';
+    
+    // Mostra con fade quando l'animazione è completata
+    if (this.playerNicknameElement.style.opacity === '0') {
+      this.playerNicknameElement.style.transition = 'opacity 0.5s ease-in';
+      this.playerNicknameElement.style.opacity = '1';
+    }
   }
 
   /**

@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Camera } from '../../entities/spatial/Camera';
 import { LogSystem } from '../rendering/LogSystem';
+import { CameraSystem } from '../rendering/CameraSystem';
 
 // Modular architecture managers
 import { PlayerAudioManager } from './managers/PlayerAudioManager';
@@ -15,6 +16,7 @@ import { PlayerAttackManager } from './managers/PlayerAttackManager';
 export class PlayerControlSystem extends BaseSystem {
   private playerEntity: any = null;
   private camera: Camera | null = null;
+  private cameraSystem: CameraSystem | null = null;
   private audioSystem: any = null;
   private onMouseStateCallback?: (pressed: boolean, x: number, y: number) => void;
   private onMinimapMovementComplete?: () => void;
@@ -151,6 +153,13 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
+   * Imposta il sistema camera per verificare lo stato dell'animazione zoom
+   */
+  setCameraSystem(cameraSystem: CameraSystem): void {
+    this.cameraSystem = cameraSystem;
+  }
+
+  /**
    * Imposta il sistema audio per i suoni del motore
    */
   setAudioSystem(audioSystem: any): void {
@@ -177,6 +186,20 @@ export class PlayerControlSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
     this.initializeManagers();
+
+    // Blocca il movimento durante l'animazione zoom
+    const isZoomAnimating = this.cameraSystem?.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
+    if (isZoomAnimating) {
+      // Ferma il movimento e il suono del motore durante l'animazione
+      this.movementManager.stopPlayerMovement();
+      if (this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
+        const promise = this.audioManager.stop().finally(() => {
+          this.audioManager.setEngineSoundPromise(null);
+        });
+        this.audioManager.setEngineSoundPromise(promise);
+      }
+      return; // Non processare input di movimento durante l'animazione
+    }
 
     const isMoving = this.movementManager.hasMinimapTarget() ||
                      this.inputManager.isKeyboardMoving() ||

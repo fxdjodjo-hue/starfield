@@ -97,9 +97,10 @@ export class PlayStateResourceManager {
 
     const camera = cameraSystem.getCamera();
     const canvasSize = this.world.getCanvasSize();
+    const isZoomAnimating = cameraSystem.isZoomAnimationActive ? cameraSystem.isZoomAnimationActive() : false;
 
     // Delega all'UiSystem
-    uiSystem.updatePlayerNicknamePosition(transform.x, transform.y, camera, canvasSize);
+    uiSystem.updatePlayerNicknamePosition(transform.x, transform.y, camera, canvasSize, isZoomAnimating);
   }
 
   /**

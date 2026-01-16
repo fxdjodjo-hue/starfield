@@ -87,7 +87,8 @@ export class ChatManager {
       sender: message.senderName,
       content: message.content,
       timestamp: message.timestamp,
-      type: 'user' // o 'network' se vuoi distinguere
+      type: 'user', // o 'network' se vuoi distinguere
+      isAdministrator: message.isAdministrator || false
     });
   }
 
@@ -240,4 +241,5 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   type: 'user' | 'system' | 'network';
+  isAdministrator?: boolean;
 }

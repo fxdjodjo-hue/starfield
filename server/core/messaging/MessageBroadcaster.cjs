@@ -124,16 +124,18 @@ class MessageBroadcaster {
    * @param {string} content - Contenuto del messaggio
    * @param {number} timestamp - Timestamp (opzionale)
    * @param {number} playerId - Player ID (database ID, opzionale)
+   * @param {boolean} isAdministrator - Admin status (opzionale)
    * @returns {Object} Chat message
    */
-  formatChatMessage(clientId, senderName, content, timestamp = null, playerId = null) {
+  formatChatMessage(clientId, senderName, content, timestamp = null, playerId = null, isAdministrator = false) {
     return {
       type: 'chat_message',
       clientId: clientId,
       senderName: senderName,
       content: content,
       timestamp: timestamp || Date.now(),
-      playerId: playerId || null
+      playerId: playerId || null,
+      isAdministrator: isAdministrator || false
     };
   }
 

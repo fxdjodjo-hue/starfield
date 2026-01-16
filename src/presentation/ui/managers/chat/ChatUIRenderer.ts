@@ -274,12 +274,13 @@ export class ChatUIRenderer {
     `;
 
     // Nome del giocatore o System
+    const isAdmin = message.isAdministrator || false;
     if (message.type === 'user') {
       const playerName = message.sender || context?.playerNickname || 'Player';
       const nameSpan = document.createElement('span');
       nameSpan.textContent = `${playerName}: `;
       nameSpan.style.cssText = `
-        color: rgba(200, 200, 200, 0.9);
+        color: ${isAdmin ? 'rgba(255, 50, 50, 1)' : 'rgba(200, 200, 200, 0.9)'};
         font-weight: 600;
       `;
       messageDiv.appendChild(nameSpan);
@@ -298,7 +299,7 @@ export class ChatUIRenderer {
     textSpan.textContent = message.content;
     textSpan.style.cssText = `
       word-wrap: break-word;
-      color: ${message.type === 'system' ? 'rgba(220, 53, 69, 0.9)' : 'rgba(255, 255, 255, 0.9)'};
+      color: ${isAdmin ? 'rgba(255, 50, 50, 1)' : (message.type === 'system' ? 'rgba(220, 53, 69, 0.9)' : 'rgba(255, 255, 255, 0.9)')};
     `;
 
     messageDiv.appendChild(textSpan);

@@ -53,7 +53,8 @@ export class ChatMessageHandler extends BaseMessageHandler {
       senderName: message.senderName,
       content: message.content,
       timestamp: new Date(message.timestamp),
-      type: 'user'
+      type: 'user',
+      isAdministrator: message.isAdministrator || false
     });
   }
 }

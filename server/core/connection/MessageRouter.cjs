@@ -772,7 +772,8 @@ function handleChatMessage(data, sanitizedData, context) {
     playerData.nickname || 'Unknown Player',
     filteredContent,
     now,
-    playerData.playerId || null
+    playerData.playerId || null,
+    playerData.isAdministrator || false
   );
 
   const playersCount = mapServer.players.size;

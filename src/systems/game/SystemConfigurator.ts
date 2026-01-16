@@ -72,6 +72,7 @@ export class SystemConfigurator {
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
     playerControlSystem.setCamera(cameraSystem.getCamera());
+    playerControlSystem.setCameraSystem(cameraSystem);
     playerControlSystem.setAudioSystem(audioSystem);
     playerControlSystem.setLogSystem(logSystem);
     minimapSystem.setCamera(cameraSystem.getCamera());
