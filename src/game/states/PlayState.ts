@@ -60,14 +60,9 @@ export class PlayState extends GameState {
    * Questo viene chiamato da sistemi come RewardSystem quando avvengono cambiamenti significativi
    */
   markAsChanged(): void {
-    if (this.clientNetworkSystem && this.context.localClientId && this.context.authId) {
+    if (this.clientNetworkSystem && this.context.authId) {
       // Invia una richiesta di salvataggio immediato al server
-      this.clientNetworkSystem.sendMessage({
-        type: 'save_request',
-        clientId: this.context.localClientId,
-        playerId: this.context.authId, // Usa authId come playerId
-        timestamp: Date.now()
-      });
+      this.clientNetworkSystem.sendSaveRequest(this.context.authId);
     }
   }
 
