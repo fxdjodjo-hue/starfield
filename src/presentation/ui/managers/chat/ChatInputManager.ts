@@ -1,15 +1,9 @@
-import type { ECS } from '../../../../infrastructure/ecs/ECS';
-import type { PlayerSystem } from '../../../../systems/player/PlayerSystem';
-import { ChatText } from '../../../../entities/combat/ChatText';
-
 /**
  * Manages chat input and event listeners
  */
 export class ChatInputManager {
   private escKeyListener: ((e: KeyboardEvent) => void) | null = null;
   private enterKeyListener: ((e: KeyboardEvent) => void) | null = null;
-  private ecs: ECS | null;
-  private playerSystem: PlayerSystem | null;
 
   constructor(
     private readonly inputElement: HTMLInputElement,
@@ -18,21 +12,8 @@ export class ChatInputManager {
     private readonly getIsVisible: () => boolean,
     private readonly show: () => void,
     private readonly hideWithAnimation: () => void,
-    private readonly sendMessageCallback: () => void,
-    ecs: ECS | null,
-    playerSystem: PlayerSystem | null
-  ) {
-    this.ecs = ecs;
-    this.playerSystem = playerSystem;
-  }
-
-  /**
-   * Updates ECS and PlayerSystem references
-   */
-  updateReferences(ecs: ECS | null, playerSystem: PlayerSystem | null): void {
-    this.ecs = ecs;
-    this.playerSystem = playerSystem;
-  }
+    private readonly sendMessageCallback: () => void
+  ) {}
 
   /**
    * Sets up event listeners
@@ -130,26 +111,6 @@ export class ChatInputManager {
     document.dispatchEvent(event);
 
     return message;
-  }
-
-  /**
-   * Creates floating chat text above player
-   */
-  createChatTextAbovePlayer(message: string): void {
-    if (!this.ecs || !this.playerSystem) {
-      return;
-    }
-
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    if (!playerEntity) {
-      return;
-    }
-
-    const shortMessage = message.length > 15 ? message.substring(0, 12) + '...' : message;
-    const chatTextEntity = this.ecs.createEntity();
-    const chatText = new ChatText(shortMessage, playerEntity.id, 0, -100, 2500);
-
-    this.ecs.addComponent(chatTextEntity, ChatText, chatText);
   }
 
   /**
