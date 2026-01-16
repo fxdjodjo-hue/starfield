@@ -534,7 +534,7 @@ export class PlayStateInitializer {
     if (audioSystem) {
       audioSystem.init();
       // Usa playSound invece di playMusic per permettere più tracce contemporanee
-      audioSystem.playSound('background', audioSystem.getConfig().musicVolume, true, false, 'music');
+      audioSystem.playSound('background', 0.1, true, false, 'music');
       // Piccolo delay prima di avviare ambience per evitare conflitti
       setTimeout(() => {
         if (audioSystem) {
