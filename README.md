@@ -104,7 +104,14 @@ server/
 │   │   ├── ProjectileHoming.cjs   # Logica homing avanzata
 │   │   ├── ProjectileBroadcaster.cjs # Eventi di rete
 │   │   └── ProjectileDamageHandler.cjs # Danno e ricompense
-│   └── projectile-manager.cjs     # Orchestratore (316 righe)
+│   ├── projectile-manager.cjs     # Orchestratore (316 righe)
+│   ├── npc/                       # NPC system (FASE 1.4)
+│   │   ├── NpcSpawner.cjs         # Creazione e inizializzazione
+│   │   ├── NpcRespawnSystem.cjs   # Gestione respawn
+│   │   ├── NpcDamageHandler.cjs   # Danni NPC/player
+│   │   ├── NpcRewardSystem.cjs    # Ricompense e notifiche
+│   │   └── NpcBroadcaster.cjs     # Broadcasting spawn
+│   └── npc-manager.cjs            # Orchestratore (154 righe)
 └── ...
 ```
 
@@ -136,6 +143,11 @@ server/
 - **SystemFactory.ts**: Creazione sistemi e caricamento asset
 - **SystemConfigurator.ts**: Configurazione interazioni tra sistemi
 - **EntityFactory.ts**: Creazione entità iniziali (player, teleport)
+
+#### FASE 1.4 - NPC Manager
+- **npc-manager.cjs**: 154 righe (orchestratore)
+- **Moduli specializzati**: Spawner, RespawnSystem, DamageHandler, RewardSystem, Broadcaster
+- **API invariata**: Nessun cambiamento di gameplay
 
 ## 🎮 Come Giocare
 

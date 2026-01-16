@@ -318,6 +318,22 @@ this.merchant = new MerchantNpc(200, 300);
 - `game/SystemConfigurator.ts` - Configurazione interazioni tra sistemi
 - `game/EntityFactory.ts` - Creazione entità iniziali (player, teleport)
 
+#### FASE 1.4 - NPC Manager
+**Obiettivo**: Modularizzare sistema NPC (499 → 154 righe orchestratore).
+
+**Risultato**:
+- `npc-manager.cjs`: 154 righe (orchestratore)
+- 5 moduli specializzati con responsabilità singola
+- API pubblica invariata (backward compatible)
+- Dependency injection per testabilità
+
+**Moduli creati**:
+- `npc/NpcSpawner.cjs` - Creazione e inizializzazione NPC
+- `npc/NpcRespawnSystem.cjs` - Gestione coda e logica respawn
+- `npc/NpcDamageHandler.cjs` - Danni NPC/player, gestione morte
+- `npc/NpcRewardSystem.cjs` - Ricompense e notifiche
+- `npc/NpcBroadcaster.cjs` - Broadcasting spawn NPC
+
 ### 🔄 Prossimi Passi Multiplayer
 - **Client-Side Prediction**: Implementare input smoothing
 - **Server Reconciliation**: Sistema correzione stato
