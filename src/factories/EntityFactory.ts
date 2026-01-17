@@ -355,9 +355,10 @@ export class EntityFactory {
       ));
     } else if (config.stats?.damage) {
       // Formato diretto per player (da playerDef.stats)
+      // attackRange non più usato per il player (ora usa controllo rettangolare globale)
       this.ecs.addComponent(entity, Damage, new Damage(
         config.stats.damage,
-        config.stats.range,
+        0, // attackRange non più usato
         config.stats.cooldown
       ));
     }

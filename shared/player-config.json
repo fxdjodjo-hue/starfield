@@ -3,7 +3,7 @@
     "health": 100000,
     "shield": 50000,
     "damage": 500,
-    "range": 500,
+    "range": 400,
     "rangeWidth": 1280,
     "rangeHeight": 720,
     "cooldown": 800,

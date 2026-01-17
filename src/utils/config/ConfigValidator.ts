@@ -10,6 +10,8 @@ const PlayerStatsSchema = z.object({
   shield: z.number().min(0, 'Shield cannot be negative'),
   damage: z.number().positive('Damage must be positive'),
   range: z.number().positive('Range must be positive'),
+  rangeWidth: z.number().positive('Range width must be positive'),
+  rangeHeight: z.number().positive('Range height must be positive'),
   cooldown: z.number().positive('Cooldown must be positive'),
   speed: z.number().positive('Speed must be positive')
 });
@@ -98,9 +100,14 @@ export class ConfigValidator {
       return { success: true };
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
-        console.error('❌ [ConfigValidator] Player config validation failed:', errors);
-        return { success: false, errors };
+        try {
+          const errors = error.errors?.map(err => `${err.path.join('.')}: ${err.message}`) || [`ZodError: ${error.message}`];
+          console.error('❌ [ConfigValidator] Player config validation failed:', errors);
+          return { success: false, errors };
+        } catch (mapError) {
+          console.error('❌ [ConfigValidator] Player config validation failed with ZodError:', error.message);
+          return { success: false, errors: [`ZodError: ${error.message}`] };
+        }
       }
       console.error('❌ [ConfigValidator] Player config validation failed with unknown error:', error);
       return { success: false, errors: ['Unknown validation error'] };
@@ -116,9 +123,14 @@ export class ConfigValidator {
       return { success: true };
     } catch (error) {
       if (error instanceof z.ZodError) {
-        const errors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`);
-        console.error('❌ [ConfigValidator] NPC config validation failed:', errors);
-        return { success: false, errors };
+        try {
+          const errors = error.errors?.map(err => `${err.path.join('.')}: ${err.message}`) || [`ZodError: ${error.message}`];
+          console.error('❌ [ConfigValidator] NPC config validation failed:', errors);
+          return { success: false, errors };
+        } catch (mapError) {
+          console.error('❌ [ConfigValidator] NPC config validation failed with ZodError:', error.message);
+          return { success: false, errors: [`ZodError: ${error.message}`] };
+        }
       }
       console.error('❌ [ConfigValidator] NPC config validation failed with unknown error:', error);
       return { success: false, errors: ['Unknown validation error'] };

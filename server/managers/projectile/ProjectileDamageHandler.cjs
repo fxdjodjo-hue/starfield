@@ -42,12 +42,14 @@ class ProjectileDamageHandler {
     if (!playerData) return null;
 
     playerData.isDead = true;
-    playerData.respawnTime = Date.now() + 3000; // 3 secondi di respawn
 
-    // Respawn dopo delay
-    setTimeout(() => {
-      this.respawnPlayer(clientId);
-    }, 3000);
+    // FERMA TUTTI I COMBATTIMENTI DEL PLAYER MORTO
+    if (this.mapServer.combatManager && typeof this.mapServer.combatManager.stopPlayerCombat === 'function') {
+      logger.info('COMBAT', `Stopping all combat for dead player: ${clientId}`);
+      this.mapServer.combatManager.stopPlayerCombat(clientId);
+    }
+
+    // Rimuovi respawn automatico - ora gestito dal client
 
     return playerData; // Ritorna per permettere broadcast esterno
   }
@@ -60,19 +62,30 @@ class ProjectileDamageHandler {
     const playerData = this.mapServer.players.get(clientId);
     if (!playerData) return;
 
-    // Reset stats
-    playerData.health = playerData.maxHealth;
-    playerData.shield = playerData.maxShield;
+    // Reset stats - valori fissi al respawn
+    playerData.health = 10000;
+    playerData.shield = 10000;
     playerData.isDead = false;
     playerData.respawnTime = null;
 
-    // Spawn in posizione sicura (vicino al centro per ora)
+    // Spawn sempre nella stessa posizione sicura (0,0) per evitare NPC
     playerData.position = {
-      x: (Math.random() - 0.5) * 1000, // ±500 dal centro
-      y: (Math.random() - 0.5) * 1000
+      x: 0,
+      y: 0
     };
 
     logger.info('PLAYER', `Player ${clientId} respawned at (${playerData.position.x.toFixed(0)}, ${playerData.position.y.toFixed(0)})`);
+
+    // Invia messaggio di respawn a tutti i client
+    this.mapServer.broadcastToMap({
+      type: 'player_respawn',
+      clientId: clientId,
+      position: playerData.position,
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield
+    });
   }
 
   /**

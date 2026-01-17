@@ -12,7 +12,8 @@ import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { MissileManager } from './managers/MissileManager';
 import { DisplayManager } from '../../infrastructure/display';
-import { getPlayerRange, getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
+import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
+import { LogType } from '../../presentation/ui/LogMessage';
 
 /**
  * Sistema dedicato alla gestione dello stato del combattimento
@@ -113,28 +114,26 @@ export class CombatStateSystem extends BaseSystem {
 
     const selectedNpc = selectedNpcs[0];
 
-    // 🔥 CONTROLLO RANGE PRIMA DI INIZIARE COMBATTIMENTO 🔥
+    // 🔥 CONTROLLO RANGE RETTANGOLARE PRIMA DI INIZIARE COMBATTIMENTO 🔥
     const playerEntity = this.playerSystem?.getPlayerEntity();
     const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
-    const playerDamage = playerEntity ? this.ecs.getComponent(playerEntity, Damage) : null;
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
-    if (!playerTransform || !playerDamage || !npcTransform) {
+    if (!playerTransform || !npcTransform) {
       console.warn('⚠️ [COMBAT] Missing components for range check');
       return;
     }
 
-    // Calcola distanza
-    const distance = Math.sqrt(
-      Math.pow(playerTransform.x - npcTransform.x, 2) +
-      Math.pow(playerTransform.y - npcTransform.y, 2)
-    );
-
-    const inRange = distance <= playerDamage.attackRange;
+    // Controllo range rettangolare
+    const rangeWidth = getPlayerRangeWidth();
+    const rangeHeight = getPlayerRangeHeight();
+    const dx = Math.abs(npcTransform.x - playerTransform.x);
+    const dy = Math.abs(npcTransform.y - playerTransform.y);
+    const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
 
     // Debug range check
     if (import.meta.env.DEV) {
-      console.log(`🔍 [DEBUG] handleAttackActivated - Distance: ${distance.toFixed(1)}px, Range: ${playerDamage.attackRange}px, InRange: ${inRange}`);
+      console.log(`🔍 [DEBUG] handleAttackActivated - DX: ${dx.toFixed(1)}px, DY: ${dy.toFixed(1)}px, Range: ${rangeWidth}x${rangeHeight}, InRange: ${inRange}`);
     }
 
     if (!inRange) {
@@ -234,11 +233,6 @@ export class CombatStateSystem extends BaseSystem {
 
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
-    // Debug range consistency
-    const PLAYER_RANGE = getPlayerRange();
-    if (playerDamage.attackRange !== PLAYER_RANGE) {
-      console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected ${PLAYER_RANGE}, got ${playerDamage.attackRange}`);
-    }
 
     // Permetti combattimento anche se NPC fuori schermo, purché entro range
     // Deseleziona solo se fuori schermo E fuori range E non target corrente
@@ -386,12 +380,8 @@ export class CombatStateSystem extends BaseSystem {
    * Disattiva l'attacco nel PlayerControlSystem quando finisce il combattimento
    */
   private deactivateAttackAfterCombatEnd(): void {
-    const playerControlSystem = this.ecs.systems?.find((system) =>
-      system instanceof PlayerControlSystem
-    );
-
-    if (playerControlSystem) {
-      (playerControlSystem as any).deactivateAttack();
+    if (this.playerControlSystem) {
+      (this.playerControlSystem as any).deactivateAttack();
     }
   }
 

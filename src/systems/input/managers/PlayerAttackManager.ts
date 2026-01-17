@@ -5,7 +5,7 @@ import { Damage } from '../../../entities/combat/Damage';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { LogType } from '../../../presentation/ui/LogMessage';
-import { getPlayerRange, getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
+import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
 import { PlayerControlSystem } from '../PlayerControlSystem';
 
 /**

@@ -4,7 +4,6 @@ import { RemoteNpcSystem } from '../../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../../systems/multiplayer/RemoteProjectileSystem';
 import { MessageRouter } from '../handlers/MessageRouter';
 import { NetworkConnectionManager } from './NetworkConnectionManager';
-import { NetworkEventSystem } from './NetworkEventSystem';
 import { NetworkTickManager } from './NetworkTickManager';
 import { PlayerPositionTracker } from './PlayerPositionTracker';
 import { NetworkStateManager, ConnectionState } from './NetworkStateManager';
@@ -59,18 +58,32 @@ export class NetworkInitializationManager {
   private remoteNpcSystem?: RemoteNpcSystem;
   private remoteProjectileSystem?: RemoteProjectileSystem;
 
+  private readonly messageRouter: MessageRouter;
+  private readonly connectionManager: NetworkConnectionManager;
+  private readonly tickManager: NetworkTickManager;
+  private readonly positionTracker: PlayerPositionTracker;
+  private readonly stateManager: NetworkStateManager;
+  private readonly gameContext: GameContext;
+  private readonly clientId: string;
+
   constructor(
-    private readonly messageRouter: MessageRouter,
-    private readonly connectionManager: NetworkConnectionManager,
-    private readonly eventSystem: NetworkEventSystem,
-    private readonly tickManager: NetworkTickManager,
-    private readonly positionTracker: PlayerPositionTracker,
-    private readonly stateManager: NetworkStateManager,
-    private readonly gameContext: GameContext,
-    private readonly clientId: string,
+    messageRouter: MessageRouter,
+    connectionManager: NetworkConnectionManager,
+    tickManager: NetworkTickManager,
+    positionTracker: PlayerPositionTracker,
+    stateManager: NetworkStateManager,
+    gameContext: GameContext,
+    clientId: string,
     remoteNpcSystem?: RemoteNpcSystem,
     remoteProjectileSystem?: RemoteProjectileSystem
   ) {
+    this.messageRouter = messageRouter;
+    this.connectionManager = connectionManager;
+    this.tickManager = tickManager;
+    this.positionTracker = positionTracker;
+    this.stateManager = stateManager;
+    this.gameContext = gameContext;
+    this.clientId = clientId;
     this.remoteNpcSystem = remoteNpcSystem;
     this.remoteProjectileSystem = remoteProjectileSystem;
   }
@@ -132,6 +145,8 @@ export class NetworkInitializationManager {
         new ExplosionCreatedHandler()
       );
     }
+
+    console.log('[NetworkInitializationManager] Registering handlers:', handlers.map((h: any, i: number) => `${i}: ${h.constructor?.name}`).join(', '));
 
     // Registra tutti gli handler (questo sovrascrive quelli precedenti)
     this.messageRouter.registerHandlers(handlers);

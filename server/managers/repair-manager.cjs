@@ -128,26 +128,33 @@ class RepairManager {
   }
 
   /**
-   * Applica riparazione incrementale (10k ogni volta)
+   * Applica riparazione incrementale (10k ogni volta) - ripara HP e shield contemporaneamente
    */
   applyRepair(playerId, playerData, repairAmount) {
     let healthRepaired = 0;
     let shieldRepaired = 0;
-    let remainingRepair = repairAmount;
 
-    // Ripara prima lo shield se non è al massimo
-    if (playerData.shield < playerData.maxShield) {
-      const shieldNeeded = playerData.maxShield - playerData.shield;
-      shieldRepaired = Math.min(remainingRepair, shieldNeeded);
-      playerData.shield = Math.min(playerData.maxShield, playerData.shield + shieldRepaired);
-      remainingRepair -= shieldRepaired;
-    }
+    // Calcola i danni per HP e shield
+    const healthDamage = playerData.maxHealth - playerData.health;
+    const shieldDamage = playerData.maxShield - playerData.shield;
+    const totalDamage = healthDamage + shieldDamage;
 
-    // Poi ripara l'HP se c'è ancora riparazione disponibile
-    if (remainingRepair > 0 && playerData.health < playerData.maxHealth) {
-      const healthNeeded = playerData.maxHealth - playerData.health;
-      healthRepaired = Math.min(remainingRepair, healthNeeded);
-      playerData.health = Math.min(playerData.maxHealth, playerData.health + healthRepaired);
+    if (totalDamage > 0) {
+      // Distribuisci la riparazione proporzionalmente tra HP e shield
+      const healthRepairAmount = Math.floor((healthDamage / totalDamage) * repairAmount);
+      const shieldRepairAmount = repairAmount - healthRepairAmount;
+
+      // Applica riparazione HP
+      if (healthDamage > 0) {
+        healthRepaired = Math.min(healthRepairAmount, healthDamage);
+        playerData.health = Math.min(playerData.maxHealth, playerData.health + healthRepaired);
+      }
+
+      // Applica riparazione Shield
+      if (shieldDamage > 0) {
+        shieldRepaired = Math.min(shieldRepairAmount, shieldDamage);
+        playerData.shield = Math.min(playerData.maxShield, playerData.shield + shieldRepaired);
+      }
     }
 
     // Broadcast aggiornamento stato player con valori riparati (se c'è stata riparazione)

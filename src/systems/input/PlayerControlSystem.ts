@@ -9,6 +9,7 @@ import { PlayerAudioManager } from './managers/PlayerAudioManager';
 import { PlayerInputManager } from './managers/PlayerInputManager';
 import { PlayerMovementManager } from './managers/PlayerMovementManager';
 import { PlayerAttackManager } from './managers/PlayerAttackManager';
+import { DeathPopupManager } from '../../presentation/ui/managers/death/DeathPopupManager';
 
 /**
  * Sistema di controllo del player - gestisce click-to-move e movimento continuo
@@ -22,6 +23,8 @@ export class PlayerControlSystem extends BaseSystem {
   private onMinimapMovementComplete?: () => void;
   private logSystem: LogSystem | null = null;
   private attackActivated = false;
+  private deathPopupManager: DeathPopupManager | null = null;
+  private forceInputDisabled: boolean = false;
 
   // Modular architecture managers (lazy initialization)
   private audioManager!: PlayerAudioManager;
@@ -32,6 +35,20 @@ export class PlayerControlSystem extends BaseSystem {
 
   constructor(ecs: ECS) {
     super(ecs);
+  }
+
+  /**
+   * Imposta il riferimento al DeathPopupManager per disabilitare input durante morte
+   */
+  setDeathPopupManager(deathPopupManager: DeathPopupManager): void {
+    this.deathPopupManager = deathPopupManager;
+  }
+
+  /**
+   * Forza l'abilitazione/disabilitazione dell'input (usato per respawn)
+   */
+  setInputForcedDisabled(disabled: boolean): void {
+    this.forceInputDisabled = disabled;
   }
 
   /**
@@ -129,9 +146,9 @@ export class PlayerControlSystem extends BaseSystem {
    * Forza controllo immediato del combattimento (per risolvere timing issues)
    */
   private forceCombatCheck(): void {
-    const combatSystem = this.ecs.systems?.find((system: any) =>
+    const combatSystem = this.ecs.getSystems().find((system: any) =>
       typeof system.processPlayerCombat === 'function'
-    );
+    ) as any;
     if (combatSystem) {
       combatSystem.processPlayerCombat();
     }
@@ -186,6 +203,11 @@ export class PlayerControlSystem extends BaseSystem {
   update(deltaTime: number): void {
     if (!this.playerEntity) return;
     this.initializeManagers();
+
+    // Disabilita input durante popup morte/respawn o se forzatamente disabilitato
+    const isDeathPopupVisible = this.deathPopupManager?.isPopupVisible() ?? false;
+    const shouldDisableInput = isDeathPopupVisible || this.forceInputDisabled;
+    this.inputManager.setInputDisabled(shouldDisableInput);
 
     // Blocca il movimento durante l'animazione zoom
     const isZoomAnimating = this.cameraSystem?.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
@@ -273,9 +295,9 @@ export class PlayerControlSystem extends BaseSystem {
    * Ferma il combattimento attivo quando disattivi manualmente l'attacco
    */
   private stopCombatIfActive(): void {
-    const combatSystem = this.ecs.systems?.find((system: any) =>
+    const combatSystem = this.ecs.getSystems().find((system: any) =>
       typeof system.stopCombatImmediately === 'function'
-    );
+    ) as any;
 
     if (combatSystem) {
       combatSystem.stopCombatImmediately();

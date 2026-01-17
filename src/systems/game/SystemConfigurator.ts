@@ -61,7 +61,9 @@ export class SystemConfigurator {
     ecs.addSystem(portalSystem);
     ecs.addSystem(remoteNpcSystem);
     ecs.addSystem(remoteProjectileSystem);
-    ecs.addSystem(uiSystem);
+    if (uiSystem) {
+      ecs.addSystem(uiSystem);
+    }
     ecs.addSystem(playerStatusDisplaySystem);
   }
 
@@ -227,6 +229,12 @@ export class SystemConfigurator {
       }
       if (systemsCache.rewardSystem) {
         clientNetworkSystem.setRewardSystem(systemsCache.rewardSystem);
+      }
+
+      // Configura DeathPopupManager nel PlayerControlSystem per disabilitare input
+      if (systems.playerControlSystem) {
+        console.log('[SystemConfigurator] Setting DeathPopupManager in PlayerControlSystem');
+        systems.playerControlSystem.setDeathPopupManager(clientNetworkSystem.getDeathPopupManager());
       }
     }
 

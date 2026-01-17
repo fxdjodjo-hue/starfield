@@ -2,12 +2,14 @@ import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { RewardSystem } from '../../../systems/rewards/RewardSystem';
+import { DeathPopupManager } from '../../../presentation/ui/managers/death/DeathPopupManager';
 
 /**
  * Gestisce la distruzione delle entità (NPC o giocatori morti)
  */
 export class EntityDestroyedHandler extends BaseMessageHandler {
   private rewardSystem: RewardSystem | null = null;
+  private deathPopupManager: DeathPopupManager | null = null;
 
   constructor() {
     super(MESSAGE_TYPES.ENTITY_DESTROYED);
@@ -20,7 +22,16 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
     this.rewardSystem = rewardSystem;
   }
 
+  /**
+   * Imposta il riferimento al DeathPopupManager per gestire la morte del player locale
+   */
+  setDeathPopupManager(deathPopupManager: DeathPopupManager): void {
+    console.log('[EntityDestroyedHandler] setDeathPopupManager called with:', deathPopupManager);
+    this.deathPopupManager = deathPopupManager;
+  }
+
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    console.log('[EntityDestroyedHandler] Received:', message);
 
     if (message.entityType === 'npc') {
       // NPC distrutto - NON assegnare ricompense qui (fatto in PlayerStateUpdateHandler)
@@ -32,10 +43,39 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
         const removed = remoteNpcSystem.removeRemoteNpc(message.entityId);
       }
     } else if (message.entityType === 'player') {
-      // Giocatore remoto morto
-      const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
-      if (remotePlayerSystem) {
-        remotePlayerSystem.removeRemotePlayer(message.entityId);
+      // Verifica se è il player locale
+      const localClientId = networkSystem.getLocalClientId();
+      console.log('[EntityDestroyedHandler] Player death - entityId:', message.entityId, 'localClientId:', localClientId);
+
+  if (message.entityId === localClientId) {
+    console.log('[EntityDestroyedHandler] LOCAL PLAYER DIED - showing popup');
+    console.log('[EntityDestroyedHandler] deathPopupManager exists:', !!this.deathPopupManager);
+
+    // FERMA SUBITO IL COMBATTIMENTO quando il player muore
+    const ecs = networkSystem.getECS();
+    if (ecs) {
+      const combatSystem = ecs.getSystems().find((system: any) =>
+        typeof system.stopCombatImmediately === 'function'
+      ) as any;
+      if (combatSystem) {
+        console.log('[EntityDestroyedHandler] Stopping combat immediately on player death');
+        combatSystem.stopCombatImmediately();
+      }
+    }
+
+    // Player locale morto - mostra popup respawn
+    if (this.deathPopupManager) {
+      console.log('[EntityDestroyedHandler] Calling deathPopupManager.showDeathPopup()');
+      this.deathPopupManager.showDeathPopup();
+    } else {
+      console.error('[EntityDestroyedHandler] deathPopupManager is null/undefined!');
+    }
+  } else {
+        // Giocatore remoto morto
+        const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
+        if (remotePlayerSystem) {
+          remotePlayerSystem.removeRemotePlayer(message.entityId);
+        }
       }
     }
 

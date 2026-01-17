@@ -8,6 +8,7 @@ export class PlayerInputManager {
   private lastMouseX: number = 0;
   private lastMouseY: number = 0;
   private keysPressed: Set<string> = new Set();
+  private inputDisabled: boolean = false;
 
   constructor(
     private readonly ecs: ECS,
@@ -16,9 +17,23 @@ export class PlayerInputManager {
   ) {}
 
   /**
+   * Abilita o disabilita l'input del player
+   */
+  setInputDisabled(disabled: boolean): void {
+    this.inputDisabled = disabled;
+    if (disabled) {
+      // Cancella tutti i tasti premuti quando disabilitiamo l'input
+      this.keysPressed.clear();
+      this.isMousePressed = false;
+    }
+  }
+
+  /**
    * Handles key press
    */
   handleKeyPress(key: string): void {
+    if (this.inputDisabled) return;
+
     if (key === 'Space') {
       this.onSpacePress();
     } else {
@@ -30,6 +45,8 @@ export class PlayerInputManager {
    * Handles key release (only for movement keys)
    */
   handleKeyRelease(key: string): void {
+    if (this.inputDisabled) return;
+
     if (key !== 'Space') {
       this.keysPressed.delete(key.toLowerCase());
     }
@@ -39,6 +56,8 @@ export class PlayerInputManager {
    * Handles mouse state (pressed/released)
    */
   handleMouseState(pressed: boolean, x: number, y: number): void {
+    if (this.inputDisabled) return;
+
     this.isMousePressed = pressed;
     if (pressed) {
       this.lastMouseX = x;

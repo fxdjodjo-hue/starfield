@@ -12,7 +12,7 @@ import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { DisplayManager } from '../../../infrastructure/display';
 import { MissileManager } from './MissileManager';
-import { getPlayerRange, getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
+import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
 
 /**
  * Manages combat state: player combat processing, start/stop combat, logging
@@ -84,11 +84,12 @@ export class CombatStateManager {
       const npcTransform = selectedNpcs[0] ? this.ecs.getComponent(selectedNpcs[0], Transform) : null;
       
       if (playerTransform && npcTransform && playerDamage) {
-        const distance = Math.sqrt(
-          Math.pow(playerTransform.x - npcTransform.x, 2) +
-          Math.pow(playerTransform.y - npcTransform.y, 2)
-        );
-        const inRange = distance <= playerDamage.attackRange;
+        // Controllo range rettangolare per il player
+        const rangeWidth = getPlayerRangeWidth();
+        const rangeHeight = getPlayerRangeHeight();
+        const dx = Math.abs(npcTransform.x - playerTransform.x);
+        const dy = Math.abs(npcTransform.y - playerTransform.y);
+        const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
         
         if (attackActivated && inRange) {
           // Log only once per second to avoid spam
@@ -98,8 +99,9 @@ export class CombatStateManager {
               selectedNpcs: selectedNpcs.length,
               attackActivated,
               inRange,
-              distance: Math.round(distance),
-              attackRange: playerDamage.attackRange,
+              dx: Math.round(dx),
+              dy: Math.round(dy),
+              range: `${rangeWidth}x${rangeHeight}`,
               currentTarget: this.currentAttackTarget
             });
             this.lastCombatLogTime = now;
@@ -154,10 +156,6 @@ export class CombatStateManager {
     const playerControlSystem = this.getPlayerControlSystem();
     const attackActivated = playerControlSystem?.isAttackActivated() || false;
 
-    const PLAYER_RANGE = getPlayerRange();
-    if (playerDamage.attackRange !== PLAYER_RANGE) {
-      console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected ${PLAYER_RANGE}, got ${playerDamage.attackRange}`);
-    }
 
     if (inRange && attackActivated) {
       if (this.currentAttackTarget !== selectedNpc.id) {

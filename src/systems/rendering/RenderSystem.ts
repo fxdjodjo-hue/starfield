@@ -9,7 +9,7 @@ import { Npc } from '../../entities/ai/Npc';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
-import { getPlayerRange, getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
+import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
 import { Explosion } from '../../entities/combat/Explosion';
 import { RepairEffect } from '../../entities/combat/RepairEffect';
 import { Projectile } from '../../entities/combat/Projectile';
@@ -824,7 +824,6 @@ export class RenderSystem extends BaseSystem {
 
     // Applica zoom alla dimensione del rettangolo
     const zoom = camera?.zoom || 1;
-    const playerRange = getPlayerRange();
     const rangeWidth = getPlayerRangeWidth();
     const rangeHeight = getPlayerRangeHeight();
 

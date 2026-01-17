@@ -896,6 +896,37 @@ function handleTestDamage(data, sanitizedData, context) {
 }
 
 /**
+ * Handler per messaggio 'player_respawn_request'
+ */
+function handlePlayerRespawnRequest(data, sanitizedData, context) {
+  const { ws, mapServer } = context;
+
+  logger.info('RESPAWN', `Player ${data.clientId} requested respawn`);
+
+  // Trova il player
+  const playerData = mapServer.players.get(data.clientId);
+  if (!playerData) {
+    logger.warn('RESPAWN', `Player ${data.clientId} not found for respawn`);
+    return undefined;
+  }
+
+  // Verifica che il player sia morto
+  if (!playerData.isDead) {
+    logger.warn('RESPAWN', `Player ${data.clientId} is not dead, cannot respawn`);
+    return undefined;
+  }
+
+  // Respawna il player usando la logica esistente
+  const ProjectileDamageHandler = require('../../managers/projectile/ProjectileDamageHandler.cjs');
+  const damageHandler = new ProjectileDamageHandler(mapServer);
+
+  logger.info('RESPAWN', `Respawning player ${data.clientId}`);
+  damageHandler.respawnPlayer(data.clientId);
+
+  return undefined;
+}
+
+/**
  * Handler per messaggio 'save_request'
  */
 async function handleSaveRequest(data, sanitizedData, context) {
@@ -956,7 +987,8 @@ const handlers = {
   request_player_data: handleRequestPlayerData,
   chat_message: handleChatMessage,
   save_request: handleSaveRequest,
-  test_damage: handleTestDamage
+  test_damage: handleTestDamage,
+  player_respawn_request: handlePlayerRespawnRequest
 };
 
 /**
@@ -970,7 +1002,7 @@ const handlers = {
  */
 async function routeMessage({ type, data, sanitizedData, context }) {
   const handler = handlers[type];
-  
+
   if (!handler) {
     logger.warn('ROUTER', `Unknown message type: ${type} from ${data.clientId || 'unknown'}`);
     return undefined;
