@@ -70,19 +70,19 @@ export class PlayStateInitializer {
       }
     }
     
-    // Riproduci suono di login quando il giocatore entra in gioco
-    const audioSystem = this.getAudioSystem();
-    if (audioSystem && typeof audioSystem.playSound === 'function') {
-      try {
-        audioSystem.playSound('playerLogin', 0.1, false, false, 'effects');
-        console.log('[PlayState] Suono di login riprodotto');
-      } catch (error) {
-        console.warn('[PlayState] Errore nella riproduzione del suono di login:', error);
-      }
-    }
-    
     // Funzione helper per mostrare la UI
     const showUI = () => {
+      // Riproduci suono di login quando l'animazione camera è finita
+      const audioSystem = this.getAudioSystem();
+      if (audioSystem && typeof audioSystem.playSound === 'function') {
+        try {
+          audioSystem.playSound('playerLogin', 0.05, false, false, 'effects');
+          console.log('[PlayState] Suono di login riprodotto dopo animazione camera');
+        } catch (error) {
+          console.warn('[PlayState] Errore nella riproduzione del suono di login:', error);
+        }
+      }
+
       // Mostra il display HP/Shield
       const systems = this.gameInitSystem.getSystems();
       if (systems?.playerStatusDisplaySystem && typeof systems.playerStatusDisplaySystem.show === 'function') {
@@ -389,7 +389,7 @@ export class PlayStateInitializer {
     if (systems.playerSystem && clientNetworkSystem) {
       clientNetworkSystem.setPlayerSystem(systems.playerSystem);
     }
-    
+
     console.log('[PlayStateInitializer] initializeGame() completato');
     } catch (error) {
       console.error('[PlayStateInitializer] Errore in initializeGame():', error);
@@ -402,7 +402,10 @@ export class PlayStateInitializer {
    * per prevenire callback chiamati prima che i sistemi siano pronti
    */
   async initializeNetworkSystem(): Promise<void> {
+    console.log('[PlayStateInitializer] initializeNetworkSystem STARTED');
     const clientNetworkSystem = this.getClientNetworkSystem();
+    console.log('[PlayStateInitializer] clientNetworkSystem retrieved:', !!clientNetworkSystem);
+
     if (!clientNetworkSystem) {
       console.warn('[PlayStateInitializer] initializeNetworkSystem: ClientNetworkSystem non disponibile');
       return;
@@ -440,8 +443,11 @@ export class PlayStateInitializer {
           uiSystem.setPlayerId(clientNetworkSystem.gameContext.playerDbId as number);
         }
       }
+
+
     } catch (error) {
       console.error('❌ [PLAYSTATE] Network system initialization failed:', error);
+      console.error('❌ [PLAYSTATE] Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
     }
   }
 
@@ -450,12 +456,12 @@ export class PlayStateInitializer {
    */
   async enter(): Promise<void> {
     console.log('[PlayState] enter() chiamato');
-    
+
     // Assicurati che lo spinner sia visibile fin dall'inizio
     if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
       this.context.authScreen.updateLoadingText('Initializing game systems...');
     }
-    
+
     // Crea UiSystem solo ora (quando si entra nel PlayState)
     let uiSystem = this.getUiSystem();
     if (!uiSystem) {
