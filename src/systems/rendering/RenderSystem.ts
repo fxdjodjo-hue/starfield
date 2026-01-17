@@ -420,9 +420,9 @@ export class RenderSystem extends BaseSystem {
     }
     
     // Render debug range circle for player (only in development) - SOPRA TUTTO
-    if (import.meta.env.DEV) {
-      this.renderPlayerRangeCircle(ctx, camera);
-    }
+    // if (import.meta.env.DEV) {
+    //   this.renderPlayerRangeCircle(ctx, camera);
+    // }
 
     // Ripristina opacità
     ctx.restore();

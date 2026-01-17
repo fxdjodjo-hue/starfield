@@ -12,7 +12,8 @@ export class PortalSystem extends BaseSystem {
   private playerSystem: PlayerSystem;
   private audioSystem: any = null;
   private inputSystem: any = null;
-  private portalSoundInstances: Map<number, HTMLAudioElement> = new Map(); // entityId -> audio instance
+  private portalSoundInstances: Map<number, HTMLAudioElement> = new Map(); // entityId -> portal audio instance
+  private portalBassdropInstances: Map<number, HTMLAudioElement> = new Map(); // entityId -> bassdrop audio instance
   private portalFadeOutAnimations: Map<number, number> = new Map(); // entityId -> animationFrameId
   private readonly PROXIMITY_DISTANCE = 600; // Distanza per attivare il suono
   private readonly INTERACTION_DISTANCE = 300; // Distanza per interagire con E
@@ -74,15 +75,25 @@ export class PortalSystem extends BaseSystem {
           this.portalFadeOutAnimations.delete(portalId);
         }
 
-        // Aggiorna volume basato sulla distanza (più vicino = più forte)
-        const audioInstance = this.portalSoundInstances.get(portalId);
-        if (audioInstance) {
+        // Aggiorna volume basato sulla distanza per entrambi i suoni (più vicino = più forte)
+        const portalAudio = this.portalSoundInstances.get(portalId);
+        const bassdropAudio = this.portalBassdropInstances.get(portalId);
+
+        if (portalAudio || bassdropAudio) {
           // Calcola volume: massimo a MAX_VOLUME_DISTANCE, zero a PROXIMITY_DISTANCE
           const distanceFromMax = Math.max(0, distance - this.MAX_VOLUME_DISTANCE);
           const distanceRange = this.PROXIMITY_DISTANCE - this.MAX_VOLUME_DISTANCE;
           const normalizedDistance = distanceRange > 0 ? distanceFromMax / distanceRange : 0;
-          const volume = 0.25 * (1 - normalizedDistance); // Volume da 0.25 a 0
-          audioInstance.volume = Math.max(0, Math.min(0.25, volume));
+
+          const portalVolume = 0.25 * (1 - normalizedDistance); // Volume portale da 0.25 a 0
+          const bassdropVolume = 0.20 * (1 - normalizedDistance); // Volume bassdrop da 0.20 a 0
+
+          if (portalAudio) {
+            portalAudio.volume = Math.max(0, Math.min(0.25, portalVolume));
+          }
+          if (bassdropAudio) {
+            bassdropAudio.volume = Math.max(0, Math.min(0.20, bassdropVolume));
+          }
         }
 
         // Gestisci interazione con E quando player è abbastanza vicino
@@ -103,33 +114,49 @@ export class PortalSystem extends BaseSystem {
 
   private startPortalSound(portalId: number): void {
     try {
-      // Crea un'istanza audio separata per questo portale per controllo volume individuale
-      const audio = new Audio('/assets/audio/effects/portal/portal.mp3');
-      audio.loop = true;
-      audio.volume = 0.15; // Volume iniziale più basso
-      
-      // Gestisci errori di riproduzione
-      audio.addEventListener('error', (e) => {
+      // Crea istanza audio per il suono principale del portale
+      const portalAudio = new Audio('/assets/audio/effects/portal/portal.mp3');
+      portalAudio.loop = true;
+      portalAudio.volume = 0.15; // Volume iniziale più basso
+
+      // Crea istanza audio per il bassdrop
+      const bassdropAudio = new Audio('/assets/audio/effects/portal/bassdrop.mp3');
+      bassdropAudio.loop = true;
+      bassdropAudio.volume = 0.12; // Volume leggermente più basso per il bassdrop
+
+      // Gestisci errori di riproduzione per il portale
+      portalAudio.addEventListener('error', (e) => {
         console.warn('[PortalSystem] Error loading portal sound:', e);
       });
-      
-      audio.play().catch(err => {
-        console.warn('[PortalSystem] Error playing portal sound:', err);
-        // Rimuovi dalla mappa se non può essere riprodotto
-        this.portalSoundInstances.delete(portalId);
+
+      // Gestisci errori di riproduzione per il bassdrop
+      bassdropAudio.addEventListener('error', (e) => {
+        console.warn('[PortalSystem] Error loading bassdrop sound:', e);
       });
-      
-      this.portalSoundInstances.set(portalId, audio);
+
+      // Riproduci entrambi i suoni
+      const playPromises = [portalAudio.play(), bassdropAudio.play()];
+
+      Promise.all(playPromises).catch(err => {
+        console.warn('[PortalSystem] Error playing portal sounds:', err);
+        // Rimuovi dalla mappa se non possono essere riprodotti
+        this.portalSoundInstances.delete(portalId);
+        this.portalBassdropInstances.delete(portalId);
+      });
+
+      this.portalSoundInstances.set(portalId, portalAudio);
+      this.portalBassdropInstances.set(portalId, bassdropAudio);
     } catch (error) {
-      console.warn('[PortalSystem] Error starting portal sound:', error);
+      console.warn('[PortalSystem] Error starting portal sounds:', error);
     }
   }
 
   private fadeOutPortalSound(portalId: number): void {
-    const audio = this.portalSoundInstances.get(portalId);
-    if (!audio) return;
+    const portalAudio = this.portalSoundInstances.get(portalId);
+    const bassdropAudio = this.portalBassdropInstances.get(portalId);
 
-    const startVolume = audio.volume;
+    if (!portalAudio && !bassdropAudio) return;
+
     const startTime = Date.now();
 
     const fadeStep = () => {
@@ -138,13 +165,22 @@ export class PortalSystem extends BaseSystem {
 
       // Curva ease-out per fade più naturale
       const easedProgress = 1 - Math.pow(1 - progress, 2);
-      audio.volume = startVolume * (1 - easedProgress);
+
+      if (portalAudio) {
+        const portalStartVolume = portalAudio.volume;
+        portalAudio.volume = portalStartVolume * (1 - easedProgress);
+      }
+
+      if (bassdropAudio) {
+        const bassdropStartVolume = bassdropAudio.volume;
+        bassdropAudio.volume = bassdropStartVolume * (1 - easedProgress);
+      }
 
       if (progress < 1) {
         const frameId = requestAnimationFrame(fadeStep);
         this.portalFadeOutAnimations.set(portalId, frameId);
       } else {
-        // Fade out completato, ferma il suono
+        // Fade out completato, ferma i suoni
         this.stopPortalSound(portalId);
       }
     };
@@ -160,21 +196,33 @@ export class PortalSystem extends BaseSystem {
       this.portalFadeOutAnimations.delete(portalId);
     }
 
-    const audio = this.portalSoundInstances.get(portalId);
-    if (audio) {
+    // Ferma il suono del portale
+    const portalAudio = this.portalSoundInstances.get(portalId);
+    if (portalAudio) {
       try {
-        // Ferma il suono
-        audio.pause();
-        audio.currentTime = 0;
-        // Imposta volume a 0 per sicurezza
-        audio.volume = 0;
-        // Rimuovi tutti gli event listener per evitare memory leak
-        audio.removeEventListener('error', () => {});
+        portalAudio.pause();
+        portalAudio.currentTime = 0;
+        portalAudio.volume = 0;
+        portalAudio.removeEventListener('error', () => {});
       } catch (error) {
         console.warn('[PortalSystem] Error stopping portal sound:', error);
       } finally {
-        // Rimuovi sempre dalla mappa anche se c'è un errore
         this.portalSoundInstances.delete(portalId);
+      }
+    }
+
+    // Ferma il suono del bassdrop
+    const bassdropAudio = this.portalBassdropInstances.get(portalId);
+    if (bassdropAudio) {
+      try {
+        bassdropAudio.pause();
+        bassdropAudio.currentTime = 0;
+        bassdropAudio.volume = 0;
+        bassdropAudio.removeEventListener('error', () => {});
+      } catch (error) {
+        console.warn('[PortalSystem] Error stopping bassdrop sound:', error);
+      } finally {
+        this.portalBassdropInstances.delete(portalId);
       }
     }
   }
@@ -245,6 +293,7 @@ export class PortalSystem extends BaseSystem {
       this.stopPortalSound(portalId);
     }
     this.portalSoundInstances.clear();
+    this.portalBassdropInstances.clear();
     this.audioSystem = null;
   }
 }
