@@ -9,6 +9,7 @@ import type { NetMessage } from '../types/MessageTypes';
 export class NetworkConnectionManager {
   private socket: WebSocket | null = null;
   private serverUrl: string;
+  private clientId: string = '';
 
   // Connection callbacks
   private onConnectedCallback?: (socket: WebSocket) => Promise<void>;
@@ -46,6 +47,13 @@ export class NetworkConnectionManager {
     this.handleDisconnected = this.handleDisconnected.bind(this);
     this.handleConnectionError = this.handleConnectionError.bind(this);
     this.handleReconnecting = this.handleReconnecting.bind(this);
+  }
+
+  /**
+   * Imposta il clientId persistente ricevuto dal server
+   */
+  setClientId(clientId: string): void {
+    this.clientId = clientId;
   }
 
   /**
@@ -224,11 +232,11 @@ export class NetworkConnectionManager {
    * Invia heartbeat al server
    */
   private sendHeartbeat(): void {
-    if (!this.socket) return;
+    if (!this.socket || !this.clientId) return;
 
     const message = {
       type: 'heartbeat',
-      clientId: 'client_' + Math.random().toString(36).substr(2, 9), // TODO: Get from context
+      clientId: this.clientId, // Usa il clientId persistente
       timestamp: Date.now()
     };
 

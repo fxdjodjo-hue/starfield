@@ -29,7 +29,7 @@ import { DeathPopupManager } from '../../presentation/ui/managers/death/DeathPop
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
-import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId } from '../../config/NetworkConfig';
+import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, secureLogger } from '../../config/NetworkConfig';
 
 /**
  * Sistema di rete client modulare per multiplayer
@@ -93,6 +93,9 @@ export class ClientNetworkSystem extends BaseSystem {
     // Generate unique client ID
     this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
 
+    // Track if we've received welcome (clientId is valid)
+    this.hasReceivedWelcome = false;
+
     // REFACTORED: Initialize modular architecture
     this.connectionManager = new NetworkConnectionManager(
       serverUrl,
@@ -119,7 +122,8 @@ export class ClientNetworkSystem extends BaseSystem {
       this.connectionManager,
       this.rateLimiter,
       this.tickManager,
-      this.clientId
+      this.clientId,
+      () => this.isReady() // Callback per controllare se il client è ready
     );
 
     // Initialize initialization manager
@@ -151,7 +155,8 @@ export class ClientNetworkSystem extends BaseSystem {
       this.rateLimiter,
       this.tickManager,
       this.positionTracker,
-      this.clientId
+      this.clientId,
+      () => this.isReady() // Callback per controllare se il client è ready
     );
 
     // Initialize combat manager
@@ -163,7 +168,8 @@ export class ClientNetworkSystem extends BaseSystem {
       this.clientId,
       () => this.entityManager.getCurrentCombatNpcId(),
       (message) => this.sendMessage(message),
-      () => this.isConnected()
+      () => this.isConnected(),
+      () => this.isReady()
     );
 
     // Initialize player data manager
@@ -212,9 +218,7 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.playerSystem;
   }
 
-  setHasReceivedWelcome(received: boolean): void {
-    this.positionSyncManager.setHasReceivedWelcome(received);
-  }
+  // DEPRECATED: Ora usiamo updateClientId() che gestisce automaticamente lo stato ready
 
   getPendingPosition(): { x: number; y: number; rotation: number } | null {
     return this.positionSyncManager.getPendingPosition();
@@ -254,16 +258,20 @@ export class ClientNetworkSystem extends BaseSystem {
       const message: NetMessage = JSON.parse(data);
 
       // Handle simple acknowledgment messages that don't need handlers
-      if (message.type === MESSAGE_TYPES.POSITION_ACK || 
-          message.type === MESSAGE_TYPES.HEARTBEAT_ACK || 
+      if (message.type === MESSAGE_TYPES.POSITION_ACK ||
+          message.type === MESSAGE_TYPES.HEARTBEAT_ACK ||
           message.type === MESSAGE_TYPES.WORLD_UPDATE) {
         return; // No action needed
       }
 
-      // Route all other messages to appropriate handlers
-      if (import.meta.env.DEV && message.type === 'chat_message') {
-        console.log('[ClientNetworkSystem] Routing chat message:', message);
+      // 🔧 FIX: Assicurati che ogni messaggio abbia un clientId valido
+      // Per i messaggi ricevuti dal server, usa il nostro clientId locale
+      if (!message.clientId || message.clientId === 'undefined') {
+        message.clientId = this.clientId;
       }
+
+      // Route all other messages to appropriate handlers
+      secureLogger.log('Routing message:', { type: message.type, clientId: message.clientId });
       this.messageRouter.route(message, this);
     } catch (error) {
       if (import.meta.env.DEV) {
@@ -318,9 +326,37 @@ export class ClientNetworkSystem extends BaseSystem {
       return;
     }
 
-    const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
-    this.tickManager.bufferPositionUpdate(currentPosition);
+    // Solo bufferizza aggiornamenti di posizione se il client è ready
+    if (this.isReady()) {
+      const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
+
+      // Invia aggiornamenti solo se la posizione è cambiata significativamente
+      // per evitare di spammare il server con aggiornamenti inutili
+      if (this.shouldSendPositionUpdate(currentPosition)) {
+        this.tickManager.bufferPositionUpdate(currentPosition);
+        this.lastSentPosition = { ...currentPosition };
+      }
+    }
+
     this.tickManager.update(deltaTime);
+  }
+
+  private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
+
+  private shouldSendPositionUpdate(currentPosition: { x: number; y: number; rotation: number }): boolean {
+    if (!this.lastSentPosition) {
+      return true; // Prima volta, invia sempre
+    }
+
+    const dx = Math.abs(currentPosition.x - this.lastSentPosition.x);
+    const dy = Math.abs(currentPosition.y - this.lastSentPosition.y);
+    const dr = Math.abs(currentPosition.rotation - this.lastSentPosition.rotation);
+
+    // Invia solo se si è mossi di almeno 5 unità o ruotati di almeno 0.1 radianti
+    const MOVEMENT_THRESHOLD = 5;
+    const ROTATION_THRESHOLD = 0.1;
+
+    return dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD || dr > ROTATION_THRESHOLD;
   }
 
   private sendMessage(message: NetMessage): void {
@@ -348,37 +384,6 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 
-  /**
-   * Sends a test damage request to the server (for testing repair system)
-   */
-  sendTestDamage(): void {
-    if (!this.connectionManager.isConnectionActive()) {
-      console.warn('🔧 [TEST] Cannot send test damage: not connected');
-      return;
-    }
-    
-    if (!this.clientId) {
-      console.warn('🔧 [TEST] Cannot send test damage: no clientId');
-      return;
-    }
-    
-    // validatePlayerId confronta con playerData.userId (UUID auth), non playerId numerico
-    if (!this.gameContext.authId) {
-      console.warn('🔧 [TEST] Cannot send test damage: no authId');
-      return;
-    }
-    
-    console.log('🔧 [TEST] Sending test damage request', {
-      clientId: this.clientId,
-      playerId: this.gameContext.authId
-    });
-    
-    this.sendMessage({
-      type: 'test_damage',
-      clientId: this.clientId,
-      playerId: this.gameContext.authId  // Usa authId (UUID) invece di playerId numerico
-    });
-  }
 
   isConnected(): boolean {
     return this.stateManager.isConnected();
@@ -430,7 +435,7 @@ export class ClientNetworkSystem extends BaseSystem {
   }
   stopCombat(): void {
     if (!this.ecs) {
-      console.warn(`⚠️ [CLIENT] ECS not available in ClientNetworkSystem.stopCombat()`);
+      secureLogger.error('ECS not available in stopCombat');
       return;
     }
 
@@ -452,7 +457,7 @@ export class ClientNetworkSystem extends BaseSystem {
         playerControlSystem.deactivateAttack();
       }
     } else {
-      console.warn(`⚠️ [CLIENT] CombatSystem not found, cannot stop combat`);
+      secureLogger.error('CombatSystem not found, cannot stop combat');
     }
   }
 
@@ -461,6 +466,7 @@ export class ClientNetworkSystem extends BaseSystem {
       await this.connect();
     } catch (error) {
       console.error(`❌ [CLIENT] Connection failed:`, error);
+      throw error; // Rilancia l'errore per permettere al chiamante di gestirlo
     }
   }
 
@@ -572,6 +578,75 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.gameContext.localClientId || this.clientId;
   }
 
+  /**
+   * 🔄 CRITICAL: Aggiorna il clientId al valore persistente inviato dal server
+   * Questo viene chiamato dal WelcomeHandler quando il server assegna un clientId persistente
+   */
+  updateClientId(newClientId: string): void {
+    if (import.meta.env.DEV) {
+      console.log('[ClientNetworkSystem] Updating clientId:', {
+        old: this.clientId,
+        new: newClientId,
+        contextOld: this.gameContext.localClientId,
+        contextNew: newClientId
+      });
+    }
+
+    // Salva il vecchio clientId per trasferire eventuali aggiornamenti pendenti
+    const oldClientId = this.clientId;
+
+    // Aggiorna sia il clientId interno che quello nel context
+    this.clientId = newClientId;
+    this.gameContext.localClientId = newClientId;
+
+    // 🔄 CRITICAL: Aggiorna clientId anche nei manager che lo usano
+    if (this.playerDataManager) {
+      this.playerDataManager.clientId = newClientId;
+    }
+    if (this.stateManager) {
+      this.stateManager.clientId = newClientId;
+    }
+    if (this.connectionManager) {
+      this.connectionManager.setClientId(newClientId);
+    }
+    if (this.combatManager) {
+      // Aggiorna clientId anche nel combat manager
+      (this.combatManager as any).clientId = newClientId;
+    }
+
+    // 🔄 CRITICAL: Se il clientId è cambiato, trasferisci eventuali aggiornamenti posizione pendenti
+    // Questo previene il "doppio player" quando il clientId viene aggiornato dal welcome
+    if (oldClientId !== newClientId && this.gameContext.serverConnection) {
+      // Qui dovremmo notificare al server di trasferire eventuali aggiornamenti posizione
+      // dal vecchio clientId al nuovo clientId, ma per ora ci affidiamo al rate limiting
+      // e alla pulizia automatica della queue nel server
+      if (import.meta.env.DEV) {
+        console.log('[ClientNetworkSystem] ClientId changed, position updates may be affected:', {
+          old: oldClientId,
+          new: newClientId
+        });
+      }
+    }
+    if (this.positionSyncManager) {
+      this.positionSyncManager.clientId = newClientId;
+    }
+
+    // 🔴 CRITICAL: Segnala che ora siamo "ready" - possiamo iniziare a inviare messaggi
+    this.hasReceivedWelcome = true;
+    console.log('[ClientNetworkSystem] hasReceivedWelcome set to true - client is now ready');
+
+    if (import.meta.env.DEV) {
+      console.log('[ClientNetworkSystem] Client is now READY - welcome received, clientId updated in all managers');
+    }
+  }
+
+  /**
+   * Check if client has received welcome and is ready to send messages
+   */
+  isReady(): boolean {
+    return this.hasReceivedWelcome;
+  }
+
   requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage'): void {
     this.playerDataManager.requestSkillUpgrade(upgradeType);
   }
@@ -662,7 +737,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
       // Trova e configura EntityDestroyedHandler
       console.log('[ClientNetworkSystem] Looking for EntityDestroyedHandler...');
-      console.log('[ClientNetworkSystem] Available handlers:', handlers.map((h: any, i: number) => `${i}: ${h.constructor?.name} (messageType: ${h.messageType})`).join(', '));
+      secureLogger.log('Available handlers:', handlers.map((h: any, i: number) => `${i}: ${h.constructor?.name}`).join(', '));
 
       const entityDestroyedHandler = handlers.find((handler: any) =>
         handler.constructor?.name === 'EntityDestroyedHandler' ||

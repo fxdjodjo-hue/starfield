@@ -715,6 +715,7 @@ export class RenderSystem extends BaseSystem {
       this.projectileQueryCache = this.ecs.getEntitiesWithComponents(Transform, Projectile);
     const projectiles = this.projectileQueryCache;
 
+
     for (const projectileEntity of projectiles) {
       // OTTIMIZZAZIONE: Usa cache componenti
       const components = this.getCachedComponents(projectileEntity);

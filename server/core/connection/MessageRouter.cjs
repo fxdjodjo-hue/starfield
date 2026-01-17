@@ -60,12 +60,15 @@ async function handleJoin(data, sanitizedData, context) {
   const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades);
   
   // Usa HP/shield salvati se disponibili, altrimenti usa max (NULL = full health/shield)
-  const savedHealth = loadedData.currentHealth !== null && loadedData.currentHealth !== undefined 
+  const savedHealth = loadedData.currentHealth !== null && loadedData.currentHealth !== undefined
     ? Math.min(loadedData.currentHealth, maxHealth) // Assicurati che non superi max
     : maxHealth;
-  const savedShield = loadedData.currentShield !== null && loadedData.currentShield !== undefined 
+  const savedShield = loadedData.currentShield !== null && loadedData.currentShield !== undefined
     ? Math.min(loadedData.currentShield, maxShield) // Assicurati che non superi max
     : maxShield;
+
+  logger.info('CONNECTION', `🎯 APPLY Health: loaded=${loadedData.currentHealth}, max=${maxHealth}, applied=${savedHealth}`);
+  logger.info('CONNECTION', `🎯 APPLY Shield: loaded=${loadedData.currentShield}, max=${maxShield}, applied=${savedShield}`);
 
   const playerData = {
     clientId: data.clientId,
@@ -101,9 +104,31 @@ async function handleJoin(data, sanitizedData, context) {
     return null;
   }
 
-  mapServer.addPlayer(data.clientId, playerData);
+  // 🔄 CRITICAL: Usa playerId come clientId per renderlo PERSISTENTE tra riconnessioni
+  // Invece del clientId temporaneo inviato dal client, usa l'ID stabile del giocatore
+  const persistentClientId = `${playerData.playerId}`;
 
-  logger.info('PLAYER', `Player joined: ${data.clientId}`);
+  // 🚨 CRITICAL: Prima di aggiungere il nuovo giocatore, rimuovi eventuali vecchi giocatori
+  // con lo stesso playerId ma clientId diverso (riconnessioni)
+  for (const [existingClientId, existingPlayerData] of mapServer.players.entries()) {
+    if (existingPlayerData.playerId === playerData.playerId && existingClientId !== persistentClientId) {
+      logger.warn('SECURITY', `🧹 CLEANUP: Removing old instance of player ${playerData.playerId} with clientId ${existingClientId} (reconnection)`);
+
+      // Broadcast player left per il vecchio giocatore
+      const playerLeftMsg = messageBroadcaster.formatPlayerLeftMessage(existingClientId);
+      mapServer.broadcastToMap(playerLeftMsg);
+
+      // Rimuovi dalla mappa
+      mapServer.removePlayer(existingClientId);
+    }
+  }
+
+  // Aggiorna il clientId nel playerData per coerenza
+  playerData.clientId = persistentClientId;
+
+  mapServer.addPlayer(persistentClientId, playerData);
+
+  logger.info('PLAYER', `Player joined: ${persistentClientId}`);
   logger.info('PLAYER', `  Nickname: ${data.nickname}`);
   logger.info('PLAYER', `  Player ID: ${playerData.playerId}`);
   logger.info('PLAYER', `  User ID: ${data.userId}`);
@@ -115,15 +140,15 @@ async function handleJoin(data, sanitizedData, context) {
 
   // Broadcast player joined
   const playerJoinedMsg = messageBroadcaster.formatPlayerJoinedMessage(
-    data.clientId,
+    persistentClientId,
     data.nickname,
     playerData.playerId
   );
-  mapServer.broadcastToMap(playerJoinedMsg, data.clientId);
+  mapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
 
   // Invia posizioni dei giocatori esistenti
   mapServer.players.forEach((existingPlayerData, existingClientId) => {
-    if (existingClientId !== data.clientId && existingPlayerData.position) {
+    if (existingClientId !== persistentClientId && existingPlayerData.position) {
       const existingPlayerBroadcast = {
         type: 'remote_player_update',
         clientId: existingClientId,
@@ -137,12 +162,26 @@ async function handleJoin(data, sanitizedData, context) {
     }
   });
 
+  // Broadcast posizione del nuovo giocatore a tutti gli altri
+  if (playerData.position) {
+    const newPlayerBroadcast = {
+      type: 'remote_player_update',
+      clientId: persistentClientId,
+      position: playerData.position,
+      rotation: playerData.position.rotation || 0,
+      tick: 0,
+      nickname: data.nickname,
+      playerId: playerData.playerId
+    };
+    mapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
+  }
+
   // Invia NPC esistenti
   const allNpcs = mapServer.npcManager.getAllNpcs();
   if (allNpcs.length > 0) {
     const initialNpcsMessage = messageBroadcaster.formatInitialNpcsMessage(allNpcs);
     ws.send(JSON.stringify(initialNpcsMessage));
-    logger.info('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${data.clientId}`);
+    logger.info('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${persistentClientId}`);
   }
 
   // Welcome message
@@ -157,19 +196,6 @@ async function handleJoin(data, sanitizedData, context) {
     ws.send(JSON.stringify(welcomeMessage));
   } catch (error) {
     console.error('❌ [SERVER] Failed to send welcome message:', error);
-  }
-
-  // Invia la posizione del nuovo giocatore a tutti gli altri giocatori
-  if (data.position) {
-    mapServer.broadcastToMap({
-      type: 'remote_player_update',
-      clientId: data.clientId,
-      position: data.position,
-      rotation: data.position.rotation || 0,
-      tick: 0,
-      nickname: data.nickname,
-      playerId: playerData.playerId
-    }, data.clientId);
   }
 
   return playerData;
@@ -219,7 +245,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
     
     // Se la distanza è troppo grande, potrebbe essere un teleport hack
     if (distance > MAX_MOVEMENT_DISTANCE_PER_UPDATE * 2) { // Margine 2x per lag/network
-      logger.warn('SECURITY', `🚫 Possible teleport hack from ${data.clientId}: distance ${distance.toFixed(2)} > max ${(MAX_MOVEMENT_DISTANCE_PER_UPDATE * 2).toFixed(2)}`);
+      logger.warn('SECURITY', `🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: distance ${distance.toFixed(2)} > max ${(MAX_MOVEMENT_DISTANCE_PER_UPDATE * 2).toFixed(2)}`);
       // Ignora questo update invece di applicarlo
       return;
     }
@@ -298,7 +324,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   // Security check
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Skill upgrade attempt with mismatched playerId from ${data.clientId}`);
+    logger.error('SECURITY', `🚫 BLOCKED: Skill upgrade attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid player ID for skill upgrade.',
@@ -440,7 +466,7 @@ function handleProjectileFired(data, sanitizedData, context) {
   // Security check
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Projectile fire attempt with mismatched playerId from ${data.clientId}`);
+    logger.error('SECURITY', `🚫 BLOCKED: Projectile fire attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid player ID for projectile action.',
@@ -517,7 +543,7 @@ function handleStartCombat(data, sanitizedData, context) {
   // Security check
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Combat start attempt with mismatched playerId from ${data.clientId}`);
+    logger.error('SECURITY', `🚫 BLOCKED: Combat start attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid player ID for combat action.',
@@ -766,7 +792,7 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
   // Security check
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Player data request with mismatched playerId from ${data.clientId}`);
+    logger.error('SECURITY', `🚫 BLOCKED: Player data request with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid player ID for data request.',
@@ -808,7 +834,7 @@ function handleChatMessage(data, sanitizedData, context) {
   // Security check
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
-    logger.warn('SECURITY', `🚫 BLOCKED: Chat message with mismatched clientId. Received: ${data.clientId}, Expected: ${playerData?.clientId}`);
+    logger.warn('SECURITY', `🚫 BLOCKED: Chat message with mismatched clientId. Received: ${data.clientId}, Expected: ${playerData?.clientId}, PlayerId: ${playerData?.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client ID for chat message.',
@@ -843,57 +869,6 @@ function handleChatMessage(data, sanitizedData, context) {
   mapServer.broadcastToMap(chatBroadcast, data.clientId);
 }
 
-/**
- * Handler per messaggio 'test_damage' (solo per testing)
- */
-function handleTestDamage(data, sanitizedData, context) {
-  const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster } = context;
-  
-  logger.info('TEST', `Received test_damage request from ${data.clientId}, playerId: ${data.playerId}`);
-  
-  // Fallback a mapServer se playerData non è nel context
-  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
-  if (!playerData) {
-    logger.warn('TEST', `Player data not found for clientId: ${data.clientId}`);
-    return;
-  }
-
-  logger.info('TEST', `Player found: ${playerData.nickname}, current HP: ${playerData.health}/${playerData.maxHealth}, Shield: ${playerData.shield}/${playerData.maxShield}`);
-
-  // Security check
-  const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
-  if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Test damage attempt with mismatched playerId from ${data.clientId}. Expected: ${playerData.playerId}, Got: ${data.playerId}`);
-    ws.send(JSON.stringify({
-      type: 'error',
-      message: 'Invalid player ID for test damage.',
-      code: 'INVALID_PLAYER_ID'
-    }));
-    return;
-  }
-
-  // Infliggi 1k danno usando NpcDamageHandler tramite npcManager
-  const damageAmount = 1000;
-  logger.info('TEST', `Applying ${damageAmount} damage to player ${data.clientId}`);
-  const wasKilled = mapServer.npcManager.damagePlayer(data.clientId, damageAmount, 'test_system');
-  
-  logger.info('TEST', `Test damage applied: ${damageAmount} to player ${data.clientId} (${playerData.nickname}). New HP: ${playerData.health}/${playerData.maxHealth}, Shield: ${playerData.shield}/${playerData.maxShield}. Was killed: ${wasKilled}`);
-
-  // Broadcast aggiornamento stato player (formato come in ProjectileBroadcaster)
-  const damageMessage = {
-    type: 'entity_damaged',
-    entityId: data.clientId,
-    entityType: 'player',
-    damage: damageAmount,
-    attackerId: 'test_system',
-    newHealth: playerData.health,
-    newShield: playerData.shield,
-    position: playerData.position || { x: 0, y: 0 }
-  };
-  
-  mapServer.broadcastToMap(damageMessage);
-  logger.info('TEST', 'Broadcasted damage message to all players');
-}
 
 /**
  * Handler per messaggio 'player_respawn_request'
@@ -940,7 +915,7 @@ async function handleSaveRequest(data, sanitizedData, context) {
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!clientIdValidation.valid || !playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client/player ID from ${data.clientId}`);
+    logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client/player ID from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client or player ID for save request.',
@@ -987,7 +962,6 @@ const handlers = {
   request_player_data: handleRequestPlayerData,
   chat_message: handleChatMessage,
   save_request: handleSaveRequest,
-  test_damage: handleTestDamage,
   player_respawn_request: handlePlayerRespawnRequest
 };
 
@@ -1000,6 +974,144 @@ const handlers = {
  * @param {Object} params.context - Context con tutte le dipendenze
  * @returns {Promise<*>} Risultato dell'handler (può essere playerData per join, undefined per altri)
  */
+/**
+ * Valida contesto e stato del giocatore prima di processare qualsiasi messaggio
+ * CRITICAL SECURITY: Server-side validation totale - ogni messaggio deve essere:
+ * 1. Atteso (messaggio conosciuto)
+ * 2. Schema valido (già fatto dall'InputValidator)
+ * 3. Coerente con stato server
+ * 4. Permesso in quel momento
+ *
+ * NOTA: Il messaggio 'join' è ESCLUSO da questa validazione perché è quello che CREA il playerData
+ */
+function validatePlayerContext(type, data, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
+
+  // Fallback a mapServer se playerData non è nel context
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+
+  // 🚫 SECURITY: Giocatore deve esistere
+  if (!playerData) {
+    logger.error('SECURITY', `🚫 BLOCKED: Message ${type} from non-existent player ${data.clientId}`);
+    ws.close(1008, 'Player not found');
+    return { valid: false, reason: 'PLAYER_NOT_FOUND' };
+  }
+
+  // 🚫 SECURITY: Client ID deve corrispondere (accetta anche clientId persistente {playerId})
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+
+  // Controlla se il clientId inviato corrisponde al clientId persistente
+  const expectedPersistentClientId = `${playerData.playerId}`;
+  const isPersistentClientId = data.clientId === expectedPersistentClientId;
+
+  // SOLUZIONE MIGLIORE: Niente eccezioni - il client deve aspettare il welcome
+  // Se riceve messaggi con vecchio clientId, è perché il client è malimplementato
+  const allowedWithOldClientId = []; // ZERO eccezioni - massima sicurezza
+
+  if (!clientIdValidation.valid && !isPersistentClientId && !allowedWithOldClientId.includes(type)) {
+    // 🚫 SECURITY: Per messaggi critici, blocca e disconnetti
+    if (type !== 'heartbeat') {
+      logger.error('SECURITY', `🚫 BLOCKED: Message ${type} with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (expected: ${playerData.clientId} or ${expectedPersistentClientId})`);
+      ws.close(1008, 'Invalid client ID');
+      return { valid: false, reason: 'INVALID_CLIENT_ID' };
+    } else {
+      // ❤️ MMO-FRIENDLY: Per heartbeat, logga ma ignora (possono essere stale da riconnessioni)
+      logger.info('SECURITY', `❤️ IGNORED: Stale heartbeat with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (reconnection artifact)`);
+      return { valid: false, reason: 'STALE_HEARTBEAT_IGNORED' };
+    }
+  }
+
+  // Per heartbeat con clientId vecchio (non persistente), logga ma permetti (riconnessioni)
+  if (!clientIdValidation.valid && !isPersistentClientId && type === 'heartbeat') {
+    logger.info('SECURITY', `⚠️ ALLOWED: Stale heartbeat from ${data.clientId} playerId:${playerData.playerId} (old clientId, reconnection in progress)`);
+  }
+
+  // Per messaggi permessi con vecchio clientId, logga ma permetti
+  if (!clientIdValidation.valid && !isPersistentClientId && allowedWithOldClientId.includes(type)) {
+    logger.info('SECURITY', `⚠️ ALLOWED: ${type} with old clientId from ${data.clientId} playerId:${playerData.playerId} (sent before welcome)`);
+  }
+
+  // 🚫 SECURITY: Player ID deve corrispondere (se presente nel messaggio)
+  if (data.playerId) {
+    const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
+    if (!playerIdValidation.valid) {
+      logger.error('SECURITY', `🚫 BLOCKED: Message ${type} with invalid playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+      ws.close(1008, 'Invalid player ID');
+      return { valid: false, reason: 'INVALID_PLAYER_ID' };
+    }
+  }
+
+  // 🚫 SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade', 'chat_message'];
+  if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
+    logger.warn('SECURITY', `🚫 BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
+    return { valid: false, reason: 'PLAYER_DEAD' };
+  }
+
+  // 🚫 SECURITY: Rate limiting contestuale
+  const now = Date.now();
+
+  // Inizializza rate limiting se necessario
+  if (!playerData.messageRateLimit) {
+    playerData.messageRateLimit = {
+      lastMessageTime: now,
+      messageCount: 0,
+      windowStart: now
+    };
+  }
+
+  // Reset counter ogni minuto
+  if (now - playerData.messageRateLimit.windowStart >= 60000) {
+    playerData.messageRateLimit.messageCount = 0;
+    playerData.messageRateLimit.windowStart = now;
+  }
+
+  // Max 500 messaggi al minuto per player (temporaneo per debug)
+  playerData.messageRateLimit.messageCount++;
+  if (playerData.messageRateLimit.messageCount > 500) {
+    logger.error('SECURITY', `🚫 BLOCKED: Rate limit exceeded for ${data.clientId} playerId:${playerData.playerId} (${playerData.messageRateLimit.messageCount} messages/minute)`);
+    ws.close(1008, 'Rate limit exceeded');
+    return { valid: false, reason: 'RATE_LIMIT_EXCEEDED' };
+  }
+
+  // 🚫 SECURITY: Validazione specifica per tipo di messaggio
+  switch (type) {
+    case 'position_update':
+      // Deve essere in un'area valida della mappa
+      if (data.x < -10000 || data.x > 10000 || data.y < -10000 || data.y > 10000) {
+        logger.error('SECURITY', `🚫 BLOCKED: Invalid position (${data.x}, ${data.y}) from ${data.clientId} playerId:${playerData.playerId}`);
+        return { valid: false, reason: 'INVALID_POSITION' };
+      }
+      break;
+
+    case 'projectile_fired':
+      // Deve avere munizioni (server-authoritative)
+      if (playerData.ammo <= 0) {
+        logger.warn('SECURITY', `🚫 BLOCKED: No ammo projectile attempt from ${data.clientId} playerId:${playerData.playerId} (ammo: ${playerData.ammo})`);
+        return { valid: false, reason: 'NO_AMMO' };
+      }
+      break;
+
+    case 'skill_upgrade':
+      // Deve avere abbastanza crediti (server-authoritative)
+      if (playerData.credits < data.cost) {
+        logger.warn('SECURITY', `🚫 BLOCKED: Insufficient credits for upgrade from ${data.clientId} playerId:${playerData.playerId} (has: ${playerData.credits}, needs: ${data.cost})`);
+        return { valid: false, reason: 'INSUFFICIENT_CREDITS' };
+      }
+      break;
+
+    case 'start_combat':
+      // Non deve già essere in combattimento
+      if (playerData.inCombat) {
+        logger.warn('SECURITY', `🚫 BLOCKED: Already in combat attempt from ${data.clientId} playerId:${playerData.playerId}`);
+        return { valid: false, reason: 'ALREADY_IN_COMBAT' };
+      }
+      break;
+  }
+
+  return { valid: true };
+}
+
 async function routeMessage({ type, data, sanitizedData, context }) {
   const handler = handlers[type];
 
@@ -1008,12 +1120,22 @@ async function routeMessage({ type, data, sanitizedData, context }) {
     return undefined;
   }
 
+  // 🔴 CRITICAL SECURITY: Validazione contestuale prima di ogni handler
+  // ECCEZIONE: Il messaggio 'join' non ha ancora un playerData perché è quello che lo crea
+  if (type !== 'join') {
+    const contextValidation = validatePlayerContext(type, data, context);
+    if (!contextValidation.valid) {
+      // Messaggio già loggato e connessione chiusa se necessario
+      return undefined;
+    }
+  }
+
   try {
     return await handler(data, sanitizedData, context);
   } catch (error) {
     logger.error('ROUTER', `Error handling message type ${type}: ${error.message}`);
     logger.error('ROUTER', `Stack: ${error.stack}`);
-    
+
     // Invia errore al client se possibile
     if (context.ws && context.ws.readyState === WebSocket.OPEN) {
       context.ws.send(JSON.stringify({
@@ -1022,7 +1144,7 @@ async function routeMessage({ type, data, sanitizedData, context }) {
         code: 'INTERNAL_ERROR'
       }));
     }
-    
+
     throw error;
   }
 }

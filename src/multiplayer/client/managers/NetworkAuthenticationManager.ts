@@ -3,6 +3,7 @@ import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { NetworkEventSystem } from './NetworkEventSystem';
 import { NetworkStateManager } from './NetworkStateManager';
 import { GameContext } from '../../../infrastructure/engine/GameContext';
+import { secureLogger } from '../../../config/NetworkConfig';
 
 /**
  * NetworkAuthenticationManager - Gestione autenticazione JWT, retry logic, refresh session
@@ -42,21 +43,65 @@ export class NetworkAuthenticationManager {
   }
 
   /**
-   * Validates session and gets JWT token
+   * Validates session and gets JWT token with fail-fast validation
    */
   async validateSession(): Promise<{ session: { access_token: string } | null; error: any }> {
-    const { data: { session }, error } = await supabase.auth.getSession();
-    return { session, error };
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error) {
+        secureLogger.security('Session validation failed', { error: error.message });
+        return { session: null, error };
+      }
+
+      if (!session?.access_token) {
+        secureLogger.security('No access token in session');
+        return { session: null, error: new Error('No access token') };
+      }
+
+      // SECURITY: Validate token expiry before allowing connection
+      const tokenExpiry = this.getTokenExpiry(session.access_token);
+      const now = Math.floor(Date.now() / 1000);
+
+      if (tokenExpiry && tokenExpiry <= now) {
+        secureLogger.security('Token expired before connection', { expiry: tokenExpiry, now });
+        return { session: null, error: new Error('Token expired') };
+      }
+
+      // SECURITY: Validate token is not expiring too soon (within 5 minutes)
+      if (tokenExpiry && tokenExpiry - now < 300) {
+        secureLogger.security('Token expiring soon', { expiresIn: tokenExpiry - now });
+        // Allow connection but log warning
+      }
+
+      return { session, error: null };
+    } catch (error) {
+      secureLogger.security('Session validation error', { error: error.message });
+      return { session: null, error };
+    }
   }
 
   /**
-   * Handles JWT authentication errors with retry logic instead of page reload
+   * Extract token expiry from JWT payload (without external dependencies)
+   */
+  private getTokenExpiry(token: string): number | null {
+    try {
+      const payload = token.split('.')[1];
+      const decoded = JSON.parse(atob(payload));
+      return decoded.exp || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Handles JWT authentication errors with fail-fast logic
    */
   handleAuthError(reason: string): void {
-    console.error(`❌ [CLIENT] JWT Authentication failed: ${reason}`);
+    secureLogger.security(`JWT Authentication failed: ${reason}`);
 
     if (this.jwtRetryCount >= this.maxJwtRetries) {
-      console.error(`🚨 [CLIENT] Max JWT retry attempts (${this.maxJwtRetries}) exceeded`);
+      secureLogger.security(`Max JWT retry attempts (${this.maxJwtRetries}) exceeded - disconnecting`);
       this.eventSystem.showAuthenticationError('Sessione scaduta. Ricarica la pagina per accedere nuovamente.', () => {
         this.connectionManager.disconnect();
       });
@@ -64,7 +109,7 @@ export class NetworkAuthenticationManager {
     }
 
     if (this.isRetryingJwt) {
-      console.warn('⚠️ [CLIENT] JWT retry already in progress');
+      secureLogger.warn('JWT retry already in progress');
       return;
     }
 
@@ -81,7 +126,7 @@ export class NetworkAuthenticationManager {
         const { data, error } = await supabase.auth.refreshSession();
 
         if (error) {
-          console.error('❌ [CLIENT] Session refresh failed:', error);
+          secureLogger.security('Session refresh failed', { error: error.message });
           this.isRetryingJwt = false;
           this.handleAuthError('Session refresh failed');
           return;
@@ -93,12 +138,12 @@ export class NetworkAuthenticationManager {
           // Retry the connection
           await this.stateManager.connect();
         } else {
-          console.error('❌ [CLIENT] Session refresh returned no token');
+          secureLogger.security('Session refresh returned no token');
           this.isRetryingJwt = false;
           this.handleAuthError('No token after refresh');
         }
       } catch (error) {
-        console.error('❌ [CLIENT] JWT retry failed:', error);
+        secureLogger.security('JWT retry failed', { error: error.message });
         this.isRetryingJwt = false;
         this.handleAuthError('Retry failed');
       }

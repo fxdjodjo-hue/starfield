@@ -130,6 +130,36 @@ export class AuthScreen {
   }
 
   /**
+   * Mostra un errore critico di connessione al server
+   */
+  showConnectionError(message: string, onRetry?: () => void): void {
+    this.initializeManagers();
+
+    // Cambia lo stato in error (o usa loading come fallback)
+    if (this.stateManager && typeof this.stateManager.setState === 'function') {
+      this.stateManager.setState('error'); // Se esiste lo stato error
+    }
+
+    // Aggiorna il testo con il messaggio di errore
+    this.initManager.updateLoadingText(message);
+
+    // Se fornito un callback di retry, mostra un pulsante o messaggio
+    if (onRetry) {
+      // Per ora usa alert come fallback, in futuro si può migliorare con un pulsante
+      setTimeout(() => {
+        if (confirm(message + '\n\nClick OK to refresh the page.')) {
+          onRetry();
+        }
+      }, 100);
+    } else {
+      // Fallback senza retry
+      setTimeout(() => {
+        alert(message);
+      }, 100);
+    }
+  }
+
+  /**
    * Nasconde la schermata (chiamato quando i dati sono pronti)
    */
   hide(): void {

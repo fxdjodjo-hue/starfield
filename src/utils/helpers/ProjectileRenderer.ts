@@ -71,12 +71,29 @@ export class ProjectileRenderer {
       }
     } else {
       // Player projectile - try to use sprite first, fallback to red laser with glow
-      const playerLaserImage = this.assetManager.getOrLoadImage('/assets/laser/laser1/laser1.png');
-      
-      if (playerLaserImage && playerLaserImage.complete && playerLaserImage.width > 0) {
+      // 🔧 FIX: Usa percorso corretto per Vite (senza leading slash)
+      const playerLaserImage = this.assetManager.getOrLoadImage('assets/laser/laser1/laser1.png');
+
+      if (import.meta.env.DEV) {
+        console.log('[ProjectileRenderer] Player laser image:', {
+          exists: !!playerLaserImage,
+          complete: playerLaserImage?.complete,
+          width: playerLaserImage?.width,
+          height: playerLaserImage?.height,
+          naturalWidth: playerLaserImage?.naturalWidth,
+          naturalHeight: playerLaserImage?.naturalHeight,
+          src: playerLaserImage?.src
+        });
+      }
+
+      if (playerLaserImage && playerLaserImage.complete && playerLaserImage.naturalWidth > 0 && playerLaserImage.naturalHeight > 0) {
         // Image-based projectile
         const imageSize = 48; // Dimensione sprite laser player
-        
+
+        if (import.meta.env.DEV) {
+          console.log('[ProjectileRenderer] Using player laser image:', playerLaserImage.src);
+        }
+
         return {
           color: '#ff0000', // Red (fallback)
           length: 15,
@@ -87,6 +104,9 @@ export class ProjectileRenderer {
         };
       } else {
         // Laser-based projectile (fallback)
+        if (import.meta.env.DEV) {
+          console.log('[ProjectileRenderer] Using fallback laser (image not loaded):', playerLaserImage?.src);
+        }
         return {
           color: '#ff0000', // Red
           length: 15,
@@ -105,9 +125,15 @@ export class ProjectileRenderer {
   private isNpcProjectile(projectile: Projectile, playerEntity: any): boolean {
     if (!playerEntity) return true; // Se non c'è player locale, assume NPC
 
-    // Se ha playerId e non inizia con 'client_', è un NPC
+    // 🔧 FIX: Controlla se playerId corrisponde a quello del client locale
+    const localClientId = this.clientNetworkSystem?.getLocalClientId();
+    if (localClientId && projectile.playerId) {
+      return projectile.playerId !== localClientId;
+    }
+
+    // Fallback: controlla se playerId inizia con 'npc_'
     if (projectile.playerId) {
-      return !projectile.playerId.startsWith('client_');
+      return projectile.playerId.startsWith('npc_');
     }
 
     // Fallback: controlla ownerId

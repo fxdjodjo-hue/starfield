@@ -3,6 +3,7 @@ import { GameContext } from '../../../infrastructure/engine/GameContext';
 import { RemoteNpcSystem } from '../../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../../systems/multiplayer/RemoteProjectileSystem';
 import { MessageRouter } from '../handlers/MessageRouter';
+import { secureLogger } from '../../../config/NetworkConfig';
 import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { NetworkTickManager } from './NetworkTickManager';
 import { PlayerPositionTracker } from './PlayerPositionTracker';
@@ -55,6 +56,11 @@ export class NetworkInitializationManager {
   private initializationResolver: (() => void) | null = null;
   private isInitialized = false;
 
+  // 🔧 FIX: Traccia quali handler sono già stati registrati per evitare duplicati
+  private baseHandlersRegistered = false;
+  private npcHandlersRegistered = false;
+  private combatHandlersRegistered = false;
+
   private remoteNpcSystem?: RemoteNpcSystem;
   private remoteProjectileSystem?: RemoteProjectileSystem;
 
@@ -97,43 +103,46 @@ export class NetworkInitializationManager {
   }
 
   /**
-   * Registers all message handlers with the message router
+   * Registers message handlers incrementally to avoid duplicates
+   * Only registers handlers that haven't been registered yet
    */
   registerMessageHandlers(): void {
-    // Crea lista base di handler sempre presenti
-    const handlers = [
-      new WelcomeHandler(),
-      new RemotePlayerUpdateHandler(),
-      new PlayerJoinedHandler(),
-      new PlayerLeftHandler(),
-      new PlayerRespawnHandler(),
-      new PlayerStateUpdateHandler(),
-      new PlayerDataResponseHandler(),
-      new SaveResponseHandler(),
-      new LeaderboardResponseHandler()
-    ];
+    const handlersToRegister: any[] = [];
 
-    // Aggiungi handler per repair system (opzionali, solo per evitare errori)
-    handlers.push(
-      new RepairStartedHandler(),
-      new RepairStoppedHandler(),
-      new RepairCompleteHandler()
-    );
+    // 🔧 FIX: Registra handler base solo se non già fatto
+    if (!this.baseHandlersRegistered) {
+      handlersToRegister.push(
+        new WelcomeHandler(),
+        new RemotePlayerUpdateHandler(),
+        new PlayerJoinedHandler(),
+        new PlayerLeftHandler(),
+        new PlayerRespawnHandler(),
+        new PlayerStateUpdateHandler(),
+        new PlayerDataResponseHandler(),
+        new SaveResponseHandler(),
+        new LeaderboardResponseHandler(),
+        new RepairStartedHandler(),
+        new RepairStoppedHandler(),
+        new RepairCompleteHandler()
+      );
+      this.baseHandlersRegistered = true;
+    }
 
-    // Aggiungi handlers NPC se il sistema è disponibile
-    if (this.remoteNpcSystem) {
-      handlers.push(
+    // 🔧 FIX: Registra handler NPC solo se sistema disponibile e non già registrati
+    if (this.remoteNpcSystem && !this.npcHandlersRegistered) {
+      handlersToRegister.push(
         new InitialNpcsHandler(),
         new NpcJoinedHandler(),
         new NpcSpawnHandler(),
         new NpcBulkUpdateHandler(),
         new NpcLeftHandler()
       );
+      this.npcHandlersRegistered = true;
     }
 
-    // Aggiungi handlers di combattimento se il sistema è disponibile
-    if (this.remoteProjectileSystem) {
-      handlers.push(
+    // 🔧 FIX: Registra handler combattimento solo se sistema disponibile e non già registrati
+    if (this.remoteProjectileSystem && !this.combatHandlersRegistered) {
+      handlersToRegister.push(
         new CombatUpdateHandler(),
         new StopCombatHandler(),
         new ProjectileFiredHandler(),
@@ -144,12 +153,26 @@ export class NetworkInitializationManager {
         new EntityDestroyedHandler(),
         new ExplosionCreatedHandler()
       );
+      this.combatHandlersRegistered = true;
     }
 
-    console.log('[NetworkInitializationManager] Registering handlers:', handlers.map((h: any, i: number) => `${i}: ${h.constructor?.name}`).join(', '));
+    // Registra solo i nuovi handler (non sovrascrive quelli esistenti)
+    if (handlersToRegister.length > 0) {
+      secureLogger.log('Registering new handlers:', handlersToRegister.map((h: any) => h.constructor?.name).join(', '));
+      handlersToRegister.forEach(handler => this.messageRouter.registerHandler(handler));
+    } else {
+      secureLogger.log('All handlers already registered');
+    }
+  }
 
-    // Registra tutti gli handler (questo sovrascrive quelli precedenti)
-    this.messageRouter.registerHandlers(handlers);
+  /**
+   * Resets handler registration flags (useful for reconnections or testing)
+   */
+  resetHandlerRegistration(): void {
+    this.baseHandlersRegistered = false;
+    this.npcHandlersRegistered = false;
+    this.combatHandlersRegistered = false;
+    secureLogger.log('Handler registration flags reset');
   }
 
   /**

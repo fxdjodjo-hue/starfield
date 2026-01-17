@@ -171,7 +171,7 @@ export class SystemConfigurator {
       if (key === 'e' && portalSystem && typeof portalSystem.handleEKeyPress === 'function') {
         portalSystem.handleEKeyPress();
       }
-      // Gestisci altri tasti per player (tasto T verrà gestito in configureClientNetworkSystem)
+      // Gestisci altri tasti per player
       else {
         playerControlSystem.handleKeyPress(key);
       }
@@ -238,31 +238,5 @@ export class SystemConfigurator {
       }
     }
 
-    // Configura il callback del tasto T per test damage (dopo che clientNetworkSystem è disponibile)
-    if (systems.inputSystem && clientNetworkSystem) {
-      // Sostituisci il callback con uno che include il supporto per il tasto T
-      systems.inputSystem.setKeyPressCallback((key: string) => {
-        // Gestisci tasto T per test damage
-        if (key === 't') {
-          console.log('🔧 [TEST] T key pressed');
-          if (clientNetworkSystem && typeof clientNetworkSystem.sendTestDamage === 'function') {
-            console.log('🔧 [TEST] Calling sendTestDamage');
-            clientNetworkSystem.sendTestDamage();
-          } else {
-            console.warn('🔧 [TEST] sendTestDamage not available');
-          }
-          return;
-        }
-        // Gestisci tasto E per portali
-        if (key === 'e' && systems.portalSystem && typeof systems.portalSystem.handleEKeyPress === 'function') {
-          systems.portalSystem.handleEKeyPress();
-          return;
-        }
-        // Gestisci altri tasti per player
-        if (systems.playerControlSystem) {
-          systems.playerControlSystem.handleKeyPress(key);
-        }
-      });
-    }
   }
 }

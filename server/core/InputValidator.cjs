@@ -197,38 +197,6 @@ class ServerInputValidator {
     return { isValid: false, errors };
   }
 
-  /**
-   * Valida test_damage - richiede solo playerId (UUID auth)
-   */
-  validateTestDamage(data) {
-    const errors = [];
-
-    if (!data || typeof data !== 'object') {
-      errors.push('Test damage data must be an object');
-      return { isValid: false, errors };
-    }
-
-    const { playerId } = data;
-
-    // Validazione Player ID (UUID auth)
-    if (!playerId || typeof playerId !== 'string') {
-      errors.push('Player ID must be a non-empty string');
-    } else if (playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
-      errors.push('Player ID too long');
-    } else if (!this.LIMITS.IDENTIFIERS.UUID_PATTERN.test(playerId)) {
-      errors.push('Player ID must be a valid UUID');
-    }
-
-    if (errors.length > 0) {
-      return { isValid: false, errors };
-    }
-
-    return {
-      isValid: true,
-      errors: [],
-      sanitizedData: { playerId: playerId }
-    };
-  }
 
   /**
    * Valida heartbeat - connessione keep-alive
@@ -318,6 +286,27 @@ class ServerInputValidator {
   validate(messageType, data) {
     try {
       switch (messageType) {
+        case 'join':
+          // Valida messaggio di join del client
+          const joinErrors = [];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            joinErrors.push('Invalid or missing clientId');
+          }
+
+          if (!data.nickname || typeof data.nickname !== 'string') {
+            joinErrors.push('Invalid or missing nickname');
+          }
+
+          return {
+            isValid: joinErrors.length === 0,
+            errors: joinErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              nickname: data.nickname,
+              // Altri campi possono essere aggiunti se necessario
+            }
+          };
         case 'position_update':
           return this.validatePosition(data);
         case 'heartbeat':
@@ -327,9 +316,7 @@ class ServerInputValidator {
           return this.validateCombat(data);
         case 'chat_message':
           return this.validateChat(data);
-        case 'test_damage':
-          // Valida test_damage (solo per testing) - richiede solo playerId, non npcId
-          return this.validateTestDamage(data);
+        // SECURITY: test_damage RIMOSSO - metodo client eliminato per sicurezza
         case 'projectile_fired':
           // Valida sia posizione che velocità
           const posResult = this.validatePosition(data.position);
@@ -391,12 +378,56 @@ class ServerInputValidator {
               upgradeType: data.upgradeType
             }
           };
-        default:
-          // Per messaggi sconosciuti, valida solo struttura base
+
+        case 'request_player_data':
+          // Valida richiesta dati player
+          const playerDataErrors = [];
+
+          if (!data.playerId || typeof data.playerId !== 'string') {
+            playerDataErrors.push('Invalid or missing playerId');
+          } else if (data.playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            playerDataErrors.push('Player ID too long');
+          } else if (!this.LIMITS.IDENTIFIERS.UUID_PATTERN.test(data.playerId)) {
+            playerDataErrors.push('Player ID must be a valid UUID');
+          }
+
           return {
-            isValid: typeof data === 'object' && data !== null,
-            errors: typeof data === 'object' && data !== null ? [] : ['Invalid data structure'],
-            sanitizedData: data
+            isValid: playerDataErrors.length === 0,
+            errors: playerDataErrors,
+            sanitizedData: {
+              playerId: data.playerId
+            }
+          };
+
+        case 'save_request':
+          // Valida richiesta salvataggio
+          const saveErrors = [];
+
+          if (!data.playerId || typeof data.playerId !== 'string') {
+            saveErrors.push('Invalid or missing playerId');
+          } else if (data.playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            saveErrors.push('Player ID too long');
+          }
+
+          if (typeof data.timestamp !== 'number' || isNaN(data.timestamp) || data.timestamp <= 0) {
+            saveErrors.push('Invalid timestamp');
+          }
+
+          return {
+            isValid: saveErrors.length === 0,
+            errors: saveErrors,
+            sanitizedData: {
+              playerId: data.playerId,
+              timestamp: data.timestamp
+            }
+          };
+
+        default:
+          // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
+          return {
+            isValid: false,
+            errors: [`Unknown message type: ${messageType}. Only explicitly allowed message types are accepted.`],
+            sanitizedData: null
           };
       }
     } catch (error) {

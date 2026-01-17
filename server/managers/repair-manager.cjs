@@ -33,7 +33,7 @@ class RepairManager {
     const REPAIR_INTERVAL = SERVER_CONSTANTS.REPAIR.INTERVAL;
 
     let repairState = this.playerRepairStates.get(playerId);
-    
+
     // Se è in combattimento, ferma riparazione e rimuovi il timestamp di fine combattimento
     if (isInCombat) {
       if (repairState?.isRepairing) {
@@ -48,7 +48,7 @@ class RepairManager {
     const lastCombatEndTime = this.playerCombatEndTimes.get(playerId);
     const timeSinceLastCombatEnd = lastCombatEndTime ? (now - lastCombatEndTime) : Infinity;
     const timeSinceLastEvent = Math.min(timeSinceLastDamage, timeSinceLastCombatEnd);
-    
+
     // Se ha preso danno recentemente o è uscito dal combattimento recentemente, ferma riparazione
     if (timeSinceLastEvent < REPAIR_START_DELAY) {
       if (repairState?.isRepairing) {
@@ -57,11 +57,16 @@ class RepairManager {
       return;
     }
 
+    // Se la riparazione è stata completata recentemente, non ricominciare
+    if (repairState?.completed) {
+      return;
+    }
+
     // Se non sta riparando e può riparare, inizia
     if (!repairState?.isRepairing) {
-      const needsRepair = playerData.health < playerData.maxHealth || 
+      const needsRepair = playerData.health < playerData.maxHealth ||
                          playerData.shield < playerData.maxShield;
-      
+
       if (needsRepair) {
         this.startRepair(playerId, now);
       }
@@ -71,12 +76,16 @@ class RepairManager {
     // Sta riparando - applica riparazione incrementale ogni 2 secondi
     if (repairState.isRepairing) {
       const lastRepairTime = repairState.lastRepairTime || repairState.repairStartTime;
-      
+
       // Applica riparazione ogni 2 secondi
       if (now - lastRepairTime >= REPAIR_INTERVAL) {
-        this.applyRepair(playerId, playerData, REPAIR_AMOUNT);
-        repairState.lastRepairTime = now;
-        this.playerRepairStates.set(playerId, repairState);
+        this.applyRepair(playerId, playerData, REPAIR_AMOUNT, now);
+        // Dopo applyRepair, ricarica lo stato perché potrebbe essere stato modificato da completeRepair
+        const updatedRepairState = this.playerRepairStates.get(playerId);
+        if (updatedRepairState && !updatedRepairState.completed) {
+          updatedRepairState.lastRepairTime = now;
+          this.playerRepairStates.set(playerId, updatedRepairState);
+        }
       }
     }
   }
@@ -88,11 +97,12 @@ class RepairManager {
     this.playerRepairStates.set(playerId, {
       repairStartTime: now,
       lastRepairTime: now,
-      isRepairing: true
+      isRepairing: true,
+      completed: false
     });
-    
+
     logger.info('REPAIR', `Player ${playerId} started repairing`);
-    
+
     // Notifica client
     const playerData = this.mapServer.players.get(playerId);
     if (playerData?.ws) {
@@ -130,7 +140,7 @@ class RepairManager {
   /**
    * Applica riparazione incrementale (10k ogni volta) - ripara HP e shield contemporaneamente
    */
-  applyRepair(playerId, playerData, repairAmount) {
+  applyRepair(playerId, playerData, repairAmount, now) {
     let healthRepaired = 0;
     let shieldRepaired = 0;
 
@@ -169,9 +179,9 @@ class RepairManager {
 
     // Dopo aver applicato la riparazione e fatto il broadcast, controlla se tutto è riparato
     // Questo gestisce correttamente anche l'ultima riparazione parziale (es. 5k su 10k disponibili)
-    if (playerData.health >= playerData.maxHealth && 
+    if (playerData.health >= playerData.maxHealth &&
         playerData.shield >= playerData.maxShield) {
-      this.completeRepair(playerId, playerData);
+      this.completeRepair(playerId, playerData, now);
       return;
     }
   }
@@ -179,17 +189,24 @@ class RepairManager {
   /**
    * Completa riparazione (tutto riparato)
    */
-  completeRepair(playerId, playerData) {
+  completeRepair(playerId, playerData, now) {
     const repairState = this.playerRepairStates.get(playerId);
     if (!repairState?.isRepairing) return;
 
+    // Imposta i valori esattamente al massimo per evitare danno residuo
+    playerData.health = playerData.maxHealth;
+    playerData.shield = playerData.maxShield;
+
+    // Segna come completata invece di rimuovere lo stato
     this.playerRepairStates.set(playerId, {
       ...repairState,
-      isRepairing: false
+      isRepairing: false,
+      completed: true,
+      completedAt: now
     });
 
     logger.info('REPAIR', `Player ${playerId} repair completed`);
-    
+
     // Notifica client con repair_complete invece di repair_stopped
     if (playerData?.ws) {
       playerData.ws.send(JSON.stringify({
@@ -213,7 +230,8 @@ class RepairManager {
       shield: playerData.shield,
       maxShield: playerData.maxShield,
       healthRepaired: healthRepaired,
-      shieldRepaired: shieldRepaired
+      shieldRepaired: shieldRepaired,
+      recentHonor: playerData.recentHonor || 0
     }));
   }
 

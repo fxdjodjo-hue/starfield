@@ -81,7 +81,7 @@ export class UIChatManager {
     // Abilita modalità multiplayer per il ChatManager
     // Usa playerId se disponibile, altrimenti clientId come fallback
     const playerId = clientNetworkSystem.gameContext?.playerId;
-    const localPlayerId = playerId ? `player_${playerId}` : clientNetworkSystem.clientId;
+    const localPlayerId = playerId ? `${playerId}` : clientNetworkSystem.clientId;
     this.chatManager.setMultiplayerMode(true, localPlayerId);
 
     // Registra callback per inviare messaggi alla rete (solo se non già registrato)

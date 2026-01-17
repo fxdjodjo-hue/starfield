@@ -18,6 +18,7 @@ export class NetworkCombatManager {
   private readonly getCurrentCombatNpcId: () => string | null;
   private readonly sendMessage: (message: NetMessage) => void;
   private readonly isConnected: () => boolean;
+  private readonly isClientReady?: () => boolean;
 
   constructor(
     connectionManager: NetworkConnectionManager,
@@ -27,11 +28,13 @@ export class NetworkCombatManager {
     clientId: string,
     getCurrentCombatNpcId: () => string | null,
     sendMessage: (message: NetMessage) => void,
-    isConnected: () => boolean
+    isConnected: () => boolean,
+    isClientReady?: () => boolean
   ) {
     this.connectionManager = connectionManager;
     this.rateLimiter = rateLimiter;
     this.eventSystem = eventSystem;
+    this.isClientReady = isClientReady;
     this.entityManager = entityManager;
     this.clientId = clientId;
     this.getCurrentCombatNpcId = getCurrentCombatNpcId;
@@ -51,6 +54,11 @@ export class NetworkCombatManager {
     }
 
     if (!this.clientId) {
+      return;
+    }
+
+    // 🔴 CRITICAL: Non inviare messaggi di combattimento se il client non è ancora ready
+    if (this.isClientReady && !this.isClientReady()) {
       return;
     }
 
@@ -110,6 +118,12 @@ export class NetworkCombatManager {
     projectileType: string;
   }): void {
     if (!this.connectionManager.isConnectionActive()) {
+      return;
+    }
+
+    // 🔴 CRITICAL: Non inviare messaggi di combattimento se il client non è ancora ready
+    if (this.isClientReady && !this.isClientReady()) {
+      console.warn('[NetworkCombatManager] Cannot send projectile fired - client not ready');
       return;
     }
 

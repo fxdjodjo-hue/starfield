@@ -145,11 +145,13 @@ export class CombatStateSystem extends BaseSystem {
       return; // Non iniziare combattimento se fuori range
     }
 
-    // NPC nel range - inizia combattimento
-    this.sendStartCombat(selectedNpc);
-    this.startAttackLogging(selectedNpc);
-    this.currentAttackTarget = selectedNpc.id;
-    this.attackStartedLogged = true;
+    // NPC nel range - inizia combattimento solo se non già attivo con questo NPC
+    if (this.currentAttackTarget !== selectedNpc.id) {
+      this.sendStartCombat(selectedNpc);
+      this.startAttackLogging(selectedNpc);
+      this.currentAttackTarget = selectedNpc.id;
+      this.attackStartedLogged = true;
+    }
   }
 
   /**

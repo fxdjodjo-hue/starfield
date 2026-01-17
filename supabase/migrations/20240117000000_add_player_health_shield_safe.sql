@@ -184,8 +184,8 @@ BEGIN
       honor = EXCLUDED.honor,
       skill_points = EXCLUDED.skill_points,
       skill_points_total = EXCLUDED.skill_points_total,
-      current_health = COALESCE(EXCLUDED.current_health, player_currencies.current_health),
-      current_shield = COALESCE(EXCLUDED.current_shield, player_currencies.current_shield),
+      current_health = EXCLUDED.current_health,
+      current_shield = EXCLUDED.current_shield,
       updated_at = NOW();
   END IF;
 

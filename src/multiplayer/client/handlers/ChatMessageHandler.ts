@@ -44,7 +44,7 @@ export class ChatMessageHandler extends BaseMessageHandler {
     
     // Usa playerId come senderId se disponibile, altrimenti clientId come fallback
     // L'ID del messaggio usa playerId se disponibile per identificare univocamente il player
-    const senderId = senderPlayerId ? `player_${senderPlayerId}` : message.clientId;
+    const senderId = senderPlayerId ? `${senderPlayerId}` : message.clientId;
     const messageId = message.id || `chat_${message.timestamp}_${senderId}_${message.content.substring(0, 20)}`;
     
     this.chatManager.receiveNetworkMessage({

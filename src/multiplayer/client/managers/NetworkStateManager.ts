@@ -38,7 +38,8 @@ export class NetworkStateManager {
     private readonly connectionManager: NetworkConnectionManager,
     private readonly rateLimiter: RateLimiter,
     private readonly tickManager: NetworkTickManager,
-    private readonly clientId: string
+    private readonly clientId: string,
+    private readonly isClientReady?: () => boolean
   ) {}
 
   /**
@@ -180,6 +181,15 @@ export class NetworkStateManager {
    */
   sendHeartbeat(): void {
     if (!this.connectionManager.isConnectionActive()) return;
+
+    // 🔴 CRITICAL: Non inviare heartbeat fino a quando non riceviamo il welcome
+    // Questo previene l'invio con clientId vecchio
+    if (this.isClientReady && !this.isClientReady()) {
+      if (import.meta.env.DEV) {
+        console.log('[NetworkStateManager] Skipping heartbeat - waiting for welcome message');
+      }
+      return;
+    }
 
     // RATE LIMITING: Controlla se possiamo inviare heartbeat
     if (!this.rateLimiter.canSend('heartbeat', RATE_LIMITS.HEARTBEAT.maxRequests, RATE_LIMITS.HEARTBEAT.windowMs)) {

@@ -48,7 +48,7 @@ export class ProjectileDestroyedHandler extends BaseMessageHandler {
     }
 
     // Rimuovi il proiettile dal mondo del client solo se esiste in RemoteProjectileSystem
-    if (projectileType !== undefined || !isLocalMissile) {
+    if (projectileType !== undefined) {
       remoteProjectileSystem.removeRemoteProjectile(message.projectileId);
     }
   }

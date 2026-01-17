@@ -156,7 +156,7 @@ export class PlayStateInitializer {
   async waitForPlayerDataReady(): Promise<void> {
     return new Promise((resolve) => {
       let attempts = 0;
-      const maxAttempts = 200; // 20 secondi max (200 * 100ms)
+      const maxAttempts = 50; // 5 secondi max (50 * 100ms) - RecentHonor non è critico
       const checkInterval = 100; // Controlla ogni 100ms
 
       console.log('[PlayState] waitForPlayerDataReady() iniziato');
@@ -166,9 +166,9 @@ export class PlayStateInitializer {
 
         const economySystem = this.getEconomySystem();
 
-        // Verifica se RecentHonor è disponibile nel context
-        // Controlla anche se è stato impostato in RankSystem tramite EconomySystem
-        let hasRecentHonor = this.context.playerInventory?.recentHonor !== undefined;
+        // RecentHonor non è critico - RankSystem ha già un fallback che usa honor corrente
+        // Possiamo procedere anche senza RecentHonor
+        let hasRecentHonor = true; // Sempre true - non bloccheremo per questo
         
         // Verifica anche in RankSystem (potrebbe essere impostato prima che arrivi nel context)
         if (!hasRecentHonor && economySystem) {
@@ -220,11 +220,18 @@ export class PlayStateInitializer {
             console.log('[PlayState] RecentHonor trovato, risolvendo...');
             resolve();
           } else {
-            // Timeout: procedi comunque
-            console.warn('[PlayState] Timeout waiting for RecentHonor, proceeding anyway');
+            // Timeout: procedi comunque con valori di default
+            console.warn('[PlayState] Timeout waiting for RecentHonor, proceeding with defaults');
             if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
               this.context.authScreen.updateLoadingText('Ready! (using default values)');
             }
+
+            // Imposta valori di default se non sono arrivati
+            if (!hasRecentHonor && this.context.playerInventory) {
+              this.context.playerInventory.recentHonor = this.context.playerInventory.honor || 0;
+              console.log('[PlayState] Impostato RecentHonor di default:', this.context.playerInventory.recentHonor);
+            }
+
             setTimeout(() => {
               console.log('[PlayState] Risolvendo waitForPlayerDataReady() dopo timeout');
               resolve();
@@ -534,11 +541,22 @@ export class PlayStateInitializer {
         }
         console.log('[PlayState] Testo aggiornato a "Loading player data..."');
       } catch (error) {
-        console.error('❌ [PLAYSTATE] Failed to connect to server:', error);
-        // Continua comunque, ma mostra errore
-        if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
-          this.context.authScreen.updateLoadingText('Connection error. Retrying...');
+        console.error('❌ [PLAYSTATE] CRITICAL: Failed to connect to server:', error);
+
+        // 🔴 SECURITY: Non continuare MAI se connessione fallisce
+        // Mostra errore critico e ferma TUTTO - non continuare con inizializzazioni inconsistenti
+        if (this.context.authScreen && typeof this.context.authScreen.showConnectionError === 'function') {
+          this.context.authScreen.showConnectionError(
+            'Cannot connect to game server. Please check your internet connection and refresh the page.',
+            () => window.location.reload()
+          );
+        } else {
+          alert('CRITICAL ERROR: Cannot connect to game server. Please refresh the page.');
         }
+
+        // 🔴 CRITICAL: Ferma completamente l'inizializzazione - propaga errore per fermare tutto
+        console.error('[PLAYSTATE] Initialization ABORTED due to connection failure');
+        throw new Error('CONNECTION_FAILED'); // Rilancia errore per fermare Game.ts
       }
     } else {
       console.warn('[PlayState] ClientNetworkSystem o connectToServer non disponibile!');

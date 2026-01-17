@@ -17,7 +17,20 @@ export class WelcomeHandler extends BaseMessageHandler {
   handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): void {
     // Set the local client ID (WebSocket connection ID)
     const serverClientId: ClientId = message.clientId || (networkSystem.clientId as ClientId);
-    networkSystem.gameContext.localClientId = serverClientId;
+
+    // 🔄 CRITICAL: Se il server ci ha inviato un clientId persistente (player_{playerId}),
+    // estrai il playerId numerico e usalo come clientId
+    let clientIdToUse = serverClientId;
+    if (serverClientId.startsWith('player_')) {
+      const extractedId = serverClientId.replace('player_', '');
+      if (!isNaN(Number(extractedId))) {
+        clientIdToUse = extractedId; // Usa solo il numero
+      }
+    }
+
+    networkSystem.updateClientId(clientIdToUse);
+    networkSystem.gameContext.localClientId = clientIdToUse;
+
     // Note: clientId in ClientNetworkSystem is readonly, server-assigned ID is stored in gameContext.localClientId
 
     // Aggiorna ChatManager con il playerId corretto (se disponibile)
@@ -30,7 +43,7 @@ export class WelcomeHandler extends BaseMessageHandler {
           // Usa playerId se disponibile (più stabile, identifica il player nel database)
           // Altrimenti usa clientId come fallback (identifica la connessione WebSocket)
           const playerId = message.playerDbId;
-          const localPlayerId = playerId ? `player_${playerId}` : serverClientId;
+          const localPlayerId = playerId ? `${playerId}` : serverClientId;
           chatManager.setLocalPlayerId(localPlayerId);
           if (import.meta.env.DEV) {
             console.log('[WelcomeHandler] Updated ChatManager localPlayerId to:', localPlayerId, {
@@ -73,7 +86,7 @@ export class WelcomeHandler extends BaseMessageHandler {
       const { position, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
-      networkSystem.setHasReceivedWelcome(true);
+      // Il welcome è già gestito da updateClientId() che imposta isReady()
 
       // Applica posizione iniziale se necessario
       const playerSystem = networkSystem.getPlayerSystem();

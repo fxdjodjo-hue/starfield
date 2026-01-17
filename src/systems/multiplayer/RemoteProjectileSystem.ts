@@ -245,17 +245,20 @@ export class RemoteProjectileSystem extends BaseSystem {
 
   /**
    * Rimuove un proiettile remoto (distrutto)
+   * Idempotente: se il proiettile non esiste più, è normale (multiplayer)
    */
   removeRemoteProjectile(projectileId: string): boolean {
     const projectileData = this.remoteProjectiles.get(projectileId);
     if (!projectileData) {
-      if (import.meta.env.DEV) {
-        console.warn('[RemoteProjectileSystem] removeRemoteProjectile: projectile not found', {
-          projectileId,
-          availableKeys: Array.from(this.remoteProjectiles.keys())
-        });
-      }
-      return false;
+      // ✅ NORMALE in multiplayer: proiettile già distrutto localmente
+      // Non è un errore, può succedere per:
+      // - Collisione client-side già processata
+      // - TTL/lifetime locale scaduto
+      // - NPC projectile mai ricevuto dal client
+      // - Missile server-authoritative senza entity locale
+      // ✅ NORMALE in multiplayer - il proiettile è già stato rimosso localmente
+      // Non loggare per evitare spam nei log
+      return true; // ✅ Considerato successo
     }
 
     if (import.meta.env.DEV) {

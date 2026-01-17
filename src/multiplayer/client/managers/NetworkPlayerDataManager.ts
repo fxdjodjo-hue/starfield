@@ -61,6 +61,13 @@ export class NetworkPlayerDataManager {
       return;
     }
 
+    // 🔴 CRITICAL: Non richiedere dati player finché non abbiamo il clientId persistente
+    // Sappiamo di essere ready se il clientId è un numero (persistente)
+    if (isNaN(Number(this.clientId))) {
+      console.warn('📊 [PLAYER_DATA] Cannot request player data - waiting for persistent clientId');
+      return;
+    }
+
     const message = {
       type: MESSAGE_TYPES.REQUEST_PLAYER_DATA,
       clientId: this.clientId,

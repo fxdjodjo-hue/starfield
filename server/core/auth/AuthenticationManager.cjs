@@ -33,11 +33,15 @@ class AuthenticationManager {
     if (!playerData) {
       return { valid: false, error: 'Player data not found' };
     }
-    
-    if (receivedPlayerId !== playerData.userId) {
+
+    // Accetta sia il playerId numerico che l'UUID userId
+    const isValidNumericId = receivedPlayerId == playerData.playerId;
+    const isValidUuid = receivedPlayerId === playerData.userId;
+
+    if (!isValidNumericId && !isValidUuid) {
       return { valid: false, error: 'Invalid player ID' };
     }
-    
+
     return { valid: true };
   }
 

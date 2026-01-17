@@ -12,17 +12,10 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   handle(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem): void {
-    // Identifica il giocatore locale usando:
-    // 1. clientId se disponibile nel messaggio
-    // 2. playerId se corrisponde a localClientId (retrocompatibilità - server invia clientId come playerId)
-    // 3. authId come ultimo fallback
+    // Identifica il giocatore locale usando playerId
+    // clientId indica il destinatario, playerId indica il mittente
     const localClientId = networkSystem.getLocalClientId();
-    const localAuthId = networkSystem.gameContext.authId;
-    
-    // Controlla se è il giocatore locale
-    const isLocalPlayer = !!(message.clientId && message.clientId === localClientId) ||
-                         !!(message.playerId === localClientId) ||
-                         !!(localAuthId && message.playerId === localAuthId);
+    const isLocalPlayer = message.playerId === localClientId;
 
     // Per missili del giocatore locale, non aggiungere a RemoteProjectileSystem
     // perché sono già creati localmente via ProjectileFactory
@@ -42,7 +35,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     // Il danno è sempre applicato ogni 800ms dal server, ma l'animazione segue il pattern
     if (isLocalPlayer) {
       const rhythmicManager = networkSystem.getRhythmicAnimationManager();
-      
+
       // Schedula animazione (suono + proiettile) seguendo pattern ritmico
       rhythmicManager.scheduleAnimation(() => {
         // Riproduci suono appropriato per tipo di proiettile
@@ -54,8 +47,9 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
             audioSystem.playSound('laser', 0.05, false, true);
           }
         }
-        
-        // Mostra proiettile (sempre mostrato, ma con timing ritmico)
+
+        // ✅ CHIAMA showProjectile anche per player locale!
+        // Tutti i proiettili vengono gestiti dal server e RemoteProjectileSystem
         this.showProjectile(message, networkSystem, isLocalPlayer);
       });
     } else {
@@ -68,23 +62,14 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
           audioSystem.playSound('rocketStart', 0.02, false, true); // Volume molto basso per missili remoti
         }
       }
-      
+
       this.showProjectile(message, networkSystem, isLocalPlayer);
     }
   }
 
   private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {
-    // Verifica anche qui per sicurezza (doppio controllo)
-    const localClientId = networkSystem.getLocalClientId();
-    const localAuthId = networkSystem.gameContext.authId;
-    const isLocalPlayerCheck = !!(message.clientId && message.clientId === localClientId) ||
-                              !!(message.playerId === localClientId) ||
-                              !!(localAuthId && message.playerId === localAuthId);
-
-    // Protezione: Non aggiungere missili locali a RemoteProjectileSystem
-    if (isLocalPlayerCheck && message.projectileType === 'missile') {
-      return;
-    }
+    // ✅ TUTTI i proiettili (incluso quelli del player) vengono gestiti dal RemoteProjectileSystem
+    // Il server è autoritativo per tutti i proiettili - niente creazione locale per il player
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) {

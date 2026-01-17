@@ -102,7 +102,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Step 2: Update update_player_data_secure to save health/shield
+-- Step 2: Update update_player_data_secure to save health/shield (FIX: allow NULL values)
 CREATE OR REPLACE FUNCTION update_player_data_secure(
   auth_id_param UUID,
   stats_data JSONB DEFAULT NULL,
@@ -180,8 +180,8 @@ BEGIN
       honor = EXCLUDED.honor,
       skill_points = EXCLUDED.skill_points,
       skill_points_total = EXCLUDED.skill_points_total,
-      current_health = COALESCE(EXCLUDED.current_health, player_currencies.current_health),
-      current_shield = COALESCE(EXCLUDED.current_shield, player_currencies.current_shield),
+      current_health = EXCLUDED.current_health,
+      current_shield = EXCLUDED.current_shield,
       updated_at = NOW();
   END IF;
 

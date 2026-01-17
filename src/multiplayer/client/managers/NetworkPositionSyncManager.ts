@@ -23,15 +23,10 @@ export class NetworkPositionSyncManager {
     private readonly rateLimiter: RateLimiter,
     private readonly tickManager: NetworkTickManager,
     private readonly positionTracker: PlayerPositionTracker,
-    private readonly clientId: string
+    private readonly clientId: string,
+    private readonly isClientReady?: () => boolean
   ) {}
 
-  /**
-   * Sets whether welcome message has been received
-   */
-  setHasReceivedWelcome(received: boolean): void {
-    this.hasReceivedWelcome = received;
-  }
 
   /**
    * Gets the pending position (accumulated before welcome)
@@ -97,10 +92,13 @@ export class NetworkPositionSyncManager {
   sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
     if (!this.connectionManager.isConnectionActive()) return;
 
-    // IMPORTANTE: Non mandare position updates finché il server non ha confermato il join
-    if (!this.hasReceivedWelcome) {
-      // Accumula la posizione per quando il server sarà pronto
+    // 🔴 CRITICAL: Non mandare position updates finché non riceviamo il welcome e il clientId persistente
+    if (this.isClientReady && !this.isClientReady()) {
+      // Accumula la posizione per quando il client sarà pronto
       this.pendingPosition = position;
+      if (import.meta.env.DEV) {
+        console.log('[NetworkPositionSyncManager] Buffering position update - waiting for welcome message');
+      }
       return;
     }
 

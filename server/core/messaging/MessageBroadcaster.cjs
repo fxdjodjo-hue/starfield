@@ -47,7 +47,9 @@ class MessageBroadcaster {
         health: calculateMaxHealth(playerData.upgrades.hpUpgrades),
         maxHealth: calculateMaxHealth(playerData.upgrades.hpUpgrades),
         shield: calculateMaxShield(playerData.upgrades.shieldUpgrades),
-        maxShield: calculateMaxShield(playerData.upgrades.shieldUpgrades)
+        maxShield: calculateMaxShield(playerData.upgrades.shieldUpgrades),
+        // RecentHonor calcolato dal server (non lazy perché serve per il ranking)
+        recentHonor: playerData.recentHonor || 0
       }
     };
   }

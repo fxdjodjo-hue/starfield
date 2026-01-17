@@ -178,8 +178,10 @@ class PlayerDataManager {
         currentHealth: (() => {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
-            return currencies.current_health !== null && currencies.current_health !== undefined 
-              ? currencies.current_health 
+            const loadedHealth = currencies.current_health;
+            logger.info('DATABASE', `💚 LOAD Health from DB: ${loadedHealth} ${loadedHealth === null ? '(NULL = use max)' : '(use saved value)'}`);
+            return loadedHealth !== null && loadedHealth !== undefined
+              ? loadedHealth
               : null; // NULL significa "usa max health"
           }
           return null;
@@ -187,8 +189,10 @@ class PlayerDataManager {
         currentShield: (() => {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
-            return currencies.current_shield !== null && currencies.current_shield !== undefined 
-              ? currencies.current_shield 
+            const loadedShield = currencies.current_shield;
+            logger.info('DATABASE', `🛡️ LOAD Shield from DB: ${loadedShield} ${loadedShield === null ? '(NULL = use max)' : '(use saved value)'}`);
+            return loadedShield !== null && loadedShield !== undefined
+              ? loadedShield
               : null; // NULL significa "usa max shield"
           }
           return null;
@@ -282,13 +286,21 @@ class PlayerDataManager {
         honor: Number(playerData.inventory.honor ?? 0),
         skill_points: Number(playerData.inventory.skillPoints ?? 0),
         skill_points_total: Number(playerData.inventory.skillPointsTotal ?? playerData.inventory.skillPoints ?? 0),
-        // Salva HP/shield correnti (NULL se full, altrimenti il valore attuale)
-        current_health: playerData.health !== null && playerData.health !== undefined 
-          ? (playerData.health >= playerData.maxHealth ? null : Number(playerData.health))
-          : null,
-        current_shield: playerData.shield !== null && playerData.shield !== undefined 
-          ? (playerData.shield >= playerData.maxShield ? null : Number(playerData.shield))
-          : null
+        // Salva HP/shield correnti (NULL solo se esattamente full, altrimenti il valore attuale)
+        current_health: (() => {
+          const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : null;
+          const maxHealth = playerData.maxHealth;
+          const isFull = health !== null && health >= maxHealth;
+          logger.info('DATABASE', `💚 SAVE Health: ${health}/${maxHealth} -> ${isFull ? 'NULL' : health}`);
+          return isFull ? null : (health !== null ? Number(health) : null);
+        })(),
+        current_shield: (() => {
+          const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : null;
+          const maxShield = playerData.maxShield;
+          const isFull = shield !== null && shield >= maxShield;
+          logger.info('DATABASE', `🛡️ SAVE Shield: ${shield}/${maxShield} -> ${isFull ? 'NULL' : shield}`);
+          return isFull ? null : (shield !== null ? Number(shield) : null);
+        })()
       };
       
       // 🔴 FIX: Salva SEMPRE i currencies quando vengono modificati durante il gameplay

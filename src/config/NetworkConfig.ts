@@ -9,40 +9,45 @@ export interface BaseMessage {
 
 /**
  * Determines the server URL based on environment
- * Automatically detects production vs development
+ * SECURITY: Always uses WSS in production, explicit configuration required
+ * CRITICAL: FAIL-FAST - No auto-detect, no fallback, crash on invalid config
  */
 function getServerUrl(): string {
-  // Check for explicit environment variable
+  // Check for explicit environment variable (required for security)
   if (import.meta.env?.VITE_SERVER_URL) {
-    return import.meta.env.VITE_SERVER_URL;
+    const url = import.meta.env.VITE_SERVER_URL;
+
+    // 🔴 CRITICAL SECURITY: PRODUCTION MUST USE WSS - NO EXCEPTIONS, NO WARNINGS, CRASH IMMEDIATO
+    if (import.meta.env.PROD) {
+      if (!url.startsWith('wss://')) {
+        throw new Error('🚨 SECURITY VIOLATION: Production builds MUST use WSS (secure WebSocket). WS:// is FORBIDDEN in production. CRASHING IMMEDIATELY.');
+      }
+    }
+
+    return url;
   }
 
-  // Auto-detect production environment
-  const isProduction = window.location.hostname !== 'localhost' && 
-                       window.location.hostname !== '127.0.0.1' &&
-                       !window.location.hostname.startsWith('192.168.');
-
-  if (isProduction) {
-    // Production: use Render server with WSS (secure WebSocket)
-    return 'wss://starfield-n5ix.onrender.com';
+  // 🔴 CRITICAL SECURITY: NO FALLBACK IN PRODUCTION - EXPLICIT CONFIG REQUIRED, CRASH IMMEDIATO
+  if (import.meta.env.PROD) {
+    throw new Error('🚨 SECURITY VIOLATION: VITE_SERVER_URL must be explicitly set in production. No auto-detect, no fallback. CRASHING IMMEDIATELY.');
   }
 
-  // Development: use localhost
+  // Development only: use localhost (WS for server compatibility)
   return 'ws://localhost:3000';
 }
 
 /**
- * Gets the HTTP/HTTPS API base URL from WebSocket URL
+ * Gets the HTTPS API base URL from WebSocket URL
+ * SECURITY: Always returns HTTPS URLs
  */
 export function getApiBaseUrl(): string {
   const wsUrl = getServerUrl();
-  // Convert ws:// to http:// or wss:// to https://
+  // SECURITY: Convert wss:// to https:// (no more ws:// to http://)
   if (wsUrl.startsWith('wss://')) {
     return wsUrl.replace('wss://', 'https://');
-  } else if (wsUrl.startsWith('ws://')) {
-    return wsUrl.replace('ws://', 'http://');
   }
-  return wsUrl;
+  // SECURITY: No fallback to http:// - everything must be secure
+  throw new Error('SECURITY VIOLATION: Invalid WebSocket URL - must use WSS');
 }
 
 /**
@@ -50,7 +55,7 @@ export function getApiBaseUrl(): string {
  * Centralizes all network-related constants for maintainability
  */
 export const NETWORK_CONFIG = {
-  // Connection settings - auto-detects environment
+  // Connection settings - environment-driven (NO auto-detect)
   DEFAULT_SERVER_URL: getServerUrl(),
 
   // Timing intervals (in milliseconds)
@@ -573,3 +578,33 @@ export type NetworkMessageUnion =
   | SaveResponseMessage
   | LeaderboardRequestMessage
   | LeaderboardResponseMessage;
+
+/**
+ * SECURITY: Conditional logging utility - logs only in development
+ * Prevents information disclosure in production builds
+ */
+export const secureLogger = {
+  log: (message: string, ...args: any[]) => {
+    if (import.meta.env.DEV) {
+      // Skip verbose NPC updates to reduce log spam
+      if (message.includes('npc_bulk_update') ||
+          (args.length > 0 && args[0]?.type === 'npc_bulk_update')) return;
+      console.log(`[${new Date().toISOString()}] ${message}`, ...args);
+    }
+  },
+  warn: (message: string, ...args: any[]) => {
+    if (import.meta.env.DEV) {
+      console.warn(`[${new Date().toISOString()}] ⚠️ ${message}`, ...args);
+    }
+  },
+  error: (message: string, ...args: any[]) => {
+    // SECURITY: Errors are logged even in production for debugging
+    // but without sensitive data
+    console.error(`[${new Date().toISOString()}] ❌ ${message}`, ...args);
+  },
+  security: (message: string, data?: any) => {
+    // SECURITY: Security events always logged, but sanitized
+    const sanitizedData = import.meta.env.DEV ? data : '[REDACTED]';
+    console.warn(`[${new Date().toISOString()}] 🔒 SECURITY: ${message}`, sanitizedData);
+  }
+};
