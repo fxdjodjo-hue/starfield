@@ -85,14 +85,14 @@ export class PortalSystem extends BaseSystem {
           const distanceRange = this.PROXIMITY_DISTANCE - this.MAX_VOLUME_DISTANCE;
           const normalizedDistance = distanceRange > 0 ? distanceFromMax / distanceRange : 0;
 
-          const portalVolume = 0.25 * (1 - normalizedDistance); // Volume portale da 0.25 a 0
-          const bassdropVolume = 0.20 * (1 - normalizedDistance); // Volume bassdrop da 0.20 a 0
+          const portalVolume = 0.18 * (1 - normalizedDistance); // Volume portale da 0.18 a 0
+          const bassdropVolume = 0.15 * (1 - normalizedDistance); // Volume bassdrop da 0.15 a 0
 
           if (portalAudio) {
-            portalAudio.volume = Math.max(0, Math.min(0.25, portalVolume));
+            portalAudio.volume = Math.max(0, Math.min(0.18, portalVolume));
           }
           if (bassdropAudio) {
-            bassdropAudio.volume = Math.max(0, Math.min(0.20, bassdropVolume));
+            bassdropAudio.volume = Math.max(0, Math.min(0.15, bassdropVolume));
           }
         }
 
@@ -117,12 +117,12 @@ export class PortalSystem extends BaseSystem {
       // Crea istanza audio per il suono principale del portale
       const portalAudio = new Audio('/assets/audio/effects/portal/portal.mp3');
       portalAudio.loop = true;
-      portalAudio.volume = 0.15; // Volume iniziale più basso
+      portalAudio.volume = 0.10; // Volume iniziale più basso
 
       // Crea istanza audio per il bassdrop
       const bassdropAudio = new Audio('/assets/audio/effects/portal/bassdrop.mp3');
       bassdropAudio.loop = true;
-      bassdropAudio.volume = 0.12; // Volume leggermente più basso per il bassdrop
+      bassdropAudio.volume = 0.08; // Volume leggermente più basso per il bassdrop
 
       // Gestisci errori di riproduzione per il portale
       portalAudio.addEventListener('error', (e) => {
