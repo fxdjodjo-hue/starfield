@@ -126,6 +126,17 @@ async function handleJoin(data, sanitizedData, context) {
   // Aggiorna il clientId nel playerData per coerenza
   playerData.clientId = persistentClientId;
 
+  // 🚨 CRITICAL: Inizializza coordinate del player se non presenti
+  // Questo previene NaN nei calcoli di movimento
+  const spawnX = 100 + (Math.random() * 200); // Spawn casuale nell'area 100-300
+  const spawnY = 100 + (Math.random() * 200); // Spawn casuale nell'area 100-300
+
+  playerData.x = playerData.x ?? playerData.position?.x ?? spawnX;
+  playerData.y = playerData.y ?? playerData.position?.y ?? spawnY;
+  playerData.rotation = playerData.rotation ?? playerData.position?.rotation ?? 0;
+  playerData.velocityX = playerData.velocityX ?? 0;
+  playerData.velocityY = playerData.velocityY ?? 0;
+
   mapServer.addPlayer(persistentClientId, playerData);
 
   logger.info('PLAYER', `Player joined: ${persistentClientId}`);
