@@ -217,7 +217,7 @@ export class NetworkInitializationManager {
     const currentPosition = this.positionTracker.getLocalPlayerPosition();
     const nicknameToSend = this.gameContext.playerNickname || 'Player';
 
-    this.sendMessage({
+    this.sendMessageInternal({
       type: MESSAGE_TYPES.JOIN,
       clientId: this.clientId,
       nickname: nicknameToSend,
@@ -233,7 +233,7 @@ export class NetworkInitializationManager {
    * Sends a message to the server
    * Automatically adds clientId if not present
    */
-  private sendMessage(message: NetMessage): void {
+  private sendMessageInternal(message: NetMessage): void {
     // Ensure clientId is always included
     const messageWithClientId = {
       ...message,
