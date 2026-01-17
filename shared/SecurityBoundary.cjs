@@ -181,9 +181,17 @@ class BoundaryEnforcement {
         // Il client può richiedere upgrade skill, ma il server valida e applica
         return { allowed: true };
 
+      case 'projectile_fired':
+        // Il client può notificare il server di un proiettile sparato, ma il server valida e applica danno
+        return { allowed: true };
+
+      case 'test_damage':
+        // Solo per testing - il client può richiedere danno di test
+        return { allowed: true };
+
       default:
         // Per default, consentire ma loggare per review con più dettagli
-        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, request_leaderboard, skill_upgrade_request`);
+        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, request_leaderboard, skill_upgrade_request, projectile_fired, test_damage`);
         return { allowed: true };
     }
   }

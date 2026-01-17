@@ -72,7 +72,7 @@ export class NpcStatsManager {
   }
 
   getRange(type: NpcType): number {
-    return this.npcStats.get(type)?.stats.range || 0;
+    return this.npcStats.get(type)?.stats.range;
   }
 
   getCooldown(type: NpcType): number {

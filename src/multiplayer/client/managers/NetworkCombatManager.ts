@@ -10,16 +10,34 @@ import type { NetMessage } from '../types/MessageTypes';
  * Estratto da ClientNetworkSystem per Separation of Concerns
  */
 export class NetworkCombatManager {
+  private readonly connectionManager: NetworkConnectionManager;
+  private readonly rateLimiter: RateLimiter;
+  private readonly eventSystem: NetworkEventSystem;
+  private readonly entityManager: RemoteEntityManager;
+  private readonly clientId: string;
+  private readonly getCurrentCombatNpcId: () => string | null;
+  private readonly sendMessage: (message: NetMessage) => void;
+  private readonly isConnected: () => boolean;
+
   constructor(
-    private readonly connectionManager: NetworkConnectionManager,
-    private readonly rateLimiter: RateLimiter,
-    private readonly eventSystem: NetworkEventSystem,
-    private readonly entityManager: RemoteEntityManager,
-    private readonly clientId: string,
-    private getCurrentCombatNpcId: () => string | null,
-    private sendMessage: (message: NetMessage) => void,
-    private isConnected: () => boolean
-  ) {}
+    connectionManager: NetworkConnectionManager,
+    rateLimiter: RateLimiter,
+    eventSystem: NetworkEventSystem,
+    entityManager: RemoteEntityManager,
+    clientId: string,
+    getCurrentCombatNpcId: () => string | null,
+    sendMessage: (message: NetMessage) => void,
+    isConnected: () => boolean
+  ) {
+    this.connectionManager = connectionManager;
+    this.rateLimiter = rateLimiter;
+    this.eventSystem = eventSystem;
+    this.entityManager = entityManager;
+    this.clientId = clientId;
+    this.getCurrentCombatNpcId = getCurrentCombatNpcId;
+    this.sendMessage = sendMessage;
+    this.isConnected = isConnected;
+  }
 
   /**
    * Sends request to start combat against an NPC

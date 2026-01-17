@@ -5,12 +5,19 @@ import { Component } from '../../infrastructure/ecs/Component';
  * Sostituisce la Map manuale per una gestione più robusta
  */
 export class RemotePlayer extends Component {
+  public clientId: string;
+  public nickname: string;
+  public rank: string;
+
   constructor(
-    public clientId: string,
-    public nickname: string = '',
-    public rank: string = 'Recruit'
+    clientId: string,
+    nickname: string = '',
+    rank: string = 'Recruit'
   ) {
     super();
+    this.clientId = clientId;
+    this.nickname = nickname;
+    this.rank = rank;
   }
 
   /**

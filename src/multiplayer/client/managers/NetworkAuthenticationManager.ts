@@ -9,19 +9,30 @@ import { GameContext } from '../../../infrastructure/engine/GameContext';
  * Estratto da ClientNetworkSystem per Separation of Concerns
  */
 export class NetworkAuthenticationManager {
+  // Dependencies
+  private readonly connectionManager: NetworkConnectionManager;
+  private readonly eventSystem: NetworkEventSystem;
+  private readonly stateManager: NetworkStateManager;
+  private readonly gameContext: GameContext;
+
   // JWT Authentication retry management
   private jwtRetryCount = 0;
   private maxJwtRetries = 3;
   private jwtRetryDelay = 2000; // Start with 2 seconds
-  private jwtRetryTimeout: NodeJS.Timeout | null = null;
+  private jwtRetryTimeout: ReturnType<typeof setTimeout> | null = null;
   private isRetryingJwt = false;
 
   constructor(
-    private readonly connectionManager: NetworkConnectionManager,
-    private readonly eventSystem: NetworkEventSystem,
-    private readonly stateManager: NetworkStateManager,
-    private readonly gameContext: GameContext
-  ) {}
+    connectionManager: NetworkConnectionManager,
+    eventSystem: NetworkEventSystem,
+    stateManager: NetworkStateManager,
+    gameContext: GameContext
+  ) {
+    this.connectionManager = connectionManager;
+    this.eventSystem = eventSystem;
+    this.stateManager = stateManager;
+    this.gameContext = gameContext;
+  }
 
   /**
    * Validates local client ID

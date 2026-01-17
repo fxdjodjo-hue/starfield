@@ -26,7 +26,8 @@ export class ProjectileFactory {
     targetId: number,
     playerId?: string,
     animatedSprite?: AnimatedSprite,
-    shipRotation?: number
+    shipRotation?: number,
+    projectileType: 'laser' | 'missile' = 'laser'
   ): Entity {
     // Calcola direzione usando utility centralizzata
     const { direction } = calculateDirection(startX, startY, targetX, targetY);
@@ -54,15 +55,22 @@ export class ProjectileFactory {
     ecs.addComponent(entity, Transform, transform);
 
     // Componente Projectile
+    const speed = projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.SPEED : GAME_CONSTANTS.PROJECTILE.SPEED;
+    const lifetime = projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.LIFETIME : GAME_CONSTANTS.PROJECTILE.LIFETIME;
+
+    // Per missili, usa danno dummy lato client - il danno reale è calcolato dal server
+    const projectileDamage = projectileType === 'missile' ? 0 : damage;
+
     const projectile = new Projectile(
-      damage,
-      GAME_CONSTANTS.PROJECTILE.SPEED,
+      projectileDamage,
+      speed,
       direction.x,
       direction.y,
       ownerId,
       targetId,
-      GAME_CONSTANTS.PROJECTILE.LIFETIME,
-      playerId
+      lifetime,
+      playerId,
+      projectileType
     );
     ecs.addComponent(entity, Projectile, projectile);
 

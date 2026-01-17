@@ -36,10 +36,14 @@ export class DamageTextSystem extends BaseSystem {
    * Rimuove un testo di danno quando scade naturalmente
    */
   private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
+    // Ottieni il projectileType dal componente DamageText prima di rimuoverlo
+    const damageText = this.ecs.getComponent(damageTextEntity, DamageText);
+    const projectileType = damageText?.projectileType;
+
     this.ecs.removeEntity(damageTextEntity);
     // Decrementa il contatore dei testi attivi nel DamageSystem
     if (this.damageSystem && this.damageSystem.decrementDamageTextCount) {
-      this.damageSystem.decrementDamageTextCount(targetEntityId);
+      this.damageSystem.decrementDamageTextCount(targetEntityId, projectileType);
     }
   }
 

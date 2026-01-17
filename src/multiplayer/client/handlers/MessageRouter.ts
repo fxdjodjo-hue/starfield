@@ -62,6 +62,15 @@ export class MessageRouter {
   }
 
   /**
+   * Gets a handler by message type (public method for inter-handler communication)
+   * @param messageType The message type to find a handler for
+   * @returns The handler that can handle the message type, or undefined
+   */
+  getHandler(messageType: string): MessageHandler | undefined {
+    return this.findHandler(messageType);
+  }
+
+  /**
    * Gets the number of registered handlers
    * @returns The number of registered handlers
    */

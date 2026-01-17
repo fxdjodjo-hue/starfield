@@ -14,15 +14,16 @@ class ProjectileBroadcaster {
    * Broadcast creazione proiettile
    * @param {Object} projectile - Proiettile
    * @param {string|null} excludeClientId - ClientId da escludere (mittente)
+   * @param {number|null} actualDamage - Danno calcolato dal server (opzionale)
    */
-  broadcastProjectileFired(projectile, excludeClientId) {
+  broadcastProjectileFired(projectile, excludeClientId, actualDamage = null) {
     const message = {
       type: 'projectile_fired',
       projectileId: projectile.id,
       playerId: projectile.playerId, // Questo è il clientId del player che ha sparato
       position: projectile.position,
       velocity: projectile.velocity,
-      damage: projectile.damage,
+      damage: actualDamage !== null ? actualDamage : projectile.damage,
       projectileType: projectile.projectileType,
       targetId: projectile.targetId
     };
@@ -78,16 +79,17 @@ class ProjectileBroadcaster {
    * @param {Object} projectile - Proiettile che ha causato il danno
    * @param {string} entityType - Tipo entità ('npc' o 'player')
    */
-  broadcastEntityDamaged(entity, projectile, entityType = 'npc') {
+  broadcastEntityDamaged(entity, projectile, entityType = 'npc', actualDamage = null) {
     const message = {
       type: 'entity_damaged',
       entityId: entityType === 'npc' ? entity.id : entity.clientId,
       entityType: entityType,
-      damage: projectile.damage,
+      damage: actualDamage !== null ? actualDamage : projectile.damage,
       attackerId: projectile.playerId,
       newHealth: entity.health,
       newShield: entity.shield,
-      position: entity.position
+      position: entity.position,
+      projectileType: projectile.projectileType || 'laser'
     };
 
     if (entityType === 'player') {

@@ -1,7 +1,6 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
-import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
-import type { WelcomeMessage } from '../../../config/NetworkConfig';
+import { MESSAGE_TYPES, type WelcomeMessage, type ClientId } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Transform } from '../../../entities/spatial/Transform';
 
@@ -17,10 +16,9 @@ export class WelcomeHandler extends BaseMessageHandler {
 
   handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): void {
     // Set the local client ID (WebSocket connection ID)
-    const serverClientId = message.clientId || networkSystem.clientId;
+    const serverClientId: ClientId = message.clientId || (networkSystem.clientId as ClientId);
     networkSystem.gameContext.localClientId = serverClientId;
-    // Update the network system's clientId to match the server-assigned ID
-    networkSystem.clientId = serverClientId;
+    // Note: clientId in ClientNetworkSystem is readonly, server-assigned ID is stored in gameContext.localClientId
 
     // Aggiorna ChatManager con il playerId corretto (se disponibile)
     // Usa playerId se disponibile, altrimenti clientId come fallback
@@ -49,16 +47,13 @@ export class WelcomeHandler extends BaseMessageHandler {
       }
     }
 
-    // Salva l'auth ID dell'utente (UUID Supabase)
-    networkSystem.gameContext.authId = message.playerId;
+    // Salva l'auth ID dell'utente (UUID Supabase) - ora con branded type
+    networkSystem.gameContext.authId = message.playerId; // playerId è ora PlayerUuid
 
-    // Nota: playerId UUID ora è salvato in gameContext.authId
-    // Il playerId numerico è salvato in gameContext.playerId
-
-      // Salva il player_id numerico del giocatore REGISTRATO (per display/HUD)
+    // Salva il player_id numerico del giocatore REGISTRATO (per display/HUD)
     if (message.playerDbId && message.playerDbId > 0) {
-      // Salva il player_id numerico valido
-      networkSystem.gameContext.playerId = message.playerDbId;
+      // Salva il player_id numerico valido - ora con branded type
+      networkSystem.gameContext.playerDbId = message.playerDbId; // playerDbId è ora PlayerDbId
 
       // 🔧 FIX RACE CONDITION: Invece di chiamare direttamente il callback,
       // segnaliamo che abbiamo ricevuto il player ID e lasciamo che il sistema
@@ -98,8 +93,8 @@ export class WelcomeHandler extends BaseMessageHandler {
 
       // 🔄 RICHIEDI DATI COMPLETI: Se il server ha indicato lazy loading, richiedi i dati completi
       if (inventoryLazy || upgradesLazy || questsLazy) {
-        const playerId = message.playerId || networkSystem.gameContext.localClientId;
-        networkSystem.requestPlayerData(playerId);
+        const playerUuid = message.playerId || networkSystem.gameContext.authId;
+        networkSystem.requestPlayerData(playerUuid);
       }
     }
   }

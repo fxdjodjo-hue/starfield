@@ -140,26 +140,29 @@ export const TRUST_MODEL = {
 
 /**
  * Security Zones - livelli di fiducia nel codice
+ * Usa const object invece di enum per compatibilità con erasableSyntaxOnly
  */
-export enum SecurityZone {
+export const SecurityZone = {
   /**
    * CLIENT_ZONE - Codice che gira nel browser
    * Non fidarsi mai dei dati che arrivano da qui
    */
-  CLIENT_ZONE = 'client_zone',
+  CLIENT_ZONE: 'client_zone',
 
   /**
    * SERVER_ZONE - Codice che gira sul server
    * Fidarsi solo dopo validazione completa
    */
-  SERVER_ZONE = 'server_zone',
+  SERVER_ZONE: 'server_zone',
 
   /**
    * SHARED_ZONE - Codice/Type utilizzabili da entrambi
    * Non deve contenere logica di business privata
    */
-  SHARED_ZONE = 'shared_zone'
-}
+  SHARED_ZONE: 'shared_zone'
+} as const;
+
+export type SecurityZone = typeof SecurityZone[keyof typeof SecurityZone];
 
 // ======================================================================
 // BOUNDARY ENFORCEMENT - Applicazione dei confini

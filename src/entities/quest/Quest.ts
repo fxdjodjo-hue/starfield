@@ -4,16 +4,34 @@ import type { QuestObjective, QuestReward } from '../../presentation/ui/QuestPan
  * Componente Quest - Rappresenta una singola quest nel sistema ECS
  */
 export class Quest {
+  public id: string;
+  public title: string;
+  public description: string;
+  public type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement';
+  public objectives: QuestObjective[];
+  public rewards: QuestReward[];
+  public isActive: boolean;
+  public isCompleted: boolean;
+
   constructor(
-    public id: string,
-    public title: string,
-    public description: string,
-    public type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement',
-    public objectives: QuestObjective[],
-    public rewards: QuestReward[],
-    public isActive: boolean = false,
-    public isCompleted: boolean = false
-  ) {}
+    id: string,
+    title: string,
+    description: string,
+    type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement',
+    objectives: QuestObjective[],
+    rewards: QuestReward[],
+    isActive: boolean = false,
+    isCompleted: boolean = false
+  ) {
+    this.id = id;
+    this.title = title;
+    this.description = description;
+    this.type = type;
+    this.objectives = objectives;
+    this.rewards = rewards;
+    this.isActive = isActive;
+    this.isCompleted = isCompleted;
+  }
 
   /**
    * Calcola il progresso totale della quest (0-100)

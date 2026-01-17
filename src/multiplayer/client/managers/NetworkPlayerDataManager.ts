@@ -1,6 +1,6 @@
 import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { GameContext } from '../../../infrastructure/engine/GameContext';
-import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import { MESSAGE_TYPES, type PlayerUuid } from '../../../config/NetworkConfig';
 import type { NetMessage } from '../types/MessageTypes';
 
 /**
@@ -8,13 +8,25 @@ import type { NetMessage } from '../types/MessageTypes';
  * Estratto da ClientNetworkSystem per Separation of Concerns
  */
 export class NetworkPlayerDataManager {
+  private readonly connectionManager: NetworkConnectionManager;
+  private readonly gameContext: GameContext;
+  private readonly clientId: string;
+  private readonly sendMessage: (message: NetMessage) => void;
+  private readonly isConnected: () => boolean;
+
   constructor(
-    private readonly connectionManager: NetworkConnectionManager,
-    private readonly gameContext: GameContext,
-    private readonly clientId: string,
-    private sendMessage: (message: NetMessage) => void,
-    private isConnected: () => boolean
-  ) {}
+    connectionManager: NetworkConnectionManager,
+    gameContext: GameContext,
+    clientId: string,
+    sendMessage: (message: NetMessage) => void,
+    isConnected: () => boolean
+  ) {
+    this.connectionManager = connectionManager;
+    this.gameContext = gameContext;
+    this.clientId = clientId;
+    this.sendMessage = sendMessage;
+    this.isConnected = isConnected;
+  }
 
   /**
    * Requests a stat upgrade to the server (Server Authoritative)
@@ -43,7 +55,7 @@ export class NetworkPlayerDataManager {
   /**
    * Richiede i dati completi del giocatore al server (dopo welcome)
    */
-  requestPlayerData(playerId: string): void {
+  requestPlayerData(playerUuid: PlayerUuid): void {
     if (!this.connectionManager.isConnectionActive()) {
       console.warn('📊 [PLAYER_DATA] Cannot request player data - not connected');
       return;
@@ -52,7 +64,7 @@ export class NetworkPlayerDataManager {
     const message = {
       type: MESSAGE_TYPES.REQUEST_PLAYER_DATA,
       clientId: this.clientId,
-      playerId: playerId,
+      playerId: playerUuid, // Type-safe: PlayerUuid
       timestamp: Date.now()
     };
 

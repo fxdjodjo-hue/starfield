@@ -5,6 +5,7 @@
 const { logger } = require('../../logger.cjs');
 const WebSocket = require('ws');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
+const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
 
 /**
  * Handler per messaggio 'join'
@@ -458,14 +459,22 @@ function handleProjectileFired(data, sanitizedData, context) {
 
   // Server authoritative damage calculation (usa DamageCalculationSystem)
   const baseDamage = DamageCalculationSystem.getBasePlayerDamage();
-  const calculatedDamage = DamageCalculationSystem.calculatePlayerDamage(
+  let calculatedDamage = DamageCalculationSystem.calculatePlayerDamage(
     baseDamage,
     playerData?.upgrades
   );
 
+  // Apply fixed damage for missiles
+  if (data.projectileType === 'missile') {
+    calculatedDamage = SERVER_CONSTANTS.MISSILE.DAMAGE; // Fixed missile damage
+  }
+
+  // Usa clientId per identificare il giocatore nel sistema di collisione
+  // data.playerId è l'authId (usato per security check)
+  // data.clientId è l'identificatore della connessione (usato per collisione)
   mapServer.projectileManager.addProjectile(
     data.projectileId,
-    data.playerId,
+    data.clientId, // Usa clientId per identificare il giocatore nel sistema di collisione
     data.position,
     data.velocity,
     calculatedDamage,
@@ -476,7 +485,8 @@ function handleProjectileFired(data, sanitizedData, context) {
   const projectileMessage = {
     type: 'projectile_fired',
     projectileId: data.projectileId,
-    playerId: data.playerId,
+    playerId: data.playerId, // Mantieni authId per retrocompatibilità client
+    clientId: data.clientId, // clientId per identificare il giocatore locale
     position: data.position,
     velocity: data.velocity,
     damage: calculatedDamage,

@@ -18,6 +18,12 @@ export default class AudioSystem extends System {
   private audioContext: AudioContext | null = null;
   private sounds: Map<string, HTMLAudioElement> = new Map();
   private musicInstance: HTMLAudioElement | null = null;
+  
+  // Cache per suoni precaricati (per sincronizzazione perfetta)
+  private preloadedSounds: Map<string, HTMLAudioElement> = new Map();
+  // Pool di istanze audio precaricate per riproduzioni multiple istantanee
+  private audioPool: Map<string, HTMLAudioElement[]> = new Map();
+  private readonly POOL_SIZE = 3; // Numero di istanze nel pool per ogni suono
 
   // Debouncing system to prevent sound duplication
   private lastPlayedTimes: Map<string, number> = new Map();
@@ -38,6 +44,66 @@ export default class AudioSystem extends System {
   init(): void {
     // Inizializzazione sistema audio
     this.setupAudio();
+    // Precariare suoni importanti per sincronizzazione perfetta
+    this.preloadImportantSounds();
+  }
+
+  /**
+   * Precariare suoni importanti per evitare delay di caricamento
+   */
+  private async preloadImportantSounds(): Promise<void> {
+    const importantSounds = ['rocketExplosion', 'rocketStart', 'explosion'];
+    
+    for (const soundKey of importantSounds) {
+      const assetPath = this.getAssetPath(soundKey, 'effects');
+      if (!assetPath) continue;
+      
+      const audioUrl = `/assets/audio/${assetPath}`;
+      
+      // Crea pool di istanze precaricate per riproduzioni multiple istantanee
+      const pool: HTMLAudioElement[] = [];
+      for (let i = 0; i < this.POOL_SIZE; i++) {
+        const audio = new Audio(audioUrl);
+        audio.volume = 0; // Volume 0 durante il precaricamento
+        audio.preload = 'auto';
+        
+        try {
+          await audio.load();
+          pool.push(audio);
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.warn(`[AudioSystem] Failed to preload sound ${soundKey} instance ${i}:`, error);
+          }
+        }
+      }
+      
+      if (pool.length > 0) {
+        this.audioPool.set(soundKey, pool);
+        this.preloadedSounds.set(soundKey, pool[0]); // Mantieni anche la prima istanza per compatibilità
+        if (import.meta.env.DEV) {
+          console.log(`[AudioSystem] Preloaded sound: ${soundKey} (${pool.length} instances in pool)`);
+        }
+      }
+    }
+  }
+  
+  /**
+   * Ottiene un'istanza audio dal pool (per riproduzione istantanea)
+   */
+  private getAudioFromPool(key: string): HTMLAudioElement | null {
+    const pool = this.audioPool.get(key);
+    if (!pool || pool.length === 0) return null;
+    
+    // Trova un'istanza non in riproduzione
+    for (const audio of pool) {
+      if (audio.paused || audio.ended) {
+        audio.currentTime = 0; // Reset al tempo 0
+        return audio;
+      }
+    }
+    
+    // Se tutte le istanze sono in riproduzione, usa la prima (per allowMultiple)
+    return pool[0];
   }
 
   update(deltaTime: number): void {
@@ -127,14 +193,68 @@ export default class AudioSystem extends System {
         return;
       }
 
-      const audio = new Audio(`/assets/audio/${assetPath}`);
+      // Usa suono precaricato se disponibile (per sincronizzazione perfetta)
+      let audio: HTMLAudioElement;
+      const audioUrl = `/assets/audio/${assetPath}`;
+      
+      // Prova a ottenere un'istanza dal pool (più veloce)
+      const pooledAudio = this.getAudioFromPool(key);
+      if (pooledAudio) {
+        audio = pooledAudio;
+        if (import.meta.env.DEV && key === 'rocketExplosion') {
+          console.log(`[AudioSystem] Using pooled rocketExplosion (instant playback, readyState: ${audio.readyState})`);
+        }
+      } else if (this.preloadedSounds.has(key)) {
+        // Fallback: usa l'istanza precaricata se il pool non è disponibile
+        audio = this.preloadedSounds.get(key)!;
+        audio.currentTime = 0;
+        if (import.meta.env.DEV && key === 'rocketExplosion') {
+          console.log(`[AudioSystem] Using preloaded rocketExplosion (fallback, readyState: ${audio.readyState})`);
+        }
+      } else {
+        // Fallback: carica normalmente se non precaricato
+        audio = new Audio(audioUrl);
+        if (import.meta.env.DEV && key === 'rocketExplosion') {
+          console.log(`[AudioSystem] Loading rocketExplosion from: ${audioUrl} (not preloaded)`);
+        }
+      }
+      
       audio.volume = this.config.masterVolume * volume;
       audio.loop = loop;
 
+      // Aggiungi listener per errori di caricamento
+      if (import.meta.env.DEV && key === 'rocketExplosion') {
+        audio.addEventListener('error', (e) => {
+          console.error(`[AudioSystem] Error loading rocketExplosion:`, e);
+          if (audio.error) {
+            console.error(`[AudioSystem] Error code: ${audio.error.code}, message: ${audio.error.message}`);
+          }
+        });
+        audio.addEventListener('canplaythrough', () => {
+          console.log(`[AudioSystem] rocketExplosion loaded and ready to play`);
+        });
+      }
+
       // Gestisci la riproduzione con retry per superare blocchi del browser
+      // Per suoni precaricati, la riproduzione dovrebbe essere istantanea
       const playAudio = async (retryCount = 0) => {
         try {
+          // Per suoni precaricati, assicurati che siano pronti prima di riprodurre
+          if (this.preloadedSounds.has(key) && audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+            // Attendi che il suono precaricato sia pronto (dovrebbe essere già pronto)
+            await new Promise((resolve) => {
+              if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+                resolve(undefined);
+              } else {
+                audio.addEventListener('canplaythrough', () => resolve(undefined), { once: true });
+              }
+            });
+          }
+          
           await audio.play();
+          if (import.meta.env.DEV && key === 'rocketExplosion') {
+            console.log(`[AudioSystem] ✅ rocketExplosion playing successfully, volume: ${audio.volume}, readyState: ${audio.readyState}`);
+          }
         } catch (error) {
           if (retryCount < 2) {
             console.warn(`Audio system: Failed to play '${key}' (attempt ${retryCount + 1}), retrying...`);
@@ -142,6 +262,9 @@ export default class AudioSystem extends System {
             setTimeout(() => playAudio(retryCount + 1), 50 * (retryCount + 1));
           } else {
             console.warn(`Audio system: Failed to play '${key}' after ${retryCount + 1} attempts:`, error);
+            if (import.meta.env.DEV && key === 'rocketExplosion') {
+              console.error(`[AudioSystem] ❌ rocketExplosion failed to play after ${retryCount + 1} attempts:`, error);
+            }
             this.sounds.delete(soundKey);
           }
           return;

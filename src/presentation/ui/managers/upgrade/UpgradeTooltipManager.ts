@@ -44,7 +44,7 @@ export class UpgradeTooltipManager {
         break;
       case 'damage':
         title = 'LASER DAMAGE';
-        description = 'Determines the damage dealt by your laser weapons. Upgrades increase damage per shot. More damage = faster enemy destruction.';
+        description = 'Increases weapon damage output. Each upgrade boosts damage dealt to enemies, allowing faster combat resolution.';
         break;
     }
 

@@ -285,7 +285,7 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Notifica il CombatSystem quando viene applicato danno
    */
-  private notifyCombatSystemOfDamage(targetEntity: any, damage: number): void {
+  private notifyCombatSystemOfDamage(targetEntity: any, damage: number, projectile?: Projectile): void {
     // Cerca il CombatSystem nell'ECS (robusto contro minificazione)
     const systems = (this.ecs as any).systems || [];
     const combatSystem = systems.find((system: any) =>
@@ -299,18 +299,19 @@ export class ProjectileSystem extends BaseSystem {
 
       if (!targetHealth) return;
 
+      const projectileType = projectile?.projectileType;
       let damageToHp = damage;
 
       // Prima applica danno allo shield se presente
       if (targetShield && targetShield.isActive()) {
         const shieldDamage = Math.min(damage, targetShield.current);
-        combatSystem.createDamageText(targetEntity, shieldDamage, true); // true = shield damage
+        combatSystem.createDamageText(targetEntity, shieldDamage, true, false, projectileType); // true = shield damage
         damageToHp = damage - shieldDamage;
       }
 
       // Poi applica danno all'HP
       if (damageToHp > 0) {
-        combatSystem.createDamageText(targetEntity, damageToHp, false); // false = HP damage
+        combatSystem.createDamageText(targetEntity, damageToHp, false, false, projectileType); // false = HP damage
       }
     }
   }

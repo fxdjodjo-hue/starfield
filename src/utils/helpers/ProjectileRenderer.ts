@@ -36,6 +36,11 @@ export class ProjectileRenderer {
    * Get rendering parameters for a projectile
    */
   getRenderParams(projectile: Projectile): ProjectileRenderParams {
+    // Check if it's a missile first
+    if (projectile.projectileType === 'missile') {
+      return this.getMissileRenderParams(projectile);
+    }
+
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isNpcProjectile = this.isNpcProjectile(projectile, playerEntity);
 
@@ -158,5 +163,44 @@ export class ProjectileRenderer {
       return (npcType === 'Kronos') ? 48 : 36;
     }
     return 36; // Default size
+  }
+
+  /**
+   * Get rendering parameters for a missile
+   */
+  private getMissileRenderParams(projectile: Projectile): ProjectileRenderParams {
+    // Try to load missile image
+    const missileImage = this.assetManager.getOrLoadImage('/assets/rocket/rocket3.png');
+    
+    // Check if image is loaded and ready
+    const imageReady = missileImage && 
+                       (missileImage.complete || missileImage.naturalWidth > 0) && 
+                       missileImage.naturalWidth > 0;
+    
+    if (imageReady) {
+      // Image-based missile - make it larger and more visible
+      const imageSize = 10; // Increased size for better visibility
+      
+      return {
+        color: '#ff8800', // Orange (fallback)
+        length: 30,
+        lineWidth: 6,
+        hasImage: true,
+        imageSize,
+        image: missileImage,
+        shadowColor: '#ff8800',
+        shadowBlur: 15 // Increased glow
+      };
+    } else {
+      // Fallback: orange laser with glow (always visible, so missiles are always seen)
+      return {
+        color: '#ff8800', // Orange
+        length: 35, // Longer than laser for visibility
+        shadowColor: '#ff8800',
+        shadowBlur: 15, // More glow
+        lineWidth: 6, // Thicker
+        hasImage: false
+      };
+    }
   }
 }

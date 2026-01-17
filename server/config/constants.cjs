@@ -3,6 +3,9 @@
  * Include costanti di gioco e configurazione NPC
  */
 
+// Carica configurazione player condivisa (single source of truth)
+const playerConfig = require('../../shared/player-config.json');
+
 // Combat constants
 const SERVER_CONSTANTS = {
   PROJECTILE: {
@@ -13,9 +16,13 @@ const SERVER_CONSTANTS = {
     SPAWN_OFFSET: 50  // Offset spawn per evitare auto-collisione (px)
   },
 
+  MISSILE: {
+    DAMAGE: 1000     // Danno fisso dei missili (indipendente dal danno player)
+  },
+
   COMBAT: {
-    PLAYER_START_RANGE: 600,  // Distanza per iniziare combattimento
-    PLAYER_STOP_RANGE: 600,   // Distanza per fermare combattimento (senza isteresi)
+    PLAYER_RANGE_WIDTH: playerConfig.stats.rangeWidth || (playerConfig.stats.range * 2),
+    PLAYER_RANGE_HEIGHT: playerConfig.stats.rangeHeight || (playerConfig.stats.range * 2),
     NPC_MIN_COOLDOWN: 500
   },
 

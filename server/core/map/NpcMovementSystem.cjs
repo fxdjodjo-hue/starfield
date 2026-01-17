@@ -50,7 +50,7 @@ class NpcMovementSystem {
 
       // Calcola comportamento e movimento
       const now = Date.now();
-      const attackRange = NPC_CONFIG[npc.type].stats.range || 600;
+      const attackRange = NPC_CONFIG[npc.type].stats.range;
       const behavior = this.calculateBehavior(npc, now, players, attackRange);
       npc.behavior = behavior;
 

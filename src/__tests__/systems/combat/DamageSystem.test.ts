@@ -36,7 +36,7 @@ describe('DamageSystem', () => {
     damageSystem.createDamageText(testEntity, 50);
 
     // Dovrebbe tracciare 2 testi attivi
-    expect((damageSystem as any).activeDamageTexts.get(testEntity.id)).toBe(2);
+    expect((damageSystem as any).activeLaserTexts.get(testEntity.id)).toBe(2);
   });
 
   it('should decrement damage text count', () => {
@@ -44,13 +44,13 @@ describe('DamageSystem', () => {
     damageSystem.createDamageText(testEntity, 50);
 
     // Dovrebbe avere 2 testi attivi
-    expect((damageSystem as any).activeDamageTexts.get(testEntity.id)).toBe(2);
+    expect((damageSystem as any).activeLaserTexts.get(testEntity.id)).toBe(2);
 
     // Decrementa il contatore
-    damageSystem.decrementDamageTextCount(testEntity.id);
+    damageSystem.decrementDamageTextCount(testEntity.id, 'laser');
 
     // Dovrebbe avere 1 testo attivo
-    expect((damageSystem as any).activeDamageTexts.get(testEntity.id)).toBe(1);
+    expect((damageSystem as any).activeLaserTexts.get(testEntity.id)).toBe(1);
   });
 
   it('should cleanup on destroy', () => {
@@ -58,12 +58,13 @@ describe('DamageSystem', () => {
     damageSystem.createDamageText(testEntity, 50);
 
     // Verifica che ci siano testi attivi
-    expect((damageSystem as any).activeDamageTexts.size).toBeGreaterThan(0);
+    expect((damageSystem as any).activeLaserTexts.size).toBeGreaterThan(0);
 
     // Cleanup
     damageSystem.destroy();
 
     // Tutti i testi dovrebbero essere stati rimossi
-    expect((damageSystem as any).activeDamageTexts.size).toBe(0);
+    expect((damageSystem as any).activeLaserTexts.size).toBe(0);
+    expect((damageSystem as any).activeMissileTexts.size).toBe(0);
   });
 });

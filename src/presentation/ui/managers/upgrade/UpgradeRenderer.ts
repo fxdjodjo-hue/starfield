@@ -155,7 +155,7 @@ export class UpgradeRenderer {
     shieldUpgrade.classList.add('upgrade-shield');
     const speedUpgrade = this.createUpgradeCard('Speed', '#f59e0b', 'speed', speedLevel);
     speedUpgrade.classList.add('upgrade-speed');
-    const damageUpgrade = this.createUpgradeCard('Laser', '#ef4444', 'damage', damageLevel);
+    const damageUpgrade = this.createUpgradeCard('Weapons', '#ef4444', 'damage', damageLevel);
     damageUpgrade.classList.add('upgrade-damage');
 
     upgradeGrid.appendChild(hpUpgrade);

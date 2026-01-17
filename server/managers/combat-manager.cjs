@@ -138,15 +138,16 @@ class ServerCombatManager {
       return;
     }
 
-    // Verifica che il player sia nel range (con periodo di grazia iniziale)
-    const distance = Math.sqrt(
-      Math.pow(px - npc.position.x, 2) +
-      Math.pow(py - npc.position.y, 2)
-    );
+    // Verifica che il player sia nel range rettangolare
+    const rangeWidth = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_WIDTH;
+    const rangeHeight = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_HEIGHT;
 
-    // Controllo range rigoroso: ferma combattimento se fuori dal range base
+    const dx = Math.abs(px - npc.position.x);
+    const dy = Math.abs(py - npc.position.y);
+
+    // Controllo range rigoroso rettangolare: ferma combattimento se fuori dal rettangolo
     // I proiettili già sparati continueranno il loro volo, ma non verranno sparati altri
-    if (distance > SERVER_CONSTANTS.COMBAT.PLAYER_START_RANGE) {
+    if (dx > rangeWidth / 2 || dy > rangeHeight / 2) {
       this.playerCombats.delete(playerId);
 
       // Notifica repair manager che il combattimento è terminato
@@ -254,7 +255,7 @@ class ServerCombatManager {
     if (now - lastAttack < cooldown) return;
 
     // Trova player nel raggio di attacco
-    const attackRange = NPC_CONFIG[npc.type].stats.range || 300;
+    const attackRange = NPC_CONFIG[npc.type].stats.range;
     const attackRangeSq = attackRange * attackRange;
 
     for (const [clientId, playerData] of this.mapServer.players.entries()) {

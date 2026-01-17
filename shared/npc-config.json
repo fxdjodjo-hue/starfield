@@ -4,12 +4,12 @@
     "defaultBehavior": "cruise",
     "spriteScale": 0.8,
     "stats": {
-      "health": 80000,
-      "shield": 400,
-      "damage": 20,
-      "range": 300,
+      "health": 8000,
+      "shield": 20000,
+      "damage": 2000,
+      "range": 800,
       "cooldown": 1200,
-      "speed": 250
+      "speed": 400
     },
     "rewards": {
       "credits": 400,
@@ -31,11 +31,11 @@
     "transformScale": 4.5,
     "stats": {
       "health": 20000,
-      "shield": 2000,
-      "damage": 80,
-      "range": 300,
+      "shield": 20000,
+      "damage": 8000,
+      "range": 600,
       "cooldown": 1500,
-      "speed": 200
+      "speed": 300
     },
     "rewards": {
       "credits": 800,

@@ -19,9 +19,9 @@ export class NetworkConnectionManager {
   private onReconnectedCallback?: () => void;
 
   // Heartbeat management
-  private heartbeatInterval: NodeJS.Timeout | null = null;
+  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private lastHeartbeatAck = 0;
-  private heartbeatTimeout: NodeJS.Timeout | null = null;
+  private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     serverUrl: string,

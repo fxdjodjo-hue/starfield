@@ -5,14 +5,17 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 
 /**
  * Connection states to prevent race conditions
+ * Usa const object invece di enum per compatibilità con erasableSyntaxOnly
  */
-export enum ConnectionState {
-  DISCONNECTED = 'disconnected',
-  CONNECTING = 'connecting',
-  CONNECTED = 'connected',
-  RECONNECTING = 'reconnecting',
-  ERROR = 'error'
-}
+export const ConnectionState = {
+  DISCONNECTED: 'disconnected',
+  CONNECTING: 'connecting',
+  CONNECTED: 'connected',
+  RECONNECTING: 'reconnecting',
+  ERROR: 'error'
+} as const;
+
+export type ConnectionState = typeof ConnectionState[keyof typeof ConnectionState];
 
 /**
  * NetworkStateManager - Gestisce stato connessione, riconnessione, ping/heartbeat

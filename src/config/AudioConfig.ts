@@ -28,7 +28,9 @@ export const AUDIO_ASSETS = {
     damage: 'effects/damage.wav',
     engine: 'effects/engine/enginesoundeffect.mp3',
     playerLogin: 'effects/playerlogin/bubbleSounds.mp3',
-    portal: 'effects/portal/portal.mp3'
+    portal: 'effects/portal/portal.mp3',
+    rocketStart: '../rocket/rocketStart.wav',
+    rocketExplosion: '../rocket/rocketExplosion.mp3'
   },
 
   // Musica
@@ -58,12 +60,15 @@ export const AUDIO_ASSETS = {
 };
 
 // Categorie audio per gestione granulare
-export enum AudioCategory {
-  MASTER = 'master',
-  MUSIC = 'music',
-  EFFECTS = 'effects',
-  UI = 'ui'
-}
+// Usa const object invece di enum per compatibilità con erasableSyntaxOnly
+export const AudioCategory = {
+  MASTER: 'master',
+  MUSIC: 'music',
+  EFFECTS: 'effects',
+  UI: 'ui'
+} as const;
+
+export type AudioCategory = typeof AudioCategory[keyof typeof AudioCategory];
 
 // Configurazioni specifiche per diversi contesti di gioco
 export const CONTEXT_AUDIO_CONFIGS = {

@@ -8,6 +8,8 @@ import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { Npc } from '../../entities/ai/Npc';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
+import { getPlayerRange, getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
 import { Explosion } from '../../entities/combat/Explosion';
 import { RepairEffect } from '../../entities/combat/RepairEffect';
 import { Projectile } from '../../entities/combat/Projectile';
@@ -397,7 +399,7 @@ export class RenderSystem extends BaseSystem {
     if (isZoomAnimating && this.cameraSystem.getWorldOpacity) {
       worldOpacity = this.cameraSystem.getWorldOpacity();
     }
-    
+
     // Salva stato e applica opacità
     ctx.save();
     ctx.globalAlpha = worldOpacity;
@@ -417,6 +419,11 @@ export class RenderSystem extends BaseSystem {
       this.damageTextSystem.render(ctx);
     }
     
+    // Render debug range circle for player (only in development) - SOPRA TUTTO
+    if (import.meta.env.DEV) {
+      this.renderPlayerRangeCircle(ctx, camera);
+    }
+
     // Ripristina opacità
     ctx.restore();
   }
@@ -438,8 +445,31 @@ export class RenderSystem extends BaseSystem {
       ? entities.filter(entity => entity !== playerEntity)
       : entities;
     
-    // Render altre entità PRIMA (portali, NPC, ecc.) - player verrà renderizzato dopo
-    for (const entity of entitiesWithoutPlayer) {
+    // Render space stations PRIMA di tutte le altre entità (più in background)
+    const spaceStations = entitiesWithoutPlayer.filter(entity => 
+      this.ecs.hasComponent(entity, SpaceStation)
+    );
+    for (const entity of spaceStations) {
+      const components = this.getCachedComponents(entity);
+      if (components.transform) {
+        const { width, height } = this.displayManager.getLogicalSize();
+        const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
+        this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
+          explosion: components.explosion,
+          repairEffect: components.repairEffect,
+          npc: components.npc,
+          sprite: components.sprite,
+          animatedSprite: components.animatedSprite,
+          velocity: components.velocity
+        }, camera);
+      }
+    }
+    
+    // Render altre entità (portali, NPC, ecc.) - player verrà renderizzato dopo
+    const otherEntities = entitiesWithoutPlayer.filter(entity => 
+      !this.ecs.hasComponent(entity, SpaceStation)
+    );
+    for (const entity of otherEntities) {
       // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
       const components = this.getCachedComponents(entity);
 
@@ -478,7 +508,7 @@ export class RenderSystem extends BaseSystem {
       }
     }
     
-    // Render player DOPO tutte le altre entità (sopra portali e NPC)
+    // Render player DOPO tutte le altre entità (sopra portali, NPC e space stations)
     // This ensures the player is rendered on top with proper priority
     if (playerEntity) {
       const playerTransform = this.ecs.getComponent(playerEntity, Transform);
@@ -629,7 +659,16 @@ export class RenderSystem extends BaseSystem {
       const height = params.imageSize / aspectRatio;
       
       ctx.translate(screenPos.x, screenPos.y);
+      
+      // For missiles, image points upward, so adjust rotation by -90 degrees (PI/2)
+      if (projectile.projectileType === 'missile') {
+        // Missile image points upward, so rotate from upward to direction
+        ctx.rotate(rotation + Math.PI / 2);
+      } else {
+        // Other projectiles point right by default
       ctx.rotate(rotation);
+      }
+      
       ctx.drawImage(
         img,
         -width / 2,
@@ -672,9 +711,8 @@ export class RenderSystem extends BaseSystem {
    */
   private renderProjectiles(ctx: CanvasRenderingContext2D, camera: Camera): void {
     // OTTIMIZZAZIONE: Cache risultati query ECS invece di chiamare ogni volta
-    if (this.projectileQueryCache.length === 0) {
+    // Reset cache ogni frame per includere nuovi missili
       this.projectileQueryCache = this.ecs.getEntitiesWithComponents(Transform, Projectile);
-    }
     const projectiles = this.projectileQueryCache;
 
     for (const projectileEntity of projectiles) {
@@ -748,6 +786,73 @@ export class RenderSystem extends BaseSystem {
       size,
       size
     );
+
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza un cerchio rosso di debug che mostra il range di attacco del player
+   * Solo in modalità sviluppo (DEV)
+   */
+  private renderPlayerRangeCircle(ctx: CanvasRenderingContext2D, camera: Camera | null): void {
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    if (!playerEntity) {
+      return;
+    }
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const playerDamage = this.ecs.getComponent(playerEntity, Damage);
+
+    if (!playerTransform || !playerDamage) {
+      return;
+    }
+
+    // Converti coordinate mondo in coordinate schermo
+    let screenPos = { x: 0, y: 0 };
+
+    if (camera) {
+      const canvas = ctx.canvas;
+      if (canvas) {
+        screenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, canvas.width, canvas.height);
+             } else {
+               return;
+             }
+    } else {
+      // Fallback se non c'è camera - usa coordinate mondo dirette (non funzionerà ma almeno non crasha)
+      screenPos = { x: playerTransform.x, y: playerTransform.y };
+    }
+
+    // Applica zoom alla dimensione del rettangolo
+    const zoom = camera?.zoom || 1;
+    const playerRange = getPlayerRange();
+    const rangeWidth = getPlayerRangeWidth();
+    const rangeHeight = getPlayerRangeHeight();
+
+    const rectWidth = rangeWidth / zoom;
+    const rectHeight = rangeHeight / zoom;
+
+    ctx.save();
+
+    // Stile rettangolo di debug - PIÙ VISIBILE
+    ctx.strokeStyle = '#FF0000'; // Rosso pieno
+    ctx.lineWidth = 3; // Più spesso
+    ctx.setLineDash([15, 8]); // Tratteggio più grande
+
+    // Disegna il rettangolo del range centrato sul giocatore
+    const rectX = screenPos.x - rectWidth / 2;
+    const rectY = screenPos.y - rectHeight / 2;
+
+    // Disegna il rettangolo (due volte per essere più visibile)
+    for (let i = 0; i < 2; i++) {
+      ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
+    }
+
+    // Etichetta range - PIÙ VISIBILE
+    ctx.fillStyle = '#FF0000'; // Rosso pieno
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`RANGE: ${rangeWidth}x${rangeHeight}px`, screenPos.x, screenPos.y - rectHeight / 2 - 15);
+
 
     ctx.restore();
   }

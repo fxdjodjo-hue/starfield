@@ -176,23 +176,41 @@ export class RemoteProjectileSystem extends BaseSystem {
           type: projectileType
         });
       } else {
-        // Sparo dispari: 2 laser totali (1 server + 1 visivo laterale)
-        // Alterna tra sinistra e destra
-        const sideOffset = (currentCount % 4 === 1) ? 1 : -1; // Alterna ogni 2 spari
-        const sideOffsetX = perpX * dualLaserOffset * sideOffset;
-        const sideOffsetY = perpY * dualLaserOffset * sideOffset;
+        // Sparo dispari: 2 laser totali (1 server centrale + 2 visivi laterali)
+        // Always create both left and right lasers (same as triple, but without center visual)
+        const leftOffsetX = perpX * dualLaserOffset;
+        const leftOffsetY = perpY * dualLaserOffset;
+        const rightOffsetX = -perpX * dualLaserOffset;
+        const rightOffsetY = -perpY * dualLaserOffset;
         
-        const sideEntity = this.ecs.createEntity();
-        this.ecs.addComponent(sideEntity, Transform, new Transform(
-          position.x + sideOffsetX,
-          position.y + sideOffsetY,
+        // Laser sinistro (solo visivo)
+        const leftEntity = this.ecs.createEntity();
+        this.ecs.addComponent(leftEntity, Transform, new Transform(
+          position.x + leftOffsetX,
+          position.y + leftOffsetY,
           0
         ));
-        this.ecs.addComponent(sideEntity, Velocity, new Velocity(velocity.x, velocity.y, 0));
-        const sideProjectile = new Projectile(0, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
-        this.ecs.addComponent(sideEntity, Projectile, sideProjectile);
-        this.remoteProjectiles.set(`${projectileId}_side`, {
-          entityId: sideEntity.id,
+        this.ecs.addComponent(leftEntity, Velocity, new Velocity(velocity.x, velocity.y, 0));
+        const leftProjectile = new Projectile(0, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
+        this.ecs.addComponent(leftEntity, Projectile, leftProjectile);
+        this.remoteProjectiles.set(`${projectileId}_left`, {
+          entityId: leftEntity.id,
+          playerId,
+          type: projectileType
+        });
+        
+        // Laser destro (solo visivo)
+        const rightEntity = this.ecs.createEntity();
+        this.ecs.addComponent(rightEntity, Transform, new Transform(
+          position.x + rightOffsetX,
+          position.y + rightOffsetY,
+          0
+        ));
+        this.ecs.addComponent(rightEntity, Velocity, new Velocity(velocity.x, velocity.y, 0));
+        const rightProjectile = new Projectile(0, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
+        this.ecs.addComponent(rightEntity, Projectile, rightProjectile);
+        this.remoteProjectiles.set(`${projectileId}_right`, {
+          entityId: rightEntity.id,
           playerId,
           type: projectileType
         });
@@ -231,7 +249,21 @@ export class RemoteProjectileSystem extends BaseSystem {
   removeRemoteProjectile(projectileId: string): boolean {
     const projectileData = this.remoteProjectiles.get(projectileId);
     if (!projectileData) {
+      if (import.meta.env.DEV) {
+        console.warn('[RemoteProjectileSystem] removeRemoteProjectile: projectile not found', {
+          projectileId,
+          availableKeys: Array.from(this.remoteProjectiles.keys())
+        });
+      }
       return false;
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('[RemoteProjectileSystem] removeRemoteProjectile', {
+        projectileId,
+        type: projectileData.type,
+        entityId: projectileData.entityId
+      });
     }
 
     const entity = this.ecs.getEntity(projectileData.entityId);
@@ -256,6 +288,22 @@ export class RemoteProjectileSystem extends BaseSystem {
   getRemoteProjectileEntity(projectileId: string): number | undefined {
     const projectileData = this.remoteProjectiles.get(projectileId);
     return projectileData?.entityId;
+  }
+
+  /**
+   * Ottiene il tipo di proiettile remoto
+   */
+  getRemoteProjectileType(projectileId: string): string | undefined {
+    const projectileData = this.remoteProjectiles.get(projectileId);
+    if (import.meta.env.DEV) {
+      console.log('[RemoteProjectileSystem] getRemoteProjectileType', {
+        projectileId,
+        found: !!projectileData,
+        type: projectileData?.type,
+        allKeys: Array.from(this.remoteProjectiles.keys())
+      });
+    }
+    return projectileData?.type;
   }
 
   /**

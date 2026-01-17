@@ -79,7 +79,8 @@ export class EntityDamagedHandler extends BaseMessageHandler {
             // Per ora mostriamo tutto come danno HP (bianco/rosso)
             // In futuro potremmo migliorare la logica per distinguere shield vs HP
             const isShieldDamage = false;
-            combatSystem.createDamageText({ id: targetEntity.id }, message.damage, isShieldDamage);
+            const projectileType = message.projectileType;
+            combatSystem.createDamageText({ id: targetEntity.id }, message.damage, isShieldDamage, false, projectileType);
           }
         }
     }

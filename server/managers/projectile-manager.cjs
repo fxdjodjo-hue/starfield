@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, config/constants.cjs, moduli projectile/
 
 const { logger } = require('../logger.cjs');
+const { SERVER_CONSTANTS } = require('../config/constants.cjs');
 const ProjectileSpawner = require('./projectile/ProjectileSpawner.cjs');
 const ProjectilePhysics = require('./projectile/ProjectilePhysics.cjs');
 const ProjectileCollision = require('./projectile/ProjectileCollision.cjs');
@@ -26,6 +27,18 @@ class ServerProjectileManager {
   }
 
   /**
+   * Calcola il danno del proiettile basato sul suo tipo
+   * Server è completamente autorevole per il calcolo del danno
+   */
+  calculateProjectileDamage(projectile) {
+    if (projectile.projectileType === 'missile') {
+      return SERVER_CONSTANTS.MISSILE.DAMAGE;
+    }
+    // Per laser normali, usa il danno inviato dal client (legacy)
+    return projectile.damage || 0;
+  }
+
+  /**
    * Registra un nuovo proiettile sparato da un giocatore
    */
   addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser', targetId = null, excludeSender = true) {
@@ -37,7 +50,8 @@ class ServerProjectileManager {
 
     // Broadcast ai client - escludi il mittente solo se richiesto
     const excludeClientId = excludeSender ? playerId : null;
-    this.broadcaster.broadcastProjectileFired(projectile, excludeClientId);
+    const actualDamage = this.calculateProjectileDamage(projectile);
+    this.broadcaster.broadcastProjectileFired(projectile, excludeClientId, actualDamage);
   }
 
   /**
@@ -118,8 +132,9 @@ class ServerProjectileManager {
           
           if (targetHit.type === 'npc') {
             // Applica danno all'NPC target
-            const npcDead = this.damageHandler.handleNpcDamage(targetHit.entity.id, projectile.damage, projectile.playerId);
-            this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile);
+            const actualDamage = this.calculateProjectileDamage(projectile);
+            const npcDead = this.damageHandler.handleNpcDamage(targetHit.entity.id, actualDamage, projectile.playerId);
+            this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile, 'npc', actualDamage);
 
             if (npcDead) {
               const rewards = this.damageHandler.calculateRewards(targetHit.entity);
@@ -128,8 +143,9 @@ class ServerProjectileManager {
 
           } else if (targetHit.type === 'player') {
             // Applica danno al giocatore target
-            const playerDead = this.damageHandler.handlePlayerDamage(targetHit.entity.clientId, projectile.damage, projectile.playerId);
-            this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile, 'player');
+            const actualDamage = this.calculateProjectileDamage(projectile);
+            const playerDead = this.damageHandler.handlePlayerDamage(targetHit.entity.clientId, actualDamage, projectile.playerId);
+            this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile, 'player', actualDamage);
 
             if (playerDead) {
               logger.info('COMBAT', `Player ${targetHit.entity.clientId} killed by ${projectile.playerId}`);
@@ -186,8 +202,8 @@ class ServerProjectileManager {
           // Salva posizione per il broadcast prima di rimuovere
           const collisionPosition = { ...projectile.position };
           
-          const playerDead = this.damageHandler.handlePlayerDamage(hitPlayer.clientId, projectile.damage, projectile.playerId);
-          this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
+          const playerDead = this.damageHandler.handlePlayerDamage(hitPlayer.clientId, actualDamage, projectile.playerId);
+          this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player', actualDamage);
 
           if (playerDead) {
             logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
@@ -210,8 +226,9 @@ class ServerProjectileManager {
       // Verifica collisioni con NPC
       const hitNpc = this.collision.checkNpcCollision(projectile);
       if (hitNpc) {
-        const npcDead = this.damageHandler.handleNpcDamage(hitNpc.id, projectile.damage, projectile.playerId);
-        this.broadcaster.broadcastEntityDamaged(hitNpc, projectile);
+        const actualDamage = this.calculateProjectileDamage(projectile);
+        const npcDead = this.damageHandler.handleNpcDamage(hitNpc.id, actualDamage, projectile.playerId);
+        this.broadcaster.broadcastEntityDamaged(hitNpc, projectile, 'npc', actualDamage);
 
         if (npcDead) {
           const rewards = this.damageHandler.calculateRewards(hitNpc);
@@ -229,12 +246,13 @@ class ServerProjectileManager {
           // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
           projectile.velocity.x = 0;
           projectile.velocity.y = 0;
-          
+
           // Salva posizione per il broadcast prima di rimuovere
           const collisionPosition = { ...projectile.position };
-          
-          const playerDead = this.damageHandler.handlePlayerDamage(hitPlayer.clientId, projectile.damage, projectile.playerId);
-          this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player');
+
+          const actualDamage = this.calculateProjectileDamage(projectile);
+          const playerDead = this.damageHandler.handlePlayerDamage(hitPlayer.clientId, actualDamage, projectile.playerId);
+          this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player', actualDamage);
 
           if (playerDead) {
             logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);

@@ -415,27 +415,29 @@ export class PlayStateInitializer {
       console.log('[PlayStateInitializer] clientNetworkSystem.initialize() completato');
 
       // Ora che il sistema è inizializzato, possiamo configurare i callback in sicurezza
-      clientNetworkSystem.setOnPlayerIdReceived((playerId: number) => {
+      clientNetworkSystem.setOnPlayerIdReceived((playerDbId) => {
         const questManager = this.getQuestManager();
         const uiSystem = this.getUiSystem();
+        // Converti PlayerDbId a number per compatibilità con API esistenti
+        const playerIdNumber = playerDbId as number;
         if (questManager) {
-          questManager.setPlayerId(playerId);
+          questManager.setPlayerId(playerIdNumber);
         }
         if (uiSystem) {
-          uiSystem.setPlayerId(playerId);
+          uiSystem.setPlayerId(playerIdNumber);
         }
       });
 
-      // Verifica se abbiamo già ricevuto il playerId (caso di riconnessione)
-      if (clientNetworkSystem.isSystemInitialized() && clientNetworkSystem.gameContext.playerId) {
+      // Verifica se abbiamo già ricevuto il playerDbId (caso di riconnessione)
+      if (clientNetworkSystem.isSystemInitialized() && clientNetworkSystem.gameContext.playerDbId) {
         // Richiama manualmente il callback per i sistemi che potrebbero essere stati inizializzati dopo
         const questManager = this.getQuestManager();
         const uiSystem = this.getUiSystem();
         if (questManager) {
-          questManager.setPlayerId(clientNetworkSystem.gameContext.playerId);
+          questManager.setPlayerId(clientNetworkSystem.gameContext.playerDbId as number);
         }
         if (uiSystem) {
-          uiSystem.setPlayerId(clientNetworkSystem.gameContext.playerId);
+          uiSystem.setPlayerId(clientNetworkSystem.gameContext.playerDbId as number);
         }
       }
     } catch (error) {

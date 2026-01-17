@@ -12,7 +12,31 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   handle(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem): void {
-    const isLocalPlayer = networkSystem.getLocalClientId() === message.playerId;
+    // Identifica il giocatore locale usando:
+    // 1. clientId se disponibile nel messaggio
+    // 2. playerId se corrisponde a localClientId (retrocompatibilità - server invia clientId come playerId)
+    // 3. authId come ultimo fallback
+    const localClientId = networkSystem.getLocalClientId();
+    const localAuthId = networkSystem.gameContext.authId;
+    
+    // Controlla se è il giocatore locale
+    const isLocalPlayer = !!(message.clientId && message.clientId === localClientId) ||
+                         !!(message.playerId === localClientId) ||
+                         !!(localAuthId && message.playerId === localAuthId);
+
+    // Per missili del giocatore locale, non aggiungere a RemoteProjectileSystem
+    // perché sono già creati localmente via ProjectileFactory
+    if (isLocalPlayer && message.projectileType === 'missile') {
+      return;
+    }
+
+    // Registra quando un missile viene sparato per evitare di riprodurre il suono di esplosione troppo presto
+    if (message.projectileType === 'missile') {
+      const destroyedHandler = networkSystem.getMessageRouter()?.getHandler(MESSAGE_TYPES.PROJECTILE_DESTROYED);
+      if (destroyedHandler && typeof (destroyedHandler as any).registerMissileFire === 'function') {
+        (destroyedHandler as any).registerMissileFire(message.projectileId, Date.now());
+      }
+    }
 
     // Per il player locale, applica pattern ritmico per animazione visiva
     // Il danno è sempre applicato ogni 800ms dal server, ma l'animazione segue il pattern
@@ -21,10 +45,14 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       
       // Schedula animazione (suono + proiettile) seguendo pattern ritmico
       rhythmicManager.scheduleAnimation(() => {
-        // Riproduci suono sparo
+        // Riproduci suono appropriato per tipo di proiettile
         const audioSystem = networkSystem.getAudioSystem();
         if (audioSystem) {
-          audioSystem.playSound('laser', 0.05, false, true);
+          if (message.projectileType === 'missile') {
+            audioSystem.playSound('rocketStart', 0.02, false, true); // Volume molto basso per missili
+          } else {
+            audioSystem.playSound('laser', 0.05, false, true);
+          }
         }
         
         // Mostra proiettile (sempre mostrato, ma con timing ritmico)
@@ -36,6 +64,8 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       if (audioSystem) {
         if (message.playerId.startsWith('npc_')) {
           audioSystem.playSound('scouterLaser', 0.05, false, true);
+        } else if (message.projectileType === 'missile') {
+          audioSystem.playSound('rocketStart', 0.02, false, true); // Volume molto basso per missili remoti
         }
       }
       
@@ -44,10 +74,20 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {
+    // Verifica anche qui per sicurezza (doppio controllo)
+    const localClientId = networkSystem.getLocalClientId();
+    const localAuthId = networkSystem.gameContext.authId;
+    const isLocalPlayerCheck = !!(message.clientId && message.clientId === localClientId) ||
+                              !!(message.playerId === localClientId) ||
+                              !!(localAuthId && message.playerId === localAuthId);
+
+    // Protezione: Non aggiungere missili locali a RemoteProjectileSystem
+    if (isLocalPlayerCheck && message.projectileType === 'missile') {
+      return;
+    }
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) {
-      console.error('[CLIENT] RemoteProjectileSystem not available for projectile fired');
       return;
     }
 

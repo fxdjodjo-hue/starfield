@@ -3,6 +3,7 @@ import type { Entity } from '../../../infrastructure/ecs/Entity';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
 import { Transform } from '../../../entities/spatial/Transform';
+import { Velocity } from '../../../entities/spatial/Velocity';
 import { Damage } from '../../../entities/combat/Damage';
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { Projectile } from '../../../entities/combat/Projectile';
@@ -10,6 +11,7 @@ import { ProjectileFactory } from '../../../factories/ProjectileFactory';
 import { GAME_CONSTANTS } from '../../../config/GameConstants';
 import { calculateDirection } from '../../../utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
+import { MissileManager } from './MissileManager';
 
 /**
  * Manages projectile creation and attack execution
@@ -20,18 +22,27 @@ export class CombatProjectileManager {
   private static readonly FIRE_RATE_SLOW = 800; // 0.8s
   private static readonly FIRE_RATE_FAST = 500; // 0.5s
   private static readonly MAX_PLAYER_PROJECTILES = 4; // Cap massimo proiettili attivi
+  private missileManager: MissileManager;
   
   // Reset pattern quando inizia un nuovo combattimento
   resetFirePattern(): void {
     this.useFastInterval = false;
     this.lastPlayerFireTime = 0;
+    this.missileManager.resetCooldown();
   }
 
   constructor(
     private readonly ecs: ECS,
     private readonly playerSystem: PlayerSystem,
     private readonly getClientNetworkSystem: () => ClientNetworkSystem | null
-  ) {}
+  ) {
+    // Initialize missile manager
+    this.missileManager = new MissileManager(
+      this.ecs,
+      this.playerSystem,
+      this.getClientNetworkSystem
+    );
+  }
 
   /**
    * Performs an attack from attacker to target
@@ -46,8 +57,10 @@ export class CombatProjectileManager {
         attackerTransform.x, attackerTransform.y,
         targetTransform.x, targetTransform.y
       );
-      directionX = direction.x;
-      directionY = direction.y;
+      // Ensure direction is normalized (like triple lasers do from velocity)
+      const dirLength = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+      directionX = dirLength > 0 ? direction.x / dirLength : direction.x;
+      directionY = dirLength > 0 ? direction.y / dirLength : direction.y;
     } else {
       const angle = attackerTransform.rotation;
       directionX = Math.cos(angle);
@@ -55,7 +68,9 @@ export class CombatProjectileManager {
     }
 
     if (isPlayer) {
-      this.createSingleLaser(attackerEntity, attackerTransform, attackerDamage, targetTransform, targetEntity, directionX, directionY);
+      // Don't create lasers here - they will be created by RemoteProjectileSystem when server projectile arrives
+      // Just register the attack for cooldown
+      attackerDamage.performAttack(Date.now());
     } else {
       attackerDamage.performAttack(Date.now());
     }
@@ -117,51 +132,84 @@ export class CombatProjectileManager {
     const targetY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
 
     if (isLocalPlayer) {
-      const dualLaserOffset = 40;
-      const perpX = -directionY;
-      const perpY = directionX;
+      // Use EXACT same logic as triple lasers in RemoteProjectileSystem (but without center)
+      // Calculate velocity first (like triple lasers do)
+      const speed = GAME_CONSTANTS.PROJECTILE.SPEED;
+      const velocityX = directionX * speed;
+      const velocityY = directionY * speed;
+      
+      // Use EXACT same calculations as triple lasers
+      const dualLaserOffset = 40; // Same offset as triple lasers
+      const perpX = -directionY; // EXACT same calculation as triple lasers
+      const perpY = directionX;   // EXACT same calculation as triple lasers
       
       const leftOffsetX = perpX * dualLaserOffset;
       const leftOffsetY = perpY * dualLaserOffset;
       const rightOffsetX = -perpX * dualLaserOffset;
       const rightOffsetY = -perpY * dualLaserOffset;
       
-      const projectileId1 = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const projectileEntity1 = ProjectileFactory.createProjectile(
-        this.ecs,
-        damage,
-        attackerTransform.x + leftOffsetX,
-        attackerTransform.y + leftOffsetY,
-        targetX + leftOffsetX,
-        targetY + leftOffsetY,
-        attackerEntity.id,
-        targetEntity.id,
-        isLocalPlayer && this.getClientNetworkSystem() ? this.getClientNetworkSystem()!.getLocalClientId() : `npc_${attackerEntity.id}`,
-        animatedSprite || undefined,
-        attackerTransform.rotation
+      // Use player center position (like triple lasers use position.x/y from server)
+      const positionX = attackerTransform.x;
+      const positionY = attackerTransform.y;
+      
+      const clientId = isLocalPlayer && this.getClientNetworkSystem() ? this.getClientNetworkSystem()!.getLocalClientId() : `npc_${attackerEntity.id}`;
+      const ownerId = attackerEntity.id;
+      const actualTargetId = targetEntity.id;
+      
+      // Left laser (visual only, no damage) - EXACT same creation as triple lasers
+      const leftEntity = this.ecs.createEntity();
+      this.ecs.addComponent(leftEntity, Transform, new Transform(
+        positionX + leftOffsetX,
+        positionY + leftOffsetY,
+        0
+      ));
+      this.ecs.addComponent(leftEntity, Velocity, new Velocity(
+        velocityX,
+        velocityY,
+        0
+      ));
+      const leftProjectile = new Projectile(
+        0, // No damage - visual only (like triple lasers)
+        speed,
+        directionX,
+        directionY,
+        ownerId,
+        actualTargetId,
+        GAME_CONSTANTS.PROJECTILE.LIFETIME,
+        clientId
       );
-      const projectileComponent1 = this.ecs.getComponent(projectileEntity1, Projectile);
-      if (projectileComponent1) {
-        (projectileComponent1 as any).id = projectileId1;
+      this.ecs.addComponent(leftEntity, Projectile, leftProjectile);
+      const leftProjectileComponent = this.ecs.getComponent(leftEntity, Projectile);
+      if (leftProjectileComponent) {
+        (leftProjectileComponent as any).id = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       }
       
-      const projectileId2 = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const projectileEntity2 = ProjectileFactory.createProjectile(
-        this.ecs,
-        0,
-        attackerTransform.x + rightOffsetX,
-        attackerTransform.y + rightOffsetY,
-        targetX + rightOffsetX,
-        targetY + rightOffsetY,
-        attackerEntity.id,
-        targetEntity.id,
-        isLocalPlayer && this.getClientNetworkSystem() ? this.getClientNetworkSystem()!.getLocalClientId() : `npc_${attackerEntity.id}`,
-        animatedSprite || undefined,
-        attackerTransform.rotation
+      // Right laser (visual only, no damage) - EXACT same creation as triple lasers
+      const rightEntity = this.ecs.createEntity();
+      this.ecs.addComponent(rightEntity, Transform, new Transform(
+        positionX + rightOffsetX,
+        positionY + rightOffsetY,
+        0
+      ));
+      this.ecs.addComponent(rightEntity, Velocity, new Velocity(
+        velocityX,
+        velocityY,
+        0
+      ));
+      const rightProjectile = new Projectile(
+        0, // No damage - visual only (like triple lasers)
+        speed,
+        directionX,
+        directionY,
+        ownerId,
+        actualTargetId,
+        GAME_CONSTANTS.PROJECTILE.LIFETIME,
+        clientId
       );
-      const projectileComponent2 = this.ecs.getComponent(projectileEntity2, Projectile);
-      if (projectileComponent2) {
-        (projectileComponent2 as any).id = projectileId2;
+      this.ecs.addComponent(rightEntity, Projectile, rightProjectile);
+      const rightProjectileComponent = this.ecs.getComponent(rightEntity, Projectile);
+      if (rightProjectileComponent) {
+        (rightProjectileComponent as any).id = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       }
     } else {
       const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

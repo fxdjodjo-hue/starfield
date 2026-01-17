@@ -5,7 +5,7 @@ import { Damage } from '../../../entities/combat/Damage';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { LogType } from '../../../presentation/ui/LogMessage';
-import { GAME_CONSTANTS } from '../../../config/GameConstants';
+import { getPlayerRange, getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
 import { PlayerControlSystem } from '../PlayerControlSystem';
 
 /**
@@ -97,7 +97,7 @@ export class PlayerAttackManager {
   }
 
   /**
-   * Finds nearest NPC in attack range
+   * Finds nearest NPC in attack range (rectangular area)
    */
   private findNearestNpcInRange(): any | null {
     const playerEntity = this.getPlayerEntity();
@@ -107,23 +107,27 @@ export class PlayerAttackManager {
     if (!playerTransform) return null;
 
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
-    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
+    const rangeWidth = getPlayerRangeWidth();
+    const rangeHeight = getPlayerRangeHeight();
 
     let nearestNpc: any = null;
-    let nearestDistance = PLAYER_RANGE;
+    let nearestDistance = Math.sqrt(rangeWidth * rangeWidth + rangeHeight * rangeHeight); // Max possible distance
 
     for (const npcEntity of npcs) {
       const npcTransform = this.ecs.getComponent(npcEntity, Transform);
       if (!npcTransform) continue;
 
-      const distance = Math.sqrt(
-        Math.pow(playerTransform.x - npcTransform.x, 2) +
-        Math.pow(playerTransform.y - npcTransform.y, 2)
-      );
+      // Check if NPC is within rectangular range
+      const dx = Math.abs(npcTransform.x - playerTransform.x);
+      const dy = Math.abs(npcTransform.y - playerTransform.y);
 
-      if (distance < nearestDistance) {
-        nearestNpc = npcEntity;
-        nearestDistance = distance;
+      if (dx <= rangeWidth / 2 && dy <= rangeHeight / 2) {
+        // NPC is within rectangle, calculate distance for "nearest"
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        if (distance < nearestDistance) {
+          nearestNpc = npcEntity;
+          nearestDistance = distance;
+        }
       }
     }
 
@@ -131,7 +135,7 @@ export class PlayerAttackManager {
   }
 
   /**
-   * Finds nearby NPC for selection (within 600px)
+   * Finds nearby NPC for selection (within player attack range rectangle)
    */
   private findNearbyNpcForSelection(): any | null {
     const playerEntity = this.getPlayerEntity();
@@ -141,21 +145,26 @@ export class PlayerAttackManager {
     if (!playerTransform) return null;
 
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform);
+    const rangeWidth = getPlayerRangeWidth();
+    const rangeHeight = getPlayerRangeHeight();
 
     let closestNpc: any = null;
-    let closestDistance = 600;
+    let closestDistance = Math.sqrt(rangeWidth * rangeWidth + rangeHeight * rangeHeight); // Max possible distance
 
     for (const npcEntity of npcs) {
       const transform = this.ecs.getComponent(npcEntity, Transform);
       if (transform) {
-        const distance = Math.sqrt(
-          Math.pow(playerTransform.x - transform.x, 2) +
-          Math.pow(playerTransform.y - transform.y, 2)
-        );
+        // Check if NPC is within rectangular range
+        const dx = Math.abs(transform.x - playerTransform.x);
+        const dy = Math.abs(transform.y - playerTransform.y);
 
-        if (distance < closestDistance) {
-          closestNpc = npcEntity;
-          closestDistance = distance;
+        if (dx <= rangeWidth / 2 && dy <= rangeHeight / 2) {
+          // NPC is within rectangle, calculate distance for "nearest"
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          if (distance < closestDistance) {
+            closestNpc = npcEntity;
+            closestDistance = distance;
+          }
         }
       }
     }
@@ -164,7 +173,7 @@ export class PlayerAttackManager {
   }
 
   /**
-   * Checks if selected NPC is in attack range
+   * Checks if selected NPC is in attack range (rectangular area)
    */
   private isSelectedNpcInRange(): boolean {
     const playerEntity = this.getPlayerEntity();
@@ -178,16 +187,18 @@ export class PlayerAttackManager {
 
     if (!playerTransform || !npcTransform) return false;
 
-    const dx = playerTransform.x - npcTransform.x;
-    const dy = playerTransform.y - npcTransform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const rangeWidth = getPlayerRangeWidth();
+    const rangeHeight = getPlayerRangeHeight();
 
-    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-    return distance <= PLAYER_RANGE;
+    // Check if NPC is within rectangular range
+    const dx = Math.abs(npcTransform.x - playerTransform.x);
+    const dy = Math.abs(npcTransform.y - playerTransform.y);
+
+    return dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
   }
 
   /**
-   * Checks if a specific NPC is in player range
+   * Checks if a specific NPC is in player range (rectangular area)
    */
   private isNpcInPlayerRange(npcEntity: any): boolean {
     const playerEntity = this.getPlayerEntity();
@@ -198,12 +209,14 @@ export class PlayerAttackManager {
 
     if (!playerTransform || !npcTransform) return false;
 
-    const dx = playerTransform.x - npcTransform.x;
-    const dy = playerTransform.y - npcTransform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const rangeWidth = getPlayerRangeWidth();
+    const rangeHeight = getPlayerRangeHeight();
 
-    const { PLAYER_RANGE } = GAME_CONSTANTS.COMBAT;
-    return distance <= PLAYER_RANGE;
+    // Check if NPC is within rectangular range
+    const dx = Math.abs(npcTransform.x - playerTransform.x);
+    const dy = Math.abs(npcTransform.y - playerTransform.y);
+
+    return dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
   }
 
   /**

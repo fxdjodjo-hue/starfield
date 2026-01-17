@@ -138,7 +138,7 @@ export class EntityFactory {
       velocity: { x: 0, y: 0 } // Aggiungi Velocity iniziale per permettere il movimento
     });
 
-    // Componenti di combattimento
+    // Componenti di combattimento - range è fisso, non influenzato da upgrade
     this.addCombatComponents(entity, config.combat || {
       health: { current: playerDef.stats.health, max: playerDef.stats.health },
       shield: { current: playerDef.stats.shield || 0, max: playerDef.stats.shield || 0 },
@@ -350,7 +350,7 @@ export class EntityFactory {
     if (config.damage) {
       this.ecs.addComponent(entity, Damage, new Damage(
         config.damage.value || config.damage,
-        config.damage.range || config.stats?.range || 600,
+        config.damage.range || config.stats?.range,
         config.damage.cooldown || config.stats?.cooldown || 1000
       ));
     } else if (config.stats?.damage) {

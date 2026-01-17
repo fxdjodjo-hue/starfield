@@ -10,14 +10,18 @@ import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 
 // Mock components for testing
 class MockComponent extends Component {
-  constructor(public value: string = 'test') {
+  public value: string;
+  constructor(value: string = 'test') {
     super();
+    this.value = value;
   }
 }
 
 class MockComponent2 extends Component {
-  constructor(public number: number = 42) {
+  public number: number;
+  constructor(number: number = 42) {
     super();
+    this.number = number;
   }
 }
 

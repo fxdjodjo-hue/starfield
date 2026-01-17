@@ -16,7 +16,9 @@ export interface PlayerStats {
   health: number;
   shield?: number;
   damage: number;
-  range: number;
+  range: number; // Legacy circular range (deprecated - use rangeWidth/rangeHeight)
+  rangeWidth?: number; // Width of combat range rectangle
+  rangeHeight?: number; // Height of combat range rectangle
   cooldown: number;
   speed: number;
 }
@@ -60,4 +62,27 @@ export const PLAYER_DEFINITION: PlayerDefinition = playerConfigData as PlayerDef
  */
 export function getPlayerDefinition(): PlayerDefinition {
   return PLAYER_DEFINITION;
+}
+
+/**
+ * Ottiene il range di attacco del giocatore (single source of truth)
+ */
+export function getPlayerRange(): number {
+  return PLAYER_DEFINITION.stats.range;
+}
+
+/**
+ * Ottiene la larghezza del rettangolo di range del giocatore
+ * Default: range * 2 (diametro del cerchio originale)
+ */
+export function getPlayerRangeWidth(): number {
+  return PLAYER_DEFINITION.stats.rangeWidth ?? (PLAYER_DEFINITION.stats.range * 2);
+}
+
+/**
+ * Ottiene l'altezza del rettangolo di range del giocatore
+ * Default: range * 2 (diametro del cerchio originale)
+ */
+export function getPlayerRangeHeight(): number {
+  return PLAYER_DEFINITION.stats.rangeHeight ?? (PLAYER_DEFINITION.stats.range * 2);
 }

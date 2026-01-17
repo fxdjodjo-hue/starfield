@@ -28,7 +28,7 @@ import { NetworkTickManager } from './managers/NetworkTickManager';
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
-import { NETWORK_CONFIG, MESSAGE_TYPES } from '../../config/NetworkConfig';
+import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId } from '../../config/NetworkConfig';
 
 /**
  * Sistema di rete client modulare per multiplayer
@@ -69,13 +69,13 @@ export class ClientNetworkSystem extends BaseSystem {
   private remoteNpcSystem: RemoteNpcSystem | null = null;
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
   private playerSystem: PlayerSystem | null = null;
-  private ecs: ECS | null = null;
+  // ecs is inherited from System base class and is always non-null
 
-  // Player info
-  private playerId?: number;
+  // Player info - ora con branded type
+  private playerDbId?: PlayerDbId;
 
   // Callbacks for external systems
-  private onPlayerIdReceived?: (playerId: number) => void;
+  private onPlayerIdReceived?: (playerDbId: PlayerDbId) => void;
 
   // Legacy socket reference (for backward compatibility)
   private socket: WebSocket | null = null;
@@ -300,8 +300,9 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   async connect(): Promise<void> {
-    const socket = await this.stateManager.connect();
-    this.socket = socket;
+    await this.stateManager.connect();
+    // Socket is managed internally by connectionManager, no need to store it separately
+    // Legacy socket reference is maintained for backward compatibility but may be null
     return Promise.resolve();
   }
 
@@ -424,17 +425,18 @@ export class ClientNetworkSystem extends BaseSystem {
     }
 
     // Find the CombatSystem and stop combat immediately
-    const combatSystem = this.ecs.systems?.find((system: any) =>
+    const systems = this.ecs.getSystems();
+    const combatSystem = systems.find((system: any) =>
       typeof system.stopCombatImmediately === 'function'
-    );
+    ) as any;
 
     if (combatSystem) {
       combatSystem.stopCombatImmediately();
 
       // Also deactivate attack in PlayerControlSystem to prevent auto-attack on next NPC click
-      const playerControlSystem = this.ecs.systems?.find((system: any) =>
+      const playerControlSystem = systems.find((system: any) =>
         typeof system.deactivateAttack === 'function'
-      );
+      ) as any;
 
       if (playerControlSystem) {
         playerControlSystem.deactivateAttack();
@@ -531,7 +533,12 @@ export class ClientNetworkSystem extends BaseSystem {
     velocity: { x: number; y: number };
     projectileType: string;
   }): void {
-    this.combatManager.sendProjectileFired(data);
+    // Use authId (UUID) instead of clientId for playerId validation
+    const playerId = this.gameContext.authId || data.playerId;
+    this.combatManager.sendProjectileFired({
+      ...data,
+      playerId: playerId
+    });
   }
 
   getLocalClientId(): string {
@@ -552,11 +559,22 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   getAudioSystem(): any {
-    return this.audioSystem || this.gameContext?.audioSystem || null;
+    return this.audioSystem || null;
   }
 
   getMessageRouter(): MessageRouter {
     return this.messageRouter;
+  }
+
+  /**
+   * Registra il fire time di un missile locale per il suono di esplosione
+   * Chiamato quando un missile viene creato localmente, prima che arrivi il messaggio dal server
+   */
+  registerLocalMissileFire(projectileId: string, fireTime: number): void {
+    const destroyedHandler = this.messageRouter?.getHandler(MESSAGE_TYPES.PROJECTILE_DESTROYED);
+    if (destroyedHandler && typeof (destroyedHandler as any).registerMissileFire === 'function') {
+      (destroyedHandler as any).registerMissileFire(projectileId, fireTime);
+    }
   }
 
   disconnect(): void {
@@ -617,7 +635,7 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.initManager.isSystemInitialized();
   }
 
-  setOnPlayerIdReceived(callback: (playerId: number) => void): void {
+  setOnPlayerIdReceived(callback: (playerDbId: PlayerDbId) => void): void {
     this.onPlayerIdReceived = callback;
   }
 
@@ -625,8 +643,8 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.rateLimiter.getStats();
   }
 
-  requestPlayerData(playerId: string): void {
-    this.playerDataManager.requestPlayerData(playerId);
+  requestPlayerData(playerUuid: PlayerUuid): void {
+    this.playerDataManager.requestPlayerData(playerUuid);
   }
 
   destroy(): void {

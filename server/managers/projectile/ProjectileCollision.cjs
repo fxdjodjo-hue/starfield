@@ -79,7 +79,10 @@ class ProjectileCollision {
   checkPlayerCollision(projectile) {
     for (const [clientId, playerData] of this.mapServer.players.entries()) {
       // Salta il giocatore che ha sparato il proiettile
-      if (clientId === projectile.playerId) continue;
+      // projectile.playerId è sempre il clientId (standardizzato)
+      if (clientId === projectile.playerId) {
+        continue;
+      }
 
       // Salta giocatori morti o senza posizione
       if (!playerData.position || playerData.isDead) continue;
@@ -177,7 +180,10 @@ class ProjectileCollision {
     if (isPlayerTarget || isNpcProjectile) {
       for (const [clientId, playerData] of this.mapServer.players.entries()) {
         // Salta il giocatore che ha sparato il proiettile
-        if (clientId === projectile.playerId) continue;
+        // projectile.playerId è sempre il clientId (standardizzato)
+        if (clientId === projectile.playerId) {
+          continue;
+        }
 
         // Controlla se questo giocatore è il target
         if (clientId === targetId || playerData.playerId?.toString() === targetId?.toString()) {

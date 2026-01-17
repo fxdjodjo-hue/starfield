@@ -10,6 +10,9 @@ import { CameraSystem } from '../rendering/CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { LogSystem } from '../rendering/LogSystem';
+import { MissileManager } from './managers/MissileManager';
+import { DisplayManager } from '../../infrastructure/display';
+import { getPlayerRange, getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
 
 /**
  * Sistema dedicato alla gestione dello stato del combattimento
@@ -22,11 +25,13 @@ export class CombatStateSystem extends BaseSystem {
   private playerSystem: PlayerSystem | null = null;
   private playerControlSystem: PlayerControlSystem | null = null;
   private logSystem: LogSystem | null = null;
+  private missileManager: MissileManager | null = null;
 
   // Stato del combattimento
   private currentAttackTarget: number | null = null;
   private attackStartedLogged: boolean = false;
   private lastAttackActivatedState: boolean = false; // Per edge detection
+  private lastCombatLogTime: number = 0; // For throttling debug logs
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -56,6 +61,21 @@ export class CombatStateSystem extends BaseSystem {
   }
 
   /**
+   * Initializes missile manager (called after all dependencies are set)
+   */
+  private initializeMissileManager(): void {
+    if (this.missileManager || !this.playerSystem || !this.clientNetworkSystem) {
+      return;
+    }
+
+    this.missileManager = new MissileManager(
+      this.ecs,
+      this.playerSystem,
+      () => this.clientNetworkSystem
+    );
+  }
+
+  /**
    * Aggiornamento periodico (implementazione dell'interfaccia System)
    * ✅ EDGE-TRIGGERED: reagisce ai cambiamenti di stato, non controlla ogni frame
    */
@@ -77,6 +97,9 @@ export class CombatStateSystem extends BaseSystem {
 
     // Mantieni selezione valida (controllo leggero, non ogni frame pesante)
     this.maintainValidSelection();
+    
+    // Process player combat (includes missile firing logic)
+    this.processPlayerCombat();
   }
 
   /**
@@ -89,6 +112,41 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     const selectedNpc = selectedNpcs[0];
+
+    // 🔥 CONTROLLO RANGE PRIMA DI INIZIARE COMBATTIMENTO 🔥
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
+    const playerDamage = playerEntity ? this.ecs.getComponent(playerEntity, Damage) : null;
+    const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
+
+    if (!playerTransform || !playerDamage || !npcTransform) {
+      console.warn('⚠️ [COMBAT] Missing components for range check');
+      return;
+    }
+
+    // Calcola distanza
+    const distance = Math.sqrt(
+      Math.pow(playerTransform.x - npcTransform.x, 2) +
+      Math.pow(playerTransform.y - npcTransform.y, 2)
+    );
+
+    const inRange = distance <= playerDamage.attackRange;
+
+    // Debug range check
+    if (import.meta.env.DEV) {
+      console.log(`🔍 [DEBUG] handleAttackActivated - Distance: ${distance.toFixed(1)}px, Range: ${playerDamage.attackRange}px, InRange: ${inRange}`);
+    }
+
+    if (!inRange) {
+      // Mostra messaggio fuori range
+      if (this.logSystem) {
+        this.logSystem.addLogMessage('Target out of range! Move closer to attack.', LogType.ATTACK_FAILED, 2000);
+      }
+      console.log('🚫 [COMBAT] NPC fuori range - combattimento non iniziato');
+      return; // Non iniziare combattimento se fuori range
+    }
+
+    // NPC nel range - inizia combattimento
     this.sendStartCombat(selectedNpc);
     this.startAttackLogging(selectedNpc);
     this.currentAttackTarget = selectedNpc.id;
@@ -155,7 +213,7 @@ export class CombatStateSystem extends BaseSystem {
     if (!playerTransform || !npcTransform) return;
 
     // Controlla se l'NPC è ancora visibile nella viewport
-    const canvasSize = { width: 800, height: 600 }; // TODO: Get from actual canvas
+    const canvasSize = DisplayManager.getInstance().getLogicalSize();
     const camera = this.cameraSystem.getCamera();
     const npcScreenPos = camera.worldToScreen(npcTransform.x, npcTransform.y, canvasSize.width, canvasSize.height);
 
@@ -166,24 +224,27 @@ export class CombatStateSystem extends BaseSystem {
                        npcScreenPos.y < -margin ||
                        npcScreenPos.y > canvasSize.height + margin;
 
-    // Se l'NPC esce dallo schermo MA è in combattimento attivo, mantieni selezione
-    if (isOffScreen && this.currentAttackTarget !== selectedNpc.id) {
-      this.ecs.removeComponent(selectedNpc, SelectedNpc);
-      return; // Non continuare con la logica di combattimento
-    }
+    // Calcola se l'NPC è nel rettangolo di range
+    const rangeWidth = getPlayerRangeWidth();
+    const rangeHeight = getPlayerRangeHeight();
 
-    // Calcola la distanza semplice
-    const distance = Math.sqrt(
-      Math.pow(playerTransform.x - npcTransform.x, 2) +
-      Math.pow(playerTransform.y - npcTransform.y, 2)
-    );
+    const dx = Math.abs(npcTransform.x - playerTransform.x);
+    const dy = Math.abs(npcTransform.y - playerTransform.y);
+    const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
 
-    const inRange = distance <= playerDamage.attackRange;
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
     // Debug range consistency
-    if (playerDamage.attackRange !== 600) {
-      console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected 600, got ${playerDamage.attackRange}`);
+    const PLAYER_RANGE = getPlayerRange();
+    if (playerDamage.attackRange !== PLAYER_RANGE) {
+      console.warn(`⚠️ [COMBAT] Player attackRange mismatch: expected ${PLAYER_RANGE}, got ${playerDamage.attackRange}`);
+    }
+
+    // Permetti combattimento anche se NPC fuori schermo, purché entro range
+    // Deseleziona solo se fuori schermo E fuori range E non target corrente
+    if (isOffScreen && !inRange && this.currentAttackTarget !== selectedNpc.id) {
+      this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      return; // Non continuare con la logica di combattimento
     }
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
@@ -193,6 +254,32 @@ export class CombatStateSystem extends BaseSystem {
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
+      
+      // Initialize missile manager and set cooldown to full (so first missile fires after 1.5s)
+      this.initializeMissileManager();
+      if (this.missileManager) {
+        // Set cooldown to full so first missile fires after 1.5 seconds
+        this.missileManager.setCooldownToFull();
+        if (import.meta.env.DEV) {
+          console.log('[CombatStateSystem] Combat started, missile cooldown set to full (first missile in 1.5s)');
+        }
+      }
+    } else if (inRange && attackActivated && this.currentAttackTarget === selectedNpc.id) {
+      // Already in combat - try to fire missile automatically
+      this.initializeMissileManager();
+      if (this.missileManager && playerEntity && playerTransform && playerDamage && npcTransform) {
+        const missileFired = this.missileManager.fireMissile(
+          playerEntity,
+          playerTransform,
+          playerDamage,
+          npcTransform,
+          selectedNpc
+        );
+        
+        if (import.meta.env.DEV && missileFired) {
+          console.log('[CombatStateSystem] Missile fired automatically during combat');
+        }
+      }
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
       // Player uscito dal range - ferma combattimento
       this.sendStopCombat();

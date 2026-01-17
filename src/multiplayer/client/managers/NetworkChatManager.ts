@@ -7,12 +7,22 @@ import { NetworkEventSystem } from './NetworkEventSystem';
  * Estratto da ClientNetworkSystem per Separation of Concerns
  */
 export class NetworkChatManager {
+  private readonly connectionManager: NetworkConnectionManager;
+  private readonly rateLimiter: RateLimiter;
+  private readonly eventSystem: NetworkEventSystem;
+  private readonly clientId: string;
+
   constructor(
-    private readonly connectionManager: NetworkConnectionManager,
-    private readonly rateLimiter: RateLimiter,
-    private readonly eventSystem: NetworkEventSystem,
-    private readonly clientId: string
-  ) {}
+    connectionManager: NetworkConnectionManager,
+    rateLimiter: RateLimiter,
+    eventSystem: NetworkEventSystem,
+    clientId: string
+  ) {
+    this.connectionManager = connectionManager;
+    this.rateLimiter = rateLimiter;
+    this.eventSystem = eventSystem;
+    this.clientId = clientId;
+  }
 
   /**
    * Sends a chat message to the server

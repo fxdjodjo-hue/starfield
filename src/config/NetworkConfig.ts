@@ -85,6 +85,13 @@ export type ProjectileId = string & { readonly __brand: unique symbol };
 export type ExplosionId = string & { readonly __brand: unique symbol };
 
 /**
+ * Branded types per identificatori giocatore
+ * Separazione esplicita tra UUID autenticazione e ID database
+ */
+export type PlayerUuid = string & { readonly __brand: unique symbol }; // UUID Supabase (auth)
+export type PlayerDbId = number & { readonly __brand: unique symbol }; // ID numerico database
+
+/**
  * Network message types
  * Centralizes message type constants to avoid typos and ensure consistency
  */
@@ -284,10 +291,11 @@ export interface ProjectileFiredMessage {
   type: typeof MESSAGE_TYPES.PROJECTILE_FIRED;
   projectileId: ProjectileId;
   playerId: ClientId;
+  clientId?: ClientId; // ID connessione WebSocket per identificare giocatore locale
   position: { x: number; y: number };
   velocity: { x: number; y: number };
   damage: number;
-  projectileType: 'laser' | 'plasma' | 'missile';
+  projectileType: 'laser' | 'missile';
   targetId?: string | null;
 }
 
@@ -306,7 +314,7 @@ export interface ProjectileUpdateMessage {
 export interface ProjectileDestroyedMessage {
   type: typeof MESSAGE_TYPES.PROJECTILE_DESTROYED;
   projectileId: ProjectileId;
-  reason: 'collision' | 'out_of_bounds' | 'timeout';
+  reason: 'collision' | 'out_of_bounds' | 'timeout' | 'target_hit';
 }
 
 /**
@@ -321,6 +329,7 @@ export interface EntityDamagedMessage {
   newHealth: number;
   newShield: number;
   position: { x: number; y: number };
+  projectileType?: 'laser' | 'missile';
 }
 
 /**
@@ -403,8 +412,8 @@ export interface PlayerStateUpdateMessage {
 export interface WelcomeMessage {
   type: typeof MESSAGE_TYPES.WELCOME;
   clientId: ClientId;
-  playerId: string; // Player ID (UUID dell'utente)
-  playerDbId?: number; // Player ID numerico per database
+  playerId: PlayerUuid; // Player ID (UUID dell'utente) - nome JSON invariato per compatibilità server
+  playerDbId?: PlayerDbId; // Player ID numerico per database - nome JSON invariato
   initialState?: {
     // Dati essenziali (sempre inclusi)
     position: { x: number; y: number; rotation: number };
@@ -465,12 +474,12 @@ export type PlayerMessage =
 // Player data messages
 export interface RequestPlayerDataMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.REQUEST_PLAYER_DATA;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
 }
 
 export interface PlayerDataResponseMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.PLAYER_DATA_RESPONSE;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
   inventory: {
     credits: number;
     cosmos: number;
@@ -493,7 +502,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
 export interface SaveRequestMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.SAVE_REQUEST;
   clientId: string;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
   timestamp: number;
 }
 
@@ -510,7 +519,7 @@ export interface SaveResponseMessage extends BaseMessage {
  */
 export interface EconomyUpdateMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.ECONOMY_UPDATE;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
   inventory: {
     credits: number;
     cosmos: number;
@@ -536,7 +545,7 @@ export interface LeaderboardResponseMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.LEADERBOARD_RESPONSE;
   entries: Array<{
     rank: number;
-    playerId: number;
+    playerId: PlayerDbId; // Nome JSON invariato per compatibilità server
     username: string;
     experience: number;
     honor: number;
