@@ -250,6 +250,12 @@ Starfield/                          # Directory principale del progetto
 
 ### Client Source Code
 - **src/** - Codice sorgente principale del client in TypeScript
+- **src/core/** - **ARCHITETTURA CENTRALIZZATA** - Moduli core enterprise per eliminare duplicazioni
+- **src/core/utils/** - Utility centralizzate (MathUtils, IDGenerator, TimeManager, InputValidator, MessageSerializer)
+- **src/core/data/** - Strutture dati e helper (CollectionManager, ComponentHelper, LoggerWrapper)
+- **src/core/domain/** - Sistemi di dominio (DamageSystem, EntityStateSystem, ProjectileFactory, CooldownManager, RespawnSystem)
+- **src/core/infrastructure/** - Infrastruttura (BroadcastManager, AssetLoader, DOMEventManager, DatabaseHelper)
+- **src/core/architecture/** - Architettura enterprise (RemoteEntitySystem, EntityFactory, MessageValidator, PlayerStatsCalculator)
 - **src/__tests__/** - Test unitari e di integrazione organizzati per categoria
 - **src/__tests__/config/** - Test per file di configurazione
 - **src/__tests__/entities/** - Test per tutte le entità e componenti ECS
@@ -339,8 +345,8 @@ Starfield/                          # Directory principale del progetto
 - **src/utils/AtlasParser.ts** - Parser per file atlas sprite
 - **src/utils/config/** - Utility per gestione e validazione configurazioni (Config, ConfigValidator, Version)
 - **src/utils/helpers/** - Helper functions per rendering, calcoli matematici e utilità varie (ExplosionRenderer, HudRenderer, NpcRenderer, PlayerRenderer, ProjectileRenderer, ScreenSpace, SpriteRenderer, SpritesheetRenderer)
-- **src/utils/Logger.ts** - Sistema di logging
-- **src/utils/MathUtils.ts** - Utility matematiche
+- **src/core/data/LoggerWrapper.ts** - Sistema di logging strutturato e centralizzato
+- **src/core/utils/MathUtils.ts** - Utility matematiche centralizzate
 - **src/utils/README.md** - Documentazione utility
 
 ### Database
