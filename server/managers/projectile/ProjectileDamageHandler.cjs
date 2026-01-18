@@ -101,7 +101,6 @@ class ProjectileDamageHandler {
 
     return baseRewards[npc.type] || { credits: 25, experience: 5, honor: 2 };
   }
-}
 
   /**
    * Marks that player has recently stopped combat (to prevent auto-restart)

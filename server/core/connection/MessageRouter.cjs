@@ -623,7 +623,7 @@ function handleStopCombat(data, sanitizedData, context) {
   mapServer.combatManager.stopPlayerCombat(data.clientId);
 
   // Mark that player recently stopped combat to prevent auto-restart
-  mapServer.projectileDamageHandler.markPlayerCombatStopped(data.clientId);
+  mapServer.projectileManager.damageHandler.markPlayerCombatStopped(data.clientId);
 
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
     data.playerId,
