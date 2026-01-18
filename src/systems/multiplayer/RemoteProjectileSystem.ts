@@ -37,6 +37,9 @@ export class RemoteProjectileSystem extends BaseSystem {
     targetId: string | number | null = null,
     isLocalPlayer: boolean = false
   ): number {
+    // DEBUG: Log per vedere se viene chiamato
+    console.log(`[REMOTE_PROJECTILE_DEBUG] Adding projectile: id=${projectileId}, playerId=${playerId}, type=${projectileType}, isLocalPlayer=${isLocalPlayer}, position=(${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
+
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
       console.warn(`[REMOTE_PROJECTILE] Projectile ${projectileId} already exists`);
@@ -127,94 +130,7 @@ export class RemoteProjectileSystem extends BaseSystem {
     });
 
     // Per tutti i player (non NPC), crea laser visivi sempre 3 per maggiore impatto visivo
-    if (typeof playerId === 'string' && !playerId.startsWith('npc_')) {
-      // OTTIMIZZAZIONE: Sempre 3 laser per maggiore fluidità visiva
-      // Rimosso alternanza 2-3 laser, ora sempre impatto massimo
-      const isTripleShot = true; // Sempre triple shot per laser più impressionanti
-      
-      const dualLaserOffset = 40; // Offset perpendicolare per i laser laterali (px)
-      const perpX = -directionY;
-      const perpY = directionX;
-      
-      if (isTripleShot) {
-        // Sparo pari: 3 laser totali (1 server centrale + 2 visivi laterali)
-        const leftOffsetX = perpX * dualLaserOffset;
-        const leftOffsetY = perpY * dualLaserOffset;
-        const rightOffsetX = -perpX * dualLaserOffset;
-        const rightOffsetY = -perpY * dualLaserOffset;
-        
-        // Laser sinistro (solo visivo)
-        const leftEntity = this.ecs.createEntity();
-        this.ecs.addComponent(leftEntity, Transform, new Transform(
-          position.x + leftOffsetX,
-          position.y + leftOffsetY,
-          0
-        ));
-        this.ecs.addComponent(leftEntity, Velocity, new Velocity(velocity.x, velocity.y, 0));
-        const leftProjectile = new Projectile(0, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
-        this.ecs.addComponent(leftEntity, Projectile, leftProjectile);
-        this.remoteProjectiles.set(`${projectileId}_left`, {
-          entityId: leftEntity.id,
-          playerId,
-          type: projectileType
-        });
-        
-        // Laser destro (solo visivo)
-        const rightEntity = this.ecs.createEntity();
-        this.ecs.addComponent(rightEntity, Transform, new Transform(
-          position.x + rightOffsetX,
-          position.y + rightOffsetY,
-          0
-        ));
-        this.ecs.addComponent(rightEntity, Velocity, new Velocity(velocity.x, velocity.y, 0));
-        const rightProjectile = new Projectile(0, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
-        this.ecs.addComponent(rightEntity, Projectile, rightProjectile);
-        this.remoteProjectiles.set(`${projectileId}_right`, {
-          entityId: rightEntity.id,
-          playerId,
-          type: projectileType
-        });
-      } else {
-        // Sparo dispari: 2 laser totali (1 server centrale + 2 visivi laterali)
-        // Always create both left and right lasers (same as triple, but without center visual)
-        const leftOffsetX = perpX * dualLaserOffset;
-        const leftOffsetY = perpY * dualLaserOffset;
-        const rightOffsetX = -perpX * dualLaserOffset;
-        const rightOffsetY = -perpY * dualLaserOffset;
-        
-        // Laser sinistro (solo visivo)
-        const leftEntity = this.ecs.createEntity();
-        this.ecs.addComponent(leftEntity, Transform, new Transform(
-          position.x + leftOffsetX,
-          position.y + leftOffsetY,
-          0
-        ));
-        this.ecs.addComponent(leftEntity, Velocity, new Velocity(velocity.x, velocity.y, 0));
-        const leftProjectile = new Projectile(0, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
-        this.ecs.addComponent(leftEntity, Projectile, leftProjectile);
-        this.remoteProjectiles.set(`${projectileId}_left`, {
-          entityId: leftEntity.id,
-          playerId,
-          type: projectileType
-        });
-        
-        // Laser destro (solo visivo)
-        const rightEntity = this.ecs.createEntity();
-        this.ecs.addComponent(rightEntity, Transform, new Transform(
-          position.x + rightOffsetX,
-          position.y + rightOffsetY,
-          0
-        ));
-        this.ecs.addComponent(rightEntity, Velocity, new Velocity(velocity.x, velocity.y, 0));
-        const rightProjectile = new Projectile(0, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
-        this.ecs.addComponent(rightEntity, Projectile, rightProjectile);
-        this.remoteProjectiles.set(`${projectileId}_right`, {
-          entityId: rightEntity.id,
-          playerId,
-          type: projectileType
-        });
-      }
-    }
+    // SEMPLICATO: Crea sempre un singolo proiettile, niente laser multipli
 
     return entity.id;
   }
@@ -307,8 +223,8 @@ export class RemoteProjectileSystem extends BaseSystem {
     const allProjectiles = Array.from(this.remoteProjectiles.values());
     const byType: Record<string, number> = {};
 
-    for (const projectile of allProjectiles) {
-      byType[projectile.type] = (byType[projectile.type] || 0) + 1;
+    for (const projectileData of allProjectiles) {
+      byType[projectileData.type] = (byType[projectileData.type] || 0) + 1;
     }
 
     return {

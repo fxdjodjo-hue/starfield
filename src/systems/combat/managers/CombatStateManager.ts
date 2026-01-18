@@ -59,6 +59,8 @@ export class CombatStateManager {
    * Processes player combat state and sends requests to server
    */
   processPlayerCombat(): void {
+    console.log(`[CLIENT_PROCESS_COMBAT] Processing player combat state`);
+
     const playerEntity = this.playerSystem.getPlayerEntity();
     const playerDamage = playerEntity ? this.ecs.getComponent(playerEntity, Damage) : null;
 
@@ -133,13 +135,18 @@ export class CombatStateManager {
 
 
     if (inRange && attackActivated) {
+      console.log(`[CLIENT_COMBAT_ACTIVATE] Player can attack NPC ${selectedNpc.id}, inRange=${inRange}, attackActivated=${attackActivated}`);
+
       if (this.currentAttackTarget !== selectedNpc.id) {
+        console.log(`[CLIENT_COMBAT_START] Starting combat with NPC ${selectedNpc.id}`);
         this.sendStartCombat(selectedNpc);
         this.startAttackLogging(selectedNpc);
         this.currentAttackTarget = selectedNpc.id;
         this.attackStartedLogged = true;
         // Reset missile cooldown when starting new combat
         this.missileManager.resetCooldown();
+      } else {
+        console.log(`[CLIENT_COMBAT_CONTINUE] Continuing combat with NPC ${selectedNpc.id}`);
       }
       
       // Try to fire missile automatically during combat (independent from lasers)
@@ -151,14 +158,21 @@ export class CombatStateManager {
         npcTransform,
         selectedNpc
       );
+
+      // 🔥 AGGIUNTO: Fire laser automatically during combat (server-authoritative)
+      // Il server gestisce il rate limiting e la creazione dei proiettili
+      // Il client invia solo la richiesta di start_combat e mantiene il combattimento attivo
+      console.log(`[COMBAT-CLIENT] Player combat active - laser firing handled by server`);
       
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
+      console.log(`[CLIENT_COMBAT_STOP] Stopping combat - out of range (NPC ${selectedNpc.id})`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
       this.wasInCombat = false;
     } else if (!attackActivated && this.currentAttackTarget !== null) {
+      console.log(`[CLIENT_COMBAT_STOP] Stopping combat - attack deactivated (NPC ${this.currentAttackTarget})`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
@@ -171,6 +185,19 @@ export class CombatStateManager {
    * Sends start combat request to server
    */
   private sendStartCombat(npcEntity: Entity): void {
+    console.log(`[CLIENT_COMBAT_DEBUG] SENDING start_combat for NPC ${npcEntity.id} to server`);
+
+    // Invia effettivamente il messaggio
+    const networkSystem = this.getClientNetworkSystem();
+    if (networkSystem) {
+      const message = {
+        type: 'start_combat',
+        npcId: npcEntity.id,
+        playerId: networkSystem.gameContext.authId || networkSystem.getLocalClientId()
+      };
+      console.log(`[CLIENT_COMBAT_MESSAGE] Message:`, message);
+      networkSystem.sendMessage(message);
+    }
     const clientNetworkSystem = this.getClientNetworkSystem();
     if (!clientNetworkSystem) {
       return;

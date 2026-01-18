@@ -44,6 +44,11 @@ export class ProjectileRenderer {
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isNpcProjectile = this.isNpcProjectile(projectile, playerEntity);
 
+    // DEBUG: Log classificazione proiettili
+    if (projectile.projectileType === 'laser' && !projectile.playerId?.startsWith('npc_')) {
+      console.log(`[PROJECTILE_RENDER_DEBUG] Player projectile: playerId=${projectile.playerId}, isNpcProjectile=${isNpcProjectile}`);
+    }
+
     if (isNpcProjectile) {
       // NPC projectile - try to use image first, fallback to green laser
       const projectileImage = this.getProjectileImageForProjectile(projectile);

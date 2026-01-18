@@ -643,6 +643,11 @@ export class RenderSystem extends BaseSystem {
    * Render a single projectile using render parameters from helper
    */
   private renderProjectile(ctx: CanvasRenderingContext2D, projectile: Projectile, screenPos: {x: number, y: number}): void {
+    // DEBUG: Log per vedere se renderProjectile viene chiamato per NPC
+    if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
+      console.log(`[RENDER_PROJECTILE_DEBUG] Rendering projectile: id=${projectile.id || 'unknown'}, type=${projectile.projectileType}, playerId=${projectile.playerId}, screenPos=(${screenPos.x}, ${screenPos.y})`);
+    }
+
     const params = this.projectileRenderer.getRenderParams(projectile);
 
     ctx.save();
@@ -721,6 +726,11 @@ export class RenderSystem extends BaseSystem {
       const components = this.getCachedComponents(projectileEntity);
 
       if (!components.transform || !components.projectile) continue;
+
+      // DEBUG: Log per vedere se i proiettili NPC vengono renderizzati
+      if (components.projectile.playerId && components.projectile.playerId.startsWith('npc_')) {
+        console.log(`[RENDER_DEBUG] Rendering NPC projectile: id=${components.projectile.id || 'unknown'}, playerId=${components.projectile.playerId}, pos=(${components.transform.x}, ${components.transform.y})`);
+      }
 
       // Convert world coordinates to screen coordinates
       const { width, height } = this.displayManager.getLogicalSize();
