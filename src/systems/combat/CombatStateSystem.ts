@@ -113,6 +113,10 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     const selectedNpc = selectedNpcs[0];
+    if (!selectedNpc) {
+      console.warn('[COMBAT] SelectedNpc entity is undefined');
+      return;
+    }
 
     // 🔥 CONTROLLO RANGE RETTANGOLARE PRIMA DI INIZIARE COMBATTIMENTO 🔥
     const playerEntity = this.playerSystem?.getPlayerEntity();
@@ -189,20 +193,13 @@ export class CombatStateSystem extends BaseSystem {
     // Trova l'NPC selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
-    if (selectedNpcs.length === 0) {
-      // Se non ci sono NPC selezionati, ferma qualsiasi combattimento attivo
-      if (this.currentAttackTarget !== null) {
-        this.sendStopCombat();
-        this.endAttackLogging();
-        this.currentAttackTarget = null;
-      }
-      return;
-    }
+    // Non fermare mai il combattimento se non ci sono NPC selezionati
+    // Il face-up gestisce la logica di puntamento anche senza selezione attiva
 
     const selectedNpc = selectedNpcs[0];
 
-    // Verifica che abbiamo il player
-    if (!playerEntity || !playerDamage || !this.cameraSystem) return;
+    // Verifica che abbiamo il player e un NPC selezionato
+    if (!playerEntity || !playerDamage || !this.cameraSystem || !selectedNpc) return;
 
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
@@ -233,26 +230,17 @@ export class CombatStateSystem extends BaseSystem {
 
 
     // Permetti combattimento anche se NPC fuori schermo, purché entro range
-    // Deseleziona solo se fuori schermo E fuori range E non target corrente
-    if (isOffScreen && !inRange && this.currentAttackTarget !== selectedNpc.id) {
-      this.ecs.removeComponent(selectedNpc, SelectedNpc);
-      // Reset ship rotation and deactivate attack when NPC is auto-deselected
-      if (this.playerControlSystem) {
-        this.playerControlSystem.resetShipRotation();
-        // Disattiva l'attacco quando l'NPC viene automaticamente deselezionato
-        this.playerControlSystem.deactivateAttack();
-      }
-      return; // Non continuare con la logica di combattimento
-    }
+    // NON deselezionare mai temporaneamente - lascia che il face-up gestisca la logica
+    // Il combattimento continua sempre, il face-up si occupa di puntare verso l'ultimo target conosciuto
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
-      // Player in range E (attacco attivato O eravamo in combattimento) - inizia/riprendi combattimento
-      const reason = attackActivated ? "attack activated" : "unknown reason";
+      // Player in range - inizia combattimento
+      console.log(`[CLIENT_COMBAT_START] Starting combat with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
-      
+
       // Initialize missile manager and set cooldown to full (so first missile fires after 1.5s)
       this.initializeMissileManager();
       if (this.missileManager) {
@@ -272,16 +260,27 @@ export class CombatStateSystem extends BaseSystem {
           npcTransform,
           selectedNpc
         );
+
+        if (import.meta.env.DEV && missileFired) {
+        }
+      }
+    } else if (inRange && attackActivated && this.currentAttackTarget === selectedNpc.id) {
+      // Already in combat - try to fire missile automatically
+      this.initializeMissileManager();
+      if (this.missileManager && playerEntity && playerTransform && playerDamage && npcTransform) {
+        const missileFired = this.missileManager.fireMissile(
+          playerEntity,
+          playerTransform,
+          playerDamage,
+          npcTransform,
+          selectedNpc
+        );
         
         if (import.meta.env.DEV && missileFired) {
         }
       }
-    } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
-      // Player uscito dal range - ferma combattimento
-      this.sendStopCombat();
-      this.endAttackLogging();
-      this.currentAttackTarget = null;
-      this.attackStartedLogged = false;
+    // NON fermare mai il combattimento per questioni di range
+    // Il server gestisce il range, il client mantiene sempre il combattimento attivo
     } else if (!attackActivated && this.currentAttackTarget !== null) {
       // Attacco disattivato - ferma qualsiasi combattimento in corso
       this.sendStopCombat();

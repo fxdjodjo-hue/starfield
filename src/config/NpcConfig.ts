@@ -40,12 +40,6 @@ export interface NpcDefinition {
 // Carica configurazione condivisa
 import npcConfigData from '../../shared/npc-config.json';
 
-// Dichiarazione per import JSON
-declare module '*.json' {
-  const value: any;
-  export default value;
-}
-
 /**
  * Definizioni di tutti gli NPC del gioco - caricate da file condiviso
  */

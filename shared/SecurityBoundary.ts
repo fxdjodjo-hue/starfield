@@ -241,7 +241,7 @@ export class BoundaryEnforcement {
 
       default:
         // Per default, consentire ma loggare per review con più dettagli
-        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, chat_message, start_combat, stop_combat, request_player_data, skill_upgrade_request`);
+        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: join, position_update, heartbeat, skill_upgrade_request, projectile_fired, start_combat, stop_combat, explosion_created, request_leaderboard, request_player_data, chat_message, save_request, player_respawn_request, global_monitor_request`);
         return { allowed: true };
     }
   }

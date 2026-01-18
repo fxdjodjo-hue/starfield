@@ -174,7 +174,7 @@ export class CombatSystem extends BaseSystem {
     this.initializeManagers();
     
     // Disattiva anche l'attacco nel PlayerControlSystem PRIMA di tutto
-    const playerControlSystem = this.ecs.systems?.find((system) =>
+    const playerControlSystem = this.ecs.getSystems().find((system) =>
       system instanceof PlayerControlSystem
     ) as PlayerControlSystem | undefined;
 

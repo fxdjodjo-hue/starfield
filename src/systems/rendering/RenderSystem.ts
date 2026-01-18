@@ -330,10 +330,16 @@ export class RenderSystem extends BaseSystem {
                 
                 const frameIndex = Math.floor((this.portalAnimationTime / frameDuration) % totalFrames);
                 SpritesheetRenderer.renderByIndex(ctx, renderTransform, entityAnimatedSprite, frameIndex);
+
+                // Render "coming soon" text above portal
+                this.renderComingSoonText(ctx, screenX, screenY, zoom);
               } else {
                 // Fallback a rendering normale se non ci sono frame
                 SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
               }
+
+              // Render "coming soon" text above portal
+              this.renderComingSoonText(ctx, screenX, screenY, zoom);
             }
           } else if (entitySprite && entitySprite.isLoaded()) {
             const zoom = camera?.zoom || 1;
@@ -896,4 +902,29 @@ export class RenderSystem extends BaseSystem {
     ctx.restore();
   }
 
+  /**
+   * Renderizza il testo "ACCESS DENIED" sopra al portale con effetto fluttuante
+   */
+  private renderComingSoonText(ctx: CanvasRenderingContext2D, screenX: number, screenY: number, zoom: number): void {
+    ctx.save();
+
+    // Imposta lo stile del testo
+    ctx.fillStyle = '#FF0000'; // Rosso acceso
+    ctx.strokeStyle = '#000000'; // Nero per il contorno
+    ctx.lineWidth = 3 * zoom; // Contorno più spesso per il rosso
+    ctx.font = `bold ${20 * zoom}px Arial`; // Font leggermente più grande
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Effetto fluttuazione usando funzione seno (ridotta)
+    const floatOffset = Math.sin(this.frameTime * 0.003) * 3 * zoom; // Fluttuazione verticale più leggera
+    const textY = screenY + floatOffset; // Al centro del portale invece che sopra
+    const text = 'ACCESS DENIED';
+
+    // Disegna l'ombra/stroke per migliore leggibilità
+    ctx.strokeText(text, screenX, textY);
+    ctx.fillText(text, screenX, textY);
+
+    ctx.restore();
+  }
 }

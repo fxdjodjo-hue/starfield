@@ -60,6 +60,7 @@ export class NpcBehaviorSystem extends BaseSystem {
 
     // Priorità 2: se danneggiato recentemente, diventa aggressivo (tutti)
     if (this.isNpcDamagedRecently(entityId)) {
+      console.log(`[NPC_BEHAVIOR] NPC ${entityId} danneggiato recentemente, diventa aggressivo`);
       if (npc.behavior !== 'aggressive') {
         npc.setBehavior('aggressive');
         // Se stava fuggendo, cancella la direzione di fuga

@@ -4,8 +4,8 @@
     "defaultBehavior": "cruise",
     "spriteScale": 0.8,
     "stats": {
-      "health": 8000,
-      "shield": 20000,
+      "health": 2000,
+      "shield": 2000,
       "damage": 2000,
       "range": 800,
       "cooldown": 1200,

@@ -3,7 +3,7 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 
 /**
- * Gestisce il messaggio combat_update per aggiornamenti di stato combattimento
+ * Gestisce messaggi combat_update e combat_error
  */
 export class CombatUpdateHandler extends BaseMessageHandler {
   constructor() {
@@ -11,9 +11,27 @@ export class CombatUpdateHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    // Per ora, il client non ha bisogno di fare molto con questi aggiornamenti
-    // Il combattimento è gestito dal server e i proiettili vengono creati tramite ProjectileFiredHandler
+    if (message.type === 'combat_error') {
+      // Gestisci errori di combattimento
+      this.handleCombatError(message, networkSystem);
+    } else {
+      // Gestisci aggiornamenti di combattimento normali
+      console.log(`[COMBAT_UPDATE] Player ${message.playerId} vs ${message.npcId}, attacking: ${message.isAttacking}, session: ${message.sessionId || 'none'}`);
+    }
+  }
 
-    // In futuro potremmo usare questo per aggiornare UI o stati locali
+  private handleCombatError(message: any, networkSystem: ClientNetworkSystem): void {
+    console.warn(`[COMBAT_ERROR] ${message.code}: ${message.message}`);
+
+    // Gestisci diversi tipi di errori
+    switch (message.code) {
+      case 'MULTIPLE_COMBAT_SESSIONS':
+        // Il player ha provato ad iniziare un combattimento mentre ne aveva già uno attivo
+        console.warn(`[COMBAT_ERROR] Multiple combat sessions blocked. Active session: ${message.activeSessionId || 'unknown'}`);
+        break;
+
+      default:
+        console.warn(`[COMBAT_ERROR] Unknown error code: ${message.code}`);
+    }
   }
 }

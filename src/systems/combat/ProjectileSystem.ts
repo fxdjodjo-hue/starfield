@@ -10,6 +10,7 @@ import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { Npc } from '../../entities/ai/Npc';
 import { UiSystem } from '../ui/UiSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { CombatSystem } from './CombatSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { MathUtils } from '../../core/utils/MathUtils';
 import { TimeManager } from '../../core/utils/TimeManager';
@@ -245,7 +246,7 @@ export class ProjectileSystem extends BaseSystem {
 
     // Per gli NPC, controlla se il target ha un Npc con l'ID corrispondente
     const npc = this.ecs.getComponent(targetEntity, Npc);
-    if (npc && projectile.ownerId === npc.serverId) {
+    if (npc && npc.serverId && projectile.playerId === npc.serverId) {
       return true;
     }
 
@@ -253,7 +254,7 @@ export class ProjectileSystem extends BaseSystem {
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (playerEntity && targetEntity.id === playerEntity.id) {
       // Se il proiettile è del player, non colpire il player
-      return projectile.ownerId === playerEntity.id || projectile.ownerId?.startsWith?.('client_');
+      return projectile.ownerId === playerEntity.id || (projectile.playerId?.startsWith('client_') ?? false);
     }
 
     return false;
@@ -269,7 +270,7 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Verifica se il target di un proiettile homing esiste ancora
    */
-  private targetStillExists(targetId: string): boolean {
+  private targetStillExists(targetId: number): boolean {
     // Prima cerca tra i giocatori locali
     const localPlayer = this.playerSystem.getPlayerEntity();
     if (localPlayer && localPlayer.id === targetId) {
@@ -286,9 +287,9 @@ export class ProjectileSystem extends BaseSystem {
    */
   private notifyCombatSystemOfDamage(targetEntity: any, damage: number, projectile?: Projectile): void {
     // Cerca il CombatSystem nell'ECS (robusto contro minificazione)
-    const systems = (this.ecs as any).systems || [];
-    const combatSystem = systems.find((system: any) =>
-      typeof system.createDamageText === 'function'
+    const systems = this.ecs.getSystems();
+    const combatSystem = systems.find((system): system is CombatSystem =>
+      system instanceof CombatSystem
     );
 
     if (combatSystem) {
@@ -333,8 +334,10 @@ export class ProjectileSystem extends BaseSystem {
     if (!damageTaken) {
       damageTaken = new DamageTaken();
       this.ecs.addComponent(targetEntity, DamageTaken, damageTaken);
+      console.log(`[DAMAGE] Aggiunto componente DamageTaken all'entità ${targetEntity.id}`);
     }
     damageTaken.takeDamage(Date.now());
+    console.log(`[DAMAGE] Entità ${targetEntity.id} danneggiata, tempo: ${Date.now()}`);
 
     let damageToHp = damage;
 

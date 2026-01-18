@@ -39,8 +39,11 @@ class ServerCombatManager {
 
   /**
    * Inizia combattimento player contro NPC
+   * @param {string} playerId - ID del player
+   * @param {string} npcId - ID dell'NPC target
+   * @param {object} context - Context con connessione WebSocket per errori
    */
-  startPlayerCombat(playerId, npcId) {
+  startPlayerCombat(playerId, npcId, context = null) {
     // 🚫 BLOCCA combat senza target valido
     if (!npcId) {
       console.warn(`[COMBAT-ERROR] Player ${playerId} tried to start combat with null/invalid npcId`);
@@ -66,23 +69,22 @@ class ServerCombatManager {
 
     logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId}`);
 
-    // Se il player sta già combattendo, controlla se deve aggiornare il target
+    // 🚫 COMBAT SESSION SECURITY: Un solo combattimento attivo per player alla volta
     if (this.playerCombats.has(playerId)) {
       const existingCombat = this.playerCombats.get(playerId);
-      if (existingCombat.npcId === npcId) {
-        // Già combatte contro questo NPC, non fare nulla
-        return;
-      } else {
-        // Aggiorna target a un nuovo NPC valido
-        existingCombat.npcId = npcId;
-        existingCombat.startTime = now;
-        existingCombat.lastActivity = now;
-        existingCombat.lastAttackTime = 0; // Reset per nuovo target
-        existingCombat.attackCooldown = PLAYER_CONFIG.stats.cooldown;
-        existingCombat.combatStartTime = now;
-        logger.info('COMBAT', `Updated combat target: ${playerId} now vs ${npcId}`);
-        return;
+      logger.warn('COMBAT', `🚫 BLOCKED: Player ${playerId} attempted multiple combat sessions. Active session: ${existingCombat.sessionId}, attempted vs ${npcId}`);
+
+      // Invia messaggio di errore al client
+      if (context && context.ws) {
+        context.ws.send(JSON.stringify({
+          type: 'combat_error',
+          message: 'Combat session already active. Complete current combat first.',
+          code: 'MULTIPLE_COMBAT_SESSIONS',
+          activeSessionId: existingCombat.sessionId
+        }));
       }
+
+      return; // BLOCCA il nuovo combattimento
     }
 
     // Registra il timestamp dell'avvio combattimento
@@ -91,13 +93,19 @@ class ServerCombatManager {
     // Ottieni cooldown dalla configurazione player (coerente con client)
     const attackCooldown = PLAYER_CONFIG.stats.cooldown;
 
-    // Imposta combattimento attivo
+    // Genera session ID univoco per questo combattimento
+    const sessionId = `combat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Imposta combattimento attivo con session ID
     this.playerCombats.set(playerId, {
+      sessionId: sessionId,
       npcId: npcId,
       lastAttackTime: 0,
       attackCooldown: attackCooldown,
       combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
+
+    logger.info('COMBAT', `Combat session started: ${sessionId} for player ${playerId} vs ${npcId}`);
   }
 
   /**

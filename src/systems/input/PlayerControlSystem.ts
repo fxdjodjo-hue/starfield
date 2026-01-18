@@ -167,6 +167,14 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
+   * Deselect an NPC and reset ship rotation (unified method)
+   */
+  deselectNpcAndReset(npcEntity: any): void {
+    this.initializeManagers();
+    this.attackManager.deselectNpcAndReset(npcEntity);
+  }
+
+  /**
    * Reset ship rotation when NPC is deselected
    */
   resetShipRotation(): void {

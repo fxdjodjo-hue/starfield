@@ -87,17 +87,11 @@ export class CombatStateManager {
       }
     }
 
-    if (selectedNpcs.length === 0) {
-      if (this.currentAttackTarget !== null) {
-        this.sendStopCombat();
-        this.endAttackLogging();
-        this.currentAttackTarget = null;
-        this.attackStartedLogged = false;
-      }
-      return;
-    }
+    // Non fermare mai il combattimento se non ci sono NPC selezionati
+    // Il face-up gestisce la logica di puntamento anche senza selezione attiva
 
     const selectedNpc = selectedNpcs[0];
+    if (!selectedNpc) return;
 
     if (!playerEntity || !playerDamage) return;
 
@@ -124,19 +118,8 @@ export class CombatStateManager {
     const dy = Math.abs(npcTransform.y - playerTransform.y);
     const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
 
-    // Permetti combattimento anche se NPC fuori schermo, purché entro range
-    // Deseleziona solo se fuori schermo E fuori range E non target corrente
-    if (isOffScreen && !inRange && this.currentAttackTarget !== selectedNpc.id) {
-      this.ecs.removeComponent(selectedNpc, SelectedNpc);
-      // Reset ship rotation and deactivate attack when NPC is auto-deselected
-      const playerControlSystem = this.getPlayerControlSystem();
-      if (playerControlSystem) {
-        playerControlSystem.resetShipRotation();
-        // Disattiva l'attacco quando l'NPC viene automaticamente deselezionato
-        playerControlSystem.deactivateAttack();
-      }
-      return;
-    }
+    // NON deselezionare mai automaticamente l'NPC
+    // Il combattimento continua sempre, il face-up gestisce la direzione
     const playerControlSystem = this.getPlayerControlSystem();
     const attackActivated = playerControlSystem?.isAttackActivated() || false;
 
@@ -152,9 +135,8 @@ export class CombatStateManager {
         this.attackStartedLogged = true;
         // Reset missile cooldown when starting new combat
         this.missileManager.resetCooldown();
-      } else {
-        console.log(`[CLIENT_COMBAT_CONTINUE] Continuing combat with NPC ${selectedNpc.id}`);
       }
+      // Il combattimento continua sempre - non ci sono pause/riprese
       
       // Try to fire missile automatically during combat (independent from lasers)
       console.log(`[COMBAT-CLIENT] firing missile. target=${selectedNpc.id}, currentAttackTarget=${this.currentAttackTarget}, attackStartedLogged=${this.attackStartedLogged}`);
@@ -171,13 +153,8 @@ export class CombatStateManager {
       // Il client invia solo la richiesta di start_combat e mantiene il combattimento attivo
       console.log(`[COMBAT-CLIENT] Player combat active - laser firing handled by server`);
       
-    } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
-      console.log(`[CLIENT_COMBAT_STOP] Stopping combat - out of range (NPC ${selectedNpc.id})`);
-      this.sendStopCombat();
-      this.endAttackLogging();
-      this.currentAttackTarget = null;
-      this.attackStartedLogged = false;
-      this.wasInCombat = false;
+    // NON fermare mai il combattimento per questioni di range
+    // Il server gestisce il range, il client mantiene sempre il combattimento attivo
     } else if (!attackActivated && this.currentAttackTarget !== null) {
       console.log(`[CLIENT_COMBAT_STOP] Stopping combat - attack deactivated (NPC ${this.currentAttackTarget})`);
       this.sendStopCombat();

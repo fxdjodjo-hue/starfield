@@ -616,7 +616,7 @@ function handleStartCombat(data, sanitizedData, context) {
     return;
   }
 
-  mapServer.combatManager.startPlayerCombat(data.clientId, data.npcId);
+  mapServer.combatManager.startPlayerCombat(data.clientId, data.npcId, context);
 
   const combat = mapServer.combatManager.playerCombats.get(data.clientId);
   if (combat) {
@@ -628,7 +628,8 @@ function handleStartCombat(data, sanitizedData, context) {
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
     data.playerId,
     data.npcId,
-    true
+    true,
+    combat.sessionId // Passa il session ID univoco
   );
   mapServer.broadcastToMap(combatUpdate);
 }

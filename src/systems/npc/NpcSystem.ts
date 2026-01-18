@@ -8,7 +8,7 @@ import { GameEntityFactory } from '../../factories/GameEntityFactory';
  * Gestisce creazione, configurazione e logica NPC utilizzando EntityFactory
  */
 export class NpcSystem extends System {
-  private entityFactory: EntityFactory;
+  private entityFactory: GameEntityFactory;
 
   constructor(ecs: ECS, assetManager?: any) {
     super(ecs);
