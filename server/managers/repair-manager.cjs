@@ -28,6 +28,7 @@ class RepairManager {
   processPlayerRepair(playerId, playerData, now) {
     const isInCombat = this.mapServer.combatManager?.playerCombats.has(playerId) || false;
     const timeSinceLastDamage = playerData.lastDamage ? (now - playerData.lastDamage) : Infinity;
+    const timeSinceJoin = playerData.joinTime ? (now - playerData.joinTime) : Infinity;
     const REPAIR_START_DELAY = SERVER_CONSTANTS.REPAIR.START_DELAY;
     const REPAIR_AMOUNT = SERVER_CONSTANTS.REPAIR.AMOUNT;
     const REPAIR_INTERVAL = SERVER_CONSTANTS.REPAIR.INTERVAL;
@@ -67,7 +68,11 @@ class RepairManager {
       const needsRepair = playerData.health < playerData.maxHealth ||
                          playerData.shield < playerData.maxShield;
 
-      if (needsRepair) {
+      // Non iniziare riparazione automatica nei primi 5 secondi dopo il join
+      const JOIN_DELAY = 5000; // 5 secondi
+      const canStartRepair = needsRepair && timeSinceJoin >= JOIN_DELAY;
+
+      if (canStartRepair) {
         this.startRepair(playerId, now);
       }
       return;

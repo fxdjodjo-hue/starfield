@@ -88,6 +88,7 @@ async function handleJoin(data, sanitizedData, context) {
     lastDamage: null,
     isDead: false,
     respawnTime: null,
+    joinTime: Date.now(), // Timestamp quando ha fatto join
     inventory: loadedData.inventory,
     quests: loadedData.quests || []
   };
