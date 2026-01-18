@@ -5,6 +5,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { Health } from '../../entities/combat/Health';
 import { NpcMovementSystem } from './NpcMovementSystem';
+import { MathUtils } from '../../core/utils/MathUtils';
 
 /**
  * Sistema di comportamento NPC - gestisce solo la logica decisionale degli NPC
@@ -114,9 +115,10 @@ export class NpcBehaviorSystem extends BaseSystem {
     const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
     if (!playerTransform) return false;
 
-    const dx = playerTransform.x - npcTransform.x;
-    const dy = playerTransform.y - npcTransform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distance = MathUtils.calculateDistance(
+      playerTransform.x, playerTransform.y,
+      npcTransform.x, npcTransform.y
+    );
 
     return distance <= 800;
   }

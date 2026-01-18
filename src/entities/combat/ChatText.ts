@@ -1,4 +1,5 @@
 import { Component } from '../../infrastructure/ecs/Component';
+import { InputValidator } from '../../core/utils/InputValidator';
 
 /**
  * Testi dei messaggi di chat che seguono le entità
@@ -21,10 +22,14 @@ export class ChatText extends Component {
     if (!message || typeof message !== 'string') {
       throw new Error(`Invalid chat message: ${message}`);
     }
-    if (!Number.isFinite(targetEntityId) || targetEntityId < 0) {
+
+    const entityIdValidation = InputValidator.validateNumber(targetEntityId, 'targetEntityId');
+    if (!entityIdValidation.isValid || targetEntityId < 0) {
       throw new Error(`Invalid target entity ID: ${targetEntityId}`);
     }
-    if (!Number.isFinite(lifetime) || lifetime <= 0) {
+
+    const lifetimeValidation = InputValidator.validateNumber(lifetime, 'lifetime');
+    if (!lifetimeValidation.isValid || lifetime <= 0) {
       lifetime = 2500; // Default fallback
     }
 

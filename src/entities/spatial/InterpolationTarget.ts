@@ -113,7 +113,7 @@ export class InterpolationTarget {
       this.renderY = this.targetY;
     }
 
-    if (!Number.isFinite(this.renderRotation)) {
+    if (!InputValidator.validateNumber(this.renderRotation, 'renderRotation').isValid) {
       console.error(`[INTERPOLATION] Render rotation became invalid ${this.renderRotation}, resetting to target`);
       this.renderRotation = this.targetRotation;
     }

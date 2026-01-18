@@ -4,6 +4,7 @@ import { Npc } from '../../entities/ai/Npc';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { CONFIG } from '../../core/utils/config/Config';
+import { MathUtils } from '../../core/utils/MathUtils';
 import { getNpcDefinition } from '../../config/NpcConfig';
 
 /**
@@ -100,9 +101,10 @@ export class NpcMovementSystem extends BaseSystem {
       }
 
       // Calcola direzione di fuga (lontano dal player)
-      const dx = transform.x - playerTransform.x;
-      const dy = transform.y - playerTransform.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      const { distance } = MathUtils.calculateDirection(
+        transform.x, transform.y,
+        playerTransform.x, playerTransform.y
+      );
 
       if (distance > 0) {
         // Normalizza e salva la direzione di fuga FISSA
@@ -160,9 +162,10 @@ export class NpcMovementSystem extends BaseSystem {
     }
 
     // Se il player si muove, l'NPC lo insegue
-    const dx = playerTransform.x - transform.x;
-    const dy = playerTransform.y - transform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const { distance } = MathUtils.calculateDirection(
+      playerTransform.x, playerTransform.y,
+      transform.x, transform.y
+    );
 
     if (distance > 0) {
       // Normalizza la direzione verso il player

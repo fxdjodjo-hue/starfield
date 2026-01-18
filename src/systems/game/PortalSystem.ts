@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Portal } from '../../entities/spatial/Portal';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { MathUtils } from '../../core/utils/MathUtils';
 
 /**
  * Sistema per gestire i portali
@@ -52,9 +53,10 @@ export class PortalSystem extends BaseSystem {
       if (!portalTransform) continue;
 
       // Calcola distanza tra player e portale
-      const dx = playerTransform.x - portalTransform.x;
-      const dy = playerTransform.y - portalTransform.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      const distance = MathUtils.calculateDistance(
+        playerTransform.x, playerTransform.y,
+        portalTransform.x, portalTransform.y
+      );
 
       const portalId = portalEntity.id;
       const isPlaying = this.portalSoundInstances.has(portalId);
@@ -260,9 +262,10 @@ export class PortalSystem extends BaseSystem {
       const portalTransform = this.ecs.getComponent(portalEntity, Transform);
       if (!portalTransform) continue;
 
-      const dx = playerTransform.x - portalTransform.x;
-      const dy = playerTransform.y - portalTransform.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+      const distance = MathUtils.calculateDistance(
+        playerTransform.x, playerTransform.y,
+        portalTransform.x, portalTransform.y
+      );
 
       if (distance <= this.INTERACTION_DISTANCE && distance < nearestDistance) {
         nearestDistance = distance;

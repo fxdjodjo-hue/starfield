@@ -1,6 +1,7 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
+import { MathUtils } from '../../../core/utils/MathUtils';
 
 /**
  * Handles position correction messages from the server
@@ -19,7 +20,7 @@ export class PositionCorrectionHandler extends BaseMessageHandler {
     const dx = position.x - currentPos.x;
     const dy = position.y - currentPos.y;
     const dr = position.rotation - currentPos.rotation;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const distance = MathUtils.calculateDistance(position.x, position.y, currentPos.x, currentPos.y);
 
     if (distance > 5 || Math.abs(dr) > 0.1) {
 

@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
+import { InputValidator } from '../../core/utils/InputValidator';
 
 /**
  * Sistema di interpolazione per movimenti fluidi dei remote player
@@ -40,7 +41,9 @@ export class InterpolationSystem extends BaseSystem {
 
         // Log valori sospetti ogni 30 secondi per debug
         if (Math.floor(Date.now() / 30000) % 2 === 0 && Date.now() - this.lastValueLog > 30000) {
-          if (!Number.isFinite(interpolation.renderX) || !Number.isFinite(interpolation.renderY)) {
+          const renderXValidation = InputValidator.validateNumber(interpolation.renderX, 'renderX');
+          const renderYValidation = InputValidator.validateNumber(interpolation.renderY, 'renderY');
+          if (!renderXValidation.isValid || !renderYValidation.isValid) {
             console.error(`[INTERPOLATION] Invalid render values for entity ${entity.id}: (${interpolation.renderX}, ${interpolation.renderY})`);
           }
           this.lastValueLog = Date.now();

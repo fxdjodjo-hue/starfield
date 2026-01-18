@@ -5,6 +5,7 @@ import { Velocity } from '../../../entities/spatial/Velocity';
 import { DisplayManager } from '../../../infrastructure/display';
 import { getPlayerDefinition } from '../../../config/PlayerConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
+import { MathUtils } from '../../../core/utils/MathUtils';
 
 /**
  * Manages player movement (mouse, keyboard, minimap)
@@ -56,9 +57,10 @@ export class PlayerMovementManager {
 
     if (!transform || !velocity) return;
 
-    const dx = this.minimapTargetX - transform.x;
-    const dy = this.minimapTargetY - transform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const { distance } = MathUtils.calculateDirection(
+      this.minimapTargetX, this.minimapTargetY,
+      transform.x, transform.y
+    );
 
     if (distance > 50) {
       const dirX = dx / distance;
@@ -97,9 +99,10 @@ export class PlayerMovementManager {
     const worldMouseX = worldMousePos.x;
     const worldMouseY = worldMousePos.y;
 
-    const dx = worldMouseX - transform.x;
-    const dy = worldMouseY - transform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const { distance } = MathUtils.calculateDirection(
+      worldMouseX, worldMouseY,
+      transform.x, transform.y
+    );
 
     if (distance > 10) {
       const dirX = dx / distance;
