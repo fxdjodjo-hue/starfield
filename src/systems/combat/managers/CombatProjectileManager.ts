@@ -11,6 +11,7 @@ import { GAME_CONSTANTS } from '../../../config/GameConstants';
 import { calculateDirection } from '../../../utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
 import { MissileManager } from './MissileManager';
+import { IDGenerator } from '../../../core/utils/IDGenerator';
 
 /**
  * Manages projectile creation and attack execution
@@ -44,7 +45,7 @@ export class CombatProjectileManager {
    * Creates a single projectile at a specific position and direction
    */
   createProjectileAt(attackerEntity: Entity, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: Entity): void {
-    const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const projectileId = IDGenerator.generateProjectileId(attackerEntity.id.toString());
 
     // Calculate spawn position with simple offset
     const spawnX = attackerTransform.x + directionX * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;

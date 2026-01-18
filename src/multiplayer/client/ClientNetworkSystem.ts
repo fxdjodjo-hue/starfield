@@ -13,6 +13,7 @@ import { RemoteEntityManager } from './managers/RemoteEntityManager';
 import { RateLimiter, RATE_LIMITS } from './managers/RateLimiter';
 import { NetworkStateManager, ConnectionState } from './managers/NetworkStateManager';
 import { NetworkInitializationManager } from './managers/NetworkInitializationManager';
+import { IDGenerator } from '../../core/utils/IDGenerator';
 import { NetworkAuthenticationManager } from './managers/NetworkAuthenticationManager';
 import { NetworkPositionSyncManager } from './managers/NetworkPositionSyncManager';
 import { NetworkCombatManager } from './managers/NetworkCombatManager';
@@ -90,7 +91,7 @@ export class ClientNetworkSystem extends BaseSystem {
     this.remoteProjectileSystem = remoteProjectileSystem || null;
 
     // Generate unique client ID
-    this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
+    this.clientId = IDGenerator.generateClientId();
 
     // Track if we've received welcome (clientId is valid)
     this.hasReceivedWelcome = false;

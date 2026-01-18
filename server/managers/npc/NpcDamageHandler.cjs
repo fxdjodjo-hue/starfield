@@ -3,6 +3,7 @@
 // Dipendenze: logger, mapServer, npcs Map, respawnSystem (per scheduleRespawn), rewardSystem (per awardNpcKillRewards)
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
 
 class NpcDamageHandler {
   constructor(mapServer, npcs, respawnSystem, rewardSystem) {
@@ -39,7 +40,13 @@ class NpcDamageHandler {
     npc.lastDamage = Date.now(); // Traccia quando è stato danneggiato
     npc.lastAttackerId = attackerId; // Traccia l'ultimo player che lo ha colpito
 
-    logger.info('COMBAT', `NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`);
+    ServerLoggerWrapper.combat(`NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`, {
+      npcId,
+      damage,
+      remainingHealth: npc.health,
+      remainingShield: npc.shield,
+      attackerId
+    });
 
     // Se morto, rimuovi l'NPC e assegna ricompense
     if (npc.health <= 0) {
@@ -76,7 +83,13 @@ class NpcDamageHandler {
 
     playerData.lastDamage = Date.now();
 
-    logger.info('COMBAT', `Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`);
+    ServerLoggerWrapper.combat(`Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`, {
+      playerId: clientId,
+      damage,
+      remainingHealth: playerData.health,
+      remainingShield: playerData.shield,
+      attackerId
+    });
 
     // ✅ ARCHITECTURAL CLEANUP: Rimosso - non si creano più combat senza target
     // Il bilanciamento deve essere gestito diversamente se necessario

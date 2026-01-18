@@ -7,6 +7,7 @@ import { Npc } from '../../../entities/ai/Npc';
 import { LogType } from '../../../presentation/ui/LogMessage';
 import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
 import { PlayerControlSystem } from '../PlayerControlSystem';
+import { MathUtils } from '../../../core/utils/MathUtils';
 
 /**
  * Manages player attack, NPC selection, and range validation
@@ -123,7 +124,7 @@ export class PlayerAttackManager {
 
       if (dx <= rangeWidth / 2 && dy <= rangeHeight / 2) {
         // NPC is within rectangle, calculate distance for "nearest"
-        const distance = Math.sqrt(dx * dx + dy * dy);
+        const distance = MathUtils.calculateDistance(npcTransform.x, npcTransform.y, playerTransform.x, playerTransform.y);
         if (distance < nearestDistance) {
           nearestNpc = npcEntity;
           nearestDistance = distance;
@@ -160,7 +161,7 @@ export class PlayerAttackManager {
 
         if (dx <= rangeWidth / 2 && dy <= rangeHeight / 2) {
           // NPC is within rectangle, calculate distance for "nearest"
-          const distance = Math.sqrt(dx * dx + dy * dy);
+          const distance = MathUtils.calculateDistance(transform.x, transform.y, playerTransform.x, playerTransform.y);
           if (distance < closestDistance) {
             closestNpc = npcEntity;
             closestDistance = distance;

@@ -10,6 +10,7 @@ import { ProjectileFactory } from '../../../factories/ProjectileFactory';
 import { GAME_CONSTANTS } from '../../../config/GameConstants';
 import { calculateDirection } from '../../../utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
+import { IDGenerator } from '../../../core/utils/IDGenerator';
 
 /**
  * Manages missile creation and cooldown for player
@@ -147,7 +148,7 @@ export class MissileManager {
 
     if (isLocalPlayer) {
       // Create missile for local player - spawn from center of player
-      const missileId = `missile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const missileId = IDGenerator.generateMissileId(attackerEntity.id.toString());
       
       // Create missile from center of player (no offset, no animated sprite spawn point)
       const missileEntity = ProjectileFactory.createProjectile(

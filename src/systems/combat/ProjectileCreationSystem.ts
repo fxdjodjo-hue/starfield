@@ -12,6 +12,7 @@ import { ProjectileFactory } from '../../factories/ProjectileFactory';
 import AudioSystem from '../audio/AudioSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { calculateDirection } from '../../utils/MathUtils';
+import { IDGenerator } from '../../core/utils/IDGenerator';
 
 /**
  * Sistema dedicato alla creazione di proiettili
@@ -96,7 +97,7 @@ export class ProjectileCreationSystem extends BaseSystem {
       return;
     } else {
       // NPC: crea singolo laser
-      const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const projectileId = IDGenerator.generateProjectileId(attackerEntity.id.toString());
       const projectileEntity = ProjectileFactory.createProjectile(
         this.ecs,
         damage,

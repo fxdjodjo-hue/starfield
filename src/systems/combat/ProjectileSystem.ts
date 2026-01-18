@@ -12,6 +12,7 @@ import { UiSystem } from '../ui/UiSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { calculateDirection, msToSeconds } from '../../utils/MathUtils';
+import { MathUtils } from '../../core/utils/MathUtils';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
@@ -162,17 +163,14 @@ export class ProjectileSystem extends BaseSystem {
    * Calcola e imposta la direzione del proiettile verso il target
    */
   private calculateAndSetDirection(projectileTransform: Transform, targetTransform: Transform, projectile: Projectile): void {
-    const dx = targetTransform.x - projectileTransform.x;
-    const dy = targetTransform.y - projectileTransform.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const { direction, distance } = MathUtils.calculateDirection(
+      projectileTransform.x, projectileTransform.y,
+      targetTransform.x, targetTransform.y
+    );
 
     if (distance > 0) {
-      // Normalizza direzione
-      const directionX = dx / distance;
-      const directionY = dy / distance;
-
-      projectile.directionX = directionX;
-      projectile.directionY = directionY;
+      projectile.directionX = direction.x;
+      projectile.directionY = direction.y;
     }
   }
 
