@@ -59,28 +59,23 @@ async function handleJoin(data, sanitizedData, context) {
   const maxHealth = authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades);
   const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades);
 
-  // 🟢 MMO-CORRECT: Usa SEMPRE i valori salvati, NULL = errore DB (dopo migrazione)
-  let savedHealth;
-  if (loadedData.currentHealth !== null && loadedData.currentHealth !== undefined) {
-    savedHealth = Math.min(loadedData.currentHealth, maxHealth);
-  } else {
-    // 🚨 CRITICO: Dopo migrazione DB, questo non dovrebbe mai succedere
-    logger.error('CONNECTION', `🚨 MISSING HEALTH DATA for player ${data.userId} (${loadedData.playerId})`);
-    logger.error('CONNECTION', `DB migration may have failed - player should have health data`);
-    // EMERGENCY: Fallback a full health per non bloccare il gioco
-    savedHealth = maxHealth;
+  // 🟢 MMO-CORRECT: Usa SEMPRE i valori salvati (NULL = errore critico, mai fallback)
+  // Se il player esiste, HP deve arrivare dal DB. Se manca → errore, non fallback silenzioso
+
+  if (loadedData.currentHealth === null || loadedData.currentHealth === undefined) {
+    logger.error('CONNECTION', `🚨 CRITICAL: MISSING HEALTH DATA for existing player ${data.userId} (${loadedData.playerId})`);
+    logger.error('CONNECTION', `This should NEVER happen after DB migration. Check migration status and DB integrity.`);
+    throw new Error(`DATABASE ERROR: Missing current_health for player ${loadedData.playerId}. DB migration may have failed.`);
   }
 
-  let savedShield;
-  if (loadedData.currentShield !== null && loadedData.currentShield !== undefined) {
-    savedShield = Math.min(loadedData.currentShield, maxShield);
-  } else {
-    // 🚨 CRITICO: Dopo migrazione DB, questo non dovrebbe mai succedere
-    logger.error('CONNECTION', `🚨 MISSING SHIELD DATA for player ${data.userId} (${loadedData.playerId})`);
-    logger.error('CONNECTION', `DB migration may have failed - player should have shield data`);
-    // EMERGENCY: Fallback a full shield per non bloccare il gioco
-    savedShield = maxShield;
+  if (loadedData.currentShield === null || loadedData.currentShield === undefined) {
+    logger.error('CONNECTION', `🚨 CRITICAL: MISSING SHIELD DATA for existing player ${data.userId} (${loadedData.playerId})`);
+    logger.error('CONNECTION', `This should NEVER happen after DB migration. Check migration status and DB integrity.`);
+    throw new Error(`DATABASE ERROR: Missing current_shield for player ${loadedData.playerId}. DB migration may have failed.`);
   }
+
+  const savedHealth = Math.min(loadedData.currentHealth, maxHealth);
+  const savedShield = Math.min(loadedData.currentShield, maxShield);
 
   logger.info('CONNECTION', `🎯 APPLY Health: loaded=${loadedData.currentHealth}, max=${maxHealth}, applied=${savedHealth}`);
   logger.info('CONNECTION', `🎯 APPLY Shield: loaded=${loadedData.currentShield}, max=${maxShield}, applied=${savedShield}`);
