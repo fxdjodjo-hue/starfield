@@ -3,6 +3,7 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { DeathPopupManager } from '../../../presentation/ui/managers/death/DeathPopupManager';
 import { Transform } from '../../../entities/spatial/Transform';
+import { RespawnSystem } from '../../../core/domain/RespawnSystem';
 
 /**
  * Handles player_respawn messages from the server
@@ -38,14 +39,12 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
       if (playerSystem && ecs) {
         const playerEntity = playerSystem.getPlayerEntity();
         if (playerEntity) {
-          // Aggiorna la posizione dell'entità
-          const transform = ecs.getComponent(playerEntity, Transform);
-          if (transform) {
-            transform.x = position.x;
-            transform.y = position.y;
-          } else {
-            console.error('[PlayerRespawnHandler] Transform component not found on player entity');
-          }
+          // Usa RespawnSystem per gestire il respawn completo
+          RespawnSystem.respawnPlayer(ecs, playerEntity, {
+            position: { x: position.x, y: position.y },
+            health: { current: health, max: maxHealth },
+            shield: { current: shield, max: maxShield }
+          });
 
           // Aggiorna anche la camera se necessario - cerca il CameraSystem nell'ECS
           const cameraSystem = ecs.getSystems().find(system => system.constructor.name === 'CameraSystem') as any;

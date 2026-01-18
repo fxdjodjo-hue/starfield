@@ -10,6 +10,7 @@ import { Damage } from '../../entities/combat/Damage';
 import { Npc } from '../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { getNpcDefinition } from '../../config/NpcConfig';
+import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
 
 /**
  * Sistema per la gestione degli NPC remoti in multiplayer
@@ -164,39 +165,37 @@ export class RemoteNpcSystem extends BaseSystem {
       return;
     }
 
-    // Aggiorna posizione con interpolazione
+    // Crea update object per EntityStateSystem
+    const update: any = {};
+
     if (position) {
-      const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
-      if (interpolation) {
-        interpolation.updateTarget(position.x, position.y, position.rotation || 0);
-      }
+      update.position = {
+        x: position.x,
+        y: position.y,
+        rotation: position.rotation || 0
+      };
     }
 
-    // Aggiorna salute
     if (health) {
-      const healthComponent = this.ecs.getComponent(entity, Health);
-      if (healthComponent) {
-        healthComponent.current = health.current;
-        healthComponent.max = health.max;
-      }
+      update.health = {
+        current: health.current,
+        max: health.max
+      };
     }
 
-    // Aggiorna shield
     if (shield) {
-      const shieldComponent = this.ecs.getComponent(entity, Shield);
-      if (shieldComponent) {
-        shieldComponent.current = shield.current;
-        shieldComponent.max = shield.max;
-      }
+      update.shield = {
+        current: shield.current,
+        max: shield.max
+      };
     }
 
-    // Aggiorna comportamento
     if (behavior) {
-      const npcComponent = this.ecs.getComponent(entity, Npc);
-      if (npcComponent) {
-        npcComponent.behavior = behavior;
-      }
+      update.behavior = behavior;
     }
+
+    // Usa EntityStateSystem per aggiornare lo stato
+    EntityStateSystem.updateEntityState(this.ecs, entity, update);
   }
 
   /**

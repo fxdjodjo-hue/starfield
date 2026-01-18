@@ -8,6 +8,7 @@ import { EntityFactory } from '../../factories/EntityFactory';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
+import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
@@ -295,17 +296,16 @@ export class RemotePlayerSystem extends BaseSystem {
       return;
     }
 
-    const healthComponent = this.ecs.getComponent(entity, Health);
-    const shieldComponent = this.ecs.getComponent(entity, Shield);
-
-    if (healthComponent) {
-      healthComponent.current = health;
-      healthComponent.max = maxHealth;
-    }
-
-    if (shieldComponent) {
-      shieldComponent.current = shield;
-      shieldComponent.max = maxShield;
-    }
+    // Usa EntityStateSystem per aggiornare lo stato
+    EntityStateSystem.updateEntityState(this.ecs, entity, {
+      health: {
+        current: health,
+        max: maxHealth
+      },
+      shield: {
+        current: shield,
+        max: maxShield
+      }
+    });
   }
 }
