@@ -6,6 +6,9 @@ echo.
 
 cd /d "%~dp0"
 
+echo Attivo Global Game Monitor...
+set GLOBAL_MONITOR=true
+
 echo Avvio server Node.js...
 node server.cjs
 

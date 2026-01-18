@@ -987,7 +987,20 @@ async function handleSaveRequest(data, sanitizedData, context) {
 function handleGlobalMonitorRequest(data, sanitizedData, context) {
   const { ws, mapServer } = context;
 
-  // Trova il player
+  // Permetti accesso speciale per client "monitor" (dashboard)
+  if (data.clientId === 'monitor') {
+    const globalState = mapServer.getGlobalGameState();
+
+    ws.send(JSON.stringify({
+      type: 'global_monitor_update',
+      state: globalState
+    }));
+
+    logger.info('GLOBAL_MONITOR', 'Global monitor data sent to dashboard client');
+    return;
+  }
+
+  // Per client normali, richiedi autenticazione come admin
   const playerData = mapServer.players.get(data.clientId);
   if (!playerData) {
     logger.warn('GLOBAL_MONITOR', `Player ${data.clientId} not found for global monitor request`);
@@ -1051,7 +1064,9 @@ const handlers = {
  * 3. Coerente con stato server
  * 4. Permesso in quel momento
  *
- * NOTA: Il messaggio 'join' è ESCLUSO da questa validazione perché è quello che CREA il playerData
+ * NOTA: I messaggi 'join' e 'global_monitor_request' sono ESCLUSI da questa validazione perché:
+ * - 'join' crea il playerData
+ * - 'global_monitor_request' è usato dalla dashboard di monitoraggio (client speciale)
  */
 function validatePlayerContext(type, data, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
@@ -1190,8 +1205,8 @@ async function routeMessage({ type, data, sanitizedData, context }) {
   }
 
   // 🔴 CRITICAL SECURITY: Validazione contestuale prima di ogni handler
-  // ECCEZIONE: Il messaggio 'join' non ha ancora un playerData perché è quello che lo crea
-  if (type !== 'join') {
+  // ECCEZIONI: Questi messaggi non richiedono un playerData esistente
+  if (type !== 'join' && type !== 'global_monitor_request') {
     const contextValidation = validatePlayerContext(type, data, context);
     if (!contextValidation.valid) {
       // Messaggio già loggato e connessione chiusa se necessario

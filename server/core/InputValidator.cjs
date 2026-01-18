@@ -422,6 +422,24 @@ class ServerInputValidator {
             }
           };
 
+        case 'global_monitor_request':
+          // Valida richiesta monitoraggio globale (solo admin)
+          const monitorErrors = [];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            monitorErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            monitorErrors.push('Client ID too long');
+          }
+
+          return {
+            isValid: monitorErrors.length === 0,
+            errors: monitorErrors,
+            sanitizedData: {
+              clientId: data.clientId
+            }
+          };
+
         default:
           // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
           return {

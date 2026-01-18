@@ -78,6 +78,13 @@ class NpcDamageHandler {
 
     logger.info('COMBAT', `Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`);
 
+    // 🚀 NUOVO: Se il player non è già in combattimento, avvia combattimento quando subisce danno
+    // Questo rende il sistema più realistico - il player "entra in combattimento" anche se attaccato
+    if (this.mapServer.combatManager && !this.mapServer.combatManager.playerCombats.has(clientId)) {
+      logger.info('COMBAT', `Player ${clientId} entered combat due to damage from ${attackerId}`);
+      this.mapServer.combatManager.startPlayerCombat(clientId, attackerId);
+    }
+
     // Se morto, gestisci la morte
     if (playerData.health <= 0) {
       this.handlePlayerDeath(clientId, attackerId);

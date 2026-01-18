@@ -185,6 +185,9 @@ export class CombatSystem extends BaseSystem {
     this.stateManager.stopCombatImmediately(() => {
       // Callback per deactivateAttack (già fatto sopra)
     });
+
+    // 🚀 FIX: Invia messaggio stop_combat al server quando il player smette di attaccare
+    this.stateManager.sendStopCombat();
   }
 
 }

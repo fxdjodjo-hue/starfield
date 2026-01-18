@@ -11,6 +11,7 @@ class GlobalGameMonitor {
     this.lastUpdate = 0;
     this.updateInterval = 2000; // Aggiorna ogni 2 secondi
     this.isEnabled = process.env.GLOBAL_MONITOR === 'true';
+    this.startTime = Date.now(); // Tempo di avvio del monitor
 
     this.globalState = {
       timestamp: Date.now(),
@@ -71,9 +72,9 @@ class GlobalGameMonitor {
 
   updateServerStats() {
     this.globalState.server = {
-      uptime: Date.now() - (this.mapServer.startTime || Date.now()),
+      uptime: Date.now() - this.startTime,
       totalPlayers: this.mapServer.players.size,
-      totalNpcs: this.mapServer.npcs.size,
+      totalNpcs: this.mapServer.npcManager?.npcs.size || 0,
       activeCombats: this.mapServer.combatManager?.playerCombats.size || 0
     };
   }
@@ -126,7 +127,7 @@ class GlobalGameMonitor {
   updateAggressiveNpcs() {
     this.globalState.aggressiveNpcs.clear();
 
-    for (const [npcId, npc] of this.mapServer.npcs.entries()) {
+    for (const [npcId, npc] of (this.mapServer.npcManager?.npcs.entries() || [])) {
       if (npc.behavior === 'aggressive') {
         const npcSummary = {
           id: npcId,
@@ -201,7 +202,7 @@ class GlobalGameMonitor {
     const threats = [];
     const THREAT_RANGE = 600;
 
-    for (const [npcId, npc] of this.mapServer.npcs.entries()) {
+    for (const [npcId, npc] of (this.mapServer.npcManager?.npcs.entries() || [])) {
       if (npc.behavior === 'aggressive' || npc.lastAttackerId === clientId) {
         const distance = Math.sqrt(
           Math.pow(npc.position.x - playerData.position.x, 2) +
@@ -227,7 +228,7 @@ class GlobalGameMonitor {
     for (const [clientId, playerData] of this.mapServer.players.entries()) {
       if (!playerData?.position) continue;
 
-      const npc = this.mapServer.npcs.get(npcId);
+      const npc = this.mapServer.npcManager?.npcs.get(npcId);
       if (!npc) continue;
 
       // Calcola se il player è nel range di attacco dell'NPC

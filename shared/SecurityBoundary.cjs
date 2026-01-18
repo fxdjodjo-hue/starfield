@@ -189,9 +189,13 @@ class BoundaryEnforcement {
         // Solo per testing - il client può richiedere danno di test
         return { allowed: true };
 
+      case 'global_monitor_request':
+        // La dashboard può richiedere dati di monitoraggio globale
+        return { allowed: true };
+
       default:
         // Per default, consentire ma loggare per review con più dettagli
-        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, request_leaderboard, skill_upgrade_request, projectile_fired, test_damage`);
+        console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: position_update, heartbeat, chat_message, join, start_combat, stop_combat, request_player_data, request_leaderboard, skill_upgrade_request, projectile_fired, test_damage, global_monitor_request`);
         return { allowed: true };
     }
   }
