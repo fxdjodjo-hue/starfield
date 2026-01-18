@@ -593,9 +593,6 @@ function handleStartCombat(data, sanitizedData, context) {
     return;
   }
 
-  // Reset manual stop flag when player manually starts combat
-  playerData.lastCombatStop = undefined;
-
   mapServer.combatManager.startPlayerCombat(data.clientId, data.npcId);
 
   const combat = mapServer.combatManager.playerCombats.get(data.clientId);
@@ -624,9 +621,6 @@ function handleStopCombat(data, sanitizedData, context) {
   if (!playerData) return;
 
   mapServer.combatManager.stopPlayerCombat(data.clientId);
-
-  // Mark that player recently stopped combat to prevent auto-restart
-  mapServer.projectileManager.damageHandler.markPlayerCombatStopped(data.clientId);
 
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
     data.playerId,

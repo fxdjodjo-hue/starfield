@@ -39,7 +39,7 @@ class ServerCombatManager {
    * Inizia combattimento player contro NPC
    */
   startPlayerCombat(playerId, npcId) {
-    logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId}`);
+    logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId || 'no-target'}`);
 
     // 🔒 SECURITY: Anti-spam - previene spam di start_combat per bypassare cooldown
     const now = Date.now();
@@ -51,19 +51,23 @@ class ServerCombatManager {
       return;
     }
 
-    // Se il player sta già combattendo un NPC diverso, ferma il combattimento precedente
+    // Se il player sta già combattendo, non fare nulla
     if (this.playerCombats.has(playerId)) {
-      const existingCombat = this.playerCombats.get(playerId);
-      if (existingCombat.npcId !== npcId) {
-        this.playerCombats.delete(playerId);
-        // Non chiamare stopPlayerCombat qui per evitare loop
-      } else {
-        return;
-      }
+      return;
     }
 
     // Registra il timestamp dell'avvio combattimento
     this.combatStartCooldowns.set(playerId, now);
+
+    // Se npcId è null, crea uno stato di combattimento senza target specifico
+    if (!npcId) {
+      this.playerCombats.set(playerId, {
+        npcId: null,
+        startTime: now,
+        lastActivity: now
+      });
+      return;
+    }
 
     // Verifica che l'NPC esista
     const npc = this.mapServer.npcManager.getNpc(npcId);
