@@ -73,7 +73,6 @@ export class EntityFactory {
     
     // Autorità: entità statica, nessuna autorità necessaria
     // Il portale è puramente visivo per ora, senza logica
-    console.log(`[EntityFactory] Portal created at (${x}, ${y})`);
   }
 
   /**
@@ -91,7 +90,6 @@ export class EntityFactory {
     // Componente SpaceStation per identificare questa entità come space station
     ecs.addComponent(entity, SpaceStation, new SpaceStation());
     
-    console.log(`[EntityFactory] Space station created at (${x}, ${y})`);
   }
 
   /**
@@ -141,7 +139,6 @@ export class EntityFactory {
       // Componente visivo
       ecs.addComponent(entity, Sprite, backgroundSprite);
       
-      console.log(`[EntityFactory] Map background created at (${worldCenterX}, ${worldCenterY}) with scale (${scaleX}, ${scaleY}), image size: ${imgWidth}x${imgHeight}, path: ${mapPath}`);
     } catch (error) {
       console.warn('[EntityFactory] Failed to create map background:', error);
       // Non bloccare il gioco se il background non può essere caricato

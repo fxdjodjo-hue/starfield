@@ -89,7 +89,6 @@ authScreen.hide();
 // Test isolato di AuthValidationManager
 const validationManager = new AuthValidationManager(authContainer);
 const isValid = validationManager.isValidEmail('test@example.com');
-console.log(isValid); // true
 
 // Test isolato di AuthUIRenderer
 const uiRenderer = new AuthUIRenderer();

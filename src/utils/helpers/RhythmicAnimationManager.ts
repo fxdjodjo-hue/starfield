@@ -1,10 +1,15 @@
 /**
  * Gestisce pattern ritmico per animazione visiva lato client
  * Separato dalla logica di danno (server-authoritative)
+ *
+ * OTTIMIZZAZIONE: Pattern più fluido mantenendo allineamento server
+ * - Base mantenuto a 800ms per perfetto allineamento server
+ * - Pattern più irregolare per ritmo più dinamico
+ * - Media esatta 800ms per zero desincronizzazione
  */
 export class RhythmicAnimationManager {
-  private static readonly BASE_COOLDOWN = 800; // 800ms (coincide con server)
-  private static readonly PATTERN_MULTIPLIERS = [0.870, 0.870, 1.217, 1.043]; // Pattern ritmico (media 1.0)
+  private static readonly BASE_COOLDOWN = 800; // Mantenuto a 800ms per allineamento perfetto con server
+  private static readonly PATTERN_MULTIPLIERS = [0.75, 0.75, 1.25, 1.0]; // Pattern fluido: 600ms, 600ms, 1000ms, 800ms (media 800ms)
   
   private lastAnimationTime: number = 0;
   private patternIndex: number = 0;

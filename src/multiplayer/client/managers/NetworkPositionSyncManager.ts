@@ -23,7 +23,7 @@ export class NetworkPositionSyncManager {
     private readonly rateLimiter: RateLimiter,
     private readonly tickManager: NetworkTickManager,
     private readonly positionTracker: PlayerPositionTracker,
-    private readonly clientId: string,
+    public clientId: string,
     private readonly isClientReady?: () => boolean
   ) {}
 
@@ -96,9 +96,6 @@ export class NetworkPositionSyncManager {
     if (this.isClientReady && !this.isClientReady()) {
       // Accumula la posizione per quando il client sarà pronto
       this.pendingPosition = position;
-      if (import.meta.env.DEV) {
-        console.log('[NetworkPositionSyncManager] Buffering position update - waiting for welcome message');
-      }
       return;
     }
 

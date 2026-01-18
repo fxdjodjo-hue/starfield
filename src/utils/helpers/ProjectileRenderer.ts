@@ -74,25 +74,11 @@ export class ProjectileRenderer {
       // 🔧 FIX: Usa percorso corretto per Vite (senza leading slash)
       const playerLaserImage = this.assetManager.getOrLoadImage('assets/laser/laser1/laser1.png');
 
-      if (import.meta.env.DEV) {
-        console.log('[ProjectileRenderer] Player laser image:', {
-          exists: !!playerLaserImage,
-          complete: playerLaserImage?.complete,
-          width: playerLaserImage?.width,
-          height: playerLaserImage?.height,
-          naturalWidth: playerLaserImage?.naturalWidth,
-          naturalHeight: playerLaserImage?.naturalHeight,
-          src: playerLaserImage?.src
-        });
-      }
 
       if (playerLaserImage && playerLaserImage.complete && playerLaserImage.naturalWidth > 0 && playerLaserImage.naturalHeight > 0) {
         // Image-based projectile
         const imageSize = 48; // Dimensione sprite laser player
 
-        if (import.meta.env.DEV) {
-          console.log('[ProjectileRenderer] Using player laser image:', playerLaserImage.src);
-        }
 
         return {
           color: '#ff0000', // Red (fallback)
@@ -105,7 +91,6 @@ export class ProjectileRenderer {
       } else {
         // Laser-based projectile (fallback)
         if (import.meta.env.DEV) {
-          console.log('[ProjectileRenderer] Using fallback laser (image not loaded):', playerLaserImage?.src);
         }
         return {
           color: '#ff0000', // Red

@@ -30,7 +30,6 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
 
     if (isLocalPlayer) {
       // Player locale respawnato - aggiorna la posizione dell'entità locale
-      console.log('[PlayerRespawnHandler] Local player respawned at:', position);
 
       // Aggiorna la posizione del player locale nell'ECS
       const playerSystem = networkSystem.getPlayerSystem();
@@ -44,7 +43,6 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
           if (transform) {
             transform.x = position.x;
             transform.y = position.y;
-            console.log('[PlayerRespawnHandler] Updated local player position to:', position);
           } else {
             console.error('[PlayerRespawnHandler] Transform component not found on player entity');
           }
@@ -53,7 +51,6 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
           const cameraSystem = ecs.getSystems().find(system => system.constructor.name === 'CameraSystem') as any;
           if (cameraSystem && cameraSystem.setTargetPosition) {
             cameraSystem.setTargetPosition(position.x, position.y);
-            console.log('[PlayerRespawnHandler] Updated camera target position');
           }
         } else {
           console.error('[PlayerRespawnHandler] Player entity not available');

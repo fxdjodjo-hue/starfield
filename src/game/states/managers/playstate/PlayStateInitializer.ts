@@ -52,18 +52,15 @@ export class PlayStateInitializer {
    * Hides the loading screen
    */
   hideLoadingScreen(): void {
-    console.log('[PlayState] hideLoadingScreen() chiamato');
     
     // Nascondi AuthScreen se disponibile
     if (this.context.authScreen && typeof this.context.authScreen.hide === 'function') {
-      console.log('[PlayState] Nascondendo AuthScreen tramite metodo hide()');
       this.context.authScreen.hide();
     } else {
       console.warn('[PlayState] AuthScreen.hide() non disponibile, provo fallback');
       // Fallback: cerca e nascondi manualmente
       const authContainer = document.querySelector('[style*="position: fixed"][style*="z-index: 1000"]');
       if (authContainer) {
-        console.log('[PlayState] Trovato authContainer, nascondendo...');
         (authContainer as HTMLElement).style.display = 'none';
       } else {
         console.warn('[PlayState] authContainer non trovato nel DOM');
@@ -77,7 +74,6 @@ export class PlayStateInitializer {
       if (audioSystem && typeof audioSystem.playSound === 'function') {
         try {
           audioSystem.playSound('playerLogin', 0.05, false, false, 'effects');
-          console.log('[PlayState] Suono di login riprodotto dopo animazione camera');
         } catch (error) {
           console.warn('[PlayState] Errore nella riproduzione del suono di login:', error);
         }
@@ -86,13 +82,11 @@ export class PlayStateInitializer {
       // Mostra il display HP/Shield
       const systems = this.gameInitSystem.getSystems();
       if (systems?.playerStatusDisplaySystem && typeof systems.playerStatusDisplaySystem.show === 'function') {
-        console.log('[PlayState] Mostrando PlayerStatusDisplaySystem (dopo animazione camera)');
         systems.playerStatusDisplaySystem.show();
       }
       
       // Mostra anche la minimap
       if (systems?.minimapSystem && typeof systems.minimapSystem.show === 'function') {
-        console.log('[PlayState] Mostrando Minimap (dopo animazione camera)');
         systems.minimapSystem.show();
       }
       
@@ -102,20 +96,17 @@ export class PlayStateInitializer {
         if (typeof uiSystem.getPlayerHUD === 'function') {
           const playerHUD = uiSystem.getPlayerHUD();
           if (playerHUD && typeof playerHUD.show === 'function') {
-            console.log('[PlayState] Mostrando PlayerHUD (dopo animazione camera)');
             playerHUD.show();
           }
         }
         
         // Mostra anche la chat
         if (typeof uiSystem.showChat === 'function') {
-          console.log('[PlayState] Mostrando Chat (dopo animazione camera)');
           uiSystem.showChat();
         }
         
         // Mostra anche le icone dei pannelli (3 icone a sinistra)
         if (typeof uiSystem.showPanelIcons === 'function') {
-          console.log('[PlayState] Mostrando icone pannelli (dopo animazione camera)');
           uiSystem.showPanelIcons();
         }
       }
@@ -133,19 +124,15 @@ export class PlayStateInitializer {
           // Durata aumentata a 2.5 secondi per renderla più visibile
           // La UI verrà mostrata quando l'animazione è completata
           cameraSystem.animateZoomOut(5, 1, 2500, transform.x, transform.y, showUI);
-          console.log('[PlayState] Animazione zoom out avviata dal centro della nave (5x -> 1x)');
         } else {
           // Fallback: usa valori di default se non troviamo la posizione
           cameraSystem.animateZoomOut(5, 1, 2500, undefined, undefined, showUI);
-          console.log('[PlayState] Animazione zoom out avviata (posizione player non disponibile)');
         }
       } else {
         cameraSystem.animateZoomOut(5, 1, 2500, undefined, undefined, showUI);
-        console.log('[PlayState] Animazione zoom out avviata (player entity non disponibile)');
       }
     } else {
       // Se non c'è animazione camera, mostra UI immediatamente (fallback)
-      console.log('[PlayState] CameraSystem non disponibile, mostrando UI immediatamente');
       showUI();
     }
   }
@@ -159,7 +146,6 @@ export class PlayStateInitializer {
       const maxAttempts = 50; // 5 secondi max (50 * 100ms) - RecentHonor non è critico
       const checkInterval = 100; // Controlla ogni 100ms
 
-      console.log('[PlayState] waitForPlayerDataReady() iniziato');
 
       const checkDataReady = () => {
         attempts++;
@@ -175,36 +161,21 @@ export class PlayStateInitializer {
           const rankSystem = (economySystem as any).rankSystem;
           if (rankSystem && (rankSystem as any).recentHonor !== null && (rankSystem as any).recentHonor !== undefined) {
             hasRecentHonor = true;
-            console.log('[PlayState] RecentHonor trovato in RankSystem:', (rankSystem as any).recentHonor);
           }
         }
 
         const hasInventory = this.context.playerInventory !== undefined && 
                             this.context.playerInventory.experience > 0;
 
-        // Log ogni 10 tentativi (ogni secondo)
-        if (attempts % 10 === 0) {
-          const seconds = Math.floor(attempts / 10);
-          console.log(`[PlayState] Tentativo ${attempts} (${seconds}s):`, {
-            hasRecentHonor,
-            hasInventory,
-            recentHonorInContext: this.context.playerInventory?.recentHonor,
-            experience: this.context.playerInventory?.experience,
-            economySystem: !!economySystem,
-            rankSystemRecentHonor: economySystem ? (economySystem as any).rankSystem?.recentHonor : 'N/A'
-          });
-        }
 
         // Aggiorna il testo di loading se AuthScreen è disponibile
         if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
           if (attempts % 10 === 0) { // Ogni secondo
             const seconds = Math.floor(attempts / 10);
             if (hasRecentHonor) {
-              console.log('[PlayState] RecentHonor disponibile! Mostrando "Ready!"');
               this.context.authScreen.updateLoadingText('Ready!');
               // Piccolo delay prima di risolvere per mostrare "Ready!"
               setTimeout(() => {
-                console.log('[PlayState] Risolvendo waitForPlayerDataReady()');
                 resolve();
               }, 300);
               return;
@@ -217,7 +188,6 @@ export class PlayStateInitializer {
         if (hasRecentHonor || attempts >= maxAttempts) {
           // Dati pronti o timeout raggiunto
           if (hasRecentHonor) {
-            console.log('[PlayState] RecentHonor trovato, risolvendo...');
             resolve();
           } else {
             // Timeout: procedi comunque con valori di default
@@ -229,11 +199,9 @@ export class PlayStateInitializer {
             // Imposta valori di default se non sono arrivati
             if (!hasRecentHonor && this.context.playerInventory) {
               this.context.playerInventory.recentHonor = this.context.playerInventory.honor || 0;
-              console.log('[PlayState] Impostato RecentHonor di default:', this.context.playerInventory.recentHonor);
             }
 
             setTimeout(() => {
-              console.log('[PlayState] Risolvendo waitForPlayerDataReady() dopo timeout');
               resolve();
             }, 300);
           }
@@ -308,24 +276,17 @@ export class PlayStateInitializer {
    * Initializes the game world and creates entities
    */
   async initializeGame(): Promise<void> {
-    console.log('[PlayStateInitializer] initializeGame() iniziato');
     
     try {
       // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
-      console.log('[PlayStateInitializer] Chiamando gameInitSystem.initialize()...');
       const playerEntity = await this.gameInitSystem.initialize();
-      console.log('[PlayStateInitializer] gameInitSystem.initialize() completato, playerEntity:', playerEntity);
       this.setPlayerEntity(playerEntity);
 
       // Ora che i sistemi sono stati creati, imposta il ClientNetworkSystem
-      console.log('[PlayStateInitializer] Impostando ClientNetworkSystem...');
       this.setupClientNetworkSystem();
-      console.log('[PlayStateInitializer] ClientNetworkSystem impostato');
 
     // Ottieni riferimenti ai sistemi creati
-    console.log('[PlayStateInitializer] Ottenendo riferimenti ai sistemi...');
     const systems = this.gameInitSystem.getSystems();
-    console.log('[PlayStateInitializer] Sistemi ottenuti:', Object.keys(systems));
     this.setQuestSystem(systems.questSystem);
     const uiSystem = this.getUiSystem();
     if (!uiSystem && systems.uiSystem) {
@@ -334,7 +295,6 @@ export class PlayStateInitializer {
     this.setQuestManager(systems.questManager);
     this.setCameraSystem(systems.cameraSystem);
     this.setMovementSystem(systems.movementSystem);
-    console.log('[PlayStateInitializer] Riferimenti sistemi impostati');
 
     // Ora che i sistemi sono stati creati, imposta NPC e proiettili remoti nel ClientNetworkSystem
     if (systems.remoteNpcSystem) {
@@ -379,7 +339,6 @@ export class PlayStateInitializer {
     }
 
     // Collega il ClientNetworkSystem all'UiSystem (per UpgradePanel)
-    console.log('[PlayStateInitializer] Collegando ClientNetworkSystem all\'UiSystem...');
     const clientNetworkSystem = this.getClientNetworkSystem();
     if (clientNetworkSystem) {
       const uiSystem = this.getUiSystem();
@@ -397,7 +356,6 @@ export class PlayStateInitializer {
       clientNetworkSystem.setPlayerSystem(systems.playerSystem);
     }
 
-    console.log('[PlayStateInitializer] initializeGame() completato');
     } catch (error) {
       console.error('[PlayStateInitializer] Errore in initializeGame():', error);
       throw error;
@@ -409,9 +367,7 @@ export class PlayStateInitializer {
    * per prevenire callback chiamati prima che i sistemi siano pronti
    */
   async initializeNetworkSystem(): Promise<void> {
-    console.log('[PlayStateInitializer] initializeNetworkSystem STARTED');
     const clientNetworkSystem = this.getClientNetworkSystem();
-    console.log('[PlayStateInitializer] clientNetworkSystem retrieved:', !!clientNetworkSystem);
 
     if (!clientNetworkSystem) {
       console.warn('[PlayStateInitializer] initializeNetworkSystem: ClientNetworkSystem non disponibile');
@@ -420,9 +376,7 @@ export class PlayStateInitializer {
 
     try {
       // Inizializza il sistema di rete
-      console.log('[PlayStateInitializer] Chiamando clientNetworkSystem.initialize()...');
       await clientNetworkSystem.initialize();
-      console.log('[PlayStateInitializer] clientNetworkSystem.initialize() completato');
 
       // Ora che il sistema è inizializzato, possiamo configurare i callback in sicurezza
       clientNetworkSystem.setOnPlayerIdReceived((playerDbId) => {
@@ -462,7 +416,6 @@ export class PlayStateInitializer {
    * Main entry point for PlayState initialization
    */
   async enter(): Promise<void> {
-    console.log('[PlayState] enter() chiamato');
 
     // Assicurati che lo spinner sia visibile fin dall'inizio
     if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
@@ -472,7 +425,6 @@ export class PlayStateInitializer {
     // Crea UiSystem solo ora (quando si entra nel PlayState)
     let uiSystem = this.getUiSystem();
     if (!uiSystem) {
-      console.log('[PlayState] Creando UiSystem...');
       const questSystem = this.getQuestSystem();
       if (!questSystem) {
         throw new Error('QuestSystem not available');
@@ -488,9 +440,7 @@ export class PlayStateInitializer {
       this.context.authScreen.updateLoadingText('Loading multiplayer systems...');
     }
     
-    console.log('[PlayState] Inizializzando sistemi multiplayer...');
     await this.initializeMultiplayerSystems();
-    console.log('[PlayState] Sistemi multiplayer inizializzati');
 
     // Aggiorna il testo di loading durante l'inizializzazione del gioco
     if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
@@ -498,9 +448,7 @@ export class PlayStateInitializer {
     }
 
     try {
-      console.log('[PlayState] Inizializzando gioco...');
       await this.initializeGame();
-      console.log('[PlayState] Gioco inizializzato');
     } catch (error) {
       console.error('[PlayState] Failed to initialize game:', error);
       throw error;
@@ -517,9 +465,7 @@ export class PlayStateInitializer {
     const clientNetworkSystem = this.getClientNetworkSystem();
     if (clientNetworkSystem && typeof clientNetworkSystem.connectToServer === 'function') {
       try {
-        console.log('[PlayState] Connessione al server...');
         await clientNetworkSystem.connectToServer();
-        console.log('[PlayState] Connesso al server');
         
         // Aggiorna il testo durante l'attesa della risposta del server
         if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
@@ -527,19 +473,15 @@ export class PlayStateInitializer {
         }
         
         // 🔧 FIX: Inizializza il sistema di rete DOPO la connessione (ha bisogno del welcome message)
-        console.log('[PlayState] Inizializzando sistema di rete dopo connessione...');
         await this.initializeNetworkSystem();
-        console.log('[PlayState] Sistema di rete inizializzato');
         
         // Piccolo delay per dare tempo al server di processare la connessione
-        console.log('[PlayState] Attendo 500ms per processare connessione...');
         await new Promise(resolve => setTimeout(resolve, 500));
         
         // Aggiorna il testo di loading dopo la connessione
         if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
           this.context.authScreen.updateLoadingText('Loading player data...');
         }
-        console.log('[PlayState] Testo aggiornato a "Loading player data..."');
       } catch (error) {
         console.error('❌ [PLAYSTATE] CRITICAL: Failed to connect to server:', error);
 
@@ -563,17 +505,13 @@ export class PlayStateInitializer {
     }
 
     // Aspetta che RecentHonor sia disponibile prima di procedere
-    console.log('[PlayState] Aspettando dati player (RecentHonor)...');
     await this.waitForPlayerDataReady();
-    console.log('[PlayState] Dati player pronti!');
 
     // Nascondi lo spinner di loading (se ancora visibile)
-    console.log('[PlayState] Nascondendo loading screen...');
     this.hideLoadingScreen();
 
     // SOLO ORA inizializza l'UI - dopo che lo spinner è nascosto
     // La UI verrà mostrata quando l'animazione della camera finisce
-    console.log('[PlayState] Inizializzando UI system...');
     uiSystem = this.getUiSystem();
     if (uiSystem) {
       uiSystem.initialize();
@@ -581,7 +519,6 @@ export class PlayStateInitializer {
       // Aggiorna i dati dell'HUD senza mostrare la chat (verrà mostrata dopo l'animazione)
       uiSystem.showPlayerInfo(false);
     }
-    console.log('[PlayState] enter() completato');
 
     // Collega l'AudioSystem al ClientNetworkSystem ora che è stato creato
     const audioSystem = this.getAudioSystem();

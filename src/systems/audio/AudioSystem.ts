@@ -80,9 +80,6 @@ export default class AudioSystem extends System {
       if (pool.length > 0) {
         this.audioPool.set(soundKey, pool);
         this.preloadedSounds.set(soundKey, pool[0]); // Mantieni anche la prima istanza per compatibilità
-        if (import.meta.env.DEV) {
-          console.log(`[AudioSystem] Preloaded sound: ${soundKey} (${pool.length} instances in pool)`);
-        }
       }
     }
   }
@@ -201,22 +198,13 @@ export default class AudioSystem extends System {
       const pooledAudio = this.getAudioFromPool(key);
       if (pooledAudio) {
         audio = pooledAudio;
-        if (import.meta.env.DEV && key === 'rocketExplosion') {
-          console.log(`[AudioSystem] Using pooled rocketExplosion (instant playback, readyState: ${audio.readyState})`);
-        }
       } else if (this.preloadedSounds.has(key)) {
         // Fallback: usa l'istanza precaricata se il pool non è disponibile
         audio = this.preloadedSounds.get(key)!;
         audio.currentTime = 0;
-        if (import.meta.env.DEV && key === 'rocketExplosion') {
-          console.log(`[AudioSystem] Using preloaded rocketExplosion (fallback, readyState: ${audio.readyState})`);
-        }
       } else {
         // Fallback: carica normalmente se non precaricato
         audio = new Audio(audioUrl);
-        if (import.meta.env.DEV && key === 'rocketExplosion') {
-          console.log(`[AudioSystem] Loading rocketExplosion from: ${audioUrl} (not preloaded)`);
-        }
       }
       
       audio.volume = this.config.masterVolume * volume;
@@ -231,7 +219,6 @@ export default class AudioSystem extends System {
           }
         });
         audio.addEventListener('canplaythrough', () => {
-          console.log(`[AudioSystem] rocketExplosion loaded and ready to play`);
         });
       }
 
@@ -252,9 +239,6 @@ export default class AudioSystem extends System {
           }
           
           await audio.play();
-          if (import.meta.env.DEV && key === 'rocketExplosion') {
-            console.log(`[AudioSystem] ✅ rocketExplosion playing successfully, volume: ${audio.volume}, readyState: ${audio.readyState}`);
-          }
         } catch (error) {
           if (retryCount < 2) {
             console.warn(`Audio system: Failed to play '${key}' (attempt ${retryCount + 1}), retrying...`);
@@ -316,7 +300,6 @@ export default class AudioSystem extends System {
       }
 
       const audioUrl = `/assets/audio/${assetPath}`;
-      console.log(`Audio system: Creating music '${key}' from ${audioUrl}`);
       
       this.musicInstance = new Audio(audioUrl);
       this.musicInstance.volume = this.config.masterVolume * volume;
@@ -334,7 +317,6 @@ export default class AudioSystem extends System {
       const playMusic = async (retryCount = 0) => {
         try {
           await this.musicInstance!.play();
-          console.log(`Audio system: Music '${key}' playing successfully`);
         } catch (error) {
           if (retryCount < 2) {
             console.warn(`Audio system: Failed to play music '${key}' (attempt ${retryCount + 1}), retrying...`, error);

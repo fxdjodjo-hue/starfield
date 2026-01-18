@@ -134,7 +134,6 @@ class ProjectileBroadcaster {
     };
 
     // Interest radius: TUTTO IL MONDO per distruzioni NPC (minimappa globale richiede aggiornamenti globali)
-    console.log(`[SERVER] Broadcasting entity_destroyed: ${entity.id} (${entityType}) at ${entity.position.x.toFixed(0)},${entity.position.y.toFixed(0)} - radius: 50000`);
     this.mapServer.broadcastNear(entity.position, 50000, message);
   }
 

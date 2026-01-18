@@ -39,10 +39,7 @@ class Logger {
   }
 
   debug(module, message, data = null) {
-    if (this.logLevel >= LOG_LEVELS.DEBUG) {
-      const timestamp = new Date().toISOString();
-      console.debug(`${LOG_COLORS.DEBUG}[${timestamp}] ${LOG_COLORS.BOLD}DEBUG${LOG_COLORS.RESET} [${module}] ${message}`, data || '');
-    }
+    // Debug logging disabled - use warn() or error() for essential logs
   }
 }
 

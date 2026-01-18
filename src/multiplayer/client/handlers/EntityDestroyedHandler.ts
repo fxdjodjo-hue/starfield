@@ -26,12 +26,10 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
    * Imposta il riferimento al DeathPopupManager per gestire la morte del player locale
    */
   setDeathPopupManager(deathPopupManager: DeathPopupManager): void {
-    console.log('[EntityDestroyedHandler] setDeathPopupManager called with:', deathPopupManager);
     this.deathPopupManager = deathPopupManager;
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    console.log('[EntityDestroyedHandler] Received:', message);
 
     if (message.entityType === 'npc') {
       // NPC distrutto - NON assegnare ricompense qui (fatto in PlayerStateUpdateHandler)
@@ -45,11 +43,8 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
     } else if (message.entityType === 'player') {
       // Verifica se è il player locale
       const localClientId = networkSystem.getLocalClientId();
-      console.log('[EntityDestroyedHandler] Player death - entityId:', message.entityId, 'localClientId:', localClientId);
 
   if (message.entityId === localClientId) {
-    console.log('[EntityDestroyedHandler] LOCAL PLAYER DIED - showing popup');
-    console.log('[EntityDestroyedHandler] deathPopupManager exists:', !!this.deathPopupManager);
 
     // FERMA SUBITO IL COMBATTIMENTO quando il player muore
     const ecs = networkSystem.getECS();
@@ -58,14 +53,12 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
         typeof system.stopCombatImmediately === 'function'
       ) as any;
       if (combatSystem) {
-        console.log('[EntityDestroyedHandler] Stopping combat immediately on player death');
         combatSystem.stopCombatImmediately();
       }
     }
 
     // Player locale morto - mostra popup respawn
     if (this.deathPopupManager) {
-      console.log('[EntityDestroyedHandler] Calling deathPopupManager.showDeathPopup()');
       this.deathPopupManager.showDeathPopup();
     } else {
       console.error('[EntityDestroyedHandler] deathPopupManager is null/undefined!');

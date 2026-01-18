@@ -64,17 +64,6 @@ export class CombatStateManager {
 
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     
-    // Always log when there are selected NPCs (throttled to avoid spam)
-    if (selectedNpcs.length > 0) {
-      const now = Date.now();
-      if (!this.lastCombatLogTime || now - this.lastCombatLogTime > 2000) { // Log ogni 2 secondi
-        console.log('[CombatStateManager] processPlayerCombat: selectedNpcs found', {
-          count: selectedNpcs.length,
-          npcId: selectedNpcs[0]?.id
-        });
-        this.lastCombatLogTime = now;
-      }
-    }
     
     // Debug log (only in dev, throttled to avoid spam)
     if (import.meta.env.DEV && selectedNpcs.length > 0) {
@@ -92,21 +81,6 @@ export class CombatStateManager {
         const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
         
         if (attackActivated && inRange) {
-          // Log only once per second to avoid spam
-          const now = Date.now();
-          if (!this.lastCombatLogTime || now - this.lastCombatLogTime > 1000) {
-            console.log('[CombatStateManager] processPlayerCombat: IN COMBAT', {
-              selectedNpcs: selectedNpcs.length,
-              attackActivated,
-              inRange,
-              dx: Math.round(dx),
-              dy: Math.round(dy),
-              range: `${rangeWidth}x${rangeHeight}`,
-              currentTarget: this.currentAttackTarget
-            });
-            this.lastCombatLogTime = now;
-          }
-        }
       }
     }
 
@@ -165,9 +139,6 @@ export class CombatStateManager {
         this.attackStartedLogged = true;
         // Reset missile cooldown when starting new combat
         this.missileManager.resetCooldown();
-        if (import.meta.env.DEV) {
-          console.log('[CombatStateManager] Combat started, missile cooldown reset');
-        }
       }
       
       // Try to fire missile automatically during combat (independent from lasers)
@@ -179,11 +150,6 @@ export class CombatStateManager {
         selectedNpc
       );
       
-      if (import.meta.env.DEV) {
-        if (missileFired) {
-          console.log('[CombatStateManager] Missile fired automatically during combat');
-        }
-      }
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {
       this.sendStopCombat();
       this.endAttackLogging();

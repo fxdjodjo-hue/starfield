@@ -126,12 +126,11 @@ export class RemoteProjectileSystem extends BaseSystem {
       type: projectileType
     });
 
-    // Per tutti i player (non NPC), crea laser visivi alternati (2 o 3 laser totali)
+    // Per tutti i player (non NPC), crea laser visivi sempre 3 per maggiore impatto visivo
     if (typeof playerId === 'string' && !playerId.startsWith('npc_')) {
-      // Incrementa contatore sparo per questo playerId specifico e alterna tra 3 e 2 laser
-      const currentCount = (this.playerShotCounts.get(playerId) || 0) + 1;
-      this.playerShotCounts.set(playerId, currentCount);
-      const isTripleShot = (currentCount % 2) === 1; // Spari dispari = 3 laser, pari = 2 laser
+      // OTTIMIZZAZIONE: Sempre 3 laser per maggiore fluidità visiva
+      // Rimosso alternanza 2-3 laser, ora sempre impatto massimo
+      const isTripleShot = true; // Sempre triple shot per laser più impressionanti
       
       const dualLaserOffset = 40; // Offset perpendicolare per i laser laterali (px)
       const perpX = -directionY;
@@ -261,13 +260,6 @@ export class RemoteProjectileSystem extends BaseSystem {
       return true; // ✅ Considerato successo
     }
 
-    if (import.meta.env.DEV) {
-      console.log('[RemoteProjectileSystem] removeRemoteProjectile', {
-        projectileId,
-        type: projectileData.type,
-        entityId: projectileData.entityId
-      });
-    }
 
     const entity = this.ecs.getEntity(projectileData.entityId);
     if (entity) {
@@ -298,14 +290,6 @@ export class RemoteProjectileSystem extends BaseSystem {
    */
   getRemoteProjectileType(projectileId: string): string | undefined {
     const projectileData = this.remoteProjectiles.get(projectileId);
-    if (import.meta.env.DEV) {
-      console.log('[RemoteProjectileSystem] getRemoteProjectileType', {
-        projectileId,
-        found: !!projectileData,
-        type: projectileData?.type,
-        allKeys: Array.from(this.remoteProjectiles.keys())
-      });
-    }
     return projectileData?.type;
   }
 

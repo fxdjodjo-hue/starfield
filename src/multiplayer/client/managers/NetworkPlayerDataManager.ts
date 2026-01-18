@@ -10,7 +10,7 @@ import type { NetMessage } from '../types/MessageTypes';
 export class NetworkPlayerDataManager {
   private readonly connectionManager: NetworkConnectionManager;
   private readonly gameContext: GameContext;
-  private readonly clientId: string;
+  public clientId: string;
   private readonly sendMessage: (message: NetMessage) => void;
   private readonly isConnected: () => boolean;
 

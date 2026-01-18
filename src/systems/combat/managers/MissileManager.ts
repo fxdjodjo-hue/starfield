@@ -96,7 +96,7 @@ export class MissileManager {
 
     // Update last fire time
     this.lastMissileFireTime = now;
-    attackerDamage.performAttack(now);
+    // Note: Missiles have independent cooldown, don't interfere with laser rate limiting
 
     return true;
   }

@@ -36,16 +36,13 @@ export class AuthInitializationManager {
    * Aggiorna il testo di loading
    */
   updateLoadingText(text: string): void {
-    console.log(`[AuthScreen] updateLoadingText("${text}")`);
     this.uiRenderer.updateLoadingText(this.loadingContainer, text);
-    console.log(`[AuthScreen] Testo aggiornato con successo`);
   }
 
   /**
    * Nasconde la schermata (chiamato quando i dati sono pronti)
    */
   hide(): void {
-    console.log('[AuthScreen] hide() chiamato - nascondendo schermata con fade out');
     
     // Fade out animato più duraturo
     this.container.style.transition = 'opacity 1.2s ease-out';
@@ -57,7 +54,6 @@ export class AuthInitializationManager {
     // Dopo l'animazione, nascondi completamente
     setTimeout(() => {
       this.container.style.display = 'none';
-      console.log('[AuthScreen] Schermata nascosta completamente');
     }, 1200);
   }
 

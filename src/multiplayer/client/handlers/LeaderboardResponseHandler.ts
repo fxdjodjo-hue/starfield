@@ -14,12 +14,6 @@ export class LeaderboardResponseHandler extends BaseMessageHandler {
   }
 
   handle(message: LeaderboardResponseMessage, networkSystem: ClientNetworkSystem): void {
-    console.log('[LeaderboardResponseHandler] Received leaderboard response:', {
-      entriesCount: message.entries?.length || 0,
-      sortBy: message.sortBy,
-      playerRank: message.playerRank,
-      error: (message as any).error
-    });
 
     // Ottieni UiSystem per aggiornare il pannello leaderboard
     const uiSystem = networkSystem.getUiSystem();
@@ -46,11 +40,6 @@ export class LeaderboardResponseHandler extends BaseMessageHandler {
       sortBy: message.sortBy,
       playerRank: message.playerRank
     };
-
-    console.log('[LeaderboardResponseHandler] Processed leaderboard data:', {
-      entriesCount: leaderboardData.entries.length,
-      firstEntry: leaderboardData.entries[0]
-    });
 
     // Aggiorna il pannello leaderboard
     const uiManager = uiSystem.getUIManager();

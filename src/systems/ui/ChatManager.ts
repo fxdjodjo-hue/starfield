@@ -60,7 +60,6 @@ export class ChatManager {
     // Controllo multiplo per sicurezza
     if (message.senderId === this.localPlayerId) {
       if (import.meta.env.DEV) {
-        console.log('[ChatManager] Ignoring own message (senderId match):', message.senderId);
       }
       return;
     }
@@ -68,7 +67,6 @@ export class ChatManager {
     // Controllo duplicati per ID (prevenzione aggiuntiva)
     if (message.id && this.recentMessageIds.has(message.id)) {
       if (import.meta.env.DEV) {
-        console.log('[ChatManager] Ignoring duplicate message (ID match):', message.id);
       }
       return;
     }

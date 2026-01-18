@@ -71,7 +71,6 @@ logger.debug('TEST', 'Questo non appare se livello < DEBUG');
 // Test performance
 messageCount.increment();
 messageCount.increment();
-console.log('Messaggi processati:', messageCount.get());
 ```
 
 ## 📋 **Best Practices**

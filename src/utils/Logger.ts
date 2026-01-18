@@ -12,7 +12,7 @@ export class PeriodicLogger {
     const lastLogTime = this.lastLogTimes.get(key) || 0;
 
     if (now - lastLogTime > intervalMs) {
-      console.log(message);
+      // Logging disabled - use console.warn() or console.error() for essential logs
       this.lastLogTimes.set(key, now);
     }
   }

@@ -233,7 +233,6 @@ export class SystemConfigurator {
 
       // Configura DeathPopupManager nel PlayerControlSystem per disabilitare input
       if (systems.playerControlSystem) {
-        console.log('[SystemConfigurator] Setting DeathPopupManager in PlayerControlSystem');
         systems.playerControlSystem.setDeathPopupManager(clientNetworkSystem.getDeathPopupManager());
       }
     }

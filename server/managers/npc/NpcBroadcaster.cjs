@@ -29,7 +29,6 @@ class NpcBroadcaster {
     };
 
     // Broadcast GLOBALE per spawn NPC (minimappa globale richiede aggiornamenti globali)
-    console.log(`[SERVER] Broadcasting npc_spawn: ${npc.id} (${npc.type}) at ${npc.position.x.toFixed(0)},${npc.position.y.toFixed(0)} - radius: 50000`);
     this.mapServer.broadcastNear(npc.position, 50000, message);
   }
 }

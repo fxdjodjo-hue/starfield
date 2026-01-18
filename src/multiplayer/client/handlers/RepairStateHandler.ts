@@ -19,7 +19,6 @@ export class RepairStartedHandler extends BaseMessageHandler {
 
   async handle(message: any, networkSystem: ClientNetworkSystem): Promise<void> {
     if (import.meta.env.DEV) {
-      console.log('[RepairStartedHandler] Repair started for player', message.playerId);
     }
 
     // Crea effetto visivo di riparazione
@@ -116,7 +115,6 @@ export class RepairStartedHandler extends BaseMessageHandler {
     ecs.addComponent(repairEffectEntity, Transform, effectTransform);
     ecs.addComponent(repairEffectEntity, RepairEffect, repairEffect);
 
-    console.log(`[RepairStartedHandler] Created ${repairType} repair effect`);
   }
 }
 
@@ -130,7 +128,6 @@ export class RepairStoppedHandler extends BaseMessageHandler {
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     if (import.meta.env.DEV) {
-      console.log('[RepairStoppedHandler] Repair stopped for player', message.playerId);
     }
 
     // Rimuovi effetto visivo di riparazione
@@ -148,7 +145,6 @@ export class RepairCompleteHandler extends BaseMessageHandler {
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     if (import.meta.env.DEV) {
-      console.log('[RepairCompleteHandler] Repair completed for player', message.playerId);
     }
 
     // Rimuovi effetto visivo di riparazione

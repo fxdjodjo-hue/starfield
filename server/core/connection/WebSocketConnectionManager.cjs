@@ -106,7 +106,6 @@ class WebSocketConnectionManager {
         this.messageCount.increment();
         try {
           const data = JSON.parse(message.toString());
-          console.log(`📨 [SERVER] Received message type: ${data.type} from ${data.clientId || 'unknown'}`);
 
           // INPUT VALIDATION: valida struttura messaggio
           const structureValidation = this.inputValidator.validateMessageStructure(data);

@@ -94,7 +94,6 @@ upgradePanel.showInsufficientResourcesPopup("Not enough credits");
 // Test isolato di UpgradeValidationManager
 const validationManager = new UpgradeValidationManager(ecs, playerSystem);
 const cost = validationManager.calculateUpgradeCost('hp', 5);
-console.log(cost); // { credits: 8750, cosmos: 0 }
 
 // Test isolato di UpgradeTooltipManager
 const tooltipManager = new UpgradeTooltipManager(container);

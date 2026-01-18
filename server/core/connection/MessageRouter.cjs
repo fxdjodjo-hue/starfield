@@ -224,19 +224,21 @@ function handlePositionUpdate(data, sanitizedData, context) {
 
   // 🔒 SECURITY: Rate limiting lato server per position_update
   const now = Date.now();
+
+  // Inizializza timestamp per rate limiting
   if (!playerData.lastPositionUpdateTime) {
     playerData.lastPositionUpdateTime = now;
     playerData.positionUpdateCount = 0;
   }
-  
+
   // Reset counter ogni secondo
   if (now - playerData.lastPositionUpdateTime >= 1000) {
     playerData.positionUpdateCount = 0;
     playerData.lastPositionUpdateTime = now;
   }
-  
-  // Max 35 position updates al secondo (leggermente più del client per margine)
-  const MAX_POSITION_UPDATES_PER_SECOND = 35;
+
+  // Max 50 position updates al secondo (aumentato per fluidità nei combattimenti)
+  const MAX_POSITION_UPDATES_PER_SECOND = 50;
   if (playerData.positionUpdateCount >= MAX_POSITION_UPDATES_PER_SECOND) {
     // Rate limit superato - ignora questo update
     return;
@@ -246,17 +248,37 @@ function handlePositionUpdate(data, sanitizedData, context) {
   // 🔒 SECURITY: Anti-teleport - verifica che il movimento sia fisicamente possibile
   const PLAYER_CONFIG = require('../../../shared/player-config.json');
   const baseSpeed = PLAYER_CONFIG.stats.speed || 300; // 300 unità/secondo
-  const maxSpeedWithUpgrades = baseSpeed * 2; // Max speed con upgrade (100 upgrade = +100% = 2x)
-  const MAX_MOVEMENT_DISTANCE_PER_UPDATE = maxSpeedWithUpgrades * 0.1; // Max distanza in 100ms (10 updates/sec worst case)
-  
+
+  // Calcola velocità effettiva del giocatore basata sui suoi upgrade
+  const playerSpeedUpgrades = playerData.upgrades?.speedUpgrades || 0;
+  const speedMultiplier = 1.0 + (playerSpeedUpgrades * 0.01); // Ogni upgrade = +1% velocità
+  const actualMaxSpeed = baseSpeed * speedMultiplier;
+
+  // Calcola tempo effettivo dall'ultimo movimento (non dall'ultimo rate limit reset)
+  const timeSinceLastMovement = now - (playerData.lastMovementTime || now);
+  const timeInSeconds = Math.max(timeSinceLastMovement / 1000, 0.01); // Minimo 10ms per evitare divisioni per zero
+
+  // Distanza massima possibile in questo intervallo di tempo
+  const maxPossibleDistance = actualMaxSpeed * timeInSeconds;
+
   if (playerData.position && Number.isFinite(playerData.position.x) && Number.isFinite(playerData.position.y)) {
     const dx = sanitizedData.x - playerData.position.x;
     const dy = sanitizedData.y - playerData.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    
+
+    // Threshold più permissivo per compensare lag network (5x invece di 2x)
+    const TELEPORT_THRESHOLD_MULTIPLIER = 5;
+    const teleportThreshold = maxPossibleDistance * TELEPORT_THRESHOLD_MULTIPLIER;
+
     // Se la distanza è troppo grande, potrebbe essere un teleport hack
-    if (distance > MAX_MOVEMENT_DISTANCE_PER_UPDATE * 2) { // Margine 2x per lag/network
-      logger.warn('SECURITY', `🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: distance ${distance.toFixed(2)} > max ${(MAX_MOVEMENT_DISTANCE_PER_UPDATE * 2).toFixed(2)}`);
+    if (distance > teleportThreshold) {
+      logger.warn('SECURITY', `🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
+        `distance ${distance.toFixed(2)} > threshold ${teleportThreshold.toFixed(2)} | ` +
+        `actualMaxSpeed: ${actualMaxSpeed.toFixed(0)} u/s | ` +
+        `speedUpgrades: ${playerSpeedUpgrades} | ` +
+        `timeDelta: ${timeSinceLastMovement}ms | ` +
+        `from (${playerData.position.x.toFixed(1)}, ${playerData.position.y.toFixed(1)}) ` +
+        `to (${sanitizedData.x.toFixed(1)}, ${sanitizedData.y.toFixed(1)})`);
       // Ignora questo update invece di applicarlo
       return;
     }
@@ -272,6 +294,8 @@ function handlePositionUpdate(data, sanitizedData, context) {
       velocityX: sanitizedData.velocityX || 0,
       velocityY: sanitizedData.velocityY || 0
     };
+    // Aggiorna timestamp per calcolo movimento successivo
+    playerData.lastMovementTime = now;
   }
 
   // Aggiungi alla queue
@@ -1077,9 +1101,9 @@ function validatePlayerContext(type, data, context) {
     playerData.messageRateLimit.windowStart = now;
   }
 
-  // Max 500 messaggi al minuto per player (temporaneo per debug)
+  // Max 2000 messaggi al minuto per player (aumentato per gameplay fluido)
   playerData.messageRateLimit.messageCount++;
-  if (playerData.messageRateLimit.messageCount > 500) {
+  if (playerData.messageRateLimit.messageCount > 2000) {
     logger.error('SECURITY', `🚫 BLOCKED: Rate limit exceeded for ${data.clientId} playerId:${playerData.playerId} (${playerData.messageRateLimit.messageCount} messages/minute)`);
     ws.close(1008, 'Rate limit exceeded');
     return { valid: false, reason: 'RATE_LIMIT_EXCEEDED' };

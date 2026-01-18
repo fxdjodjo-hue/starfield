@@ -276,7 +276,6 @@ export class PortalSystem extends BaseSystem {
       if (portal) {
         portal.activate();
         this.lastEKeyPress = now;
-        console.log('[PortalSystem] Portal activated - animation speed increased for 3 seconds');
       }
     }
   }

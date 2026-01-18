@@ -51,10 +51,6 @@ export class NetworkChatManager {
       timestamp: Date.now()
     };
 
-    if (import.meta.env.DEV) {
-      console.log('[CHAT] Sending message:', { clientId: this.clientId, content: content.trim().substring(0, 50) });
-    }
-
     this.connectionManager.send(JSON.stringify(message));
   }
 }

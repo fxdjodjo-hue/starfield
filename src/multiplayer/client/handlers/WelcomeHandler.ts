@@ -45,12 +45,6 @@ export class WelcomeHandler extends BaseMessageHandler {
           const playerId = message.playerDbId;
           const localPlayerId = playerId ? `${playerId}` : serverClientId;
           chatManager.setLocalPlayerId(localPlayerId);
-          if (import.meta.env.DEV) {
-            console.log('[WelcomeHandler] Updated ChatManager localPlayerId to:', localPlayerId, {
-              playerId: playerId,
-              clientId: serverClientId
-            });
-          }
         }
       } catch (error) {
         // ChatManager potrebbe non essere ancora inizializzato, non è critico

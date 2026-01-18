@@ -442,11 +442,6 @@ export class LeaderboardPanel extends BasePanel {
    */
   update(data: PanelData): void {
     const leaderboardData = data as LeaderboardData;
-    console.log('[LeaderboardPanel] update() called with data:', {
-      hasData: !!leaderboardData,
-      entriesCount: leaderboardData?.entries?.length || 0,
-      sortBy: leaderboardData?.sortBy
-    });
 
     if (!leaderboardData) {
       console.warn('[LeaderboardPanel] No leaderboard data provided');

@@ -34,26 +34,21 @@ export class Game {
    * Inizializza il gioco e imposta lo stato iniziale
    */
   async init(): Promise<void> {
-    console.log('[Game] init() chiamato');
     const authScreen = this.startState.getAuthScreen();
     
     // Salva riferimento a AuthScreen nel context per accesso da PlayState
     this.context.authScreen = authScreen;
-    console.log('[Game] AuthScreen salvato nel context');
 
     // Imposta il callback per il passaggio a PlayState quando autenticato
     authScreen.setOnAuthenticated(async () => {
-      console.log('[Game] onAuthenticated callback chiamato, inizializzando PlayState in background...');
       
       // Inizializza PlayState in background SENZA cambiare stato ancora
       // Lo spinner rimarrà visibile durante l'inizializzazione
       try {
         await this.playState.enter(this.context);
-        console.log('[Game] PlayState inizializzato, cambiando stato...');
         
         // Solo ora cambia stato (lo spinner verrà nascosto da PlayState quando tutto è pronto)
         await this.changeState(this.playState);
-        console.log('[Game] Stato cambiato a PlayState');
       } catch (error) {
         console.error('[Game] CRITICAL: Errore durante inizializzazione PlayState:', error);
 
@@ -103,9 +98,7 @@ export class Game {
     });
 
     // Inizia con lo StartState
-    console.log('[Game] Cambiando stato a StartState...');
     await this.changeState(this.startState);
-    console.log('[Game] StartState attivato');
   }
 
   /**
@@ -144,30 +137,24 @@ export class Game {
    * Cambia lo stato del gioco
    */
   private async changeState(newState: GameState): Promise<void> {
-    console.log('[Game] changeState() chiamato, nuovo stato:', newState.constructor.name);
     
     // Esci dallo stato corrente
     if (this.currentState) {
-      console.log('[Game] Uscendo da stato corrente:', this.currentState.constructor.name);
       this.currentState.exit();
     }
 
     // Imposta il nuovo stato
     this.currentState = newState;
     this.context.currentState = newState;
-    console.log('[Game] Nuovo stato impostato:', newState.constructor.name);
 
     // Se lo stato è già stato inizializzato (enter() già chiamato), non chiamarlo di nuovo
     // Questo permette di inizializzare PlayState in background prima di cambiare stato
     if (newState === this.playState && (newState as any)._initialized) {
-      console.log('[Game] PlayState già inizializzato, saltando enter()');
       return;
     }
 
     // Entra nel nuovo stato
-    console.log('[Game] Chiamando enter() sul nuovo stato...');
     await newState.enter(this.context);
-    console.log('[Game] enter() completato per stato:', newState.constructor.name);
   }
 
   /**

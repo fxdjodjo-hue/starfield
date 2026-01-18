@@ -132,16 +132,12 @@ export class CombatStateSystem extends BaseSystem {
     const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
 
     // Debug range check
-    if (import.meta.env.DEV) {
-      console.log(`🔍 [DEBUG] handleAttackActivated - DX: ${dx.toFixed(1)}px, DY: ${dy.toFixed(1)}px, Range: ${rangeWidth}x${rangeHeight}, InRange: ${inRange}`);
-    }
 
     if (!inRange) {
       // Mostra messaggio fuori range
       if (this.logSystem) {
         this.logSystem.addLogMessage('Target out of range! Move closer to attack.', LogType.ATTACK_FAILED, 2000);
       }
-      console.log('🚫 [COMBAT] NPC fuori range - combattimento non iniziato');
       return; // Non iniziare combattimento se fuori range
     }
 
@@ -257,7 +253,6 @@ export class CombatStateSystem extends BaseSystem {
         // Set cooldown to full so first missile fires after 1.5 seconds
         this.missileManager.setCooldownToFull();
         if (import.meta.env.DEV) {
-          console.log('[CombatStateSystem] Combat started, missile cooldown set to full (first missile in 1.5s)');
         }
       }
     } else if (inRange && attackActivated && this.currentAttackTarget === selectedNpc.id) {
@@ -273,7 +268,6 @@ export class CombatStateSystem extends BaseSystem {
         );
         
         if (import.meta.env.DEV && missileFired) {
-          console.log('[CombatStateSystem] Missile fired automatically during combat');
         }
       }
     } else if (!inRange && this.currentAttackTarget === selectedNpc.id) {

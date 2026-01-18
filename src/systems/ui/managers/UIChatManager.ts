@@ -71,7 +71,6 @@ export class UIChatManager {
     // Preveni doppia configurazione
     if (this.clientNetworkSystem === clientNetworkSystem && this.handlersRegistered) {
       if (import.meta.env.DEV) {
-        console.log('[UIChatManager] setClientNetworkSystem already called for this instance, skipping');
       }
       return;
     }

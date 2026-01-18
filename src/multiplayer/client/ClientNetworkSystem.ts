@@ -29,7 +29,7 @@ import { DeathPopupManager } from '../../presentation/ui/managers/death/DeathPop
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
-import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, secureLogger } from '../../config/NetworkConfig';
+import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, type ClientId, secureLogger } from '../../config/NetworkConfig';
 
 /**
  * Sistema di rete client modulare per multiplayer
@@ -38,7 +38,7 @@ import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, secure
 export class ClientNetworkSystem extends BaseSystem {
   // Core dependencies
   public readonly gameContext: GameContext;
-  public readonly clientId: string;
+  public clientId: string;
   private audioSystem: any = null;
   private logSystem: any = null;
   private uiSystem: any = null;
@@ -75,6 +75,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
   // Player info - ora con branded type
   private playerDbId?: PlayerDbId;
+  private hasReceivedWelcome: boolean = false;
 
   // Callbacks for external systems
   private onPlayerIdReceived?: (playerDbId: PlayerDbId) => void;
@@ -193,9 +194,7 @@ export class ClientNetworkSystem extends BaseSystem {
     this.rhythmicAnimationManager = new RhythmicAnimationManager();
 
     // Initialize death popup manager
-    console.log('[ClientNetworkSystem] Creating DeathPopupManager');
     this.deathPopupManager = new DeathPopupManager(gameContext);
-    console.log('[ClientNetworkSystem] DeathPopupManager created:', this.deathPopupManager);
 
     // Register message handlers
     this.initManager.registerMessageHandlers();
@@ -425,7 +424,6 @@ export class ClientNetworkSystem extends BaseSystem {
       this.initManager.registerMessageHandlers();
 
       // Ora che tutti gli handler sono registrati (incluso EntityDestroyedHandler), configura il DeathPopupManager
-      console.log('[ClientNetworkSystem] All handlers registered, configuring DeathPopupManager');
       this.configureDeathPopupManager();
     }
   }
@@ -583,21 +581,12 @@ export class ClientNetworkSystem extends BaseSystem {
    * Questo viene chiamato dal WelcomeHandler quando il server assegna un clientId persistente
    */
   updateClientId(newClientId: string): void {
-    if (import.meta.env.DEV) {
-      console.log('[ClientNetworkSystem] Updating clientId:', {
-        old: this.clientId,
-        new: newClientId,
-        contextOld: this.gameContext.localClientId,
-        contextNew: newClientId
-      });
-    }
-
     // Salva il vecchio clientId per trasferire eventuali aggiornamenti pendenti
     const oldClientId = this.clientId;
 
     // Aggiorna sia il clientId interno che quello nel context
     this.clientId = newClientId;
-    this.gameContext.localClientId = newClientId;
+    this.gameContext.localClientId = newClientId as ClientId;
 
     // 🔄 CRITICAL: Aggiorna clientId anche nei manager che lo usano
     if (this.playerDataManager) {
@@ -616,16 +605,10 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // 🔄 CRITICAL: Se il clientId è cambiato, trasferisci eventuali aggiornamenti posizione pendenti
     // Questo previene il "doppio player" quando il clientId viene aggiornato dal welcome
-    if (oldClientId !== newClientId && this.gameContext.serverConnection) {
+    if (oldClientId !== newClientId) {
       // Qui dovremmo notificare al server di trasferire eventuali aggiornamenti posizione
       // dal vecchio clientId al nuovo clientId, ma per ora ci affidiamo al rate limiting
       // e alla pulizia automatica della queue nel server
-      if (import.meta.env.DEV) {
-        console.log('[ClientNetworkSystem] ClientId changed, position updates may be affected:', {
-          old: oldClientId,
-          new: newClientId
-        });
-      }
     }
     if (this.positionSyncManager) {
       this.positionSyncManager.clientId = newClientId;
@@ -633,11 +616,6 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // 🔴 CRITICAL: Segnala che ora siamo "ready" - possiamo iniziare a inviare messaggi
     this.hasReceivedWelcome = true;
-    console.log('[ClientNetworkSystem] hasReceivedWelcome set to true - client is now ready');
-
-    if (import.meta.env.DEV) {
-      console.log('[ClientNetworkSystem] Client is now READY - welcome received, clientId updated in all managers');
-    }
   }
 
   /**
@@ -729,36 +707,17 @@ export class ClientNetworkSystem extends BaseSystem {
    * Configura il DeathPopupManager negli handler appropriati
    */
   configureDeathPopupManager(): void {
-    console.log('[ClientNetworkSystem] Configuring DeathPopupManager in handlers - CALL STACK:', new Error().stack);
-
     if (this.messageRouter) {
       const handlers = (this.messageRouter as any).handlers || [];
-      console.log('[ClientNetworkSystem] Found', handlers.length, 'handlers');
 
       // Trova e configura EntityDestroyedHandler
-      console.log('[ClientNetworkSystem] Looking for EntityDestroyedHandler...');
-      secureLogger.log('Available handlers:', handlers.map((h: any, i: number) => `${i}: ${h.constructor?.name}`).join(', '));
-
       const entityDestroyedHandler = handlers.find((handler: any) =>
         handler.constructor?.name === 'EntityDestroyedHandler' ||
         handler.messageType === MESSAGE_TYPES.ENTITY_DESTROYED
       );
 
-      console.log('[ClientNetworkSystem] Found entityDestroyedHandler:', entityDestroyedHandler);
-      console.log('[ClientNetworkSystem] Handler constructor:', entityDestroyedHandler?.constructor?.name);
-      console.log('[ClientNetworkSystem] Handler messageType:', entityDestroyedHandler?.messageType);
-
       if (entityDestroyedHandler && typeof entityDestroyedHandler.setDeathPopupManager === 'function') {
-        console.log('[ClientNetworkSystem] Setting DeathPopupManager in EntityDestroyedHandler');
         entityDestroyedHandler.setDeathPopupManager(this.deathPopupManager);
-      } else {
-        console.log('[ClientNetworkSystem] EntityDestroyedHandler not found or missing setDeathPopupManager method');
-        console.log('[ClientNetworkSystem] Handler details:', {
-          found: !!entityDestroyedHandler,
-          hasMethod: entityDestroyedHandler ? typeof entityDestroyedHandler.setDeathPopupManager === 'function' : false,
-          constructor: entityDestroyedHandler?.constructor?.name,
-          messageType: entityDestroyedHandler?.messageType
-        });
       }
 
       // Trova e configura PlayerRespawnHandler
@@ -766,18 +725,12 @@ export class ClientNetworkSystem extends BaseSystem {
         handler.constructor?.name === 'PlayerRespawnHandler'
       );
       if (playerRespawnHandler && typeof playerRespawnHandler.setDeathPopupManager === 'function') {
-        console.log('[ClientNetworkSystem] Setting DeathPopupManager in PlayerRespawnHandler');
         playerRespawnHandler.setDeathPopupManager(this.deathPopupManager);
-      } else {
-        console.log('[ClientNetworkSystem] PlayerRespawnHandler not found or missing setDeathPopupManager method');
       }
-    } else {
-      console.log('[ClientNetworkSystem] MessageRouter not available');
     }
 
     // Imposta il callback di respawn nel DeathPopupManager
     this.deathPopupManager.setOnRespawnCallback(() => {
-      console.log('[ClientNetworkSystem] Respawn requested by player');
       this.requestPlayerRespawn();
     });
   }
@@ -793,8 +746,6 @@ export class ClientNetworkSystem extends BaseSystem {
    * Richiede il respawn del player al server
    */
   private requestPlayerRespawn(): void {
-    console.log('[ClientNetworkSystem] Requesting player respawn');
-
     const message = {
       type: 'player_respawn_request',
       clientId: this.clientId,

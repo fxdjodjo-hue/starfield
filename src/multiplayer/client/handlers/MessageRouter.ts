@@ -35,7 +35,6 @@ export class MessageRouter {
     if (handler) {
       try {
         if (import.meta.env.DEV && message.type === 'chat_message') {
-          console.log('[MessageRouter] Routing chat_message to handler:', handler.constructor.name);
         }
         handler.handle(message, networkSystem);
       } catch (error) {

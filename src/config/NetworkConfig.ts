@@ -589,7 +589,6 @@ export const secureLogger = {
       // Skip verbose NPC updates to reduce log spam
       if (message.includes('npc_bulk_update') ||
           (args.length > 0 && args[0]?.type === 'npc_bulk_update')) return;
-      console.log(`[${new Date().toISOString()}] ${message}`, ...args);
     }
   },
   warn: (message: string, ...args: any[]) => {

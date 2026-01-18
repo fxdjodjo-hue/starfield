@@ -12,15 +12,10 @@ const { logger, messageCount } = require('./server/logger.cjs');
 const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbwbvwis.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
 
-console.log('🔍 [SERVER] SUPABASE CONFIG:');
-console.log('   URL:', supabaseUrl);
-console.log('   KEY starts with:', supabaseServiceKey.substring(0, 20) + '...');
-console.log('   KEY length:', supabaseServiceKey.length);
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Database è configurato correttamente - le policy RLS sono applicate
-console.log('✅ [SERVER] Database configured with service role access');
 
 // Carica configurazioni centralizzate
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('./server/config/constants.cjs');
@@ -69,13 +64,11 @@ const server = http.createServer(async (req, res) => {
 
       // POST /api/create-profile - Crea profilo giocatore
       if (pathParts[0] === 'api' && pathParts[1] === 'create-profile' && req.method === 'POST') {
-        console.log('📡 [API] Received create-profile request');
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', async () => {
           try {
             const { username } = JSON.parse(body);
-            console.log('📡 [API] Parsed request body:', { username });
 
             // Verifica autenticazione
             const authHeader = req.headers.authorization;
@@ -96,13 +89,11 @@ const server = http.createServer(async (req, res) => {
             }
 
             // Crea profilo usando RPC sicura
-            console.log('🔧 [API] Calling RPC create_player_profile:', { auth_id: user.id, username });
             const { data, error } = await supabase.rpc('create_player_profile', {
               auth_id_param: user.id,
               username_param: username
             });
 
-            console.log('🔧 [API] RPC response:', { data, error });
 
             if (error) {
               console.error('❌ [API] RPC error:', error);
@@ -111,7 +102,6 @@ const server = http.createServer(async (req, res) => {
               return;
             }
 
-            console.log('✅ [API] Profile created successfully:', data);
             // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
             const profileData = Array.isArray(data) && data.length > 0 ? data[0] : data;
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -145,7 +135,6 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
-          console.log('📡 [API] Received lazy-data request for:', authId);
 
           // Usa la RPC consolidata per ottenere SOLO i dati lazy
           const { data, error } = await supabase.rpc('get_player_complete_data_secure', {
@@ -168,7 +157,6 @@ const server = http.createServer(async (req, res) => {
             quests: lazyData.quests_data ? JSON.parse(lazyData.quests_data) : []
           };
 
-          console.log('✅ [API] Lazy data retrieved successfully');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: response }));
 

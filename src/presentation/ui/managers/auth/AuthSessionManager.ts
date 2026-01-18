@@ -91,7 +91,6 @@ export class AuthSessionManager {
       }
 
       if (data.user) {
-        console.log('[AuthScreen] Login riuscito, user:', data.user.id);
         
         // Segna che abbiamo appena fatto login per evitare controlli di sessione
         this.setJustLoggedIn(true);
@@ -103,15 +102,11 @@ export class AuthSessionManager {
                                      data.user.user_metadata?.username ||
                                      'Player'; // Fallback
 
-        console.log('[AuthScreen] Impostato authId:', this.context.authId);
-        console.log('[AuthScreen] Impostato nickname:', this.context.playerNickname);
         
         // NON chiamare setState(VERIFIED) qui - notifyAuthenticated() gestirà lo stato
         // Il container deve rimanere visibile per mostrare lo spinner
         
-        console.log('[AuthScreen] Chiamando notifyAuthenticated()...');
         this.notifyAuthenticated();
-        console.log('[AuthScreen] notifyAuthenticated() completato');
       }
     } catch (error: any) {
       console.error('❌ [AuthScreen] Login failed:', error);
@@ -260,19 +255,14 @@ export class AuthSessionManager {
    * Mostra lo spinner e passa al gioco (PlayState aspetterà i dati)
    */
   notifyAuthenticated(): void {
-    console.log('[AuthScreen] notifyAuthenticated() chiamato');
     
     // Mostra lo spinner di loading
-    console.log('[AuthScreen] Cambiando stato a LOADING...');
     this.setState(AuthState.LOADING);
     this.updateLoadingText('Connecting to server...');
-    console.log('[AuthScreen] Spinner mostrato, testo: "Connecting to server..."');
 
     // Passa al gioco - PlayState aspetterà che i dati siano pronti
     if (this.onAuthenticatedCallback) {
-      console.log('[AuthScreen] Chiamando onAuthenticated callback...');
       this.onAuthenticatedCallback();
-      console.log('[AuthScreen] onAuthenticated callback completato');
     } else {
       console.warn('[AuthScreen] onAuthenticated callback non impostato!');
     }

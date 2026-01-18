@@ -281,7 +281,6 @@ export class AssetManager {
       if (validFrames.length > 0) {
         frameWidth = validFrames[0].width;
         frameHeight = validFrames[0].height;
-        console.log(`[AssetManager] Calcolati frameWidth: ${frameWidth}, frameHeight: ${frameHeight} da frame valido`);
       } else {
         console.warn(`[AssetManager] Nessun frame valido trovato per ${basePath}, usando dimensioni default`);
         // Fallback: usa dimensioni del primo frame anche se 0

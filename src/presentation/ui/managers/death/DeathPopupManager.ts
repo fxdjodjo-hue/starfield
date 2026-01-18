@@ -14,10 +14,8 @@ export class DeathPopupManager {
   private popup: HTMLDivElement | null = null;
 
   constructor(gameContext: GameContext) {
-    console.log('[DeathPopupManager] Constructor called - creating instance');
     this.gameContext = gameContext;
     this.createUI();
-    console.log('[DeathPopupManager] Constructor completed');
   }
 
   /**
@@ -106,20 +104,14 @@ export class DeathPopupManager {
     this.overlay.appendChild(this.popup);
     document.body.appendChild(this.overlay);
 
-    console.log('[DeathPopupManager] UI elements created and added to DOM');
-    console.log('[DeathPopupManager] Overlay:', this.overlay);
-    console.log('[DeathPopupManager] Popup:', this.popup);
-    console.log('[DeathPopupManager] Countdown element:', this.countdownElement);
   }
 
   /**
    * Mostra il popup di morte
    */
   showDeathPopup(): void {
-    console.log('[DeathPopupManager] showDeathPopup called');
 
     if (this.isVisible) {
-      console.log('[DeathPopupManager] Popup already visible, returning');
       return;
     }
 
@@ -129,18 +121,15 @@ export class DeathPopupManager {
     }
 
     this.isVisible = true;
-    console.log('[DeathPopupManager] Setting overlay to flex');
     this.overlay.style.display = 'flex';
 
     // Verifica che gli elementi siano nel DOM
-    console.log('[DeathPopupManager] Overlay in DOM:', document.body.contains(this.overlay));
   }
 
   /**
    * Gestisce il click del bottone respawn
    */
   private onRespawnClick(): void {
-    console.log('[DeathPopupManager] Respawn button clicked');
     if (this.onRespawnCallback) {
       this.onRespawnCallback();
     } else {
@@ -153,17 +142,14 @@ export class DeathPopupManager {
    * Nasconde il popup di morte
    */
   hideDeathPopup(): void {
-    console.log('[DeathPopupManager] hideDeathPopup called');
 
     if (!this.isVisible) {
-      console.log('[DeathPopupManager] Popup not visible, returning');
       return;
     }
 
     this.isVisible = false;
 
     if (this.overlay) {
-      console.log('[DeathPopupManager] Setting overlay to none');
       this.overlay.style.display = 'none';
     }
   }

@@ -172,7 +172,6 @@ console.assert(NPC_CONFIG.Scouter.stats.maxHealth > 0, 'HP deve essere positiva'
 
 // Test bilanciamento
 const scouterDPS = NPC_CONFIG.Scouter.stats.damage / (NPC_CONFIG.Scouter.stats.cooldown / 1000);
-console.log(`Scouter DPS: ${scouterDPS}`);
 ```
 
 ## ⚠️ **Best Practices**

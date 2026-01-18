@@ -24,23 +24,10 @@ export class ChatMessageHandler extends BaseMessageHandler {
                          (senderPlayerId && localPlayerId && senderPlayerId === localPlayerId);
     
     if (isOwnMessage) {
-      if (import.meta.env.DEV) {
-        console.log('[ChatMessageHandler] Ignoring own message:', {
-          clientId: message.clientId,
-          playerId: senderPlayerId,
-          localPlayerId: localPlayerId
-        });
-      }
       return;
     }
 
     // Inoltra il messaggio al ChatManager per la visualizzazione
-    if (import.meta.env.DEV) {
-      console.log('[ChatMessageHandler] Received chat from:', message.senderName, {
-        clientId: message.clientId,
-        playerId: senderPlayerId
-      });
-    }
     
     // Usa playerId come senderId se disponibile, altrimenti clientId come fallback
     // L'ID del messaggio usa playerId se disponibile per identificare univocamente il player

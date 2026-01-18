@@ -62,7 +62,6 @@ export class CameraSystem extends BaseSystem {
       onComplete
     };
     this.camera.setZoom(startZoom);
-    console.log(`[CameraSystem] Zoom animation started: ${startZoom}x -> ${targetZoom}x over ${duration}ms`);
   }
 
   /**
@@ -93,8 +92,7 @@ export class CameraSystem extends BaseSystem {
         const onComplete = this.zoomAnimation.onComplete;
         this.zoomAnimation = null;
         this.isZoomAnimating = false;
-        console.log('[CameraSystem] Zoom animation completed');
-        
+
         // Chiama il callback se presente
         if (onComplete) {
           onComplete();
