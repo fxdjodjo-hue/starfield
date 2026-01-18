@@ -75,7 +75,7 @@ export class ProjectileCreationSystem extends BaseSystem {
 
   /**
    * Crea un proiettile in una posizione e direzione specifica
-   * Per il player, crea 2 laser visivi (dual laser)
+   * Crea un singolo proiettile per il player
    */
   private createProjectileAt(attackerEntity: Entity, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: Entity): void {
     // Determina se è il player locale

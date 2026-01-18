@@ -586,6 +586,9 @@ function handleProjectileFired(data, sanitizedData, context) {
  * Handler per messaggio 'start_combat'
  */
 function handleStartCombat(data, sanitizedData, context) {
+  // DEBUG: Log quando riceve start_combat
+  console.log(`[SERVER_START_COMBAT] Received start_combat: clientId=${data.clientId}, playerId=${data.playerId}, npcId=${data.npcId}`);
+
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster } = context;
   
   // Fallback a mapServer se playerData non è nel context

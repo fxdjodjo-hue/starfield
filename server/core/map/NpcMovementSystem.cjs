@@ -117,21 +117,16 @@ class NpcMovementSystem {
     }
 
     // Aggiorna comportamento NPC:
+    // TEMPORANEO: Forza tutti gli NPC in cruise, non reagiscono agli attacchi
     // - flee: salute < 50%
-    // - aggressive: è stato danneggiato di recente (solo se attaccato)
-    // - cruise: altrimenti
+    // - cruise: sempre (ignorando danni)
     const healthPercent = npc.maxHealth > 0 ? npc.health / npc.maxHealth : 1;
 
     if (healthPercent < 0.5) {
       // Salute bassa: fuga
       return 'flee';
-    } else if (
-      npc.lastDamage && (now - npc.lastDamage) < SERVER_CONSTANTS.TIMEOUTS.DAMAGE_TIMEOUT
-    ) {
-      // Danno recente: aggressive (solo se attaccato)
-      return 'aggressive';
     } else {
-      // Nessun danno recente: torna in cruise
+      // TEMPORANEO: Forza sempre cruise, ignorando danni recenti
       return 'cruise';
     }
   }

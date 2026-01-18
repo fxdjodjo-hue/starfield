@@ -37,7 +37,7 @@ export class MissileManager {
       if (!projectile) continue;
 
       // Count only missiles (not lasers) owned by this player and still active
-      if (projectile.ownerId === playerEntityId && projectile.lifetime > 0 && projectile.type === 'missile') {
+      if (projectile.ownerId === playerEntityId && projectile.lifetime > 0 && projectile.projectileType === 'missile') {
         count++;
       }
     }
@@ -95,7 +95,7 @@ export class MissileManager {
     // Count active missiles for this player
     const playerId = attackerEntity.id;
     const activeMissiles = this.countActiveMissiles(playerId);
-    console.log(`[MISSILE] player=${playerId}, active=${activeMissiles}, timeSinceLastFire=${timeSinceLastFire}, cooldown=${MissileManager.COOLDOWN}, firing=${timeSinceLastFire >= MissileManager.COOLDOWN}`);
+    // console.log(`[MISSILE] player=${playerId}, active=${activeMissiles}, timeSinceLastFire=${timeSinceLastFire}, cooldown=${MissileManager.COOLDOWN}, firing=${timeSinceLastFire >= MissileManager.COOLDOWN}`);
 
     if (timeSinceLastFire < MissileManager.COOLDOWN) {
       return false; // Cooldown not ready
@@ -110,7 +110,7 @@ export class MissileManager {
     );
 
     // Create missile projectile (damage is server-authoritative, client uses dummy value)
-    console.log(`[MISSILE] Creating missile for player=${playerId}, target=${targetEntity.id}`);
+    // console.log(`[MISSILE] Creating missile for player=${playerId}, target=${targetEntity.id}`);
     this.createMissileAt(
       attackerEntity,
       attackerTransform,

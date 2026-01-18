@@ -68,10 +68,6 @@ export class NetworkCombatManager {
       return;
     }
 
-    // Reset pattern ritmico quando inizia un nuovo combattimento
-    if (networkSystem && networkSystem.getRhythmicAnimationManager) {
-      networkSystem.getRhythmicAnimationManager().reset();
-    }
 
     // Salva l'NPC corrente per stop_combat
     this.entityManager.setCurrentCombatNpcId(data.npcId);
