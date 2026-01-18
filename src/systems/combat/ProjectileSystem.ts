@@ -13,6 +13,7 @@ import { PlayerSystem } from '../player/PlayerSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { calculateDirection, msToSeconds } from '../../utils/MathUtils';
 import { MathUtils } from '../../core/utils/MathUtils';
+import { ComponentHelper } from '../../core/data/ComponentHelper';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
@@ -34,7 +35,7 @@ export class ProjectileSystem extends BaseSystem {
     const deltaTimeSeconds = msToSeconds(deltaTime);
 
     for (const projectileEntity of projectiles) {
-      const transform = this.ecs.getComponent(projectileEntity, Transform);
+      const transform = ComponentHelper.getTransform(this.ecs, projectileEntity);
       const projectile = this.ecs.getComponent(projectileEntity, Projectile);
 
       if (!transform || !projectile) continue;
@@ -48,7 +49,7 @@ export class ProjectileSystem extends BaseSystem {
         if (targetExists) {
           const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
           if (targetEntity) {
-            const targetHealth = this.ecs.getComponent(targetEntity, Health);
+            const targetHealth = ComponentHelper.getHealth(this.ecs, targetEntity);
             const targetShield = this.ecs.getComponent(targetEntity, Shield);
 
             // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
@@ -129,7 +130,7 @@ export class ProjectileSystem extends BaseSystem {
     
     // Per proiettili NPC: target è sempre il player locale (indipendentemente dal targetId)
     if (isNpcProjectile && localPlayer) {
-      const targetTransform = this.ecs.getComponent(localPlayer, Transform);
+      const targetTransform = ComponentHelper.getTransform(this.ecs, localPlayer);
       if (targetTransform) {
         this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
         return;
@@ -142,7 +143,7 @@ export class ProjectileSystem extends BaseSystem {
 
     // Prima cerca tra i giocatori locali (se siamo il target)
     if (localPlayer && localPlayer.id === projectile.targetId) {
-      const targetTransform = this.ecs.getComponent(localPlayer, Transform);
+      const targetTransform = ComponentHelper.getTransform(this.ecs, localPlayer);
       if (targetTransform) {
         this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
         return;

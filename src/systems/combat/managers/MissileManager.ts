@@ -11,6 +11,7 @@ import { GAME_CONSTANTS } from '../../../config/GameConstants';
 import { calculateDirection } from '../../../utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
 import { IDGenerator } from '../../../core/utils/IDGenerator';
+import { LoggerWrapper } from '../../../core/data/LoggerWrapper';
 
 /**
  * Manages missile creation and cooldown for player

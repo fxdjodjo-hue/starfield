@@ -13,6 +13,7 @@ import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { MathUtils } from '../utils/MathUtils';
 import { IDGenerator } from '../utils/IDGenerator';
+import { InputValidator } from '../utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
 
 export interface ProjectileConfig {
@@ -310,20 +311,14 @@ export class ProjectileFactory {
       errors.push('Damage is required');
     }
 
-    if (isNaN(config.startX) || !isFinite(config.startX)) {
-      errors.push('Invalid startX');
+    const startPosValidation = InputValidator.validateCoordinates(config.startX, config.startY);
+    if (!startPosValidation.isValid) {
+      errors.push(`Invalid start position: ${startPosValidation.error}`);
     }
 
-    if (isNaN(config.startY) || !isFinite(config.startY)) {
-      errors.push('Invalid startY');
-    }
-
-    if (isNaN(config.targetX) || !isFinite(config.targetX)) {
-      errors.push('Invalid targetX');
-    }
-
-    if (isNaN(config.targetY) || !isFinite(config.targetY)) {
-      errors.push('Invalid targetY');
+    const targetPosValidation = InputValidator.validateCoordinates(config.targetX, config.targetY);
+    if (!targetPosValidation.isValid) {
+      errors.push(`Invalid target position: ${targetPosValidation.error}`);
     }
 
     if (!config.ownerId && config.ownerId !== 0) {

@@ -6,6 +6,7 @@
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { ComponentHelper } from '../data/ComponentHelper';
+import { InputValidator } from '../utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
 
 export interface PositionUpdate {
@@ -325,14 +326,15 @@ export class EntityStateSystem {
     const errors: string[] = [];
 
     if (update.position) {
-      if (update.position.x !== undefined && (isNaN(update.position.x) || !isFinite(update.position.x))) {
-        errors.push('Invalid position.x');
-      }
-      if (update.position.y !== undefined && (isNaN(update.position.y) || !isFinite(update.position.y))) {
-        errors.push('Invalid position.y');
-      }
-      if (update.position.rotation !== undefined && (isNaN(update.position.rotation) || !isFinite(update.position.rotation))) {
-        errors.push('Invalid position.rotation');
+      if (update.position.x !== undefined || update.position.y !== undefined) {
+        const positionValidation = InputValidator.validatePosition(
+          update.position.x,
+          update.position.y,
+          update.position.rotation
+        );
+        if (!positionValidation.isValid) {
+          errors.push(`Invalid position: ${positionValidation.error}`);
+        }
       }
     }
 

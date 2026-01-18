@@ -1,4 +1,5 @@
 import { Component } from '../../infrastructure/ecs/Component';
+import { InputValidator } from '../../core/utils/InputValidator';
 
 /**
  * Testi di danno che seguono le entità colpite
@@ -20,13 +21,18 @@ export class DamageText extends Component {
     super();
 
     // Validazione input
-    if (!Number.isFinite(value) || value < 0) {
-      throw new Error(`Invalid damage value: ${value}`);
+    const valueValidation = InputValidator.validateStat(value, 'damage', 1000000);
+    if (!valueValidation.isValid) {
+      throw new Error(`Invalid damage value: ${valueValidation.error}`);
     }
-    if (!Number.isFinite(targetEntityId) || targetEntityId < 0) {
+
+    const entityIdValidation = InputValidator.validateNumber(targetEntityId, 'targetEntityId');
+    if (!entityIdValidation.isValid || targetEntityId < 0) {
       throw new Error(`Invalid target entity ID: ${targetEntityId}`);
     }
-    if (!Number.isFinite(lifetime) || lifetime <= 0) {
+
+    const lifetimeValidation = InputValidator.validateNumber(lifetime, 'lifetime');
+    if (!lifetimeValidation.isValid || lifetime <= 0) {
       lifetime = 1000; // Default fallback
     }
 

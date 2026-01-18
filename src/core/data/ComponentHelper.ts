@@ -8,7 +8,7 @@ import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Health } from '../../entities/combat/Health';
-import { Shield } from '../../entities/combat/Shields';
+import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { CollectionManager } from './CollectionManager';
 

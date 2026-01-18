@@ -175,49 +175,6 @@ export class DamageSystem {
     });
   }
 
-  /**
-   * Calcola danno effettivo considerando difese
-   */
-  static calculateEffectiveDamage(
-    ecs: ECS,
-    entity: Entity,
-    baseDamage: number,
-    damageType: 'physical' | 'energy' | 'explosive' = 'physical'
-  ): number {
-    try {
-      // Per ora semplice, ma può essere esteso con resistenze
-      const shieldStats = ComponentHelper.getShieldStats(ecs, entity);
-      const healthStats = ComponentHelper.getHealthStats(ecs, entity);
-
-      if (!healthStats) return 0;
-
-      // Calcola resistenza basata sul tipo di danno
-      let resistance = 0;
-      switch (damageType) {
-        case 'energy':
-          resistance = shieldStats ? 0.2 : 0; // Scudi resistono meglio al danno energetico
-          break;
-        case 'explosive':
-          resistance = 0.1; // Danno esplosivo ridotto
-          break;
-        case 'physical':
-        default:
-          resistance = shieldStats ? 0.1 : 0; // Scudi offrono minima resistenza fisica
-          break;
-      }
-
-      const effectiveDamage = Math.max(0, baseDamage * (1 - resistance));
-      return Math.floor(effectiveDamage);
-
-    } catch (error) {
-      LoggerWrapper.error(LogCategory.COMBAT, `Failed to calculate effective damage`, error as Error, {
-        entityId: entity.id,
-        baseDamage: baseDamage,
-        damageType: damageType
-      });
-      return baseDamage;
-    }
-  }
 
   /**
    * Verifica se un'entità può ricevere danno
