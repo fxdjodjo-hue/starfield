@@ -277,7 +277,15 @@ export class PlayerControlSystem extends BaseSystem {
       const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
       if (selectedNpcs.length > 0) {
         this.attackManager.faceSelectedNpc();
+      } else {
+        // If attack is active but no NPC is selected (e.g., NPC died or despawned)
+        // Ensure rotation is freed - reset to movement direction
+        console.log('[PlayerControlSystem] Attack active but no NPC selected - resetting ship rotation');
+        this.attackManager.resetShipRotation();
       }
+    } else {
+      // If attack is not active, ensure rotation is freed - reset to movement direction
+      this.attackManager.resetShipRotation();
     }
   }
 
