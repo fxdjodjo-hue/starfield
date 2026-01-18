@@ -8,7 +8,7 @@ import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
-import { ProjectileFactory } from '../../factories/ProjectileFactory';
+import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import AudioSystem from '../audio/AudioSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { calculateDirection } from '../../utils/MathUtils';
@@ -98,7 +98,7 @@ export class ProjectileCreationSystem extends BaseSystem {
     } else {
       // NPC: crea singolo laser
       const projectileId = IDGenerator.generateProjectileId(attackerEntity.id.toString());
-      const projectileEntity = ProjectileFactory.createProjectile(
+      const projectileEntity = ProjectileFactory.createLaser(
         this.ecs,
         damage,
         attackerTransform.x,

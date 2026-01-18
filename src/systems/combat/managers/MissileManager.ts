@@ -6,7 +6,7 @@ import { Transform } from '../../../entities/spatial/Transform';
 import { Damage } from '../../../entities/combat/Damage';
 import { Projectile } from '../../../entities/combat/Projectile';
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
-import { ProjectileFactory } from '../../../factories/ProjectileFactory';
+import { ProjectileFactory } from '../../../core/domain/ProjectileFactory';
 import { GAME_CONSTANTS } from '../../../config/GameConstants';
 import { calculateDirection } from '../../../utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
@@ -152,9 +152,8 @@ export class MissileManager {
       const missileId = IDGenerator.generateMissileId(attackerEntity.id.toString());
       
       // Create missile from center of player (no offset, no animated sprite spawn point)
-      const missileEntity = ProjectileFactory.createProjectile(
+      const missileEntity = ProjectileFactory.createMissile(
         this.ecs,
-        damage,
         attackerTransform.x, // Start from player center
         attackerTransform.y, // Start from player center
         targetX,
@@ -163,8 +162,7 @@ export class MissileManager {
         targetEntity.id,
         isLocalPlayer && clientNetworkSystem ? clientNetworkSystem.getLocalClientId() : undefined,
         undefined, // No animated sprite - spawn from center
-        attackerTransform.rotation,
-        'missile' // Pass missile type to factory
+        attackerTransform.rotation
       );
 
       // Override spawn position to be exactly at player center (ProjectileFactory adds offset)

@@ -6,7 +6,7 @@ import { Transform } from '../../../entities/spatial/Transform';
 import { Velocity } from '../../../entities/spatial/Velocity';
 import { Damage } from '../../../entities/combat/Damage';
 import { Projectile } from '../../../entities/combat/Projectile';
-import { ProjectileFactory } from '../../../factories/ProjectileFactory';
+import { ProjectileFactory } from '../../../core/domain/ProjectileFactory';
 import { GAME_CONSTANTS } from '../../../config/GameConstants';
 import { calculateDirection } from '../../../utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
@@ -52,7 +52,7 @@ export class CombatProjectileManager {
     const spawnY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
 
     // Create single projectile using ProjectileFactory
-    const projectileEntity = ProjectileFactory.createProjectile(
+    const projectileEntity = ProjectileFactory.createLaser(
       this.ecs,
       damage,
       spawnX,
@@ -63,8 +63,7 @@ export class CombatProjectileManager {
       targetEntity.id,
       `owner_${attackerEntity.id}`,
       undefined, // No animated sprite needed for simple projectiles
-      attackerTransform.rotation,
-      'laser' // Default type
+      attackerTransform.rotation
     );
 
     // Set projectile ID
