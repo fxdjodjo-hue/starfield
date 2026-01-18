@@ -65,7 +65,7 @@ import { CONFIG } from './config/Config'; // OK - altra utility
 
 ### Config Usage
 ```typescript
-import { CONFIG } from '../utils/config/Config';
+import { CONFIG } from '../core/utils/config/Config';
 
 // Utilizzo valori di configurazione
 const worldWidth = CONFIG.WORLD_WIDTH;

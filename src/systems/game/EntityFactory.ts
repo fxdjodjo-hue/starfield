@@ -12,7 +12,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
-import { CONFIG } from '../../utils/config/Config';
+import { CONFIG } from '../../core/utils/config/Config';
 
 export interface EntityFactoryDependencies {
   ecs: ECS;

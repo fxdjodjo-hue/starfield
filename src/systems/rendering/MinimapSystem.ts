@@ -5,7 +5,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Portal } from '../../entities/spatial/Portal';
 import { Minimap } from '../../presentation/ui/Minimap';
 import { Camera } from '../../entities/spatial/Camera';
-import { CONFIG } from '../../utils/config/Config';
+import { CONFIG } from '../../core/utils/config/Config';
 import { DisplayManager } from '../../infrastructure/display';
 
 /**

@@ -9,6 +9,11 @@ export { TimeManager } from './TimeManager';
 export { InputValidator } from './InputValidator';
 export { MessageSerializer } from './MessageSerializer';
 
+// Config utilities
+export { CONFIG } from './config/Config';
+export { ConfigValidator } from './config/ConfigValidator';
+export { getFormattedVersion } from './config/Version';
+
 // Re-export interfaces
 export type { DirectionResult, Position } from './MathUtils';
 export type { ValidationResult } from './InputValidator';

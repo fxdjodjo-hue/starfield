@@ -3,7 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Npc } from '../../entities/ai/Npc';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
-import { CONFIG } from '../../utils/config/Config';
+import { CONFIG } from '../../core/utils/config/Config';
 import { getNpcDefinition } from '../../config/NpcConfig';
 
 /**

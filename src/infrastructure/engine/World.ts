@@ -1,5 +1,5 @@
 import { ECS } from '../ecs/ECS';
-import { CONFIG } from '../../utils/config/Config';
+import { CONFIG } from '../../core/utils/config/Config';
 import { DisplayManager } from '../display';
 
 /**

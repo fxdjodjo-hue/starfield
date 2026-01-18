@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 // Import configurations
-import playerConfigData from '../../../shared/player-config.json';
-import npcConfigData from '../../../shared/npc-config.json';
+import playerConfigData from '../../../../shared/player-config.json';
+import npcConfigData from '../../../../shared/npc-config.json';
 
 // Schema validazione Player
 const PlayerStatsSchema = z.object({

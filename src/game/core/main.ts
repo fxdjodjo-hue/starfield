@@ -1,6 +1,6 @@
 // Main game initialization
 import { Game } from '../../infrastructure/engine/Game';
-import { ConfigValidator } from '../../utils/config/ConfigValidator';
+import { ConfigValidator } from '../../core/utils/config/ConfigValidator';
 
 async function main() {
   // Valida tutte le configurazioni all'avvio
