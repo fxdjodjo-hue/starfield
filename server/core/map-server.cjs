@@ -8,6 +8,7 @@ const ServerProjectileManager = require('../managers/projectile-manager.cjs');
 const NpcMovementSystem = require('./map/NpcMovementSystem.cjs');
 const MapBroadcaster = require('./map/MapBroadcaster.cjs');
 const PositionUpdateProcessor = require('./map/PositionUpdateProcessor.cjs');
+const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
 
 class MapServer {
   constructor(mapId, config = {}) {
@@ -29,6 +30,19 @@ class MapServer {
 
     // Configurazione NPC per questa mappa
     this.npcConfig = config.npcConfig || { scouterCount: 25, frigateCount: 25 };
+
+    // Sistema di monitoraggio globale
+    this.globalMonitor = new GlobalGameMonitor(this);
+
+    // Setup hook per eventi critici
+    this.setupGlobalMonitorHooks();
+
+    // Logging periodico ogni 30 secondi
+    setInterval(() => {
+      if (this.globalMonitor.isEnabled) {
+        this.globalMonitor.logGlobalSummary();
+      }
+    }, 30000);
   }
 
   // Inizializzazione della mappa
@@ -109,6 +123,55 @@ class MapServer {
   // Processa aggiornamenti posizione giocatori (delegato a PositionUpdateProcessor)
   processPositionUpdates() {
     PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);
+  }
+
+  // Setup hook per eventi critici nel GlobalGameMonitor
+  setupGlobalMonitorHooks() {
+    // Hook morte player
+    const originalHandlePlayerDeath = this.projectileManager.damageHandler.handlePlayerDeath;
+    this.projectileManager.damageHandler.handlePlayerDeath = (clientId, killerId) => {
+      const result = originalHandlePlayerDeath.call(this.projectileManager.damageHandler, clientId, killerId);
+      this.globalMonitor.addCriticalEvent('PLAYER_DEATH', { clientId, killerId });
+      return result;
+    };
+
+    // Hook ricompense NPC
+    const originalAwardRewards = this.npcManager.rewardSystem.awardNpcKillRewards;
+    this.npcManager.rewardSystem.awardNpcKillRewards = (playerId, npcType) => {
+      const result = originalAwardRewards.call(this.npcManager.rewardSystem, playerId, npcType);
+      this.globalMonitor.addCriticalEvent('NPC_KILL_REWARD', { playerId, npcType });
+      return result;
+    };
+  }
+
+  // Metodo per ottenere stato globale (per API esterna)
+  getGlobalGameState() {
+    return this.globalMonitor.getGlobalState();
+  }
+
+  // Comandi console utili per debug
+  dumpGlobalState() {
+    console.log('='.repeat(50));
+    console.log('GLOBAL GAME STATE DUMP');
+    console.log('='.repeat(50));
+    console.log(JSON.stringify(this.getGlobalGameState(), null, 2));
+  }
+
+  monitorPlayer(clientId) {
+    const state = this.globalMonitor.globalState.players.get(clientId);
+    if (state) {
+      console.log(`Monitoring ${clientId}:`, state);
+    } else {
+      console.log(`Player ${clientId} not found`);
+    }
+  }
+
+  combatStats() {
+    const combats = this.combatManager?.playerCombats || new Map();
+    console.log(`Active combats: ${combats.size}`);
+    for (const [playerId, combatData] of combats.entries()) {
+      console.log(`  ${playerId}: vs ${combatData.targetId}`);
+    }
   }
 }
 

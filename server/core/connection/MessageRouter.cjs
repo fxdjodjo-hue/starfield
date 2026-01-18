@@ -982,6 +982,39 @@ async function handleSaveRequest(data, sanitizedData, context) {
 }
 
 /**
+ * Handler per messaggio 'global_monitor_request'
+ */
+function handleGlobalMonitorRequest(data, sanitizedData, context) {
+  const { ws, mapServer } = context;
+
+  // Trova il player
+  const playerData = mapServer.players.get(data.clientId);
+  if (!playerData) {
+    logger.warn('GLOBAL_MONITOR', `Player ${data.clientId} not found for global monitor request`);
+    return;
+  }
+
+  // Solo admin possono accedere
+  if (!playerData.isAdministrator) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Access denied. Administrator required.',
+      code: 'ACCESS_DENIED'
+    }));
+    return;
+  }
+
+  const globalState = mapServer.getGlobalGameState();
+
+  ws.send(JSON.stringify({
+    type: 'global_monitor_update',
+    state: globalState
+  }));
+
+  logger.info('GLOBAL_MONITOR', `Global monitor data sent to admin ${playerData.nickname}`);
+}
+
+/**
  * Mappa handler per tipo di messaggio
  */
 const handlers = {
@@ -997,7 +1030,8 @@ const handlers = {
   request_player_data: handleRequestPlayerData,
   chat_message: handleChatMessage,
   save_request: handleSaveRequest,
-  player_respawn_request: handlePlayerRespawnRequest
+  player_respawn_request: handlePlayerRespawnRequest,
+  global_monitor_request: handleGlobalMonitorRequest
 };
 
 /**

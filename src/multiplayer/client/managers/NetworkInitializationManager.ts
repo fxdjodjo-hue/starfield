@@ -36,6 +36,7 @@ import { EntityDestroyedHandler } from '../handlers/EntityDestroyedHandler';
 import { ExplosionCreatedHandler } from '../handlers/ExplosionCreatedHandler';
 import { RepairStartedHandler, RepairStoppedHandler, RepairCompleteHandler } from '../handlers/RepairStateHandler';
 import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHandler';
+import { GlobalMonitorHandler } from '../handlers/GlobalMonitorHandler';
 
 /**
  * Interface for JWT authentication validation
@@ -123,7 +124,8 @@ export class NetworkInitializationManager {
         new LeaderboardResponseHandler(),
         new RepairStartedHandler(),
         new RepairStoppedHandler(),
-        new RepairCompleteHandler()
+        new RepairCompleteHandler(),
+        new GlobalMonitorHandler()
       );
       this.baseHandlersRegistered = true;
     }

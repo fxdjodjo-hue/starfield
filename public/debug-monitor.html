@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Starfield Global Monitor</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #00ffff;
+            padding-bottom: 20px;
+        }
+
+        .header h1 {
+            color: #00ffff;
+            font-size: 2.5em;
+            margin: 0;
+            text-shadow: 0 0 10px #00ffff;
+        }
+
+        .header .subtitle {
+            color: #888;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: rgba(20, 20, 20, 0.9);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel h2 {
+            color: #00ff88;
+            margin: 0 0 15px 0;
+            font-size: 1.2em;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            padding: 5px 0;
+        }
+
+        .metric-label {
+            color: #ccc;
+        }
+
+        .metric-value {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .metric-value.warning {
+            color: #ffaa00;
+        }
+
+        .metric-value.critical {
+            color: #ff4444;
+        }
+
+        .player-list, .npc-list, .events-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .player-item, .npc-item, .event-item {
+            padding: 8px 12px;
+            margin: 4px 0;
+            border-radius: 4px;
+            border-left: 3px solid transparent;
+            transition: background-color 0.2s;
+        }
+
+        .player-item {
+            background: rgba(0, 100, 0, 0.1);
+            border-left-color: #00aa00;
+        }
+
+        .player-item.dead {
+            background: rgba(100, 0, 0, 0.1);
+            border-left-color: #aa0000;
+        }
+
+        .player-item.warning {
+            background: rgba(150, 100, 0, 0.1);
+            border-left-color: #aaaa00;
+        }
+
+        .npc-item {
+            background: rgba(100, 0, 100, 0.1);
+            border-left-color: #aa00aa;
+        }
+
+        .event-item {
+            background: rgba(0, 0, 100, 0.1);
+            border-left-color: #0000aa;
+        }
+
+        .event-item.critical {
+            background: rgba(150, 0, 0, 0.2);
+            border-left-color: #ff4444;
+        }
+
+        .player-name {
+            font-weight: bold;
+            color: #00ffff;
+        }
+
+        .player-stats {
+            color: #ccc;
+            font-size: 0.9em;
+        }
+
+        .combat-indicator {
+            color: #ffaa00;
+            font-weight: bold;
+        }
+
+        .status-indicator {
+            font-size: 0.8em;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+        }
+
+        .status-indicator.dead {
+            background: rgba(255, 0, 0, 0.3);
+            color: #ffaaaa;
+        }
+
+        .status-indicator.warning {
+            background: rgba(255, 165, 0, 0.3);
+            color: #ffddaa;
+        }
+
+        .npc-target {
+            color: #ff88ff;
+            font-style: italic;
+        }
+
+        .event-timestamp {
+            color: #888;
+            font-size: 0.8em;
+        }
+
+        .event-type {
+            color: #00ff88;
+            font-weight: bold;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        .connection-status.connected {
+            background: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+            border: 1px solid #00ff00;
+        }
+
+        .connection-status.disconnected {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff0000;
+            border: 1px solid #ff0000;
+        }
+
+        .scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scrollbar::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(0, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 255, 255, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌍 Starfield Global Monitor</h1>
+        <div class="subtitle">Real-time game world monitoring dashboard</div>
+    </div>
+
+    <div id="connection-status" class="connection-status disconnected">
+        DISCONNECTED
+    </div>
+
+    <div class="grid">
+        <!-- Server Stats Panel -->
+        <div class="panel">
+            <h2>🖥️ Server Status</h2>
+            <div class="metric">
+                <span class="metric-label">Uptime</span>
+                <span id="uptime" class="metric-value">0s</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Total Players</span>
+                <span id="player-count" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Total NPCs</span>
+                <span id="npc-count" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Combats</span>
+                <span id="combat-count" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Last Update</span>
+                <span id="last-update" class="metric-value">--</span>
+            </div>
+        </div>
+
+        <!-- Resource Summary Panel -->
+        <div class="panel">
+            <h2>💰 Resource Summary</h2>
+            <div class="metric">
+                <span class="metric-label">Total Credits</span>
+                <span id="total-credits" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Total Cosmos</span>
+                <span id="total-cosmos" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Repairs</span>
+                <span id="active-repairs" class="metric-value">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Players in Combat</span>
+                <span id="combat-players" class="metric-value">0</span>
+            </div>
+        </div>
+
+        <!-- Players Panel -->
+        <div class="panel">
+            <h2>👥 Players (<span id="players-count">0</span>)</h2>
+            <div id="players-list" class="player-list scrollbar"></div>
+        </div>
+
+        <!-- Aggressive NPCs Panel -->
+        <div class="panel">
+            <h2>🤖 Aggressive NPCs (<span id="npcs-count">0</span>)</h2>
+            <div id="npcs-list" class="npc-list scrollbar"></div>
+        </div>
+    </div>
+
+    <!-- Critical Events Panel (Full Width) -->
+    <div class="panel" style="margin-top: 20px;">
+        <h2>📋 Critical Events</h2>
+        <div id="events-list" class="events-list scrollbar"></div>
+    </div>
+
+    <script>
+        let ws = null;
+        let reconnectInterval = null;
+        const MONITOR_CLIENT_ID = 'monitor';
+
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket('ws://localhost:8080');
+
+                ws.onopen = () => {
+                    console.log('🔗 Connected to game server');
+                    updateConnectionStatus(true);
+
+                    // Clear any reconnection attempts
+                    if (reconnectInterval) {
+                        clearInterval(reconnectInterval);
+                        reconnectInterval = null;
+                    }
+
+                    // Start requesting monitor updates
+                    requestMonitorUpdate();
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleMessage(message);
+                    } catch (error) {
+                        console.error('Error parsing message:', error);
+                    }
+                };
+
+                ws.onclose = () => {
+                    console.log('🔌 Disconnected from game server');
+                    updateConnectionStatus(false);
+
+                    // Attempt to reconnect
+                    if (!reconnectInterval) {
+                        reconnectInterval = setInterval(() => {
+                            console.log('🔄 Attempting to reconnect...');
+                            connectWebSocket();
+                        }, 5000);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+
+            } catch (error) {
+                console.error('Failed to connect:', error);
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            const statusEl = document.getElementById('connection-status');
+            if (connected) {
+                statusEl.textContent = 'CONNECTED';
+                statusEl.className = 'connection-status connected';
+            } else {
+                statusEl.textContent = 'DISCONNECTED';
+                statusEl.className = 'connection-status disconnected';
+            }
+        }
+
+        function requestMonitorUpdate() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'global_monitor_request',
+                    clientId: MONITOR_CLIENT_ID
+                }));
+            }
+        }
+
+        function handleMessage(message) {
+            switch (message.type) {
+                case 'global_monitor_update':
+                    updateMonitor(message.state);
+                    break;
+                case 'error':
+                    if (message.code === 'ACCESS_DENIED') {
+                        alert('Access denied. Administrator privileges required.');
+                    }
+                    break;
+                default:
+                    console.log('Unhandled message type:', message.type);
+            }
+        }
+
+        function updateMonitor(state) {
+            // Update server stats
+            document.getElementById('uptime').textContent = formatTime(state.server.uptime);
+            document.getElementById('player-count').textContent = state.server.totalPlayers;
+            document.getElementById('npc-count').textContent = state.server.totalNpcs;
+            document.getElementById('combat-count').textContent = state.server.activeCombats;
+            document.getElementById('last-update').textContent = new Date(state.timestamp).toLocaleTimeString();
+
+            // Update resource summary
+            document.getElementById('total-credits').textContent = formatNumber(state.resourceSummary.totalCredits);
+            document.getElementById('total-cosmos').textContent = formatNumber(state.resourceSummary.totalCosmos);
+            document.getElementById('active-repairs').textContent = state.resourceSummary.activeRepairs;
+            document.getElementById('combat-players').textContent = state.resourceSummary.playersInCombat;
+
+            // Update players
+            updatePlayersList(state.players);
+
+            // Update NPCs
+            updateNpcsList(state.aggressiveNpcs);
+
+            // Update events
+            updateEventsList(state.criticalEvents);
+        }
+
+        function updatePlayersList(players) {
+            const listEl = document.getElementById('players-list');
+            const countEl = document.getElementById('players-count');
+            countEl.textContent = players.length;
+
+            listEl.innerHTML = players.map(player => {
+                const classes = ['player-item'];
+                if (player.vitals.isDead) classes.push('dead');
+                if (player.status.warnings.length > 0) classes.push('warning');
+
+                const statusIndicators = player.status.warnings.map(warning =>
+                    `<span class="status-indicator ${warning.toLowerCase()}">${warning}</span>`
+                ).join('');
+
+                return `
+                    <div class="${classes.join(' ')}">
+                        <div class="player-name">${player.nickname}</div>
+                        <div class="player-stats">
+                            HP: ${player.vitals.health}/${player.vitals.maxHealth} |
+                            Credits: ${formatNumber(player.economy.credits)} |
+                            ${player.combat.inCombat ? '<span class="combat-indicator">[IN COMBAT]</span>' : ''}
+                            ${statusIndicators}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateNpcsList(npcs) {
+            const listEl = document.getElementById('npcs-list');
+            const countEl = document.getElementById('npcs-count');
+            countEl.textContent = npcs.length;
+
+            listEl.innerHTML = npcs.map(npc => `
+                <div class="npc-item">
+                    <div><strong>${npc.type}</strong> (ID: ${npc.id})</div>
+                    <div>HP: ${npc.vitals.health}/${npc.vitals.maxHealth} | Speed: ${npc.status.speed}</div>
+                    ${npc.combat.targetPlayer ? `<div class="npc-target">Targeting: ${npc.combat.targetPlayer.nickname}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function updateEventsList(events) {
+            const listEl = document.getElementById('events-list');
+
+            listEl.innerHTML = events.slice(-15).reverse().map(event => {
+                const classes = ['event-item'];
+                if (event.type.includes('DEATH')) classes.push('critical');
+
+                return `
+                    <div class="${classes.join(' ')}">
+                        <span class="event-timestamp">${new Date(event.timestamp).toLocaleTimeString()}</span>
+                        <span class="event-type">${event.type}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatTime(ms) {
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+        }
+
+        function formatNumber(num) {
+            return new Intl.NumberFormat().format(num);
+        }
+
+        // Initialize connection
+        connectWebSocket();
+
+        // Request updates every 2 seconds
+        setInterval(requestMonitorUpdate, 2000);
+
+        // Log initialization
+        console.log('🌍 Starfield Global Monitor initialized');
+        console.log('📊 Connecting to ws://localhost:8080');
+        console.log('🔐 Using client ID: monitor');
+    </script>
+</body>
+</html>
