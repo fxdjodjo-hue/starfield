@@ -103,4 +103,17 @@ class ProjectileDamageHandler {
   }
 }
 
+  /**
+   * Marks that player has recently stopped combat (to prevent auto-restart)
+   * @param {string} clientId - Player client ID
+   */
+  markPlayerCombatStopped(clientId) {
+    const playerData = this.mapServer.players.get(clientId);
+    if (playerData) {
+      playerData.lastCombatStop = Date.now();
+      logger.debug('COMBAT', `Player ${clientId} marked as recently stopped combat`);
+    }
+  }
+}
+
 module.exports = ProjectileDamageHandler;

@@ -615,12 +615,15 @@ function handleStartCombat(data, sanitizedData, context) {
  */
 function handleStopCombat(data, sanitizedData, context) {
   const { playerData: contextPlayerData, mapServer, messageBroadcaster } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
   mapServer.combatManager.stopPlayerCombat(data.clientId);
+
+  // Mark that player recently stopped combat to prevent auto-restart
+  mapServer.projectileDamageHandler.markPlayerCombatStopped(data.clientId);
 
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
     data.playerId,
