@@ -174,15 +174,13 @@ class PlayerDataManager {
         })(),
         quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [],
         recentHonor: recentHonor, // Media mobile honor ultimi 30 giorni
-        // Carica HP/shield salvati (NULL significa full health/shield)
+        // 🟢 MMO-CORRECT: Carica HP/shield salvati (dopo migrazione NULL = errore DB)
         currentHealth: (() => {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedHealth = currencies.current_health;
-            logger.info('DATABASE', `💚 LOAD Health from DB: ${loadedHealth} ${loadedHealth === null ? '(NULL = use max)' : '(use saved value)'}`);
-            return loadedHealth !== null && loadedHealth !== undefined
-              ? loadedHealth
-              : null; // NULL significa "usa max health"
+            logger.info('DATABASE', `💚 LOAD Health from DB: ${loadedHealth} (NULL = DB error after migration)`);
+            return loadedHealth; // Dopo migrazione, questo sarà sempre un numero valido
           }
           return null;
         })(),
@@ -190,10 +188,8 @@ class PlayerDataManager {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedShield = currencies.current_shield;
-            logger.info('DATABASE', `🛡️ LOAD Shield from DB: ${loadedShield} ${loadedShield === null ? '(NULL = use max)' : '(use saved value)'}`);
-            return loadedShield !== null && loadedShield !== undefined
-              ? loadedShield
-              : null; // NULL significa "usa max shield"
+            logger.info('DATABASE', `🛡️ LOAD Shield from DB: ${loadedShield} (NULL = DB error after migration)`);
+            return loadedShield; // Dopo migrazione, questo sarà sempre un numero valido
           }
           return null;
         })()
@@ -286,20 +282,18 @@ class PlayerDataManager {
         honor: Number(playerData.inventory.honor ?? 0),
         skill_points: Number(playerData.inventory.skillPoints ?? 0),
         skill_points_total: Number(playerData.inventory.skillPointsTotal ?? playerData.inventory.skillPoints ?? 0),
-        // Salva HP/shield correnti (NULL solo se esattamente full, altrimenti il valore attuale)
+        // 🟢 MMO-CORRECT: Salva SEMPRE HP/shield correnti (persistenza vera)
+        // NULL ora significa "errore DB", mai "ottimizzazione"
+        // Questo garantisce che ogni logout/login mantenga lo stato esatto
         current_health: (() => {
           const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : null;
-          const maxHealth = playerData.maxHealth;
-          const isFull = health !== null && health >= maxHealth;
-          logger.info('DATABASE', `💚 SAVE Health: ${health}/${maxHealth} -> ${isFull ? 'NULL' : health}`);
-          return isFull ? null : (health !== null ? Number(health) : null);
+          logger.info('DATABASE', `💚 SAVE Health: ${health} (always saved for true MMO persistence)`);
+          return health !== null ? Number(health) : null;
         })(),
         current_shield: (() => {
           const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : null;
-          const maxShield = playerData.maxShield;
-          const isFull = shield !== null && shield >= maxShield;
-          logger.info('DATABASE', `🛡️ SAVE Shield: ${shield}/${maxShield} -> ${isFull ? 'NULL' : shield}`);
-          return isFull ? null : (shield !== null ? Number(shield) : null);
+          logger.info('DATABASE', `🛡️ SAVE Shield: ${shield} (always saved for true MMO persistence)`);
+          return shield !== null ? Number(shield) : null;
         })()
       };
       

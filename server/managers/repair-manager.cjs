@@ -26,6 +26,12 @@ class RepairManager {
    * Processa riparazione per un singolo player
    */
   processPlayerRepair(playerId, playerData, now) {
+    // 🚫 BLOCCA auto-repair finché il player non è fully loaded
+    // Questo previene interferenze con la persistenza HP in MMO
+    if (!playerData.isFullyLoaded) {
+      return;
+    }
+
     const isInCombat = this.mapServer.combatManager?.playerCombats.has(playerId) || false;
     const timeSinceLastDamage = playerData.lastDamage ? (now - playerData.lastDamage) : Infinity;
     const timeSinceJoin = playerData.joinTime ? (now - playerData.joinTime) : Infinity;

@@ -59,16 +59,15 @@ async function handleJoin(data, sanitizedData, context) {
   const maxHealth = authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades);
   const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades);
 
-  // 🚨 CRITICAL: NON dedurre "new player" dagli HP - tutti qui sono returning players
-  // Se currentHealth è null per un returning player, è un errore DB da investigare
-
+  // 🟢 MMO-CORRECT: Usa SEMPRE i valori salvati, NULL = errore DB (dopo migrazione)
   let savedHealth;
   if (loadedData.currentHealth !== null && loadedData.currentHealth !== undefined) {
     savedHealth = Math.min(loadedData.currentHealth, maxHealth);
   } else {
-    logger.error('CONNECTION', `🚨 MISSING HEALTH DATA for returning player ${data.userId} (${loadedData.playerId})`);
-    logger.error('CONNECTION', `This indicates a DB issue - player should have health data`);
-    // TEMP: Fallback a full health per permettere il gioco (da rimuovere dopo fix DB)
+    // 🚨 CRITICO: Dopo migrazione DB, questo non dovrebbe mai succedere
+    logger.error('CONNECTION', `🚨 MISSING HEALTH DATA for player ${data.userId} (${loadedData.playerId})`);
+    logger.error('CONNECTION', `DB migration may have failed - player should have health data`);
+    // EMERGENCY: Fallback a full health per non bloccare il gioco
     savedHealth = maxHealth;
   }
 
@@ -76,9 +75,10 @@ async function handleJoin(data, sanitizedData, context) {
   if (loadedData.currentShield !== null && loadedData.currentShield !== undefined) {
     savedShield = Math.min(loadedData.currentShield, maxShield);
   } else {
-    logger.error('CONNECTION', `🚨 MISSING SHIELD DATA for returning player ${data.userId} (${loadedData.playerId})`);
-    logger.error('CONNECTION', `This indicates a DB issue - player should have shield data`);
-    // TEMP: Fallback a full shield per permettere il gioco (da rimuovere dopo fix DB)
+    // 🚨 CRITICO: Dopo migrazione DB, questo non dovrebbe mai succedere
+    logger.error('CONNECTION', `🚨 MISSING SHIELD DATA for player ${data.userId} (${loadedData.playerId})`);
+    logger.error('CONNECTION', `DB migration may have failed - player should have shield data`);
+    // EMERGENCY: Fallback a full shield per non bloccare il gioco
     savedShield = maxShield;
   }
 
@@ -161,6 +161,14 @@ async function handleJoin(data, sanitizedData, context) {
   logger.info('PLAYER', `  Player ID: ${playerData.playerId}`);
   logger.info('PLAYER', `  User ID: ${data.userId}`);
   logger.info('SERVER', `Total connected players: ${mapServer.players.size}`);
+
+  // TEMP: Enable repair system after initial sync (replace with explicit load completion)
+  // Questo timeout è un hack temporaneo - in futuro sostituire con:
+  // await loadHealth(); await loadShield(); await loadPosition(); await loadShipState();
+  setTimeout(() => {
+    playerData.isFullyLoaded = true;
+    logger.info('PLAYER', `Player ${persistentClientId} fully loaded - enabling repair system`);
+  }, 2000); // 2 secondi per sync iniziale
 
   if (mapServer.players.size >= 10) {
     logger.warn('SERVER', `High player count: ${mapServer.players.size} players connected`);
