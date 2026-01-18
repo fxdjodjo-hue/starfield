@@ -94,7 +94,9 @@ export class CombatProjectileManager {
 
     // Conta proiettili attivi del player
     const activeProjectiles = this.countActivePlayerProjectiles(attackerEntity.id);
-    
+
+    console.log(`[PROJECTILE] player=${attackerEntity.id}, activeProjectiles=${activeProjectiles}, maxAllowed=${CombatProjectileManager.MAX_PLAYER_PROJECTILES - 1}, firing=${activeProjectiles < CombatProjectileManager.MAX_PLAYER_PROJECTILES - 1}`);
+
     // Il player crea 2 proiettili (dual laser), quindi serve spazio per almeno 2
     // Se ci sono già 3 o più proiettili attivi, non posso creare una nuova coppia
     if (activeProjectiles >= CombatProjectileManager.MAX_PLAYER_PROJECTILES - 1) {

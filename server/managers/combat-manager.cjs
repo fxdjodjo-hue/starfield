@@ -4,6 +4,7 @@
 const { logger } = require('../logger.cjs');
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('../config/constants.cjs');
 const DamageCalculationSystem = require('../core/combat/DamageCalculationSystem.cjs');
+const PLAYER_CONFIG = require('../../shared/player-config.json');
 
 class ServerCombatManager {
   constructor(mapServer) {
@@ -39,7 +40,13 @@ class ServerCombatManager {
    * Inizia combattimento player contro NPC
    */
   startPlayerCombat(playerId, npcId) {
-    logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId || 'no-target'}`);
+    console.log(`[COMBAT-DEBUG] startPlayerCombat called: playerId=${playerId}, npcId=${npcId}, existingCombat=${this.playerCombats.has(playerId)}`);
+
+    // 🚫 BLOCCA combat senza target valido
+    if (!npcId) {
+      console.warn(`[COMBAT-ERROR] Player ${playerId} tried to start combat with null/invalid npcId`);
+      return; // Non creare il combat
+    }
 
     // 🔒 SECURITY: Anti-spam - previene spam di start_combat per bypassare cooldown
     const now = Date.now();
@@ -51,18 +58,30 @@ class ServerCombatManager {
       return;
     }
 
-    // Se il player sta già combattendo senza target specifico, aggiorna con il nuovo target
+    // ✅ Verifica sempre che l'NPC esista prima di creare qualsiasi combat
+    const existingNpc = this.mapServer.npcManager.getNpc(npcId);
+    if (!existingNpc) {
+      console.warn(`[COMBAT-ERROR] Player ${playerId} tried to start combat with non-existing NPC ${npcId}`);
+      return;
+    }
+
+    logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId}`);
+
+    // Se il player sta già combattendo, controlla se deve aggiornare il target
     if (this.playerCombats.has(playerId)) {
       const existingCombat = this.playerCombats.get(playerId);
-      if (!existingCombat.npcId && npcId) {
-        // Aggiorna il combattimento esistente con il nuovo target
+      if (existingCombat.npcId === npcId) {
+        // Già combatte contro questo NPC, non fare nulla
+        return;
+      } else {
+        // Aggiorna target a un nuovo NPC valido
         existingCombat.npcId = npcId;
         existingCombat.startTime = now;
         existingCombat.lastActivity = now;
+        existingCombat.lastAttackTime = 0; // Reset per nuovo target
+        existingCombat.attackCooldown = PLAYER_CONFIG.stats.cooldown;
+        existingCombat.combatStartTime = now;
         logger.info('COMBAT', `Updated combat target: ${playerId} now vs ${npcId}`);
-        return;
-      } else {
-        // Se ha già un target specifico, non fare nulla
         return;
       }
     }
@@ -70,25 +89,7 @@ class ServerCombatManager {
     // Registra il timestamp dell'avvio combattimento
     this.combatStartCooldowns.set(playerId, now);
 
-    // Se npcId è null, crea uno stato di combattimento senza target specifico
-    if (!npcId) {
-      this.playerCombats.set(playerId, {
-        npcId: null,
-        startTime: now,
-        lastActivity: now
-      });
-      return;
-    }
-
-    // Verifica che l'NPC esista
-    const npc = this.mapServer.npcManager.getNpc(npcId);
-    if (!npc) {
-      console.warn(`⚠️ [SERVER] Cannot start combat: NPC ${npcId} not found`);
-      return;
-    }
-
     // Ottieni cooldown dalla configurazione player (coerente con client)
-    const PLAYER_CONFIG = require('../../shared/player-config.json');
     const attackCooldown = PLAYER_CONFIG.stats.cooldown;
 
     // Imposta combattimento attivo
@@ -106,7 +107,10 @@ class ServerCombatManager {
   stopPlayerCombat(playerId) {
     if (this.playerCombats.has(playerId)) {
       this.playerCombats.delete(playerId);
-      
+
+      // ✅ FIX: Rimuovi anche l'entry dai cooldown temporanei per evitare spam
+      this.combatStartCooldowns.delete(playerId);
+
       // Notifica repair manager che il combattimento è terminato
       if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
         this.mapServer.repairManager.onCombatEnded(playerId);
@@ -127,6 +131,8 @@ class ServerCombatManager {
    * Processa combattimento per un singolo player
    */
   processPlayerCombat(playerId, combat, now) {
+    console.log(`[COMBAT-DEBUG] processPlayerCombat: playerId=${playerId}, combat=`, JSON.stringify(combat));
+
     // Verifica che il player sia ancora connesso
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData) {
@@ -134,24 +140,15 @@ class ServerCombatManager {
       return;
     }
 
-    // Se non c'è un target specifico (npcId = null), controlla timeout per uscire da combat
-    if (!combat.npcId) {
-      combat.lastActivity = now;
+    // ✅ ARCHITECTURAL CLEANUP: Non esistono più combat con npcId=null
+    // Tutti i combat hanno un target valido verificato
 
-      // Esci dallo stato di combat dopo 5 secondi senza danni
-      const playerData = this.mapServer.players.get(playerId);
-      if (playerData && playerData.lastDamage) {
-        const timeSinceLastDamage = now - playerData.lastDamage;
-        if (timeSinceLastDamage > 5000) { // 5 secondi
-          logger.info('COMBAT', `Player ${playerId} exiting combat state (no damage for 5s)`);
-          this.playerCombats.delete(playerId);
-
-          // Notifica repair manager che il combattimento è terminato
-          if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
-            this.mapServer.repairManager.onCombatEnded(playerId);
-          }
-        }
-      }
+    // 🚫 Verifica che l'NPC target esista ancora
+    const targetNpc = this.mapServer.npcManager.getNpc(combat.npcId);
+    if (!targetNpc) {
+      console.warn(`[COMBAT-ERROR] Player ${playerId} combat target removed: npcId=${combat.npcId}`);
+      this.playerCombats.delete(playerId);
+      this.combatStartCooldowns.delete(playerId);
       return;
     }
 
@@ -205,14 +202,21 @@ class ServerCombatManager {
     // 🔒 SECURITY: Cooldown fisso 800ms (server-authoritative)
     // Il danno viene applicato sempre ogni 800ms
     // L'animazione ritmica è gestita lato client (solo visiva)
-    const baseCooldown = combat.attackCooldown; // 800ms dal config (server-authoritative)
-    
-    const timeSinceLastAttack = now - combat.lastAttackTime;
+
+    // ✅ FIX: Validazione robusta con fallback su valori di default
+    const baseCooldown = combat.attackCooldown || PLAYER_CONFIG?.stats?.cooldown || 800;
+    const lastAttackTime = combat.lastAttackTime || 0;
+    const timeSinceLastAttack = now - lastAttackTime;
+
+    // ✅ FIX: Log di debug per identificare problemi di inizializzazione
+    console.log(`[COMBAT-SERVER] combat state check: playerId=${playerId}, npcId=${combat.npcId}, lastAttackTime=${lastAttackTime}, attackCooldown=${combat.attackCooldown}, baseCooldown=${baseCooldown}, timeSinceLastAttack=${timeSinceLastAttack}, hasAllFields=${!!(combat.lastAttackTime !== undefined && combat.attackCooldown !== undefined)}`);
+
     if (timeSinceLastAttack < baseCooldown) {
       return; // Non ancora tempo di attaccare - il client non può forzare attacchi
     }
 
     // Esegui attacco (danno applicato ogni 800ms)
+    console.log(`[COMBAT-SERVER] performPlayerAttack called, playerId=${playerId}, timeSinceLastAttack=${timeSinceLastAttack}, baseCooldown=${baseCooldown}, npcId=${combat.npcId}`);
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
   }

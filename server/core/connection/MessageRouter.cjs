@@ -640,11 +640,11 @@ function handleStopCombat(data, sanitizedData, context) {
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
-  // Invece di fermare completamente il combattimento, cambia solo il target a null
-  // Il player rimane in stato di combat (per bilanciamento) ma smette di attaccare
-  const existingCombat = mapServer.combatManager.playerCombats.get(data.clientId);
-  if (existingCombat) {
-    existingCombat.npcId = null; // Rimuovi target specifico ma mantieni stato combat
+  // ✅ ARCHITECTURAL CLEANUP: Chiudi completamente il combat invece di settare npcId=null
+  // Questo è più sicuro e consistente con la nuova architettura
+  if (mapServer.combatManager.playerCombats.has(data.clientId)) {
+    mapServer.combatManager.stopPlayerCombat(data.clientId);
+    console.log(`[COMBAT-DEBUG] Player ${data.clientId} combat stopped via stop_combat message`);
   }
 
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(

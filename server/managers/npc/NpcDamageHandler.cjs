@@ -78,13 +78,9 @@ class NpcDamageHandler {
 
     logger.info('COMBAT', `Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`);
 
-    // 🚀 Se il player non è già in combattimento, mettilo in stato di combattimento quando subisce danno
-    // Questo serve per bilanciamento (riparazione più lenta, ecc.) ma NON avvia automaticamente l'attacco
-    if (this.mapServer.combatManager && !this.mapServer.combatManager.playerCombats.has(clientId)) {
-      logger.info('COMBAT', `Player ${clientId} entered combat state due to damage from ${attackerId}`);
-      // Nota: Non specifichiamo un target specifico, solo mettiamo in stato di combattimento
-      this.mapServer.combatManager.startPlayerCombat(clientId, null);
-    }
+    // ✅ ARCHITECTURAL CLEANUP: Rimosso - non si creano più combat senza target
+    // Il bilanciamento deve essere gestito diversamente se necessario
+    // (ad esempio, con un sistema separato di "combat state" del player)
 
     // Se morto, gestisci la morte
     if (playerData.health <= 0) {

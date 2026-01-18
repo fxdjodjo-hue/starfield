@@ -67,20 +67,21 @@ export class CombatStateManager {
     
     // Debug log (only in dev, throttled to avoid spam)
     if (import.meta.env.DEV && selectedNpcs.length > 0) {
-      const playerControlSystem = this.getPlayerControlSystem();
-      const attackActivated = playerControlSystem?.isAttackActivated() || false;
-      const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
-      const npcTransform = selectedNpcs[0] ? this.ecs.getComponent(selectedNpcs[0], Transform) : null;
-      
-      if (playerTransform && npcTransform && playerDamage) {
+      const debugPlayerControlSystem = this.getPlayerControlSystem();
+      const debugAttackActivated = debugPlayerControlSystem?.isAttackActivated() || false;
+      const debugPlayerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
+      const debugNpcTransform = selectedNpcs[0] ? this.ecs.getComponent(selectedNpcs[0], Transform) : null;
+
+      if (debugPlayerTransform && debugNpcTransform && playerDamage) {
         // Controllo range rettangolare per il player
         const rangeWidth = getPlayerRangeWidth();
         const rangeHeight = getPlayerRangeHeight();
-        const dx = Math.abs(npcTransform.x - playerTransform.x);
-        const dy = Math.abs(npcTransform.y - playerTransform.y);
+        const dx = Math.abs(debugNpcTransform.x - debugPlayerTransform.x);
+        const dy = Math.abs(debugNpcTransform.y - debugPlayerTransform.y);
         const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
-        
-        if (attackActivated && inRange) {
+
+        if (debugAttackActivated && inRange) {
+        }
       }
     }
 
@@ -142,6 +143,7 @@ export class CombatStateManager {
       }
       
       // Try to fire missile automatically during combat (independent from lasers)
+      console.log(`[COMBAT-CLIENT] firing missile. target=${selectedNpc.id}, currentAttackTarget=${this.currentAttackTarget}, attackStartedLogged=${this.attackStartedLogged}`);
       const missileFired = this.missileManager.fireMissile(
         playerEntity,
         playerTransform,
