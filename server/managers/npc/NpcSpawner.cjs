@@ -87,7 +87,7 @@ class NpcSpawner {
       behavior: 'cruise',
       lastUpdate: Date.now(),
       lastSignificantMove: 0, // Non è stato ancora trasmesso, impostiamo a 0
-      lastDamage: 0, // Non danneggiato ancora
+      lastDamage: null, // Non danneggiato ancora
       lastAttackerId: null // Ultimo player che lo ha danneggiato
     };
 

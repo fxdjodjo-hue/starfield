@@ -120,16 +120,19 @@ class NpcMovementSystem {
     }
 
     // Aggiorna comportamento NPC:
-    // TEMPORANEO: Forza tutti gli NPC in cruise, non reagiscono agli attacchi
     // - flee: salute < 50%
-    // - cruise: sempre (ignorando danni)
+    // - aggressive: danneggiato recentemente (< 5 secondi)
+    // - cruise: default
     const healthPercent = npc.maxHealth > 0 ? npc.health / npc.maxHealth : 1;
 
     if (healthPercent < 0.5) {
       // Salute bassa: fuga
       return 'flee';
+    } else if (npc.lastDamage && (now - npc.lastDamage) < 5000) {
+      // Danneggiato recentemente: diventa aggressivo
+      return 'aggressive';
     } else {
-      // TEMPORANEO: Forza sempre cruise, ignorando danni recenti
+      // Default: cruise
       return 'cruise';
     }
   }
@@ -197,45 +200,22 @@ class NpcMovementSystem {
       const dx = targetPlayerPos.x - npc.position.x;
       const dy = targetPlayerPos.y - npc.position.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      
-      // Verifica se il player si sta muovendo
-      const playerSpeedThreshold = 10;
-      const velocityX = targetPlayerData.position.velocityX || 0;
-      const velocityY = targetPlayerData.position.velocityY || 0;
-      const playerIsMoving = 
-        Math.abs(velocityX) > playerSpeedThreshold ||
-        Math.abs(velocityY) > playerSpeedThreshold;
 
-      // Se il player è FUORI dal range di attacco, inseguilo sempre (anche se velocity = 0)
-      const isPlayerOutOfRange = dist > attackRange;
+      // LOGICA SEMPLIFICATA: NPC aggressivi inseguono sempre il target
+      // Non si fermano mai - l'attacco è gestito dal sistema di combattimento
+      const dirX = dx / dist;
+      const dirY = dy / dist;
+      const dtSec = deltaTime / 1000;
 
-      if (isPlayerOutOfRange || playerIsMoving) {
-        // Player fuori range O si muove: insegue sempre
-        const dirX = dx / dist;
-        const dirY = dy / dist;
-        const dtSec = deltaTime / 1000;
-
-        // Insegue il player alla velocità base
-        const moveSpeed = speed * dtSec;
-        npc.velocity.x = dirX * speed;
-        npc.velocity.y = dirY * speed;
-        npc.position.rotation = Math.atan2(dy, dx);
-        return { deltaX: dirX * moveSpeed, deltaY: dirY * moveSpeed };
-      } else {
-        // Player nel range E fermo: NPC resta fermo
-        npc.velocity.x = 0;
-        npc.velocity.y = 0;
-        // Mantieni la rotazione verso il player anche se fermo
-        if (dx !== 0 || dy !== 0) {
-          npc.position.rotation = Math.atan2(dy, dx);
-        }
-        return { deltaX: 0, deltaY: 0 };
-      }
+      // Insegue il player alla velocità base
+      const moveSpeed = speed * dtSec;
+      npc.velocity.x = dirX * speed;
+      npc.velocity.y = dirY * speed;
+      npc.position.rotation = Math.atan2(dy, dx);
+      return { deltaX: dirX * moveSpeed, deltaY: dirY * moveSpeed };
     } else {
-      // Nessun player valido: resta fermo
-      npc.velocity.x = 0;
-      npc.velocity.y = 0;
-      return { deltaX: 0, deltaY: 0 };
+      // Nessun player valido: comportamento cruise
+      return this.applyCruiseMovement(npc, speed, deltaTime);
     }
   }
 

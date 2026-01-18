@@ -330,13 +330,13 @@ class ServerCombatManager {
    * Processa logica di combat per un singolo NPC
    */
   processNpcCombat(npc, now) {
-    // TEMPORANEO: NPC non attaccano mai automaticamente (sempre in cruise)
-    // Commentato controllo danno recente e comportamento aggressivo
-    // const wasRecentlyDamaged = npc.lastDamage && (now - npc.lastDamage) < 10000; // 10 secondi
-    // const isAggressive = npc.behavior === 'aggressive';
+    // NPC attacca se danneggiato negli ultimi 10 secondi
+    const wasRecentlyDamaged = npc.lastDamage && (now - npc.lastDamage) < 10000;
 
-    // NPC non sparano mai automaticamente
-    return;
+    // NPC attacca solo se danneggiato recentemente
+    if (!wasRecentlyDamaged) {
+      return;
+    }
 
     // Controlla cooldown attacco
     const lastAttack = this.npcAttackCooldowns.get(npc.id) || 0;
