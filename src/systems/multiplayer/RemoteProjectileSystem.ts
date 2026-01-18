@@ -7,8 +7,8 @@ import { Sprite } from '../../entities/Sprite';
 import { Npc } from '../../entities/ai/Npc';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
-import { ProjectileFactory } from '../../factories/ProjectileFactory';
-import { logger } from '../../utils/Logger';
+import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
+import { LoggerWrapper } from '../../core/data/LoggerWrapper';
 
 /**
  * Sistema per la gestione dei proiettili remoti in multiplayer

@@ -8,7 +8,7 @@ import { Projectile } from '../../../entities/combat/Projectile';
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { ProjectileFactory } from '../../../core/domain/ProjectileFactory';
 import { GAME_CONSTANTS } from '../../../config/GameConstants';
-import { calculateDirection } from '../../../utils/MathUtils';
+import { MathUtils } from '../../../core/utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
 import { IDGenerator } from '../../../core/utils/IDGenerator';
 import { LoggerWrapper } from '../../../core/data/LoggerWrapper';

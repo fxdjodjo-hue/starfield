@@ -11,7 +11,7 @@ import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import AudioSystem from '../audio/AudioSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
-import { calculateDirection } from '../../utils/MathUtils';
+import { MathUtils } from '../../core/utils/MathUtils';
 import { IDGenerator } from '../../core/utils/IDGenerator';
 
 /**

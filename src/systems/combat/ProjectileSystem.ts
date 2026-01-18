@@ -11,7 +11,6 @@ import { Npc } from '../../entities/ai/Npc';
 import { UiSystem } from '../ui/UiSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
-import { calculateDirection, msToSeconds } from '../../utils/MathUtils';
 import { MathUtils } from '../../core/utils/MathUtils';
 import { ComponentHelper } from '../../core/data/ComponentHelper';
 
