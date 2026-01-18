@@ -78,13 +78,14 @@ class NpcDamageHandler {
 
     logger.info('COMBAT', `Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`);
 
-    // 🚀 NUOVO: Se il player non è già in combattimento, avvia combattimento quando subisce danno
-    // Questo rende il sistema più realistico - il player "entra in combattimento" anche se attaccato
-    // Ma non avviare automaticamente se il player ha appena fermato il combattimento (negli ultimi 3 secondi)
-    const recentlyStoppedCombat = playerData.lastCombatStop && (Date.now() - playerData.lastCombatStop) < 3000;
-    if (this.mapServer.combatManager && !this.mapServer.combatManager.playerCombats.has(clientId) && !recentlyStoppedCombat) {
+    // 🚀 Se il player non è già in combattimento, avvia combattimento quando subisce danno
+    // MA: Se il player ha fermato manualmente il combattimento, NON riavviarlo mai automaticamente
+    const hasManuallyStoppedCombat = playerData.lastCombatStop !== undefined;
+    if (this.mapServer.combatManager && !this.mapServer.combatManager.playerCombats.has(clientId) && !hasManuallyStoppedCombat) {
       logger.info('COMBAT', `Player ${clientId} entered combat due to damage from ${attackerId}`);
       this.mapServer.combatManager.startPlayerCombat(clientId, attackerId);
+    } else if (hasManuallyStoppedCombat) {
+      logger.debug('COMBAT', `Player ${clientId} damaged but has manually stopped combat - not auto-starting`);
     }
 
     // Se morto, gestisci la morte
