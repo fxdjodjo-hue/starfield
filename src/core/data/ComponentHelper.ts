@@ -278,6 +278,18 @@ export class ComponentHelper {
   }
 
   /**
+   * Mantiene la cache entro limiti ragionevoli per prevenire memory leaks
+   */
+  static maintainCache(maxSize: number = 1000): void {
+    if (this.componentCache.size > maxSize) {
+      // Rimuovi le entries più vecchie (semplice strategia FIFO)
+      const entries = Array.from(this.componentCache.entries());
+      const toRemove = entries.slice(0, this.componentCache.size - maxSize);
+      toRemove.forEach(([key]) => this.componentCache.delete(key));
+    }
+  }
+
+  /**
    * Ottiene statistiche sulla cache
    */
   static getCacheStats() {

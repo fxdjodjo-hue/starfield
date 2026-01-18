@@ -68,7 +68,7 @@ export class DamageSystem {
 
         LoggerWrapper.combat(
           `Entity ${entity.id} damaged${attackerInfo}${damageSource}: ` +
-          `${healthStats.current}/${healthStats.current} HP, ` +
+          `${healthStats.current}/${healthStats.max} HP, ` +
           `applied: ${damage} (shield: ${shieldDamage}, health: ${healthDamage}), ` +
           `remaining: ${newHealth}/${healthStats.max}${isDead ? ' [DEAD]' : ''}`,
           {
