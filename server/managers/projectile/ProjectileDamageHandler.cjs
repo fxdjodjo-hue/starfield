@@ -109,8 +109,9 @@ class ProjectileDamageHandler {
   markPlayerCombatStopped(clientId) {
     const playerData = this.mapServer.players.get(clientId);
     if (playerData) {
-      playerData.lastCombatStop = Date.now();
-      logger.debug('COMBAT', `Player ${clientId} marked as recently stopped combat`);
+      const now = Date.now();
+      playerData.lastCombatStop = now;
+      logger.info('COMBAT', `Player ${clientId} marked as recently stopped combat at ${now}`);
     }
   }
 }

@@ -254,6 +254,13 @@ export class PlayerAttackManager {
     if (this.attackActivated) {
       this.attackActivated = false;
       this.setAttackActivated(false);
+
+      // Remove SelectedNpc component from all selected NPCs
+      const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+      for (const npcEntity of selectedNpcs) {
+        this.ecs.removeComponent(npcEntity, SelectedNpc);
+      }
+
       this.stopCombatIfActive();
     }
   }
