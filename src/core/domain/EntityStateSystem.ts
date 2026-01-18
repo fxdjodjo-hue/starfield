@@ -9,6 +9,7 @@ import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'
 import { ComponentHelper } from '../data/ComponentHelper';
 import { InputValidator } from '../utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
+import { Npc } from '../../entities/ai/Npc';
 
 export interface PositionUpdate {
   x?: number;
@@ -227,19 +228,31 @@ export class EntityStateSystem {
     source: string
   ): boolean {
     try {
-      // TODO: Implementare quando avremo il componente Behavior/Npc
-      // const npcComponent = ecs.getComponent(entity, Npc);
-      // if (npcComponent && behavior.behavior) {
-      //   npcComponent.behavior = behavior.behavior;
-      // }
+      const npcComponent = ecs.getComponent(entity, Npc);
+      if (npcComponent && behavior.behavior) {
+        // Salva il comportamento precedente per il log
+        const oldBehavior = npcComponent.behavior;
 
-      LoggerWrapper.ai(`Entity ${entity.id} behavior updated`, {
+        // Aggiorna il comportamento dell'NPC
+        npcComponent.setBehavior(behavior.behavior);
+
+        LoggerWrapper.ai(`Entity ${entity.id} behavior updated to ${behavior.behavior}`, {
+          entityId: entity.id,
+          oldBehavior: oldBehavior,
+          newBehavior: behavior.behavior,
+          source: source
+        });
+
+        return true;
+      }
+
+      LoggerWrapper.ai(`Entity ${entity.id} behavior update skipped - no Npc component or behavior`, {
         entityId: entity.id,
-        behavior: behavior,
+        behavior: behavior.behavior || 'undefined',
         source: source
       });
 
-      return true;
+      return false;
     } catch (error) {
       LoggerWrapper.error(LogCategory.ECS, `Failed to update behavior for entity ${entity.id}`, error as Error, {
         entityId: entity.id,

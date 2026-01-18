@@ -116,7 +116,7 @@ export class UIHUDManager {
       let expForNextLevel = 10000; // Livello 2
 
       // Trova il livello corretto basato sull'experience cumulativa
-      const levelRequirements = {
+      const levelRequirements: Record<number, number> = {
         2: 10000, 3: 30000, 4: 70000, 5: 150000, 6: 310000, 7: 630000,
         8: 1270000, 9: 2550000, 10: 5110000, 11: 10230000, 12: 20470000,
         13: 40950000, 14: 81910000, 15: 163910000, 16: 327750000, 17: 655430000,
