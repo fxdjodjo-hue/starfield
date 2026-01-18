@@ -66,17 +66,12 @@ export class PlayerAttackManager {
       if (now - this.lastSpacePressTime > 300) {
         this.lastSpacePressTime = now;
 
-        console.log('[CLIENT] SPACE pressed - attackActivated:', this.attackActivated);
-
         const nearbyNpc = this.findNearbyNpcForSelection();
         const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
         const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
 
-        console.log('[CLIENT] SPACE - nearbyNpc:', !!nearbyNpc, 'currentlySelectedNpc:', !!currentlySelectedNpc);
-
         if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
             (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
-          console.log('[CLIENT] SPACE - Selecting new NPC and activating attack');
           // Non disattivare l'attacco quando selezioni un nuovo NPC con spazio,
           // perché stai già per attivarlo subito dopo
           this.selectNpc(nearbyNpc, false);
@@ -84,16 +79,13 @@ export class PlayerAttackManager {
         } else {
           if (currentlySelectedNpc) {
             if (this.attackActivated) {
-              console.log('[CLIENT] SPACE - Deactivating attack');
               this.attackActivated = false;
               this.setAttackActivated(false);
               this.deactivateAttack();
             } else {
-              console.log('[CLIENT] SPACE - Activating attack on current target');
               this.handleSpacePress();
             }
           } else {
-            console.log('[CLIENT] SPACE - No target available nearby');
             const logSystem = this.getLogSystem();
             if (logSystem) {
               logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);

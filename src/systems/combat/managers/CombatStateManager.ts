@@ -197,18 +197,12 @@ export class CombatStateManager {
    * Sends stop combat request to server
    */
   sendStopCombat(): void {
-    console.log('[CLIENT] CombatStateManager.sendStopCombat called');
     const clientNetworkSystem = this.getClientNetworkSystem();
-    if (!clientNetworkSystem) {
-      console.log('[CLIENT] No clientNetworkSystem available');
-      return;
-    }
+    if (!clientNetworkSystem) return;
 
-    const stopData = {
+    clientNetworkSystem.sendStopCombat({
       playerId: clientNetworkSystem.getLocalClientId()
-    };
-    console.log('[CLIENT] Sending stop_combat with data:', stopData);
-    clientNetworkSystem.sendStopCombat(stopData);
+    });
   }
 
   /**
