@@ -58,14 +58,29 @@ async function handleJoin(data, sanitizedData, context) {
   // Calcola max health/shield basati sugli upgrade
   const maxHealth = authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades);
   const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades);
-  
-  // Usa HP/shield salvati se disponibili, altrimenti usa max (NULL = full health/shield)
-  const savedHealth = loadedData.currentHealth !== null && loadedData.currentHealth !== undefined
-    ? Math.min(loadedData.currentHealth, maxHealth) // Assicurati che non superi max
-    : maxHealth;
-  const savedShield = loadedData.currentShield !== null && loadedData.currentShield !== undefined
-    ? Math.min(loadedData.currentShield, maxShield) // Assicurati che non superi max
-    : maxShield;
+
+  // 🚨 CRITICAL: NON dedurre "new player" dagli HP - tutti qui sono returning players
+  // Se currentHealth è null per un returning player, è un errore DB da investigare
+
+  let savedHealth;
+  if (loadedData.currentHealth !== null && loadedData.currentHealth !== undefined) {
+    savedHealth = Math.min(loadedData.currentHealth, maxHealth);
+  } else {
+    logger.error('CONNECTION', `🚨 MISSING HEALTH DATA for returning player ${data.userId} (${loadedData.playerId})`);
+    logger.error('CONNECTION', `This indicates a DB issue - player should have health data`);
+    // TEMP: Fallback a full health per permettere il gioco (da rimuovere dopo fix DB)
+    savedHealth = maxHealth;
+  }
+
+  let savedShield;
+  if (loadedData.currentShield !== null && loadedData.currentShield !== undefined) {
+    savedShield = Math.min(loadedData.currentShield, maxShield);
+  } else {
+    logger.error('CONNECTION', `🚨 MISSING SHIELD DATA for returning player ${data.userId} (${loadedData.playerId})`);
+    logger.error('CONNECTION', `This indicates a DB issue - player should have shield data`);
+    // TEMP: Fallback a full shield per permettere il gioco (da rimuovere dopo fix DB)
+    savedShield = maxShield;
+  }
 
   logger.info('CONNECTION', `🎯 APPLY Health: loaded=${loadedData.currentHealth}, max=${maxHealth}, applied=${savedHealth}`);
   logger.info('CONNECTION', `🎯 APPLY Shield: loaded=${loadedData.currentShield}, max=${maxShield}, applied=${savedShield}`);
@@ -89,6 +104,7 @@ async function handleJoin(data, sanitizedData, context) {
     isDead: false,
     respawnTime: null,
     joinTime: Date.now(), // Timestamp quando ha fatto join
+    isFullyLoaded: false, // 🚫 Blocca auto-repair finché non è true
     inventory: loadedData.inventory,
     quests: loadedData.quests || []
   };
