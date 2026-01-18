@@ -1,4 +1,4 @@
-import { AssetManager } from '../AssetManager';
+import { AssetManager } from '../../core/services/AssetManager';
 import { NETWORK_CONFIG } from '../../config/NetworkConfig';
 import { type PlayerUuid, type PlayerDbId, type ClientId } from '../../config/NetworkConfig';
 import { ConnectionState } from '../../multiplayer/client/managers/NetworkStateManager';

@@ -1,5 +1,5 @@
-import { Transform } from '../../entities/spatial/Transform';
-import { Sprite } from '../../entities/Sprite';
+import { Transform } from '../../../entities/spatial/Transform';
+import { Sprite } from '../../../entities/Sprite';
 
 /**
  * Minimal transform data needed for sprite rendering

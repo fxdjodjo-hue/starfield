@@ -4,7 +4,7 @@ import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
-import { EntityFactory } from '../../factories/EntityFactory';
+import { GameEntityFactory } from '../../factories/GameEntityFactory';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
@@ -26,7 +26,7 @@ export class RemotePlayerSystem extends BaseSystem {
     super(ecs);
     // Usa AnimatedSprite condiviso per tutti i remote player
     this.sharedAnimatedSprite = animatedSprite;
-    this.entityFactory = new EntityFactory(ecs);
+    this.entityFactory = new GameEntityFactory(ecs);
   }
 
   /**

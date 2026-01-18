@@ -2,6 +2,8 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { DamageText } from '../../entities/combat/DamageText';
 import { Transform } from '../../entities/spatial/Transform';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
+import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import type { DamageSystem } from '../combat/DamageSystem';
 import { DisplayManager } from '../../infrastructure/display';
 
@@ -103,11 +105,25 @@ export class DamageTextSystem extends BaseSystem {
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
         if (!targetTransform) continue;
 
-        worldX = targetTransform.x + damageText.initialOffsetX;
-        worldY = targetTransform.y + damageText.currentOffsetY;
+        // Per entità remote, usa coordinate interpolate se disponibili (come RenderSystem)
+        let renderX = targetTransform.x;
+        let renderY = targetTransform.y;
 
-        worldX = targetTransform.x + damageText.initialOffsetX;
-        worldY = targetTransform.y + damageText.currentOffsetY;
+        // Controlla se è un'entità remota con interpolazione (NPC, RemotePlayer, etc.)
+        const authority = this.ecs.getComponent(targetEntity, Authority);
+        const isRemoteEntity = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
+
+        if (isRemoteEntity) {
+          // Usa valori interpolati per entità remote
+          const interpolationTarget = this.ecs.getComponent(targetEntity, InterpolationTarget);
+          if (interpolationTarget) {
+            renderX = interpolationTarget.renderX;
+            renderY = interpolationTarget.renderY;
+          }
+        }
+
+        worldX = renderX + damageText.initialOffsetX;
+        worldY = renderY + damageText.currentOffsetY;
 
         // Salva l'ultima posizione valida
         damageText.lastWorldX = worldX;

@@ -1,5 +1,5 @@
-import { Health } from '../../entities/combat/Health';
-import { Shield } from '../../entities/combat/Shield';
+import { Health } from '../../../entities/combat/Health';
+import { Shield } from '../../../entities/combat/Shield';
 
 /**
  * Rendering parameters for health/shield bars

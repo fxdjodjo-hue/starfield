@@ -1,7 +1,7 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Sprite } from '../../entities/Sprite';
-import { EntityFactory } from '../../factories/EntityFactory';
+import { GameEntityFactory } from '../../factories/GameEntityFactory';
 
 /**
  * Sistema dedicato alla gestione degli NPC
@@ -12,7 +12,7 @@ export class NpcSystem extends System {
 
   constructor(ecs: ECS, assetManager?: any) {
     super(ecs);
-    this.entityFactory = new EntityFactory(ecs, assetManager);
+    this.entityFactory = new GameEntityFactory(ecs, assetManager);
     // Carica spritesheet per Kronos se AssetManager è disponibile
     if (assetManager) {
       this.entityFactory.loadKronosSprite().catch(err => {

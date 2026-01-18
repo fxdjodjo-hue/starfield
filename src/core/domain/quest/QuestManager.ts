@@ -1,14 +1,14 @@
-import { Quest } from '../../entities/quest/Quest';
-import { ActiveQuest } from '../../entities/quest/ActiveQuest';
-import type { QuestObjective, QuestReward, QuestData } from '../../presentation/ui/QuestPanel';
+import { Quest } from '../../../entities/quest/Quest';
+import { ActiveQuest } from '../../../entities/quest/ActiveQuest';
+import type { QuestObjective, QuestReward, QuestData } from '../../../presentation/ui/QuestPanel';
 import {
   QuestRegistry,
   QuestObjectiveFactory,
   QuestRewardFactory,
   initializeDefaultQuests,
   type QuestConfig
-} from '../../config/QuestConfig';
-import { gameAPI } from '../../lib/supabase';
+} from '../../../config/QuestConfig';
+import { gameAPI } from '../../../lib/SupabaseClient';
 
 /**
  * QuestManager - Sistema di gestione delle quest

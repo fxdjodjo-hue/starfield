@@ -190,7 +190,8 @@ export class ProjectileFactory {
       playerId,
       animatedSprite,
       shipRotation,
-      projectileType: 'missile'
+      projectileType: 'missile',
+      speed: GAME_CONSTANTS.MISSILE.SPEED // Usa velocità specifica dei missili
     });
   }
 

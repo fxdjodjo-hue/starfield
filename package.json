@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:server": "tsc --project tsconfig.server.json && move dist-server\\shared\\SecurityBoundary.js dist-server\\shared\\SecurityBoundary.cjs",
+    "build:all": "npm run build && npm run build:server",
     "preview": "vite preview",
     "server": "node server.cjs",
     "server:online": "node tools/start-online.cjs",

@@ -3,7 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { DisplayManager } from '../../infrastructure/display';
-import { applyFadeIn } from '../../utils/helpers/UIFadeAnimation';
+import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
 
 /**
  * PlayerStatusDisplaySystem - Sistema semplice per mostrare HP e Shield del giocatore

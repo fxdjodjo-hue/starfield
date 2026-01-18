@@ -1,5 +1,5 @@
-import { Transform } from '../../entities/spatial/Transform';
-import { Camera } from '../../entities/spatial/Camera';
+import { Transform } from '../../../entities/spatial/Transform';
+import { Camera } from '../../../entities/spatial/Camera';
 
 /**
  * Screen space conversion utilities

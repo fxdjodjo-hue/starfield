@@ -5,6 +5,7 @@
 
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { ComponentHelper } from '../data/ComponentHelper';
 import { InputValidator } from '../utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
@@ -117,11 +118,11 @@ export class EntityStateSystem {
       // Aggiorna posizione base
       ComponentHelper.updatePosition(ecs, entity, newX, newY, newRotation);
 
-      // TODO: Implementare interpolazione per movimenti fluidi
-      // const interpolationTarget = ecs.getComponent(entity, InterpolationTarget);
-      // if (interpolationTarget) {
-      //   interpolationTarget.updateTarget(newX, newY, newRotation);
-      // }
+      // Implementa interpolazione per movimenti fluidi (NPC e remote entities)
+      const interpolationTarget = ecs.getComponent(entity, InterpolationTarget);
+      if (interpolationTarget) {
+        interpolationTarget.updateTarget(newX, newY, newRotation);
+      }
 
       LoggerWrapper.ecs(`Entity ${entity.id} position updated: (${newX.toFixed(1)}, ${newY.toFixed(1)}) rot:${newRotation.toFixed(1)}`, {
         entityId: entity.id,
@@ -158,11 +159,14 @@ export class EntityStateSystem {
 
       ComponentHelper.updateHealth(ecs, entity, newCurrent, newMax);
 
-      LoggerWrapper.combat(`Entity ${entity.id} health updated: ${newCurrent}/${newMax}`, {
-        entityId: entity.id,
-        health: { current: newCurrent, max: newMax },
-        source: source
-      });
+      // Log solo se i valori sono effettivamente cambiati o se è un aggiornamento non-server
+      if (newCurrent !== currentHealth.current || newMax !== currentHealth.max || source !== 'server') {
+        LoggerWrapper.combat(`Entity ${entity.id} health updated: ${newCurrent}/${newMax}`, {
+          entityId: entity.id,
+          health: { current: newCurrent, max: newMax },
+          source: source
+        });
+      }
 
       return true;
     } catch (error) {
@@ -193,11 +197,14 @@ export class EntityStateSystem {
 
       ComponentHelper.updateShield(ecs, entity, newCurrent, newMax);
 
-      LoggerWrapper.combat(`Entity ${entity.id} shield updated: ${newCurrent}/${newMax}`, {
-        entityId: entity.id,
-        shield: { current: newCurrent, max: newMax },
-        source: source
-      });
+      // Log solo se i valori sono effettivamente cambiati o se è un aggiornamento non-server
+      if (newCurrent !== currentShield.current || newMax !== currentShield.max || source !== 'server') {
+        LoggerWrapper.combat(`Entity ${entity.id} shield updated: ${newCurrent}/${newMax}`, {
+          entityId: entity.id,
+          shield: { current: newCurrent, max: newMax },
+          source: source
+        });
+      }
 
       return true;
     } catch (error) {

@@ -1,5 +1,5 @@
 import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
-import { applyFadeIn } from '../../utils/helpers/UIFadeAnimation';
+import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
 
 /**
  * Interfaccia per i dati del Player HUD

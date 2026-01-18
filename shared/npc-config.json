@@ -9,7 +9,7 @@
       "damage": 2000,
       "range": 800,
       "cooldown": 1200,
-      "speed": 400
+      "speed": 350
     },
     "rewards": {
       "credits": 400,

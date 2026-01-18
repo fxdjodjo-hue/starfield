@@ -1,9 +1,10 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
-import { AssetManager } from '../../infrastructure/AssetManager';
+import { AssetManager } from '../../core/services/AssetManager';
 import { DisplayManager } from '../../infrastructure/display';
 import { Transform } from '../../entities/spatial/Transform';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { Npc } from '../../entities/ai/Npc';
 import { Health } from '../../entities/combat/Health';
@@ -24,22 +25,22 @@ import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
-import { NpcRenderer } from '../../utils/helpers/NpcRenderer';
-import { ProjectileRenderer } from '../../utils/helpers/ProjectileRenderer';
-import type { ProjectileRenderParams } from '../../utils/helpers/ProjectileRenderer';
-import { PlayerRenderer } from '../../utils/helpers/PlayerRenderer';
-import { SpaceStationRenderer } from '../../utils/helpers/SpaceStationRenderer';
-import { HudRenderer } from '../../utils/helpers/HudRenderer';
-import type { HealthBarRenderParams } from '../../utils/helpers/HudRenderer';
-import { ExplosionRenderer } from '../../utils/helpers/ExplosionRenderer';
-import type { ExplosionRenderParams } from '../../utils/helpers/ExplosionRenderer';
-import { RepairEffectRenderer } from '../../utils/helpers/RepairEffectRenderer';
-import { EngineFlamesRenderer } from '../../utils/helpers/EngineFlamesRenderer';
-import { ScreenSpace } from '../../utils/helpers/ScreenSpace';
-import { SpriteRenderer } from '../../utils/helpers/SpriteRenderer';
-import type { RenderableTransform } from '../../utils/helpers/SpriteRenderer';
-import { SpritesheetRenderer } from '../../utils/helpers/SpritesheetRenderer';
-import type { SpritesheetRenderTransform } from '../../utils/helpers/SpritesheetRenderer';
+import { NpcRenderer } from '../../core/utils/rendering/NpcRenderer';
+import { ProjectileRenderer } from '../../core/utils/rendering/ProjectileRenderer';
+import type { ProjectileRenderParams } from '../../core/utils/rendering/ProjectileRenderer';
+import { PlayerRenderer } from '../../core/utils/rendering/PlayerRenderer';
+import { SpaceStationRenderer } from '../../core/utils/rendering/SpaceStationRenderer';
+import { HudRenderer } from '../../core/utils/rendering/HudRenderer';
+import type { HealthBarRenderParams } from '../../core/utils/rendering/HudRenderer';
+import { ExplosionRenderer } from '../../core/utils/rendering/ExplosionRenderer';
+import type { ExplosionRenderParams } from '../../core/utils/rendering/ExplosionRenderer';
+import { RepairEffectRenderer } from '../../core/utils/rendering/RepairEffectRenderer';
+import { EngineFlamesRenderer } from '../../core/utils/rendering/EngineFlamesRenderer';
+import { ScreenSpace } from '../../core/utils/rendering/ScreenSpace';
+import { SpriteRenderer } from '../../core/utils/rendering/SpriteRenderer';
+import type { RenderableTransform } from '../../core/utils/rendering/SpriteRenderer';
+import { SpritesheetRenderer } from '../../core/utils/rendering/SpritesheetRenderer';
+import type { SpritesheetRenderTransform } from '../../core/utils/rendering/SpritesheetRenderer';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -453,7 +454,25 @@ export class RenderSystem extends BaseSystem {
       const components = this.getCachedComponents(entity);
       if (components.transform) {
         const { width, height } = this.displayManager.getLogicalSize();
-        const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
+
+        // Per NPC remoti, usa coordinate interpolate se disponibili
+        let renderX = components.transform.x;
+        let renderY = components.transform.y;
+
+        // Controlla se è un NPC remoto con interpolazione
+        const authority = this.ecs.getComponent(entity, Authority);
+        const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE && components.npc;
+
+        if (isRemoteNpc) {
+          // Usa valori interpolati per NPC remoti
+          const interpolationTarget = this.ecs.getComponent(entity, InterpolationTarget);
+          if (interpolationTarget) {
+            renderX = interpolationTarget.renderX;
+            renderY = interpolationTarget.renderY;
+          }
+        }
+
+        const screenPos = camera.worldToScreen(renderX, renderY, width, height);
         this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
           explosion: components.explosion,
           repairEffect: components.repairEffect,
@@ -481,7 +500,25 @@ export class RenderSystem extends BaseSystem {
 
       if (components.transform) {
         const { width, height } = this.displayManager.getLogicalSize();
-        const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
+
+        // Per NPC remoti, usa coordinate interpolate se disponibili
+        let renderX = components.transform.x;
+        let renderY = components.transform.y;
+
+        // Controlla se è un NPC remoto con interpolazione
+        const authority = this.ecs.getComponent(entity, Authority);
+        const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE && components.npc;
+
+        if (isRemoteNpc) {
+          // Usa valori interpolati per NPC remoti
+          const interpolationTarget = this.ecs.getComponent(entity, InterpolationTarget);
+          if (interpolationTarget) {
+            renderX = interpolationTarget.renderX;
+            renderY = interpolationTarget.renderY;
+          }
+        }
+
+        const screenPos = camera.worldToScreen(renderX, renderY, width, height);
 
         // Render entity
         this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
@@ -643,10 +680,6 @@ export class RenderSystem extends BaseSystem {
    * Render a single projectile using render parameters from helper
    */
   private renderProjectile(ctx: CanvasRenderingContext2D, projectile: Projectile, screenPos: {x: number, y: number}): void {
-    // DEBUG: Log per vedere se renderProjectile viene chiamato per NPC
-    if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
-      console.log(`[RENDER_PROJECTILE_DEBUG] Rendering projectile: id=${projectile.id || 'unknown'}, type=${projectile.projectileType}, playerId=${projectile.playerId}, screenPos=(${screenPos.x}, ${screenPos.y})`);
-    }
 
     const params = this.projectileRenderer.getRenderParams(projectile);
 
@@ -727,10 +760,6 @@ export class RenderSystem extends BaseSystem {
 
       if (!components.transform || !components.projectile) continue;
 
-      // DEBUG: Log per vedere se i proiettili NPC vengono renderizzati
-      if (components.projectile.playerId && components.projectile.playerId.startsWith('npc_')) {
-        console.log(`[RENDER_DEBUG] Rendering NPC projectile: id=${components.projectile.id || 'unknown'}, playerId=${components.projectile.playerId}, pos=(${components.transform.x}, ${components.transform.y})`);
-      }
 
       // Convert world coordinates to screen coordinates
       const { width, height } = this.displayManager.getLogicalSize();

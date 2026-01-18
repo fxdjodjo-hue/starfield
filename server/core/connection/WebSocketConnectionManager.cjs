@@ -4,7 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerInputValidator = require('../InputValidator.cjs');
-const { BoundaryEnforcement } = require('../../../shared/SecurityBoundary.cjs');
+const { BoundaryEnforcement } = require('../../../dist-server/shared/SecurityBoundary.cjs');
 const { createClient } = require('@supabase/supabase-js');
 const WebSocket = require('ws');
 const { routeMessage } = require('./MessageRouter.cjs');

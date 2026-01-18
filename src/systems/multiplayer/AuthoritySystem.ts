@@ -8,10 +8,10 @@ import { Velocity } from '../../entities/spatial/Velocity';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 
 /**
- * Authority Manager System - applica enforcement reale delle regole di authority
+ * Authority System - applica enforcement reale delle regole di authority
  * Previene violazioni di sicurezza architetturale nell'ECS
  */
-export class AuthorityManagerSystem extends BaseSystem {
+export class AuthoritySystem extends BaseSystem {
   private gameContext: GameContext;
   private localClientId: string;
 

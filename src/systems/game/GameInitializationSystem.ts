@@ -6,7 +6,7 @@ import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { World } from '../../infrastructure/engine/World';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-import { QuestManager } from '../quest/QuestManager';
+import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { QuestSystem } from '../quest/QuestSystem';
 import { UiSystem } from '../ui/UiSystem';
 import { MovementSystem } from '../physics/MovementSystem';

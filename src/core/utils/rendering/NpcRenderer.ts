@@ -1,6 +1,6 @@
-import { Npc } from '../../entities/ai/Npc';
-import { Transform } from '../../entities/spatial/Transform';
-import { Velocity } from '../../entities/spatial/Velocity';
+import { Npc } from '../../../entities/ai/Npc';
+import { Transform } from '../../../entities/spatial/Transform';
+import { Velocity } from '../../../entities/spatial/Velocity';
 
 /**
  * Helper for NPC rendering logic (rotation calculations)

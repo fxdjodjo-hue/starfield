@@ -14,6 +14,10 @@ export class PlayerMovementManager {
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
   private onMinimapMovementComplete?: () => void;
+  private faceTargetX: number | null = null;
+  private faceTargetY: number | null = null;
+
+  private isAttackActivated: () => boolean = () => false;
 
   constructor(
     private readonly ecs: ECS,
@@ -27,10 +31,51 @@ export class PlayerMovementManager {
   ) {}
 
   /**
+   * Imposta il callback per sapere se l'attacco è attivo
+   */
+  setAttackActivatedCallback(callback: () => boolean): void {
+    this.isAttackActivated = callback;
+  }
+
+
+  /**
    * Sets minimap movement complete callback
    */
   setMinimapMovementCompleteCallback(callback: () => void): void {
     this.onMinimapMovementComplete = callback;
+  }
+
+  /**
+   * Imposta un punto target verso cui la nave deve "guardare" (ruotare)
+   * Questo è generico e può essere usato per NPC, punti di interesse, ecc.
+   */
+  setFaceTarget(x: number, y: number): void {
+    this.faceTargetX = x;
+    this.faceTargetY = y;
+  }
+
+  /**
+   * Rimuove il target di face-up
+   */
+  clearFaceTarget(): void {
+    this.faceTargetX = null;
+    this.faceTargetY = null;
+  }
+
+  /**
+   * Ruota la nave verso il target impostato (se presente)
+   */
+  faceTowardsTarget(): void {
+    if (this.faceTargetX === null || this.faceTargetY === null) return;
+
+    const playerEntity = this.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const transform = this.ecs.getComponent(playerEntity, Transform);
+    if (!transform) return;
+
+    const angle = Math.atan2(this.faceTargetY - transform.y, this.faceTargetX - transform.x);
+    transform.rotation = angle;
   }
 
   /**
@@ -57,19 +102,22 @@ export class PlayerMovementManager {
 
     if (!transform || !velocity) return;
 
-    const { distance } = MathUtils.calculateDirection(
-      this.minimapTargetX, this.minimapTargetY,
-      transform.x, transform.y
+    const { direction, distance } = MathUtils.calculateDirection(
+      transform.x, transform.y,
+      this.minimapTargetX, this.minimapTargetY
     );
 
     if (distance > 50) {
-      const dirX = dx / distance;
-      const dirY = dy / distance;
+      const dirX = direction.x;
+      const dirY = direction.y;
 
       velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
 
-      const angle = Math.atan2(dirY, dirX);
-      transform.rotation = angle;
+      // Imposta rotazione solo se non siamo in combattimento attivo
+      if (!this.isAttackActivated()) {
+        const angle = Math.atan2(dirY, dirX);
+        transform.rotation = angle;
+      }
     } else {
       velocity.stop();
       this.minimapTargetX = null;
@@ -99,19 +147,22 @@ export class PlayerMovementManager {
     const worldMouseX = worldMousePos.x;
     const worldMouseY = worldMousePos.y;
 
-    const { distance } = MathUtils.calculateDirection(
-      worldMouseX, worldMouseY,
-      transform.x, transform.y
+    const { direction, distance } = MathUtils.calculateDirection(
+      transform.x, transform.y,
+      worldMouseX, worldMouseY
     );
 
     if (distance > 10) {
-      const dirX = dx / distance;
-      const dirY = dy / distance;
+      const dirX = direction.x;
+      const dirY = direction.y;
 
       velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
 
-      const angle = Math.atan2(dirY, dirX);
-      transform.rotation = angle;
+      // Imposta rotazione solo se non siamo in combattimento attivo
+      if (!this.isAttackActivated()) {
+        const angle = Math.atan2(dirY, dirX);
+        transform.rotation = angle;
+      }
     } else {
       velocity.stop();
       this.setIsMousePressed(false);
@@ -147,10 +198,13 @@ export class PlayerMovementManager {
     velocity.setVelocity(vx * speed, vy * speed);
 
     if (vx !== 0 || vy !== 0) {
-      const angle = Math.atan2(vy, vx);
-      const transform = this.ecs.getComponent(playerEntity, Transform);
-      if (transform) {
-        transform.rotation = angle;
+      // Imposta rotazione solo se non siamo in combattimento attivo
+      if (!this.isAttackActivated()) {
+        const angle = Math.atan2(vy, vx);
+        const transform = this.ecs.getComponent(playerEntity, Transform);
+        if (transform) {
+          transform.rotation = angle;
+        }
       }
     }
   }

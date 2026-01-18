@@ -2,7 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Health } from '../../entities/combat/Health';
-import { CONFIG } from '../../core/utils/config/Config';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { DisplayManager } from '../../infrastructure/display';
 

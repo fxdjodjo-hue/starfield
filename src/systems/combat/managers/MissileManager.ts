@@ -104,7 +104,7 @@ export class MissileManager {
     }
 
     // Calculate direction from player to target
-    const { direction } = calculateDirection(
+    const { direction } = MathUtils.calculateDirection(
       attackerTransform.x,
       attackerTransform.y,
       targetTransform.x,

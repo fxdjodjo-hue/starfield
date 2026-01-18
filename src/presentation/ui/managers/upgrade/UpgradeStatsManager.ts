@@ -4,7 +4,8 @@ import { Health } from '../../../../entities/combat/Health';
 import { Shield } from '../../../../entities/combat/Shield';
 import { Damage } from '../../../../entities/combat/Damage';
 import { PlayerUpgrades } from '../../../../entities/player/PlayerUpgrades';
-import { Credits, Cosmos } from '../../../../entities/currency/Currency';
+import { Credits } from '../../../../entities/currency/Credits';
+import { Cosmos } from '../../../../entities/currency/Cosmos';
 import { getPlayerDefinition } from '../../../../config/PlayerConfig';
 
 /**

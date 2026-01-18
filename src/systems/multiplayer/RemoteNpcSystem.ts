@@ -28,6 +28,7 @@ export class RemoteNpcSystem extends BaseSystem {
 
   // Tracking per logging ridotto
   private lastBulkUpdateLog = 0;
+  private lastStatusLog = 0;
 
   constructor(ecs: ECS, npcSprites: Map<string, HTMLImageElement>, assetManager?: any) {
     super(ecs);
@@ -96,8 +97,13 @@ export class RemoteNpcSystem extends BaseSystem {
   addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
     // Verifica se l'NPC esiste già
     if (this.remoteNpcs.has(npcId)) {
-      this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, behavior);
-      return this.remoteNpcs.get(npcId)!.entityId;
+      // NPC già esistente - aggiorna invece di creare duplicato
+      // Log per debug duplicati
+      const existingNpcData = this.remoteNpcs.get(npcId)!;
+      console.warn(`[RemoteNpcSystem] Duplicate NPC creation attempt for ${npcId} (${type}) - updating existing entity ${existingNpcData.entityId} instead`);
+
+      this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, shield, behavior);
+      return existingNpcData.entityId;
     }
 
     // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos)
@@ -120,7 +126,7 @@ export class RemoteNpcSystem extends BaseSystem {
     const npcDef = getNpcDefinition(validType);
     const transformScale = npcDef?.transformScale || (npcDef?.spriteScale || 1);
     this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, transformScale, transformScale));
-    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation));
+    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation, true));
 
     // Componenti visivi - priorità ad AnimatedSprite se disponibile
     if (animatedSprite) {
@@ -304,10 +310,46 @@ export class RemoteNpcSystem extends BaseSystem {
   }
 
   /**
-   * Update periodico (principalmente per logging)
+   * Update periodico - verifica consistenza e cleanup
    */
   update(deltaTime: number): void {
-    // No periodic logging needed
+    // Verifica periodica di consistenza (ogni 10 secondi)
+    this.lastStatusLog += deltaTime;
+    if (this.lastStatusLog > 10000) {
+      this.checkConsistency();
+      this.lastStatusLog = 0;
+    }
+  }
+
+  /**
+   * Verifica la consistenza tra entità ECS e registro remoto
+   * Utile per identificare NPC "orfani" o duplicati
+   */
+  private checkConsistency(): void {
+    const npcsInECS = this.ecs.getEntitiesWithComponents(Npc);
+    const registeredNpcIds = new Set(this.remoteNpcs.keys());
+
+    let orphanedCount = 0;
+    let validCount = 0;
+
+    for (const entity of npcsInECS) {
+      const npcComponent = this.ecs.getComponent(entity, Npc);
+      if (npcComponent && npcComponent.serverId) {
+        if (registeredNpcIds.has(npcComponent.serverId)) {
+          validCount++;
+        } else {
+          orphanedCount++;
+          console.warn(`[RemoteNpcSystem] Orphaned NPC entity ${entity.id} with serverId ${npcComponent.serverId} - not in remote registry`);
+          // Rimuovi entità orfana automaticamente
+          this.ecs.removeEntity(entity);
+        }
+      }
+    }
+
+    // Log summary se ci sono problemi
+    if (orphanedCount > 0) {
+      console.warn(`[RemoteNpcSystem] Consistency check: ${validCount} valid NPCs, ${orphanedCount} orphaned NPCs removed, ${this.remoteNpcs.size} registered`);
+    }
   }
 
   private lastStatusLog = 0;

@@ -9,8 +9,9 @@ export class InputSystem extends BaseSystem {
   private canvas: HTMLCanvasElement;
   private mousePosition = { x: 0, y: 0 };
   private isMouseDown = false;
-  private onMouseState?: (pressed: boolean, x: number, y: number) => void;
+  private onMouseState?: (pressed: boolean, x: number, y: number, button?: number) => void;
   private onMouseMoveWhilePressed?: (x: number, y: number) => void;
+  private onRightMouseState?: (pressed: boolean, x: number, y: number) => void;
   private onKeyPress?: (key: string) => void;
   private onKeyRelease?: (key: string) => void;
 
@@ -23,8 +24,15 @@ export class InputSystem extends BaseSystem {
   /**
    * Imposta il callback per lo stato del mouse
    */
-  setMouseStateCallback(callback: (pressed: boolean, x: number, y: number) => void): void {
+  setMouseStateCallback(callback: (pressed: boolean, x: number, y: number, button?: number) => void): void {
     this.onMouseState = callback;
+  }
+
+  /**
+   * Imposta il callback per il click destro
+   */
+  setRightMouseStateCallback(callback: (pressed: boolean, x: number, y: number) => void): void {
+    this.onRightMouseState = callback;
   }
 
   /**
@@ -88,15 +96,19 @@ export class InputSystem extends BaseSystem {
     this.canvas.addEventListener('mousedown', (event) => {
       if (event.button === 0) { // Click sinistro
         this.isMouseDown = true;
-        this.onMouseState?.(true, this.mousePosition.x, this.mousePosition.y);
+        this.onMouseState?.(true, this.mousePosition.x, this.mousePosition.y, event.button);
+      } else if (event.button === 2) { // Click destro
+        this.onRightMouseState?.(true, this.mousePosition.x, this.mousePosition.y);
       }
     });
 
     // Mouse up
     this.canvas.addEventListener('mouseup', (event) => {
-      if (event.button === 0) {
+      if (event.button === 0) { // Click sinistro
         this.isMouseDown = false;
-        this.onMouseState?.(false, this.mousePosition.x, this.mousePosition.y);
+        this.onMouseState?.(false, this.mousePosition.x, this.mousePosition.y, event.button);
+      } else if (event.button === 2) { // Click destro
+        this.onRightMouseState?.(false, this.mousePosition.x, this.mousePosition.y);
       }
     });
 

@@ -4,7 +4,7 @@ import { World } from '../../infrastructure/engine/World';
 import { MovementSystem } from '../../systems/physics/MovementSystem';
 import { CameraSystem } from '../../systems/rendering/CameraSystem';
 import { InterpolationSystem } from '../../systems/physics/InterpolationSystem';
-import { QuestManager } from '../../systems/quest/QuestManager';
+import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { QuestSystem } from '../../systems/quest/QuestSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';

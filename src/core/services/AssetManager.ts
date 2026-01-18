@@ -1,7 +1,8 @@
-import { Sprite } from '../entities/Sprite';
-import { AnimatedSprite } from '../entities/AnimatedSprite';
-import type { SpritesheetData } from '../entities/AnimatedSprite';
+import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
+import type { SpritesheetData } from '../../entities/AnimatedSprite';
 import { AtlasParser } from '../utils/AtlasParser';
+import { LoggerWrapper, LogCategory } from '../../core/data/LoggerWrapper';
 
 /**
  * AssetManager handles loading and managing game assets (sprites, sounds, etc.)
@@ -274,7 +275,6 @@ export class AssetManager {
       throw new Error(`No frames found in atlas: ${basePath}.atlas`);
     }
     
-    // DEBUG: Verifica frameWidth e frameHeight
     if (frameWidth === 0 || frameHeight === 0 || frameWidth === undefined || frameHeight === undefined) {
       // Calcola da tutti i frame disponibili
       const validFrames = allFrames.filter(f => f.width > 0 && f.height > 0);
@@ -282,7 +282,11 @@ export class AssetManager {
         frameWidth = validFrames[0].width;
         frameHeight = validFrames[0].height;
       } else {
-        console.warn(`[AssetManager] Nessun frame valido trovato per ${basePath}, usando dimensioni default`);
+        LoggerWrapper.warn(LogCategory.SYSTEM, `No valid frames found for ${basePath}, using default dimensions`, {
+          basePath,
+          totalFrames: allFrames.length,
+          validFrames: validFrames.length
+        });
         // Fallback: usa dimensioni del primo frame anche se 0
         if (allFrames.length > 0) {
           frameWidth = allFrames[0].width || 189; // Default per ship106

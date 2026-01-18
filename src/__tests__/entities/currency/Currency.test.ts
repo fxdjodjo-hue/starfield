@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { Credits } from '../../../entities/currency/Currency';
-import { Cosmos } from '../../../entities/currency/Currency';
+import { Credits } from '../../../entities/currency/Credits';
+import { Cosmos } from '../../../entities/currency/Cosmos';
 
 describe('Credits', () => {
   it('should create instance', () => {

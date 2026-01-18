@@ -9,6 +9,18 @@ export { ProjectileFactory } from './ProjectileFactory';
 export { CooldownManager } from './CooldownManager';
 export { RespawnSystem } from './RespawnSystem';
 
+// Domain modules
+export { QuestManager } from './quest/QuestManager';
+export { RankSystem } from './rewards/RankSystem';
+
+// Economy domain
+export { CurrencyManager } from './economy/CurrencyManager';
+export { ProgressionManager } from './economy/ProgressionManager';
+export { HonorManager } from './economy/HonorManager';
+export { EconomyEventManager } from './economy/EconomyEventManager';
+export { EconomyStatusManager } from './economy/EconomyStatusManager';
+export { EconomyUIDisplayManager } from './economy/EconomyUIDisplayManager';
+
 // Re-export interfaces
 export type { DamageResult, DamageContext } from './DamageSystem';
 export type { PositionUpdate, HealthUpdate, ShieldUpdate, BehaviorUpdate, EntityStateUpdate } from './EntityStateSystem';

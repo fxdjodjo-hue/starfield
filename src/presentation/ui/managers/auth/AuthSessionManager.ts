@@ -1,4 +1,4 @@
-import { supabase } from '../../../../lib/supabase';
+import { supabase } from '../../../../lib/SupabaseClient';
 import { getApiBaseUrl } from '../../../../config/NetworkConfig';
 import type { GameContext } from '../../../../infrastructure/engine/GameContext';
 import { AuthState } from './AuthState';
@@ -164,7 +164,7 @@ export class AuthSessionManager {
       if (data.user) {
         // CREA PROFILO NEL DATABASE - OBBLIGATORIO, NON OPZIONALE
         try {
-          const { data: profileData, error: profileError } = await import('../../../../lib/supabase').then(m => m.gameAPI.createPlayerProfile(nickname));
+          const { data: profileData, error: profileError } = await import('../../../../lib/SupabaseClient').then(m => m.gameAPI.createPlayerProfile(nickname));
 
           if (profileError) {
             console.error('❌ [AuthScreen] CRITICAL: Failed to create player profile:', profileError);

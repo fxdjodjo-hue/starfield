@@ -1,6 +1,6 @@
-import { supabase } from '../../../lib/supabase';
+import { supabase } from '../../../lib/SupabaseClient';
 import { NetworkConnectionManager } from './NetworkConnectionManager';
-import { NetworkEventSystem } from './NetworkEventSystem';
+import { NetworkEventManager } from './NetworkEventManager';
 import { NetworkStateManager } from './NetworkStateManager';
 import { GameContext } from '../../../infrastructure/engine/GameContext';
 import { secureLogger } from '../../../config/NetworkConfig';
@@ -12,7 +12,7 @@ import { secureLogger } from '../../../config/NetworkConfig';
 export class NetworkAuthenticationManager {
   // Dependencies
   private readonly connectionManager: NetworkConnectionManager;
-  private readonly eventSystem: NetworkEventSystem;
+  private readonly eventSystem: NetworkEventManager;
   private readonly stateManager: NetworkStateManager;
   private readonly gameContext: GameContext;
 
@@ -25,7 +25,7 @@ export class NetworkAuthenticationManager {
 
   constructor(
     connectionManager: NetworkConnectionManager,
-    eventSystem: NetworkEventSystem,
+    eventSystem: NetworkEventManager,
     stateManager: NetworkStateManager,
     gameContext: GameContext
   ) {

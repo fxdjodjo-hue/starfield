@@ -5,10 +5,10 @@ import { AudioNotificationSystem } from '../../../systems/client/AudioNotificati
 import { UINotificationSystem } from '../../../systems/client/UINotificationSystem';
 
 /**
- * NetworkEventSystem - Gestisce eventi di rete e notifiche (audio/UI)
+ * NetworkEventManager - Gestisce eventi di rete e notifiche (audio/UI)
  * Refactored da ClientNetworkSystem per Separation of Concerns
  */
-export class NetworkEventSystem {
+export class NetworkEventManager {
   private ecs: ECS;
   private gameContext: GameContext;
 

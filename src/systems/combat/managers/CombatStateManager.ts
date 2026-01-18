@@ -128,6 +128,13 @@ export class CombatStateManager {
     // Deseleziona solo se fuori schermo E fuori range E non target corrente
     if (isOffScreen && !inRange && this.currentAttackTarget !== selectedNpc.id) {
       this.ecs.removeComponent(selectedNpc, SelectedNpc);
+      // Reset ship rotation and deactivate attack when NPC is auto-deselected
+      const playerControlSystem = this.getPlayerControlSystem();
+      if (playerControlSystem) {
+        playerControlSystem.resetShipRotation();
+        // Disattiva l'attacco quando l'NPC viene automaticamente deselezionato
+        playerControlSystem.deactivateAttack();
+      }
       return;
     }
     const playerControlSystem = this.getPlayerControlSystem();

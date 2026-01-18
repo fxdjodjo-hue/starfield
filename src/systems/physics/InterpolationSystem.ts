@@ -21,7 +21,7 @@ export class InterpolationSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     // Debug: monitora deltaTime per identificare scatti
-    if (deltaTime > 50) { // DeltaTime > 50ms indica frame drop
+    if (deltaTime > 32) { // DeltaTime > 32ms indica frame drop
       console.warn(`[INTERPOLATION_DEBUG] Frame drop detected! deltaTime: ${deltaTime}ms`);
     }
 

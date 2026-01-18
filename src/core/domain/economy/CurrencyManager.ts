@@ -1,5 +1,6 @@
 import { ECS } from '../../../infrastructure/ecs/ECS';
-import { Credits, Cosmos } from '../../../entities/currency/Currency';
+import { Credits } from '../../../entities/currency/Credits';
+import { Cosmos } from '../../../entities/currency/Cosmos';
 
 /**
  * Manages Credits and Cosmos currency operations

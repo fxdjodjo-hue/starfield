@@ -1,4 +1,4 @@
-import { getFormattedVersion } from '../../../../core/utils/config/Version';
+import { getFormattedVersion } from '../../../../core/utils/config/AppVersion';
 import { DiscordIcon } from '../../DiscordIcon';
 
 /**

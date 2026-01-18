@@ -5,6 +5,7 @@
 
 export { BroadcastManager } from './BroadcastManager';
 export { AssetLoader } from './AssetLoader';
+export { AssetManager } from './AssetManager';
 export { DOMEventManager } from './DOMEventManager';
 
 // Re-export interfaces

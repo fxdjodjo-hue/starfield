@@ -5,7 +5,6 @@ import { Transform } from '../../../entities/spatial/Transform';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
 import { AtlasParser } from '../../../core/utils/AtlasParser';
-import { LoggerWrapper, LogCategory } from '../../../core/data/LoggerWrapper';
 
 /**
  * Handles repair_started messages from the server
@@ -25,15 +24,15 @@ export class RepairStartedHandler extends BaseMessageHandler {
     // Crea effetto visivo di riparazione
     const ecs = networkSystem.getECS();
     const playerSystem = networkSystem.getPlayerSystem();
-    
+
     if (!ecs || !playerSystem) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, 'ECS or PlayerSystem not available for repair start');
+      console.warn('[RepairStartedHandler] ECS or PlayerSystem not available');
       return;
     }
 
     const playerEntity = playerSystem.getPlayerEntity();
     if (!playerEntity) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, 'Player entity not found for repair start');
+      console.warn('[RepairStartedHandler] Player entity not found');
       return;
     }
 
@@ -86,13 +85,13 @@ export class RepairStartedHandler extends BaseMessageHandler {
         repairFrames = await AtlasParser.extractFrames(atlasData);
         this.repairFramesCache[cacheKey] = repairFrames;
       } catch (error) {
-        LoggerWrapper.error(LogCategory.MULTIPLAYER, `Failed to load ${repairType} repair frames`, error as Error);
+        console.error(`[RepairStartedHandler] Failed to load ${repairType} repair frames:`, error);
         return;
       }
     }
 
     if (!repairFrames || repairFrames.length === 0) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, `No ${repairType} repair frames loaded`);
+      console.warn(`[RepairStartedHandler] No ${repairType} repair frames loaded`);
       return;
     }
 
@@ -101,7 +100,7 @@ export class RepairStartedHandler extends BaseMessageHandler {
     const playerTransform = ecs.getComponent(playerEntity, Transform);
 
     if (!playerTransform) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, 'Player transform not found for repair effect');
+      console.warn('[RepairStartedHandler] Player transform not found');
       ecs.removeEntity(repairEffectEntity);
       return;
     }
@@ -116,63 +115,5 @@ export class RepairStartedHandler extends BaseMessageHandler {
     ecs.addComponent(repairEffectEntity, Transform, effectTransform);
     ecs.addComponent(repairEffectEntity, RepairEffect, repairEffect);
 
-  }
-}
-
-/**
- * Handler per repair_stopped (quando la riparazione viene interrotta, non completata)
- */
-export class RepairStoppedHandler extends BaseMessageHandler {
-  constructor() {
-    super('repair_stopped');
-  }
-
-  handle(message: any, networkSystem: ClientNetworkSystem): void {
-    if (import.meta.env.DEV) {
-    }
-
-    // Rimuovi effetto visivo di riparazione
-    removeRepairEffect(networkSystem);
-  }
-}
-
-/**
- * Handler per repair_complete (quando la riparazione è completata, tutto riparato)
- */
-export class RepairCompleteHandler extends BaseMessageHandler {
-  constructor() {
-    super('repair_complete');
-  }
-
-  handle(message: any, networkSystem: ClientNetworkSystem): void {
-    if (import.meta.env.DEV) {
-    }
-
-    // Rimuovi effetto visivo di riparazione
-    removeRepairEffect(networkSystem);
-  }
-}
-
-// Helper condiviso per rimuovere effetto
-function removeRepairEffect(networkSystem: ClientNetworkSystem): void {
-  const ecs = networkSystem.getECS();
-  const playerSystem = networkSystem.getPlayerSystem();
-
-  if (!ecs || !playerSystem) {
-    return;
-  }
-
-  const playerEntity = playerSystem.getPlayerEntity();
-  if (!playerEntity) {
-    return;
-  }
-
-  // Trova e rimuovi tutti gli effetti di riparazione per questo player
-  const repairEffectEntities = ecs.getEntitiesWithComponents(RepairEffect);
-  for (const entity of repairEffectEntities) {
-    const repairEffect = ecs.getComponent(entity, RepairEffect);
-    if (repairEffect && repairEffect.targetEntityId === playerEntity.id) {
-      ecs.removeEntity(entity);
-    }
   }
 }

@@ -1,9 +1,9 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
-import { QuestManager } from './QuestManager';
+import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { QuestPanel } from '../../presentation/ui/QuestPanel';
-import { gameAPI } from '../../lib/supabase';
+import { gameAPI } from '../../lib/SupabaseClient';
 
 /**
  * Sistema di orchestrazione per la gestione delle quest

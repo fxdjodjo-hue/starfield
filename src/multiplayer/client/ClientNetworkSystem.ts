@@ -8,7 +8,7 @@ import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjecti
 
 // Modular architecture components
 import { NetworkConnectionManager } from './managers/NetworkConnectionManager';
-import { NetworkEventSystem } from './managers/NetworkEventSystem';
+import { NetworkEventManager } from './managers/NetworkEventManager';
 import { RemoteEntityManager } from './managers/RemoteEntityManager';
 import { RateLimiter, RATE_LIMITS } from './managers/RateLimiter';
 import { NetworkStateManager, ConnectionState } from './managers/NetworkStateManager';
@@ -47,7 +47,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
   // Modular architecture components
   private readonly connectionManager: NetworkConnectionManager;
-  private readonly eventSystem: NetworkEventSystem;
+  private readonly eventSystem: NetworkEventManager;
   private readonly entityManager: RemoteEntityManager;
   private readonly tickManager: NetworkTickManager;
   private readonly positionTracker: PlayerPositionTracker;
@@ -106,7 +106,7 @@ export class ClientNetworkSystem extends BaseSystem {
       this.handleReconnecting.bind(this)
     );
 
-    this.eventSystem = new NetworkEventSystem(ecs, gameContext);
+    this.eventSystem = new NetworkEventManager(ecs, gameContext);
     this.entityManager = new RemoteEntityManager(ecs, remotePlayerSystem);
     this.positionTracker = new PlayerPositionTracker(ecs);
     this.rateLimiter = new RateLimiter();

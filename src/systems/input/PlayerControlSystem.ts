@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Camera } from '../../entities/spatial/Camera';
 import { LogSystem } from '../rendering/LogSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
+import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 
 // Modular architecture managers
 import { PlayerAudioManager } from './managers/PlayerAudioManager';
@@ -89,6 +90,9 @@ export class PlayerControlSystem extends BaseSystem {
       (pressed) => { this.inputManager.setIsMousePressed(pressed); }
     );
 
+    // Passa lo stato di combattimento al movement manager
+    this.movementManager.setAttackActivatedCallback(() => this.attackActivated);
+
     this.managersInitialized = true;
   }
 
@@ -160,6 +164,14 @@ export class PlayerControlSystem extends BaseSystem {
   deactivateAttack(): void {
     this.initializeManagers();
     this.attackManager.deactivateAttack();
+  }
+
+  /**
+   * Reset ship rotation when NPC is deselected
+   */
+  resetShipRotation(): void {
+    this.initializeManagers();
+    this.attackManager.resetShipRotation();
   }
 
   /**
@@ -251,9 +263,13 @@ export class PlayerControlSystem extends BaseSystem {
       this.movementManager.stopPlayerMovement();
     }
 
-    // Ruota verso l'NPC selezionato SOLO se l'attacco è attivo
+    // Ruota verso l'NPC selezionato durante combattimento attivo
+    // Solo se c'è ancora un NPC selezionato
     if (this.attackActivated) {
-      this.attackManager.faceSelectedNpc();
+      const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+      if (selectedNpcs.length > 0) {
+        this.attackManager.faceSelectedNpc();
+      }
     }
   }
 

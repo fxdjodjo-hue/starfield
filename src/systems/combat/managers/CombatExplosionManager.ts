@@ -10,7 +10,7 @@ import { DamageTaken } from '../../../entities/combat/DamageTaken';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { Velocity } from '../../../entities/spatial/Velocity';
-import { AtlasParser } from '../../../utils/AtlasParser';
+import { AtlasParser } from '../../../core/utils/AtlasParser';
 
 /**
  * Manages explosion creation and dead entity removal

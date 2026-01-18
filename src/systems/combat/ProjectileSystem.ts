@@ -12,6 +12,7 @@ import { UiSystem } from '../ui/UiSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { MathUtils } from '../../core/utils/MathUtils';
+import { TimeManager } from '../../core/utils/TimeManager';
 import { ComponentHelper } from '../../core/data/ComponentHelper';
 
 /**
@@ -31,7 +32,7 @@ export class ProjectileSystem extends BaseSystem {
     const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
 
     // Converti deltaTime da millisecondi a secondi usando utility
-    const deltaTimeSeconds = msToSeconds(deltaTime);
+    const deltaTimeSeconds = TimeManager.millisecondsToSeconds(deltaTime);
 
     for (const projectileEntity of projectiles) {
       const transform = ComponentHelper.getTransform(this.ecs, projectileEntity);

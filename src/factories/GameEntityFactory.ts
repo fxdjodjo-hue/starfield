@@ -1,26 +1,17 @@
+// Import base EntityFactory
+import { EntityFactory } from '../core/architecture/EntityFactory';
+import type { BaseEntityConfig, CombatEntityConfig, ProgressionEntityConfig } from '../core/architecture';
+
+// Additional imports for game-specific logic
 import { ECS } from '../infrastructure/ecs/ECS';
 import { Entity } from '../infrastructure/ecs/Entity';
-
-// Component imports
-import { Transform } from '../entities/spatial/Transform';
-import { Velocity } from '../entities/spatial/Velocity';
-import { Sprite } from '../entities/Sprite';
 import { AnimatedSprite } from '../entities/AnimatedSprite';
-import { Health } from '../entities/combat/Health';
-import { Shield } from '../entities/combat/Shield';
-import { Damage } from '../entities/combat/Damage';
 import { Npc } from '../entities/ai/Npc';
 import { RemotePlayer } from '../entities/player/RemotePlayer';
-import { PlayerStats } from '../entities/player/PlayerStats';
-import { PlayerUpgrades } from '../entities/player/PlayerUpgrades';
 import { PlayerRole } from '../entities/player/PlayerRole';
-import { SkillPoints } from '../entities/currency/SkillPoints';
-import { Credits } from '../entities/currency/Currency';
-import { Cosmos } from '../entities/currency/Currency';
-import { Experience } from '../entities/currency/Experience';
-import { Honor } from '../entities/currency/Honor';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
-import { InterpolationTarget } from '../entities/spatial/InterpolationTarget';
+import { Transform } from '../entities/spatial/Transform';
+import { Sprite } from '../entities/Sprite';
 
 // Config imports
 import { getPlayerDefinition } from '../config/PlayerConfig';
@@ -98,14 +89,16 @@ export interface RemotePlayerConfig {
 }
 
 /**
- * Factory centralizzata per la creazione di tutte le entità del gioco
- * Implementa il pattern Factory con builder per garantire consistenza e centralizzazione
+ * GameEntityFactory - Specializzazione del gioco che estende EntityFactory base
+ * Fornisce metodi specifici per creazione entità di gioco (Player, NPC, RemotePlayer)
+ * con logica di caricamento asset e comportamenti specializzati
  */
-export class EntityFactory {
+export class GameEntityFactory extends EntityFactory {
   private assetManager: any = null;
   private kronosAnimatedSprite: AnimatedSprite | null = null;
 
-  constructor(private ecs: ECS, assetManager?: any) {
+  constructor(ecs: ECS, assetManager?: any) {
+    super(ecs);
     this.assetManager = assetManager || null;
   }
 
@@ -132,11 +125,9 @@ export class EntityFactory {
       rotation: (typeof config.position?.rotation === 'number' && !isNaN(config.position.rotation)) ? config.position.rotation : 0
     };
 
-    this.addSpatialComponents(entity, {
-      ...safePosition,
-      sprite: config.position?.sprite, // Player sprite fornito dal chiamante
-      velocity: { x: 0, y: 0 } // Aggiungi Velocity iniziale per permettere il movimento
-    });
+    // Usa metodo della classe base per componenti spaziali
+    // Player locale NON deve avere InterpolationTarget per essere gestito dal MovementSystem
+    this.addSpatialComponents(entity, safePosition, { x: 0, y: 0 }, config.position?.sprite, false);
 
     // Componenti di combattimento - range è fisso, non influenzato da upgrade
     this.addCombatComponents(entity, config.combat || {
@@ -173,8 +164,13 @@ export class EntityFactory {
       throw new Error(`Unknown NPC type: ${config.type}`);
     }
 
-    // Componenti spaziali
-    this.addSpatialComponents(entity, config.position);
+    // Componenti spaziali - usa metodo della classe base
+    this.addSpatialComponents(
+      entity,
+      { x: config.position.x, y: config.position.y, rotation: config.position.rotation },
+      config.position.velocity,
+      config.position.sprite
+    );
 
     // Componenti di combattimento (usa valori da config NPC se non specificati)
     const combatConfig = config.combat || {
@@ -252,14 +248,18 @@ export class EntityFactory {
   createRemotePlayer(config: RemotePlayerConfig): Entity {
     const entity = this.ecs.createEntity();
 
-    // Componenti spaziali
-    this.addSpatialComponents(entity, config.position);
+    // Componenti spaziali - usa metodo della classe base
+    this.addSpatialComponents(
+      entity,
+      { x: config.position.x, y: config.position.y, rotation: config.position.rotation },
+      config.position.velocity,
+      config.animatedSprite || config.position.sprite,
+      config.interpolation
+    );
 
-    // Aggiungi AnimatedSprite se fornito (rimuovi Sprite se presente)
-    if (this.ecs.hasComponent(entity, Sprite)) {
+    // Se abbiamo AnimatedSprite specifico, sovrascrivi quello della base
+    if (config.animatedSprite && this.ecs.hasComponent(entity, Sprite)) {
       this.ecs.removeComponent(entity, Sprite);
-    }
-    if (config.animatedSprite) {
       this.ecs.addComponent(entity, AnimatedSprite, config.animatedSprite);
     }
 
@@ -277,128 +277,7 @@ export class EntityFactory {
       config.rank || 'Recruit'
     ));
 
-    // Interpolazione per movimento fluido (se richiesta)
-    if (config.interpolation) {
-      this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(
-        config.position.x,
-        config.position.y,
-        config.position.rotation || 0
-      ));
-    }
-
     return entity;
   }
 
-  /**
-   * Aggiunge componenti spaziali a un'entità
-   */
-  private addSpatialComponents(entity: Entity, config: SpatialConfig): void {
-    // Transform obbligatorio
-    this.ecs.addComponent(entity, Transform, new Transform(
-      config.x,
-      config.y,
-      config.rotation || 0
-    ));
-
-    // Velocity opzionale
-    if (config.velocity) {
-      this.ecs.addComponent(entity, Velocity, new Velocity(
-        config.velocity.x,
-        config.velocity.y
-      ));
-    }
-
-    // Sprite opzionale
-    if (config.sprite) {
-      this.ecs.addComponent(entity, Sprite, config.sprite);
-    }
-  }
-
-  /**
-   * Aggiunge componenti di combattimento a un'entità
-   */
-  private addCombatComponents(entity: Entity, config: CombatConfig): void {
-    // Health component - supporta sia il formato annidato che diretto
-    if (config.health) {
-      this.ecs.addComponent(entity, Health, new Health(
-        config.health.current || config.health,
-        config.health.max || config.health
-      ));
-    } else if (config.stats?.health) {
-      // Formato diretto per player (da playerDef.stats)
-      this.ecs.addComponent(entity, Health, new Health(
-        config.stats.health,
-        config.stats.health
-      ));
-    }
-
-    // Shield component - supporta sia il formato annidato che diretto
-    if (config.shield) {
-      this.ecs.addComponent(entity, Shield, new Shield(
-        config.shield.current || config.shield,
-        config.shield.max || config.shield
-      ));
-    } else if (config.stats?.shield) {
-      // Formato diretto per player (da playerDef.stats)
-      this.ecs.addComponent(entity, Shield, new Shield(
-        config.stats.shield,
-        config.stats.shield
-      ));
-    }
-
-    // Damage component - supporta sia il formato diretto (stats) che il formato annidato (damage)
-    if (config.damage) {
-      this.ecs.addComponent(entity, Damage, new Damage(
-        config.damage.value || config.damage,
-        config.damage.range || config.stats?.range,
-        config.damage.cooldown || config.stats?.cooldown || 1000
-      ));
-    } else if (config.stats?.damage) {
-      // Formato diretto per player (da playerDef.stats)
-      // attackRange non più usato per il player (ora usa controllo rettangolare globale)
-      this.ecs.addComponent(entity, Damage, new Damage(
-        config.stats.damage,
-        0, // attackRange non più usato
-        config.stats.cooldown
-      ));
-    }
-  }
-
-  /**
-   * Aggiunge componenti di progresso a un'entità (principalmente per player)
-   */
-  private addProgressionComponents(entity: Entity, config: ProgressionConfig): void {
-    if (config.stats) {
-      this.ecs.addComponent(entity, PlayerStats, new PlayerStats(
-        config.stats.kills || 0,
-        config.stats.deaths || 0,
-        config.stats.missionsCompleted || 0,
-        config.stats.playTime || 0
-      ));
-    }
-
-    if (config.upgrades) {
-      const upgrades = new PlayerUpgrades();
-      upgrades.setUpgrades(
-        config.upgrades.hpUpgrades || 0,
-        config.upgrades.shieldUpgrades || 0,
-        config.upgrades.speedUpgrades || 0,
-        config.upgrades.damageUpgrades || 0
-      );
-      this.ecs.addComponent(entity, PlayerUpgrades, upgrades);
-    }
-
-    if (config.skillPoints !== undefined) {
-      this.ecs.addComponent(entity, SkillPoints, new SkillPoints(config.skillPoints));
-    }
-
-    // Risorse economiche
-    this.ecs.addComponent(entity, Credits, new Credits(config.credits || 0));
-    this.ecs.addComponent(entity, Cosmos, new Cosmos(config.cosmos || 0));
-    this.ecs.addComponent(entity, Experience, new Experience(config.experience || 0));
-    this.ecs.addComponent(entity, Honor, new Honor(config.honor || 0));
-    
-    // Ruoli del giocatore
-    this.ecs.addComponent(entity, PlayerRole, new PlayerRole(config.isAdministrator || false));
-  }
 }

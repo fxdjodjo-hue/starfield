@@ -32,9 +32,12 @@ class NpcMovementSystem {
 
       // Validazione velocità: assicurati che siano finite
       if (!Number.isFinite(npc.velocity.x) || !Number.isFinite(npc.velocity.y)) {
-        console.warn(`⚠️ [SERVER] NPC ${npc.id} velocity became NaN, resetting. Speed: ${speed}, deltaTime: ${deltaTime}`);
-        npc.velocity.x = (Math.random() - 0.5) * 100;
-        npc.velocity.y = (Math.random() - 0.5) * 100;
+        console.warn(`⚠️ [SERVER] NPC ${npc.id} velocity became NaN, resetting with config-based speed`);
+        // Reset con velocità basata sulla configurazione NPC invece di valori casuali fissi
+        const resetSpeed = speed * 0.3; // 30% della velocità massima come fallback
+        const angle = Math.random() * Math.PI * 2;
+        npc.velocity.x = Math.cos(angle) * resetSpeed;
+        npc.velocity.y = Math.sin(angle) * resetSpeed;
       }
 
       // Validazione parametri movimento
@@ -320,11 +323,14 @@ class NpcMovementSystem {
     // Validazione: assicurati che le posizioni siano finite
     if (!Number.isFinite(newX) || !Number.isFinite(newY)) {
       console.warn(`⚠️ [SERVER] NPC ${npc.id} position became NaN! old_pos: (${npc.position.x}, ${npc.position.y}) delta: (${deltaX}, ${deltaY}) vel: (${npc.velocity.x}, ${npc.velocity.y}) speed: ${speed} deltaTime: ${deltaTime}`);
-      console.warn(`⚠️ [SERVER] Resetting NPC ${npc.id} to (0, 0)`);
+      console.warn(`⚠️ [SERVER] Resetting NPC ${npc.id} to (0, 0) with config-based velocity`);
       npc.position.x = 0;
       npc.position.y = 0;
-      npc.velocity.x = (Math.random() - 0.5) * 100;
-      npc.velocity.y = (Math.random() - 0.5) * 100;
+      // Reset con velocità basata sulla configurazione invece di valori casuali fissi
+      const resetSpeed = NPC_CONFIG[npc.type]?.stats?.speed * 0.3 || 100; // Fallback a 100 se config non disponibile
+      const angle = Math.random() * Math.PI * 2;
+      npc.velocity.x = Math.cos(angle) * resetSpeed;
+      npc.velocity.y = Math.sin(angle) * resetSpeed;
       return false; // Salta l'aggiornamento per questo NPC
     }
 

@@ -1,8 +1,8 @@
-import { ECS } from '../../infrastructure/ecs/ECS';
-import { AssetManager } from '../../infrastructure/AssetManager';
-import { Projectile } from '../../entities/combat/Projectile';
-import { PlayerSystem } from '../../systems/player/PlayerSystem';
-import { Npc } from '../../entities/ai/Npc';
+import { ECS } from '../../../infrastructure/ecs/ECS';
+import { AssetManager } from '../../../core/services/AssetManager';
+import { Projectile } from '../../../entities/combat/Projectile';
+import { PlayerSystem } from '../../../systems/player/PlayerSystem';
+import { Npc } from '../../../entities/ai/Npc';
 
 /**
  * Rendering parameters for projectiles
@@ -44,10 +44,6 @@ export class ProjectileRenderer {
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isNpcProjectile = this.isNpcProjectile(projectile, playerEntity);
 
-    // DEBUG: Log classificazione proiettili
-    if (projectile.projectileType === 'laser' && !projectile.playerId?.startsWith('npc_')) {
-      console.log(`[PROJECTILE_RENDER_DEBUG] Player projectile: playerId=${projectile.playerId}, isNpcProjectile=${isNpcProjectile}`);
-    }
 
     if (isNpcProjectile) {
       // NPC projectile - try to use image first, fallback to green laser

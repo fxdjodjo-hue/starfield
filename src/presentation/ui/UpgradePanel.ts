@@ -1,4 +1,4 @@
-import { BasePanel } from './UIManager';
+import { BasePanel } from './FloatingIcon';
 import type { PanelConfig } from './PanelConfig';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { PlayerSystem } from '../../systems/player/PlayerSystem';

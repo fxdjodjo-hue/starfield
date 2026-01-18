@@ -66,13 +66,17 @@ class NpcSpawner {
     // Statistiche base per tipo dal config condiviso
     const stats = NPC_CONFIG[validType].stats;
 
+    // Velocità iniziale basata sulla configurazione NPC (direzione casuale, velocità dalla config)
+    const initialSpeed = stats.speed; // Usa velocità massima - poi regolata dal sistema di movimento
+    const angle = Math.random() * Math.PI * 2;
+
     const npc = {
       id: npcId,
       type: validType,
       position: { x: finalX, y: finalY, rotation: Math.random() * Math.PI * 2 },
       velocity: {
-        x: (Math.random() - 0.5) * 200,
-        y: (Math.random() - 0.5) * 200
+        x: Math.cos(angle) * initialSpeed,
+        y: Math.sin(angle) * initialSpeed
       },
       health: stats.health,
       maxHealth: stats.health,

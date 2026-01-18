@@ -1,6 +1,6 @@
 import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { RateLimiter, RATE_LIMITS } from './RateLimiter';
-import { NetworkEventSystem } from './NetworkEventSystem';
+import { NetworkEventManager } from './NetworkEventManager';
 
 /**
  * NetworkChatManager - Gestione messaggi chat con rate limiting
@@ -9,13 +9,13 @@ import { NetworkEventSystem } from './NetworkEventSystem';
 export class NetworkChatManager {
   private readonly connectionManager: NetworkConnectionManager;
   private readonly rateLimiter: RateLimiter;
-  private readonly eventSystem: NetworkEventSystem;
+  private readonly eventSystem: NetworkEventManager;
   private readonly clientId: string;
 
   constructor(
     connectionManager: NetworkConnectionManager,
     rateLimiter: RateLimiter,
-    eventSystem: NetworkEventSystem,
+    eventSystem: NetworkEventManager,
     clientId: string
   ) {
     this.connectionManager = connectionManager;

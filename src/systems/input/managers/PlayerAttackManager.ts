@@ -1,6 +1,8 @@
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { LogSystem } from '../../rendering/LogSystem';
 import { Transform } from '../../../entities/spatial/Transform';
+import { InterpolationTarget } from '../../../entities/spatial/InterpolationTarget';
+import { Velocity } from '../../../entities/spatial/Velocity';
 import { Damage } from '../../../entities/combat/Damage';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
@@ -16,6 +18,10 @@ export class PlayerAttackManager {
   private attackActivated: boolean = false;
   private lastInputTime: number = 0;
   private lastSpacePressTime: number = 0;
+  private lastFaceUpdateTime: number = 0;
+  private lastFaceAngle: number = 0;
+  private readonly FACE_UPDATE_INTERVAL = 50; // ms tra aggiornamenti rotazione
+  private readonly MIN_ANGLE_CHANGE = 0.05; // radianti minimi per aggiornare
 
   constructor(
     private readonly ecs: ECS,
@@ -83,6 +89,12 @@ export class PlayerAttackManager {
               this.attackActivated = false;
               this.setAttackActivated(false);
               this.deactivateAttack();
+
+              // Quando finisce l'attacco, DESELEZIONA l'NPC per permettere al movimento di controllare la rotazione
+              this.deselectCurrentNpc();
+
+              // Aggiorna immediatamente la rotazione del player verso la direzione corrente del movimento
+              this.updatePlayerRotationAfterCombatEnd();
             } else {
               this.handleSpacePress();
             }
@@ -262,14 +274,57 @@ export class PlayerAttackManager {
         this.ecs.removeComponent(npcEntity, SelectedNpc);
       }
 
+      // Reset ship rotation when deselecting NPC
+      this.resetShipRotation();
+
       this.stopCombatIfActive();
     }
   }
 
   /**
-   * Rotates player towards selected NPC (only during active combat)
+   * Reset ship rotation when deselecting NPC
+   * Sets rotation to movement direction or neutral (0) if stationary
+   * Also updates InterpolationTarget to prevent interpolation conflicts
+   */
+  resetShipRotation(): void {
+    const playerEntity = this.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const transform = this.ecs.getComponent(playerEntity, Transform);
+    const velocity = this.ecs.getComponent(playerEntity, Velocity);
+    const interpolationTarget = this.ecs.getComponent(playerEntity, InterpolationTarget);
+
+    if (!transform) return;
+
+    let newRotation = 0;
+
+    if (velocity && (velocity.x !== 0 || velocity.y !== 0)) {
+      // If moving, set rotation to movement direction
+      newRotation = Math.atan2(velocity.y, velocity.x);
+    } else {
+      // If stationary, set to neutral direction (0 = right)
+      newRotation = 0;
+    }
+
+    // Set both transform and interpolation target to prevent conflicts
+    transform.rotation = newRotation;
+    if (interpolationTarget) {
+      interpolationTarget.updateTarget(transform.x, transform.y, newRotation);
+    }
+  }
+
+  /**
+   * Ruota la nave verso l'NPC selezionato durante combattimento
+   * Usa InterpolationTarget per rotazioni fluide senza vibrazioni
    */
   faceSelectedNpc(): void {
+    const now = Date.now();
+
+    // Throttling: non aggiornare troppo frequentemente
+    if (now - this.lastFaceUpdateTime < this.FACE_UPDATE_INTERVAL) {
+      return;
+    }
+
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -279,13 +334,69 @@ export class PlayerAttackManager {
     const selectedNpc = selectedNpcs[0];
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
     const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const playerInterpolation = this.ecs.getComponent(playerEntity, InterpolationTarget);
 
     if (!npcTransform || !playerTransform) return;
 
     const dx = npcTransform.x - playerTransform.x;
     const dy = npcTransform.y - playerTransform.y;
     const angle = Math.atan2(dy, dx);
-    playerTransform.rotation = angle;
+
+    // Controllo cambio minimo: evita aggiornamenti per cambiamenti piccoli
+    const angleDiff = Math.abs(angle - this.lastFaceAngle);
+    if (angleDiff < this.MIN_ANGLE_CHANGE) {
+      return; // Angolo cambiato troppo poco
+    }
+
+    // Usa InterpolationTarget per rotazione fluida invece di impostare direttamente
+    if (playerInterpolation) {
+      playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle);
+    } else {
+      // Fallback se non c'è InterpolationTarget
+      playerTransform.rotation = angle;
+    }
+
+    // Aggiorna timestamp e ultimo angolo
+    this.lastFaceUpdateTime = now;
+    this.lastFaceAngle = angle;
+  }
+
+  /**
+   * Aggiorna la rotazione del player verso la direzione del movimento corrente
+   * quando finisce il combattimento (per evitare che la nave rimanga "bloccata" nella rotazione del face-up)
+   */
+  private updatePlayerRotationAfterCombatEnd(): void {
+    const playerEntity = this.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const playerVelocity = this.ecs.getComponent(playerEntity, Velocity);
+    const playerInterpolation = this.ecs.getComponent(playerEntity, InterpolationTarget);
+
+    if (!playerTransform || !playerVelocity) return;
+
+    // Se il player si sta muovendo, aggiorna la rotazione verso la direzione del movimento
+    if (playerVelocity.x !== 0 || playerVelocity.y !== 0) {
+      const angle = Math.atan2(playerVelocity.y, playerVelocity.x);
+
+      // Usa InterpolationTarget per rotazione fluida invece di impostare direttamente
+      if (playerInterpolation) {
+        playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle);
+      } else {
+        playerTransform.rotation = angle;
+      }
+    }
+  }
+
+  /**
+   * Deseleziona l'NPC attualmente selezionato
+   */
+  private deselectCurrentNpc(): void {
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    for (const npcEntity of selectedNpcs) {
+      // Rimuovi il componente SelectedNpc dall'entità
+      this.ecs.removeComponent(npcEntity, SelectedNpc);
+    }
   }
 
   /**

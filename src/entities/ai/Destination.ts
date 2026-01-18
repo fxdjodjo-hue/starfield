@@ -33,15 +33,15 @@ export class Destination extends Component {
    * Calcola la direzione verso la destinazione
    */
   getDirection(fromX: number, fromY: number): { x: number; y: number } {
-    const { distance } = MathUtils.calculateDirection(this.x, this.y, fromX, fromY);
+    const { direction, distance } = MathUtils.calculateDirection(this.x, this.y, fromX, fromY);
 
     if (distance === 0) {
       return { x: 0, y: 0 };
     }
 
     return {
-      x: dx / distance,
-      y: dy / distance
+      x: direction.x,
+      y: direction.y
     };
   }
 

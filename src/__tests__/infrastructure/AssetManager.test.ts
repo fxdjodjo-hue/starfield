@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { AssetManager } from '../../../infrastructure/AssetManager';
+import { AssetManager } from '../../../core/services/AssetManager';
 
 describe('AssetManager', () => {
   it('should have getImage method', () => {

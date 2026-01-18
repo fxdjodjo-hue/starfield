@@ -1,5 +1,5 @@
-import { RepairEffect } from '../../entities/combat/RepairEffect';
-import { Transform } from '../../entities/spatial/Transform';
+import { RepairEffect } from '../../../entities/combat/RepairEffect';
+import { Transform } from '../../../entities/spatial/Transform';
 
 export interface RepairEffectRenderParams {
   x: number;

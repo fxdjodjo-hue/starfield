@@ -1,4 +1,4 @@
-import { AnimatedSprite } from '../../entities/AnimatedSprite';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import type { SpriteFrame } from '../../entities/AnimatedSprite';
 
 /**

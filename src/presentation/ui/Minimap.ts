@@ -1,4 +1,4 @@
-import { CONFIG } from '../../core/utils/config/Config';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
 
 /**

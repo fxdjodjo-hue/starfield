@@ -1,7 +1,7 @@
-import { AnimatedSprite } from '../../entities/AnimatedSprite';
-import { Transform } from '../../entities/spatial/Transform';
-import { Velocity } from '../../entities/spatial/Velocity';
-import { Camera } from '../../entities/spatial/Camera';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
+import { Transform } from '../../../entities/spatial/Transform';
+import { Velocity } from '../../../entities/spatial/Velocity';
+import { Camera } from '../../../entities/spatial/Camera';
 
 /**
  * Rendering parameters for engine flames

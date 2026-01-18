@@ -21,7 +21,7 @@ export class SystemConfigurator {
    */
   static addSystemsToECS(ecs: ECS, systems: CreatedSystems, interpolationSystem?: any): void {
     const {
-      inputSystem, playerControlSystem, npcSelectionSystem,
+      inputSystem, playerControlSystem, npcSelectionSystem, npcMovementSystem, npcBehaviorSystem,
       damageSystem, projectileCreationSystem, combatStateSystem,
       cameraSystem, explosionSystem, repairEffectSystem, projectileSystem, movementSystem,
       parallaxSystem, renderSystem, boundsSystem, minimapSystem,
@@ -33,6 +33,8 @@ export class SystemConfigurator {
     // Ordine importante per l'esecuzione
     ecs.addSystem(inputSystem);
     ecs.addSystem(npcSelectionSystem);
+    ecs.addSystem(npcBehaviorSystem);
+    ecs.addSystem(npcMovementSystem);
     ecs.addSystem(playerControlSystem);
     ecs.addSystem(playerSystem);
     ecs.addSystem(damageSystem);
@@ -120,7 +122,7 @@ export class SystemConfigurator {
     });
 
     // Configura input handlers
-    inputSystem.setMouseStateCallback((pressed: boolean, x: number, y: number) => {
+    inputSystem.setMouseStateCallback((pressed: boolean, x: number, y: number, button?: number) => {
       if (pressed) {
         context.canvas.focus();
 
@@ -138,18 +140,36 @@ export class SystemConfigurator {
           const { width, height } = DisplayManager.getInstance().getLogicalSize();
           const worldPos = cameraSystem.getCamera().screenToWorld(x, y, width, height);
 
-          // Prova prima la selezione NPC
-          const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
+          // Per click sinistro: prova selezione NPC, altrimenti movimento
+          if (button === 0 || button === undefined) {
+            const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
 
-          if (!npcSelected) {
-            // Se non è stato selezionato un NPC, gestisci movimento player
-            minimapSystem.clearDestination();
-            playerControlSystem.handleMouseState(pressed, x, y);
+            if (!npcSelected) {
+              // Se non è stato selezionato un NPC, gestisci movimento player
+              minimapSystem.clearDestination();
+              playerControlSystem.handleMouseState(pressed, x, y);
+            }
           }
+          // Per click destro: solo selezione NPC (non movimento)
+          // Il callback del click destro è gestito separatamente sotto
         }
       } else {
         minimapSystem.handleMouseUp();
         playerControlSystem.handleMouseState(pressed, x, y);
+      }
+    });
+
+    // Callback per click destro - dedicato esclusivamente alla selezione NPC
+    inputSystem.setRightMouseStateCallback((pressed: boolean, x: number, y: number) => {
+      if (pressed) {
+        context.canvas.focus();
+
+        // Non controllare minimappa o HUD per click destro - è sempre selezione NPC
+        const { width, height } = DisplayManager.getInstance().getLogicalSize();
+        const worldPos = cameraSystem.getCamera().screenToWorld(x, y, width, height);
+
+        // Click destro = sempre selezione NPC (se presente vicino al click)
+        npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
       }
     });
 

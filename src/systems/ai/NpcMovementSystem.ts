@@ -3,7 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Npc } from '../../entities/ai/Npc';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
-import { CONFIG } from '../../core/utils/config/Config';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 import { MathUtils } from '../../core/utils/MathUtils';
 import { getNpcDefinition } from '../../config/NpcConfig';
 
@@ -101,16 +101,16 @@ export class NpcMovementSystem extends BaseSystem {
       }
 
       // Calcola direzione di fuga (lontano dal player)
-      const { distance } = MathUtils.calculateDirection(
+      const { direction, distance } = MathUtils.calculateDirection(
         transform.x, transform.y,
         playerTransform.x, playerTransform.y
       );
 
       if (distance > 0) {
-        // Normalizza e salva la direzione di fuga FISSA
+        // Normalizza e salva la direzione di fuga FISSA (opposta al player)
         fleeDirection = {
-          x: dx / distance,
-          y: dy / distance
+          x: -direction.x,
+          y: -direction.y
         };
         this.fleeDirections.set(entityId, fleeDirection);
       } else {
@@ -162,15 +162,15 @@ export class NpcMovementSystem extends BaseSystem {
     }
 
     // Se il player si muove, l'NPC lo insegue
-    const { distance } = MathUtils.calculateDirection(
+    const { direction, distance } = MathUtils.calculateDirection(
       playerTransform.x, playerTransform.y,
       transform.x, transform.y
     );
 
     if (distance > 0) {
       // Normalizza la direzione verso il player
-      const directionX = dx / distance;
-      const directionY = dy / distance;
+      const directionX = direction.x;
+      const directionY = direction.y;
 
       // Ottieni la velocità base dalla configurazione dell'NPC
       const entity = this.ecs.getEntity(entityId!);

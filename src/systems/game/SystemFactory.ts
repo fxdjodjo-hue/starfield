@@ -5,16 +5,18 @@
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { World } from '../../infrastructure/engine/World';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-import { QuestManager } from '../quest/QuestManager';
+import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { QuestSystem } from '../quest/QuestSystem';
 import { UiSystem } from '../ui/UiSystem';
-import { AtlasParser } from '../../utils/AtlasParser';
+import { AtlasParser } from '../../core/utils/AtlasParser';
 import { getNpcDefinition } from '../../config/NpcConfig';
 import { MovementSystem } from '../physics/MovementSystem';
 import { RenderSystem } from '../rendering/RenderSystem';
 import { InputSystem } from '../input/InputSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { NpcSelectionSystem } from '../ai/NpcSelectionSystem';
+import { NpcMovementSystem } from '../ai/NpcMovementSystem';
+import { NpcBehaviorSystem } from '../ai/NpcBehaviorSystem';
 import { DamageSystem } from '../combat/DamageSystem';
 import { ProjectileCreationSystem } from '../combat/ProjectileCreationSystem';
 import { CombatStateSystem } from '../combat/CombatStateSystem';
@@ -25,7 +27,7 @@ import { ProjectileSystem } from '../combat/ProjectileSystem';
 import { MinimapSystem } from '../rendering/MinimapSystem';
 import { LogSystem } from '../rendering/LogSystem';
 import { EconomySystem } from '../economy/EconomySystem';
-import { RankSystem } from '../rewards/RankSystem';
+import { RankSystem } from '../../core/domain/rewards/RankSystem';
 import { RewardSystem } from '../rewards/RewardSystem';
 import { BoundsSystem } from '../physics/BoundsSystem';
 import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
@@ -60,6 +62,8 @@ export interface CreatedSystems {
   inputSystem: InputSystem;
   playerControlSystem: PlayerControlSystem;
   npcSelectionSystem: NpcSelectionSystem;
+  npcMovementSystem: NpcMovementSystem;
+  npcBehaviorSystem: NpcBehaviorSystem;
   damageSystem: DamageSystem;
   projectileCreationSystem: ProjectileCreationSystem;
   combatStateSystem: CombatStateSystem;
@@ -121,6 +125,8 @@ export class SystemFactory {
     const inputSystem = new InputSystem(ecs, context.canvas);
     const playerControlSystem = new PlayerControlSystem(ecs);
     const npcSelectionSystem = new NpcSelectionSystem(ecs);
+    const npcMovementSystem = new NpcMovementSystem(ecs);
+    const npcBehaviorSystem = new NpcBehaviorSystem(ecs, npcMovementSystem);
     const explosionSystem = new ExplosionSystem(ecs);
     const { RepairEffectSystem } = await import('../../systems/combat/RepairEffectSystem');
     const repairEffectSystem = new RepairEffectSystem(ecs);
@@ -215,6 +221,8 @@ export class SystemFactory {
       inputSystem,
       playerControlSystem,
       npcSelectionSystem,
+      npcMovementSystem,
+      npcBehaviorSystem,
       damageSystem,
       projectileCreationSystem,
       combatStateSystem,

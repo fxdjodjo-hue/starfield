@@ -1,18 +1,19 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
-import { Credits, Cosmos } from '../../entities/currency/Currency';
+import { Credits } from '../../entities/currency/Credits';
+import { Cosmos } from '../../entities/currency/Cosmos';
 import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
 import { SkillPoints } from '../../entities/currency/SkillPoints';
 import { PlayerRole } from '../../entities/player/PlayerRole';
 
 // Modular architecture managers
-import { CurrencyManager } from './managers/CurrencyManager';
-import { ProgressionManager } from './managers/ProgressionManager';
-import { HonorManager } from './managers/HonorManager';
-import { EconomyEventManager } from './managers/EconomyEventManager';
-import { EconomyStatusManager } from './managers/EconomyStatusManager';
-import { EconomyUIDisplayManager } from './managers/EconomyUIDisplayManager';
+import { CurrencyManager } from '../../core/domain/economy/CurrencyManager';
+import { ProgressionManager } from '../../core/domain/economy/ProgressionManager';
+import { HonorManager } from '../../core/domain/economy/HonorManager';
+import { EconomyEventManager } from '../../core/domain/economy/EconomyEventManager';
+import { EconomyStatusManager } from '../../core/domain/economy/EconomyStatusManager';
+import { EconomyUIDisplayManager } from '../../core/domain/economy/EconomyUIDisplayManager';
 
 /**
  * Sistema Economy - gestisce l'economia completa del giocatore

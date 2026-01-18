@@ -28,6 +28,15 @@ Implementazione concreta del motore di gioco Starfield.
 
 **Responsabilità:** Motore di gioco effettivo e lifecycle management.
 
+### 🖥️ **display/** - Display & Viewport Management
+Gestione display ad alta risoluzione e responsive design.
+
+**File:**
+- `DisplayManager.ts` - Singleton per gestione DPI e viewport
+- `DisplayConfig.ts` - Configurazioni display e costanti
+
+**Responsabilità:** Gestione corretta rendering su dispositivi diversi.
+
 ## 🎯 Separation of Concerns
 
 ### ECS Framework (Tecnico Puro)

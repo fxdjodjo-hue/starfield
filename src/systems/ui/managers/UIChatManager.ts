@@ -5,7 +5,7 @@ import { ErrorMessageHandler } from '../../../multiplayer/client/handlers/ErrorM
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { PlayerSystem } from '../../player/PlayerSystem';
-import { applyFadeIn } from '../../../utils/helpers/UIFadeAnimation';
+import { applyFadeIn } from '../../../core/utils/rendering/UIFadeAnimation';
 
 /**
  * Manages chat UI, input, and message rendering

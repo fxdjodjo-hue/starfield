@@ -5,12 +5,13 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Portal } from '../../entities/spatial/Portal';
 import { Minimap } from '../../presentation/ui/Minimap';
 import { Camera } from '../../entities/spatial/Camera';
-import { CONFIG } from '../../core/utils/config/Config';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 import { DisplayManager } from '../../infrastructure/display';
 
 /**
- * Sistema per gestire la minimappa quadrata
- * Gestisce rendering e interazione click-to-move
+ * MinimapSystem - Sistema ECS per rendering minimappa e navigazione
+ * Responsabilità: Rendering entità su minimappa quadrata, gestione click-to-move,
+ * sincronizzazione camera, evidenziazione entità selezionate
  */
 export class MinimapSystem extends BaseSystem {
   private minimap: Minimap;

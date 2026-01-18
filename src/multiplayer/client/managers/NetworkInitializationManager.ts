@@ -34,7 +34,9 @@ import { ProjectileDestroyedHandler } from '../handlers/ProjectileDestroyedHandl
 import { EntityDamagedHandler } from '../handlers/EntityDamagedHandler';
 import { EntityDestroyedHandler } from '../handlers/EntityDestroyedHandler';
 import { ExplosionCreatedHandler } from '../handlers/ExplosionCreatedHandler';
-import { RepairStartedHandler, RepairStoppedHandler, RepairCompleteHandler } from '../handlers/RepairStateHandler';
+import { RepairStartedHandler } from '../handlers/RepairStartedHandler';
+import { RepairStoppedHandler } from '../handlers/RepairStoppedHandler';
+import { RepairCompleteHandler } from '../handlers/RepairCompleteHandler';
 import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHandler';
 import { GlobalMonitorHandler } from '../handlers/GlobalMonitorHandler';
 

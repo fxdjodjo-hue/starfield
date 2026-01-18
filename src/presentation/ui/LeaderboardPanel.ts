@@ -1,4 +1,4 @@
-import { BasePanel } from './UIManager';
+import { BasePanel } from './FloatingIcon';
 import type { PanelConfig } from './PanelConfig';
 import type { PanelData } from './UIManager';
 import type { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';

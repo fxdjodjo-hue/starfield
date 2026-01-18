@@ -1,12 +1,12 @@
-import { type PlayerUuid, type PlayerDbId, type ClientId, type EntityId } from '../../config/NetworkConfig';
+import { type PlayerUuid, type PlayerDbId, type ClientId, type EntityId } from '../../../config/NetworkConfig';
 
 /**
  * Utility per conversioni sicure tra tipi di ID
- * 
+ *
  * IMPORTANTE: Usare solo ai layer di confine (network, persistence)
  * Evitare in hot paths ECS per non lanciare errori a runtime
  */
-export class IdHelpers {
+export class IdTypeConverter {
   /**
    * Converte string UUID a PlayerUuid branded type
    * @throws Error se UUID non valido

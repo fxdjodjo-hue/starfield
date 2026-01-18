@@ -25,15 +25,6 @@ class ServerCombatManager {
     const allNpcs = this.mapServer.npcManager.getAllNpcs();
     const now = Date.now();
 
-    // DEBUG ridotto: Solo se ci sono combattimenti attivi
-    if (this.playerCombats.size > 0) {
-      console.log(`[COMBAT_SYSTEM_DEBUG] Tick ${now} - ${allNpcs.length} NPCs, ${this.playerCombats.size} player combats`);
-
-      console.log(`[PLAYER_COMBATS_ACTIVE] Active player combats:`);
-      for (const [playerId, combat] of this.playerCombats) {
-        console.log(`  Player ${playerId}: vs ${combat.npcId}, lastAttack=${combat.lastAttackTime}`);
-      }
-    }
 
     // Processa combattimenti NPC
     for (const npc of allNpcs) {
@@ -50,8 +41,6 @@ class ServerCombatManager {
    * Inizia combattimento player contro NPC
    */
   startPlayerCombat(playerId, npcId) {
-    console.log(`[COMBAT-DEBUG] startPlayerCombat called: playerId=${playerId}, npcId=${npcId}, existingCombat=${this.playerCombats.has(playerId)}`);
-
     // 🚫 BLOCCA combat senza target valido
     if (!npcId) {
       console.warn(`[COMBAT-ERROR] Player ${playerId} tried to start combat with null/invalid npcId`);
@@ -132,9 +121,7 @@ class ServerCombatManager {
    * Processa tutti i combattimenti attivi dei player
    */
   processPlayerCombats(now) {
-    console.log(`[PLAYER_COMBATS_DEBUG] Processing ${this.playerCombats.size} active player combats`);
     for (const [playerId, combat] of this.playerCombats) {
-      console.log(`[PLAYER_COMBAT_DEBUG] Processing combat for player ${playerId}:`, JSON.stringify(combat));
       this.processPlayerCombat(playerId, combat, now);
     }
   }
@@ -143,9 +130,6 @@ class ServerCombatManager {
    * Processa combattimento per un singolo player
    */
   processPlayerCombat(playerId, combat, now) {
-    console.log(`[COMBAT-DEBUG] processPlayerCombat: playerId=${playerId}, combat=`, JSON.stringify(combat));
-    console.log(`[PLAYER_COMBAT_ACTIVE] Player ${playerId} has active combat vs ${combat.npcId}`);
-
     // Verifica che il player sia ancora connesso
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData) {
@@ -246,8 +230,6 @@ class ServerCombatManager {
    */
   performAttack(ownerId, ownerPosition, targetPosition, damage, projectileType = 'laser', targetId = null) {
     // DEBUG: Log per vedere se viene chiamato
-    console.log(`[SERVER_PROJECTILE_DEBUG] Creating projectile: ownerId=${ownerId}, type=${projectileType}, damage=${damage}, target=${targetId}`);
-
     // Calcola direzione normalizzata dal owner al target
     const dx = targetPosition.x - ownerPosition.x;
     const dy = targetPosition.y - ownerPosition.y;

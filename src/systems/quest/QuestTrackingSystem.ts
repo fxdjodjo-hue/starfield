@@ -1,6 +1,6 @@
 import { World } from '../../infrastructure/engine/World';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
-import { QuestManager } from './QuestManager';
+import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
 import {

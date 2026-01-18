@@ -6,6 +6,11 @@ export class UINicknameManager {
   private npcNicknameElements: Map<number, HTMLElement> = new Map();
   private remotePlayerNicknameElements: Map<string, HTMLElement> = new Map();
 
+  // Cache delle posizioni precedenti per ridurre tremolio
+  private npcNicknameLastPositions: Map<number, { x: number, y: number }> = new Map();
+  private playerNicknameLastPosition: { x: number, y: number } | null = null;
+  private remotePlayerNicknameLastPositions: Map<string, { x: number, y: number }> = new Map();
+
   /**
    * Crea l'elemento nickname del giocatore
    */
@@ -63,15 +68,30 @@ export class UINicknameManager {
     // Converte coordinate mondo in coordinate schermo
     const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
 
+    // Arrotonda le coordinate per evitare tremolio da valori decimali
+    const roundedScreenX = Math.round(screenPos.x);
+    const roundedScreenY = Math.round(screenPos.y);
+
+    // Controlla se la posizione è cambiata significativamente
+    if (this.playerNicknameLastPosition &&
+        Math.abs(this.playerNicknameLastPosition.x - roundedScreenX) < 1 &&
+        Math.abs(this.playerNicknameLastPosition.y - roundedScreenY) < 1) {
+      // Posizione praticamente invariata - evita aggiornamenti inutili
+      return;
+    }
+
     // Posiziona il nickname centrato orizzontalmente sotto la nave
-    const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
-    const nicknameY = screenPos.y + 60; // Sotto la nave (spostato più sotto)
+    const nicknameX = Math.round(roundedScreenX - this.playerNicknameElement.offsetWidth / 2);
+    const nicknameY = Math.round(roundedScreenY + 60); // Sotto la nave (spostato più sotto)
 
     this.playerNicknameElement.style.left = `${nicknameX}px`;
     this.playerNicknameElement.style.top = `${nicknameY}px`;
     this.playerNicknameElement.style.transform = 'none';
     this.playerNicknameElement.style.display = 'block';
-    
+
+    // Memorizza la posizione per il prossimo confronto
+    this.playerNicknameLastPosition = { x: roundedScreenX, y: roundedScreenY };
+
     // Mostra con fade quando l'animazione è completata
     if (this.playerNicknameElement.style.opacity === '0') {
       this.playerNicknameElement.style.transition = 'opacity 0.5s ease-in';
@@ -148,14 +168,31 @@ export class UINicknameManager {
       // Forza la visibilità e ricalcola dimensioni
       element.style.display = 'block';
 
-      // Posiziona il nickname centrato orizzontalmente sotto l'NPC (come player)
-      const nicknameX = screenX - element.offsetWidth / 2;
-      const nicknameY = screenY + 45; // Sotto l'NPC
+      // Arrotonda le coordinate per evitare tremolio da valori decimali
+      const roundedScreenX = Math.round(screenX);
+      const roundedScreenY = Math.round(screenY);
+
+      // Controlla se la posizione è cambiata significativamente (almeno 1 pixel)
+      const lastPos = this.npcNicknameLastPositions.get(entityId);
+      if (lastPos && Math.abs(lastPos.x - roundedScreenX) < 1 && Math.abs(lastPos.y - roundedScreenY) < 1) {
+        // Posizione praticamente invariata - evita aggiornamenti inutili che causano tremolio
+        return;
+      }
+
+      // Memorizza la larghezza per evitare ricalcoli continui che potrebbero causare instabilità
+      const elementWidth = element.offsetWidth || 0;
+
+      // Posiziona il nickname centrato orizzontalmente sotto l'NPC
+      const nicknameX = Math.round(roundedScreenX - elementWidth / 2);
+      const nicknameY = Math.round(roundedScreenY + 45); // Sotto l'NPC
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;
       element.style.transform = 'none';
       element.style.display = 'block';
+
+      // Memorizza la posizione per il prossimo confronto
+      this.npcNicknameLastPositions.set(entityId, { x: roundedScreenX, y: roundedScreenY });
     }
   }
 
@@ -167,6 +204,8 @@ export class UINicknameManager {
     if (element) {
       document.body.removeChild(element);
       this.npcNicknameElements.delete(entityId);
+      // Rimuovi anche dalla cache delle posizioni
+      this.npcNicknameLastPositions.delete(entityId);
     }
   }
 
@@ -240,14 +279,28 @@ export class UINicknameManager {
       // Forza la visibilità e ricalcola dimensioni
       element.style.display = 'block';
 
+      // Arrotonda le coordinate per evitare tremolio da valori decimali
+      const roundedScreenX = Math.round(screenX);
+      const roundedScreenY = Math.round(screenY);
+
+      // Controlla se la posizione è cambiata significativamente
+      const lastPos = this.remotePlayerNicknameLastPositions.get(clientId);
+      if (lastPos && Math.abs(lastPos.x - roundedScreenX) < 1 && Math.abs(lastPos.y - roundedScreenY) < 1) {
+        // Posizione praticamente invariata - evita aggiornamenti inutili
+        return;
+      }
+
       // Posiziona il nickname centrato orizzontalmente sotto il remote player
-      const nicknameX = screenX - element.offsetWidth / 2;
-      const nicknameY = screenY + 45; // Sotto il remote player
+      const nicknameX = Math.round(roundedScreenX - element.offsetWidth / 2);
+      const nicknameY = Math.round(roundedScreenY + 45); // Sotto il remote player
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;
       element.style.transform = 'none';
       element.style.display = 'block';
+
+      // Memorizza la posizione per il prossimo confronto
+      this.remotePlayerNicknameLastPositions.set(clientId, { x: roundedScreenX, y: roundedScreenY });
     }
   }
 
@@ -259,6 +312,8 @@ export class UINicknameManager {
     if (element) {
       document.body.removeChild(element);
       this.remotePlayerNicknameElements.delete(clientId);
+      // Rimuovi anche dalla cache delle posizioni
+      this.remotePlayerNicknameLastPositions.delete(clientId);
     }
   }
 

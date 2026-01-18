@@ -2,7 +2,7 @@ import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { Sprite } from '../../entities/Sprite';
-import { EntityFactory } from '../../factories/EntityFactory';
+import { GameEntityFactory } from '../../factories/GameEntityFactory';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 
 /**
@@ -15,7 +15,7 @@ export class PlayerSystem extends System {
 
   constructor(ecs: ECS) {
     super(ecs);
-    this.entityFactory = new EntityFactory(ecs);
+    this.entityFactory = new GameEntityFactory(ecs);
   }
 
   /**

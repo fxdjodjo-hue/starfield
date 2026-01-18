@@ -2,7 +2,9 @@ import { PlayerHUD } from '../../../presentation/ui/PlayerHUD';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 
 /**
- * Manages HUD updates and player statistics
+ * UIHUDManager - Gestisce aggiornamenti HUD e statistiche giocatore
+ * Responsabilità: Sincronizzazione dati economici, statistiche player, aggiornamenti real-time UI
+ * Orchestrazione tra sistemi economici, player e componenti UI
  */
 export class UIHUDManager {
   private playerHUD: PlayerHUD;

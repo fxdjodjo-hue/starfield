@@ -5,8 +5,10 @@ import type { UiSystem } from '../../../../systems/ui/UiSystem';
 import type { RemotePlayerSystem } from '../../../../systems/multiplayer/RemotePlayerSystem';
 import type { Entity } from '../../../../infrastructure/ecs/Entity';
 import { Transform } from '../../../../entities/spatial/Transform';
+import { InterpolationTarget } from '../../../../entities/spatial/InterpolationTarget';
 import { AnimatedSprite } from '../../../../entities/AnimatedSprite';
 import { Npc } from '../../../../entities/ai/Npc';
+import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
 
 /**
  * Manages PlayState resources: nicknames, entities, cleanup
@@ -129,8 +131,25 @@ export class PlayStateResourceManager {
       const transform = ecs.getComponent(entity, Transform);
 
       if (npc && transform) {
+        // Per NPC remoti, usa coordinate interpolate se disponibili
+        let renderX = transform.x;
+        let renderY = transform.y;
+
+        // Controlla se è un NPC remoto con interpolazione
+        const authority = ecs.getComponent(entity, Authority);
+        const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
+
+        if (isRemoteNpc) {
+          // Usa valori interpolati per NPC remoti
+          const interpolationTarget = ecs.getComponent(entity, InterpolationTarget);
+          if (interpolationTarget) {
+            renderX = interpolationTarget.renderX;
+            renderY = interpolationTarget.renderY;
+          }
+        }
+
         // Verifica se l'NPC è visibile sulla schermata
-        const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
+        const screenPos = camera.worldToScreen(renderX, renderY, canvasSize.width, canvasSize.height);
         const isVisible = screenPos.x >= -100 && screenPos.x <= canvasSize.width + 100 &&
                          screenPos.y >= -100 && screenPos.y <= canvasSize.height + 100;
 

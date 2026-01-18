@@ -1,4 +1,4 @@
-import { Explosion } from '../../entities/combat/Explosion';
+import { Explosion } from '../../../entities/combat/Explosion';
 
 /**
  * Rendering parameters for explosions

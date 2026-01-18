@@ -1,6 +1,6 @@
 import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { RateLimiter, RATE_LIMITS } from './RateLimiter';
-import { NetworkEventSystem } from './NetworkEventSystem';
+import { NetworkEventManager } from './NetworkEventManager';
 import { RemoteEntityManager } from './RemoteEntityManager';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { NetMessage } from '../types/MessageTypes';
@@ -12,7 +12,7 @@ import type { NetMessage } from '../types/MessageTypes';
 export class NetworkCombatManager {
   private readonly connectionManager: NetworkConnectionManager;
   private readonly rateLimiter: RateLimiter;
-  private readonly eventSystem: NetworkEventSystem;
+  private readonly eventSystem: NetworkEventManager;
   private readonly entityManager: RemoteEntityManager;
   private readonly clientId: string;
   private readonly getCurrentCombatNpcId: () => string | null;
@@ -23,7 +23,7 @@ export class NetworkCombatManager {
   constructor(
     connectionManager: NetworkConnectionManager,
     rateLimiter: RateLimiter,
-    eventSystem: NetworkEventSystem,
+    eventSystem: NetworkEventManager,
     entityManager: RemoteEntityManager,
     clientId: string,
     getCurrentCombatNpcId: () => string | null,
