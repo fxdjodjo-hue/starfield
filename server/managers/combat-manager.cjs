@@ -138,12 +138,12 @@ class ServerCombatManager {
     if (!combat.npcId) {
       combat.lastActivity = now;
 
-      // Esci dallo stato di combat dopo 30 secondi senza danni
+      // Esci dallo stato di combat dopo 5 secondi senza danni
       const playerData = this.mapServer.players.get(playerId);
       if (playerData && playerData.lastDamage) {
         const timeSinceLastDamage = now - playerData.lastDamage;
-        if (timeSinceLastDamage > 30000) { // 30 secondi
-          logger.info('COMBAT', `Player ${playerId} exiting combat state (no damage for 30s)`);
+        if (timeSinceLastDamage > 5000) { // 5 secondi
+          logger.info('COMBAT', `Player ${playerId} exiting combat state (no damage for 5s)`);
           this.playerCombats.delete(playerId);
 
           // Notifica repair manager che il combattimento è terminato

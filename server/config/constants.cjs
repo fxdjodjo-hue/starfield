@@ -36,7 +36,7 @@ const SERVER_CONSTANTS = {
   },
 
   REPAIR: {
-    START_DELAY: 10000,      // 10 secondi fuori dal combattimento
+    START_DELAY: 5000,      // 5 secondi fuori dal combattimento
     AMOUNT: 10000,            // 10k HP/shield ogni applicazione
     INTERVAL: 2000            // Ogni 2 secondi
   }
