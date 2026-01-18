@@ -51,9 +51,20 @@ class ServerCombatManager {
       return;
     }
 
-    // Se il player sta già combattendo, non fare nulla
+    // Se il player sta già combattendo senza target specifico, aggiorna con il nuovo target
     if (this.playerCombats.has(playerId)) {
-      return;
+      const existingCombat = this.playerCombats.get(playerId);
+      if (!existingCombat.npcId && npcId) {
+        // Aggiorna il combattimento esistente con il nuovo target
+        existingCombat.npcId = npcId;
+        existingCombat.startTime = now;
+        existingCombat.lastActivity = now;
+        logger.info('COMBAT', `Updated combat target: ${playerId} now vs ${npcId}`);
+        return;
+      } else {
+        // Se ha già un target specifico, non fare nulla
+        return;
+      }
     }
 
     // Registra il timestamp dell'avvio combattimento
@@ -120,6 +131,27 @@ class ServerCombatManager {
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData) {
       this.playerCombats.delete(playerId);
+      return;
+    }
+
+    // Se non c'è un target specifico (npcId = null), controlla timeout per uscire da combat
+    if (!combat.npcId) {
+      combat.lastActivity = now;
+
+      // Esci dallo stato di combat dopo 30 secondi senza danni
+      const playerData = this.mapServer.players.get(playerId);
+      if (playerData && playerData.lastDamage) {
+        const timeSinceLastDamage = now - playerData.lastDamage;
+        if (timeSinceLastDamage > 30000) { // 30 secondi
+          logger.info('COMBAT', `Player ${playerId} exiting combat state (no damage for 30s)`);
+          this.playerCombats.delete(playerId);
+
+          // Notifica repair manager che il combattimento è terminato
+          if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
+            this.mapServer.repairManager.onCombatEnded(playerId);
+          }
+        }
+      }
       return;
     }
 

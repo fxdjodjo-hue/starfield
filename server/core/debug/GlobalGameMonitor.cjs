@@ -114,6 +114,7 @@ class GlobalGameMonitor {
         },
         combat: {
           inCombat: this.mapServer.combatManager?.playerCombats.has(clientId) || false,
+          hasTarget: (this.mapServer.combatManager?.playerCombats.get(clientId)?.npcId) ? true : false,
           lastAttacker: playerData.lastAttackerId,
           nearbyThreats: this.getNearbyThreats(clientId)
         },
