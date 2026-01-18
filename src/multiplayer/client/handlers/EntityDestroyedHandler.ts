@@ -3,6 +3,8 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { RewardSystem } from '../../../systems/rewards/RewardSystem';
 import { DeathPopupManager } from '../../../presentation/ui/managers/death/DeathPopupManager';
+import { Npc } from '../../../entities/ai/Npc';
+import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 
 /**
  * Gestisce la distruzione delle entità (NPC o giocatori morti)
@@ -35,10 +37,10 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
       // NPC distrutto - NON assegnare ricompense qui (fatto in PlayerStateUpdateHandler)
       // Le ricompense vengono assegnate tramite player_state_update per evitare duplicazioni
 
-      // Gestisci la deselezione se l'NPC era selezionato dal player
+      // PRIMA gestisci la deselezione se l'NPC era selezionato dal player
       this.handleNpcDestruction(message.entityId, networkSystem);
 
-      // Rimuovi l'NPC dal sistema remoto
+      // POI rimuovi l'NPC dal sistema remoto
       const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
       if (remoteNpcSystem) {
         const removed = remoteNpcSystem.removeRemoteNpc(message.entityId);
@@ -91,14 +93,14 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
     }
 
     // Trova l'entità NPC che sta per essere distrutta
-    const npcEntities = ecs.getEntitiesWithComponents('Npc');
+    const npcEntities = ecs.getEntitiesWithComponents(Npc);
     console.log(`[EntityDestroyedHandler] Found ${npcEntities.length} NPC entities`);
     const npcEntity = npcEntities.find(entity => entity.id === npcId);
 
     if (npcEntity) {
       console.log(`[EntityDestroyedHandler] Found NPC entity ${npcId} to destroy`);
       // Verifica se questo NPC era selezionato
-      const selectedNpcs = ecs.getEntitiesWithComponents('SelectedNpc');
+      const selectedNpcs = ecs.getEntitiesWithComponents(SelectedNpc);
       console.log(`[EntityDestroyedHandler] Found ${selectedNpcs.length} selected NPCs`);
       const wasSelected = selectedNpcs.some(entity => entity.id === npcId);
 
@@ -123,6 +125,25 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
       }
     } else {
       console.log(`[EntityDestroyedHandler] NPC entity ${npcId} not found in ECS`);
+
+      // Anche se l'entità non è trovata, potrebbe essere selezionata - controlla comunque
+      const selectedNpcs = ecs.getEntitiesWithComponents(SelectedNpc);
+      console.log(`[EntityDestroyedHandler] Checking if ${npcId} was selected among ${selectedNpcs.length} selected NPCs`);
+      const wasSelected = selectedNpcs.some(entity => entity.id === npcId);
+
+      if (wasSelected) {
+        console.log(`[EntityDestroyedHandler] NPC ${npcId} was selected but entity not found - force reset`);
+        // Crea un'entità fittizia per deselezionare
+        const dummyNpcEntity = { id: npcId } as any;
+        const playerControlSystem = ecs.getSystems().find((system: any) =>
+          typeof system.deselectNpcAndReset === 'function'
+        ) as any;
+        if (playerControlSystem) {
+          playerControlSystem.deselectNpcAndReset(dummyNpcEntity, false);
+          playerControlSystem.deactivateAttack();
+          console.log(`[EntityDestroyedHandler] Force reset combat state for missing NPC ${npcId}`);
+        }
+      }
     }
   }
 

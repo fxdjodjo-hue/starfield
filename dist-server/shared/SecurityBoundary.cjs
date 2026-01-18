@@ -190,6 +190,22 @@ class BoundaryEnforcement {
                 };
             }
         }
+        // Whitelist dei tipi di messaggio permessi dal client al server
+        const allowedClientMessageTypes = [
+            'join',
+            'position_update',
+            'heartbeat',
+            'projectile_fired',
+            'start_combat',
+            'stop_combat',
+            'request_player_data',
+            'chat_message',
+            'save_request',
+            'player_respawn_request',
+            'global_monitor_request',
+            'skill_upgrade_request',
+            'request_leaderboard'
+        ];
         // Controlli specifici per tipo di messaggio
         switch (messageType) {
             case 'position_update':
@@ -205,16 +221,26 @@ class BoundaryEnforcement {
             case 'request_player_data':
                 // Il client può richiedere i propri dati dal server
                 return { allowed: true };
-            // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server
             case 'save_request':
                 // Il client può richiedere un salvataggio immediato
                 return { allowed: true };
-            case 'save_response':
-                // Il server risponde alle richieste di salvataggio
+            case 'join':
+            case 'heartbeat':
+            case 'projectile_fired':
+            case 'player_respawn_request':
+            case 'global_monitor_request':
+            case 'skill_upgrade_request':
+            case 'request_leaderboard':
+                // Messaggi di connessione e sistema permessi
                 return { allowed: true };
             default:
-                // Per default, consentire ma loggare per review con più dettagli
-                console.warn(`[SECURITY] Unknown message type: ${messageType}. Supported types: join, position_update, heartbeat, skill_upgrade_request, projectile_fired, start_combat, stop_combat, explosion_created, request_leaderboard, request_player_data, chat_message, save_request, player_respawn_request, global_monitor_request`);
+                // Solo i tipi non nella whitelist vengono rifiutati
+                if (!allowedClientMessageTypes.includes(messageType)) {
+                    return {
+                        allowed: false,
+                        reason: `Unknown or disallowed message type: ${messageType}. Allowed types: ${allowedClientMessageTypes.join(', ')}`
+                    };
+                }
                 return { allowed: true };
         }
     }
