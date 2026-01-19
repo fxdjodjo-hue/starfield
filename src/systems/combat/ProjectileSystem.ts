@@ -51,23 +51,12 @@ export class ProjectileSystem extends BaseSystem {
     const projectile = this.ecs.getComponent(projectileEntity, Projectile);
 
     if (!transform || !projectile) {
-      LoggerWrapper.projectile('Invalid projectile components, removing', {
-        entityId: projectileEntity.id
-      });
+      // Invalid projectile components - removing silently
       this.ecs.removeEntity(projectileEntity);
       return true;
     }
 
-    // Log iniziale per debug
-    LoggerWrapper.projectile('Processing projectile', {
-      projectileId: (projectile as any).id || projectileEntity.id,
-      playerId: projectile.playerId,
-      isRemote: this.isRemoteProjectile(projectile),
-      isHoming: this.isHomingProjectile(projectile),
-      targetId: projectile.targetId,
-      position: { x: transform.x, y: transform.y },
-      direction: { x: projectile.directionX, y: projectile.directionY }
-    });
+    // Projectile processing - silent in production
 
     // 1. Controllo cleanup uniforme - rimuovi se necessario
     if (this.shouldRemoveProjectile(projectileEntity, projectile)) {
@@ -76,12 +65,7 @@ export class ProjectileSystem extends BaseSystem {
 
     // 2. Aggiorna homing se necessario (logica semplificata)
     if (this.isHomingProjectile(projectile)) {
-      LoggerWrapper.projectile('Applying homing to projectile', {
-        projectileId: (projectile as any).id || projectileEntity.id,
-        targetId: projectile.targetId,
-        projectileType: projectile.projectileType,
-        isRemote: this.isRemoteProjectile(projectile)
-      });
+      // Applying homing - silent in production
       this.updateHomingDirection(transform, projectile);
     }
 
@@ -93,19 +77,9 @@ export class ProjectileSystem extends BaseSystem {
       transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
       transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
 
-      LoggerWrapper.projectile('Projectile moved', {
-        projectileId: (projectile as any).id || projectileEntity.id,
-        from: { x: oldX, y: oldY },
-        to: { x: transform.x, y: transform.y },
-        direction: { x: projectile.directionX, y: projectile.directionY },
-        speed: projectile.speed,
-        isHoming: this.isHomingProjectile(projectile)
-      });
+      // Projectile movement - silent in production
     } else {
-      LoggerWrapper.projectile('Projectile is remote, skipping movement', {
-        projectileId: (projectile as any).id || projectileEntity.id,
-        playerId: projectile.playerId
-      });
+      // Remote projectile - skipping movement
     }
 
     // 4. Riduci lifetime
@@ -118,10 +92,7 @@ export class ProjectileSystem extends BaseSystem {
 
     // 6. Rimozione per lifetime scaduto
     if (projectile.lifetime <= 0) {
-      LoggerWrapper.projectile('Projectile expired', {
-        projectileId: (projectile as any).id || projectileEntity.id,
-        lifetime: projectile.lifetime
-      });
+      // Projectile expired - removing
       this.ecs.removeEntity(projectileEntity);
       return true;
     }
@@ -137,10 +108,7 @@ export class ProjectileSystem extends BaseSystem {
     if (this.isHomingProjectile(projectile)) {
       const targetEntity = this.findTargetEntity(projectile.targetId);
       if (!targetEntity) {
-        LoggerWrapper.projectile('Target not found, removing projectile', {
-          projectileId: (projectile as any).id || projectileEntity.id,
-          targetId: projectile.targetId
-        });
+        // Target not found - removing projectile
         this.ecs.removeEntity(projectileEntity);
         return true;
       }
@@ -151,10 +119,7 @@ export class ProjectileSystem extends BaseSystem {
       const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
 
       if (isDead) {
-        LoggerWrapper.projectile('Target dead, removing projectile', {
-          projectileId: (projectile as any).id || projectileEntity.id,
-          targetId: projectile.targetId
-        });
+        // Target dead - removing projectile
         this.ecs.removeEntity(projectileEntity);
         return true;
       }
@@ -185,30 +150,17 @@ export class ProjectileSystem extends BaseSystem {
   private updateHomingDirection(projectileTransform: Transform, projectile: Projectile): void {
     const targetEntity = this.findTargetEntity(projectile.targetId);
     if (!targetEntity) {
-      LoggerWrapper.projectile('Homing target not found', {
-        projectileId: (projectile as any).id || 'unknown',
-        targetId: projectile.targetId,
-        targetIdType: typeof projectile.targetId
-      });
+      // Homing target not found
       return;
     }
 
     const targetTransform = ComponentHelper.getTransform(this.ecs, targetEntity);
     if (!targetTransform) {
-      LoggerWrapper.projectile('Homing target has no transform', {
-        projectileId: (projectile as any).id || 'unknown',
-        targetId: projectile.targetId,
-        targetEntityId: targetEntity.id
-      });
+      // Homing target has no transform
       return;
     }
 
-    LoggerWrapper.projectile('Homing target found and updating direction', {
-      projectileId: (projectile as any).id || 'unknown',
-      targetId: projectile.targetId,
-      targetPosition: { x: targetTransform.x, y: targetTransform.y },
-      projectilePosition: { x: projectileTransform.x, y: projectileTransform.y }
-    });
+    // Homing target found - updating direction
 
     this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
   }
@@ -254,19 +206,14 @@ export class ProjectileSystem extends BaseSystem {
       // Se la distanza è minore di una soglia (hitbox), colpisce
       const hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
       if (distance < hitDistance) {
-        // DEBUG: Log collisioni per laser visivi
-        if (projectile.damage === 0) {
-          console.log(`[COLLISION] Laser projectile ${projectileEntity.id} hit target ${targetEntity.id}, targetId: ${projectile.targetId}`);
-        }
+        // Collision detected
 
         // GESTIONE DIFFERENZIATA PER TARGETING
 
         // Per proiettili SENZA target specifico (NPC projectiles):
         // Rimuovi immediatamente - possono colpire chiunque
         if (projectile.targetId === null || projectile.targetId === undefined || projectile.targetId === -1) {
-          if (projectile.damage === 0) {
-            console.log(`[COLLISION] Removing laser projectile ${projectileEntity.id} (no target)`);
-          }
+          // Remove laser projectile with no target
           this.ecs.removeEntity(projectileEntity);
           return; // Un proiettile colpisce solo un bersaglio
         }
@@ -276,7 +223,6 @@ export class ProjectileSystem extends BaseSystem {
         // Anche se il server gestisce il danno, il laser visivo deve sparire immediatamente
         const isLaserTarget = this.isLaserTarget(projectile, targetEntity);
         if (projectile.damage === 0 && isLaserTarget) {
-          console.log(`[COLLISION] Removing laser projectile ${projectileEntity.id} - hit target ${targetEntity.id} (targetId: ${projectile.targetId})`);
           this.ecs.removeEntity(projectileEntity);
           return;
         }
@@ -329,25 +275,17 @@ export class ProjectileSystem extends BaseSystem {
     if (typeof projectile.targetId === 'number') {
       // Target è un numero (entity.id)
       if (projectile.targetId === targetEntity.id) {
-        if (projectile.damage === 0) {
-          console.log(`[COLLISION] Laser target match by entity ID: ${projectile.targetId} === ${targetEntity.id}`);
-        }
         return true;
       }
     } else if (typeof projectile.targetId === 'string') {
       // Target è una stringa (serverId di NPC)
       const npc = this.ecs.getComponent(targetEntity, Npc);
       if (npc && npc.serverId === projectile.targetId) {
-        if (projectile.damage === 0) {
-          console.log(`[COLLISION] Laser target match by serverId: ${projectile.targetId} === ${npc.serverId}`);
-        }
         return true;
       }
     }
 
-    if (projectile.damage === 0) {
-      console.log(`[COLLISION] Laser target mismatch: projectile targetId ${projectile.targetId}, entity ${targetEntity.id}, serverId ${(this.ecs.getComponent(targetEntity, Npc))?.serverId}`);
-    }
+    // Target mismatch - continue checking
 
     return false;
   }
@@ -379,26 +317,23 @@ export class ProjectileSystem extends BaseSystem {
         }
       } else if (targetId.startsWith('player_')) {
         // Potrebbe servire per giocatori remoti in futuro
-        LoggerWrapper.projectile('Player targetId not implemented yet', { targetId });
+        // Player targetId not implemented
         return null;
       } else {
         // Prova a convertire in numero (fallback)
         const parsed = parseInt(targetId, 10);
         if (!isNaN(parsed)) {
-          LoggerWrapper.projectile('Converting string targetId to number', {
-            originalTargetId: targetId,
-            convertedTargetId: parsed
-          });
+          // Converting string targetId to number
           const allEntities = this.ecs.getEntitiesWithComponents(Transform);
           return allEntities.find(entity => entity.id === parsed) || null;
         }
       }
 
-      LoggerWrapper.projectile('Unknown string targetId format', { targetId });
+      // Unknown targetId format
       return null;
     }
 
-    LoggerWrapper.projectile('Invalid targetId type', { targetId, type: typeof targetId });
+    // Invalid targetId type
     return null;
   }
 

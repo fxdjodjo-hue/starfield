@@ -62,26 +62,7 @@ export class DamageSystem {
 
         ComponentHelper.updateHealth(ecs, entity, newHealth);
 
-        // Log del danno applicato
-        const attackerInfo = context?.attackerId ? ` from ${context.attackerId}` : '';
-        const damageSource = context?.damageSource ? ` (${context.damageSource})` : '';
-
-        LoggerWrapper.combat(
-          `Entity ${entity.id} damaged${attackerInfo}${damageSource}: ` +
-          `${healthStats.current}/${healthStats.max} HP, ` +
-          `applied: ${damage} (shield: ${shieldDamage}, health: ${healthDamage}), ` +
-          `remaining: ${newHealth}/${healthStats.max}${isDead ? ' [DEAD]' : ''}`,
-          {
-            attackerId: context?.attackerId,
-            defenderId: String(entity.id),
-            damage: damage,
-            shieldDamage: shieldDamage,
-            healthDamage: healthDamage,
-            remainingHealth: newHealth,
-            isDead: isDead,
-            damageSource: context?.damageSource
-          }
-        );
+        // Damage logging removed for production
 
         return {
           appliedDamage: damage,
@@ -264,12 +245,7 @@ export class DamageSystem {
         if (healthAmount > 0) repairParts.push(`+${healthAmount} HP`);
         if (shieldAmount > 0) repairParts.push(`+${shieldAmount} Shield`);
 
-        const repairMessage = repairParts.length > 0 ? repairParts.join(', ') : 'no repair needed';
-        LoggerWrapper.combat(`Entity ${entity.id} repaired: ${repairMessage}`, {
-          entityId: entity.id,
-          healthRepaired: healthAmount,
-          shieldRepaired: shieldAmount
-        });
+        // Repair logging removed for production
       }
 
       return repaired;

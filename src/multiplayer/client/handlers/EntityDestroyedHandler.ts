@@ -85,63 +85,28 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
    * Gestisce la distruzione di un NPC, incluso il reset della selezione se necessario
    */
   private handleNpcDestruction(npcId: string, networkSystem: ClientNetworkSystem): void {
-    console.log(`[EntityDestroyedHandler] Processing NPC destruction: ${npcId}`);
     const ecs = networkSystem.getECS();
     if (!ecs) {
-      console.log(`[EntityDestroyedHandler] No ECS found`);
       return;
     }
 
     // Trova l'entità NPC che sta per essere distrutta
     const npcEntities = ecs.getEntitiesWithComponents(Npc);
-    console.log(`[EntityDestroyedHandler] Found ${npcEntities.length} NPC entities`);
     const npcEntity = npcEntities.find(entity => entity.id === npcId);
 
     if (npcEntity) {
-      console.log(`[EntityDestroyedHandler] Found NPC entity ${npcId} to destroy`);
       // Verifica se questo NPC era selezionato
       const selectedNpcs = ecs.getEntitiesWithComponents(SelectedNpc);
-      console.log(`[EntityDestroyedHandler] Found ${selectedNpcs.length} selected NPCs`);
       const wasSelected = selectedNpcs.some(entity => entity.id === npcId);
-
-      console.log(`[EntityDestroyedHandler] NPC ${npcId} was selected: ${wasSelected}`);
 
       if (wasSelected) {
         // L'NPC era selezionato - deselezionalo e resetta la rotazione
-        console.log(`[EntityDestroyedHandler] NPC ${npcId} was selected, calling deselectNpcAndReset`);
         const playerControlSystem = ecs.getSystems().find((system: any) =>
           typeof system.deselectNpcAndReset === 'function'
         ) as any;
         if (playerControlSystem) {
-          console.log(`[EntityDestroyedHandler] Found PlayerControlSystem, calling deselectNpcAndReset`);
           playerControlSystem.deselectNpcAndReset(npcEntity, false); // Definitivo
           playerControlSystem.deactivateAttack();
-          console.log(`[EntityDestroyedHandler] Called deselectNpcAndReset and deactivateAttack`);
-        } else {
-          console.log(`[EntityDestroyedHandler] PlayerControlSystem not found!`);
-        }
-      } else {
-        console.log(`[EntityDestroyedHandler] NPC ${npcId} was not selected, no action needed`);
-      }
-    } else {
-      console.log(`[EntityDestroyedHandler] NPC entity ${npcId} not found in ECS`);
-
-      // Anche se l'entità non è trovata, potrebbe essere selezionata - controlla comunque
-      const selectedNpcs = ecs.getEntitiesWithComponents(SelectedNpc);
-      console.log(`[EntityDestroyedHandler] Checking if ${npcId} was selected among ${selectedNpcs.length} selected NPCs`);
-      const wasSelected = selectedNpcs.some(entity => entity.id === npcId);
-
-      if (wasSelected) {
-        console.log(`[EntityDestroyedHandler] NPC ${npcId} was selected but entity not found - force reset`);
-        // Crea un'entità fittizia per deselezionare
-        const dummyNpcEntity = { id: npcId } as any;
-        const playerControlSystem = ecs.getSystems().find((system: any) =>
-          typeof system.deselectNpcAndReset === 'function'
-        ) as any;
-        if (playerControlSystem) {
-          playerControlSystem.deselectNpcAndReset(dummyNpcEntity, false);
-          playerControlSystem.deactivateAttack();
-          console.log(`[EntityDestroyedHandler] Force reset combat state for missing NPC ${npcId}`);
         }
       }
     }

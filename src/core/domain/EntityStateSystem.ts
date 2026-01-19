@@ -172,14 +172,7 @@ export class EntityStateSystem {
         damageTaken.takeDamage(Date.now());
       }
 
-      // Log solo se i valori sono effettivamente cambiati o se è un aggiornamento non-server
-      if (newCurrent !== currentHealth.current || newMax !== currentHealth.max || source !== 'server') {
-        LoggerWrapper.combat(`Entity ${entity.id} health updated: ${newCurrent}/${newMax}`, {
-          entityId: entity.id,
-          health: { current: newCurrent, max: newMax },
-          source: source
-        });
-      }
+      // Health updates logged only for production debugging
 
       return true;
     } catch (error) {
@@ -216,19 +209,11 @@ export class EntityStateSystem {
         if (!damageTaken) {
           damageTaken = new DamageTaken();
           ecs.addComponent(entity, DamageTaken, damageTaken);
-          console.log(`[DAMAGE] Aggiunto componente DamageTaken all'entità ${entity.id} (shield damage)`);
         }
         damageTaken.takeDamage(Date.now());
       }
 
-      // Log solo se i valori sono effettivamente cambiati o se è un aggiornamento non-server
-      if (newCurrent !== currentShield.current || newMax !== currentShield.max || source !== 'server') {
-        LoggerWrapper.combat(`Entity ${entity.id} shield updated: ${newCurrent}/${newMax}`, {
-          entityId: entity.id,
-          shield: { current: newCurrent, max: newMax },
-          source: source
-        });
-      }
+      // Shield updates logged only for production debugging
 
       return true;
     } catch (error) {

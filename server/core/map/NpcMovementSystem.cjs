@@ -122,18 +122,44 @@ class NpcMovementSystem {
 
     // Aggiorna comportamento NPC:
     // - flee: salute < 50%
-    // - aggressive: danneggiato recentemente (< 5 secondi)
+    // - aggressive: danneggiato E player nel range esteso E non troppo tempo fa
     // - cruise: default
     const healthPercent = npc.maxHealth > 0 ? npc.health / npc.maxHealth : 1;
+    const PURSUIT_RANGE = attackRange * 2; // Range di inseguimento esteso
+    const MAX_AGGRO_TIME = 30000; // 30 secondi max di aggressività
+    const pursuitRangeSq = PURSUIT_RANGE * PURSUIT_RANGE;
+
+    // Controlla se il player è ancora nel range di inseguimento
+    let playerInPursuitRange = false;
+    let withinTimeLimit = false;
+
+    if (npc.lastDamage) { // Solo se è stato danneggiato almeno una volta
+      // Controllo temporale: non rimanere aggressivo per sempre
+      if ((now - npc.lastDamage) < MAX_AGGRO_TIME) {
+        withinTimeLimit = true;
+
+        // Controllo spaziale: player deve essere nel range
+        for (const [clientId, playerData] of players.entries()) {
+          if (!playerData.position) continue;
+          const dx = playerData.position.x - npc.position.x;
+          const dy = playerData.position.y - npc.position.y;
+          const distanceSq = dx * dx + dy * dy;
+          if (distanceSq <= pursuitRangeSq) {
+            playerInPursuitRange = true;
+            break;
+          }
+        }
+      }
+    }
 
     if (healthPercent < 0.5) {
       // Salute bassa: fuga
       return 'flee';
-    } else if (npc.lastDamage && (now - npc.lastDamage) < 5000) {
-      // Danneggiato recentemente: diventa aggressivo
+    } else if (npc.lastDamage && playerInPursuitRange) {
+      // Danneggiato E player ancora nel range esteso: rimane aggressivo
       return 'aggressive';
     } else {
-      // Default: cruise
+      // Player troppo lontano o mai danneggiato: cruise
       return 'cruise';
     }
   }
@@ -202,17 +228,42 @@ class NpcMovementSystem {
       const dy = targetPlayerPos.y - npc.position.y;
       const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
-      // LOGICA SEMPLIFICATA: NPC aggressivi inseguono sempre il target
-      // Non si fermano mai - l'attacco è gestito dal sistema di combattimento
-      const dirX = dx / dist;
-      const dirY = dy / dist;
+      // LOGICA MODERNA: NPC mantiene movimento fluido per combattimento dinamico
       const dtSec = deltaTime / 1000;
+      const OPTIMAL_DISTANCE = attackRange * 0.9; // 90% del range di attacco
 
-      // Insegue il player alla velocità base
-      const moveSpeed = speed * dtSec;
+      let dirX, dirY, moveSpeed;
+
+      if (dist > OPTIMAL_DISTANCE) {
+        // Fuori range: avvicinati
+        dirX = dx / dist;
+        dirY = dy / dist;
+        moveSpeed = speed * dtSec;
+      } else {
+        // Nel range: movimento fluido e semplice
+        // Cambia direzione casualmente ogni tanto per movimento naturale
+        if (Math.random() < 0.02) { // 2% probabilità ogni frame di cambiare direzione
+          const angle = Math.random() * Math.PI * 2;
+          npc.velocity.x = Math.cos(angle) * speed;
+          npc.velocity.y = Math.sin(angle) * speed;
+        }
+        // Applica movimento con velocità originale
+        const deltaX = npc.velocity.x * (deltaTime / 1000);
+        const deltaY = npc.velocity.y * (deltaTime / 1000);
+
+        // IMPORTANTE: Anche nel movimento casuale, NPC guarda sempre al player
+        npc.position.rotation = Math.atan2(dy, dx);
+
+        return { deltaX, deltaY };
+      }
+
+      // NPC in combattimento: sempre faccia al player (come player con NPC)
+      npc.position.rotation = Math.atan2(dy, dx);
+
+      // Aggiorna velocity
       npc.velocity.x = dirX * speed;
       npc.velocity.y = dirY * speed;
-      npc.position.rotation = Math.atan2(dy, dx);
+
       return { deltaX: dirX * moveSpeed, deltaY: dirY * moveSpeed };
     } else {
       // Nessun player valido: comportamento cruise
@@ -249,9 +300,9 @@ class NpcMovementSystem {
         const fleeDx = -dxToPlayer;
         const fleeDy = -dyToPlayer;
         const fleeLen = Math.sqrt(fleeDx * fleeDx + fleeDy * fleeDy) || 1;
-        const fleeSpeed = speed * 1.5;
-        npc.velocity.x = (fleeDx / fleeLen) * fleeSpeed;
-        npc.velocity.y = (fleeDy / fleeLen) * fleeSpeed;
+        // Usa velocità normale dal config (non modificata)
+        npc.velocity.x = (fleeDx / fleeLen) * speed;
+        npc.velocity.y = (fleeDy / fleeLen) * speed;
       }
 
       // Se il player è nel range di attacco, lo sprite guarda il player
@@ -307,8 +358,9 @@ class NpcMovementSystem {
       ServerLoggerWrapper.warn('NPC', `Resetting NPC ${npc.id} to (0, 0) with config-based velocity`);
       npc.position.x = 0;
       npc.position.y = 0;
-      // Reset con velocità basata sulla configurazione invece di valori casuali fissi
-      const resetSpeed = NPC_CONFIG[npc.type]?.stats?.speed * 0.3 || 100; // Fallback a 100 se config non disponibile
+      // Reset con velocità basata sulla configurazione (30% della velocità normale)
+      const baseSpeed = NPC_CONFIG[npc.type]?.stats?.speed || 300; // Fallback a 300 se config non disponibile
+      const resetSpeed = baseSpeed * 0.3;
       const angle = Math.random() * Math.PI * 2;
       npc.velocity.x = Math.cos(angle) * resetSpeed;
       npc.velocity.y = Math.sin(angle) * resetSpeed;

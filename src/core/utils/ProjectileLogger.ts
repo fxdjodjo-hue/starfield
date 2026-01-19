@@ -54,7 +54,7 @@ export class ProjectileLogger {
    */
   static setEnabled(enabled: boolean): void {
     this.enabled = enabled;
-    LoggerWrapper.projectile(`Projectile logging ${enabled ? 'enabled' : 'disabled'}`);
+    // Projectile logging status - silent in production
   }
 
   /**
@@ -84,13 +84,7 @@ export class ProjectileLogger {
     };
 
     this.addToHistory(projectileId, entry);
-    LoggerWrapper.projectile(`Projectile ${projectileId} created by ${system}`, {
-      projectileId,
-      entityId: entity.id,
-      position: details.position,
-      gameState: details.gameState,
-      visualState: details.visualState
-    });
+    // Projectile creation logging removed for production
   }
 
   /**
@@ -117,13 +111,7 @@ export class ProjectileLogger {
     };
 
     this.addToHistory(projectileId, entry);
-    LoggerWrapper.render(`Projectile ${projectileId} visual state: ${action}`, {
-      projectileId,
-      entityId: entity.id,
-      visualState,
-      position,
-      system
-    });
+    // Visual state logging removed for production
   }
 
   /**
@@ -150,13 +138,7 @@ export class ProjectileLogger {
     };
 
     this.addToHistory(projectileId, entry);
-    LoggerWrapper.combat(`Projectile ${projectileId} game state: ${action}`, {
-      projectileId,
-      entityId: entity.id,
-      gameState,
-      position,
-      system
-    });
+    // Game state logging removed for production
   }
 
   /**
@@ -222,15 +204,7 @@ export class ProjectileLogger {
     };
 
     this.addToHistory(projectileId, entry);
-    LoggerWrapper.combat(`Projectile ${projectileId} collision`, {
-      projectileId,
-      entityId: entity.id,
-      targetEntityId,
-      position,
-      damageDealt,
-      destroyed,
-      system
-    });
+    // Collision logging removed for production
   }
 
   /**
@@ -256,14 +230,7 @@ export class ProjectileLogger {
     };
 
     this.addToHistory(projectileId, entry);
-    LoggerWrapper.projectile(`Projectile ${projectileId} destroyed: ${reason}`, {
-      projectileId,
-      entityId: entity.id,
-      reason,
-      position,
-      system,
-      lifetime: this.getProjectileLifetime(projectileId)
-    });
+    // Destruction logging removed for production
   }
 
   /**
@@ -396,7 +363,7 @@ export class ProjectileLogger {
    */
   static clearAllHistory(): void {
     this.logHistory.clear();
-    LoggerWrapper.projectile('Projectile history cleared');
+    // History cleared - silent in production
   }
 
   /**

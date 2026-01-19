@@ -283,8 +283,8 @@ function handlePositionUpdate(data, sanitizedData, context) {
     const dy = sanitizedData.y - playerData.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Threshold più permissivo per compensare lag network (5x invece di 2x)
-    const TELEPORT_THRESHOLD_MULTIPLIER = 5;
+    // Threshold più permissivo per compensare lag network e buffering client (15x per gestire burst posizioni)
+    const TELEPORT_THRESHOLD_MULTIPLIER = 15;
     const teleportThreshold = maxPossibleDistance * TELEPORT_THRESHOLD_MULTIPLIER;
 
     // Se la distanza è troppo grande, potrebbe essere un teleport hack

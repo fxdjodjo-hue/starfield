@@ -154,23 +154,17 @@ export class CombatStateSystem extends BaseSystem {
    * Gestisce attivazione attacco (chiamato solo su edge up)
    */
   private handleAttackActivated(): void {
-    console.log('[ATTACK] Attack activated - checking for targets');
+    // Combat activation logging removed for production - too verbose
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    console.log('[ATTACK] Found selected NPCs:', selectedNpcs.length);
     if (selectedNpcs.length === 0) {
-      console.log('[ATTACK] No selected NPCs found - aborting attack');
       return;
     }
 
     const selectedNpc = selectedNpcs[0];
-    console.log('[ATTACK] Selected NPC entity:', selectedNpc.id);
 
-    // Debug: controlla se l'entità selezionata ha il componente Npc
     const npcComponent = this.ecs.getComponent(selectedNpc, Npc);
-    console.log('[ATTACK] Selected entity has Npc component:', !!npcComponent, 'serverId:', npcComponent?.serverId);
 
     if (!selectedNpc) {
-      console.warn('[COMBAT] SelectedNpc entity is undefined');
       return;
     }
 
@@ -180,7 +174,6 @@ export class CombatStateSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
     if (!playerTransform || !npcTransform) {
-      console.warn('⚠️ [COMBAT] Missing components for range check');
       return;
     }
 
@@ -190,12 +183,8 @@ export class CombatStateSystem extends BaseSystem {
     const dx = Math.abs(npcTransform.x - playerTransform.x);
     const dy = Math.abs(npcTransform.y - playerTransform.y);
     const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
-    console.log('[ATTACK] Range check:', { dx, dy, rangeWidth: rangeWidth/2, rangeHeight: rangeHeight/2, inRange });
-
-    // Debug range check
 
     if (!inRange) {
-      console.log('[ATTACK] Target out of range - aborting');
       // Mostra messaggio fuori range
       if (this.logSystem) {
         this.logSystem.addLogMessage('Target out of range! Move closer to attack.', LogType.ATTACK_FAILED, 2000);
@@ -203,22 +192,15 @@ export class CombatStateSystem extends BaseSystem {
       return; // Non iniziare combattimento se fuori range
     }
 
-    console.log('[ATTACK] Target in range - starting combat');
-
     // NPC nel range - inizia combattimento solo se non già attivo con questo NPC
-    console.log('[ATTACK] Current target:', this.currentAttackTarget, 'Selected NPC ID:', selectedNpc.id);
     if (this.currentAttackTarget !== selectedNpc.id) {
-      console.log('[ATTACK] Starting new combat session');
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
-    } else {
-      console.log('[ATTACK] Combat already active with this NPC');
     }
 
     // Crea effetto beam laser dal player all'NPC AD OGNI ATTACCO (anche se combattimento già attivo)
-    console.log('[ATTACK] Creating beam effect for attack');
     this.createPlayerBeamEffect(selectedNpc).catch(error => {
       console.error('[ATTACK] Failed to create beam effect:', error);
     });
@@ -457,11 +439,8 @@ export class CombatStateSystem extends BaseSystem {
     const targetX = playerTransform.x;
     const targetY = playerTransform.y;
 
-    console.log('[NPC-BEAM] Creating laser from NPC to player in world coordinates');
-
     // Crea proiettile visivo NPC con sprite e suono diversi
     if (!this.assetManager) {
-      console.warn('[NPC-BEAM] AssetManager not available, skipping NPC visual projectile');
       return;
     }
 
@@ -496,7 +475,7 @@ export class CombatStateSystem extends BaseSystem {
       // Traccia il proiettile attivo per pulizia
       this.activeBeamEntities.add(projectileEntity.id);
 
-      console.log('[NPC-BEAM] Created NPC laser projectile from', startX, startY, 'to', targetX, targetY);
+      // NPC laser projectile created
 
     } catch (error) {
       console.error('[NPC-BEAM] Failed to create NPC visual projectile:', error);
@@ -628,10 +607,7 @@ export class CombatStateSystem extends BaseSystem {
         this.removeAllActiveBeams();
       };
 
-      console.log('[DEBUG] Laser test tools initialized:');
-      console.log('  - window.testLaser(startX, startY, targetX, targetY) - Create test laser');
-      console.log('  - window.clearLasers() - Clear all lasers');
-      console.log('  - Default: testLaser(400, 300, 600, 400)');
+      // Laser test tools initialized silently
     }
   }
 
@@ -693,8 +669,6 @@ export class CombatStateSystem extends BaseSystem {
 
     // Crea proiettile visivo che viaggia dal player all'NPC
     // Questo è solo un effetto visivo, il danno è gestito da hitscan
-    console.log('[BEAM-EFFECT] Player position:', playerTransform.x, playerTransform.y);
-    console.log('[BEAM-EFFECT] NPC position:', npcTransform.x, npcTransform.y);
 
     // Usa coordinate mondo reali: dal player all'NPC
     const startX = playerTransform.x;
@@ -706,8 +680,6 @@ export class CombatStateSystem extends BaseSystem {
     const npcComponent = this.ecs.getComponent(npcEntity, Npc);
     const targetId = npcComponent?.serverId || npcEntity.id.toString();
 
-    console.log('[BEAM-EFFECT] Creating laser from player to NPC in world coordinates');
-    console.log('[BEAM-EFFECT] Using targetId:', targetId, 'from entity:', npcEntity.id, 'serverId:', npcComponent?.serverId);
     await this.createVisualProjectile(startX, startY, targetX, targetY, playerEntity.id, targetId);
   }
 
@@ -769,17 +741,7 @@ export class CombatStateSystem extends BaseSystem {
       // Traccia il proiettile attivo per pulizia
       this.activeBeamEntities.add(projectileEntity.id);
 
-      console.log('[VISUAL-PROJECTILE] Created SLOW laser projectile from', startX, startY, 'to', targetX, targetY);
-      console.log('[VISUAL-PROJECTILE] Laser sprite size:', laserImage.width * 2.5, 'x', laserImage.height * 2.5);
-      console.log('[VISUAL-PROJECTILE] Speed: 8, Lifetime: 15s - Should be VERY visible and slow!');
-
-      // DEBUG: Verifica che l'entità sia stata creata correttamente
-      const createdTransform = this.ecs.getComponent(projectileEntity, Transform);
-      const createdProjectile = this.ecs.getComponent(projectileEntity, Projectile);
-      console.log('[VISUAL-PROJECTILE] Entity created with Transform:', !!createdTransform, 'Projectile:', !!createdProjectile);
-      if (createdTransform) {
-        console.log('[VISUAL-PROJECTILE] Position:', createdTransform.x, createdTransform.y);
-      }
+      // Visual projectile created successfully
 
     } catch (error) {
       console.error('[VISUAL-PROJECTILE] Failed to create visual projectile:', error);

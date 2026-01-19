@@ -286,9 +286,7 @@ export class PlayerAttackManager {
    * Salva l'ultimo target per mantenere face-up se temporaneo
    */
   deselectNpcAndReset(npcEntity: any, isTemporary: boolean = false): void {
-    console.log(`[PlayerAttackManager] deselectNpcAndReset called for NPC ${npcEntity?.id} (temporary: ${isTemporary})`);
     if (!npcEntity) {
-      console.log(`[PlayerAttackManager] NPC entity is null/undefined`);
       return;
     }
 
@@ -297,23 +295,17 @@ export class PlayerAttackManager {
       const npcTransform = this.ecs.getComponent(npcEntity, Transform);
       if (npcTransform) {
         this.lastFaceTarget = { x: npcTransform.x, y: npcTransform.y };
-        console.log(`[PlayerAttackManager] Saved lastFaceTarget for temporary deselection: ${this.lastFaceTarget.x}, ${this.lastFaceTarget.y}`);
-      } else {
-        console.log(`[PlayerAttackManager] No transform found for temporary NPC ${npcEntity.id}`);
       }
     } else {
       // Se deselezione definitiva, cancella anche l'ultimo target
-      console.log(`[PlayerAttackManager] Clearing lastFaceTarget for permanent deselection`);
       this.lastFaceTarget = null;
     }
 
     // Rimuovi il componente SelectedNpc
     this.ecs.removeComponent(npcEntity, SelectedNpc);
-    console.log(`[PlayerAttackManager] Removed SelectedNpc component from NPC ${npcEntity.id}`);
 
     // Per deselezioni definitive, resetta sempre la rotazione
     if (!isTemporary) {
-      console.log(`[PlayerAttackManager] Calling resetShipRotation for permanent deselection`);
       this.resetShipRotation();
     }
   }

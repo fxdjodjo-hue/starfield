@@ -84,7 +84,7 @@ class NpcSpawner {
       maxShield: stats.shield,
       damage: stats.damage, // Aggiungi danno per combat
       lastBounce: 0, // Timestamp dell'ultimo rimbalzo ai confini
-      behavior: 'cruise',
+      behavior: NPC_CONFIG[validType].defaultBehavior || 'cruise',
       lastUpdate: Date.now(),
       lastSignificantMove: 0, // Non è stato ancora trasmesso, impostiamo a 0
       lastDamage: null, // Non danneggiato ancora

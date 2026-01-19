@@ -43,11 +43,11 @@ class MessageBroadcaster {
         inventoryLazy: true,  // Flag per indicare lazy loading
         upgradesLazy: true,
         questsLazy: true,
-        // Dati essenziali calcolati server-side
-        health: calculateMaxHealth(playerData.upgrades.hpUpgrades),
-        maxHealth: calculateMaxHealth(playerData.upgrades.hpUpgrades),
-        shield: calculateMaxShield(playerData.upgrades.shieldUpgrades),
-        maxShield: calculateMaxShield(playerData.upgrades.shieldUpgrades),
+        // Dati essenziali: valori attuali salvati nel database
+        health: playerData.health,
+        maxHealth: playerData.maxHealth,
+        shield: playerData.shield,
+        maxShield: playerData.maxShield,
         // RecentHonor calcolato dal server (non lazy perché serve per il ranking)
         recentHonor: playerData.recentHonor || 0
       }

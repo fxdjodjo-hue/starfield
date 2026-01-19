@@ -143,7 +143,7 @@ export class InterpolationTarget {
 
       if (dist > 200) {
         // Movimento troppo grande, probabilmente teleport/reset - snap immediatamente
-        console.warn(`[INTERPOLATION] NPC teleport detected (${dist.toFixed(1)}px), snapping to target`);
+        // Nota: comportamento normale per respawn NPC e movimenti veloci
         this.renderX = this.targetX = sanitizedPos.x;
         this.renderY = this.targetY = sanitizedPos.y;
         this.stabilityCounter = 0; // Reset stabilità dopo teleport

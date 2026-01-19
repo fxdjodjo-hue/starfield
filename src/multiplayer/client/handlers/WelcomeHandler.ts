@@ -3,6 +3,8 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES, type WelcomeMessage, type ClientId } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Transform } from '../../../entities/spatial/Transform';
+import { Health } from '../../../entities/combat/Health';
+import { Shield } from '../../../entities/combat/Shield';
 
 /**
  * Handles welcome messages from the server
@@ -77,7 +79,7 @@ export class WelcomeHandler extends BaseMessageHandler {
 
     // SERVER AUTHORITATIVE: Ricevi lo stato iniziale dal server
     if (message.initialState) {
-      const { position, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
+      const { position, health, maxHealth, shield, maxShield, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
       // Il welcome è già gestito da updateClientId() che imposta isReady()
@@ -95,6 +97,27 @@ export class WelcomeHandler extends BaseMessageHandler {
           transform.x = position.x;
           transform.y = position.y;
           transform.rotation = position.rotation || 0;
+        }
+      }
+
+      // Applica hp e shield iniziali dal server (valori attuali salvati nel database)
+      if (playerEntity && health !== undefined && maxHealth !== undefined) {
+        const ecs = networkSystem.getECS();
+        const healthComponent = ecs?.getComponent(playerEntity, Health);
+        if (healthComponent) {
+          healthComponent.current = health;
+          healthComponent.max = maxHealth;
+          console.log(`[WELCOME] Applied health: ${health}/${maxHealth}`);
+        }
+      }
+
+      if (playerEntity && shield !== undefined && maxShield !== undefined) {
+        const ecs = networkSystem.getECS();
+        const shieldComponent = ecs?.getComponent(playerEntity, Shield);
+        if (shieldComponent) {
+          shieldComponent.current = shield;
+          shieldComponent.max = maxShield;
+          console.log(`[WELCOME] Applied shield: ${shield}/${maxShield}`);
         }
       }
 

@@ -160,15 +160,7 @@ export class ProjectileFactory {
         }
       });
 
-      // Logging legacy mantenuto per compatibilità
-      LoggerWrapper.combat(`Projectile ${projectileId} created: type=${config.projectileType}, damage=${projectileDamage}`, {
-        projectileId: projectileId,
-        ownerId: config.ownerId,
-        targetId: String(config.targetId),
-        position: { x: spawnX, y: spawnY },
-        projectileType: config.projectileType,
-        isRemote: config.isRemote
-      });
+      // Projectile creation logging removed for production
 
       return entity;
 
