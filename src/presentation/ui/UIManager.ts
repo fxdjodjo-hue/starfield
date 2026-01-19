@@ -21,6 +21,9 @@ export class UIManager {
   private icons: Map<string, FloatingIcon> = new Map();
   private isVisible: boolean = false; // Inizia nascosto, verrà mostrato dopo l'animazione camera
   private unsubscribeResize: (() => void) | null = null;
+  private documentClickHandler: ((e: Event) => void) | null = null;
+  private documentKeydownHandler: ((e: Event) => void) | null = null;
+  private panelJustOpened: boolean = false;
 
   constructor() {
     this.setupResizeHandler();
@@ -36,6 +39,42 @@ export class UIManager {
       const { panelId, isVisible } = event.detail;
       this.updatePanelIcon(panelId);
     });
+
+    // Gestione centralizzata del click fuori dai pannelli
+    this.documentClickHandler = (e: Event) => {
+      const target = e.target as HTMLElement;
+
+      // Trova il pannello attualmente aperto (se esiste)
+      const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
+
+      if (openPanel && !this.panelJustOpened) {
+        // Usa la proprietà container del pannello
+        const panelContainer = (openPanel as any).container;
+
+        // Chiudi il pannello se il click è fuori da esso e non su elementi UI
+        if (panelContainer && !panelContainer.contains(target) &&
+            !target.closest('.ui-floating-icon') &&
+            !target.closest('.ui-panel')) {
+          openPanel.hide();
+        }
+      }
+    };
+
+    document.addEventListener('click', this.documentClickHandler);
+
+    // Gestione centralizzata di ESC per chiudere pannelli
+    this.documentKeydownHandler = (e: Event) => {
+      const keyboardEvent = e as KeyboardEvent;
+      if (keyboardEvent.key === 'Escape') {
+        const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
+        if (openPanel) {
+          console.log('[UIManager] Closing open panel due to ESC key');
+          openPanel.hide();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', this.documentKeydownHandler);
   }
 
   /**
@@ -130,22 +169,39 @@ export class UIManager {
   }
 
   /**
+   * Chiude tutti i pannelli tranne quello specificato
+   */
+  closeAllPanelsExcept(exceptPanelId: string): void {
+    this.panels.forEach((panel, panelId) => {
+      if (panelId !== exceptPanelId) {
+        panel.hide();
+      }
+    });
+    this.icons.forEach(icon => icon.updateState());
+  }
+
+  /**
    * Apre un pannello specifico chiudendo tutti gli altri (solo un pannello per volta)
-   * Se il pannello è già aperto, lo chiude
+   * Se il pannello è già aperto, rimane aperto (comportamento intuitivo)
    */
   openPanel(panelId: string): void {
     const panel = this.panels.get(panelId);
     if (!panel) return;
 
-    // Se il pannello è già aperto, chiudilo
+    // Se il pannello è già aperto, non fare nulla (comportamento intuitivo)
     if (panel.isPanelVisible()) {
-      panel.hide();
       return;
     }
 
-    // Altrimenti chiudi tutti i pannelli e apri quello specifico
-    this.closeAllPanels();
+    // Altrimenti chiudi tutti i pannelli tranne quello specifico e apri quello specifico
+    this.closeAllPanelsExcept(panelId);
     panel.show();
+
+    // Previene chiusura immediata per 300ms dopo apertura
+    this.panelJustOpened = true;
+    setTimeout(() => {
+      this.panelJustOpened = false;
+    }, 300);
   }
 
   /**
@@ -176,6 +232,16 @@ export class UIManager {
    * Distrugge tutti i pannelli e icone
    */
   destroy(): void {
+    // Rimuovi gli event listener globali
+    if (this.documentClickHandler) {
+      document.removeEventListener('click', this.documentClickHandler);
+      this.documentClickHandler = null;
+    }
+    if (this.documentKeydownHandler) {
+      document.removeEventListener('keydown', this.documentKeydownHandler);
+      this.documentKeydownHandler = null;
+    }
+
     // Rimuovi la sottoscrizione al resize
     if (this.unsubscribeResize) {
       this.unsubscribeResize();

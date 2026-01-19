@@ -17,7 +17,6 @@ export abstract class BasePanel {
     this.container = this.createPanelContainer();
     this.content = this.createPanelContent();
     this.container.appendChild(this.content); // AGGIUNGI IL CONTENT AL CONTAINER!
-    this.setupEventListeners();
   }
 
   /**
@@ -77,24 +76,6 @@ export abstract class BasePanel {
     return `top: ${centerY}px; left: ${centerX}px;`;
   }
 
-  /**
-   * Imposta gli event listener
-   */
-  private setupEventListeners(): void {
-    // Chiudi pannello cliccando fuori
-    document.addEventListener('click', (e) => {
-      if (this.isVisible && !this.container.contains(e.target as Node)) {
-        this.hide();
-      }
-    });
-
-    // Chiudi con ESC
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.isVisible) {
-        this.hide();
-      }
-    });
-  }
 
   /**
    * Mostra il pannello
