@@ -224,8 +224,9 @@ class ServerProjectileManager {
       // Proiettili senza target specifico continuano la verifica collisioni
 
       // Fallback: collisioni generiche SOLO per proiettili senza target specifico
-      // Verifica collisioni con NPC
-      const hitNpc = this.collision.checkNpcCollision(projectile);
+      // Verifica collisioni con NPC (MAI per proiettili NPC - gli NPC non si colpiscono tra loro)
+      if (!isNpcProjectile) {
+        const hitNpc = this.collision.checkNpcCollision(projectile);
       if (hitNpc) {
         const actualDamage = this.calculateProjectileDamage(projectile);
         const npcDead = this.damageHandler.handleNpcDamage(hitNpc.id, actualDamage, projectile.playerId);
@@ -239,6 +240,7 @@ class ServerProjectileManager {
         projectilesToRemove.push(projectileId);
         continue;
       }
+      } // Chiude l'if (!isNpcProjectile) per collisioni NPC
 
       // Verifica collisioni con giocatori (solo per proiettili NON NPC, perché gli NPC sono già gestiti sopra)
       if (!isNpcProjectile) {

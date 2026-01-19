@@ -2,15 +2,14 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Npc } from '../../entities/ai/Npc';
 import { Transform } from '../../entities/spatial/Transform';
-import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { Health } from '../../entities/combat/Health';
 import { NpcMovementSystem } from './NpcMovementSystem';
-import { MathUtils } from '../../core/utils/MathUtils';
 
 /**
- * Sistema di comportamento NPC - gestisce solo la logica decisionale degli NPC
+ * Sistema di comportamento NPC - gestisce solo comportamenti critici locali
  * Separato dal movimento fisico per architettura multiplayer-ready
- * Il server mantiene autorità su tutte le decisioni comportamentali
+ * Il server mantiene autorità su comportamenti aggressive/cruise
+ * Client gestisce solo comportamenti locali critici (fuga per salute bassa)
  */
 export class NpcBehaviorSystem extends BaseSystem {
   private lastBehaviorUpdate = 0;
@@ -48,7 +47,8 @@ export class NpcBehaviorSystem extends BaseSystem {
     const entity = this.ecs.getEntity(entityId);
     const transform = entity ? this.ecs.getComponent(entity, Transform) : null;
 
-    // Priorità 1: se salute molto bassa, fuggi (tutti gli NPC)
+    // Solo comportamento critico locale: fuga quando salute molto bassa
+    // Il server gestisce tutti gli altri comportamenti (aggressive/cruise)
     if (this.isNpcLowHealth(entityId)) {
       if (npc.behavior !== 'flee') {
         npc.setBehavior('flee');
@@ -58,35 +58,10 @@ export class NpcBehaviorSystem extends BaseSystem {
       return;
     }
 
-    // Priorità 2: se danneggiato recentemente, diventa aggressivo (tutti)
-    if (this.isNpcDamagedRecently(entityId)) {
-      if (npc.behavior !== 'aggressive') {
-        npc.setBehavior('aggressive');
-        // Se stava fuggendo, cancella la direzione di fuga
-        this.movementSystem.clearFleeDirection(entityId);
-      }
-      return;
-    }
-
-    // Default: tutti gli NPC non aggressivi rimangono in cruise
-    if (npc.behavior !== 'cruise') {
-      npc.setBehavior('cruise');
-      // Cancella direzione di fuga se presente
-      this.movementSystem.clearFleeDirection(entityId);
-    }
+    // Il server gestisce tutti gli altri comportamenti (aggressive/cruise)
+    // Non forzare comportamenti locali - attendi aggiornamenti dal server
   }
 
-  private isNpcDamagedRecently(entityId: number): boolean {
-    const entities = this.ecs.getEntitiesWithComponents(DamageTaken);
-    const entity = entities.find(e => e.id === entityId);
-
-    if (!entity) return false;
-
-    const damageTaken = this.ecs.getComponent(entity, DamageTaken);
-    if (!damageTaken) return false;
-
-    return damageTaken.wasDamagedRecently(Date.now(), 5000); // 5 secondi
-  }
 
   private isNpcLowHealth(entityId: number): boolean {
     const entities = this.ecs.getEntitiesWithComponents(Health);
@@ -100,27 +75,5 @@ export class NpcBehaviorSystem extends BaseSystem {
     return health.getPercentage() < 0.5; // 50% salute
   }
 
-  private isPlayerVisibleToNpc(npcEntityId: number): boolean {
-    const npcEntity = this.ecs.getEntity(npcEntityId);
-    if (!npcEntity) return false;
-
-    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
-    if (!npcTransform) return false;
-
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
-      .filter(entity => !this.ecs.hasComponent(entity, Npc));
-
-    if (playerEntities.length === 0) return false;
-
-    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
-    if (!playerTransform) return false;
-
-    const distance = MathUtils.calculateDistance(
-      playerTransform.x, playerTransform.y,
-      npcTransform.x, npcTransform.y
-    );
-
-    return distance <= 800;
-  }
 
 }

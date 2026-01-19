@@ -126,6 +126,14 @@ class ServerCombatManager {
   }
 
   /**
+   * Pulisce i cooldown di un NPC quando viene rimosso dal mondo
+   * @param {string} npcId - ID dell'NPC da rimuovere
+   */
+  cleanupNpcCooldown(npcId) {
+    this.npcAttackCooldowns.delete(npcId);
+  }
+
+  /**
    * Processa tutti i combattimenti attivi dei player
    */
   processPlayerCombats(now) {
@@ -332,18 +340,18 @@ class ServerCombatManager {
    * Processa logica di combat per un singolo NPC
    */
   processNpcCombat(npc, now) {
-    // NPC attacca se danneggiato negli ultimi 10 secondi
-    const wasRecentlyDamaged = npc.lastDamage && (now - npc.lastDamage) < 10000;
-
-    // NPC attacca solo se danneggiato recentemente
-    if (!wasRecentlyDamaged) {
-      return;
-    }
+    // NPC entra in combattimento solo se è stato colpito almeno una volta (flag di combat)
+    if (!npc.lastDamage) return;
 
     // Controlla cooldown attacco
     const lastAttack = this.npcAttackCooldowns.get(npc.id) || 0;
     const cooldown = NPC_CONFIG[npc.type].stats.cooldown || 2000; // Fallback ragionevole per NPC
-    if (now - lastAttack < cooldown) return;
+    if (now - lastAttack < cooldown) {
+      if (process.env.DEBUG_COMBAT === 'true') {
+        console.log(`[NPC ${npc.id}] Non attacca: cooldown attivo. lastAttack=${lastAttack}, cooldown=${cooldown}, now=${now}`);
+      }
+      return;
+    }
 
     // Trova player nel raggio di attacco
     const attackRange = NPC_CONFIG[npc.type].stats.range;
@@ -358,6 +366,9 @@ class ServerCombatManager {
 
       if (distanceSq <= attackRangeSq) {
         // Player nel range - NPC attacca
+        if (process.env.DEBUG_COMBAT === 'true') {
+          console.log(`[NPC ${npc.id}] Attacca player ${clientId} nel range. Distanza: ${Math.sqrt(distanceSq).toFixed(1)}`);
+        }
         this.performNpcAttack(npc, playerData, now);
         break; // Un attacco per tick
       }
@@ -405,9 +416,15 @@ class ServerCombatManager {
       targetPlayer.clientId
     );
 
-    // Aggiorna cooldown se il proiettile è stato creato
-    if (projectileId) {
-      this.npcAttackCooldowns.set(npc.id, now);
+    // Aggiorna cooldown sempre quando l'NPC prova ad attaccare (indipendentemente dal successo)
+    this.npcAttackCooldowns.set(npc.id, now);
+
+    if (process.env.DEBUG_COMBAT === 'true') {
+      if (projectileId) {
+        console.log(`[NPC ${npc.id}] Attacco riuscito contro ${targetPlayer.clientId}. Projectile: ${projectileId}`);
+      } else {
+        console.log(`[NPC ${npc.id}] Attacco fallito contro ${targetPlayer.clientId} - proiettile non creato`);
+      }
     }
   }
 }

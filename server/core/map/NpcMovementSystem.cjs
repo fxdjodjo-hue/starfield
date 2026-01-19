@@ -125,7 +125,7 @@ class NpcMovementSystem {
     // - aggressive: danneggiato E player nel range esteso E non troppo tempo fa
     // - cruise: default
     const healthPercent = npc.maxHealth > 0 ? npc.health / npc.maxHealth : 1;
-    const PURSUIT_RANGE = attackRange * 2; // Range di inseguimento esteso
+    const PURSUIT_RANGE = attackRange * 4; // Range di inseguimento esteso - aumentato per test
     const MAX_AGGRO_TIME = 30000; // 30 secondi max di aggressività
     const pursuitRangeSq = PURSUIT_RANGE * PURSUIT_RANGE;
 
@@ -157,9 +157,13 @@ class NpcMovementSystem {
       return 'flee';
     } else if (npc.lastDamage && playerInPursuitRange) {
       // Danneggiato E player ancora nel range esteso: rimane aggressivo
+      console.log(`[NPC ${npc.id}] Aggressive: lastDamage=${npc.lastDamage}, withinTimeLimit=${withinTimeLimit}, playerInPursuitRange=${playerInPursuitRange}`);
       return 'aggressive';
     } else {
       // Player troppo lontano o mai danneggiato: cruise
+      if (npc.lastDamage) {
+        console.log(`[NPC ${npc.id}] Cruise: lastDamage exists but playerInPursuitRange=${playerInPursuitRange}, withinTimeLimit=${withinTimeLimit}`);
+      }
       return 'cruise';
     }
   }

@@ -117,6 +117,11 @@ class NpcDamageHandler {
     if (existed) {
       ServerLoggerWrapper.system(`Removed NPC ${npcId} (${npcType})`);
 
+      // Pulisci i cooldown di attacco dell'NPC per evitare memory leak
+      if (this.mapServer.combatManager && typeof this.mapServer.combatManager.cleanupNpcCooldown === 'function') {
+        this.mapServer.combatManager.cleanupNpcCooldown(npcId);
+      }
+
       // Pianifica automaticamente il respawn per mantenere la popolazione
       this.respawnSystem.scheduleRespawn(npcType);
     }
