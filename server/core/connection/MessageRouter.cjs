@@ -152,18 +152,14 @@ async function handleJoin(data, sanitizedData, context) {
 
   mapServer.addPlayer(persistentClientId, playerData);
 
-  ServerLoggerWrapper.system(`Player joined: ${persistentClientId}`);
-  ServerLoggerWrapper.system(`  Nickname: ${data.nickname}`);
-  ServerLoggerWrapper.system(`  Player ID: ${playerData.playerId}`);
-  ServerLoggerWrapper.system(`  User ID: ${data.userId}`);
-  ServerLoggerWrapper.system(`Total connected players: ${mapServer.players.size}`);
+  ServerLoggerWrapper.info('PLAYER', `Player joined: ${data.nickname} (${playerData.playerId})`);
 
   // TEMP: Enable repair system after initial sync (replace with explicit load completion)
   // Questo timeout è un hack temporaneo - in futuro sostituire con:
   // await loadHealth(); await loadShield(); await loadPosition(); await loadShipState();
   setTimeout(() => {
     playerData.isFullyLoaded = true;
-    ServerLoggerWrapper.system(`Player ${persistentClientId} fully loaded - enabling repair system`);
+    // Player load completion logging removed for cleaner production console
   }, 2000); // 2 secondi per sync iniziale
 
   if (mapServer.players.size >= 10) {
@@ -213,7 +209,7 @@ async function handleJoin(data, sanitizedData, context) {
   if (allNpcs.length > 0) {
     const initialNpcsMessage = messageBroadcaster.formatInitialNpcsMessage(allNpcs);
     ws.send(JSON.stringify(initialNpcsMessage));
-    logger.info('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${persistentClientId}`);
+    ServerLoggerWrapper.debug('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${persistentClientId}`);
   }
 
   // Welcome message
@@ -227,7 +223,7 @@ async function handleJoin(data, sanitizedData, context) {
   try {
     ws.send(JSON.stringify(welcomeMessage));
   } catch (error) {
-    console.error('❌ [SERVER] Failed to send welcome message:', error);
+    ServerLoggerWrapper.warn('SERVER', `Failed to send welcome message: ${error.message}`);
   }
 
   return playerData;
@@ -623,7 +619,7 @@ function handleStartCombat(data, sanitizedData, context) {
   if (combat) {
     mapServer.combatManager.processPlayerCombat(data.clientId, combat, Date.now());
   } else {
-    console.error(`❌ [SERVER] Combat not found after startPlayerCombat for ${data.clientId}`);
+    ServerLoggerWrapper.error('SERVER', `Combat not found after startPlayerCombat for ${data.clientId}`);
   }
 
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
@@ -649,7 +645,7 @@ function handleStopCombat(data, sanitizedData, context) {
   // Questo è più sicuro e consistente con la nuova architettura
   if (mapServer.combatManager.playerCombats.has(data.clientId)) {
     mapServer.combatManager.stopPlayerCombat(data.clientId);
-    console.log(`[COMBAT-DEBUG] Player ${data.clientId} combat stopped via stop_combat message`);
+    // Combat stop logging removed for production - too verbose
   }
 
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(

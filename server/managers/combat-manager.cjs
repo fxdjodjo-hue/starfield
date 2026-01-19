@@ -46,7 +46,7 @@ class ServerCombatManager {
   startPlayerCombat(playerId, npcId, context = null) {
     // 🚫 BLOCCA combat senza target valido
     if (!npcId) {
-      console.warn(`[COMBAT-ERROR] Player ${playerId} tried to start combat with null/invalid npcId`);
+      ServerLoggerWrapper.warn('COMBAT', `Player ${playerId} tried to start combat with null/invalid npcId`);
       return; // Non creare il combat
     }
 
@@ -63,7 +63,7 @@ class ServerCombatManager {
     // ✅ Verifica sempre che l'NPC esista prima di creare qualsiasi combat
     const existingNpc = this.mapServer.npcManager.getNpc(npcId);
     if (!existingNpc) {
-      console.warn(`[COMBAT-ERROR] Player ${playerId} tried to start combat with non-existing NPC ${npcId}`);
+      ServerLoggerWrapper.warn('COMBAT', `Player ${playerId} tried to start combat with non-existing NPC ${npcId}`);
       return;
     }
 
@@ -151,7 +151,7 @@ class ServerCombatManager {
     // 🚫 Verifica che l'NPC target esista ancora
     const targetNpc = this.mapServer.npcManager.getNpc(combat.npcId);
     if (!targetNpc) {
-      console.warn(`[COMBAT-ERROR] Player ${playerId} combat target removed: npcId=${combat.npcId}`);
+      ServerLoggerWrapper.warn('COMBAT', `Player ${playerId} combat target removed: npcId=${combat.npcId}`);
       this.playerCombats.delete(playerId);
       this.combatStartCooldowns.delete(playerId);
       return;
@@ -215,7 +215,7 @@ class ServerCombatManager {
 
     // ✅ FIX: Log di debug per identificare problemi di inizializzazione (solo con DEBUG_COMBAT)
     if (process.env.DEBUG_COMBAT === 'true') {
-      console.log(`[COMBAT-SERVER] combat state check: playerId=${playerId}, npcId=${combat.npcId}, lastAttackTime=${lastAttackTime}, attackCooldown=${combat.attackCooldown}, baseCooldown=${baseCooldown}, timeSinceLastAttack=${timeSinceLastAttack}, hasAllFields=${!!(combat.lastAttackTime !== undefined && combat.attackCooldown !== undefined)}`);
+      // Combat state check logging removed for production - too verbose
     }
 
     if (timeSinceLastAttack < baseCooldown) {
@@ -223,7 +223,7 @@ class ServerCombatManager {
     }
 
     // Esegui attacco (danno applicato secondo cooldown configurato)
-    console.log(`[COMBAT-SERVER] performPlayerAttack called, playerId=${playerId}, timeSinceLastAttack=${timeSinceLastAttack}, baseCooldown=${baseCooldown}, npcId=${combat.npcId}`);
+    // Combat attack logging removed for production - too verbose
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
   }
@@ -286,7 +286,7 @@ class ServerCombatManager {
       );
       return projectileId;
     } catch (error) {
-      console.error(`❌ [SERVER] Failed to add projectile ${projectileId}:`, error);
+      ServerLoggerWrapper.error('COMBAT', `Failed to add projectile ${projectileId}: ${error.message}`);
       return null;
     }
   }
@@ -297,7 +297,7 @@ class ServerCombatManager {
    */
   performPlayerAttack(playerId, playerData, npc, now) {
     // DEBUG: Log quando il player spara
-    console.log(`[SERVER_PLAYER_ATTACK] Player ${playerId} attacking NPC ${npc.id} at combat tick`);
+    // Combat tick logging removed for production - too verbose
 
     // Usa posizione corrente del player dal server (più affidabile)
     const playerPos = playerData.position;
@@ -370,12 +370,12 @@ class ServerCombatManager {
   performNpcAttack(npc, targetPlayer, now) {
     // Verifica posizioni valide
     if (!Number.isFinite(npc.position.x) || !Number.isFinite(npc.position.y)) {
-      console.error(`❌ [SERVER] NPC ${npc.id} has INVALID position! x=${npc.position.x}, y=${npc.position.y}. SKIPPING ATTACK`);
+      ServerLoggerWrapper.error('COMBAT', `NPC ${npc.id} has INVALID position! x=${npc.position.x}, y=${npc.position.y}. SKIPPING ATTACK`);
       return;
     }
 
     if (!targetPlayer.position || !Number.isFinite(targetPlayer.position.x) || !Number.isFinite(targetPlayer.position.y)) {
-      console.error(`❌ [SERVER] Invalid player position for NPC ${npc.id} attack`);
+      ServerLoggerWrapper.error('COMBAT', `Invalid player position for NPC ${npc.id} attack`);
       return;
     }
 

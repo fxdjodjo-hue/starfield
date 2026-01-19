@@ -5,6 +5,7 @@
  */
 
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('../../config/constants.cjs');
+const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 
 class NpcMovementSystem {
   /**
@@ -19,7 +20,7 @@ class NpcMovementSystem {
     for (const npc of allNpcs) {
       // Validazione posizione iniziale
       if (!Number.isFinite(npc.position.x) || !Number.isFinite(npc.position.y)) {
-        console.warn(`⚠️ [SERVER] NPC ${npc.id} has invalid initial position: (${npc.position.x}, ${npc.position.y}), skipping`);
+        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} has invalid initial position: (${npc.position.x}, ${npc.position.y}), skipping`);
         continue;
       }
 
@@ -32,7 +33,7 @@ class NpcMovementSystem {
 
       // Validazione velocità: assicurati che siano finite
       if (!Number.isFinite(npc.velocity.x) || !Number.isFinite(npc.velocity.y)) {
-        console.warn(`⚠️ [SERVER] NPC ${npc.id} velocity became NaN, resetting with config-based speed`);
+        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} velocity became NaN, resetting with config-based speed`);
         // Reset con velocità basata sulla configurazione NPC invece di valori casuali fissi
         const resetSpeed = speed * 0.3; // 30% della velocità massima come fallback
         const angle = Math.random() * Math.PI * 2;
@@ -42,12 +43,12 @@ class NpcMovementSystem {
 
       // Validazione parametri movimento
       if (!Number.isFinite(speed) || speed <= 0) {
-        console.warn(`⚠️ [SERVER] NPC ${npc.id} invalid speed: ${speed}`);
+        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} invalid speed: ${speed}`);
         continue; // Salta questo NPC
       }
 
       if (!Number.isFinite(deltaTime) || deltaTime <= 0) {
-        console.warn(`⚠️ [SERVER] NPC ${npc.id} invalid deltaTime: ${deltaTime}`);
+        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} invalid deltaTime: ${deltaTime}`);
         continue; // Salta questo NPC
       }
 
@@ -302,8 +303,8 @@ class NpcMovementSystem {
   static validateAndApplyMovement(npc, newX, newY, deltaX, deltaY, speed, deltaTime, npcManager) {
     // Validazione: assicurati che le posizioni siano finite
     if (!Number.isFinite(newX) || !Number.isFinite(newY)) {
-      console.warn(`⚠️ [SERVER] NPC ${npc.id} position became NaN! old_pos: (${npc.position.x}, ${npc.position.y}) delta: (${deltaX}, ${deltaY}) vel: (${npc.velocity.x}, ${npc.velocity.y}) speed: ${speed} deltaTime: ${deltaTime}`);
-      console.warn(`⚠️ [SERVER] Resetting NPC ${npc.id} to (0, 0) with config-based velocity`);
+      ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} position became NaN! old_pos: (${npc.position.x}, ${npc.position.y}) delta: (${deltaX}, ${deltaY}) vel: (${npc.velocity.x}, ${npc.velocity.y}) speed: ${speed} deltaTime: ${deltaTime}`);
+      ServerLoggerWrapper.warn('NPC', `Resetting NPC ${npc.id} to (0, 0) with config-based velocity`);
       npc.position.x = 0;
       npc.position.y = 0;
       // Reset con velocità basata sulla configurazione invece di valori casuali fissi

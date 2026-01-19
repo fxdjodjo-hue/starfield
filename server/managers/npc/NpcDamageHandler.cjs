@@ -45,16 +45,7 @@ class NpcDamageHandler {
     npc.lastDamage = Date.now(); // Traccia quando è stato danneggiato
     npc.lastAttackerId = attackerId; // Traccia l'ultimo player che lo ha colpito
 
-    ServerLoggerWrapper.combat(`NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`, {
-      npcId,
-      rawDamage,
-      appliedDamage: rawDamage,
-      shieldAbsorbed,
-      healthDamage,
-      remainingHealth: npc.health,
-      remainingShield: npc.shield,
-      attackerId
-    });
+    // Damage details logging removed for production - too verbose
 
     // Se morto, rimuovi l'NPC e assegna ricompense
     if (npc.health <= 0) {
@@ -96,16 +87,7 @@ class NpcDamageHandler {
 
     playerData.lastDamage = Date.now();
 
-    ServerLoggerWrapper.combat(`Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`, {
-      playerId: clientId,
-      rawDamage,
-      appliedDamage: rawDamage,
-      shieldAbsorbed,
-      healthDamage,
-      remainingHealth: playerData.health,
-      remainingShield: playerData.shield,
-      attackerId
-    });
+    // Player damage details logging removed for production - too verbose
 
     // ✅ ARCHITECTURAL CLEANUP: Rimosso - non si creano più combat senza target
     // Il bilanciamento deve essere gestito diversamente se necessario

@@ -7,6 +7,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 // Sistema di logging
 const { logger, messageCount } = require('./server/logger.cjs');
+const ServerLoggerWrapper = require('./server/core/infrastructure/ServerLoggerWrapper.cjs');
 
 // Supabase client per il server
 const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbwbvwis.supabase.co';
@@ -96,7 +97,7 @@ const server = http.createServer(async (req, res) => {
 
 
             if (error) {
-              console.error('❌ [API] RPC error:', error);
+              ServerLoggerWrapper.warn('API', `RPC error creating player profile: ${error.message}`);
               res.writeHead(400, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: error.message }));
               return;
@@ -108,7 +109,7 @@ const server = http.createServer(async (req, res) => {
             res.end(JSON.stringify({ data: profileData }));
 
           } catch (error) {
-            console.error('❌ [API] Exception in create-profile:', error);
+            ServerLoggerWrapper.error('API', `Exception in create-profile: ${error.message}`);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
           }
@@ -142,7 +143,7 @@ const server = http.createServer(async (req, res) => {
           });
 
           if (error) {
-            console.error('❌ [API] Lazy data RPC error:', error);
+            ServerLoggerWrapper.warn('API', `Lazy data RPC error: ${error.message}`);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
             return;
@@ -161,7 +162,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ data: response }));
 
         } catch (error) {
-          console.error('❌ [API] Exception in lazy-data:', error);
+          ServerLoggerWrapper.error('API', `Exception in lazy-data: ${error.message}`);
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message }));
         }
@@ -279,9 +280,7 @@ const wss = new WebSocket.Server({
 
 // Avvia il server sulla porta configurata
 server.listen(parseInt(PORT), '0.0.0.0', () => {
-  logger.info('SERVER', `🚀 Server started on 0.0.0.0:${PORT}`);
-  logger.info('SERVER', `🌐 WebSocket available at ws://0.0.0.0:${PORT}`);
-  logger.info('SERVER', `💚 Health check available at http://0.0.0.0:${PORT}/health`);
+  ServerLoggerWrapper.info('SERVER', `Server started on port ${PORT} with WebSocket and health check endpoints`);
 });
 
 const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
@@ -303,6 +302,8 @@ mapServer.combatManager = new ServerCombatManager(mapServer);
 
 // Aggiungi repair manager alla mappa
 mapServer.repairManager = new RepairManager(mapServer);
+
+ServerLoggerWrapper.info('SERVER', 'Map system initialized with combat and repair managers');
 
 /**
  * Processa la queue degli aggiornamenti posizione per ridurre race conditions

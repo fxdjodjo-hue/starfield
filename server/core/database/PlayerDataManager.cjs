@@ -71,12 +71,12 @@ class PlayerDataManager {
         throw dataError;
       }
 
-      ServerLoggerWrapper.database(`📦 Raw RPC response for user ${userId}: ${JSON.stringify(completeData, null, 2)}`);
+      ServerLoggerWrapper.debug('DATABASE', `Raw RPC response loaded for user ${userId}`);
 
       // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
       const playerDataRaw = Array.isArray(completeData) && completeData.length > 0 ? completeData[0] : completeData;
       
-      ServerLoggerWrapper.database(`📋 Parsed playerDataRaw for user ${userId}`, {
+      ServerLoggerWrapper.debug('DATABASE', `Player data parsed for user ${userId}`, {
         found: playerDataRaw?.found,
         player_id: playerDataRaw?.player_id,
         username: playerDataRaw?.username,
@@ -93,7 +93,7 @@ class PlayerDataManager {
       // Verifica che player_id sia valido
       if (!playerDataRaw.player_id || playerDataRaw.player_id === 0) {
         ServerLoggerWrapper.database(`❌ CRITICAL: User ${userId} has invalid player_id: ${playerDataRaw.player_id}`);
-        ServerLoggerWrapper.database(`Raw data: ${JSON.stringify(playerDataRaw, null, 2)}`);
+        ServerLoggerWrapper.debug('DATABASE', `Invalid player_id details: user=${userId}, received_id=${playerDataRaw.player_id}`);
         throw new Error(`DATABASE ERROR: Invalid player_id for user ${userId}. Please contact support.`);
       }
 
@@ -180,7 +180,7 @@ class PlayerDataManager {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedHealth = currencies.current_health;
-            ServerLoggerWrapper.database(`💚 LOAD Health from DB: ${loadedHealth} (NULL = DB error after migration)`);
+            ServerLoggerWrapper.debug('DATABASE', `Loaded health from DB: ${loadedHealth}`);
             return loadedHealth; // Dopo migrazione, questo sarà sempre un numero valido
           }
           return null;
@@ -189,7 +189,7 @@ class PlayerDataManager {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedShield = currencies.current_shield;
-            ServerLoggerWrapper.database(`🛡️ LOAD Shield from DB: ${loadedShield} (NULL = DB error after migration)`);
+            ServerLoggerWrapper.debug('DATABASE', `Loaded shield from DB: ${loadedShield}`);
             return loadedShield; // Dopo migrazione, questo sarà sempre un numero valido
           }
           return null;
@@ -207,8 +207,9 @@ class PlayerDataManager {
       }
 
       ServerLoggerWrapper.database(`Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
-      ServerLoggerWrapper.database(`Loaded currencies`, playerData.inventory);
-      ServerLoggerWrapper.database(`RecentHonor (30 days): ${recentHonor}`);
+      const { honor, cosmos, credits, experience, current_health, current_shield } = playerData.inventory;
+      ServerLoggerWrapper.database(`Loaded currencies`, { honor, cosmos, credits, experience, current_health, current_shield });
+      ServerLoggerWrapper.debug('DATABASE', `RecentHonor (30 days): ${recentHonor}`);
       return playerData;
 
     } catch (error) {
@@ -258,12 +259,6 @@ class PlayerDataManager {
       }
 
       ServerLoggerWrapper.database(`Saving player data for player ID: ${playerId}`);
-      ServerLoggerWrapper.database(`Player data to save`, {
-        stats: playerData.stats,
-        upgrades: playerData.upgrades,
-        inventory: playerData.inventory,
-        quests: playerData.quests ? playerData.quests.length : 0
-      });
 
       // Prepare data for secure RPC function
       const statsData = playerData.stats ? {
@@ -297,12 +292,12 @@ class PlayerDataManager {
         // Questo garantisce che ogni logout/login mantenga lo stato esatto
         current_health: (() => {
           const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : null;
-          ServerLoggerWrapper.database(`💚 SAVE Health: ${health} (always saved for true MMO persistence)`);
+          // Health save logging removed - covered by summary log
           return health !== null ? Number(health) : null;
         })(),
         current_shield: (() => {
           const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : null;
-          ServerLoggerWrapper.database(`🛡️ SAVE Shield: ${shield} (always saved for true MMO persistence)`);
+          // Shield save logging removed - covered by summary log
           return shield !== null ? Number(shield) : null;
         })()
       };
@@ -321,7 +316,7 @@ class PlayerDataManager {
 
       // Use secure RPC function instead of direct table access
       ServerLoggerWrapper.database(`Calling update_player_data_secure RPC for auth_id: ${playerId}`);
-      ServerLoggerWrapper.database(`Currencies data to save`, currenciesData);
+      ServerLoggerWrapper.info('DATABASE', `Player ${playerId} saved: credits=${currenciesData.credits}, hp=${currenciesData.current_health}, shield=${currenciesData.current_shield}, honor=${currenciesData.honor}, exp=${currenciesData.experience}`);
       const { data: updateResult, error: updateError } = await supabase.rpc(
         'update_player_data_secure',
         {
@@ -513,7 +508,7 @@ class PlayerDataManager {
       }
     }, SAVE_INTERVAL);
 
-    ServerLoggerWrapper.database(`Periodic save system initialized (every ${SAVE_INTERVAL / 1000 / 60} minutes)`);
+    ServerLoggerWrapper.debug('DATABASE', `Periodic save system initialized (every ${SAVE_INTERVAL / 1000 / 60} minutes)`);
   }
 
   /**

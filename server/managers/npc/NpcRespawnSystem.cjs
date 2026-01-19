@@ -3,6 +3,7 @@
 // Dipendenze: logger, mapServer, spawner (per createNpc), broadcaster (per broadcastNpcSpawn)
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
 
 class NpcRespawnSystem {
   constructor(mapServer, spawner, broadcaster) {
@@ -110,7 +111,7 @@ class NpcRespawnSystem {
         this.broadcaster.broadcastNpcSpawn(npcId);
       }
     } catch (error) {
-      console.error(`❌ [SERVER] Failed to respawn ${npcType}:`, error);
+      ServerLoggerWrapper.error('NPC', `Failed to respawn ${npcType}: ${error.message}`);
     }
   }
 
@@ -136,7 +137,7 @@ class NpcRespawnSystem {
     }
 
     // Fallback: posizione casuale semplice se non trova posizione sicura
-    console.warn('⚠️ [SERVER] Could not find safe respawn position, using fallback');
+    ServerLoggerWrapper.warn('NPC', 'Could not find safe respawn position, using fallback');
     const fallbackX = (Math.random() - 0.5) * (WORLD_WIDTH * 0.8); // 80% del mondo
     const fallbackY = (Math.random() - 0.5) * (WORLD_HEIGHT * 0.8);
     return { x: fallbackX, y: fallbackY };

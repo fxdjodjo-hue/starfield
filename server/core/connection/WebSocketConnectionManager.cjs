@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, mapServer, messageCount, InputValidator, BoundaryEnforcement
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const ServerInputValidator = require('../InputValidator.cjs');
 const { BoundaryEnforcement } = require('../../../dist-server/shared/SecurityBoundary.cjs');
 const { createClient } = require('@supabase/supabase-js');
@@ -46,7 +47,7 @@ class WebSocketConnectionManager {
    */
   setupShutdownHandling() {
     process.on('SIGINT', () => {
-      logger.info('SERVER', '🛑 Shutting down server...');
+      ServerLoggerWrapper.info('SERVER', 'Shutting down server...');
 
       // Cleanup risorse
       if (this.mapServer.npcManager) {
@@ -98,7 +99,7 @@ class WebSocketConnectionManager {
     }
 
     this.wss.on('connection', (ws) => {
-      logger.info('SERVER', 'New client connected');
+      // Client connection logging removed for cleaner production console
       let playerData = null;
 
       // Gestisce messaggi dal client
@@ -110,7 +111,7 @@ class WebSocketConnectionManager {
           // INPUT VALIDATION: valida struttura messaggio
           const structureValidation = this.inputValidator.validateMessageStructure(data);
           if (!structureValidation.isValid) {
-            logger.warn('VALIDATION', `Invalid message structure from ${data.clientId || 'unknown'}: ${structureValidation.errors.join(', ')}`);
+            ServerLoggerWrapper.debug('VALIDATION', `Invalid message structure from ${data.clientId || 'unknown'}: ${structureValidation.errors.join(', ')}`);
             return;
           }
 
@@ -123,7 +124,7 @@ class WebSocketConnectionManager {
             if (now - this.lastValidationWarning > 5000 || this.validationWarningCount % 50 === 0) {
               const clientInfo = data.clientId || 'unknown';
               const summary = `${this.validationWarningCount} invalid messages in last period`;
-              logger.warn('VALIDATION', `Invalid content from ${clientInfo} (${data.type}): ${contentValidation.errors[0]}... (${summary})`);
+              ServerLoggerWrapper.debug('VALIDATION', `Invalid content from ${clientInfo} (${data.type}): ${contentValidation.errors[0]}... (${summary})`);
               this.lastValidationWarning = now;
               this.validationWarningCount = 0; // Reset counter
             }
@@ -139,7 +140,7 @@ class WebSocketConnectionManager {
             if (now - this.lastSecurityWarning > 5000 || this.securityWarningCount % 5 === 0) {
               const clientInfo = data.clientId || 'unknown';
               const summary = `${this.securityWarningCount} security violations in last period`;
-              logger.error('SECURITY', `Intent violation from ${clientInfo}: ${intentValidation.reason} (${summary})`);
+              ServerLoggerWrapper.warn('SECURITY', `Intent violation from ${clientInfo}: ${intentValidation.reason} (${summary})`);
               this.lastSecurityWarning = now;
               this.securityWarningCount = 0; // Reset counter
             }
@@ -205,7 +206,7 @@ class WebSocketConnectionManager {
             // Raw message wasn't valid JSON, keep as 'unknown'
           }
 
-          logger.error('WEBSOCKET', `Message processing error from ${errorDetails.clientInfo}:`, {
+          ServerLoggerWrapper.error('WEBSOCKET', `Message processing error from ${errorDetails.clientInfo}`, {
             error: error.message,
             rawMessage: errorDetails.rawMessage,
             timestamp: errorDetails.timestamp
@@ -213,11 +214,11 @@ class WebSocketConnectionManager {
 
           // For critical errors, consider disconnecting the client
           if (error.message.includes('Invalid JSON') || error.message.includes('Maximum call stack')) {
-            logger.warn('WEBSOCKET', `Disconnecting client ${errorDetails.clientInfo} due to critical error`);
+            ServerLoggerWrapper.warn('WEBSOCKET', `Disconnecting client ${errorDetails.clientInfo} due to critical error`);
             try {
               ws.close(1003, 'Protocol error'); // 1003 = Unsupported data
             } catch (closeError) {
-              logger.error('WEBSOCKET', 'Failed to close WebSocket connection:', closeError.message);
+              ServerLoggerWrapper.error('WEBSOCKET', `Failed to close WebSocket connection: ${closeError.message}`);
             }
           }
         }
@@ -225,15 +226,10 @@ class WebSocketConnectionManager {
 
       ws.on('close', async () => {
         if (playerData) {
-          logger.info('PLAYER', `Player disconnected: ${playerData.clientId} (${playerData.nickname})`);
+          ServerLoggerWrapper.info('PLAYER', `Player left: ${playerData.playerId}`);
 
           // Salva i dati del giocatore prima della disconnessione
-          logger.info('DATABASE', `Saving player data on disconnect for ${playerData.userId}:`, {
-            credits: playerData.inventory?.credits,
-            cosmos: playerData.inventory?.cosmos,
-            experience: playerData.inventory?.experience,
-            honor: playerData.inventory?.honor
-          });
+          ServerLoggerWrapper.database(`Saving player data on disconnect for ${playerData.userId}`);
           await this.playerDataManager.savePlayerData(playerData);
 
           // Broadcast player left usando MessageBroadcaster
@@ -250,14 +246,14 @@ class WebSocketConnectionManager {
             this.mapServer.repairManager.removePlayer(playerData.clientId);
           }
 
-          logger.info('SERVER', `Remaining players: ${this.mapServer.players.size}`);
+          ServerLoggerWrapper.debug('SERVER', `Remaining players: ${this.mapServer.players.size}`);
         } else {
-          logger.warn('PLAYER', 'Unknown client disconnected');
+          ServerLoggerWrapper.warn('PLAYER', 'Unknown client disconnected');
         }
       });
 
       ws.on('error', (error) => {
-        logger.error('WEBSOCKET', 'WebSocket error', error.message);
+        ServerLoggerWrapper.error('WEBSOCKET', `WebSocket error: ${error.message}`);
       });
     });
   }

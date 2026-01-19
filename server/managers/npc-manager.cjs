@@ -5,6 +5,7 @@
  */
 
 const { logger } = require('../logger.cjs');
+const ServerLoggerWrapper = require('../core/infrastructure/ServerLoggerWrapper.cjs');
 const NpcSpawner = require('./npc/NpcSpawner.cjs');
 const NpcRespawnSystem = require('./npc/NpcRespawnSystem.cjs');
 const NpcDamageHandler = require('./npc/NpcDamageHandler.cjs');
@@ -109,7 +110,8 @@ class ServerNpcManager {
   initializeWorldNpcs(scouterCount = 25, frigateCount = 25) {
     this.spawner.initializeWorldNpcs(scouterCount, frigateCount);
     const stats = this.getStats();
-    logger.info('SERVER', `World initialization complete: ${stats.totalNpcs} NPCs (${stats.scouters} Scouters, ${stats.kronos} Kronos)`);
+    ServerLoggerWrapper.system(`World initialized with ${stats.totalNpcs} NPCs`);
+    ServerLoggerWrapper.debug('SERVER', `NPC breakdown: ${stats.scouters} Scouters, ${stats.kronos} Kronos`);
   }
 
   /**

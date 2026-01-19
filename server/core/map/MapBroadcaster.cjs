@@ -5,6 +5,7 @@
  */
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
 
 class MapBroadcaster {
@@ -32,7 +33,7 @@ class MapBroadcaster {
           playerData.ws.send(payload);
           sentCount++;
         } catch (error) {
-          console.error(`[MapBroadcaster] Error sending to ${clientId}:`, error);
+          ServerLoggerWrapper.error('NETWORK', `Error sending to ${clientId}: ${error.message}`);
         }
       } else {
         closedCount++;

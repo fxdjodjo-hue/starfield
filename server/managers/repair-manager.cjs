@@ -2,6 +2,7 @@
 // Dipendenze consentite: logger.cjs, config/constants.cjs
 
 const { logger } = require('../logger.cjs');
+const ServerLoggerWrapper = require('../core/infrastructure/ServerLoggerWrapper.cjs');
 const { SERVER_CONSTANTS } = require('../config/constants.cjs');
 
 class RepairManager {
@@ -216,7 +217,7 @@ class RepairManager {
       completedAt: now
     });
 
-    logger.info('REPAIR', `Player ${playerId} repair completed`);
+    ServerLoggerWrapper.info('REPAIR', `Player ${playerId} repair completed (HP:${playerData.maxHealth}, Shield:${playerData.maxShield})`);
 
     // Notifica client con repair_complete invece di repair_stopped
     if (playerData?.ws) {

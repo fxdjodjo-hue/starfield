@@ -70,7 +70,7 @@ class DatabaseHelper {
    */
   static prepareHealthValue(health) {
     const value = health !== null && health !== undefined ? health : null;
-    logger.info('DATABASE', `💚 SAVE Health: ${value} (always saved for true MMO persistence)`);
+    // Health save logging removed - covered by PlayerDataManager summary
     return value !== null ? Number(value) : null;
   }
 
@@ -79,7 +79,7 @@ class DatabaseHelper {
    */
   static prepareShieldValue(shield) {
     const value = shield !== null && shield !== undefined ? shield : null;
-    logger.info('DATABASE', `🛡️ SAVE Shield: ${value} (always saved for true MMO persistence)`);
+    // Shield save logging removed - covered by PlayerDataManager summary
     return value !== null ? Number(value) : null;
   }
 

@@ -13,6 +13,7 @@ class GlobalGameMonitor {
     this.updateInterval = 2000; // Aggiorna ogni 2 secondi
     this.isEnabled = process.env.GLOBAL_MONITOR === 'true';
     this.startTime = Date.now(); // Tempo di avvio del monitor
+    this.lastLoggedState = null; // Cache dell'ultimo stato loggato
 
     this.globalState = {
       timestamp: Date.now(),
@@ -311,21 +312,39 @@ class GlobalGameMonitor {
   logGlobalSummary() {
     const state = this.getGlobalState();
 
-    console.log(`🌍 GLOBAL STATE [${new Date().toISOString()}]`);
-    console.log(`   Server: ${state.server.totalPlayers} players, ${state.server.totalNpcs} NPCs, ${state.server.activeCombats} combats`);
-    console.log(`   Resources: ${state.resourceSummary.totalCredits} credits, ${state.resourceSummary.totalCosmos} cosmos`);
-    console.log(`   Activity: ${state.resourceSummary.activeRepairs} repairing, ${state.resourceSummary.playersInCombat} in combat`);
+    // In produzione logga solo se ci sono player attivi o attività significativa
+    const isProduction = process.env.NODE_ENV === 'production';
+    const shouldLog = !isProduction || state.server.totalPlayers > 0 || state.server.activeCombats > 0;
 
-    // Log player critici
+    if (!shouldLog) return;
+
+    // In produzione, logga solo ogni 5 minuti o su cambiamenti molto significativi
+    if (isProduction && this.lastLoggedState) {
+      const timeSinceLastLog = Date.now() - (this.lastLoggedState.timestamp || 0);
+      const hasSignificantChange =
+        this.lastLoggedState.server.totalPlayers !== state.server.totalPlayers ||
+        this.lastLoggedState.server.activeCombats !== state.server.activeCombats ||
+        Math.abs(this.lastLoggedState.resourceSummary.totalCredits - state.resourceSummary.totalCredits) > 10000 || // Maggiore soglia
+        Math.abs(this.lastLoggedState.resourceSummary.totalCosmos - state.resourceSummary.totalCosmos) > 1000 ||  // Maggiore soglia
+        timeSinceLastLog > 300000; // 5 minuti
+
+      if (!hasSignificantChange) return;
+    }
+
+    ServerLoggerWrapper.debug('SYSTEM', `Global state: ${state.server.totalPlayers} players, ${state.server.totalNpcs} NPCs, ${state.server.activeCombats} combats, ${state.resourceSummary.totalCredits} credits, ${state.resourceSummary.totalCosmos} cosmos`);
+
+    // Log player critici solo se presenti
     const criticalPlayers = Array.from(state.players).filter(p => p.status.warnings.length > 0);
     if (criticalPlayers.length > 0) {
-      console.log(`   ⚠️ Critical Players: ${criticalPlayers.map(p => `${p.nickname}(${p.status.warnings.join(',')})`).join(', ')}`);
+      ServerLoggerWrapper.warn('SYSTEM', `Critical players: ${criticalPlayers.map(p => `${p.nickname}(${p.status.warnings.join(',')})`).join(', ')}`);
     }
 
-    // Log eventi recenti
-    if (state.criticalEvents.length > 0) {
-      console.log(`   📋 Recent Events: ${state.criticalEvents.slice(-3).map(e => e.type).join(', ')}`);
-    }
+    // Salva lo stato corrente per confronti futuri
+    this.lastLoggedState = {
+      server: { ...state.server },
+      resourceSummary: { ...state.resourceSummary },
+      timestamp: Date.now()
+    };
   }
 }
 

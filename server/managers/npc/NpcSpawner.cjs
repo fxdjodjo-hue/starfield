@@ -149,8 +149,6 @@ class NpcSpawner {
     for (let i = 0; i < frigateCount; i++) {
       this.createNpc('Kronos', undefined, undefined, true);
     }
-
-    logger.info('SERVER', `World initialization complete: ${this.npcs.size} NPCs`);
   }
 }
 

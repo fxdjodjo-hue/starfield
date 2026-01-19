@@ -38,12 +38,13 @@ class MapServer {
     // Setup hook per eventi critici
     this.setupGlobalMonitorHooks();
 
-    // Logging periodico ogni 30 secondi
+    // Logging periodico: 30s in DEV, 60s in PROD
+    const logInterval = process.env.NODE_ENV === 'production' ? 60000 : 30000;
     setInterval(() => {
       if (this.globalMonitor.isEnabled) {
         this.globalMonitor.logGlobalSummary();
       }
-    }, 30000);
+    }, logInterval);
   }
 
   // Inizializzazione della mappa
@@ -58,12 +59,10 @@ class MapServer {
   // Gestione giocatori
   addPlayer(clientId, playerData) {
     this.players.set(clientId, playerData);
-    ServerLoggerWrapper.system(`Player ${clientId} joined map ${this.mapId}`);
   }
 
   removePlayer(clientId) {
     this.players.delete(clientId);
-    ServerLoggerWrapper.system(`Player ${clientId} left map ${this.mapId}`);
   }
 
   // Metodi delegati ai managers
@@ -101,7 +100,7 @@ class MapServer {
       }
 
     } catch (error) {
-      console.error(`❌ [MapServer:${this.mapId}] Error in tick:`, error);
+      ServerLoggerWrapper.error('MAP', `Error in tick for map ${this.mapId}: ${error.message}`);
     }
   }
 

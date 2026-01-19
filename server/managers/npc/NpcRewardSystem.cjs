@@ -3,6 +3,7 @@
 // Dipendenze: logger, NPC_CONFIG, mapServer.players, mapServer.websocketManager
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
 const { NPC_CONFIG } = require('../../config/constants.cjs');
 
 class NpcRewardSystem {
@@ -50,7 +51,7 @@ class NpcRewardSystem {
       }
     }
 
-    logger.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor for killing ${npcType}`);
+    ServerLoggerWrapper.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor`);
 
     // Crea oggetto rewards (SkillPoints completamente rimossi)
     const finalRewards = {

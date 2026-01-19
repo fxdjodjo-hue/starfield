@@ -5,10 +5,7 @@ const { logger } = require('../../logger.cjs');
 
 class ServerLoggerWrapper {
   static debug(category, message, context = null) {
-    // Server non ha livelli di debug verbosi, usa info per debug importante
-    if (process.env.NODE_ENV === 'development') {
-      this._logWithContext('info', category, `[DEBUG] ${message}`, context);
-    }
+    this._logWithContext('debug', category, message, context);
     return null;
   }
 
@@ -56,7 +53,7 @@ class ServerLoggerWrapper {
   }
 
   static gameplay(message, context = null) {
-    this.debug('GAMEPLAY', message, context);
+    this.info('GAMEPLAY', message, context);
     return null;
   }
 
