@@ -111,13 +111,7 @@ export class ProjectileRenderer {
   private isNpcProjectile(projectile: Projectile, playerEntity: any): boolean {
     if (!playerEntity) return true; // Se non c'è player locale, assume NPC
 
-    // 🔧 FIX: Controlla se playerId corrisponde a quello del client locale
-    const localClientId = this.clientNetworkSystem?.getLocalClientId();
-    if (localClientId && projectile.playerId) {
-      return projectile.playerId !== localClientId;
-    }
-
-    // Fallback: controlla se playerId inizia con 'npc_'
+    // Controlla se playerId inizia con 'npc_'
     if (projectile.playerId) {
       return projectile.playerId.startsWith('npc_');
     }
@@ -171,8 +165,8 @@ export class ProjectileRenderer {
   private getProjectileImageSize(projectile: Projectile): number {
     if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
-      // Kronos: proiettile più grande, Scouter: default
-      return (npcType === 'Kronos') ? 48 : 36;
+      // Kronos: proiettile più piccolo, Scouter: ancora più piccolo
+      return (npcType === 'Kronos') ? 24 : 18;
     }
     return 36; // Default size
   }

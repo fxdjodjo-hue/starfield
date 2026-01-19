@@ -1,13 +1,17 @@
 /**
  * Costanti di gioco centralizzate
  * Elimina valori hardcoded sparsi nel codice
+ * Single source of truth per tutte le costanti di gioco
  */
 
+import PLAYER_CONFIG from '../../shared/player-config.json';
+
 export const PROJECTILE = {
-  SPEED: 1000,                    // Velocità proiettili (px/s)
+  SPEED: 1000,                    // Velocità proiettili normali (px/s)
+  VISUAL_SPEED: 1000,               // Velocità proiettili visivi (px/s) - unica costante
   LIFETIME: 3000,               // Durata proiettili (ms)
   SPAWN_OFFSET: 25,             // Offset spawn dalla nave (px)
-  HIT_RADIUS: 15                // Raggio collisione (px)
+  HIT_RADIUS: 30                // Raggio collisione (px)
 } as const;
 
 export const MISSILE = {
@@ -21,7 +25,9 @@ export const MISSILE = {
 
 export const COMBAT = {
   NPC_MIN_COOLDOWN: 500,        // Cooldown minimo NPC (ms)
-  DAMAGE_TIMEOUT: 10000         // Timeout danno NPC (ms)
+  DAMAGE_TIMEOUT: 10000,        // Timeout danno NPC (ms)
+  PLAYER_DAMAGE_COOLDOWN: PLAYER_CONFIG.stats.cooldown, // Cooldown danno effettivo player (ms) - da PLAYER_CONFIG
+  PLAYER_LASER_VISUAL_INTERVAL: 500 // Intervallo laser visivi player (ms) - effetto più responsivo
 } as const;
 
 export const NETWORK = {

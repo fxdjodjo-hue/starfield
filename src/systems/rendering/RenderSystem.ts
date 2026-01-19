@@ -13,7 +13,6 @@ import { Damage } from '../../entities/combat/Damage';
 import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
 import { Explosion } from '../../entities/combat/Explosion';
 import { RepairEffect } from '../../entities/combat/RepairEffect';
-import { Projectile } from '../../entities/combat/Projectile';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { Camera } from '../../entities/spatial/Camera';
@@ -25,9 +24,10 @@ import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
+import { Projectile } from '../../entities/combat/Projectile';
+import { ProjectileVisualState } from '../../entities/combat/ProjectileVisualState';
+import { RenderLayer } from '../../core/utils/rendering/RenderLayers';
 import { NpcRenderer } from '../../core/utils/rendering/NpcRenderer';
-import { ProjectileRenderer } from '../../core/utils/rendering/ProjectileRenderer';
-import type { ProjectileRenderParams } from '../../core/utils/rendering/ProjectileRenderer';
 import { PlayerRenderer } from '../../core/utils/rendering/PlayerRenderer';
 import { SpaceStationRenderer } from '../../core/utils/rendering/SpaceStationRenderer';
 import { HudRenderer } from '../../core/utils/rendering/HudRenderer';
@@ -38,6 +38,7 @@ import { RepairEffectRenderer } from '../../core/utils/rendering/RepairEffectRen
 import { EngineFlamesRenderer } from '../../core/utils/rendering/EngineFlamesRenderer';
 import { ScreenSpace } from '../../core/utils/rendering/ScreenSpace';
 import { SpriteRenderer } from '../../core/utils/rendering/SpriteRenderer';
+
 import type { RenderableTransform } from '../../core/utils/rendering/SpriteRenderer';
 import { SpritesheetRenderer } from '../../core/utils/rendering/SpritesheetRenderer';
 import type { SpritesheetRenderTransform } from '../../core/utils/rendering/SpritesheetRenderer';
@@ -50,7 +51,6 @@ export class RenderSystem extends BaseSystem {
   private cameraSystem: CameraSystem;
   private playerSystem: PlayerSystem;
   private assetManager: AssetManager;
-  private projectileRenderer: ProjectileRenderer;
   private displayManager: DisplayManager;
   private damageTextSystem: any = null; // Sistema per renderizzare i testi di danno
   private componentCache: Map<Entity, any> = new Map(); // Cache componenti per ottimizzazione
@@ -73,7 +73,6 @@ export class RenderSystem extends BaseSystem {
     this.cameraSystem = cameraSystem;
     this.playerSystem = playerSystem;
     this.assetManager = assetManager;
-    this.projectileRenderer = new ProjectileRenderer(ecs, playerSystem, assetManager);
     this.displayManager = DisplayManager.getInstance();
   }
 
@@ -100,7 +99,6 @@ export class RenderSystem extends BaseSystem {
       this.componentCache.set(entity, {
         transform: this.ecs.getComponent(entity, Transform),
         npc: this.ecs.getComponent(entity, Npc),
-        projectile: this.ecs.getComponent(entity, Projectile),
         parallax: this.ecs.getComponent(entity, ParallaxLayer),
         sprite: this.ecs.getComponent(entity, Sprite),
         animatedSprite: this.ecs.getComponent(entity, AnimatedSprite),
@@ -109,7 +107,9 @@ export class RenderSystem extends BaseSystem {
         velocity: this.ecs.getComponent(entity, Velocity),
         health: this.ecs.getComponent(entity, Health),
         shield: this.ecs.getComponent(entity, Shield),
-        remotePlayer: this.ecs.getComponent(entity, RemotePlayer)
+        remotePlayer: this.ecs.getComponent(entity, RemotePlayer),
+        projectile: this.ecs.getComponent(entity, Projectile),
+        projectileVisualState: this.ecs.getComponent(entity, ProjectileVisualState)
       });
     }
     return this.componentCache.get(entity);
@@ -140,10 +140,60 @@ export class RenderSystem extends BaseSystem {
       npc?: Npc,
       sprite?: Sprite,
       animatedSprite?: AnimatedSprite,
-      velocity?: Velocity
+      velocity?: Velocity,
+      projectile?: Projectile,
+      projectileVisualState?: ProjectileVisualState
     },
     camera?: Camera
   ): void {
+    // CONTROLLA STATO VISIVO PRIMA DI OGNI RENDERING
+    const visualState = components.projectile ? this.ecs.getComponent(entity, ProjectileVisualState) : null;
+    if (visualState && !visualState.shouldRender()) {
+      return; // Non renderizzare se lo stato visivo non lo permette
+    }
+
+    // Applica alpha per animazioni di fade se presente
+    const shouldApplyAlpha = visualState && visualState.alpha < 1.0;
+    if (shouldApplyAlpha) {
+      ctx.save();
+      ctx.globalAlpha *= visualState.alpha;
+    }
+
+    // GESTIONE SPECIALE PER LASER: calcola rotazione basata sulla direzione
+    const isPlayerLaser = components.sprite && components.sprite.image?.src?.includes('laser1.png') && components.projectile && components.sprite.image.complete;
+    const isNpcLaser = components.sprite && components.sprite.image?.src?.includes('npc_frigate_projectile.png') && components.projectile && components.sprite.image.complete;
+
+    if (isPlayerLaser || isNpcLaser) {
+      // Assicurati che tutti i componenti necessari siano presenti
+      if (!components.sprite || !components.sprite.image || !components.projectile) {
+        return;
+      }
+
+      // Calcola l'angolo di rotazione basato sulla direzione del proiettile
+      const angle = Math.atan2(components.projectile.directionY, components.projectile.directionX);
+
+      // Renderizza il laser con rotazione corretta
+      ctx.save();
+      ctx.translate(screenX, screenY);
+      ctx.rotate(angle);
+
+      // Il pivot dovrebbe essere all'inizio del laser (lato player/NPC)
+      // Usa le dimensioni dello Sprite (che possono essere scalate)
+      const laserWidth = components.sprite.width;
+      const laserHeight = components.sprite.height;
+
+      // Pivot all'inizio del laser (lato sinistro), centrato verticalmente
+      ctx.drawImage(
+        components.sprite.image,
+        0,  // Pivot all'inizio (lato origine)
+        -laserHeight / 2, // Centrato verticalmente
+        laserWidth,
+        laserHeight
+      );
+
+      ctx.restore();
+      return; // Salta il rendering normale dello sprite
+    }
     const { explosion, repairEffect, npc, sprite, animatedSprite, velocity } = components;
     
     const playerEntity = this.playerSystem.getPlayerEntity();
@@ -259,8 +309,8 @@ export class RenderSystem extends BaseSystem {
           // Fallback to old sprite renderer
           const zoom = camera?.zoom || 1;
           const renderTransform: RenderableTransform = {
-            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
-            scaleX: (transform.scaleX || 1) * zoom, 
+            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation,
+            scaleX: (transform.scaleX || 1) * zoom,
             scaleY: (transform.scaleY || 1) * zoom
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
@@ -297,10 +347,10 @@ export class RenderSystem extends BaseSystem {
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
       } else {
-        // Render portals and space stations
+        // Render portals, space stations, and laser beams
         const isPortal = this.ecs.hasComponent(entity, Portal);
         const isSpaceStation = this.ecs.hasComponent(entity, SpaceStation);
-        
+
         if (isPortal) {
           const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
           const entitySprite = this.ecs.getComponent(entity, Sprite);
@@ -353,14 +403,14 @@ export class RenderSystem extends BaseSystem {
         } else if (isSpaceStation) {
           // Render space station con fluttuazione verticale
           const entitySprite = this.ecs.getComponent(entity, Sprite);
-          
+
           if (entitySprite && entitySprite.isLoaded()) {
             const floatOffsetY = SpaceStationRenderer.getFloatOffset(this.frameTime);
-            
+
             const zoom = camera?.zoom || 1;
             const renderTransform: RenderableTransform = {
-              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
-              scaleX: (transform.scaleX || 1) * zoom, 
+              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation,
+              scaleX: (transform.scaleX || 1) * zoom,
               scaleY: (transform.scaleY || 1) * zoom
             };
             SpriteRenderer.render(ctx, renderTransform, entitySprite);
@@ -368,6 +418,11 @@ export class RenderSystem extends BaseSystem {
         }
         // Se non è un portale/space station e non è player/remote player/NPC/explosion, non renderizzare
       }
+    }
+
+    // Ripristina context se era stato modificato per alpha
+    if (shouldApplyAlpha) {
+      ctx.restore();
     }
   }
 
@@ -418,14 +473,14 @@ export class RenderSystem extends BaseSystem {
     // Render entities and health/shield bars
     this.renderEntities(ctx, camera);
 
-    // Render projectiles
-    this.renderProjectiles(ctx, camera);
 
     // Render damage text (floating numbers)
     if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
       this.damageTextSystem.render(ctx);
     }
-    
+
+    // Render NPC beam effects (laser attacks) - TEMPORANEAMENTE DISABILITATO
+    // TODO: Riabilitare dopo aver fixato il sistema di selezione NPC
     // Render debug range circle for player (only in development) - SOPRA TUTTO
     // if (import.meta.env.DEV) {
     //   this.renderPlayerRangeCircle(ctx, camera);
@@ -485,7 +540,9 @@ export class RenderSystem extends BaseSystem {
           npc: components.npc,
           sprite: components.sprite,
           animatedSprite: components.animatedSprite,
-          velocity: components.velocity
+          velocity: components.velocity,
+          projectile: components.projectile,
+          projectileVisualState: components.projectileVisualState
         }, camera);
       }
     }
@@ -498,8 +555,6 @@ export class RenderSystem extends BaseSystem {
       // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
       const components = this.getCachedComponents(entity);
 
-      // Skip projectiles (rendered separately)
-      if (components.projectile) continue;
 
       // Skip parallax entities (rendered by ParallaxSystem)
       if (components.parallax) continue;
@@ -533,7 +588,9 @@ export class RenderSystem extends BaseSystem {
           npc: components.npc,
           sprite: components.sprite,
           animatedSprite: components.animatedSprite,
-          velocity: components.velocity
+          velocity: components.velocity,
+          projectile: components.projectile,
+          projectileVisualState: components.projectileVisualState
         }, camera);
 
         // Render health/shield bars con fade quando l'animazione zoom è completata
@@ -568,7 +625,9 @@ export class RenderSystem extends BaseSystem {
           npc: components.npc,
           sprite: components.sprite,
           animatedSprite: components.animatedSprite,
-          velocity: components.velocity
+          velocity: components.velocity,
+          projectile: components.projectile,
+          projectileVisualState: components.projectileVisualState
         }, camera);
 
         // Render health/shield bars con fade quando l'animazione zoom è completata
@@ -682,98 +741,7 @@ export class RenderSystem extends BaseSystem {
   }
 
 
-  /**
-   * Render a single projectile using render parameters from helper
-   */
-  private renderProjectile(ctx: CanvasRenderingContext2D, projectile: Projectile, screenPos: {x: number, y: number}): void {
 
-    const params = this.projectileRenderer.getRenderParams(projectile);
-
-    ctx.save();
-
-    if (params.hasImage && params.imageSize && params.image) {
-      // Render as image-based projectile with rotation
-      // Calculate rotation angle from projectile direction (sprite points right by default)
-      const rotation = Math.atan2(projectile.directionY, projectile.directionX);
-      
-      // Preserve original image aspect ratio
-      const img = params.image;
-      const aspectRatio = img.naturalWidth / img.naturalHeight;
-      const width = params.imageSize;
-      const height = params.imageSize / aspectRatio;
-      
-      ctx.translate(screenPos.x, screenPos.y);
-      
-      // For missiles, image points upward, so adjust rotation by -90 degrees (PI/2)
-      if (projectile.projectileType === 'missile') {
-        // Missile image points upward, so rotate from upward to direction
-        ctx.rotate(rotation + Math.PI / 2);
-      } else {
-        // Other projectiles point right by default
-      ctx.rotate(rotation);
-      }
-      
-      ctx.drawImage(
-        img,
-        -width / 2,
-        -height / 2,
-        width,
-        height
-      );
-    } else {
-      // Render as laser line
-      const endX = screenPos.x + projectile.directionX * params.length;
-      const endY = screenPos.y + projectile.directionY * params.length;
-
-      ctx.strokeStyle = params.color;
-      ctx.lineWidth = params.lineWidth;
-      ctx.lineCap = 'round';
-
-      // Apply shadow effect if specified
-      if (params.shadowColor && params.shadowBlur) {
-        ctx.shadowColor = params.shadowColor;
-        ctx.shadowBlur = params.shadowBlur;
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(screenPos.x, screenPos.y);
-      ctx.lineTo(endX, endY);
-      ctx.stroke();
-
-      // Add white center line for laser effect
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1;
-      ctx.shadowBlur = 0; // Remove shadow for center line
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  /**
-   * Render all projectiles
-   */
-  private renderProjectiles(ctx: CanvasRenderingContext2D, camera: Camera): void {
-    // OTTIMIZZAZIONE: Cache risultati query ECS invece di chiamare ogni volta
-    // Reset cache ogni frame per includere nuovi missili
-      this.projectileQueryCache = this.ecs.getEntitiesWithComponents(Transform, Projectile);
-    const projectiles = this.projectileQueryCache;
-
-
-    for (const projectileEntity of projectiles) {
-      // OTTIMIZZAZIONE: Usa cache componenti
-      const components = this.getCachedComponents(projectileEntity);
-
-      if (!components.transform || !components.projectile) continue;
-
-
-      // Convert world coordinates to screen coordinates
-      const { width, height } = this.displayManager.getLogicalSize();
-      const screenPos = ScreenSpace.toScreen(components.transform, camera, width, height);
-
-      this.renderProjectile(ctx, components.projectile, screenPos);
-    }
-  }
 
 
 
@@ -902,6 +870,7 @@ export class RenderSystem extends BaseSystem {
     ctx.restore();
   }
 
+
   /**
    * Renderizza il testo "ACCESS DENIED" sopra al portale con effetto fluttuante
    */
@@ -927,4 +896,5 @@ export class RenderSystem extends BaseSystem {
 
     ctx.restore();
   }
+
 }

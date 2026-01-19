@@ -5,15 +5,26 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Npc } from '../../entities/ai/Npc';
+import { Projectile } from '../../entities/combat/Projectile';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import { RemotePlayer } from '../../entities/player/RemotePlayer';
+import { Sprite } from '../../entities/Sprite';
+import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { LogSystem } from '../rendering/LogSystem';
-import { MissileManager } from './managers/MissileManager';
+import { DamageTextSystem } from '../rendering/DamageTextSystem';
 import { DisplayManager } from '../../infrastructure/display';
 import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
+import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { LogType } from '../../presentation/ui/LogMessage';
+import { AssetManager } from '../../core/services/AssetManager';
+import npcConfig from '../../../shared/npc-config.json';
+import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
+import { ProjectileVisualState } from '../../entities/combat/ProjectileVisualState';
 
 /**
  * Sistema dedicato alla gestione dello stato del combattimento
@@ -25,14 +36,36 @@ export class CombatStateSystem extends BaseSystem {
   private cameraSystem: CameraSystem | null = null;
   private playerSystem: PlayerSystem | null = null;
   private playerControlSystem: PlayerControlSystem | null = null;
+  private assetManager: AssetManager | null = null;
   private logSystem: LogSystem | null = null;
-  private missileManager: MissileManager | null = null;
+  private damageSystem: any = null;
 
   // Stato del combattimento
   private currentAttackTarget: number | null = null;
   private attackStartedLogged: boolean = false;
   private lastAttackActivatedState: boolean = false; // Per edge detection
   private lastCombatLogTime: number = 0; // For throttling debug logs
+  private activeBeamEntities: Set<number> = new Set(); // Traccia laser beam attivi
+  private lastLaserFireTime: number = 0; // Per controllo frequenza laser
+  // Sistema laser NPC
+  private npcLaserFireTimes: Map<number, number> = new Map(); // entityId -> lastFireTime
+
+  /**
+   * Ottiene l'intervallo di fuoco laser per un NPC specifico basato sul suo tipo
+   */
+  private getNpcLaserInterval(npcEntity: Entity): number {
+    const npcComponent = this.ecs.getComponent(npcEntity, Npc);
+    if (!npcComponent || !npcComponent.npcType) {
+      return GAME_CONSTANTS.COMBAT.PLAYER_LASER_VISUAL_INTERVAL; // Fallback
+    }
+
+    const npcTypeConfig = (npcConfig as any)[npcComponent.npcType];
+    if (npcTypeConfig && npcTypeConfig.stats && npcTypeConfig.stats.cooldown) {
+      return npcTypeConfig.stats.cooldown;
+    }
+
+    return GAME_CONSTANTS.COMBAT.PLAYER_LASER_VISUAL_INTERVAL; // Fallback
+  } 
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -64,17 +97,6 @@ export class CombatStateSystem extends BaseSystem {
   /**
    * Initializes missile manager (called after all dependencies are set)
    */
-  private initializeMissileManager(): void {
-    if (this.missileManager || !this.playerSystem || !this.clientNetworkSystem) {
-      return;
-    }
-
-    this.missileManager = new MissileManager(
-      this.ecs,
-      this.playerSystem,
-      () => this.clientNetworkSystem
-    );
-  }
 
   /**
    * Aggiornamento periodico (implementazione dell'interfaccia System)
@@ -101,18 +123,33 @@ export class CombatStateSystem extends BaseSystem {
     
     // Process player combat (includes missile firing logic)
     this.processPlayerCombat();
+
+    // Crea laser periodici durante attacco attivo
+    this.processPeriodicLaserFiring();
+
+    // Gestisci laser visivi per NPC in combattimento
+    this.processNpcLaserFiring();
   }
 
   /**
    * Gestisce attivazione attacco (chiamato solo su edge up)
    */
   private handleAttackActivated(): void {
+    console.log('[ATTACK] Attack activated - checking for targets');
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    console.log('[ATTACK] Found selected NPCs:', selectedNpcs.length);
     if (selectedNpcs.length === 0) {
+      console.log('[ATTACK] No selected NPCs found - aborting attack');
       return;
     }
 
     const selectedNpc = selectedNpcs[0];
+    console.log('[ATTACK] Selected NPC entity:', selectedNpc.id);
+
+    // Debug: controlla se l'entità selezionata ha il componente Npc
+    const npcComponent = this.ecs.getComponent(selectedNpc, Npc);
+    console.log('[ATTACK] Selected entity has Npc component:', !!npcComponent, 'serverId:', npcComponent?.serverId);
+
     if (!selectedNpc) {
       console.warn('[COMBAT] SelectedNpc entity is undefined');
       return;
@@ -134,10 +171,12 @@ export class CombatStateSystem extends BaseSystem {
     const dx = Math.abs(npcTransform.x - playerTransform.x);
     const dy = Math.abs(npcTransform.y - playerTransform.y);
     const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
+    console.log('[ATTACK] Range check:', { dx, dy, rangeWidth: rangeWidth/2, rangeHeight: rangeHeight/2, inRange });
 
     // Debug range check
 
     if (!inRange) {
+      console.log('[ATTACK] Target out of range - aborting');
       // Mostra messaggio fuori range
       if (this.logSystem) {
         this.logSystem.addLogMessage('Target out of range! Move closer to attack.', LogType.ATTACK_FAILED, 2000);
@@ -145,13 +184,25 @@ export class CombatStateSystem extends BaseSystem {
       return; // Non iniziare combattimento se fuori range
     }
 
+    console.log('[ATTACK] Target in range - starting combat');
+
     // NPC nel range - inizia combattimento solo se non già attivo con questo NPC
+    console.log('[ATTACK] Current target:', this.currentAttackTarget, 'Selected NPC ID:', selectedNpc.id);
     if (this.currentAttackTarget !== selectedNpc.id) {
+      console.log('[ATTACK] Starting new combat session');
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
+    } else {
+      console.log('[ATTACK] Combat already active with this NPC');
     }
+
+    // Crea effetto beam laser dal player all'NPC AD OGNI ATTACCO (anche se combattimento già attivo)
+    console.log('[ATTACK] Creating beam effect for attack');
+    this.createPlayerBeamEffect(selectedNpc).catch(error => {
+      console.error('[ATTACK] Failed to create beam effect:', error);
+    });
   }
 
   /**
@@ -163,6 +214,9 @@ export class CombatStateSystem extends BaseSystem {
       this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
+
+      // Rimuovi tutti i laser beam attivi
+      this.removeAllActiveBeams();
     }
   }
 
@@ -235,58 +289,176 @@ export class CombatStateSystem extends BaseSystem {
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range - inizia combattimento
-      console.log(`[CLIENT_COMBAT_START] Starting combat with NPC ${selectedNpc.id}`);
       this.sendStartCombat(selectedNpc);
       this.startAttackLogging(selectedNpc);
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
 
-      // Initialize missile manager and set cooldown to full (so first missile fires after 1.5s)
-      this.initializeMissileManager();
-      if (this.missileManager) {
-        // Set cooldown to full so first missile fires after 1.5 seconds
-        this.missileManager.setCooldownToFull();
-        if (import.meta.env.DEV) {
-        }
-      }
+      // Missile system removed - using hitscan only
     } else if (inRange && attackActivated && this.currentAttackTarget === selectedNpc.id) {
-      // Already in combat - try to fire missile automatically
-      this.initializeMissileManager();
-      if (this.missileManager && playerEntity && playerTransform && playerDamage && npcTransform) {
-        const missileFired = this.missileManager.fireMissile(
-          playerEntity,
-          playerTransform,
-          playerDamage,
-          npcTransform,
-          selectedNpc
-        );
-
-        if (import.meta.env.DEV && missileFired) {
-        }
-      }
-    } else if (inRange && attackActivated && this.currentAttackTarget === selectedNpc.id) {
-      // Already in combat - try to fire missile automatically
-      this.initializeMissileManager();
-      if (this.missileManager && playerEntity && playerTransform && playerDamage && npcTransform) {
-        const missileFired = this.missileManager.fireMissile(
-          playerEntity,
-          playerTransform,
-          playerDamage,
-          npcTransform,
-          selectedNpc
-        );
-        
-        if (import.meta.env.DEV && missileFired) {
-        }
-      }
-    // NON fermare mai il combattimento per questioni di range
-    // Il server gestisce il range, il client mantiene sempre il combattimento attivo
+      // Already in combat - using hitscan only
+      // NON fermare mai il combattimento per questioni di range
+      // Il server gestisce il range, il client mantiene sempre il combattimento attivo
     } else if (!attackActivated && this.currentAttackTarget !== null) {
       // Attacco disattivato - ferma qualsiasi combattimento in corso
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
+    }
+  }
+
+  /**
+   * Gestisce la creazione periodica di laser durante attacco attivo
+   */
+  private processPeriodicLaserFiring(): void {
+    const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
+    if (!attackActivated || this.currentAttackTarget === null) {
+      return; // Non creare laser se attacco non attivo
+    }
+
+    const now = Date.now();
+    if (now - this.lastLaserFireTime >= GAME_CONSTANTS.COMBAT.PLAYER_LASER_VISUAL_INTERVAL) {
+      // È tempo di creare un nuovo laser
+      const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+      if (selectedNpcs.length > 0) {
+        const selectedNpc = selectedNpcs[0];
+
+        // Verifica che siamo ancora in range prima di creare il laser
+        const playerEntity = this.playerSystem?.getPlayerEntity();
+        if (playerEntity) {
+          const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+          const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
+
+          if (playerTransform && npcTransform) {
+            const rangeWidth = getPlayerRangeWidth();
+            const rangeHeight = getPlayerRangeHeight();
+            const dx = Math.abs(npcTransform.x - playerTransform.x);
+            const dy = Math.abs(npcTransform.y - playerTransform.y);
+            const inRange = dx <= rangeWidth / 2 && dy <= rangeHeight / 2;
+
+            if (inRange) {
+              // Crea il laser beam
+              this.createPlayerBeamEffect(selectedNpc).catch(error => {
+                console.error('[LASER] Failed to create periodic laser:', error);
+              });
+              this.lastLaserFireTime = now;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Gestisce la creazione periodica di laser visivi per NPC in combattimento
+   */
+  private processNpcLaserFiring(): void {
+    const now = Date.now();
+    const allNpcs = this.ecs.getEntitiesWithComponents(Npc);
+
+    for (const npcEntity of allNpcs) {
+      const npc = this.ecs.getComponent(npcEntity, Npc);
+      const damageTaken = this.ecs.getComponent(npcEntity, DamageTaken);
+
+      if (!npc) continue;
+
+      // Controlla se l'NPC ha subito danno recentemente
+      const wasRecentlyDamaged = damageTaken ? damageTaken.wasDamagedRecently(now, 10000) : false;
+
+      if (wasRecentlyDamaged) {
+        // NPC in combattimento - crea laser visivi periodici
+        const lastFireTime = this.npcLaserFireTimes.get(npcEntity.id) || 0;
+        const laserInterval = this.getNpcLaserInterval(npcEntity);
+
+        if (now - lastFireTime >= laserInterval) {
+          // È tempo di creare un laser visivo per questo NPC
+          this.createNpcBeamEffect(npcEntity).catch(error => {
+            console.error('[NPC-LASER] Failed to create NPC laser:', error);
+          });
+          this.npcLaserFireTimes.set(npcEntity.id, now);
+        }
+      } else {
+        // NPC non più in combattimento - rimuovi dal tracking
+        this.npcLaserFireTimes.delete(npcEntity.id);
+      }
+    }
+  }
+
+  /**
+   * Crea effetto laser visivo per un NPC
+   */
+  private async createNpcBeamEffect(npcEntity: Entity): Promise<void> {
+    if (!this.ecs) {
+      console.error('[NPC-BEAM] ECS not available');
+      return;
+    }
+
+    // Trova il player come target
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    if (!playerEntity) {
+      console.warn('[NPC-BEAM] Player entity not found');
+      return;
+    }
+
+    // Ottieni trasform dell'NPC e del player
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+
+    if (!npcTransform || !playerTransform) {
+      console.warn('[NPC-BEAM] Missing transforms for NPC beam effect');
+      return;
+    }
+
+    // Usa coordinate mondo reali: dal NPC al player
+    const startX = npcTransform.x;
+    const startY = npcTransform.y;
+    const targetX = playerTransform.x;
+    const targetY = playerTransform.y;
+
+    console.log('[NPC-BEAM] Creating laser from NPC to player in world coordinates');
+
+    // Crea proiettile visivo NPC con sprite e suono diversi
+    if (!this.assetManager) {
+      console.warn('[NPC-BEAM] AssetManager not available, skipping NPC visual projectile');
+      return;
+    }
+
+    try {
+      // Suono gestito dal ProjectileFiredHandler quando arriva il proiettile dal server
+      // Carica immagine laser NPC esistente
+      const npcLaserImage = await this.assetManager.loadImage('assets/npc_ships/kronos/npc_frigate_projectile.png');
+
+      // Crea il proiettile usando ProjectileFactory
+      const projectileEntity = ProjectileFactory.create(this.ecs, {
+        damage: 0, // Danno = 0, questo è solo visivo
+        startX: startX,
+        startY: startY,
+        targetX: targetX,
+        targetY: targetY,
+        ownerId: npcEntity.id,
+        targetId: playerEntity.id,
+        projectileType: 'npc_laser', // Tipo diverso per distinguere dai laser player
+        speed: GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED, // Stessa velocità dei laser player per seguire meglio
+        lifetime: 30000 // 30 secondi di vita per laser molto lenti
+      });
+
+      // Aggiungi sprite NPC diverso - rimpicciolito
+      const scaleFactor = 0.5; // Riduci dimensioni del 50%
+      const laserSprite = new Sprite(npcLaserImage, npcLaserImage.width * scaleFactor, npcLaserImage.height * scaleFactor);
+      this.ecs.addComponent(projectileEntity, Sprite, laserSprite);
+
+      // Aggiungi ProjectileVisualState per garantire rendering corretto
+      const visualState = new ProjectileVisualState();
+      this.ecs.addComponent(projectileEntity, ProjectileVisualState, visualState);
+
+      // Traccia il proiettile attivo per pulizia
+      this.activeBeamEntities.add(projectileEntity.id);
+
+      console.log('[NPC-BEAM] Created NPC laser projectile from', startX, startY, 'to', targetX, targetY);
+
+    } catch (error) {
+      console.error('[NPC-BEAM] Failed to create NPC visual projectile:', error);
     }
   }
 
@@ -387,14 +559,206 @@ export class CombatStateSystem extends BaseSystem {
   }
 
   /**
+   * Imposta il sistema per i testi di danno
+   */
+  public setDamageSystem(damageSystem: any): void {
+    this.damageSystem = damageSystem;
+  }
+
+  public   setAssetManager(assetManager: AssetManager): void {
+    this.assetManager = assetManager;
+
+    // DEBUG: Inizializza tool di debug per i laser quando tutti i sistemi sono pronti
+    this.initializeDebugTools();
+  }
+
+  /**
+   * Inizializza tool di debug per testare i laser
+   */
+  private initializeDebugTools(): void {
+    if (typeof window !== 'undefined') {
+      (window as any).testLaser = (startX: number = 400, startY: number = 300, targetX: number = 600, targetY: number = 400) => {
+        console.log('[DEBUG] Creating test laser from', startX, startY, 'to', targetX, targetY);
+        this.createTestLaser(startX, startY, targetX, targetY);
+      };
+
+      (window as any).clearLasers = () => {
+        console.log('[DEBUG] Clearing all visual projectiles');
+        this.removeAllActiveBeams();
+      };
+
+      console.log('[DEBUG] Laser test tools initialized:');
+      console.log('  - window.testLaser(startX, startY, targetX, targetY) - Create test laser');
+      console.log('  - window.clearLasers() - Clear all lasers');
+      console.log('  - Default: testLaser(400, 300, 600, 400)');
+    }
+  }
+
+  /**
+   * Crea un testo di danno per un'entità
+   */
+  public createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'missile' | 'npc_laser'): void {
+    if (this.damageSystem) {
+      this.damageSystem.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
+    }
+  }
+
+  /**
+   * Rimuove tutti i proiettili visivi attivi dalla scena
+   */
+  private removeAllActiveBeams(): void {
+    // Rimuovi tutti i proiettili che hanno damage = 0 (sono visivi)
+    const allProjectiles = this.ecs.getEntitiesWithComponents(Projectile);
+    for (const projectileEntity of allProjectiles) {
+      const projectile = this.ecs.getComponent(projectileEntity, Projectile);
+      if (projectile && projectile.damage === 0) {
+        // Questo è un proiettile visivo, rimuovilo
+        if (this.ecs.entityExists(projectileEntity.id)) {
+          this.ecs.removeEntity(projectileEntity);
+        }
+      }
+    }
+    this.activeBeamEntities.clear();
+  }
+
+  /**
+   * Crea effetto proiettili visivi dal player all'NPC selezionato
+   * Questi sono solo effetti visivi, il danno rimane gestito da hitscan lato server
+   */
+  private async createPlayerBeamEffect(targetNpc: any): Promise<void> {
+    if (!this.ecs) {
+      console.error('[PLAYER-BEAM] ECS not available');
+      return;
+    }
+
+    // Ottieni direttamente l'entità player dal PlayerSystem
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    if (!playerEntity) {
+      console.warn('[PLAYER-BEAM] Player entity not found');
+      return;
+    }
+
+    // Usa direttamente l'entità NPC target (è già stata validata)
+    const npcEntity = targetNpc;
+
+    // Ottieni trasform dei due punti
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+
+    if (!playerTransform || !npcTransform) {
+      console.warn('[PLAYER-BEAM] Missing transforms for beam effect');
+      return;
+    }
+
+    // Crea proiettile visivo che viaggia dal player all'NPC
+    // Questo è solo un effetto visivo, il danno è gestito da hitscan
+    console.log('[BEAM-EFFECT] Player position:', playerTransform.x, playerTransform.y);
+    console.log('[BEAM-EFFECT] NPC position:', npcTransform.x, npcTransform.y);
+
+    // Usa coordinate mondo reali: dal player all'NPC
+    const startX = playerTransform.x;
+    const startY = playerTransform.y;
+    const targetX = npcTransform.x;
+    const targetY = npcTransform.y;
+
+    // Usa serverId dell'NPC invece dell'entity.id per il targeting
+    const npcComponent = this.ecs.getComponent(npcEntity, Npc);
+    const targetId = npcComponent?.serverId || npcEntity.id.toString();
+
+    console.log('[BEAM-EFFECT] Creating laser from player to NPC in world coordinates');
+    console.log('[BEAM-EFFECT] Using targetId:', targetId, 'from entity:', npcEntity.id, 'serverId:', npcComponent?.serverId);
+    await this.createVisualProjectile(startX, startY, targetX, targetY, playerEntity.id, targetId);
+  }
+
+  /**
+   * Crea un proiettile visivo che viaggia dal player all'NPC
+   * Questo è solo un effetto visivo, il danno rimane gestito da hitscan
+   */
+  public async createTestLaser(startX: number, startY: number, targetX: number, targetY: number): Promise<void> {
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    if (playerEntity) {
+      await this.createVisualProjectile(startX, startY, targetX, targetY, playerEntity.id, -1);
+    }
+  }
+
+  /**
+   * Crea un proiettile visivo che viaggia dal player all'NPC
+   * Questo è solo un effetto visivo, il danno rimane gestito da hitscan
+   */
+  private async createVisualProjectile(startX: number, startY: number, targetX: number, targetY: number, ownerId: number, targetId: number): Promise<void> {
+    if (!this.assetManager) {
+      console.warn('[VISUAL-PROJECTILE] AssetManager not available, skipping visual projectile');
+      return;
+    }
+
+    try {
+      // Riproduci suono laser visivo lato client
+      const audioSystem = this.clientNetworkSystem?.getAudioSystem();
+      if (audioSystem) {
+        audioSystem.playSound('laser', 0.05, false, true);
+      }
+
+      // Carica l'immagine laser per il proiettile visivo
+      const laserImage = await this.assetManager.loadImage('assets/laser/laser1/laser1.png');
+
+      // Crea il proiettile usando ProjectileFactory
+      const projectileEntity = ProjectileFactory.create(this.ecs, {
+        damage: 0, // Danno = 0, questo è solo visivo
+        startX: startX,
+        startY: startY,
+        targetX: targetX,
+        targetY: targetY,
+        ownerId: ownerId,
+        targetId: targetId,
+        projectileType: 'laser',
+        speed: GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED, // Molto più lento per rendere il movimento chiaramente visibile
+        lifetime: 15000 // 15 secondi di vita per laser lenti
+      });
+
+      // Aggiungi sprite al proiettile - dimensione gestita dal RenderSystem
+      const laserSprite = new Sprite(laserImage, laserImage.width, laserImage.height);
+      this.ecs.addComponent(projectileEntity, Sprite, laserSprite);
+
+      // Aggiungi ProjectileVisualState per garantire rendering corretto
+      const visualState = new ProjectileVisualState();
+      this.ecs.addComponent(projectileEntity, ProjectileVisualState, visualState);
+
+      // Traccia il proiettile attivo per pulizia
+      this.activeBeamEntities.add(projectileEntity.id);
+
+      console.log('[VISUAL-PROJECTILE] Created SLOW laser projectile from', startX, startY, 'to', targetX, targetY);
+      console.log('[VISUAL-PROJECTILE] Laser sprite size:', laserImage.width * 2.5, 'x', laserImage.height * 2.5);
+      console.log('[VISUAL-PROJECTILE] Speed: 8, Lifetime: 15s - Should be VERY visible and slow!');
+
+      // DEBUG: Verifica che l'entità sia stata creata correttamente
+      const createdTransform = this.ecs.getComponent(projectileEntity, Transform);
+      const createdProjectile = this.ecs.getComponent(projectileEntity, Projectile);
+      console.log('[VISUAL-PROJECTILE] Entity created with Transform:', !!createdTransform, 'Projectile:', !!createdProjectile);
+      if (createdTransform) {
+        console.log('[VISUAL-PROJECTILE] Position:', createdTransform.x, createdTransform.y);
+      }
+
+    } catch (error) {
+      console.error('[VISUAL-PROJECTILE] Failed to create visual projectile:', error);
+    }
+  }
+
+  /**
    * Cleanup delle risorse
    */
   public destroy(): void {
+    // Rimuovi tutti i laser beam attivi
+    this.removeAllActiveBeams();
+
+    // Pulisci il tracking dei laser NPC
+    this.npcLaserFireTimes.clear();
+
     this.clientNetworkSystem = null;
     this.cameraSystem = null;
     this.playerSystem = null;
     this.playerControlSystem = null;
     this.logSystem = null;
+    this.damageSystem = null;
     this.currentAttackTarget = null;
     this.attackStartedLogged = false;
     this.lastAttackActivatedState = false;
