@@ -12,19 +12,11 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   handle(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem): void {
-    // DEBUG: Log per vedere se i messaggi vengono ricevuti
-    console.log(`[PROJECTILE_DEBUG] Received projectile: id=${message.projectileId}, playerId=${message.playerId}, type=${message.projectileType}, isLocalPlayer=${message.playerId === String(networkSystem.gameContext.authId) || message.playerId === String(networkSystem.getLocalClientId())}`);
-
     // Identifica il giocatore locale usando controllo ibrido (authId + localClientId)
     // Per robustezza: usa entrambi gli identificatori per evitare mismatch
     const localAuthId = networkSystem.gameContext.authId;
     const localClientId = networkSystem.getLocalClientId();
     const isLocalPlayer = message.playerId === String(localAuthId) || message.playerId === String(localClientId);
-
-    // DEBUG: Log per identificare mismatch negli ID
-    if (message.projectileType === 'laser' && !message.playerId.startsWith('npc_')) {
-      console.log(`[PLAYER_PROJECTILE_DEBUG] Player projectile - message.playerId=${message.playerId}, localAuthId=${localAuthId}, localClientId=${localClientId}, isLocalPlayer=${isLocalPlayer}`);
-    }
 
     // Per missili del giocatore locale, non aggiungere a RemoteProjectileSystem
     // perché sono già creati localmente via ProjectileFactory
@@ -44,12 +36,12 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     const audioSystem = networkSystem.getAudioSystem();
     if (audioSystem) {
       if (message.playerId.startsWith('npc_')) {
+        // Suono NPC gestito quando arrivano i loro proiettili dal server
         audioSystem.playSound('scouterLaser', 0.05, false, true);
       } else if (message.projectileType === 'missile') {
         audioSystem.playSound('rocketStart', 0.02, false, true);
-      } else if (isLocalPlayer) {
-        audioSystem.playSound('laser', 0.05, false, true);
       }
+      // Suono laser player gestito lato client nei laser visivi per responsività immediata
     }
 
     // Mostra proiettile per tutti (player locale incluso)
@@ -61,16 +53,11 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {
-    // DEBUG: Log per vedere se viene chiamato
-    console.log(`[CLIENT_PROJECTILE_DEBUG] Showing projectile: id=${message.projectileId}, playerId=${message.playerId}, isLocalPlayer=${isLocalPlayer}`);
+    // ✅ UNIFICATO: Crea proiettili remoti direttamente con ProjectileFactory
+    // Ora tutti i proiettili seguono lo stesso flusso del ProjectileSystem
 
-    // ✅ TUTTI i proiettili (incluso quelli del player) vengono gestiti dal RemoteProjectileSystem
-    // Il server è autoritativo per tutti i proiettili - niente creazione locale per il player
-
-    const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
-    if (!remoteProjectileSystem) {
-      return;
-    }
+    const ecs = networkSystem.getECS();
+    if (!ecs) return;
 
     // Per i proiettili del giocatore locale, usa posizione centrata sul player locale
     // per evitare disallineamenti dovuti alla latenza di rete
@@ -85,15 +72,20 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       };
     }
 
-    remoteProjectileSystem.addRemoteProjectile(
-      message.projectileId,
-      message.playerId,
-      projectilePosition,
-      message.velocity,
-      message.damage,
-      message.projectileType,
-      message.targetId,
-      isLocalPlayer // Passa flag per indicare se è il player locale
-    );
+
+    // Import dinamico per evitare dipendenze circolari
+    import('../../../core/domain/ProjectileFactory').then(({ ProjectileFactory }) => {
+      ProjectileFactory.createRemoteUnified(
+        ecs,
+        message.projectileId,
+        message.playerId,
+        projectilePosition,
+        message.velocity,
+        message.damage,
+        message.projectileType,
+        message.targetId
+      );
+    });
   }
+
 }

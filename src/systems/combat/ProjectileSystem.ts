@@ -15,6 +15,7 @@ import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { MathUtils } from '../../core/utils/MathUtils';
 import { TimeManager } from '../../core/utils/TimeManager';
 import { ComponentHelper } from '../../core/data/ComponentHelper';
+import { LoggerWrapper } from '../../core/data/LoggerWrapper';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
@@ -31,132 +32,183 @@ export class ProjectileSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
-
-    // Converti deltaTime da millisecondi a secondi usando utility
     const deltaTimeSeconds = TimeManager.millisecondsToSeconds(deltaTime);
 
     for (const projectileEntity of projectiles) {
-      const transform = ComponentHelper.getTransform(this.ecs, projectileEntity);
-      const projectile = this.ecs.getComponent(projectileEntity, Projectile);
-
-      if (!transform || !projectile) continue;
-
-      // Controlla se il bersaglio è ancora vivo (ha HP o shield attivo)
-      // Salta questo controllo per proiettili remoti (targetId = -1)
-      if (projectile.targetId !== -1) {
-        const allTargets = this.ecs.getEntitiesWithComponents(Health);
-        const targetExists = allTargets.some(entity => entity.id === projectile.targetId);
-
-        if (targetExists) {
-          const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
-          if (targetEntity) {
-            const targetHealth = ComponentHelper.getHealth(this.ecs, targetEntity);
-            const targetShield = this.ecs.getComponent(targetEntity, Shield);
-
-            // Un'entità è morta se l'HP è a 0 e non ha più shield attivo
-            const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
-
-            if (isDead) {
-              this.ecs.removeEntity(projectileEntity);
-              continue;
-            }
-          }
-        } else {
-          // Il bersaglio non esiste più (rimosso dal gioco)
-          this.ecs.removeEntity(projectileEntity);
-          continue;
-        }
-      }
-
-      // Identifica proiettili NPC remoti
-      const isRemoteNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
-      
-      if (isRemoteNpcProjectile) {
-        // Proiettili NPC remoti: aggiorna homing lato client per reattività (come proiettili player)
-        // Il server rimane autoritativo per posizione e collisioni
-        // L'InterpolationSystem gestisce il movimento fluido basato sugli aggiornamenti del server
-        // Aggiorna direzione lato client per rendering fluido (60Hz invece di 20Hz)
-        if (this.shouldBeHoming(projectileEntity)) {
-          this.updateHomingDirection(transform, projectile);
-        }
-        // NON muovere localmente: l'interpolazione gestisce il movimento basato sugli aggiornamenti server
-      } else {
-        // Proiettili locali (player): aggiorna direzione e movimento
-        // Per i proiettili homing (player verso NPC), aggiorna direzione verso il bersaglio
-        if (this.shouldBeHoming(projectileEntity)) {
-          this.updateHomingDirection(transform, projectile);
-        }
-
-        // Aggiorna posizione del proiettile
-        transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
-        transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
-      }
-
-      // Riduci il tempo di vita
-      projectile.lifetime -= deltaTime;
-
-      // Per proiettili NPC remoti: NON verificare collisioni lato client
-      // Il server è autoritativo e invia già i messaggi di distruzione quando colpiscono
-      // Le collisioni lato client causerebbero falsi positivi perché usano posizione interpolata (indietro)
-      if (!isRemoteNpcProjectile) {
-        // Controlla collisioni con bersagli solo per proiettili locali
-        this.checkCollisions(projectileEntity, transform, projectile);
-      }
-
-      // Rimuovi proiettili scaduti
-      if (projectile.lifetime <= 0) {
-        this.ecs.removeEntity(projectileEntity);
+      if (this.processProjectile(projectileEntity, deltaTime, deltaTimeSeconds)) {
+        // Proiettile rimosso durante il processamento
+        continue;
       }
     }
   }
 
   /**
-   * Verifica se un proiettile dovrebbe essere homing (seguire il bersaglio)
+   * Processa un singolo proiettile - logica semplificata e uniforme
+   * @returns true se il proiettile è stato rimosso
    */
-  private shouldBeHoming(projectileEntity: any): boolean {
+  private processProjectile(projectileEntity: Entity, deltaTime: number, deltaTimeSeconds: number): boolean {
+    const transform = ComponentHelper.getTransform(this.ecs, projectileEntity);
     const projectile = this.ecs.getComponent(projectileEntity, Projectile);
-    if (!projectile) return false;
 
-    // Un proiettile è homing se ha un targetId valido (diverso da -1)
-    return projectile.targetId !== -1;
+    if (!transform || !projectile) {
+      LoggerWrapper.projectile('Invalid projectile components, removing', {
+        entityId: projectileEntity.id
+      });
+      this.ecs.removeEntity(projectileEntity);
+      return true;
+    }
+
+    // Log iniziale per debug
+    LoggerWrapper.projectile('Processing projectile', {
+      projectileId: (projectile as any).id || projectileEntity.id,
+      playerId: projectile.playerId,
+      isRemote: this.isRemoteProjectile(projectile),
+      isHoming: this.isHomingProjectile(projectile),
+      targetId: projectile.targetId,
+      position: { x: transform.x, y: transform.y },
+      direction: { x: projectile.directionX, y: projectile.directionY }
+    });
+
+    // 1. Controllo cleanup uniforme - rimuovi se necessario
+    if (this.shouldRemoveProjectile(projectileEntity, projectile)) {
+      return true;
+    }
+
+    // 2. Aggiorna homing se necessario (logica semplificata)
+    if (this.isHomingProjectile(projectile)) {
+      LoggerWrapper.projectile('Applying homing to projectile', {
+        projectileId: (projectile as any).id || projectileEntity.id,
+        targetId: projectile.targetId,
+        projectileType: projectile.projectileType,
+        isRemote: this.isRemoteProjectile(projectile)
+      });
+      this.updateHomingDirection(transform, projectile);
+    }
+
+    // 3. Movimento - solo per proiettili locali, remoti usano interpolazione
+    const isRemote = this.isRemoteProjectile(projectile);
+    if (!isRemote) {
+      const oldX = transform.x;
+      const oldY = transform.y;
+      transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
+      transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
+
+      LoggerWrapper.projectile('Projectile moved', {
+        projectileId: (projectile as any).id || projectileEntity.id,
+        from: { x: oldX, y: oldY },
+        to: { x: transform.x, y: transform.y },
+        direction: { x: projectile.directionX, y: projectile.directionY },
+        speed: projectile.speed,
+        isHoming: this.isHomingProjectile(projectile)
+      });
+    } else {
+      LoggerWrapper.projectile('Projectile is remote, skipping movement', {
+        projectileId: (projectile as any).id || projectileEntity.id,
+        playerId: projectile.playerId
+      });
+    }
+
+    // 4. Riduci lifetime
+    projectile.lifetime -= deltaTime;
+
+    // 5. Collisioni - solo per proiettili locali
+    if (!isRemote) {
+      this.checkCollisions(projectileEntity, transform, projectile);
+    }
+
+    // 6. Rimozione per lifetime scaduto
+    if (projectile.lifetime <= 0) {
+      LoggerWrapper.projectile('Projectile expired', {
+        projectileId: (projectile as any).id || projectileEntity.id,
+        lifetime: projectile.lifetime
+      });
+      this.ecs.removeEntity(projectileEntity);
+      return true;
+    }
+
+    return false; // Proiettile ancora attivo
   }
 
   /**
-   * Aggiorna la direzione di un proiettile homing verso il bersaglio corrente
+   * Controllo uniforme per rimuovere proiettili (cleanup centralizzato)
+   */
+  private shouldRemoveProjectile(projectileEntity: Entity, projectile: Projectile): boolean {
+    // Rimuovi se target morto (solo per homing projectiles)
+    if (this.isHomingProjectile(projectile)) {
+      const targetEntity = this.findTargetEntity(projectile.targetId);
+      if (!targetEntity) {
+        LoggerWrapper.projectile('Target not found, removing projectile', {
+          projectileId: (projectile as any).id || projectileEntity.id,
+          targetId: projectile.targetId
+        });
+        this.ecs.removeEntity(projectileEntity);
+        return true;
+      }
+
+      // Controlla se target è morto
+      const targetHealth = ComponentHelper.getHealth(this.ecs, targetEntity);
+      const targetShield = this.ecs.getComponent(targetEntity, Shield);
+      const isDead = targetHealth && targetHealth.isDead() && (!targetShield || !targetShield.isActive());
+
+      if (isDead) {
+        LoggerWrapper.projectile('Target dead, removing projectile', {
+          projectileId: (projectile as any).id || projectileEntity.id,
+          targetId: projectile.targetId
+        });
+        this.ecs.removeEntity(projectileEntity);
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Identifica se un proiettile è homing (semplificato)
+   */
+  private isHomingProjectile(projectile: Projectile): boolean {
+    return projectile.targetId !== -1 && projectile.targetId !== undefined && projectile.targetId !== null;
+  }
+
+  /**
+   * Identifica se un proiettile è remoto
+   */
+  private isRemoteProjectile(projectile: Projectile): boolean {
+    return projectile.playerId && typeof projectile.playerId === 'string';
+  }
+
+
+  /**
+   * Aggiorna direzione homing - LOGICA SEMPLIFICATA
+   * Tutti i proiettili homing cercano semplicemente il loro targetId
    */
   private updateHomingDirection(projectileTransform: Transform, projectile: Projectile): void {
-    // Verifica se è un proiettile NPC che targetizza il player locale
-    const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
-    const localPlayer = this.playerSystem.getPlayerEntity();
-    
-    // Per proiettili NPC: target è sempre il player locale (indipendentemente dal targetId)
-    if (isNpcProjectile && localPlayer) {
-      const targetTransform = ComponentHelper.getTransform(this.ecs, localPlayer);
-      if (targetTransform) {
-        this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
-        return;
-      }
-    }
-    
-    // Per proiettili player: cerca il target specifico
-    // Trova il bersaglio tra tutte le entità con Health
-    const allTargets = this.ecs.getEntitiesWithComponents(Health);
-
-    // Prima cerca tra i giocatori locali (se siamo il target)
-    if (localPlayer && localPlayer.id === projectile.targetId) {
-      const targetTransform = ComponentHelper.getTransform(this.ecs, localPlayer);
-      if (targetTransform) {
-        this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
-        return;
-      }
+    const targetEntity = this.findTargetEntity(projectile.targetId);
+    if (!targetEntity) {
+      LoggerWrapper.projectile('Homing target not found', {
+        projectileId: (projectile as any).id || 'unknown',
+        targetId: projectile.targetId,
+        targetIdType: typeof projectile.targetId
+      });
+      return;
     }
 
-    // Poi cerca tra gli NPC
-    const targetEntity = allTargets.find(entity => entity.id === projectile.targetId);
-    if (!targetEntity) return;
+    const targetTransform = ComponentHelper.getTransform(this.ecs, targetEntity);
+    if (!targetTransform) {
+      LoggerWrapper.projectile('Homing target has no transform', {
+        projectileId: (projectile as any).id || 'unknown',
+        targetId: projectile.targetId,
+        targetEntityId: targetEntity.id
+      });
+      return;
+    }
 
-    const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-    if (!targetTransform) return;
+    LoggerWrapper.projectile('Homing target found and updating direction', {
+      projectileId: (projectile as any).id || 'unknown',
+      targetId: projectile.targetId,
+      targetPosition: { x: targetTransform.x, y: targetTransform.y },
+      projectilePosition: { x: projectileTransform.x, y: projectileTransform.y }
+    });
 
     this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
   }
@@ -179,16 +231,7 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Controlla collisioni tra proiettile e possibili bersagli
    */
-  private checkCollisions(projectileEntity: any, projectileTransform: Transform, projectile: Projectile): void {
-    // Per proiettili homing, verifica se il target esiste ancora
-    if (this.isHomingProjectile(projectile)) {
-      const targetExists = this.targetStillExists(projectile.targetId);
-      if (!targetExists) {
-        // Target scomparso - rimuovi proiettile
-        this.ecs.removeEntity(projectileEntity);
-        return;
-      }
-    }
+  private checkCollisions(projectileEntity: Entity, projectileTransform: Transform, projectile: Projectile): void {
 
     // Trova tutte le entità con Health (possibili bersagli)
     const targets = this.ecs.getEntitiesWithComponents(Transform, Health);
@@ -211,20 +254,38 @@ export class ProjectileSystem extends BaseSystem {
       // Se la distanza è minore di una soglia (hitbox), colpisce
       const hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
       if (distance < hitDistance) {
+        // DEBUG: Log collisioni per laser visivi
+        if (projectile.damage === 0) {
+          console.log(`[COLLISION] Laser projectile ${projectileEntity.id} hit target ${targetEntity.id}, targetId: ${projectile.targetId}`);
+        }
+
         // GESTIONE DIFFERENZIATA PER TARGETING
 
         // Per proiettili SENZA target specifico (NPC projectiles):
         // Rimuovi immediatamente - possono colpire chiunque
-        if (!projectile.targetId || projectile.targetId === -1) {
+        if (projectile.targetId === null || projectile.targetId === undefined || projectile.targetId === -1) {
+          if (projectile.damage === 0) {
+            console.log(`[COLLISION] Removing laser projectile ${projectileEntity.id} (no target)`);
+          }
           this.ecs.removeEntity(projectileEntity);
           return; // Un proiettile colpisce solo un bersaglio
         }
 
         // Per proiettili CON target specifico (player projectiles):
+        // Per laser visivi (damage = 0), rimuovi sempre quando colpiscono il target
+        // Anche se il server gestisce il danno, il laser visivo deve sparire immediatamente
+        const isLaserTarget = this.isLaserTarget(projectile, targetEntity);
+        if (projectile.damage === 0 && isLaserTarget) {
+          console.log(`[COLLISION] Removing laser projectile ${projectileEntity.id} - hit target ${targetEntity.id} (targetId: ${projectile.targetId})`);
+          this.ecs.removeEntity(projectileEntity);
+          return;
+        }
+
+        // Per proiettili normali CON target specifico:
         // NON rimuovere localmente se colpiscono qualcun altro che non è il target
         // Il server decide quando rimuovere questi proiettili
         // Solo il server può confermare se hanno colpito il target corretto
-        if (projectile.targetId !== targetEntity.id) {
+        if (!isLaserTarget) {
           // Colpito qualcun altro - continua il volo, lascia che il server decida
           continue; // Non rimuovere, continua a volare
         }
@@ -261,26 +322,86 @@ export class ProjectileSystem extends BaseSystem {
   }
 
   /**
-   * Verifica se un proiettile è di tipo homing
+   * Verifica se l'entità target corrisponde al targetId del proiettile (per laser)
    */
-  private isHomingProjectile(projectile: Projectile): boolean {
-    return projectile.targetId !== -1 && projectile.targetId !== undefined;
-  }
-
-  /**
-   * Verifica se il target di un proiettile homing esiste ancora
-   */
-  private targetStillExists(targetId: number): boolean {
-    // Prima cerca tra i giocatori locali
-    const localPlayer = this.playerSystem.getPlayerEntity();
-    if (localPlayer && localPlayer.id === targetId) {
-      return true;
+  private isLaserTarget(projectile: Projectile, targetEntity: any): boolean {
+    // Usa la stessa logica del metodo findTargetEntity
+    if (typeof projectile.targetId === 'number') {
+      // Target è un numero (entity.id)
+      if (projectile.targetId === targetEntity.id) {
+        if (projectile.damage === 0) {
+          console.log(`[COLLISION] Laser target match by entity ID: ${projectile.targetId} === ${targetEntity.id}`);
+        }
+        return true;
+      }
+    } else if (typeof projectile.targetId === 'string') {
+      // Target è una stringa (serverId di NPC)
+      const npc = this.ecs.getComponent(targetEntity, Npc);
+      if (npc && npc.serverId === projectile.targetId) {
+        if (projectile.damage === 0) {
+          console.log(`[COLLISION] Laser target match by serverId: ${projectile.targetId} === ${npc.serverId}`);
+        }
+        return true;
+      }
     }
 
-    // Poi cerca tra tutte le entità con Health (NPC)
-    const allTargets = this.ecs.getEntitiesWithComponents(Health);
-    return allTargets.some(entity => entity.id === targetId);
+    if (projectile.damage === 0) {
+      console.log(`[COLLISION] Laser target mismatch: projectile targetId ${projectile.targetId}, entity ${targetEntity.id}, serverId ${(this.ecs.getComponent(targetEntity, Npc))?.serverId}`);
+    }
+
+    return false;
   }
+
+
+  /**
+   * Trova l'entità target basata su targetId (può essere numero o stringa)
+   */
+  /**
+   * Trova entità bersaglio per targetId - GESTISCE sia entity.id che serverId
+   */
+  private findTargetEntity(targetId: number | string): Entity | null {
+    if (typeof targetId === 'number') {
+      // Cerca per entity.id
+      const allEntities = this.ecs.getEntitiesWithComponents(Transform);
+      return allEntities.find(entity => entity.id === targetId) || null;
+    }
+
+    if (typeof targetId === 'string') {
+      // Gestisci ID speciali (npc_X, player_X, etc.)
+      if (targetId.startsWith('npc_')) {
+        // Cerca NPC per serverId
+        const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
+        for (const npcEntity of npcEntities) {
+          const npc = this.ecs.getComponent(npcEntity, Npc);
+          if (npc && npc.serverId === targetId) {
+            return npcEntity;
+          }
+        }
+      } else if (targetId.startsWith('player_')) {
+        // Potrebbe servire per giocatori remoti in futuro
+        LoggerWrapper.projectile('Player targetId not implemented yet', { targetId });
+        return null;
+      } else {
+        // Prova a convertire in numero (fallback)
+        const parsed = parseInt(targetId, 10);
+        if (!isNaN(parsed)) {
+          LoggerWrapper.projectile('Converting string targetId to number', {
+            originalTargetId: targetId,
+            convertedTargetId: parsed
+          });
+          const allEntities = this.ecs.getEntitiesWithComponents(Transform);
+          return allEntities.find(entity => entity.id === parsed) || null;
+        }
+      }
+
+      LoggerWrapper.projectile('Unknown string targetId format', { targetId });
+      return null;
+    }
+
+    LoggerWrapper.projectile('Invalid targetId type', { targetId, type: typeof targetId });
+    return null;
+  }
+
 
   /**
    * Notifica il CombatSystem quando viene applicato danno

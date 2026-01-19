@@ -3,6 +3,7 @@
 // Fornisce visione completa di player, NPC aggressivi, risorse ed eventi critici
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { NPC_CONFIG } = require('../../config/constants.cjs');
 
 class GlobalGameMonitor {
@@ -39,7 +40,7 @@ class GlobalGameMonitor {
 
     if (this.isEnabled) {
       this.startMonitoring();
-      logger.info('GLOBAL_MONITOR', '🎯 Global Game Monitor started');
+      ServerLoggerWrapper.system('🎯 Global Game Monitor started');
     }
   }
 

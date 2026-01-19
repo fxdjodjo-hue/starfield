@@ -10,6 +10,7 @@ import { ComponentHelper } from '../data/ComponentHelper';
 import { InputValidator } from '../utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
 import { Npc } from '../../entities/ai/Npc';
+import { DamageTaken } from '../../entities/combat/DamageTaken';
 
 export interface PositionUpdate {
   x?: number;
@@ -160,6 +161,17 @@ export class EntityStateSystem {
 
       ComponentHelper.updateHealth(ecs, entity, newCurrent, newMax);
 
+      // Registra danno subito se la health è diminuita (per comportamenti AI reattivi)
+      if (newCurrent < currentHealth.current) {
+        let damageTaken = ecs.getComponent(entity, DamageTaken);
+        if (!damageTaken) {
+          damageTaken = new DamageTaken();
+          ecs.addComponent(entity, DamageTaken, damageTaken);
+          console.log(`[DAMAGE] Aggiunto componente DamageTaken all'entità ${entity.id} (health damage)`);
+        }
+        damageTaken.takeDamage(Date.now());
+      }
+
       // Log solo se i valori sono effettivamente cambiati o se è un aggiornamento non-server
       if (newCurrent !== currentHealth.current || newMax !== currentHealth.max || source !== 'server') {
         LoggerWrapper.combat(`Entity ${entity.id} health updated: ${newCurrent}/${newMax}`, {
@@ -197,6 +209,17 @@ export class EntityStateSystem {
       const newMax = shield.max ?? currentShield.max;
 
       ComponentHelper.updateShield(ecs, entity, newCurrent, newMax);
+
+      // Registra danno subito se lo shield è diminuito (per comportamenti AI reattivi)
+      if (newCurrent < currentShield.current) {
+        let damageTaken = ecs.getComponent(entity, DamageTaken);
+        if (!damageTaken) {
+          damageTaken = new DamageTaken();
+          ecs.addComponent(entity, DamageTaken, damageTaken);
+          console.log(`[DAMAGE] Aggiunto componente DamageTaken all'entità ${entity.id} (shield damage)`);
+        }
+        damageTaken.takeDamage(Date.now());
+      }
 
       // Log solo se i valori sono effettivamente cambiati o se è un aggiornamento non-server
       if (newCurrent !== currentShield.current || newMax !== currentShield.max || source !== 'server') {

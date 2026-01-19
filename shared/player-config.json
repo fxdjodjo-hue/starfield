@@ -6,7 +6,7 @@
     "range": 400,
     "rangeWidth": 1280,
     "rangeHeight": 720,
-    "cooldown": 800,
+    "cooldown": 1500,
     "speed": 300
   },
   "startingResources": {

@@ -88,6 +88,14 @@ export class InterpolationTarget {
   }
 
   /**
+   * AGGIORNA TARGET DA RETE - Per aggiornamenti posizione da server
+   * Chiamato quando arriva un pacchetto server per remote entities
+   */
+  updateTargetFromNetwork(x: number, y: number, rotation: number = this.targetRotation): void {
+    this.updateTarget(x, y, rotation);
+  }
+
+  /**
    * AGGIORNA TARGET - Versione semplificata con validazione
    * Chiamato quando arriva un pacchetto server per remote player
    */

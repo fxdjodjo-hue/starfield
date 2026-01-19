@@ -16,7 +16,7 @@ export class CombatUpdateHandler extends BaseMessageHandler {
       this.handleCombatError(message, networkSystem);
     } else {
       // Gestisci aggiornamenti di combattimento normali
-      console.log(`[COMBAT_UPDATE] Player ${message.playerId} vs ${message.npcId}, attacking: ${message.isAttacking}, session: ${message.sessionId || 'none'}`);
+      // Combat update received and processed
     }
   }
 

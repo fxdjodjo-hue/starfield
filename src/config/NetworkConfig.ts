@@ -37,17 +37,21 @@ function getServerUrl(): string {
 }
 
 /**
- * Gets the HTTPS API base URL from WebSocket URL
- * SECURITY: Always returns HTTPS URLs
+ * Gets the API base URL from WebSocket URL
+ * SECURITY: Always returns HTTPS URLs in production, HTTP in development
  */
 export function getApiBaseUrl(): string {
   const wsUrl = getServerUrl();
-  // SECURITY: Convert wss:// to https:// (no more ws:// to http://)
+  // SECURITY: Convert wss:// to https://
   if (wsUrl.startsWith('wss://')) {
     return wsUrl.replace('wss://', 'https://');
   }
-  // SECURITY: No fallback to http:// - everything must be secure
-  throw new Error('SECURITY VIOLATION: Invalid WebSocket URL - must use WSS');
+  // Development: Convert ws:// to http://
+  if (wsUrl.startsWith('ws://')) {
+    return wsUrl.replace('ws://', 'http://');
+  }
+  // SECURITY: Invalid protocol
+  throw new Error('SECURITY VIOLATION: Invalid WebSocket URL - must use WS or WSS');
 }
 
 /**
@@ -301,7 +305,7 @@ export interface ProjectileFiredMessage {
   position: { x: number; y: number };
   velocity: { x: number; y: number };
   damage: number;
-  projectileType: 'laser' | 'missile';
+  projectileType: 'laser' | 'missile' | 'npc_laser';
   targetId?: string | null;
 }
 
@@ -335,7 +339,7 @@ export interface EntityDamagedMessage {
   newHealth: number;
   newShield: number;
   position: { x: number; y: number };
-  projectileType?: 'laser' | 'missile';
+  projectileType?: 'laser' | 'missile' | 'npc_laser';
 }
 
 /**

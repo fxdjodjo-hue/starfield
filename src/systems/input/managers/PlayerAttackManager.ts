@@ -324,7 +324,6 @@ export class PlayerAttackManager {
    * Also updates InterpolationTarget to prevent interpolation conflicts
    */
   private resetShipRotation(): void {
-    console.log('[SHIP_ROTATION_RESET] Resetting ship rotation...');
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -333,7 +332,6 @@ export class PlayerAttackManager {
     const interpolationTarget = this.ecs.getComponent(playerEntity, InterpolationTarget);
 
     if (!transform) {
-      console.log('[SHIP_ROTATION_RESET] No transform component found');
       return;
     }
 
@@ -343,11 +341,9 @@ export class PlayerAttackManager {
     if (velocity && (velocity.x !== 0 || velocity.y !== 0)) {
       // If moving, set rotation to movement direction
       newRotation = Math.atan2(velocity.y, velocity.x);
-      console.log(`[SHIP_ROTATION_RESET] Moving - set rotation to movement direction: ${newRotation.toFixed(3)} (was ${oldRotation.toFixed(3)})`);
     } else {
       // If stationary, set to neutral direction (0 = right)
       newRotation = 0;
-      console.log(`[SHIP_ROTATION_RESET] Stationary - set rotation to neutral: 0 (was ${oldRotation.toFixed(3)})`);
     }
 
     // CRITICAL: Reset both transform AND interpolation target immediately
@@ -357,7 +353,6 @@ export class PlayerAttackManager {
       // Force immediate update without interpolation lag
       interpolationTarget.renderRotation = newRotation;
       interpolationTarget.targetRotation = newRotation;
-      console.log('[SHIP_ROTATION_RESET] Force-updated InterpolationTarget to prevent conflicts');
     }
   }
 
@@ -380,34 +375,24 @@ export class PlayerAttackManager {
     let targetX: number | null = null;
     let targetY: number | null = null;
 
-    console.log(`[faceSelectedNpc] Checking for face targets...`);
-
     // Prima priorità: NPC attualmente selezionato
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    console.log(`[faceSelectedNpc] Found ${selectedNpcs.length} selected NPCs`);
     if (selectedNpcs.length > 0) {
       const selectedNpc = selectedNpcs[0];
       const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
       if (npcTransform) {
         targetX = npcTransform.x;
         targetY = npcTransform.y;
-        console.log(`[faceSelectedNpc] Using selected NPC position: ${targetX}, ${targetY}`);
-      } else {
-        console.log(`[faceSelectedNpc] Selected NPC ${selectedNpc.id} has no transform`);
       }
     }
     // Seconda priorità: ultimo target salvato (per deselezioni temporanee)
     else if (this.lastFaceTarget) {
       targetX = this.lastFaceTarget.x;
       targetY = this.lastFaceTarget.y;
-      console.log(`[faceSelectedNpc] Using lastFaceTarget: ${targetX}, ${targetY}`);
-    } else {
-      console.log(`[faceSelectedNpc] No face target available`);
     }
 
     // Se non abbiamo nessun target, esci
     if (targetX === null || targetY === null) {
-      console.log(`[faceSelectedNpc] No valid target, exiting`);
       return;
     }
 
@@ -415,7 +400,6 @@ export class PlayerAttackManager {
     const playerInterpolation = this.ecs.getComponent(playerEntity, InterpolationTarget);
 
     if (!playerTransform) {
-      console.log(`[faceSelectedNpc] No player transform found`);
       return;
     }
 
@@ -423,23 +407,18 @@ export class PlayerAttackManager {
     const dy = targetY - playerTransform.y;
     const angle = Math.atan2(dy, dx);
 
-    console.log(`[faceSelectedNpc] Calculated angle: ${angle.toFixed(3)} towards target at ${targetX.toFixed(1)}, ${targetY.toFixed(1)}`);
-
     // Controllo cambio minimo: evita aggiornamenti per cambiamenti piccoli
     const angleDiff = Math.abs(angle - this.lastFaceAngle);
     if (angleDiff < this.MIN_ANGLE_CHANGE) {
-      console.log(`[faceSelectedNpc] Angle change too small (${angleDiff.toFixed(3)}), skipping`);
       return; // Angolo cambiato troppo poco
     }
 
     // Usa InterpolationTarget per rotazione fluida invece di impostare direttamente
     if (playerInterpolation) {
       playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle);
-      console.log(`[faceSelectedNpc] Updated InterpolationTarget to angle ${angle.toFixed(3)}`);
     } else {
       // Fallback se non c'è InterpolationTarget
       playerTransform.rotation = angle;
-      console.log(`[faceSelectedNpc] Set transform.rotation directly to ${angle.toFixed(3)}`);
     }
 
     // Aggiorna timestamp e ultimo angolo

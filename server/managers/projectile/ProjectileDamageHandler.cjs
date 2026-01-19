@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, mapServer
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
 
 class ProjectileDamageHandler {
   constructor(mapServer) {
@@ -45,7 +46,7 @@ class ProjectileDamageHandler {
 
     // FERMA TUTTI I COMBATTIMENTI DEL PLAYER MORTO
     if (this.mapServer.combatManager && typeof this.mapServer.combatManager.stopPlayerCombat === 'function') {
-      logger.info('COMBAT', `Stopping all combat for dead player: ${clientId}`);
+      ServerLoggerWrapper.combat(`Stopping all combat for dead player: ${clientId}`);
       this.mapServer.combatManager.stopPlayerCombat(clientId);
     }
 
@@ -74,7 +75,7 @@ class ProjectileDamageHandler {
       y: 0
     };
 
-    logger.info('PLAYER', `Player ${clientId} respawned at (${playerData.position.x.toFixed(0)}, ${playerData.position.y.toFixed(0)})`);
+    ServerLoggerWrapper.system(`Player ${clientId} respawned at (${playerData.position.x.toFixed(0)}, ${playerData.position.y.toFixed(0)})`);
 
     // Invia messaggio di respawn a tutti i client
     this.mapServer.broadcastToMap({

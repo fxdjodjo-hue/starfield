@@ -2,6 +2,7 @@
 // Dipendenze consentite: logger.cjs, config/constants.cjs, core/combat/DamageCalculationSystem.cjs
 
 const { logger } = require('../logger.cjs');
+const ServerLoggerWrapper = require('../core/infrastructure/ServerLoggerWrapper.cjs');
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('../config/constants.cjs');
 const DamageCalculationSystem = require('../core/combat/DamageCalculationSystem.cjs');
 const PLAYER_CONFIG = require('../../shared/player-config.json');
@@ -14,9 +15,8 @@ class ServerCombatManager {
     this.combatStartCooldowns = new Map(); // playerId -> lastCombatStartTime
   }
 
-  // Pattern ritmico come moltiplicatori rispetto al cooldown base (800ms)
-  // Pattern: 0.870-0.870-1.217-1.043 = 696-696-974-835ms quando cooldown base è 800ms
-  // Media = 1.0 → fire rate medio = 800ms (cooldown base preservato)
+  // Pattern ritmico come moltiplicatori rispetto al cooldown base
+  // Usa PLAYER_CONFIG.stats.cooldown per single source of truth
 
   /**
    * Aggiorna logica di combat per tutti gli NPC e player
@@ -67,12 +67,12 @@ class ServerCombatManager {
       return;
     }
 
-    logger.info('COMBAT', `Start combat: ${playerId} vs ${npcId}`);
+    ServerLoggerWrapper.combat(`Start combat: ${playerId} vs ${npcId}`);
 
     // 🚫 COMBAT SESSION SECURITY: Un solo combattimento attivo per player alla volta
     if (this.playerCombats.has(playerId)) {
       const existingCombat = this.playerCombats.get(playerId);
-      logger.warn('COMBAT', `🚫 BLOCKED: Player ${playerId} attempted multiple combat sessions. Active session: ${existingCombat.sessionId}, attempted vs ${npcId}`);
+      ServerLoggerWrapper.combat(`🚫 BLOCKED: Player ${playerId} attempted multiple combat sessions. Active session: ${existingCombat.sessionId}, attempted vs ${npcId}`);
 
       // Invia messaggio di errore al client
       if (context && context.ws) {
@@ -105,7 +105,7 @@ class ServerCombatManager {
       combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
 
-    logger.info('COMBAT', `Combat session started: ${sessionId} for player ${playerId} vs ${npcId}`);
+      ServerLoggerWrapper.combat(`Combat session started: ${sessionId} for player ${playerId} vs ${npcId}`);
   }
 
   /**
@@ -204,23 +204,25 @@ class ServerCombatManager {
       return;
     }
 
-    // 🔒 SECURITY: Cooldown fisso 800ms (server-authoritative)
-    // Il danno viene applicato sempre ogni 800ms
+    // 🔒 SECURITY: Cooldown fisso dal PLAYER_CONFIG (server-authoritative)
+    // Il danno viene applicato secondo il cooldown configurato
     // L'animazione ritmica è gestita lato client (solo visiva)
 
-    // ✅ FIX: Validazione robusta con fallback su valori di default
-    const baseCooldown = combat.attackCooldown || PLAYER_CONFIG?.stats?.cooldown || 800;
+    // ✅ FIX: Usa configurazione centralizzata dal PLAYER_CONFIG (single source of truth)
+    const baseCooldown = combat.attackCooldown || PLAYER_CONFIG.stats.cooldown;
     const lastAttackTime = combat.lastAttackTime || 0;
     const timeSinceLastAttack = now - lastAttackTime;
 
-    // ✅ FIX: Log di debug per identificare problemi di inizializzazione
-    console.log(`[COMBAT-SERVER] combat state check: playerId=${playerId}, npcId=${combat.npcId}, lastAttackTime=${lastAttackTime}, attackCooldown=${combat.attackCooldown}, baseCooldown=${baseCooldown}, timeSinceLastAttack=${timeSinceLastAttack}, hasAllFields=${!!(combat.lastAttackTime !== undefined && combat.attackCooldown !== undefined)}`);
+    // ✅ FIX: Log di debug per identificare problemi di inizializzazione (solo con DEBUG_COMBAT)
+    if (process.env.DEBUG_COMBAT === 'true') {
+      console.log(`[COMBAT-SERVER] combat state check: playerId=${playerId}, npcId=${combat.npcId}, lastAttackTime=${lastAttackTime}, attackCooldown=${combat.attackCooldown}, baseCooldown=${baseCooldown}, timeSinceLastAttack=${timeSinceLastAttack}, hasAllFields=${!!(combat.lastAttackTime !== undefined && combat.attackCooldown !== undefined)}`);
+    }
 
     if (timeSinceLastAttack < baseCooldown) {
       return; // Non ancora tempo di attaccare - il client non può forzare attacchi
     }
 
-    // Esegui attacco (danno applicato ogni 800ms)
+    // Esegui attacco (danno applicato secondo cooldown configurato)
     console.log(`[COMBAT-SERVER] performPlayerAttack called, playerId=${playerId}, timeSinceLastAttack=${timeSinceLastAttack}, baseCooldown=${baseCooldown}, npcId=${combat.npcId}`);
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
@@ -340,7 +342,7 @@ class ServerCombatManager {
 
     // Controlla cooldown attacco
     const lastAttack = this.npcAttackCooldowns.get(npc.id) || 0;
-    const cooldown = NPC_CONFIG[npc.type].stats.cooldown || 1500;
+    const cooldown = NPC_CONFIG[npc.type].stats.cooldown || 2000; // Fallback ragionevole per NPC
     if (now - lastAttack < cooldown) return;
 
     // Trova player nel raggio di attacco

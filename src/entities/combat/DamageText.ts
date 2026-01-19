@@ -13,11 +13,11 @@ export class DamageText extends Component {
   public lifetime: number;
   public maxLifetime: number;
   public color: string;
-  public projectileType?: 'laser' | 'missile';
+  public projectileType?: 'laser' | 'missile' | 'npc_laser';
   public lastWorldX: number;
   public lastWorldY: number;
 
-  constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 1000, projectileType?: 'laser' | 'missile') {
+  constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 1000, projectileType?: 'laser' | 'missile' | 'npc_laser') {
     super();
 
     // Validazione input

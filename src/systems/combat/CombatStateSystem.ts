@@ -46,9 +46,11 @@ export class CombatStateSystem extends BaseSystem {
   private lastAttackActivatedState: boolean = false; // Per edge detection
   private lastCombatLogTime: number = 0; // For throttling debug logs
   private activeBeamEntities: Set<number> = new Set(); // Traccia laser beam attivi
-  private lastLaserFireTime: number = 0; // Per controllo frequenza laser
+  private lastLaserFireTime: number = 0;
+  private lastLaserSoundTime: number = 0; // Per evitare suoni duplicati // Per controllo frequenza laser
   // Sistema laser NPC
   private npcLaserFireTimes: Map<number, number> = new Map(); // entityId -> lastFireTime
+  private npcLastInRange: Map<number, number> = new Map(); // entityId -> lastTimeInRange
 
   /**
    * Ottiene l'intervallo di fuoco laser per un NPC specifico basato sul suo tipo
@@ -65,6 +67,23 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     return GAME_CONSTANTS.COMBAT.PLAYER_LASER_VISUAL_INTERVAL; // Fallback
+  }
+
+  /**
+   * Ottiene il range di un NPC specifico basato sul suo tipo
+   */
+  private getNpcRange(npcEntity: Entity): number {
+    const npcComponent = this.ecs.getComponent(npcEntity, Npc);
+    if (!npcComponent || !npcComponent.npcType) {
+      return 800; // Fallback range
+    }
+
+    const npcTypeConfig = (npcConfig as any)[npcComponent.npcType];
+    if (npcTypeConfig && npcTypeConfig.stats && npcTypeConfig.stats.range) {
+      return npcTypeConfig.stats.range;
+    }
+
+    return 800; // Fallback range
   } 
 
   constructor(ecs: ECS) {
@@ -381,6 +400,7 @@ export class CombatStateSystem extends BaseSystem {
       } else {
         // NPC non più in combattimento - rimuovi dal tracking
         this.npcLaserFireTimes.delete(npcEntity.id);
+        this.npcLastInRange.delete(npcEntity.id);
       }
     }
   }
@@ -393,6 +413,8 @@ export class CombatStateSystem extends BaseSystem {
       console.error('[NPC-BEAM] ECS not available');
       return;
     }
+
+    const now = Date.now();
 
     // Trova il player come target
     const playerEntity = this.playerSystem?.getPlayerEntity();
@@ -407,6 +429,25 @@ export class CombatStateSystem extends BaseSystem {
 
     if (!npcTransform || !playerTransform) {
       console.warn('[NPC-BEAM] Missing transforms for NPC beam effect');
+      return;
+    }
+
+    // Controlla se il player è nel range dell'NPC (o era recentemente nel range)
+    const npcRange = this.getNpcRange(npcEntity);
+    const dx = Math.abs(npcTransform.x - playerTransform.x);
+    const dy = Math.abs(npcTransform.y - playerTransform.y);
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    const currentlyInRange = distance <= npcRange;
+
+    // Permetti laser visivi anche se uscito dal range da poco (2 secondi di grazia)
+    const lastInRangeTime = this.npcLastInRange.get(npcEntity.id) || 0;
+    const recentlyInRange = (now - lastInRangeTime) <= 2000; // 2 secondi di grazia
+
+    if (currentlyInRange) {
+      // Aggiorna il tempo dell'ultimo contatto nel range
+      this.npcLastInRange.set(npcEntity.id, now);
+    } else if (!recentlyInRange) {
+      // Player troppo lontano e non recentemente nel range, non creare laser visivo
       return;
     }
 
@@ -692,10 +733,12 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     try {
-      // Riproduci suono laser visivo lato client
+      // Riproduci suono laser visivo immediato per responsività (evita duplicazioni)
+      const now = Date.now();
       const audioSystem = this.clientNetworkSystem?.getAudioSystem();
-      if (audioSystem) {
+      if (audioSystem && (now - this.lastLaserSoundTime) >= 100) { // Minimo 100ms tra suoni
         audioSystem.playSound('laser', 0.05, false, true);
+        this.lastLaserSoundTime = now;
       }
 
       // Carica l'immagine laser per il proiettile visivo
@@ -750,8 +793,10 @@ export class CombatStateSystem extends BaseSystem {
     // Rimuovi tutti i laser beam attivi
     this.removeAllActiveBeams();
 
-    // Pulisci il tracking dei laser NPC
+    // Pulisci il tracking dei laser NPC e suoni
     this.npcLaserFireTimes.clear();
+    this.npcLastInRange.clear();
+    this.lastLaserSoundTime = 0;
 
     this.clientNetworkSystem = null;
     this.cameraSystem = null;

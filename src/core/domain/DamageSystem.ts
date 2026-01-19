@@ -260,7 +260,12 @@ export class DamageSystem {
       }
 
       if (repaired) {
-        LoggerWrapper.combat(`Entity ${entity.id} repaired: +${healthAmount} HP, +${shieldAmount} Shield`, {
+        const repairParts = [];
+        if (healthAmount > 0) repairParts.push(`+${healthAmount} HP`);
+        if (shieldAmount > 0) repairParts.push(`+${shieldAmount} Shield`);
+
+        const repairMessage = repairParts.length > 0 ? repairParts.join(', ') : 'no repair needed';
+        LoggerWrapper.combat(`Entity ${entity.id} repaired: ${repairMessage}`, {
           entityId: entity.id,
           healthRepaired: healthAmount,
           shieldRepaired: shieldAmount

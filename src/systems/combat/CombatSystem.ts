@@ -136,7 +136,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'missile'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'missile' | 'npc_laser'): void {
     this.initializeManagers();
     this.damageManager.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
   }
@@ -144,7 +144,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Decrementa il contatore dei testi di danno attivi per un'entità
    */
-  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'missile'): void {
+  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'missile' | 'npc_laser'): void {
     this.initializeManagers();
     this.damageManager.decrementDamageTextCount(targetEntityId, projectileType);
   }

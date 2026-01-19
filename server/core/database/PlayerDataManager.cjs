@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, supabase client
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { createClient } = require('@supabase/supabase-js');
 
 // Supabase client - usa le stesse variabili d'ambiente di server.cjs
@@ -12,7 +13,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-servic
 
 // Log per debug (solo se non in produzione)
 if (process.env.NODE_ENV !== 'production') {
-  logger.info('DATABASE', `Supabase client initialized - URL: ${supabaseUrl.substring(0, 30)}..., Key length: ${supabaseServiceKey.length}`);
+  ServerLoggerWrapper.database(`Supabase client initialized - URL: ${supabaseUrl.substring(0, 30)}..., Key length: ${supabaseServiceKey.length}`);
 }
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
@@ -54,11 +55,11 @@ class PlayerDataManager {
    */
   async loadPlayerData(userId) {
     try {
-      logger.info('DATABASE', `Loading player data for user: ${userId}`);
+      ServerLoggerWrapper.database(`Loading player data for user: ${userId}`);
 
       // Carica TUTTO in una singola query ottimizzata
-      logger.info('DATABASE', `🔍 Loading complete player data for user ${userId}`);
-      logger.info('DATABASE', `Using Supabase URL: ${supabaseUrl}`);
+      ServerLoggerWrapper.database(`🔍 Loading complete player data for user ${userId}`);
+      ServerLoggerWrapper.database(`Using Supabase URL: ${supabaseUrl}`);
       
       const { data: completeData, error: dataError } = await supabase.rpc(
         'get_player_complete_data_secure',
@@ -66,16 +67,16 @@ class PlayerDataManager {
       );
 
       if (dataError) {
-        logger.error('DATABASE', `❌ Complete data load error for user ${userId}:`, dataError);
+        ServerLoggerWrapper.database(`❌ Complete data load error for user ${userId}: ${dataError.message}`);
         throw dataError;
       }
 
-      logger.info('DATABASE', `📦 Raw RPC response for user ${userId}:`, JSON.stringify(completeData, null, 2));
+      ServerLoggerWrapper.database(`📦 Raw RPC response for user ${userId}: ${JSON.stringify(completeData, null, 2)}`);
 
       // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
       const playerDataRaw = Array.isArray(completeData) && completeData.length > 0 ? completeData[0] : completeData;
       
-      logger.info('DATABASE', `📋 Parsed playerDataRaw for user ${userId}:`, {
+      ServerLoggerWrapper.database(`📋 Parsed playerDataRaw for user ${userId}`, {
         found: playerDataRaw?.found,
         player_id: playerDataRaw?.player_id,
         username: playerDataRaw?.username,
@@ -85,14 +86,14 @@ class PlayerDataManager {
 
       if (!playerDataRaw || !playerDataRaw.found) {
         // PROFILO NON TROVATO - BLOCCO TOTALE ACCESSO
-        logger.error('SECURITY', `🚫 BLOCKED: User ${userId} attempted to play without profile`);
+        ServerLoggerWrapper.security(`🚫 BLOCKED: User ${userId} attempted to play without profile`);
         throw new Error(`ACCESS DENIED: You must register and create a profile before playing. Please register first.`);
       }
 
       // Verifica che player_id sia valido
       if (!playerDataRaw.player_id || playerDataRaw.player_id === 0) {
-        logger.error('DATABASE', `❌ CRITICAL: User ${userId} has invalid player_id: ${playerDataRaw.player_id}`);
-        logger.error('DATABASE', `Raw data:`, JSON.stringify(playerDataRaw, null, 2));
+        ServerLoggerWrapper.database(`❌ CRITICAL: User ${userId} has invalid player_id: ${playerDataRaw.player_id}`);
+        ServerLoggerWrapper.database(`Raw data: ${JSON.stringify(playerDataRaw, null, 2)}`);
         throw new Error(`DATABASE ERROR: Invalid player_id for user ${userId}. Please contact support.`);
       }
 
@@ -179,7 +180,7 @@ class PlayerDataManager {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedHealth = currencies.current_health;
-            logger.info('DATABASE', `💚 LOAD Health from DB: ${loadedHealth} (NULL = DB error after migration)`);
+            ServerLoggerWrapper.database(`💚 LOAD Health from DB: ${loadedHealth} (NULL = DB error after migration)`);
             return loadedHealth; // Dopo migrazione, questo sarà sempre un numero valido
           }
           return null;
@@ -188,7 +189,7 @@ class PlayerDataManager {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedShield = currencies.current_shield;
-            logger.info('DATABASE', `🛡️ LOAD Shield from DB: ${loadedShield} (NULL = DB error after migration)`);
+            ServerLoggerWrapper.database(`🛡️ LOAD Shield from DB: ${loadedShield} (NULL = DB error after migration)`);
             return loadedShield; // Dopo migrazione, questo sarà sempre un numero valido
           }
           return null;
@@ -205,14 +206,14 @@ class PlayerDataManager {
         });
       }
 
-      logger.info('DATABASE', `Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
-      logger.info('DATABASE', `Loaded currencies:`, playerData.inventory);
-      logger.info('DATABASE', `RecentHonor (30 days):`, recentHonor);
+      ServerLoggerWrapper.database(`Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
+      ServerLoggerWrapper.database(`Loaded currencies`, playerData.inventory);
+      ServerLoggerWrapper.database(`RecentHonor (30 days): ${recentHonor}`);
       return playerData;
 
     } catch (error) {
-      logger.error('DATABASE', `Error loading player data: ${error.message}`);
-      logger.error('DATABASE', `Error details:`, error);
+      ServerLoggerWrapper.database(`Error loading player data: ${error.message}`);
+      ServerLoggerWrapper.database(`Error details`, error);
       
       // Per un MMO, qualsiasi errore nel caricamento dei dati del player è critico
       // Non permettere connessioni senza dati validi dal database
@@ -228,7 +229,7 @@ class PlayerDataManager {
   async savePlayerData(playerData) {
     try {
       if (!playerData || !playerData.playerId) {
-        logger.warn('DATABASE', 'Cannot save player data: invalid player data');
+        ServerLoggerWrapper.database('Cannot save player data: invalid player data');
         return;
       }
 
@@ -237,8 +238,8 @@ class PlayerDataManager {
       // 🔴 CRITICAL: Verifica che inventory esista prima di salvare
       // Se inventory è null/undefined, NON salvare per evitare di sovrascrivere i valori esistenti nel database
       if (!playerData.inventory) {
-        logger.error('DATABASE', `🚨 CRITICAL: Cannot save player data for ${playerId} - inventory is null/undefined!`);
-        logger.error('DATABASE', `Player data state:`, {
+        ServerLoggerWrapper.database(`🚨 CRITICAL: Cannot save player data for ${playerId} - inventory is null/undefined!`);
+        ServerLoggerWrapper.database(`Player data state`, {
           playerId: playerData.playerId,
           userId: playerData.userId,
           nickname: playerData.nickname,
@@ -251,8 +252,13 @@ class PlayerDataManager {
         return;
       }
 
-      logger.info('DATABASE', `Saving player data for player ID: ${playerId}`);
-      logger.info('DATABASE', `Player data to save:`, {
+      // Assicurati che stats sia sempre presente come oggetto valido
+      if (!playerData.stats) {
+        playerData.stats = { kills: 0, deaths: 0, ranking_points: 0 };
+      }
+
+      ServerLoggerWrapper.database(`Saving player data for player ID: ${playerId}`);
+      ServerLoggerWrapper.database(`Player data to save`, {
         stats: playerData.stats,
         upgrades: playerData.upgrades,
         inventory: playerData.inventory,
@@ -264,7 +270,11 @@ class PlayerDataManager {
         kills: playerData.stats.kills || 0,
         deaths: playerData.stats.deaths || 0,
         ranking_points: playerData.stats.rankingPoints || 0
-      } : null;
+      } : {
+        kills: 0,
+        deaths: 0,
+        ranking_points: 0
+      };
 
       const upgradesData = playerData.upgrades ? {
         hp_upgrades: playerData.upgrades.hpUpgrades || 0,
@@ -287,12 +297,12 @@ class PlayerDataManager {
         // Questo garantisce che ogni logout/login mantenga lo stato esatto
         current_health: (() => {
           const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : null;
-          logger.info('DATABASE', `💚 SAVE Health: ${health} (always saved for true MMO persistence)`);
+          ServerLoggerWrapper.database(`💚 SAVE Health: ${health} (always saved for true MMO persistence)`);
           return health !== null ? Number(health) : null;
         })(),
         current_shield: (() => {
           const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : null;
-          logger.info('DATABASE', `🛡️ SAVE Shield: ${shield} (always saved for true MMO persistence)`);
+          ServerLoggerWrapper.database(`🛡️ SAVE Shield: ${shield} (always saved for true MMO persistence)`);
           return shield !== null ? Number(shield) : null;
         })()
       };
@@ -310,8 +320,8 @@ class PlayerDataManager {
       const profileData = null;
 
       // Use secure RPC function instead of direct table access
-      logger.info('DATABASE', `Calling update_player_data_secure RPC for auth_id: ${playerId}`);
-      logger.info('DATABASE', `Currencies data to save:`, currenciesData);
+      ServerLoggerWrapper.database(`Calling update_player_data_secure RPC for auth_id: ${playerId}`);
+      ServerLoggerWrapper.database(`Currencies data to save`, currenciesData);
       const { data: updateResult, error: updateError } = await supabase.rpc(
         'update_player_data_secure',
         {
@@ -324,15 +334,15 @@ class PlayerDataManager {
       );
 
       if (updateError) {
-        logger.error('DATABASE', `Error updating player data: ${updateError.message}`);
+        ServerLoggerWrapper.database(`Error updating player data: ${updateError.message}`);
         throw updateError;
       }
 
-      logger.info('DATABASE', `Player data saved successfully for ${playerId}`);
+      ServerLoggerWrapper.database(`Player data saved successfully for ${playerId}`);
 
       // Salva quest progress separatamente se presente
       if (playerData.quests && Array.isArray(playerData.quests)) {
-        logger.info('DATABASE', `Saving quest progress for auth_id: ${playerId}`);
+        ServerLoggerWrapper.database(`Saving quest progress for auth_id: ${playerId}`);
         for (const quest of playerData.quests) {
           const questResult = await supabase.from('quest_progress').upsert({
             auth_id: playerId,
@@ -344,13 +354,13 @@ class PlayerDataManager {
           });
 
           if (questResult.error) {
-            logger.error('DATABASE', `Error saving quest progress: ${questResult.error.message}`);
+            ServerLoggerWrapper.database(`Error saving quest progress: ${questResult.error.message}`);
           }
         }
       }
 
     } catch (error) {
-      logger.error('DATABASE', `Error saving player data: ${error.message}`);
+      ServerLoggerWrapper.database(`Error saving player data: ${error.message}`);
       throw error;
     }
   }
@@ -389,9 +399,9 @@ class PlayerDataManager {
         skill_points_total: 0
       });
 
-      logger.info('DATABASE', `Initial player records created for ${playerId}`);
+      ServerLoggerWrapper.database(`Initial player records created for ${playerId}`);
     } catch (error) {
-      logger.error('DATABASE', `Error creating initial player records: ${error.message}`);
+      ServerLoggerWrapper.database(`Error creating initial player records: ${error.message}`);
       throw error;
     }
   }
@@ -411,10 +421,10 @@ class PlayerDataManager {
       });
 
       if (error) {
-        logger.warn('DATABASE', `Error saving honor snapshot: ${error.message}`);
+        ServerLoggerWrapper.database(`Error saving honor snapshot: ${error.message}`);
       }
     } catch (error) {
-      logger.warn('DATABASE', `Error in saveHonorSnapshot: ${error.message}`);
+      ServerLoggerWrapper.database(`Error in saveHonorSnapshot: ${error.message}`);
     }
   }
 
@@ -432,13 +442,13 @@ class PlayerDataManager {
       });
 
       if (error) {
-        logger.warn('DATABASE', `Error getting recent honor average: ${error.message}`);
+        ServerLoggerWrapper.database(`Error getting recent honor average: ${error.message}`);
         return 0;
       }
 
       return Number(data || 0);
     } catch (error) {
-      logger.warn('DATABASE', `Error in getRecentHonorAverage: ${error.message}`);
+      ServerLoggerWrapper.database(`Error in getRecentHonorAverage: ${error.message}`);
       return 0;
     }
   }
@@ -482,7 +492,7 @@ class PlayerDataManager {
 
     this.periodicSaveInterval = setInterval(async () => {
       try {
-        logger.info('DATABASE', 'Starting periodic save of all player data...');
+        ServerLoggerWrapper.database('Starting periodic save of all player data...');
         const players = Array.from(this.mapServer.players.values());
         let savedCount = 0;
         let errorCount = 0;
@@ -492,18 +502,18 @@ class PlayerDataManager {
             await this.savePlayerData(playerData);
             savedCount++;
           } catch (error) {
-            logger.error('DATABASE', `Error saving player data for ${playerData.userId}: ${error.message}`);
+            ServerLoggerWrapper.database(`Error saving player data for ${playerData.userId}: ${error.message}`);
             errorCount++;
           }
         }
 
-        logger.info('DATABASE', `Periodic save completed: ${savedCount} saved, ${errorCount} errors`);
+        ServerLoggerWrapper.database(`Periodic save completed: ${savedCount} saved, ${errorCount} errors`);
       } catch (error) {
-        logger.error('DATABASE', `Error in periodic save: ${error.message}`);
+        ServerLoggerWrapper.database(`Error in periodic save: ${error.message}`);
       }
     }, SAVE_INTERVAL);
 
-    logger.info('DATABASE', `Periodic save system initialized (every ${SAVE_INTERVAL / 1000 / 60} minutes)`);
+    ServerLoggerWrapper.database(`Periodic save system initialized (every ${SAVE_INTERVAL / 1000 / 60} minutes)`);
   }
 
   /**
@@ -513,7 +523,7 @@ class PlayerDataManager {
     if (this.periodicSaveInterval) {
       clearInterval(this.periodicSaveInterval);
       this.periodicSaveInterval = null;
-      logger.info('DATABASE', 'Periodic save system stopped');
+      ServerLoggerWrapper.database('Periodic save system stopped');
     }
   }
 }

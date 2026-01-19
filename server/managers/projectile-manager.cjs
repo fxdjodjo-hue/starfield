@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, config/constants.cjs, moduli projectile/
 
 const { logger } = require('../logger.cjs');
+const ServerLoggerWrapper = require('../core/infrastructure/ServerLoggerWrapper.cjs');
 const { SERVER_CONSTANTS } = require('../config/constants.cjs');
 const ProjectileSpawner = require('./projectile/ProjectileSpawner.cjs');
 const ProjectilePhysics = require('./projectile/ProjectilePhysics.cjs');
@@ -148,7 +149,7 @@ class ServerProjectileManager {
             this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile, 'player', actualDamage);
 
             if (playerDead) {
-              logger.info('COMBAT', `Player ${targetHit.entity.clientId} killed by ${projectile.playerId}`);
+              ServerLoggerWrapper.combat(`Player ${targetHit.entity.clientId} killed by ${projectile.playerId}`);
               this.damageHandler.handlePlayerDeath(targetHit.entity.clientId, projectile.playerId);
               this.broadcaster.broadcastEntityDestroyed(targetHit.entity, projectile.playerId, 'player');
             }
@@ -206,7 +207,7 @@ class ServerProjectileManager {
           this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player', actualDamage);
 
           if (playerDead) {
-            logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
+            ServerLoggerWrapper.combat(`Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
             this.damageHandler.handlePlayerDeath(hitPlayer.clientId, projectile.playerId);
             this.broadcaster.broadcastEntityDestroyed(hitPlayer.playerData, projectile.playerId, 'player');
           }
@@ -255,7 +256,7 @@ class ServerProjectileManager {
           this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player', actualDamage);
 
           if (playerDead) {
-            logger.info('COMBAT', `Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
+            ServerLoggerWrapper.combat(`Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
             this.damageHandler.handlePlayerDeath(hitPlayer.clientId, projectile.playerId);
             this.broadcaster.broadcastEntityDestroyed(hitPlayer.playerData, projectile.playerId, 'player');
           }

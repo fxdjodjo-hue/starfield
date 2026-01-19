@@ -351,6 +351,4 @@ export class RemoteNpcSystem extends BaseSystem {
       console.warn(`[RemoteNpcSystem] Consistency check: ${validCount} valid NPCs, ${orphanedCount} orphaned NPCs removed, ${this.remoteNpcs.size} registered`);
     }
   }
-
-  private lastStatusLog = 0;
 }

@@ -4,89 +4,112 @@
 const { logger } = require('../../logger.cjs');
 
 class ServerLoggerWrapper {
-  static debug(category, message, context) {
+  static debug(category, message, context = null) {
     // Server non ha livelli di debug verbosi, usa info per debug importante
     if (process.env.NODE_ENV === 'development') {
       this._logWithContext('info', category, `[DEBUG] ${message}`, context);
     }
+    return null;
   }
 
-  static info(category, message, context) {
+  static info(category, message, context = null) {
     this._logWithContext('info', category, message, context);
+    return null;
   }
 
-  static warn(category, message, context) {
+  static warn(category, message, context = null) {
     this._logWithContext('warn', category, message, context);
+    return null;
   }
 
-  static error(category, message, error, context) {
+  static error(category, message, error, context = null) {
     const fullMessage = error ? `${message}: ${error.message}` : message;
     this._logWithContext('error', category, fullMessage, context);
+    return null;
   }
 
-  static critical(category, message, error, context) {
+  static critical(category, message, error, context = null) {
     const fullMessage = error ? `[CRITICAL] ${message}: ${error.message}` : `[CRITICAL] ${message}`;
     this._logWithContext('error', category, fullMessage, context);
+    return null;
   }
 
   // Metodi specializzati per categoria
-  static combat(message, context) {
+  static combat(message, context = null) {
     this.info('COMBAT', message, context);
+    return null;
   }
 
-  static network(message, context) {
+  static network(message, context = null) {
     this.info('NETWORK', message, context);
+    return null;
   }
 
-  static database(message, context) {
+  static database(message, context = null) {
     this.info('DATABASE', message, context);
+    return null;
   }
 
-  static security(message, context) {
+  static security(message, context = null) {
     this.warn('SECURITY', message, context);
+    return null;
   }
 
-  static gameplay(message, context) {
+  static gameplay(message, context = null) {
     this.debug('GAMEPLAY', message, context);
+    return null;
   }
 
-  static system(message, context) {
+  static system(message, context = null) {
     this.info('SYSTEM', message, context);
+    return null;
   }
 
-  static performance(message, context) {
+  static performance(message, context = null) {
     this.debug('PERFORMANCE', message, context);
+    return null;
   }
 
-  static ecs(message, context) {
+  static ecs(message, context = null) {
     this.debug('ECS', message, context);
+    return null;
   }
 
-  static ai(message, context) {
+  static ai(message, context = null) {
     this.debug('AI', message, context);
+    return null;
   }
 
-  static _logWithContext(level, category, message, context) {
+  static _logWithContext(level, category, message, context = null) {
     try {
       let fullMessage = message;
 
-      // Aggiungi contesto se presente
-      if (context && Object.keys(context).length > 0) {
-        const contextStr = JSON.stringify(context);
-        fullMessage += ` | Context: ${contextStr}`;
+      // Se c'è un context object valido, serializzalo
+      if (context && typeof context === 'object' && Object.keys(context).length > 0) {
+        // Filtra i valori undefined/null prima di serializzare
+        const cleanContext = Object.fromEntries(
+          Object.entries(context).filter(([_, value]) => value !== undefined && value !== null)
+        );
+        if (Object.keys(cleanContext).length > 0) {
+          const contextStr = JSON.stringify(cleanContext);
+          fullMessage += ` | Context: ${contextStr}`;
+        }
       }
 
-      // Usa il logger server esistente
+      // PASSA AL LOGGER BASE CON LA FIRMA CORRETTA: module, message, data
       if (logger && typeof logger[level] === 'function') {
-        logger[level](`${category}: ${fullMessage}`);
+        logger[level](category, fullMessage);
       } else {
-        console[level](`${category}: ${fullMessage}`);
+        console[level](`[${category}] ${fullMessage}`);
       }
     } catch (error) {
       // Fallback in caso di errori
       console.error(`Logger error: ${error.message}`);
       console[level](`${category}: ${message}`);
     }
+
+    // VOID-SAFE: Ritorna null invece di undefined
+    return null;
   }
 }
 

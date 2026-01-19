@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, mapServer, playerDataManager, authManager, messageBroadcaster, core/combat/DamageCalculationSystem.cjs
 
 const { logger } = require('../../logger.cjs');
+const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const WebSocket = require('ws');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
 const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
@@ -20,7 +21,7 @@ async function handleJoin(data, sanitizedData, context) {
     
     // Verifica che playerId sia valido dopo il caricamento
     if (!loadedData || !loadedData.playerId || loadedData.playerId === 0) {
-      logger.error('JOIN', `Invalid player data loaded for ${data.userId}: playerId=${loadedData?.playerId}`);
+      ServerLoggerWrapper.security(`Invalid player data loaded for ${data.userId}: playerId=${loadedData?.playerId}`);
       ws.send(JSON.stringify({
         type: 'error',
         message: 'Invalid player data. Please contact support.',
@@ -30,7 +31,7 @@ async function handleJoin(data, sanitizedData, context) {
       return null;
     }
   } catch (error) {
-    logger.error('JOIN', `Failed to load player data for ${data.userId}: ${error.message}`);
+    ServerLoggerWrapper.database(`Failed to load player data for ${data.userId}: ${error.message}`);
     
     let errorMessage = 'Failed to load player data. Please contact support.';
     let errorCode = 'LOAD_PLAYER_DATA_FAILED';
@@ -63,14 +64,14 @@ async function handleJoin(data, sanitizedData, context) {
   // Se il player esiste, HP deve arrivare dal DB. Se manca → errore, non fallback silenzioso
 
   if (loadedData.currentHealth === null || loadedData.currentHealth === undefined) {
-    logger.error('CONNECTION', `🚨 CRITICAL: MISSING HEALTH DATA for existing player ${data.userId} (${loadedData.playerId})`);
-    logger.error('CONNECTION', `This should NEVER happen after DB migration. Check migration status and DB integrity.`);
+    ServerLoggerWrapper.system(`🚨 CRITICAL: MISSING HEALTH DATA for existing player ${data.userId} (${loadedData.playerId})`);
+    ServerLoggerWrapper.system(`This should NEVER happen after DB migration. Check migration status and DB integrity.`);
     throw new Error(`DATABASE ERROR: Missing current_health for player ${loadedData.playerId}. DB migration may have failed.`);
   }
 
   if (loadedData.currentShield === null || loadedData.currentShield === undefined) {
-    logger.error('CONNECTION', `🚨 CRITICAL: MISSING SHIELD DATA for existing player ${data.userId} (${loadedData.playerId})`);
-    logger.error('CONNECTION', `This should NEVER happen after DB migration. Check migration status and DB integrity.`);
+    ServerLoggerWrapper.system(`🚨 CRITICAL: MISSING SHIELD DATA for existing player ${data.userId} (${loadedData.playerId})`);
+    ServerLoggerWrapper.system(`This should NEVER happen after DB migration. Check migration status and DB integrity.`);
     throw new Error(`DATABASE ERROR: Missing current_shield for player ${loadedData.playerId}. DB migration may have failed.`);
   }
 
@@ -106,7 +107,7 @@ async function handleJoin(data, sanitizedData, context) {
 
   // Verifica che inventory sia presente
   if (!playerData.inventory) {
-    logger.error('JOIN', `🚨 CRITICAL: Player ${data.userId} joined with null inventory!`);
+    ServerLoggerWrapper.security(`🚨 CRITICAL: Player ${data.userId} joined with null inventory!`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Failed to load player inventory. Please contact support.',
@@ -124,7 +125,7 @@ async function handleJoin(data, sanitizedData, context) {
   // con lo stesso playerId ma clientId diverso (riconnessioni)
   for (const [existingClientId, existingPlayerData] of mapServer.players.entries()) {
     if (existingPlayerData.playerId === playerData.playerId && existingClientId !== persistentClientId) {
-      logger.warn('SECURITY', `🧹 CLEANUP: Removing old instance of player ${playerData.playerId} with clientId ${existingClientId} (reconnection)`);
+      ServerLoggerWrapper.security(`🧹 CLEANUP: Removing old instance of player ${playerData.playerId} with clientId ${existingClientId} (reconnection)`);
 
       // Broadcast player left per il vecchio giocatore
       const playerLeftMsg = messageBroadcaster.formatPlayerLeftMessage(existingClientId);
@@ -151,22 +152,22 @@ async function handleJoin(data, sanitizedData, context) {
 
   mapServer.addPlayer(persistentClientId, playerData);
 
-  logger.info('PLAYER', `Player joined: ${persistentClientId}`);
-  logger.info('PLAYER', `  Nickname: ${data.nickname}`);
-  logger.info('PLAYER', `  Player ID: ${playerData.playerId}`);
-  logger.info('PLAYER', `  User ID: ${data.userId}`);
-  logger.info('SERVER', `Total connected players: ${mapServer.players.size}`);
+  ServerLoggerWrapper.system(`Player joined: ${persistentClientId}`);
+  ServerLoggerWrapper.system(`  Nickname: ${data.nickname}`);
+  ServerLoggerWrapper.system(`  Player ID: ${playerData.playerId}`);
+  ServerLoggerWrapper.system(`  User ID: ${data.userId}`);
+  ServerLoggerWrapper.system(`Total connected players: ${mapServer.players.size}`);
 
   // TEMP: Enable repair system after initial sync (replace with explicit load completion)
   // Questo timeout è un hack temporaneo - in futuro sostituire con:
   // await loadHealth(); await loadShield(); await loadPosition(); await loadShipState();
   setTimeout(() => {
     playerData.isFullyLoaded = true;
-    logger.info('PLAYER', `Player ${persistentClientId} fully loaded - enabling repair system`);
+    ServerLoggerWrapper.system(`Player ${persistentClientId} fully loaded - enabling repair system`);
   }, 2000); // 2 secondi per sync iniziale
 
   if (mapServer.players.size >= 10) {
-    logger.warn('SERVER', `High player count: ${mapServer.players.size} players connected`);
+    ServerLoggerWrapper.system(`High player count: ${mapServer.players.size} players connected`);
   }
 
   // Broadcast player joined
@@ -292,7 +293,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
 
     // Se la distanza è troppo grande, potrebbe essere un teleport hack
     if (distance > teleportThreshold) {
-      logger.warn('SECURITY', `🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
+      ServerLoggerWrapper.security(`🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
         `distance ${distance.toFixed(2)} > threshold ${teleportThreshold.toFixed(2)} | ` +
         `actualMaxSpeed: ${actualMaxSpeed.toFixed(0)} u/s | ` +
         `speedUpgrades: ${playerSpeedUpgrades} | ` +
@@ -379,7 +380,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   // Security check
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Skill upgrade attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+    ServerLoggerWrapper.security(`🚫 BLOCKED: Skill upgrade attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid player ID for skill upgrade.',
@@ -521,7 +522,7 @@ function handleProjectileFired(data, sanitizedData, context) {
   // Security check
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Projectile fire attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+    ServerLoggerWrapper.security(`🚫 BLOCKED: Projectile fire attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid player ID for projectile action.',
@@ -594,7 +595,7 @@ function handleStartCombat(data, sanitizedData, context) {
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) {
-    logger.warn('COMBAT', `Player data not found for clientId: ${data.clientId}`);
+    ServerLoggerWrapper.system(`Player data not found for clientId: ${data.clientId}`);
     return;
   }
 
@@ -612,7 +613,7 @@ function handleStartCombat(data, sanitizedData, context) {
 
   const npc = mapServer.npcManager.getNpc(data.npcId);
   if (!npc) {
-    logger.error('COMBAT', `START_COMBAT: NPC ${data.npcId} not found`);
+    ServerLoggerWrapper.combat(`START_COMBAT: NPC ${data.npcId} not found`);
     return;
   }
 
@@ -690,7 +691,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
     const sortBy = data.sortBy || 'ranking_points';
     const limit = data.limit || 100;
 
-    logger.info('LEADERBOARD', `Requesting leaderboard: sortBy=${sortBy}, limit=${limit}`);
+    ServerLoggerWrapper.system(`Requesting leaderboard: sortBy=${sortBy}, limit=${limit}`);
 
     // Usa playerDataManager per accedere a Supabase (ha un client funzionante)
     const supabase = playerDataManager.getSupabaseClient();
@@ -706,7 +707,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
       }
     );
 
-    logger.info('LEADERBOARD', `RPC response:`, {
+    ServerLoggerWrapper.database(`RPC response`, {
       hasData: !!leaderboardData,
       dataType: Array.isArray(leaderboardData) ? 'array' : typeof leaderboardData,
       dataLength: Array.isArray(leaderboardData) ? leaderboardData.length : 'N/A',

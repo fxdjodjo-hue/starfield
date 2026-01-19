@@ -3,10 +3,8 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Projectile } from '../../entities/combat/Projectile';
-import { Sprite } from '../../entities/Sprite';
 import { Npc } from '../../entities/ai/Npc';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
-import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
 
@@ -24,6 +22,7 @@ export class RemoteProjectileSystem extends BaseSystem {
     super(ecs);
   }
 
+
   /**
    * Aggiunge un nuovo proiettile remoto sparato da un altro giocatore
    */
@@ -37,32 +36,15 @@ export class RemoteProjectileSystem extends BaseSystem {
     targetId: string | number | null = null,
     isLocalPlayer: boolean = false
   ): number {
-    // DEBUG: Log per vedere se viene chiamato
-    console.log(`[REMOTE_PROJECTILE_DEBUG] Adding projectile: id=${projectileId}, playerId=${playerId}, type=${projectileType}, isLocalPlayer=${isLocalPlayer}, position=(${position.x.toFixed(1)}, ${position.y.toFixed(1)})`);
-
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
       console.warn(`[REMOTE_PROJECTILE] Projectile ${projectileId} already exists`);
       return this.remoteProjectiles.get(projectileId)!.entityId;
     }
 
-    // Crea la nuova entity proiettile
-    const entity = this.ecs.createEntity();
-
-    // Componenti spaziali
-    this.ecs.addComponent(entity, Transform, new Transform(position.x, position.y, 0));
-    this.ecs.addComponent(entity, Velocity, new Velocity(velocity.x, velocity.y, 0));
-
-    // Calcola speed dalla velocity
-    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
-
-    // Calcola direction normalizzata
-    const directionX = speed > 0 ? velocity.x / speed : 0;
-    const directionY = speed > 0 ? velocity.y / speed : 0;
-
     // Determina ownerId e targetId corretti per homing
-    let ownerId: number = entity.id; // Default fallback
-    let actualTargetId: number = -1; // Default: nessun target
+    let ownerId: number | undefined;
+    let actualTargetId: number | undefined;
 
     // Se playerId inizia con "npc_", è un proiettile NPC
     if (typeof playerId === 'string' && playerId.startsWith('npc_')) {
@@ -72,9 +54,6 @@ export class RemoteProjectileSystem extends BaseSystem {
 
       // Trova l'entità player locale come target
       if (targetId) {
-        // Cerca il player con il clientId corrispondente
-        // Per ora semplificato: assumiamo che il player locale sia il target
-        // TODO: Implementare mapping corretto clientId -> entityId
         const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
         for (const playerEntity of playerEntities) {
           // Controlla se è un'entità player (non NPC)
@@ -86,9 +65,8 @@ export class RemoteProjectileSystem extends BaseSystem {
       }
     } else {
       // Proiettile player: owner è il player, target potrebbe essere un NPC
-      // Cerca l'entità player locale come owner
+      // Cerca l'entità player come owner
       const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
-      ownerId = entity.id; // Fallback
       for (const playerEntity of playerEntities) {
         if (!this.ecs.hasComponent(playerEntity, Npc)) {
           ownerId = playerEntity.id;
@@ -101,7 +79,7 @@ export class RemoteProjectileSystem extends BaseSystem {
         const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
         for (const npcEntity of npcEntities) {
           const npc = this.ecs.getComponent(npcEntity, Npc);
-          if (npc && npc.serverId === targetId.toString()) {
+          if (npc && npc.serverId === String(targetId)) {
             actualTargetId = npcEntity.id;
             break;
           }
@@ -109,54 +87,41 @@ export class RemoteProjectileSystem extends BaseSystem {
       }
     }
 
-    // Componente proiettile
-    const projectile = new Projectile(damage, speed, directionX, directionY, ownerId, actualTargetId, GAME_CONSTANTS.PROJECTILE.LIFETIME, playerId);
-    this.ecs.addComponent(entity, Projectile, projectile);
+    // Usa il nuovo metodo unificato che crea proiettili normali gestiti dal ProjectileSystem
+    const entity = ProjectileFactory.createRemoteUnified(
+      this.ecs,
+      projectileId,
+      playerId,
+      position,
+      velocity,
+      damage,
+      projectileType,
+      actualTargetId || targetId
+    );
 
-    // Per proiettili NPC remoti, aggiungi InterpolationTarget per movimento fluido
-    // Il server invia aggiornamenti ogni 50ms, l'interpolazione elimina glitch
-    if (typeof playerId === 'string' && playerId.startsWith('npc_')) {
-      this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(position.x, position.y, 0));
-    }
-
-    // Sprite per rendering (se necessario)
-    // TODO: Aggiungere sprite appropriati per i diversi tipi di proiettile
-
-    // Registra il proiettile
+    // Registra il proiettile nella mappa per tracking
     this.remoteProjectiles.set(projectileId, {
       entityId: entity.id,
-      playerId,
+      playerId: playerId,
       type: projectileType
     });
 
-    // Per tutti i player (non NPC), crea laser visivi sempre 3 per maggiore impatto visivo
-    // SEMPLICATO: Crea sempre un singolo proiettile, niente laser multipli
+
+    LoggerWrapper.network(`Remote projectile ${projectileId} added: type=${projectileType}, player=${playerId}`, {
+      projectileId,
+      entityId: entity.id,
+      position,
+      velocity,
+      damage,
+      projectileType,
+      targetId,
+      isLocalPlayer
+    });
 
     return entity.id;
   }
 
-  /**
-   * Aggiorna la posizione di un proiettile remoto
-   */
-  updateRemoteProjectile(projectileId: string, position: { x: number; y: number }): void {
-    const projectileData = this.remoteProjectiles.get(projectileId);
-    if (!projectileData) {
-      return; // Proiettile potrebbe essere già stato distrutto
-    }
 
-    const entity = this.ecs.getEntity(projectileData.entityId);
-    if (!entity) {
-      console.warn(`[REMOTE_PROJECTILE] Entity ${projectileData.entityId} not found for projectile ${projectileId}`);
-      this.remoteProjectiles.delete(projectileId);
-      return;
-    }
-
-    const transform = this.ecs.getComponent(entity, Transform);
-    if (transform) {
-      transform.x = position.x;
-      transform.y = position.y;
-    }
-  }
 
   /**
    * Rimuove un proiettile remoto (distrutto)
@@ -242,6 +207,7 @@ export class RemoteProjectileSystem extends BaseSystem {
       this.removeRemoteProjectile(projectileId);
     }
   }
+
 
   /**
    * Update periodico (principalmente per logging)

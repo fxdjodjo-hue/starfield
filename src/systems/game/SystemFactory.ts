@@ -196,6 +196,8 @@ export class SystemFactory {
       combatStateSystem.setCameraSystem(cameraSystem);
       combatStateSystem.setPlayerSystem(playerSystem);
       combatStateSystem.setLogSystem(logSystem);
+      combatStateSystem.setDamageSystem(damageSystem);
+      combatStateSystem.setAssetManager(context.assetManager);
     }
 
     if (projectileCreationSystem) {

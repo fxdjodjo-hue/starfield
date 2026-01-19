@@ -24,16 +24,21 @@ class NpcDamageHandler {
     const npc = this.npcs.get(npcId);
     if (!npc) return false;
 
+    const rawDamage = damage;
+    let shieldAbsorbed = 0;
+    let healthDamage = 0;
+
     // Prima danneggia lo scudo
     if (npc.shield > 0) {
-      const shieldDamage = Math.min(damage, npc.shield);
-      npc.shield -= shieldDamage;
-      damage -= shieldDamage;
+      shieldAbsorbed = Math.min(damage, npc.shield);
+      npc.shield -= shieldAbsorbed;
+      damage -= shieldAbsorbed;
     }
 
     // Poi danneggia la salute
     if (damage > 0) {
-      npc.health = Math.max(0, npc.health - damage);
+      healthDamage = damage;
+      npc.health = Math.max(0, npc.health - healthDamage);
     }
 
     npc.lastUpdate = Date.now();
@@ -42,7 +47,10 @@ class NpcDamageHandler {
 
     ServerLoggerWrapper.combat(`NPC ${npcId} damaged: ${npc.health}/${npc.maxHealth} HP, ${npc.shield}/${npc.maxShield} shield`, {
       npcId,
-      damage,
+      rawDamage,
+      appliedDamage: rawDamage,
+      shieldAbsorbed,
+      healthDamage,
       remainingHealth: npc.health,
       remainingShield: npc.shield,
       attackerId
@@ -69,23 +77,31 @@ class NpcDamageHandler {
     const playerData = this.mapServer.players.get(clientId);
     if (!playerData || playerData.isDead) return false;
 
+    const rawDamage = damage;
+    let shieldAbsorbed = 0;
+    let healthDamage = 0;
+
     // Prima danneggia lo scudo
     if (playerData.shield > 0) {
-      const shieldDamage = Math.min(damage, playerData.shield);
-      playerData.shield -= shieldDamage;
-      damage -= shieldDamage;
+      shieldAbsorbed = Math.min(damage, playerData.shield);
+      playerData.shield -= shieldAbsorbed;
+      damage -= shieldAbsorbed;
     }
 
     // Poi danneggia la salute
     if (damage > 0) {
-      playerData.health = Math.max(0, playerData.health - damage);
+      healthDamage = damage;
+      playerData.health = Math.max(0, playerData.health - healthDamage);
     }
 
     playerData.lastDamage = Date.now();
 
     ServerLoggerWrapper.combat(`Player ${clientId} damaged: ${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} shield`, {
       playerId: clientId,
-      damage,
+      rawDamage,
+      appliedDamage: rawDamage,
+      shieldAbsorbed,
+      healthDamage,
       remainingHealth: playerData.health,
       remainingShield: playerData.shield,
       attackerId
@@ -117,7 +133,7 @@ class NpcDamageHandler {
     const existed = this.npcs.delete(npcId);
 
     if (existed) {
-      logger.info('NPC', `Removed NPC ${npcId} (${npcType})`);
+      ServerLoggerWrapper.system(`Removed NPC ${npcId} (${npcType})`);
 
       // Pianifica automaticamente il respawn per mantenere la popolazione
       this.respawnSystem.scheduleRespawn(npcType);
@@ -137,7 +153,7 @@ class NpcDamageHandler {
 
     playerData.isDead = true;
     playerData.health = 0;
-    logger.info('COMBAT', `Player ${clientId} killed by ${attackerId || 'unknown'}`);
+    ServerLoggerWrapper.combat(`Player ${clientId} killed by ${attackerId || 'unknown'}`);
 
     // TODO: Potrebbe essere necessario chiamare logica di respawn player qui
     // Per ora lasciamo che sia gestito da altri sistemi (es. MessageRouter)

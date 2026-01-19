@@ -8,6 +8,8 @@ import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Projectile } from '../../entities/combat/Projectile';
+import { ProjectileVisualState, VisualFadeState } from '../../entities/combat/ProjectileVisualState';
+import { RenderLayer } from '../../core/utils/rendering/RenderLayers';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
@@ -15,6 +17,7 @@ import { MathUtils } from '../utils/MathUtils';
 import { IDGenerator } from '../utils/IDGenerator';
 import { InputValidator } from '../utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
+import { ProjectileLogger } from '../utils/ProjectileLogger';
 
 export interface ProjectileConfig {
   damage: number;
@@ -27,11 +30,12 @@ export interface ProjectileConfig {
   playerId?: string;
   animatedSprite?: AnimatedSprite;
   shipRotation?: number;
-  projectileType?: 'laser' | 'missile';
+  projectileType?: 'laser' | 'missile' | 'npc_laser';
   isRemote?: boolean; // Per proiettili ricevuti dal server
   velocity?: { x: number; y: number }; // Per remote projectiles
   speed?: number; // Override velocità
   lifetime?: number; // Override lifetime
+  projectileId?: string; // ID specifico per remote projectiles
 }
 
 export class ProjectileFactory {
@@ -41,12 +45,21 @@ export class ProjectileFactory {
    */
   static create(ecs: ECS, config: ProjectileConfig): Entity {
     try {
-      const projectileId = IDGenerator.generateProjectileId(String(config.ownerId));
+      const projectileId = config.projectileId || IDGenerator.generateProjectileId(String(config.ownerId));
 
       // Calcola direzione e posizione di spawn
       const { direction, distance } = MathUtils.calculateDirection(
         config.startX, config.startY, config.targetX, config.targetY
       );
+
+      LoggerWrapper.projectile('ProjectileFactory: calculated direction', {
+        projectileId,
+        start: { x: config.startX, y: config.startY },
+        target: { x: config.targetX, y: config.targetY },
+        direction,
+        distance,
+        targetId: config.targetId
+      });
 
       let spawnX: number;
       let spawnY: number;
@@ -78,7 +91,9 @@ export class ProjectileFactory {
         ecs.addComponent(entity, Velocity, new Velocity(config.velocity.x, config.velocity.y, 0));
       } else {
         const projectileSpeed = config.speed ||
-          (config.projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.SPEED : GAME_CONSTANTS.PROJECTILE.SPEED);
+          (config.projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.SPEED :
+           config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED : // Laser visivi
+           GAME_CONSTANTS.PROJECTILE.SPEED);
         ecs.addComponent(entity, Velocity, new Velocity(
           direction.x * projectileSpeed,
           direction.y * projectileSpeed,
@@ -101,10 +116,21 @@ export class ProjectileFactory {
         config.ownerId,
         config.targetId,
         projectileLifetime,
-        config.playerId,
+        config.playerId, // undefined per proiettili locali
         config.projectileType || 'laser'
       );
       ecs.addComponent(entity, Projectile, projectile);
+
+      // Componente stato visivo - garantisce controllo esplicito su visibilità e layer
+      const visualState = new ProjectileVisualState(
+        true,  // active
+        true,  // visible
+        RenderLayer.PROJECTILES,  // layer
+        1.0,  // alpha
+        VisualFadeState.NONE,  // fadeState
+        1.0   // fadeSpeed
+      );
+      ecs.addComponent(entity, ProjectileVisualState, visualState);
 
       // Per proiettili remoti, aggiungi interpolazione per movimento fluido
       if (config.isRemote) {
@@ -114,10 +140,31 @@ export class ProjectileFactory {
       // Assegna ID al componente projectile per riferimento
       (projectile as any).id = projectileId;
 
+      // Logging centralizzato con ProjectileLogger
+      ProjectileLogger.logCreation(projectileId, entity, 'ProjectileFactory', {
+        position: { x: spawnX, y: spawnY },
+        gameState: {
+          damage: projectileDamage,
+          speed: projectile.speed,
+          lifetime: projectile.lifetime,
+          ownerId: config.ownerId,
+          targetId: config.targetId,
+          projectileType: config.projectileType
+        },
+        visualState: {
+          active: visualState.active,
+          visible: visualState.visible,
+          alpha: visualState.alpha,
+          layer: visualState.layer,
+          fadeState: visualState.fadeState
+        }
+      });
+
+      // Logging legacy mantenuto per compatibilità
       LoggerWrapper.combat(`Projectile ${projectileId} created: type=${config.projectileType}, damage=${projectileDamage}`, {
         projectileId: projectileId,
         ownerId: config.ownerId,
-        targetId: config.targetId,
+        targetId: String(config.targetId),
         position: { x: spawnX, y: spawnY },
         projectileType: config.projectileType,
         isRemote: config.isRemote
@@ -232,9 +279,20 @@ export class ProjectileFactory {
       actualTargetId || -1,
       GAME_CONSTANTS.PROJECTILE.LIFETIME,
       playerId,
-      projectileType as 'laser' | 'missile'
+      projectileType as 'laser' | 'missile' | 'npc_laser'
     );
     ecs.addComponent(entity, Projectile, projectile);
+
+    // Componente stato visivo per proiettili remoti
+    const visualState = new ProjectileVisualState(
+      true,  // active
+      true,  // visible
+      RenderLayer.PROJECTILES,  // layer
+      1.0,  // alpha
+      VisualFadeState.NONE,  // fadeState
+      1.0   // fadeSpeed
+    );
+    ecs.addComponent(entity, ProjectileVisualState, visualState);
 
     // Assegna ID
     (projectile as any).id = projectileId;
@@ -250,6 +308,55 @@ export class ProjectileFactory {
   }
 
   /**
+   * Crea proiettile remoto con configurazione semplificata - UNIFICATO
+   * Ora usa lo stesso flusso del create() normale
+   */
+  static createRemoteUnified(
+    ecs: ECS,
+    projectileId: string,
+    playerId: string,
+    position: { x: number; y: number },
+    velocity: { x: number; y: number },
+    damage: number,
+    projectileType: string = 'laser',
+    targetId?: string | number,
+    ownerId?: number
+  ): Entity {
+    // Converti velocity in direction
+    const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
+    const directionX = speed > 0 ? velocity.x / speed : 0;
+    const directionY = speed > 0 ? velocity.y / speed : 0;
+
+    // Converti targetId se necessario
+    let numericTargetId = -1;
+    if (targetId !== undefined && targetId !== null) {
+      if (typeof targetId === 'string') {
+        numericTargetId = parseInt(targetId, 10) || -1;
+      } else {
+        numericTargetId = targetId;
+      }
+    }
+
+    const config: ProjectileConfig = {
+      damage,
+      startX: position.x,
+      startY: position.y,
+      targetX: position.x + directionX * 100, // Bersaglio fittizio per calcolo direzione
+      targetY: position.y + directionY * 100,
+      ownerId: ownerId || 0,
+      targetId: numericTargetId,
+      playerId,
+      projectileType: projectileType as 'laser' | 'missile' | 'npc_laser',
+      isRemote: true,
+      velocity,
+      speed,
+      projectileId
+    };
+
+    return this.create(ecs, config);
+  }
+
+  /**
    * Crea proiettile in posizione e direzione specifica (sostituisce createProjectileAt)
    */
   static createAtPosition(
@@ -262,7 +369,7 @@ export class ProjectileFactory {
     ownerId: number,
     targetId: number,
     playerId?: string,
-    projectileType: 'laser' | 'missile' = 'laser'
+    projectileType: 'laser' | 'missile' | 'npc_laser' = 'laser'
   ): Entity {
     const projectileId = IDGenerator.generateProjectileId(String(ownerId));
 
@@ -295,6 +402,17 @@ export class ProjectileFactory {
       projectileType
     );
     ecs.addComponent(entity, Projectile, projectile);
+
+    // Componente stato visivo
+    const visualState = new ProjectileVisualState(
+      true,  // active
+      true,  // visible
+      RenderLayer.PROJECTILES,  // layer
+      1.0,  // alpha
+      VisualFadeState.NONE,  // fadeState
+      1.0   // fadeSpeed
+    );
+    ecs.addComponent(entity, ProjectileVisualState, visualState);
 
     // Assegna ID
     (projectile as any).id = projectileId;

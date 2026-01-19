@@ -2,6 +2,7 @@
 // Dipendenze consentite: logger.cjs, managers (npc, combat, projectile)
 
 const { logger } = require('../logger.cjs');
+const ServerLoggerWrapper = require('./infrastructure/ServerLoggerWrapper.cjs');
 const ServerNpcManager = require('../managers/npc-manager.cjs');
 const ServerCombatManager = require('../managers/combat-manager.cjs');
 const ServerProjectileManager = require('../managers/projectile-manager.cjs');
@@ -47,7 +48,7 @@ class MapServer {
 
   // Inizializzazione della mappa
   initialize() {
-    logger.info('MAP', `Initializing map ${this.mapId}...`);
+    ServerLoggerWrapper.system(`Initializing map ${this.mapId}...`);
     this.npcManager.initializeWorldNpcs(
       this.npcConfig.scouterCount,
       this.npcConfig.frigateCount
@@ -57,12 +58,12 @@ class MapServer {
   // Gestione giocatori
   addPlayer(clientId, playerData) {
     this.players.set(clientId, playerData);
-    logger.info('MAP', `Player ${clientId} joined map ${this.mapId}`);
+    ServerLoggerWrapper.system(`Player ${clientId} joined map ${this.mapId}`);
   }
 
   removePlayer(clientId) {
     this.players.delete(clientId);
-    logger.info('MAP', `Player ${clientId} left map ${this.mapId}`);
+    ServerLoggerWrapper.system(`Player ${clientId} left map ${this.mapId}`);
   }
 
   // Metodi delegati ai managers
