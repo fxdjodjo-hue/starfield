@@ -123,7 +123,7 @@ export class UINicknameManager {
         color: rgba(255, 0, 0, 0.9);
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         font-weight: 400;
-        font-size: 12px;
+        font-size: 14px;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
         pointer-events: none;
         user-select: none;
@@ -136,10 +136,9 @@ export class UINicknameManager {
         background: rgba(0, 0, 0, 0.3);
         border: 1px solid rgba(255, 255, 255, 0.1);
       `;
-      // Contenuto iniziale: nome + stato sotto (debug)
+      // Contenuto iniziale: solo nome
       element.innerHTML = `
         <div>${npcType}</div>
-        <div style="font-size: 11px; color: #00ffcc;">${behavior}</div>
       `;
       document.body.appendChild(element);
       this.npcNicknameElements.set(entityId, element);
@@ -154,7 +153,6 @@ export class UINicknameManager {
     if (element) {
       element.innerHTML = `
         <div>${npcType}</div>
-        <div style="font-size: 11px; color: #00ffcc;">${behavior}</div>
       `;
     }
   }

@@ -129,8 +129,6 @@ class ServerProjectileManager {
       // GESTIONE PROIETTILI DETERMINISTICI (MMO Style) - HIT SOLO BASATO SU TEMPO
       if (projectile.isDeterministic && projectile.hitTime) {
         if (now >= projectile.hitTime) {
-          console.log(`[PROJECTILE] 🎯 DETERMINISTIC HIT TIME REACHED for ${projectileId}`);
-
           // HIT DETERMINISTICO: Applica danno automaticamente (NON basato su posizione)
           const targetPlayer = Array.from(this.mapServer.players.values())
             .find(player => player.clientId === projectile.targetId);
@@ -155,7 +153,6 @@ class ServerProjectileManager {
           // Rimuovi IL PROIETTILE SUBITO (non aspettare altre condizioni)
           this.projectiles.delete(projectileId);
           this.broadcaster.broadcastProjectileDestroyedAtPosition(projectileId, 'deterministic_hit', projectile.position);
-          console.log(`[PROJECTILE] ✅ DETERMINISTIC PROJECTILE ${projectileId} DESTROYED`);
           continue;
         }
 
@@ -168,7 +165,6 @@ class ServerProjectileManager {
       else if (projectile.targetId && projectile.targetId !== -1) {
         const targetHit = this.collision.checkSpecificTargetCollision(projectile);
         if (targetHit) {
-          console.log(`[PROJECTILE] 🎯 HOMING HIT! Projectile ${projectileId} hit specific target ${projectile.targetId}`);
           // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
           projectile.velocity.x = 0;
           projectile.velocity.y = 0;

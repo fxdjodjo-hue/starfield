@@ -280,6 +280,7 @@ export class AssetLoader {
 
   /**
    * Precarica risorse critiche all'avvio
+   * Queste risorse vengono caricate in parallelo per evitare lag durante il gioco
    */
   static async preloadCriticalAssets(): Promise<{
     success: boolean;
@@ -289,10 +290,17 @@ export class AssetLoader {
   }> {
     const startTime = Date.now();
     const criticalAssets = [
-      // Aggiungi qui i path delle risorse critiche
-      // '/assets/ships/player.png',
-      // '/assets/npc_ships/scouter.png',
-      // etc.
+      // Effetti di riparazione - spesso usati, evitano lag quando il player si ripara
+      '/assets/repair/hprestore/hprestore.png',
+      '/assets/repair/shieldrestore/shieldrestore.png',
+
+      // Effetti di danno/repair base (se esistono)
+      // '/assets/damage/damage.png',
+      // '/assets/heal/heal.png',
+
+      // Sprite critici del gioco (se necessario)
+      // '/assets/ships/ship106/ship106.png',
+      // '/assets/npc_ships/scouter/alien120.png',
     ];
 
     if (criticalAssets.length === 0) {
@@ -300,8 +308,20 @@ export class AssetLoader {
       return { success: true, loadedCount: 0, failedCount: 0, totalTime: 0 };
     }
 
+    LoggerWrapper.system('Starting critical assets preload', {
+      assetCount: criticalAssets.length,
+      assets: criticalAssets
+    });
+
     try {
-      const results = await this.loadImages(criticalAssets, { priority: 'high' });
+      // Load each asset individually to avoid infinite retry loops
+      const results = new Map<string, AssetLoadResult<HTMLImageElement>>();
+
+      for (const asset of criticalAssets) {
+        const result = await this.loadImage(asset, { priority: 'high', timeout: 5000, retries: 2 });
+        results.set(asset, result);
+      }
+
       const loadedCount = Array.from(results.values()).filter(r => r.success).length;
       const failedCount = results.size - loadedCount;
       const totalTime = Date.now() - startTime;
@@ -309,8 +329,21 @@ export class AssetLoader {
       LoggerWrapper.system('Critical assets preload completed', {
         loadedCount: loadedCount,
         failedCount: failedCount,
-        totalTime: totalTime
+        totalTime: totalTime,
+        successRate: `${loadedCount}/${criticalAssets.length}`
       });
+
+      // Log fallimenti specifici per debugging
+      if (failedCount > 0) {
+        const failedAssets = Array.from(results.entries())
+          .filter(([, result]) => !result.success)
+          .map(([path, result]) => ({ path, error: result.error }));
+
+        LoggerWrapper.warn(LogCategory.SYSTEM, 'Some critical assets failed to load', {
+          failedAssets: failedAssets,
+          totalFailed: failedCount
+        });
+      }
 
       return {
         success: failedCount === 0,
@@ -320,7 +353,8 @@ export class AssetLoader {
       };
     } catch (error) {
       LoggerWrapper.error(LogCategory.SYSTEM, 'Critical assets preload failed', error as Error, {
-        totalTime: Date.now() - startTime
+        totalTime: Date.now() - startTime,
+        attemptedAssets: criticalAssets
       });
       return {
         success: false,

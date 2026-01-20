@@ -291,14 +291,14 @@ class PlayerDataManager {
         // NULL ora significa "errore DB", mai "ottimizzazione"
         // Questo garantisce che ogni logout/login mantenga lo stato esatto
         current_health: (() => {
-          const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : null;
-          // Health save logging removed - covered by summary log
-          return health !== null ? Number(health) : null;
+          // 🛡️ FIX: Assicura valori validi - mai null per rispettare vincolo DB
+          const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : playerData.maxHealth || 127000;
+          return Number(health) || 127000; // Fallback sicuro
         })(),
         current_shield: (() => {
-          const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : null;
-          // Shield save logging removed - covered by summary log
-          return shield !== null ? Number(shield) : null;
+          // 🛡️ FIX: Assicura valori validi - mai null per rispettare vincolo DB
+          const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : playerData.maxShield || 53000;
+          return Number(shield) || 53000; // Fallback sicuro
         })()
       };
       

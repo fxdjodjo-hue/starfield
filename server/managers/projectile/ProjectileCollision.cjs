@@ -176,7 +176,6 @@ class ProjectileCollision {
           const collisionRadius = this.calculateCollisionRadius(relativeSpeed, true);
 
           if (distance < collisionRadius) {
-            console.log(`[COLLISION] 💥 HIT! Projectile ${projectile.id} hit NPC ${npc.id}`);
             return { entity: npc, type: 'npc' };
           }
           break; // Trovato l'NPC target, non cercare altri

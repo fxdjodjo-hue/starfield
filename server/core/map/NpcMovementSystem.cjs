@@ -149,6 +149,9 @@ class NpcMovementSystem {
             break;
           }
         }
+      } else {
+        // Tempo limite superato: resetta lastDamage per evitare spam nei log
+        npc.lastDamage = null;
       }
     }
 
@@ -157,13 +160,9 @@ class NpcMovementSystem {
       return 'flee';
     } else if (npc.lastDamage && playerInPursuitRange) {
       // Danneggiato E player ancora nel range esteso: rimane aggressivo
-      console.log(`[NPC ${npc.id}] Aggressive: lastDamage=${npc.lastDamage}, withinTimeLimit=${withinTimeLimit}, playerInPursuitRange=${playerInPursuitRange}`);
       return 'aggressive';
     } else {
       // Player troppo lontano o mai danneggiato: cruise
-      if (npc.lastDamage) {
-        console.log(`[NPC ${npc.id}] Cruise: lastDamage exists but playerInPursuitRange=${playerInPursuitRange}, withinTimeLimit=${withinTimeLimit}`);
-      }
       return 'cruise';
     }
   }

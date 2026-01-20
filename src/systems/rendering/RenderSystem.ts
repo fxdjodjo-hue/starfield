@@ -303,7 +303,7 @@ export class RenderSystem extends BaseSystem {
       }
     } else if (components.sprite || components.animatedSprite) {
       // Render generic sprites (projectiles, effects, etc.)
-      this.renderGenericSprite(ctx, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
+      this.renderGenericSprite(ctx, entity, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else {
       // Render player - usa isPlayerEntity già definito all'inizio del metodo
       if (isPlayerEntity) {
@@ -524,10 +524,6 @@ export class RenderSystem extends BaseSystem {
 
     // Render NPC beam effects (laser attacks) - TEMPORANEAMENTE DISABILITATO
     // TODO: Riabilitare dopo aver fixato il sistema di selezione NPC
-    // Render debug range circle for player (only in development) - SOPRA TUTTO - TEMPORANEAMENTE ABILITATO
-    if (import.meta.env.DEV) {
-      this.renderPlayerRangeCircle(ctx, camera);
-    }
 
     // Ripristina opacità
     ctx.restore();
@@ -824,7 +820,7 @@ export class RenderSystem extends BaseSystem {
   /**
    * Render generic sprite (projectiles, effects, etc.)
    */
-  private renderGenericSprite(ctx: CanvasRenderingContext2D, transform: Transform, sprite: Sprite | null, animatedSprite: AnimatedSprite | null, screenX: number, screenY: number, camera: Camera | null): void {
+  private renderGenericSprite(ctx: CanvasRenderingContext2D, entity: Entity, transform: Transform, sprite: Sprite | null, animatedSprite: AnimatedSprite | null, screenX: number, screenY: number, camera: Camera | null): void {
     const zoom = camera?.zoom || 1;
 
     if (animatedSprite) {
@@ -833,7 +829,23 @@ export class RenderSystem extends BaseSystem {
         scaleX: (transform.scaleX || 1) * zoom,
         scaleY: (transform.scaleY || 1) * zoom
       };
-      SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
+
+      // Controlla se questa entità è un portale per applicare animazione temporale
+      const isPortal = this.ecs.hasComponent(entity, Portal);
+      if (isPortal) {
+        // Portali: usa animazione temporale (come GIF)
+        const totalFrames = animatedSprite.frameCount;
+        if (totalFrames > 0) {
+          const frameIndex = Math.floor((this.portalAnimationTime / this.PORTAL_ANIMATION_FRAME_DURATION) % totalFrames);
+          SpritesheetRenderer.renderByIndex(ctx, renderTransform, animatedSprite, frameIndex);
+        } else {
+          // Fallback se non ci sono frame
+          SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
+        }
+      } else {
+        // Rendering normale per altri AnimatedSprite
+        SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
+      }
     } else if (sprite && sprite.isLoaded()) {
       const renderTransform: RenderableTransform = {
         x: screenX, y: screenY, rotation: transform.rotation,
@@ -907,67 +919,6 @@ export class RenderSystem extends BaseSystem {
    * Renderizza un cerchio rosso di debug che mostra il range di attacco del player
    * Solo in modalità sviluppo (DEV)
    */
-  private renderPlayerRangeCircle(ctx: CanvasRenderingContext2D, camera: Camera | null): void {
-    const playerEntity = this.playerSystem?.getPlayerEntity();
-    if (!playerEntity) {
-      return;
-    }
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    const playerDamage = this.ecs.getComponent(playerEntity, Damage);
-
-    if (!playerTransform || !playerDamage) {
-      return;
-    }
-
-    // Converti coordinate mondo in coordinate schermo
-    let screenPos = { x: 0, y: 0 };
-
-    if (camera) {
-      const canvas = ctx.canvas;
-      if (canvas) {
-        screenPos = camera.worldToScreen(playerTransform.x, playerTransform.y, canvas.width, canvas.height);
-             } else {
-               return;
-             }
-    } else {
-      // Fallback se non c'è camera - usa coordinate mondo dirette (non funzionerà ma almeno non crasha)
-      screenPos = { x: playerTransform.x, y: playerTransform.y };
-    }
-
-    // Applica zoom alla dimensione del rettangolo
-    const zoom = camera?.zoom || 1;
-    const rangeWidth = getPlayerRangeWidth();
-    const rangeHeight = getPlayerRangeHeight();
-
-    const rectWidth = rangeWidth / zoom;
-    const rectHeight = rangeHeight / zoom;
-
-    ctx.save();
-
-    // Stile rettangolo di debug - PIÙ VISIBILE
-    ctx.strokeStyle = '#FF0000'; // Rosso pieno
-    ctx.lineWidth = 3; // Più spesso
-    ctx.setLineDash([15, 8]); // Tratteggio più grande
-
-    // Disegna il rettangolo del range centrato sul giocatore
-    const rectX = screenPos.x - rectWidth / 2;
-    const rectY = screenPos.y - rectHeight / 2;
-
-    // Disegna il rettangolo (due volte per essere più visibile)
-    for (let i = 0; i < 2; i++) {
-      ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
-    }
-
-    // Etichetta range - PIÙ VISIBILE
-    ctx.fillStyle = '#FF0000'; // Rosso pieno
-    ctx.font = 'bold 16px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText(`RANGE: ${rangeWidth}x${rangeHeight}px`, screenPos.x, screenPos.y - rectHeight / 2 - 15);
-
-
-    ctx.restore();
-  }
 
 
   /**

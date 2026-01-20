@@ -19,9 +19,9 @@ interface StarLayer {
 }
 
 const STAR_LAYERS: StarLayer[] = [
-  { speed: 0.05, density: 3, minSize: 0.5, maxSize: 1.2, alpha: 0.4 },  // Layer lontano
-  { speed: 0.15, density: 2, minSize: 0.8, maxSize: 1.8, alpha: 0.6 },  // Layer medio
-  { speed: 0.30, density: 1, minSize: 1.2, maxSize: 2.5, alpha: 0.8 },  // Layer vicino
+  { speed: 0.05, density: 5, minSize: 0.5, maxSize: 1.2, alpha: 0.4 },  // Layer lontano - Stelle moderate
+  { speed: 0.15, density: 4, minSize: 0.8, maxSize: 1.8, alpha: 0.6 },  // Layer medio - Stelle bilanciate
+  { speed: 0.30, density: 2, minSize: 1.0, maxSize: 1.8, alpha: 0.8 },  // Layer vicino - Stelle essenziali
 ];
 
 const STAR_GRID_SIZE = 400; // Dimensione cella griglia in pixel
@@ -311,7 +311,7 @@ export class ParallaxSystem extends BaseSystem {
       const starSeed = seed + i;
       const localX = this.hash(cellX, cellY, starSeed) * STAR_GRID_SIZE;
       const localY = this.hash(cellX, cellY, starSeed + 1) * STAR_GRID_SIZE;
-      
+
       // Posizione mondo della stella
       const worldX = cellX * STAR_GRID_SIZE + localX;
       const worldY = cellY * STAR_GRID_SIZE + localY;
@@ -320,9 +320,13 @@ export class ParallaxSystem extends BaseSystem {
       const screenX = worldX - parallaxX + screenWidth / 2;
       const screenY = worldY - parallaxY + screenHeight / 2;
 
+      // Stelle ferme come nella realtà spaziale (no movimento)
+      const finalScreenX = screenX;
+      const finalScreenY = screenY;
+
       // Salta se fuori schermo
-      if (screenX < -10 || screenX > screenWidth + 10 || 
-          screenY < -10 || screenY > screenHeight + 10) {
+      if (finalScreenX < -10 || finalScreenX > screenWidth + 10 ||
+          finalScreenY < -10 || finalScreenY > screenHeight + 10) {
         continue;
       }
 
@@ -332,25 +336,43 @@ export class ParallaxSystem extends BaseSystem {
       const alphaMod = 0.7 + this.hash(cellX, cellY, starSeed + 3) * 0.3;
       const alpha = layer.alpha * alphaMod;
 
-      // Renderizza stella
-      this.renderStar(ctx, screenX, screenY, size, alpha);
+      // Renderizza stella con movimento applicato e twinkling
+      this.renderStar(ctx, finalScreenX, finalScreenY, size, alpha, starSeed);
+
+      // DEBUG: Log stelle ferme con twinkling ogni tanto
+      if (i === 0 && Math.random() < 0.001) {
+        console.log(`[STAR_MOVEMENT] Stars stationary with twinkling (scientifically accurate)`);
+      }
     }
   }
 
   /**
    * Renderizza una singola stella
    */
-  private renderStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha: number): void {
-    ctx.globalAlpha = alpha;
+  private renderStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, baseAlpha: number, starSeed?: number): void {
+    // Aggiungi effetto twinkling per stelle piccole
+    let finalAlpha = baseAlpha;
+    if (size < 1.2 && starSeed !== undefined) {
+      // Stelle piccole: effetto twinkling basato sul tempo e seed
+      const time = Date.now() * 0.001;
+      const twinkleSpeed = 2.0; // Velocità del twinkling
+      const twinkleIntensity = 0.3; // Intensità massima del twinkling
+
+      // Crea variazione sinusoidale unica per ogni stella
+      const twinkle = Math.sin(time * twinkleSpeed + starSeed * 0.1) * twinkleIntensity;
+      finalAlpha = Math.max(0.1, baseAlpha + twinkle); // Non andare sotto 0.1 per mantenerla visibile
+    }
+
+    ctx.globalAlpha = finalAlpha;
     ctx.fillStyle = '#ffffff';
-    
+
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);
     ctx.fill();
 
-    // Glow sottile per stelle più grandi
+    // Glow sottile per stelle più grandi (senza twinkling)
     if (size > 1.5) {
-      ctx.globalAlpha = alpha * 0.3;
+      ctx.globalAlpha = baseAlpha * 0.3;
       ctx.beginPath();
       ctx.arc(x, y, size * 2, 0, Math.PI * 2);
       ctx.fill();

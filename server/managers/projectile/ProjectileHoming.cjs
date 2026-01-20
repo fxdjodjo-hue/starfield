@@ -21,7 +21,6 @@ class ProjectileHoming {
     // Trova posizione corrente del target
     const targetData = this.getTargetData(projectile.targetId);
     if (!targetData || !targetData.position) {
-      console.log(`[SERVER_HOMING] Target not found for projectile ${projectile.id}, targetId: ${projectile.targetId}, playerId: ${projectile.playerId}`);
       return false;
     }
 
@@ -116,8 +115,6 @@ class ProjectileHoming {
     const npcs = this.mapServer.npcManager.getAllNpcs();
     for (const npc of npcs) {
       if (npc.id === targetId) {
-        // Log solo quando trova il target (evento raro)
-        console.log(`[SERVER_HOMING] Found target NPC: ${npc.id}`);
         return {
           position: npc.position,
           velocity: npc.velocity || { x: 0, y: 0 }

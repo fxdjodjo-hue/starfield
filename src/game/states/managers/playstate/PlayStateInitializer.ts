@@ -10,6 +10,8 @@ import type { Entity } from '../../../../infrastructure/ecs/Entity';
 import { NETWORK_CONFIG } from '../../../../config/NetworkConfig';
 import { InterpolationSystem } from '../../../../systems/physics/InterpolationSystem';
 import { Transform } from '../../../../entities/spatial/Transform';
+import { AssetLoader } from '../../../../core/services/AssetLoader';
+import { PLAYTEST_CONFIG } from '../../../../config/GameConstants';
 
 /**
  * Manages PlayState initialization, setup, and resource loading
@@ -420,6 +422,28 @@ export class PlayStateInitializer {
     // Assicurati che lo spinner sia visibile fin dall'inizio
     if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
       this.context.authScreen.updateLoadingText('Initializing game systems...');
+    }
+
+    // PRELOAD ASSET CRITICI - Evita lag durante il gioco
+    if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
+      this.context.authScreen.updateLoadingText('Loading critical assets...');
+    }
+
+    try {
+      const preloadResult = await AssetLoader.preloadCriticalAssets();
+
+      if (!PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) {
+        // Log solo in development o se ci sono errori
+        if (!preloadResult.success) {
+          console.warn('[PLAYTEST] Some critical assets failed to preload', {
+            loaded: preloadResult.loadedCount,
+            failed: preloadResult.failedCount,
+            time: preloadResult.totalTime
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('[PLAYTEST] Critical assets preload failed, continuing anyway', error);
     }
 
     // Crea UiSystem solo ora (quando si entra nel PlayState)
