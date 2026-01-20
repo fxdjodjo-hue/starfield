@@ -118,6 +118,30 @@ export class RenderSystem extends BaseSystem {
     this.engflamesSprite = sprite;
   }
 
+  /**
+   * Trova l'entità player basandosi sui suoi componenti unici quando PlayerSystem non è ancora inizializzato
+   * Il player è l'unica entità che ha Transform ma non ha componenti NPC (Npc o RemotePlayer)
+   */
+  private findPlayerByComponents(): Entity | null {
+    for (const entity of this.entityQueryCache) {
+      const hasTransform = this.ecs.hasComponent(entity, Transform);
+      const hasNpc = this.ecs.hasComponent(entity, Npc);
+      const hasRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
+
+      // Il player ha Transform ma non è NPC né remote player
+      if (hasTransform && !hasNpc && !hasRemotePlayer) {
+        // Verifica aggiuntiva: dovrebbe avere componenti specifici del player
+        const hasHealth = this.ecs.hasComponent(entity, Health);
+        const hasShield = this.ecs.hasComponent(entity, Shield);
+
+        if (hasHealth && hasShield) {
+          return entity;
+        }
+      }
+    }
+
+    return null;
+  }
 
   /**
    * Ottieni componenti con caching per ottimizzazione performance
@@ -227,7 +251,9 @@ export class RenderSystem extends BaseSystem {
     const { explosion, repairEffect, npc, sprite, animatedSprite, velocity } = components;
     
     const playerEntity = this.playerSystem.getPlayerEntity();
-    const isPlayerEntity = playerEntity === entity;
+
+    // Confronta per ID invece che per riferimento, perché l'entità potrebbe essere ricreata
+    const isPlayerEntity = playerEntity && entity && playerEntity.id === entity.id;
     const isRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
 
     // Priority: Explosions > Repair Effects > NPC > Player > Remote Player
@@ -301,8 +327,8 @@ export class RenderSystem extends BaseSystem {
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
         }
       }
-    } else if (components.sprite || components.animatedSprite) {
-      // Render generic sprites (projectiles, effects, etc.)
+    } else if ((components.sprite || components.animatedSprite) && !isPlayerEntity) {
+      // Render generic sprites (projectiles, effects, etc.) - exclude player entities
       this.renderGenericSprite(ctx, entity, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else {
       // Render player - usa isPlayerEntity già definito all'inizio del metodo
@@ -311,10 +337,9 @@ export class RenderSystem extends BaseSystem {
         // La cache potrebbe non essere aggiornata se il componente è stato aggiunto dopo
         const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
         const entitySprite = this.ecs.getComponent(entity, Sprite);
-        
+
         const floatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime);
-        
-        
+
         // Priority: AnimatedSprite > Sprite
         // Forza il rendering anche se isLoaded() ritorna false, verifica solo dimensioni
         if (entityAnimatedSprite) {
@@ -539,11 +564,17 @@ export class RenderSystem extends BaseSystem {
     }
     const entities = this.entityQueryCache;
 
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    
-    // Rimuovi il player dalla lista per evitare doppio rendering
-    const entitiesWithoutPlayer = playerEntity 
-      ? entities.filter(entity => entity !== playerEntity)
+    let playerEntity = this.playerSystem.getPlayerEntity();
+
+    // Se PlayerSystem non ha il player (inizializzazione non completata), identifica il player dai suoi componenti unici
+    // Il player è l'unica entità con Transform ma senza componenti NPC
+    if (!playerEntity) {
+      playerEntity = this.findPlayerByComponents();
+    }
+
+    // Rimuovi il player dalla lista per evitare doppio rendering (confronto per ID)
+    const entitiesWithoutPlayer = playerEntity
+      ? entities.filter(entity => !entity || entity.id !== playerEntity.id)
       : entities;
     
     // Render space stations PRIMA di tutte le altre entità (più in background)
