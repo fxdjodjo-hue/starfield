@@ -2,6 +2,7 @@ import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { Transform } from '../../../entities/spatial/Transform';
 import { Velocity } from '../../../entities/spatial/Velocity';
 import { Camera } from '../../../entities/spatial/Camera';
+import { PLAYTEST_CONFIG } from '../../../config/GameConstants';
 
 /**
  * Rendering parameters for engine flames
@@ -56,7 +57,7 @@ export class EngineFlamesRenderer {
    */
   static calculateFrameIndex(animationTime: number): number {
     const frameIndex = Math.floor((animationTime / this.ANIMATION_FRAME_DURATION) % this.TOTAL_FRAMES);
-    console.log(`[DEBUG_FLAMES_FRAME] Animation time: ${animationTime.toFixed(2)}, calculated frame: ${frameIndex}/${this.TOTAL_FRAMES} (duration: ${this.ANIMATION_FRAME_DURATION}ms)`);
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_FRAME] Animation time: ${animationTime.toFixed(2)}, calculated frame: ${frameIndex}/${this.TOTAL_FRAMES} (duration: ${this.ANIMATION_FRAME_DURATION}ms)`);
     return frameIndex;
   }
 
@@ -71,7 +72,7 @@ export class EngineFlamesRenderer {
     opacity: number,
     camera?: Camera
   ): EngineFlamesRenderParams | null {
-    console.log(`[DEBUG_FLAMES_PARAMS] getRenderParams called with:`, {
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_PARAMS] getRenderParams called with:`, {
       transform: transform ? 'VALID' : 'NULL',
       opacity,
       screenX: screenX.toFixed(1),
@@ -80,12 +81,12 @@ export class EngineFlamesRenderer {
     });
 
     if (opacity <= 0) {
-      console.log(`[DEBUG_FLAMES_PARAMS] ❌ Opacity <= 0, returning null`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_PARAMS] ❌ Opacity <= 0, returning null`);
       return null;
     }
 
     if (!transform) {
-      console.log(`[DEBUG_FLAMES_PARAMS] ❌ Transform is null, returning null`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_PARAMS] ❌ Transform is null, returning null`);
       return null;
     }
 
@@ -97,7 +98,7 @@ export class EngineFlamesRenderer {
     const zoom = camera?.zoom || 1;
     const scale = this.FLAME_SCALE * zoom;
 
-    console.log(`[DEBUG_FLAMES_PARAMS] ✅ Returning valid params - Ship at (${screenX.toFixed(1)}, ${screenY.toFixed(1)}), flames at (${flamePosition.x.toFixed(1)}, ${flamePosition.y.toFixed(1)}), rotation: ${shipRotation.toFixed(2)}, opacity: ${opacity}, scale: ${scale.toFixed(2)}, frameIndex: ${frameIndex}`);
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_PARAMS] ✅ Returning valid params - Ship at (${screenX.toFixed(1)}, ${screenY.toFixed(1)}), flames at (${flamePosition.x.toFixed(1)}, ${flamePosition.y.toFixed(1)}), rotation: ${shipRotation.toFixed(2)}, opacity: ${opacity}, scale: ${scale.toFixed(2)}, frameIndex: ${frameIndex}`);
 
     return {
       screenX: flamePosition.x,
@@ -117,36 +118,38 @@ export class EngineFlamesRenderer {
     sprite: AnimatedSprite,
     params: EngineFlamesRenderParams
   ): void {
-    console.log(`[DEBUG_FLAMES_RENDER] Starting render - sprite loaded: ${sprite?.isLoaded()}, frameIndex: ${params.frameIndex}`);
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_RENDER] Starting render - sprite loaded: ${sprite?.isLoaded()}, frameIndex: ${params.frameIndex}`);
 
     if (!sprite) {
-      console.log(`[DEBUG_FLAMES_RENDER] ❌ Sprite is null`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_RENDER] ❌ Sprite is null`);
       return;
     }
 
     if (!sprite.isLoaded()) {
-      console.log(`[DEBUG_FLAMES_RENDER] ❌ Sprite not loaded`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_RENDER] ❌ Sprite not loaded`);
       return;
     }
 
     const frame = sprite.getFrame(params.frameIndex);
-    console.log(`[DEBUG_FLAMES_RENDER] Frame retrieved:`, frame ? {
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_RENDER] Frame retrieved:`, frame ? {
       name: frame.name,
       x: frame.x, y: frame.y,
       width: frame.width, height: frame.height
     } : 'NULL FRAME');
 
     if (!frame) {
-      console.log(`[DEBUG_FLAMES_RENDER] ❌ Frame is null/undefined - checking frames array`);
-      console.log(`[DEBUG_FLAMES_RENDER] Sprite frames count: ${sprite.spritesheet.frames?.length || 0}`);
-      console.log(`[DEBUG_FLAMES_RENDER] Frame index requested: ${params.frameIndex}`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) {
+        console.log(`[DEBUG_FLAMES_RENDER] ❌ Frame is null/undefined - checking frames array`);
+        console.log(`[DEBUG_FLAMES_RENDER] Sprite frames count: ${sprite.spritesheet.frames?.length || 0}`);
+        console.log(`[DEBUG_FLAMES_RENDER] Frame index requested: ${params.frameIndex}`);
+      }
       return;
     }
 
     const destWidth = frame.width * params.scale;
     const destHeight = frame.height * params.scale;
 
-    console.log(`[DEBUG_FLAMES_RENDER] Rendering at (${params.screenX.toFixed(1)}, ${params.screenY.toFixed(1)}) with size ${destWidth.toFixed(1)}x${destHeight.toFixed(1)}, opacity: ${params.opacity}`);
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_RENDER] Rendering at (${params.screenX.toFixed(1)}, ${params.screenY.toFixed(1)}) with size ${destWidth.toFixed(1)}x${destHeight.toFixed(1)}, opacity: ${params.opacity}`);
 
     try {
       ctx.save();
@@ -160,9 +163,9 @@ export class EngineFlamesRenderer {
       );
       ctx.restore();
 
-      console.log(`[DEBUG_FLAMES_RENDER] ✅ Flames rendered successfully`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_RENDER] ✅ Flames rendered successfully`);
     } catch (error) {
-      console.log(`[DEBUG_FLAMES_RENDER] ❌ Error during rendering:`, error);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_RENDER] ❌ Error during rendering:`, error);
     }
   }
 }
