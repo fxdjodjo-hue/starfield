@@ -5,6 +5,7 @@ import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Transform } from '../../../entities/spatial/Transform';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
+import { PLAYTEST_CONFIG } from '../../../config/GameConstants';
 
 /**
  * Handles welcome messages from the server
@@ -107,7 +108,7 @@ export class WelcomeHandler extends BaseMessageHandler {
         if (healthComponent) {
           healthComponent.current = health;
           healthComponent.max = maxHealth;
-          console.log(`[WELCOME] Applied health: ${health}/${maxHealth}`);
+          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied health: ${health}/${maxHealth}`);
         }
       }
 
@@ -117,7 +118,7 @@ export class WelcomeHandler extends BaseMessageHandler {
         if (shieldComponent) {
           shieldComponent.current = shield;
           shieldComponent.max = maxShield;
-          console.log(`[WELCOME] Applied shield: ${shield}/${maxShield}`);
+          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied shield: ${shield}/${maxShield}`);
         }
       }
 
