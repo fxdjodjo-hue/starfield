@@ -45,7 +45,8 @@ export const UI = {
 export const PLAYTEST_CONFIG = {
   ENABLE_VERBOSE_LOGGING: false, // Disabilitato per playtest
   ENABLE_DEBUG_UI: false,
-  ENABLE_PERFORMANCE_LOGGING: false
+  ENABLE_PERFORMANCE_LOGGING: false,
+  ENABLE_DEBUG_MESSAGES: false // Disabilita tutti i messaggi [DEBUG_*] per playtest
 } as const;
 
 /**

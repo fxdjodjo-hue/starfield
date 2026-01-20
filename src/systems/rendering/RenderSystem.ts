@@ -18,6 +18,7 @@ import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { Camera } from '../../entities/spatial/Camera';
 import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { PLAYTEST_CONFIG } from '../../config/GameConstants';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
@@ -106,9 +107,9 @@ export class RenderSystem extends BaseSystem {
    * Imposta lo sprite per le fiamme del motore
    */
   setEngflamesSprite(sprite: AnimatedSprite): void {
-    console.log(`[DEBUG_FLAMES] setEngflamesSprite called with:`, sprite ? 'VALID sprite' : 'NULL sprite');
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] setEngflamesSprite called with:`, sprite ? 'VALID sprite' : 'NULL sprite');
     if (sprite) {
-      console.log(`[DEBUG_FLAMES] Sprite properties:`, {
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] Sprite properties:`, {
         frames: sprite.spritesheet.frames?.length || 'no frames',
         frameWidth: sprite.spritesheet.frameWidth,
         frameHeight: sprite.spritesheet.frameHeight
@@ -242,11 +243,11 @@ export class RenderSystem extends BaseSystem {
       // Renderizza aim PRIMA dello sprite NPC (sotto) con gli stessi offset dello sprite
       const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
       if (isSelected) {
-        console.log(`[DEBUG_AIM] ✅ Found SELECTED NPC ${entity.id} - aim should appear`);
+        if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] ✅ Found SELECTED NPC ${entity.id} - aim should appear`);
       } else {
         // DEBUG: Log NPC senza selezione (solo uno ogni tanto per non spam)
         if (Math.random() < 0.005) { // 0.5% chance per non spam
-          console.log(`[DEBUG_AIM] NPC ${entity.id} not selected - no aim visible`);
+          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] NPC ${entity.id} not selected - no aim visible`);
         }
       }
 
@@ -465,14 +466,14 @@ export class RenderSystem extends BaseSystem {
 
     // DEBUG: Log velocity del player per fiamme motore
     if (!velocity) {
-      console.log(`[DEBUG_FLAMES] Player has no Velocity component!`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] Player has no Velocity component!`);
     } else if (!isMoving) {
       // Log solo occasionalmente per non spam
       if (Math.random() < 0.01) {
-        console.log(`[DEBUG_FLAMES] Player not moving enough - velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)})`);
+        if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] Player not moving enough - velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)})`);
       }
     } else {
-      console.log(`[DEBUG_FLAMES] ✅ Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] ✅ Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
     }
     
     // Gestisci fiamme del motore
@@ -498,10 +499,10 @@ export class RenderSystem extends BaseSystem {
 
     // DEBUG: Log opacità globale per investigare problema rendering
     if (worldOpacity < 1) {
-      console.log(`[DEBUG_RENDER] worldOpacity: ${worldOpacity}, isZoomAnimating: ${isZoomAnimating}`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_RENDER] worldOpacity: ${worldOpacity}, isZoomAnimating: ${isZoomAnimating}`);
     }
     if (worldOpacity === 1 && !isZoomAnimating) {
-      console.log(`[DEBUG_RENDER] Zoom animation finished - opacity back to normal`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_RENDER] Zoom animation finished - opacity back to normal`);
     }
 
     // Salva stato e applica opacità
@@ -868,17 +869,17 @@ export class RenderSystem extends BaseSystem {
     // Carica l'immagine in modo lazy se non è già caricata
     if (!this.aimImage) {
       this.aimImage = this.assetManager.getOrLoadImage('/assets/aim/aim.png');
-      console.log(`[DEBUG_AIM] Loading aim.png...`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] Loading aim.png...`);
     }
 
     // Se l'immagine non è ancora caricata, non renderizzare nulla
     if (!this.aimImage || !this.aimImage.complete || this.aimImage.naturalWidth === 0) {
       if (!this.aimImage) {
-        console.log(`[DEBUG_AIM] aimImage is null`);
+        if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] aimImage is null`);
       } else if (!this.aimImage.complete) {
-        console.log(`[DEBUG_AIM] aimImage not complete yet`);
+        if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] aimImage not complete yet`);
       } else if (this.aimImage.naturalWidth === 0) {
-        console.log(`[DEBUG_AIM] aimImage has 0 width - load failed`);
+        if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] aimImage has 0 width - load failed`);
       }
       return;
     }
@@ -898,7 +899,7 @@ export class RenderSystem extends BaseSystem {
       size
     );
 
-    console.log(`[DEBUG_AIM] ✅ Aim RENDERED for NPC at (${screenX.toFixed(1)}, ${screenY.toFixed(1)})`);
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] ✅ Aim RENDERED for NPC at (${screenX.toFixed(1)}, ${screenY.toFixed(1)})`);
     ctx.restore();
   }
 
