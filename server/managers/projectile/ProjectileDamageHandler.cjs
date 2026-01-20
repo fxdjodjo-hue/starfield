@@ -1,13 +1,23 @@
 // ProjectileDamageHandler - Gestione danni e morte
-// Responsabilità: Applicazione danni, gestione morte/respawn player
-// Dipendenze: logger.cjs, mapServer
+// Responsabilità: Applicazione danni, delega respawn al RespawnCoordinator
+// Dipendenze: logger.cjs, mapServer, RespawnCoordinator
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
+const RespawnCoordinator = require('../../core/RespawnCoordinator.cjs');
+const RespawnSystem = require('../../core/RespawnSystem.cjs');
+const PlayerStatsSystem = require('../../core/PlayerStatsSystem.cjs');
+const PenaltySystem = require('../../core/PenaltySystem.cjs');
 
 class ProjectileDamageHandler {
   constructor(mapServer) {
     this.mapServer = mapServer;
+
+    // Inizializza RespawnCoordinator con i sistemi
+    this.respawnCoordinator = new RespawnCoordinator(mapServer);
+    this.respawnCoordinator.setRespawnSystem(new RespawnSystem(mapServer));
+    this.respawnCoordinator.setStatsSystem(new PlayerStatsSystem(mapServer));
+    this.respawnCoordinator.setPenaltySystem(new PenaltySystem(mapServer));
   }
 
   /**
@@ -57,36 +67,19 @@ class ProjectileDamageHandler {
 
   /**
    * Fai respawnare un giocatore
+   * Delega tutto al RespawnCoordinator per separazione delle responsabilità
    * @param {string} clientId - ClientId del player
    */
   respawnPlayer(clientId) {
-    const playerData = this.mapServer.players.get(clientId);
-    if (!playerData) return;
+    // Delega il respawn completo al RespawnCoordinator
+    // Questo mantiene il Death System separato dalla logica di respawn
+    const success = this.respawnCoordinator.respawnPlayer(clientId);
 
-    // Reset stats - valori fissi al respawn
-    playerData.health = 10000;
-    playerData.shield = 10000;
-    playerData.isDead = false;
-    playerData.respawnTime = null;
-
-    // Spawn sempre nella stessa posizione sicura (0,0) per evitare NPC
-    playerData.position = {
-      x: 0,
-      y: 0
-    };
-
-    ServerLoggerWrapper.system(`Player ${clientId} respawned at (${playerData.position.x.toFixed(0)}, ${playerData.position.y.toFixed(0)})`);
-
-    // Invia messaggio di respawn a tutti i client
-    this.mapServer.broadcastToMap({
-      type: 'player_respawn',
-      clientId: clientId,
-      position: playerData.position,
-      health: playerData.health,
-      maxHealth: playerData.maxHealth,
-      shield: playerData.shield,
-      maxShield: playerData.maxShield
-    });
+    if (success) {
+      ServerLoggerWrapper.info('DAMAGE_HANDLER', `Player ${clientId} respawn delegated to RespawnCoordinator`);
+    } else {
+      ServerLoggerWrapper.error('DAMAGE_HANDLER', `Failed to respawn player ${clientId}`);
+    }
   }
 
   /**

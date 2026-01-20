@@ -951,12 +951,19 @@ function handlePlayerRespawnRequest(data, sanitizedData, context) {
     return undefined;
   }
 
-  // Respawna il player usando la logica esistente
-  const ProjectileDamageHandler = require('../../managers/projectile/ProjectileDamageHandler.cjs');
-  const damageHandler = new ProjectileDamageHandler(mapServer);
+  // Respawna il player usando RespawnCoordinator (separazione responsabilità)
+  const RespawnCoordinator = require('../RespawnCoordinator.cjs');
+  const RespawnSystem = require('../RespawnSystem.cjs');
+  const PlayerStatsSystem = require('../PlayerStatsSystem.cjs');
+  const PenaltySystem = require('../PenaltySystem.cjs');
+
+  const respawnCoordinator = new RespawnCoordinator(mapServer);
+  respawnCoordinator.setRespawnSystem(new RespawnSystem(mapServer));
+  respawnCoordinator.setStatsSystem(new PlayerStatsSystem(mapServer));
+  respawnCoordinator.setPenaltySystem(new PenaltySystem(mapServer));
 
   logger.info('RESPAWN', `Respawning player ${data.clientId}`);
-  damageHandler.respawnPlayer(data.clientId);
+  respawnCoordinator.respawnPlayer(data.clientId);
 
   return undefined;
 }
