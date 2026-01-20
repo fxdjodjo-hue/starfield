@@ -52,22 +52,28 @@ class RepairManager {
       return;
     }
 
-    // Calcola tempo dall'ultimo evento (danno o fine combattimento)
+    // Calcola tempo dalla fine dell'ultimo combattimento
     const lastCombatEndTime = this.playerCombatEndTimes.get(playerId);
     const timeSinceLastCombatEnd = lastCombatEndTime ? (now - lastCombatEndTime) : Infinity;
-    const timeSinceLastEvent = Math.min(timeSinceLastDamage, timeSinceLastCombatEnd);
 
-    // Se ha preso danno recentemente o è uscito dal combattimento recentemente, ferma riparazione
-    if (timeSinceLastEvent < REPAIR_START_DELAY) {
+    // Se è uscito dal combattimento recentemente, aspetta prima di riparare
+    if (timeSinceLastCombatEnd < REPAIR_START_DELAY) {
       if (repairState?.isRepairing) {
         this.stopRepair(playerId);
       }
       return;
     }
 
-    // Se la riparazione è stata completata recentemente, non ricominciare
+    // Se la riparazione è stata completata, controlla se ha di nuovo bisogno di riparazione
     if (repairState?.completed) {
-      return;
+      const stillNeedsRepair = playerData.health < playerData.maxHealth ||
+                              playerData.shield < playerData.maxShield;
+      if (!stillNeedsRepair) {
+        return; // Tutto ancora a posto, non ricominciare
+      }
+      // Ha di nuovo bisogno di riparazione - resetta il flag completed
+      repairState.completed = false;
+      this.playerRepairStates.set(playerId, repairState);
     }
 
     // Se non sta riparando e può riparare, inizia
