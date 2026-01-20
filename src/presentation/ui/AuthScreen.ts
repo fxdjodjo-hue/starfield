@@ -42,72 +42,82 @@ export class AuthScreen {
    * Initializes managers with dependency injection
    */
   private initializeManagers(): void {
-    if (this.managersInitialized) return;
+    try {
+      if (this.managersInitialized) return;
 
-    // Initialize initialization manager first (creates UI)
-    this.initManager = new AuthInitializationManager();
-    
-    // Get containers from init manager
-    const container = this.initManager.getContainer();
-    const loadingContainer = this.initManager.getLoadingContainer();
-    const authContainer = this.initManager.getAuthContainer();
+      // Initialize initialization manager first (creates UI)
+      this.initManager = new AuthInitializationManager();
 
-    // Initialize validation manager (independent)
-    this.validationManager = new AuthValidationManager(authContainer);
+      // Get containers from init manager
+      const container = this.initManager.getContainer();
+      const loadingContainer = this.initManager.getLoadingContainer();
+      const authContainer = this.initManager.getAuthContainer();
 
-    // Create a temporary form manager reference for state manager
-    let formManagerRef: AuthFormManager | null = null;
+      // Initialize validation manager (independent)
+      this.validationManager = new AuthValidationManager(authContainer);
 
-    // Initialize state manager (needs form manager callback)
-    this.stateManager = new AuthStateManager(
-      container,
-      loadingContainer,
-      authContainer,
-      () => formManagerRef?.renderForm() || null,
-      () => this.initManager.showDiscordIcon(),
-      () => this.initManager.hideDiscordIcon()
-    );
+      // Create a temporary form manager reference for state manager
+      let formManagerRef: AuthFormManager | null = null;
 
-    // Initialize session manager
-    this.sessionManager = new AuthSessionManager(
-      this.context,
-      (state) => this.stateManager.setState(state),
-      (text) => this.initManager.updateLoadingText(text),
-      (message) => this.validationManager.showError(message),
-      (message) => this.validationManager.showSuccess(message),
-      (loggedIn) => this.stateManager.setJustLoggedIn(loggedIn),
-      (processing) => this.stateManager.setProcessing(processing),
-      (button, show) => formManagerRef?.showButtonLoading(button, show),
-      (email) => this.validationManager.isValidEmail(email),
-      (error) => this.validationManager.getFriendlyErrorMessage(error),
-      this.onAuthenticated
-    );
+      // Initialize state manager (needs form manager callback)
+      this.stateManager = new AuthStateManager(
+        container,
+        loadingContainer,
+        authContainer,
+        () => formManagerRef?.renderForm() || null,
+        () => this.initManager.showDiscordIcon(),
+        () => this.initManager.hideDiscordIcon()
+      );
 
-    // Initialize form manager (needs state and session managers)
-    this.formManager = new AuthFormManager(
-      authContainer,
-      () => this.stateManager.getCurrentState(),
-      () => this.stateManager.isProcessingRequest(),
-      (email, password, button) => this.sessionManager.handleLogin(email, password, button),
-      (email, password, confirmPassword, nickname, button) => this.sessionManager.handleRegister(email, password, confirmPassword, nickname, button),
-      (state) => this.stateManager.setState(state),
-      (button, show) => this.formManager.showButtonLoading(button, show)
-    );
+      // Initialize session manager
+      this.sessionManager = new AuthSessionManager(
+        this.context,
+        (state) => this.stateManager.setState(state),
+        (text) => this.initManager.updateLoadingText(text),
+        (message) => this.validationManager.showError(message),
+        (message) => this.validationManager.showSuccess(message),
+        (loggedIn) => this.stateManager.setJustLoggedIn(loggedIn),
+        (processing) => this.stateManager.setProcessing(processing),
+        (button, show) => formManagerRef?.showButtonLoading(button, show),
+        (email) => this.validationManager.isValidEmail(email),
+        (error) => this.validationManager.getFriendlyErrorMessage(error),
+        this.onAuthenticated
+      );
 
-    // Set form manager reference
-    formManagerRef = this.formManager;
+      // Initialize form manager (needs state and session managers)
+      this.formManager = new AuthFormManager(
+        authContainer,
+        () => this.stateManager.getCurrentState(),
+        () => this.stateManager.isProcessingRequest(),
+        (email, password, button) => this.sessionManager.handleLogin(email, password, button),
+        (email, password, confirmPassword, nickname, button) => this.sessionManager.handleRegister(email, password, confirmPassword, nickname, button),
+        (state) => this.stateManager.setState(state),
+        (button, show) => this.formManager.showButtonLoading(button, show)
+      );
 
-    this.managersInitialized = true;
+      // Set form manager reference
+      formManagerRef = this.formManager;
+
+      this.managersInitialized = true;
+    } catch (error) {
+      console.error('UI Error in AuthScreen.initializeManagers():', error);
+      // Non bloccare l'esecuzione, continua con fallback minimo
+    }
   }
 
   /**
    * Inizializza la schermata
    */
   private async init(): Promise<void> {
-    this.initializeManagers();
-    
-    const hasJustLoggedIn = this.stateManager.hasJustLoggedIn();
-    await this.initManager.initialize(this.sessionManager, hasJustLoggedIn);
+    try {
+      this.initializeManagers();
+
+      const hasJustLoggedIn = this.stateManager.hasJustLoggedIn();
+      await this.initManager.initialize(this.sessionManager, hasJustLoggedIn);
+    } catch (error) {
+      console.error('UI Error in AuthScreen.init():', error);
+      // Non bloccare l'esecuzione, continua senza inizializzazione completa
+    }
   }
 
   /**

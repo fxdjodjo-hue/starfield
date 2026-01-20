@@ -54,46 +54,56 @@ export class UiSystem extends System {
     playerSystem: PlayerSystem | null,
     clientNetworkSystem: ClientNetworkSystem | null
   ): void {
-    if (this.managersInitialized) {
-      // Update existing managers if systems change
-      if (playerSystem) {
-        this.panelManager.setPlayerSystem(playerSystem);
-        this.chatManager.setPlayerSystem(playerSystem);
+    try {
+      if (this.managersInitialized) {
+        // Update existing managers if systems change
+        if (playerSystem) {
+          this.panelManager.setPlayerSystem(playerSystem);
+          this.chatManager.setPlayerSystem(playerSystem);
+        }
+        if (clientNetworkSystem) {
+          this.panelManager.setClientNetworkSystem(clientNetworkSystem);
+          this.chatManager.setClientNetworkSystem(clientNetworkSystem);
+        }
+        return;
       }
-      if (clientNetworkSystem) {
-        this.panelManager.setClientNetworkSystem(clientNetworkSystem);
-        this.chatManager.setClientNetworkSystem(clientNetworkSystem);
-      }
-      return;
+
+      // Initialize HUD manager first (needs PlayerHUD)
+      const playerHUD = new PlayerHUD();
+      this.hudManager = new UIHUDManager(playerHUD);
+      this.hudManager.setContext(this.context);
+
+      // Initialize panel manager
+      this.panelManager = new UIPanelManager(ecs, questSystem, playerSystem, clientNetworkSystem);
+
+      // Initialize chat manager
+      this.chatManager = new UIChatManager(ecs, this.context, playerSystem);
+
+      // Initialize nickname manager
+      this.nicknameManager = new UINicknameManager();
+
+      // Initialize audio manager
+      this.audioManager = new UIAudioManager();
+
+      this.managersInitialized = true;
+    } catch (error) {
+      console.error('UI Error in UiSystem.initializeManagers():', error);
+      // Non bloccare l'esecuzione, continua con fallback
     }
-
-    // Initialize HUD manager first (needs PlayerHUD)
-    const playerHUD = new PlayerHUD();
-    this.hudManager = new UIHUDManager(playerHUD);
-    this.hudManager.setContext(this.context);
-
-    // Initialize panel manager
-    this.panelManager = new UIPanelManager(ecs, questSystem, playerSystem, clientNetworkSystem);
-
-    // Initialize chat manager
-    this.chatManager = new UIChatManager(ecs, this.context, playerSystem);
-
-    // Initialize nickname manager
-    this.nicknameManager = new UINicknameManager();
-
-    // Initialize audio manager
-    this.audioManager = new UIAudioManager();
-
-    this.managersInitialized = true;
   }
 
   /**
    * Inizializza il sistema UI
    */
   initialize(): void {
-    this.panelManager.initializePanels();
-    this.panelManager.setupQuestPanelIntegration(() => this.panelManager.updatePanels());
-    this.chatManager.initialize();
+    try {
+      this.panelManager.initializePanels();
+      this.panelManager.setupQuestPanelIntegration(() => this.panelManager.updatePanels());
+      this.chatManager.initialize();
+    } catch (error) {
+      console.error('UI Error in UiSystem.initialize():', error);
+      // Non bloccare l'esecuzione, sistema UI non funzionante ma app continua
+    }
   }
 
   /**

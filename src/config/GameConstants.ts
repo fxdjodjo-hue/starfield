@@ -40,6 +40,15 @@ export const UI = {
 } as const;
 
 /**
+ * Configurazione playtest (disabilita log verbose per produzione)
+ */
+export const PLAYTEST_CONFIG = {
+  ENABLE_VERBOSE_LOGGING: false, // Disabilitato per playtest
+  ENABLE_DEBUG_UI: false,
+  ENABLE_PERFORMANCE_LOGGING: false
+} as const;
+
+/**
  * Oggetto principale contenente tutte le costanti di gioco
  */
 export const GAME_CONSTANTS = {

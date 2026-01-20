@@ -95,6 +95,17 @@ export class PlayerHUD {
           <div class="stat-value">0</div>
         </div>
       </div>
+
+      <div class="playtest-info" style="
+        color: #ffaa00;
+        font-size: 10px;
+        font-weight: bold;
+        text-align: center;
+        margin-top: 5px;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+      ">
+        🎮 PLAYTEST v0.1
+      </div>
     `;
 
     this.attachGlassStyles();

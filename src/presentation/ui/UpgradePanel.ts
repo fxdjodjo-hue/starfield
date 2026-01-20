@@ -43,54 +43,64 @@ export class UpgradePanel extends BasePanel {
    * Called when needed, after container is available
    */
   private initializeManagers(): void {
-    if (this.managersInitialized) return;
+    try {
+      if (this.managersInitialized) return;
 
-    // Initialize managers with dependency injection
-    this.validationManager = new UpgradeValidationManager(this.ecs, this.playerSystem);
-    
-    // Initialize managers that need container (available after super call)
-    this.tooltipManager = new UpgradeTooltipManager(this.container);
-    this.statsManager = new UpgradeStatsManager(
-      this.ecs,
-      this.playerSystem,
-      this.container,
-      (statType, level) => this.validationManager.calculateUpgradeCost(statType, level)
-    );
+      // Initialize managers with dependency injection
+      this.validationManager = new UpgradeValidationManager(this.ecs, this.playerSystem);
 
-    // Initialize action manager first (needed by renderer)
-    this.actionManager = new UpgradeActionManager(
-      this.ecs,
-      this.playerSystem,
-      this.clientNetworkSystem,
-      (statType) => this.validationManager.isUpgradeInProgress(statType),
-      (statType, inProgress) => this.validationManager.setUpgradeInProgress(statType, inProgress)
-    );
+      // Initialize managers that need container (available after super call)
+      this.tooltipManager = new UpgradeTooltipManager(this.container);
+      this.statsManager = new UpgradeStatsManager(
+        this.ecs,
+        this.playerSystem,
+        this.container,
+        (statType, level) => this.validationManager.calculateUpgradeCost(statType, level)
+      );
 
-    // Initialize renderer with dependency injection (avoids circular dependencies)
-    this.renderer = new UpgradeRenderer(
-      this.ecs,
-      this.playerSystem,
-      (statType, level) => this.validationManager.calculateUpgradeCost(statType, level),
-      (statType) => this.statsManager.getInitialStatValue(statType),
-      (statType) => this.tooltipManager.getStatDescription(statType),
-      (upgradeType) => this.actionManager.requestUpgrade(upgradeType),
-      (statName, statType, buttonElement) => this.tooltipManager.showStatExplanation(statName, statType, buttonElement)
-    );
+      // Initialize action manager first (needed by renderer)
+      this.actionManager = new UpgradeActionManager(
+        this.ecs,
+        this.playerSystem,
+        this.clientNetworkSystem,
+        (statType) => this.validationManager.isUpgradeInProgress(statType),
+        (statType, inProgress) => this.validationManager.setUpgradeInProgress(statType, inProgress)
+      );
 
-    // Initialize initialization manager (orchestrates renderer and stats)
-    this.initManager = new UpgradeInitializationManager(
-      this.renderer,
-      this.statsManager,
-      this.container,
-      () => this.isPanelVisible()
-    );
+      // Initialize renderer with dependency injection (avoids circular dependencies)
+      this.renderer = new UpgradeRenderer(
+        this.ecs,
+        this.playerSystem,
+        (statType, level) => this.validationManager.calculateUpgradeCost(statType, level),
+        (statType) => this.statsManager.getInitialStatValue(statType),
+        (statType) => this.tooltipManager.getStatDescription(statType),
+        (upgradeType) => this.actionManager.requestUpgrade(upgradeType),
+        (statName, statType, buttonElement) => this.tooltipManager.showStatExplanation(statName, statType, buttonElement)
+      );
 
-    this.managersInitialized = true;
+      // Initialize initialization manager (orchestrates renderer and stats)
+      this.initManager = new UpgradeInitializationManager(
+        this.renderer,
+        this.statsManager,
+        this.container,
+        () => this.isPanelVisible()
+      );
+
+      this.managersInitialized = true;
+    } catch (error) {
+      console.error('UI Error in UpgradePanel.initializeManagers():', error);
+      // Non bloccare l'esecuzione, pannello non funzionante ma app continua
+    }
   }
 
   update(data: PanelData): void {
-    this.initializeManagers();
-    this.statsManager.updateStats();
+    try {
+      this.initializeManagers();
+      this.statsManager.updateStats();
+    } catch (error) {
+      console.error('UI Error in UpgradePanel.update():', error);
+      // Non bloccare l'esecuzione, continua con fallback
+    }
   }
 
   /**

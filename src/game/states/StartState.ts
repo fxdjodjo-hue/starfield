@@ -15,6 +15,7 @@ export class StartState extends GameState {
     super();
     this.context = context;
     this.authScreen = new AuthScreen(context);
+    this.addPlaytestBanner();
   }
 
   /**
@@ -58,6 +59,54 @@ export class StartState extends GameState {
    */
   exit(): void {
     this.authScreen.destroy();
+  }
+
+  /**
+   * Aggiunge un banner di avviso playtest
+   */
+  private addPlaytestBanner(): void {
+    // Rimuovi banner esistente se presente
+    const existingBanner = document.getElementById('playtest-banner');
+    if (existingBanner) {
+      existingBanner.remove();
+    }
+
+    // Crea il banner
+    const banner = document.createElement('div');
+    banner.id = 'playtest-banner';
+    banner.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(255, 0, 0, 0.9);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        z-index: 10000;
+        border: 2px solid white;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        animation: pulse 2s infinite;
+      ">
+        🚨 PLAYTEST EARLY - Bug possibili - Progressi resettabili 🚨
+        <br>
+        <small>Versione sperimentale - Feedback benvenuto!</small>
+      </div>
+      <style>
+        @keyframes pulse {
+          0% { opacity: 1; }
+          50% { opacity: 0.7; }
+          100% { opacity: 1; }
+        }
+      </style>
+    `;
+
+    document.body.appendChild(banner);
   }
 
   /**

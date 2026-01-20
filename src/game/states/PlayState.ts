@@ -37,6 +37,7 @@ export class PlayState extends GameState {
   private gameInitSystem!: GameInitializationSystem;
   private context: GameContext;
   private playerEntity: Entity | null = null;
+  private sessionStartTime: number = 0;
   private economySystem: EconomySystem | null = null;
   private questSystem: QuestSystem | null = null;
   private questManager: QuestManager | null = null;
@@ -153,9 +154,13 @@ export class PlayState extends GameState {
    * Avvia il gameplay
    */
   async enter(_context: GameContext): Promise<void> {
+    // PLAYTEST METRICS: Log inizio sessione
+    this.sessionStartTime = Date.now();
+    console.log(`[PLAYTEST] Session started at ${new Date().toISOString()}`);
+
     // Marca come inizializzato per evitare doppia inizializzazione
     (this as any)._initialized = true;
-    
+
     this.initializeManagers();
     await this.initializer.enter();
   }
@@ -194,6 +199,13 @@ export class PlayState extends GameState {
    * Termina il gameplay
    */
   exit(): void {
+    // PLAYTEST METRICS: Log fine sessione con durata
+    if (this.sessionStartTime > 0) {
+      const sessionDuration = Date.now() - this.sessionStartTime;
+      const durationMinutes = Math.round(sessionDuration / 60000 * 100) / 100;
+      console.log(`[PLAYTEST] Session ended after ${durationMinutes} minutes`);
+    }
+
     this.initializeManagers();
     this.lifecycleManager.exit();
   }

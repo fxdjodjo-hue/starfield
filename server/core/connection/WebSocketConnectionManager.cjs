@@ -99,6 +99,19 @@ class WebSocketConnectionManager {
     }
 
     this.wss.on('connection', (ws) => {
+      // PLAYTEST: Limite massimo 15 giocatori connessi
+      const MAX_PLAYERS = 15;
+      if (this.mapServer.players.size >= MAX_PLAYERS) {
+        ServerLoggerWrapper.warn('SERVER', `🚫 Connection rejected: Server full (${this.mapServer.players.size}/${MAX_PLAYERS} players)`);
+        ws.send(JSON.stringify({
+          type: 'error',
+          message: 'Server pieno (playtest) - Riprova più tardi',
+          code: 'SERVER_FULL'
+        }));
+        ws.close(1013, 'Server full'); // 1013 = Try Again Later
+        return;
+      }
+
       // Client connection logging removed for cleaner production console
       let playerData = null;
 
