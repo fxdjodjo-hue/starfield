@@ -1,5 +1,6 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Health } from '../../entities/combat/Health';
@@ -17,22 +18,25 @@ import { TimeManager } from '../../core/utils/TimeManager';
 import { ComponentHelper } from '../../core/data/ComponentHelper';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
 
-/**
- * Sistema per gestire i proiettili: movimento, collisione e rimozione
- */
+  /**
+   * Sistema per gestire i proiettili: movimento, collisione e rimozione
+   */
 export class ProjectileSystem extends BaseSystem {
   private uiSystem: UiSystem | null = null;
   private playerSystem: PlayerSystem;
+  private lastDeltaTimeSeconds: number = 1/60; // Fallback per deltaTime
 
-  constructor(ecs: ECS, playerSystem: PlayerSystem, uiSystem?: UiSystem) {
-    super(ecs);
-    this.playerSystem = playerSystem;
-    this.uiSystem = uiSystem || null;
-  }
 
-  update(deltaTime: number): void {
-    const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
-    const deltaTimeSeconds = TimeManager.millisecondsToSeconds(deltaTime);
+    constructor(ecs: ECS, playerSystem: PlayerSystem, uiSystem?: UiSystem) {
+      super(ecs);
+      this.playerSystem = playerSystem;
+      this.uiSystem = uiSystem || null;
+    }
+
+    update(deltaTime: number): void {
+      const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+      const deltaTimeSeconds = TimeManager.millisecondsToSeconds(deltaTime);
+      this.lastDeltaTimeSeconds = deltaTimeSeconds; // Salva per uso nei metodi privati
 
     for (const projectileEntity of projectiles) {
       if (this.processProjectile(projectileEntity, deltaTime, deltaTimeSeconds)) {
@@ -139,7 +143,7 @@ export class ProjectileSystem extends BaseSystem {
    * Identifica se un proiettile è remoto
    */
   private isRemoteProjectile(projectile: Projectile): boolean {
-    return projectile.playerId && typeof projectile.playerId === 'string';
+    return typeof projectile.playerId === 'string';
   }
 
 
@@ -165,8 +169,14 @@ export class ProjectileSystem extends BaseSystem {
     this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
   }
 
+
   /**
-   * Calcola e imposta la direzione del proiettile verso il target
+   * Ottiene la velocità corrente del target per la prediction del movimento
+   * Calcola la velocità reale basata sul movimento recente del target
+   */
+
+  /**
+   * Calcola e imposta la direzione del proiettile verso il target (per laser)
    */
   private calculateAndSetDirection(projectileTransform: Transform, targetTransform: Transform, projectile: Projectile): void {
     const { direction, distance } = MathUtils.calculateDirection(
@@ -205,6 +215,7 @@ export class ProjectileSystem extends BaseSystem {
 
       // Se la distanza è minore di una soglia (hitbox), colpisce
       const hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
+
       if (distance < hitDistance) {
         // Collision detected
 

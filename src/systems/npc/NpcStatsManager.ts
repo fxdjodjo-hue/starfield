@@ -1,6 +1,6 @@
 import NPC_CONFIG from '../../shared/npc-config.json';
 
-export type NpcType = 'Scouter' | 'Kronos';
+export type NpcType = 'Scouter' | 'Kronos' | 'Guard';
 
 export interface NpcStats {
   health: number;

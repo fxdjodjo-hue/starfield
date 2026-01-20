@@ -32,10 +32,7 @@ class ServerProjectileManager {
    * Server è completamente autorevole per il calcolo del danno
    */
   calculateProjectileDamage(projectile) {
-    if (projectile.projectileType === 'missile') {
-      return SERVER_CONSTANTS.MISSILE.DAMAGE;
-    }
-    // Per laser normali, usa il danno inviato dal client (legacy)
+    // Usa il danno inviato dal client
     return projectile.damage || 0;
   }
 
@@ -86,6 +83,16 @@ class ServerProjectileManager {
     const projectilesToRemove = [];
 
     for (const [projectileId, projectile] of this.projectiles.entries()) {
+      // FIX: Proiettili del giocatore senza target valido vengono rimossi immediatamente
+      const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
+      if (!isNpcProjectile && (!projectile.targetId || projectile.targetId === -1)) {
+        projectilesToRemove.push({
+          id: projectileId,
+          reason: 'no_target_player_projectile'
+        });
+        continue;
+      }
+
       // MEMORY LEAK FIX: Controlla se il proiettile è "orfano" (senza target valido)
       if (this.homing.isProjectileOrphaned(projectile)) {
         projectilesToRemove.push({
@@ -96,8 +103,6 @@ class ServerProjectileManager {
       }
 
       // HOMING LOGIC: Per tutti i proiettili con target (player e NPC)
-      const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
-      
       if (projectile.targetId && projectile.targetId !== -1) {
         const homingResult = this.homing.updateProjectileHoming(projectile);
         if (!homingResult) {
@@ -223,24 +228,9 @@ class ServerProjectileManager {
 
       // Proiettili senza target specifico continuano la verifica collisioni
 
-      // Fallback: collisioni generiche SOLO per proiettili senza target specifico
-      // Verifica collisioni con NPC (MAI per proiettili NPC - gli NPC non si colpiscono tra loro)
-      if (!isNpcProjectile) {
-        const hitNpc = this.collision.checkNpcCollision(projectile);
-      if (hitNpc) {
-        const actualDamage = this.calculateProjectileDamage(projectile);
-        const npcDead = this.damageHandler.handleNpcDamage(hitNpc.id, actualDamage, projectile.playerId);
-        this.broadcaster.broadcastEntityDamaged(hitNpc, projectile, 'npc', actualDamage);
-
-        if (npcDead) {
-          const rewards = this.damageHandler.calculateRewards(hitNpc);
-          this.broadcaster.broadcastEntityDestroyed(hitNpc, projectile.playerId, 'npc', rewards);
-        }
-
-        projectilesToRemove.push(projectileId);
-        continue;
-      }
-      } // Chiude l'if (!isNpcProjectile) per collisioni NPC
+      // DISABILITATO: Rimossi fallback collisioni generiche per proiettili player
+      // I proiettili del giocatore dovrebbero avere sempre un target specifico
+      // Se non hanno target, vengono rimossi per timeout invece di colpire chiunque
 
       // Verifica collisioni con giocatori (solo per proiettili NON NPC, perché gli NPC sono già gestiti sopra)
       if (!isNpcProjectile) {

@@ -10,7 +10,6 @@ import { ProjectileFactory } from '../../../core/domain/ProjectileFactory';
 import { GAME_CONSTANTS } from '../../../config/GameConstants';
 import { MathUtils } from '../../../core/utils/MathUtils';
 import { Npc } from '../../../entities/ai/Npc';
-import { MissileManager } from './MissileManager';
 import { IDGenerator } from '../../../core/utils/IDGenerator';
 
 /**
@@ -18,19 +17,12 @@ import { IDGenerator } from '../../../core/utils/IDGenerator';
  * Simplified: no rhythmic patterns, just linear trajectories
  */
 export class CombatProjectileManager {
-  private missileManager: MissileManager;
-
   constructor(
     private readonly ecs: ECS,
     private readonly playerSystem: PlayerSystem,
     private readonly getClientNetworkSystem: () => ClientNetworkSystem | null
   ) {
-    // Initialize missile manager
-    this.missileManager = new MissileManager(
-      this.ecs,
-      this.playerSystem,
-      this.getClientNetworkSystem
-    );
+    // No missile manager needed - missiles are handled by CombatStateManager
   }
 
   /**

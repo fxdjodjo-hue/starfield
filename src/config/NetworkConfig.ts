@@ -142,6 +142,7 @@ export const MESSAGE_TYPES = {
   STOP_COMBAT: 'stop_combat',
   COMBAT_UPDATE: 'combat_update',
   COMBAT_ERROR: 'combat_error',
+  COMBAT_ERROR: 'combat_error',
   PROJECTILE_FIRED: 'projectile_fired',
   PROJECTILE_UPDATE: 'projectile_update',
   PROJECTILE_DESTROYED: 'projectile_destroyed',
@@ -180,7 +181,7 @@ export function isValidMessageType(type: string): type is NetworkMessageType {
 export interface NpcJoinedMessage {
   type: typeof MESSAGE_TYPES.NPC_JOINED;
   npcId: NpcId;
-  npcType: 'Scouter' | 'Kronos';
+  npcType: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
   position: { x: number; y: number; rotation: number };
   health: { current: number; max: number };
   shield: { current: number; max: number };
@@ -194,7 +195,7 @@ export interface NpcSpawnMessage {
   type: typeof MESSAGE_TYPES.NPC_SPAWN;
   npc: {
     id: NpcId;
-    type: 'Scouter' | 'Kronos';
+    type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };
@@ -209,7 +210,7 @@ export interface InitialNpcsMessage {
   type: typeof MESSAGE_TYPES.INITIAL_NPCS;
   npcs: Array<{
     id: NpcId;
-    type: 'Scouter' | 'Kronos';
+    type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };
@@ -284,6 +285,15 @@ export interface StopCombatMessage {
 }
 
 /**
+ * Errore di combattimento
+ */
+export interface CombatErrorMessage {
+  type: typeof MESSAGE_TYPES.COMBAT_ERROR;
+  error: string;
+  details?: any;
+}
+
+/**
  * Aggiornamento stato combattimento
  */
 export interface CombatUpdateMessage {
@@ -305,7 +315,7 @@ export interface ProjectileFiredMessage {
   position: { x: number; y: number };
   velocity: { x: number; y: number };
   damage: number;
-  projectileType: 'laser' | 'missile' | 'npc_laser';
+  projectileType: 'laser' | 'npc_laser';
   targetId?: string | null;
 }
 
@@ -339,7 +349,7 @@ export interface EntityDamagedMessage {
   newHealth: number;
   newShield: number;
   position: { x: number; y: number };
-  projectileType?: 'laser' | 'missile' | 'npc_laser';
+  projectileType?: 'laser' | 'npc_laser';
 }
 
 /**

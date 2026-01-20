@@ -20,12 +20,6 @@ export class IDGenerator {
     return this.generateUniqueId(`proj_${ownerId}`);
   }
 
-  /**
-   * Genera ID per missili
-   */
-  static generateMissileId(playerId: string): string {
-    return this.generateUniqueId(`missile_${playerId}`);
-  }
 
   /**
    * Genera ID per esplosioni

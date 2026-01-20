@@ -14,14 +14,7 @@ export const PROJECTILE = {
   HIT_RADIUS: 30                // Raggio collisione (px)
 } as const;
 
-export const MISSILE = {
-  SPEED: 300,                     // Velocità missili (px/s) - più lenti dei laser
-  LIFETIME: 5000,                 // Durata missili (ms) - più duraturi
-  SPAWN_OFFSET: 25,               // Offset spawn dalla nave (px)
-  HIT_RADIUS: 20,                 // Raggio collisione (px) - più grandi
-  COOLDOWN: 3000,                 // Cooldown tra missili (ms) - 3 secondi
-  DAMAGE: 1000                     // Danno fisso dei missili
-} as const;
+// Missile constants removed - missiles are no longer supported
 
 export const COMBAT = {
   NPC_MIN_COOLDOWN: 500,        // Cooldown minimo NPC (ms)
@@ -51,7 +44,6 @@ export const UI = {
  */
 export const GAME_CONSTANTS = {
   PROJECTILE,
-  MISSILE,
   COMBAT,
   NETWORK,
   PHYSICS,

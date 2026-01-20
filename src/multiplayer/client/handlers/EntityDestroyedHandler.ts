@@ -113,13 +113,11 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
   }
 
   /**
-   * Estrae il tipo NPC dall'entityId del server (es. "npc_6" -> "Scouter")
-   * Per ora usa una logica semplice basata sull'ID, ma potrebbe essere migliorata
+   * Estrae il tipo NPC dal messaggio del server
+   * Ora il server include direttamente npcType nel messaggio
    */
-  private extractNpcTypeFromId(entityId: string): string {
-    // Il server potrebbe includere il tipo nel messaggio in futuro
-    // Per ora assumiamo che gli NPC con ID < 25 siano Scouter, gli altri Kronos
-    const npcNumber = parseInt(entityId.replace('npc_', ''));
-    return npcNumber < 25 ? 'Scouter' : 'Kronos';
+  private extractNpcTypeFromMessage(message: any): string {
+    // Il server ora include npcType direttamente nel messaggio
+    return message.npcType || 'Scouter'; // Fallback a Scouter se non presente
   }
 }

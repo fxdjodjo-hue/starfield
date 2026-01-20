@@ -18,19 +18,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     const localClientId = networkSystem.getLocalClientId();
     const isLocalPlayer = message.playerId === String(localAuthId) || message.playerId === String(localClientId);
 
-    // Per missili del giocatore locale, non aggiungere a RemoteProjectileSystem
-    // perché sono già creati localmente via ProjectileFactory
-    if (isLocalPlayer && message.projectileType === 'missile') {
-      return;
-    }
-
-    // Registra quando un missile viene sparato per evitare di riprodurre il suono di esplosione troppo presto
-    if (message.projectileType === 'missile') {
-      const destroyedHandler = networkSystem.getMessageRouter()?.getHandler(MESSAGE_TYPES.PROJECTILE_DESTROYED);
-      if (destroyedHandler && typeof (destroyedHandler as any).registerMissileFire === 'function') {
-        (destroyedHandler as any).registerMissileFire(message.projectileId, Date.now());
-      }
-    }
+    // Missile logic removed - missiles are no longer supported
 
     // Gestisci audio e visualizzazione per tutti i proiettili
     const audioSystem = networkSystem.getAudioSystem();
@@ -38,18 +26,13 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       if (message.playerId.startsWith('npc_')) {
         // Suono NPC gestito quando arrivano i loro proiettili dal server
         audioSystem.playSound('scouterLaser', 0.05, false, true);
-      } else if (message.projectileType === 'missile') {
-        audioSystem.playSound('rocketStart', 0.02, false, true);
       }
       // Suono laser player gestito lato client nei laser visivi per responsività immediata
     }
 
     // Mostra proiettile per tutti (player locale incluso)
     // Tutti i proiettili vengono gestiti dal server e RemoteProjectileSystem
-    if (message.projectileType !== 'missile' || !isLocalPlayer) {
-      // Missili locali sono già creati dal MissileManager, evita duplicazione
-      this.showProjectile(message, networkSystem, isLocalPlayer);
-    }
+    this.showProjectile(message, networkSystem, isLocalPlayer);
   }
 
   private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {

@@ -14,7 +14,6 @@ import { CombatStateManager } from './managers/CombatStateManager';
 import { CombatProjectileManager } from './managers/CombatProjectileManager';
 import { CombatDamageManager } from './managers/CombatDamageManager';
 import { CombatExplosionManager } from './managers/CombatExplosionManager';
-import { MissileManager } from './managers/MissileManager';
 
 /**
  * Sistema di combattimento - gestisce gli scontri tra entità
@@ -33,7 +32,6 @@ export class CombatSystem extends BaseSystem {
   // Modular architecture managers (lazy initialization)
   private stateManager!: CombatStateManager;
   private projectileManager!: CombatProjectileManager;
-  private missileManager!: MissileManager;
   private damageManager!: CombatDamageManager;
   private explosionManager!: CombatExplosionManager;
   private managersInitialized: boolean = false;
@@ -65,13 +63,6 @@ export class CombatSystem extends BaseSystem {
 
     // Initialize projectile manager
     this.projectileManager = new CombatProjectileManager(
-      this.ecs,
-      this.playerSystem,
-      () => this.clientNetworkSystem
-    );
-
-    // Initialize missile manager
-    this.missileManager = new MissileManager(
       this.ecs,
       this.playerSystem,
       () => this.clientNetworkSystem
@@ -136,7 +127,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'missile' | 'npc_laser'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser'): void {
     this.initializeManagers();
     this.damageManager.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
   }
@@ -144,7 +135,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Decrementa il contatore dei testi di danno attivi per un'entità
    */
-  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'missile' | 'npc_laser'): void {
+  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser'): void {
     this.initializeManagers();
     this.damageManager.decrementDamageTextCount(targetEntityId, projectileType);
   }

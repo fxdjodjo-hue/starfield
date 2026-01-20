@@ -106,12 +106,14 @@ class ServerNpcManager {
    * Inizializza NPC del mondo (chiamato all'avvio del server)
    * @param {number} scouterCount - Numero di Scouters
    * @param {number} frigateCount - Numero di Kronos
+   * @param {number} guardCount - Numero di Guard
+   * @param {number} pyramidCount - Numero di Pyramid (default 1)
    */
-  initializeWorldNpcs(scouterCount = 25, frigateCount = 25) {
-    this.spawner.initializeWorldNpcs(scouterCount, frigateCount);
+  initializeWorldNpcs(scouterCount = 0, frigateCount = 0, guardCount = 0, pyramidCount = 1) {
+    this.spawner.initializeWorldNpcs(scouterCount, frigateCount, guardCount, pyramidCount);
     const stats = this.getStats();
     ServerLoggerWrapper.system(`World initialized with ${stats.totalNpcs} NPCs`);
-    ServerLoggerWrapper.debug('SERVER', `NPC breakdown: ${stats.scouters} Scouters, ${stats.kronos} Kronos`);
+    ServerLoggerWrapper.debug('SERVER', `NPC breakdown: ${stats.scouters} Scouters, ${stats.kronos} Kronos, ${stats.guards} Guards, ${stats.pyramids} Pyramids`);
   }
 
   /**
@@ -124,17 +126,21 @@ class ServerNpcManager {
 
   /**
    * Statistiche del manager
-   * @returns {{totalNpcs: number, scouters: number, kronos: number}}
+   * @returns {{totalNpcs: number, scouters: number, kronos: number, guards: number, pyramids: number}}
    */
   getStats() {
     const allNpcs = this.getAllNpcs();
     const scouters = allNpcs.filter(npc => npc.type === 'Scouter').length;
     const kronos = allNpcs.filter(npc => npc.type === 'Kronos').length;
+    const guards = allNpcs.filter(npc => npc.type === 'Guard').length;
+    const pyramids = allNpcs.filter(npc => npc.type === 'Pyramid').length;
 
     return {
       totalNpcs: allNpcs.length,
       scouters,
-      kronos
+      kronos,
+      guards,
+      pyramids
     };
   }
 

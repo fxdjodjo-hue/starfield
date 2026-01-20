@@ -128,6 +128,7 @@ class ProjectileBroadcaster {
       type: 'entity_destroyed',
       entityId: entityType === 'npc' ? entity.id : entity.clientId,
       entityType: entityType,
+      npcType: entityType === 'npc' ? entity.type : undefined,
       destroyerId,
       position: entity.position,
       rewards: entityType === 'npc' ? rewards : undefined

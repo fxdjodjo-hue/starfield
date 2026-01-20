@@ -640,16 +640,6 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.messageRouter;
   }
 
-  /**
-   * Registra il fire time di un missile locale per il suono di esplosione
-   * Chiamato quando un missile viene creato localmente, prima che arrivi il messaggio dal server
-   */
-  registerLocalMissileFire(projectileId: string, fireTime: number): void {
-    const destroyedHandler = this.messageRouter?.getHandler(MESSAGE_TYPES.PROJECTILE_DESTROYED);
-    if (destroyedHandler && typeof (destroyedHandler as any).registerMissileFire === 'function') {
-      (destroyedHandler as any).registerMissileFire(projectileId, fireTime);
-    }
-  }
 
   disconnect(): void {
     this.connectionManager.disconnect();

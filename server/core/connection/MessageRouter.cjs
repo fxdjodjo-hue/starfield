@@ -528,10 +528,12 @@ function handleProjectileFired(data, sanitizedData, context) {
   }
 
   let targetId = data.targetId || null;
+  console.log(`[SERVER_PROJECTILE] Received projectile fired: projectileId=${data.projectileId}, targetId=${targetId}, projectileType=${data.projectileType}, rawTargetId=${JSON.stringify(data.targetId)}`);
   if (!targetId) {
     const playerCombat = mapServer.combatManager.playerCombats.get(data.clientId);
     if (playerCombat) {
       targetId = playerCombat.npcId;
+      console.log(`[SERVER_PROJECTILE] Using targetId from playerCombat: ${targetId}`);
     }
   }
 
@@ -542,10 +544,7 @@ function handleProjectileFired(data, sanitizedData, context) {
     playerData?.upgrades
   );
 
-  // Apply fixed damage for missiles
-  if (data.projectileType === 'missile') {
-    calculatedDamage = SERVER_CONSTANTS.MISSILE.DAMAGE; // Fixed missile damage
-  }
+  // Missile damage logic removed - missiles are no longer supported
 
   // Usa clientId per identificare il giocatore nel sistema di collisione
   // data.playerId è l'authId (usato per security check)

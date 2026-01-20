@@ -11,7 +11,6 @@ import { Damage } from '../../../entities/combat/Damage';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { DisplayManager } from '../../../infrastructure/display';
-import { MissileManager } from './MissileManager';
 import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
 
 /**
@@ -21,7 +20,6 @@ export class CombatStateManager {
   private currentAttackTarget: number | null = null;
   private attackStartedLogged: boolean = false;
   private wasInCombat: boolean = false;
-  private missileManager: MissileManager;
   private lastCombatLogTime: number = 0; // For throttling debug logs
 
   constructor(
@@ -33,12 +31,7 @@ export class CombatStateManager {
     private readonly getClientNetworkSystem: () => ClientNetworkSystem | null,
     private readonly getLogSystem: () => LogSystem | null
   ) {
-    // Initialize missile manager for automatic missile firing
-    this.missileManager = new MissileManager(
-      this.ecs,
-      this.playerSystem,
-      this.getClientNetworkSystem
-    );
+    // Missile manager removed - missiles are no longer supported
   }
 
   /**
@@ -133,20 +126,8 @@ export class CombatStateManager {
         this.startAttackLogging(selectedNpc);
         this.currentAttackTarget = selectedNpc.id;
         this.attackStartedLogged = true;
-        // Reset missile cooldown when starting new combat
-        this.missileManager.resetCooldown();
       }
       // Il combattimento continua sempre - non ci sono pause/riprese
-      
-      // Try to fire missile automatically during combat (independent from lasers)
-      console.log(`[COMBAT-CLIENT] firing missile. target=${selectedNpc.id}, currentAttackTarget=${this.currentAttackTarget}, attackStartedLogged=${this.attackStartedLogged}`);
-      const missileFired = this.missileManager.fireMissile(
-        playerEntity,
-        playerTransform,
-        playerDamage,
-        npcTransform,
-        selectedNpc
-      );
 
       // 🔥 AGGIUNTO: Fire laser automatically during combat (server-authoritative)
       // Il server gestisce il rate limiting e la creazione dei proiettili

@@ -27,6 +27,7 @@ import { NpcSpawnHandler } from '../handlers/NpcSpawnHandler';
 import { NpcBulkUpdateHandler } from '../handlers/NpcBulkUpdateHandler';
 import { NpcLeftHandler } from '../handlers/NpcLeftHandler';
 import { CombatUpdateHandler } from '../handlers/CombatUpdateHandler';
+import { CombatErrorHandler } from '../handlers/CombatErrorHandler';
 import { StopCombatHandler } from '../handlers/StopCombatHandler';
 import { ProjectileFiredHandler } from '../handlers/ProjectileFiredHandler';
 import { ProjectileUpdateHandler } from '../handlers/ProjectileUpdateHandler';
@@ -148,6 +149,7 @@ export class NetworkInitializationManager {
     if (this.remoteProjectileSystem && !this.combatHandlersRegistered) {
       handlersToRegister.push(
         new CombatUpdateHandler(),
+        new CombatErrorHandler(),
         new StopCombatHandler(),
         new ProjectileFiredHandler(),
         new ProjectileUpdateHandler(),

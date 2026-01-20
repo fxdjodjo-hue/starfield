@@ -49,5 +49,55 @@
       "formation": "patrol"
     },
     "description": "Nave da guerra di medie dimensioni"
+  },
+  "Guard": {
+    "type": "Guard",
+    "defaultBehavior": "cruise",
+    "spriteScale": 1,
+    "stats": {
+      "health": 3000,
+      "shield": 3000,
+      "damage": 2500,
+      "range": 500,
+      "cooldown": 1000,
+      "speed": 350
+    },
+    "rewards": {
+      "credits": 300,
+      "cosmos": 1,
+      "experience": 300,
+      "honor": 2
+    },
+    "ai": {
+      "aggressionLevel": "low",
+      "targetPriority": "nearest",
+      "formation": "pack"
+    },
+    "description": "Guardia della flotta Kronos"
+  },
+  "Pyramid": {
+    "type": "Pyramid",
+    "defaultBehavior": "cruise",
+    "spriteScale": 0.6,
+    "stats": {
+      "health": 8000,
+      "shield": 8000,
+      "damage": 4000,
+      "range": 450,
+      "cooldown": 1800,
+      "speed": 150
+    },
+    "rewards": {
+      "credits": 1000,
+      "cosmos": 3,
+      "experience": 1000,
+      "honor": 6
+    },
+    "ai": {
+      "aggressionLevel": "high",
+      "targetPriority": "nearest",
+      "formation": "solo"
+    },
+    "description": "Pyramid - Nave da guerra avanzata"
   }
 }

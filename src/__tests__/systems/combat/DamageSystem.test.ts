@@ -65,6 +65,5 @@ describe('DamageSystem', () => {
 
     // Tutti i testi dovrebbero essere stati rimossi
     expect((damageSystem as any).activeLaserTexts.size).toBe(0);
-    expect((damageSystem as any).activeMissileTexts.size).toBe(0);
   });
 });

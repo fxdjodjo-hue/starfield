@@ -29,9 +29,7 @@ export const AUDIO_ASSETS = {
     engine: 'effects/engine/enginesoundeffect.mp3',
     playerLogin: 'effects/playerlogin/bubbleSounds.mp3',
     portal: 'effects/portal/portal.mp3',
-    portalBassdrop: 'effects/portal/bassdrop.mp3',
-    rocketStart: '../rocket/rocketStart.wav',
-    rocketExplosion: '../rocket/rocketExplosion.mp3'
+    portalBassdrop: 'effects/portal/bassdrop.mp3'
   },
 
   // Musica

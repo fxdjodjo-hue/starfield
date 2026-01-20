@@ -30,7 +30,7 @@ export interface ProjectileConfig {
   playerId?: string;
   animatedSprite?: AnimatedSprite;
   shipRotation?: number;
-  projectileType?: 'laser' | 'missile' | 'npc_laser';
+  projectileType?: 'laser' | 'npc_laser';
   isRemote?: boolean; // Per proiettili ricevuti dal server
   velocity?: { x: number; y: number }; // Per remote projectiles
   speed?: number; // Override velocità
@@ -83,7 +83,9 @@ export class ProjectileFactory {
       const entity = ecs.createEntity();
 
       // Componente Transform
-      const transform = new Transform(spawnX, spawnY, 0, 1, 1);
+      const projectileRotation = config.shipRotation || 0;
+
+      const transform = new Transform(spawnX, spawnY, projectileRotation, 1, 1);
       ecs.addComponent(entity, Transform, transform);
 
       // Componente Velocity (se fornito da server o calcolato)
@@ -91,8 +93,7 @@ export class ProjectileFactory {
         ecs.addComponent(entity, Velocity, new Velocity(config.velocity.x, config.velocity.y, 0));
       } else {
         const projectileSpeed = config.speed ||
-          (config.projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.SPEED :
-           config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED : // Laser visivi
+          (config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED : // Laser visivi
            GAME_CONSTANTS.PROJECTILE.SPEED);
         ecs.addComponent(entity, Velocity, new Velocity(
           direction.x * projectileSpeed,
@@ -102,11 +103,9 @@ export class ProjectileFactory {
       }
 
       // Componente Projectile
-      const projectileLifetime = config.lifetime ||
-        (config.projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.LIFETIME : GAME_CONSTANTS.PROJECTILE.LIFETIME);
+      const projectileLifetime = config.lifetime || GAME_CONSTANTS.PROJECTILE.LIFETIME;
 
-      // Per missili, usa danno dummy lato client - il danno reale è calcolato dal server
-      const projectileDamage = (config.projectileType === 'missile' && !config.isRemote) ? 0 : config.damage;
+      const projectileDamage = config.damage;
 
       const projectile = new Projectile(
         projectileDamage,
@@ -203,36 +202,6 @@ export class ProjectileFactory {
     });
   }
 
-  /**
-   * Crea missile (sostituisce createMissileAt)
-   */
-  static createMissile(
-    ecs: ECS,
-    startX: number,
-    startY: number,
-    targetX: number,
-    targetY: number,
-    ownerId: number,
-    targetId: number,
-    playerId?: string,
-    animatedSprite?: AnimatedSprite,
-    shipRotation?: number
-  ): Entity {
-    return this.create(ecs, {
-      damage: 0, // Danno dummy lato client
-      startX,
-      startY,
-      targetX,
-      targetY,
-      ownerId,
-      targetId,
-      playerId,
-      animatedSprite,
-      shipRotation,
-      projectileType: 'missile',
-      speed: GAME_CONSTANTS.MISSILE.SPEED // Usa velocità specifica dei missili
-    });
-  }
 
   /**
    * Crea proiettile remoto ricevuto dal server (sostituisce addRemoteProjectile)
@@ -271,7 +240,7 @@ export class ProjectileFactory {
       actualTargetId || -1,
       GAME_CONSTANTS.PROJECTILE.LIFETIME,
       playerId,
-      projectileType as 'laser' | 'missile' | 'npc_laser'
+      projectileType as 'laser' | 'npc_laser'
     );
     ecs.addComponent(entity, Projectile, projectile);
 
@@ -338,7 +307,7 @@ export class ProjectileFactory {
       ownerId: ownerId || 0,
       targetId: numericTargetId,
       playerId,
-      projectileType: projectileType as 'laser' | 'missile' | 'npc_laser',
+      projectileType: projectileType as 'laser' | 'npc_laser',
       isRemote: true,
       velocity,
       speed,
@@ -361,7 +330,7 @@ export class ProjectileFactory {
     ownerId: number,
     targetId: number,
     playerId?: string,
-    projectileType: 'laser' | 'missile' | 'npc_laser' = 'laser'
+    projectileType: 'laser' | 'npc_laser' = 'laser'
   ): Entity {
     const projectileId = IDGenerator.generateProjectileId(String(ownerId));
 
@@ -371,7 +340,7 @@ export class ProjectileFactory {
     ecs.addComponent(entity, Transform, new Transform(spawnX, spawnY, 0, 1, 1));
 
     // Calcola velocità
-    const speed = projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.SPEED : GAME_CONSTANTS.PROJECTILE.SPEED;
+    const speed = GAME_CONSTANTS.PROJECTILE.SPEED;
     ecs.addComponent(entity, Velocity, new Velocity(
       directionX * speed,
       directionY * speed,
@@ -379,8 +348,8 @@ export class ProjectileFactory {
     ));
 
     // Componente Projectile
-    const lifetime = projectileType === 'missile' ? GAME_CONSTANTS.MISSILE.LIFETIME : GAME_CONSTANTS.PROJECTILE.LIFETIME;
-    const projectileDamage = projectileType === 'missile' ? 0 : damage;
+    const lifetime = GAME_CONSTANTS.PROJECTILE.LIFETIME;
+    const projectileDamage = damage;
 
     const projectile = new Projectile(
       projectileDamage,

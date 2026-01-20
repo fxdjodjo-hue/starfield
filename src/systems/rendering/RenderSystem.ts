@@ -42,6 +42,7 @@ import { SpriteRenderer } from '../../core/utils/rendering/SpriteRenderer';
 import type { RenderableTransform } from '../../core/utils/rendering/SpriteRenderer';
 import { SpritesheetRenderer } from '../../core/utils/rendering/SpritesheetRenderer';
 import type { SpritesheetRenderTransform } from '../../core/utils/rendering/SpritesheetRenderer';
+import { ProjectileRenderer } from '../../core/utils/rendering/ProjectileRenderer';
 
 /**
  * Sistema di rendering per Canvas 2D
@@ -50,12 +51,13 @@ import type { SpritesheetRenderTransform } from '../../core/utils/rendering/Spri
 export class RenderSystem extends BaseSystem {
   private cameraSystem: CameraSystem;
   private playerSystem: PlayerSystem;
-  private assetManager: AssetManager;
+  private assetManager: AssetManager | null = null;
   private displayManager: DisplayManager;
   private damageTextSystem: any = null; // Sistema per renderizzare i testi di danno
   private componentCache: Map<Entity, any> = new Map(); // Cache componenti per ottimizzazione
   private entityQueryCache: Entity[] = []; // Cache risultati query ECS
   private projectileQueryCache: Entity[] = []; // Cache risultati query proiettili
+  private projectileRenderer: ProjectileRenderer | null = null;
   private aimImage: HTMLImageElement | null = null; // Immagine per la selezione NPC
   private healthBarsFadeStartTime: number | null = null; // Timestamp quando inizia il fade delle health bars
   private readonly HEALTH_BARS_FADE_DURATION = 500; // Durata fade in millisecondi
@@ -68,11 +70,11 @@ export class RenderSystem extends BaseSystem {
   private portalAnimationTime: number = 0; // Tempo per l'animazione del portale
   private readonly PORTAL_ANIMATION_FRAME_DURATION = 16.67; // ms per frame (~60fps)
 
-  constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager: AssetManager) {
+  constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager?: AssetManager) {
     super(ecs);
     this.cameraSystem = cameraSystem;
     this.playerSystem = playerSystem;
-    this.assetManager = assetManager;
+    this.assetManager = assetManager || null;
     this.displayManager = DisplayManager.getInstance();
   }
 
@@ -81,6 +83,23 @@ export class RenderSystem extends BaseSystem {
    */
   setDamageTextSystem(damageTextSystem: any): void {
     this.damageTextSystem = damageTextSystem;
+  }
+
+  /**
+   * Imposta il riferimento all'AssetManager
+   */
+  setAssetManager(assetManager: AssetManager): void {
+    this.assetManager = assetManager;
+  }
+
+  /**
+   * Get or create projectile renderer (lazy initialization)
+   */
+  private getProjectileRenderer(): ProjectileRenderer {
+    if (!this.projectileRenderer && this.assetManager) {
+      this.projectileRenderer = new ProjectileRenderer(this.ecs, this.playerSystem, this.assetManager);
+    }
+    return this.projectileRenderer!;
   }
 
   /**
@@ -194,6 +213,8 @@ export class RenderSystem extends BaseSystem {
       ctx.restore();
       return; // Salta il rendering normale dello sprite
     }
+
+    // Missiles removed - no longer supported
     const { explosion, repairEffect, npc, sprite, animatedSprite, velocity } = components;
     
     const playerEntity = this.playerSystem.getPlayerEntity();
@@ -205,6 +226,9 @@ export class RenderSystem extends BaseSystem {
       this.renderExplosion(ctx, transform, explosion, screenX, screenY);
     } else if (repairEffect) {
       this.renderRepairEffect(ctx, transform, repairEffect, screenX, screenY);
+    } else if (components.sprite || components.animatedSprite) {
+      // Render generic sprites (projectiles, effects, etc.)
+      this.renderGenericSprite(ctx, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else if (npc) {
       // Render NPC - supporta sia AnimatedSprite che Sprite
       const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
@@ -231,13 +255,14 @@ export class RenderSystem extends BaseSystem {
       const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
 
       if (entityAnimatedSprite) {
-        // NPC con spritesheet: usa SpritesheetRenderer (stesso sistema del player)
         const zoom = camera?.zoom || 1;
         const renderTransform: SpritesheetRenderTransform = {
-          x: screenX, y: screenY, rotation: transform.rotation, 
-          scaleX: (transform.scaleX || 1) * zoom, 
+          x: screenX, y: screenY, rotation: transform.rotation,
+          scaleX: (transform.scaleX || 1) * zoom,
           scaleY: (transform.scaleY || 1) * zoom
         };
+
+        // Tutti gli NPC: usa selezione basata su rotazione (normale)
         SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
       } else if (entitySprite) {
         // NPC con sprite normale
@@ -347,7 +372,7 @@ export class RenderSystem extends BaseSystem {
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
       } else {
-        // Render portals, space stations, and laser beams
+        // Render portals, space stations, pyramids, and laser beams
         const isPortal = this.ecs.hasComponent(entity, Portal);
         const isSpaceStation = this.ecs.hasComponent(entity, SpaceStation);
 
@@ -366,30 +391,26 @@ export class RenderSystem extends BaseSystem {
                 scaleY: (transform.scaleY || 1) * zoom
               };
               
-              // Portali: usa animazione temporale (come GIF)
+              // Portali e Pyramid: usa animazione temporale (come GIF)
               const totalFrames = entityAnimatedSprite.frameCount;
               if (totalFrames > 0) {
-                // Verifica se il portale è attivato (velocizzato)
-                const portal = this.ecs.getComponent(entity, Portal);
-                const isActivated = portal?.isActivated() || false;
-                
-                // Velocizza animazione se attivato (3x più veloce)
-                const frameDuration = isActivated 
-                  ? this.PORTAL_ANIMATION_FRAME_DURATION / 3 
-                  : this.PORTAL_ANIMATION_FRAME_DURATION;
-                
+                let frameDuration = this.PORTAL_ANIMATION_FRAME_DURATION;
+
+                // Portali: usa animazione temporale (come GIF)
                 const frameIndex = Math.floor((this.portalAnimationTime / frameDuration) % totalFrames);
                 SpritesheetRenderer.renderByIndex(ctx, renderTransform, entityAnimatedSprite, frameIndex);
 
                 // Render "coming soon" text above portal
                 this.renderComingSoonText(ctx, screenX, screenY, zoom);
+
+                // Render "coming soon" text only for portals
+                if (isPortal) {
+                  this.renderComingSoonText(ctx, screenX, screenY, zoom);
+                }
               } else {
                 // Fallback a rendering normale se non ci sono frame
                 SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
               }
-
-              // Render "coming soon" text above portal
-              this.renderComingSoonText(ctx, screenX, screenY, zoom);
             }
           } else if (entitySprite && entitySprite.isLoaded()) {
             const zoom = camera?.zoom || 1;
@@ -760,6 +781,29 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
+   * Render generic sprite (projectiles, effects, etc.)
+   */
+  private renderGenericSprite(ctx: CanvasRenderingContext2D, transform: Transform, sprite: Sprite | null, animatedSprite: AnimatedSprite | null, screenX: number, screenY: number, camera: Camera | null): void {
+    const zoom = camera?.zoom || 1;
+
+    if (animatedSprite) {
+      const renderTransform: SpritesheetRenderTransform = {
+        x: screenX, y: screenY, rotation: transform.rotation,
+        scaleX: (transform.scaleX || 1) * zoom,
+        scaleY: (transform.scaleY || 1) * zoom
+      };
+      SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
+    } else if (sprite && sprite.isLoaded()) {
+      const renderTransform: RenderableTransform = {
+        x: screenX, y: screenY, rotation: transform.rotation,
+        scaleX: (transform.scaleX || 1) * zoom,
+        scaleY: (transform.scaleY || 1) * zoom
+      };
+      SpriteRenderer.render(ctx, renderTransform, sprite);
+    }
+  }
+
+  /**
    * Render repair effect
    */
   private renderRepairEffect(ctx: CanvasRenderingContext2D, transform: Transform, repairEffect: RepairEffect, screenX: number, screenY: number): void {
@@ -776,6 +820,11 @@ export class RenderSystem extends BaseSystem {
    * Render selection image around selected NPCs
    */
   private renderSelectionCircle(ctx: CanvasRenderingContext2D, screenX: number, screenY: number): void {
+    // Check if assetManager is available
+    if (!this.assetManager) {
+      return;
+    }
+
     // Carica l'immagine in modo lazy se non è già caricata
     if (!this.aimImage) {
       this.aimImage = this.assetManager.getOrLoadImage('/assets/aim/aim.png');

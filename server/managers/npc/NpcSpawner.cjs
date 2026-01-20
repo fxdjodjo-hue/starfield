@@ -40,9 +40,9 @@ class NpcSpawner {
   createNpc(type, x, y, silent = false) {
     const npcId = `npc_${this.npcIdCounter.value++}`;
 
-    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos)
+    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos, Guard, Pyramid)
     const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' ? normalizedType : type;
+    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' || normalizedType === 'Guard' || normalizedType === 'Pyramid' ? normalizedType : type;
 
     // Se non specificate, genera posizioni casuali ENTRO i confini del mondo
     const bounds = this.getWorldBounds();
@@ -139,15 +139,41 @@ class NpcSpawner {
    * Inizializza NPC del mondo (chiamato all'avvio del server)
    * @param {number} scouterCount - Numero di Scouters
    * @param {number} frigateCount - Numero di Kronos
+   * @param {number} guardCount - Numero di Guard
+   * @param {number} pyramidCount - Numero di Pyramid (default 1)
    */
-  initializeWorldNpcs(scouterCount = 25, frigateCount = 25) {
-    // Distribuisci uniformemente gli NPC nel mondo (modalità silenziosa per evitare spam)
+  initializeWorldNpcs(scouterCount = 25, frigateCount = 25, guardCount = frigateCount * 2, pyramidCount = 1) {
+    // Prima crea i Kronos (nave madri)
+    const kronosPositions = [];
+    for (let i = 0; i < frigateCount; i++) {
+      const kronosId = this.createNpc('Kronos', undefined, undefined, true);
+      const kronos = this.npcs.get(kronosId);
+      if (kronos) {
+        kronosPositions.push({ x: kronos.position.x, y: kronos.position.y });
+      }
+    }
+
+    // Poi crea i Guard vicino ai Kronos (max 2 per Kronos per formazione strutturata)
+    for (let i = 0; i < guardCount; i++) {
+      const kronosIndex = Math.floor(i / 2) % kronosPositions.length;
+      const kronosPos = kronosPositions[kronosIndex];
+
+      // Offset per formazione: sinistra/destra
+      const isLeft = i % 2 === 0;
+      const offsetX = isLeft ? -200 : 200;
+      const offsetY = -100; // leggermente dietro
+
+      this.createNpc('Guard', kronosPos.x + offsetX, kronosPos.y + offsetY, true);
+    }
+
+    // Infine gli Scouter (nemici solitari)
     for (let i = 0; i < scouterCount; i++) {
       this.createNpc('Scouter', undefined, undefined, true);
     }
 
-    for (let i = 0; i < frigateCount; i++) {
-      this.createNpc('Kronos', undefined, undefined, true);
+    // Pyramid (spawn singolo)
+    for (let i = 0; i < pyramidCount; i++) {
+      this.createNpc('Pyramid', undefined, undefined, true);
     }
   }
 }

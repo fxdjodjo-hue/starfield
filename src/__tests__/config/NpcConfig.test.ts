@@ -9,27 +9,43 @@ describe('NpcConfig', () => {
       expect(NPC_DEFINITIONS['Scouter'].defaultBehavior).toBe('cruise');
     });
 
-    it('should contain Frigate definition', () => {
-      expect(NPC_DEFINITIONS['Frigate']).toBeDefined();
-      expect(NPC_DEFINITIONS['Frigate'].type).toBe('Frigate');
-      expect(NPC_DEFINITIONS['Frigate'].defaultBehavior).toBe('cruise');
+    it('should contain Kronos definition', () => {
+      expect(NPC_DEFINITIONS['Kronos']).toBeDefined();
+      expect(NPC_DEFINITIONS['Kronos'].type).toBe('Kronos');
+      expect(NPC_DEFINITIONS['Kronos'].defaultBehavior).toBe('cruise');
     });
 
-    it('should have Frigate with higher stats than Scouter', () => {
-      const scouter = NPC_DEFINITIONS['Scouter'];
-      const frigate = NPC_DEFINITIONS['Frigate'];
-
-      expect(frigate.stats.health).toBeGreaterThan(scouter.stats.health);
-      expect(frigate.stats.damage).toBeGreaterThan(scouter.stats.damage);
-      expect(frigate.stats.shield).toBeGreaterThan(scouter.stats.shield);
+    it('should contain Guard definition', () => {
+      expect(NPC_DEFINITIONS['Guard']).toBeDefined();
+      expect(NPC_DEFINITIONS['Guard'].type).toBe('Guard');
+      expect(NPC_DEFINITIONS['Guard'].defaultBehavior).toBe('cruise');
     });
 
-    it('should have NPCs with same range as player (300)', () => {
-      const scouter = NPC_DEFINITIONS['Scouter'];
-      const frigate = NPC_DEFINITIONS['Frigate'];
+    it('should contain Pyramid definition', () => {
+      expect(NPC_DEFINITIONS['Pyramid']).toBeDefined();
+      expect(NPC_DEFINITIONS['Pyramid'].type).toBe('Pyramid');
+      expect(NPC_DEFINITIONS['Pyramid'].defaultBehavior).toBe('cruise');
+    });
 
-      expect(scouter.stats.range).toBe(300);
-      expect(frigate.stats.range).toBe(300);
+    it('should have Kronos with higher stats than Scouter', () => {
+      const scouter = NPC_DEFINITIONS['Scouter'];
+      const kronos = NPC_DEFINITIONS['Kronos'];
+
+      expect(kronos.stats.health).toBeGreaterThan(scouter.stats.health);
+      expect(kronos.stats.damage).toBeGreaterThan(scouter.stats.damage);
+      expect(kronos.stats.shield).toBeGreaterThan(scouter.stats.shield);
+    });
+
+    it('should have NPCs with appropriate ranges', () => {
+      const scouter = NPC_DEFINITIONS['Scouter'];
+      const kronos = NPC_DEFINITIONS['Kronos'];
+      const guard = NPC_DEFINITIONS['Guard'];
+      const pyramid = NPC_DEFINITIONS['Pyramid'];
+
+      expect(scouter.stats.range).toBe(600);
+      expect(kronos.stats.range).toBe(400);
+      expect(guard.stats.range).toBe(500);
+      expect(pyramid.stats.range).toBe(450);
     });
   });
 
@@ -40,10 +56,22 @@ describe('NpcConfig', () => {
       expect(scouter?.type).toBe('Scouter');
     });
 
-    it('should return Frigate definition', () => {
-      const frigate = getNpcDefinition('Frigate');
-      expect(frigate).toBeDefined();
-      expect(frigate?.type).toBe('Frigate');
+    it('should return Kronos definition', () => {
+      const kronos = getNpcDefinition('Kronos');
+      expect(kronos).toBeDefined();
+      expect(kronos?.type).toBe('Kronos');
+    });
+
+    it('should return Guard definition', () => {
+      const guard = getNpcDefinition('Guard');
+      expect(guard).toBeDefined();
+      expect(guard?.type).toBe('Guard');
+    });
+
+    it('should return Pyramid definition', () => {
+      const pyramid = getNpcDefinition('Pyramid');
+      expect(pyramid).toBeDefined();
+      expect(pyramid?.type).toBe('Pyramid');
     });
 
     it('should return null for non-existent NPC', () => {
@@ -53,11 +81,13 @@ describe('NpcConfig', () => {
   });
 
   describe('getAllNpcTypes', () => {
-    it('should return all NPC types including Frigate', () => {
+    it('should return all NPC types including Kronos, Guard and Pyramid', () => {
       const types = getAllNpcTypes();
       expect(types).toContain('Scouter');
-      expect(types).toContain('Frigate');
-      expect(types.length).toBe(2);
+      expect(types).toContain('Kronos');
+      expect(types).toContain('Guard');
+      expect(types).toContain('Pyramid');
+      expect(types.length).toBe(4);
     });
   });
 });

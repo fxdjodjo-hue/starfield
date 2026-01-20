@@ -30,7 +30,7 @@ class MapServer {
     this.positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
 
     // Configurazione NPC per questa mappa
-    this.npcConfig = config.npcConfig || { scouterCount: 25, frigateCount: 25 };
+    this.npcConfig = config.npcConfig || { scouterCount: 0, frigateCount: 0, guardCount: 0, pyramidCount: 1 };
 
     // Sistema di monitoraggio globale
     this.globalMonitor = new GlobalGameMonitor(this);
@@ -52,7 +52,9 @@ class MapServer {
     ServerLoggerWrapper.system(`Initializing map ${this.mapId}...`);
     this.npcManager.initializeWorldNpcs(
       this.npcConfig.scouterCount,
-      this.npcConfig.frigateCount
+      this.npcConfig.frigateCount,
+      this.npcConfig.guardCount || 0,
+      this.npcConfig.pyramidCount || 1
     );
   }
 

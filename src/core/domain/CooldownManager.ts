@@ -108,7 +108,6 @@ export class CooldownManager {
   private static getCooldownDuration(cooldownId: string): number {
     // Durate predefinite per tipi comuni
     const defaultDurations: Record<string, number> = {
-      'missile_fire': 3000,      // 3 secondi per missili
       'laser_fire': 800,         // 800ms per laser
       'combat_start': 1000,      // 1 secondo tra inizi combattimento
       'repair_start': 1000,      // 1 secondo tra riparazioni

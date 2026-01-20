@@ -52,7 +52,7 @@ export default class AudioSystem extends System {
    * Precariare suoni importanti per evitare delay di caricamento
    */
   private async preloadImportantSounds(): Promise<void> {
-    const importantSounds = ['rocketExplosion', 'rocketStart', 'explosion'];
+    const importantSounds = ['explosion'];
     
     for (const soundKey of importantSounds) {
       const assetPath = this.getAssetPath(soundKey, 'effects');
@@ -211,16 +211,6 @@ export default class AudioSystem extends System {
       audio.loop = loop;
 
       // Aggiungi listener per errori di caricamento
-      if (import.meta.env.DEV && key === 'rocketExplosion') {
-        audio.addEventListener('error', (e) => {
-          console.error(`[AudioSystem] Error loading rocketExplosion:`, e);
-          if (audio.error) {
-            console.error(`[AudioSystem] Error code: ${audio.error.code}, message: ${audio.error.message}`);
-          }
-        });
-        audio.addEventListener('canplaythrough', () => {
-        });
-      }
 
       // Gestisci la riproduzione con retry per superare blocchi del browser
       // Per suoni precaricati, la riproduzione dovrebbe essere istantanea
@@ -246,9 +236,6 @@ export default class AudioSystem extends System {
             setTimeout(() => playAudio(retryCount + 1), 50 * (retryCount + 1));
           } else {
             console.warn(`Audio system: Failed to play '${key}' after ${retryCount + 1} attempts:`, error);
-            if (import.meta.env.DEV && key === 'rocketExplosion') {
-              console.error(`[AudioSystem] ❌ rocketExplosion failed to play after ${retryCount + 1} attempts:`, error);
-            }
             this.sounds.delete(soundKey);
           }
           return;

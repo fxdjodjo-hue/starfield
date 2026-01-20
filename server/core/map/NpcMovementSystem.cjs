@@ -343,6 +343,7 @@ class NpcMovementSystem {
     return { deltaX, deltaY };
   }
 
+
   /**
    * Valida e applica movimento con boundary collision
    * @param {Object} npc - NPC

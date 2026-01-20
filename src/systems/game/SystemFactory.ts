@@ -92,6 +92,8 @@ export interface CreatedSystems {
     playerSprite: AnimatedSprite;
     scouterAnimatedSprite: AnimatedSprite;
     kronosAnimatedSprite: AnimatedSprite;
+    guardAnimatedSprite: AnimatedSprite;
+    pyramidAnimatedSprite: AnimatedSprite;
     teleportAnimatedSprite: AnimatedSprite;
     engflamesAnimatedSprite: AnimatedSprite;
     spaceStationSprite: Sprite;
@@ -111,8 +113,12 @@ export class SystemFactory {
     // Carica sprite NPC usando scala dal config (single source of truth)
     const scouterDef = getNpcDefinition('Scouter');
     const kronosDef = getNpcDefinition('Kronos');
+    const guardDef = getNpcDefinition('Guard');
+    const pyramidDef = getNpcDefinition('Pyramid');
     const scouterAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/scouter/alien120', scouterDef?.spriteScale || 0.8);
     const kronosAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', kronosDef?.spriteScale || 0.16);
+    const guardAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/guard/alien60', guardDef?.spriteScale || 0.8);
+    const pyramidAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/pyramid/alien90', pyramidDef?.spriteScale || 1.5);
     const teleportAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/teleport/teleport', 1.0);
     const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/engflames/engflames', 0.5);
     const spaceStationSprite = await context.assetManager.createSprite('/assets/spacestation/spacestation.png');
@@ -142,6 +148,12 @@ export class SystemFactory {
     const playerSystem = new PlayerSystem(ecs);
     const portalSystem = new PortalSystem(ecs, playerSystem);
     const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);
+
+    // Ensure assetManager is set on renderSystem if not provided in constructor
+    if (context.assetManager && (!renderSystem as any).assetManager) {
+      (renderSystem as any).setAssetManager(context.assetManager);
+    }
+
     renderSystem.setEngflamesSprite(engflamesAnimatedSprite);
     
     // Sistemi di combattimento modulari
@@ -179,12 +191,18 @@ export class SystemFactory {
     const npcSprites = new Map<string, HTMLImageElement>();
     const remoteNpcSystem = new RemoteNpcSystem(ecs, npcSprites, context.assetManager);
     
-    // Registra AnimatedSprite per Scouter e Kronos
+    // Registra AnimatedSprite per Scouter, Kronos, Guard e Pyramid
     if (scouterAnimatedSprite) {
       remoteNpcSystem.registerNpcAnimatedSprite('Scouter', scouterAnimatedSprite);
     }
     if (kronosAnimatedSprite) {
       remoteNpcSystem.registerNpcAnimatedSprite('Kronos', kronosAnimatedSprite);
+    }
+    if (guardAnimatedSprite) {
+      remoteNpcSystem.registerNpcAnimatedSprite('Guard', guardAnimatedSprite);
+    }
+    if (pyramidAnimatedSprite) {
+      remoteNpcSystem.registerNpcAnimatedSprite('Pyramid', pyramidAnimatedSprite);
     }
 
     // Sistema proiettili remoti per multiplayer
@@ -253,6 +271,8 @@ export class SystemFactory {
         playerSprite,
         scouterAnimatedSprite,
         kronosAnimatedSprite,
+        guardAnimatedSprite,
+        pyramidAnimatedSprite,
         teleportAnimatedSprite,
         engflamesAnimatedSprite,
         spaceStationSprite

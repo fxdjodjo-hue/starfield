@@ -16,9 +16,7 @@ const SERVER_CONSTANTS = {
     SPAWN_OFFSET: 50  // Offset spawn per evitare auto-collisione (px)
   },
 
-  MISSILE: {
-    DAMAGE: 1000     // Danno fisso dei missili (indipendente dal danno player)
-  },
+  // Missile constants removed - missiles are no longer supported
 
   COMBAT: {
     PLAYER_RANGE_WIDTH: playerConfig.stats.rangeWidth || (playerConfig.stats.range * 2),

@@ -113,9 +113,6 @@ export class CombatStateSystem extends BaseSystem {
     this.logSystem = logSystem;
   }
 
-  /**
-   * Initializes missile manager (called after all dependencies are set)
-   */
 
   /**
    * Aggiornamento periodico (implementazione dell'interfaccia System)
@@ -295,9 +292,8 @@ export class CombatStateSystem extends BaseSystem {
       this.currentAttackTarget = selectedNpc.id;
       this.attackStartedLogged = true;
 
-      // Missile system removed - using hitscan only
-    } else if (inRange && attackActivated && this.currentAttackTarget === selectedNpc.id) {
-      // Already in combat - using hitscan only
+      // Missiles removed - no longer supported
+
       // NON fermare mai il combattimento per questioni di range
       // Il server gestisce il range, il client mantiene sempre il combattimento attivo
     } else if (!attackActivated && this.currentAttackTarget !== null) {
@@ -614,7 +610,7 @@ export class CombatStateSystem extends BaseSystem {
   /**
    * Crea un testo di danno per un'entità
    */
-  public createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'missile' | 'npc_laser'): void {
+  public createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser'): void {
     if (this.damageSystem) {
       this.damageSystem.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
     }

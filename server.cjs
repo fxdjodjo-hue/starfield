@@ -293,8 +293,15 @@ setInterval(() => {
 // Il messaggio di avvio è già nel callback di server.listen()
 
 
-// Istanza della mappa principale
-const mapServer = new MapServer('default_map');
+// Istanza della mappa principale con configurazione NPC
+const mapServer = new MapServer('default_map', {
+  npcConfig: {
+    scouterCount: 20,
+    frigateCount: 10,  // Kronos
+    guardCount: 10,
+    pyramidCount: 10
+  }
+});
 mapServer.initialize();
 
 // Aggiungi combat manager alla mappa

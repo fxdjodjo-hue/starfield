@@ -56,6 +56,22 @@ export class RemoteNpcSystem extends BaseSystem {
       const scale = kronosDef?.spriteScale || 0.16;
       this.npcSprites.set('Kronos', new Sprite(kronosImage, kronosImage.width * scale, kronosImage.height * scale));
     }
+
+    // Guard sprite - usa scala dal config
+    const guardDef = getNpcDefinition('Guard');
+    const guardImage = sprites.get('guard');
+    if (guardImage) {
+      const scale = guardDef?.spriteScale || 0.8;
+      this.npcSprites.set('Guard', new Sprite(guardImage, guardImage.width * scale, guardImage.height * scale));
+    }
+
+    // Pyramid sprite - usa scala dal config
+    const pyramidDef = getNpcDefinition('Pyramid');
+    const pyramidImage = sprites.get('pyramid');
+    if (pyramidImage) {
+      const scale = pyramidDef?.spriteScale || 1.5;
+      this.npcSprites.set('Pyramid', new Sprite(pyramidImage, pyramidImage.width * scale, pyramidImage.height * scale));
+    }
   }
 
   /**
@@ -94,7 +110,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Crea un nuovo NPC remoto
    */
-  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
+  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
     // Verifica se l'NPC esiste già
     if (this.remoteNpcs.has(npcId)) {
       // NPC già esistente - aggiorna invece di creare duplicato
@@ -106,9 +122,9 @@ export class RemoteNpcSystem extends BaseSystem {
       return existingNpcData.entityId;
     }
 
-    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos)
+    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos, Guard, Pyramid)
     const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' ? normalizedType : type;
+    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' || normalizedType === 'Guard' || normalizedType === 'Pyramid' ? normalizedType : type;
 
     // Ottieni lo sprite o animatedSprite per questo tipo di NPC
     const animatedSprite = this.npcAnimatedSprites.get(validType);
@@ -247,7 +263,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Inizializza NPC dal messaggio initial_npcs
    */
-  initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Kronos', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
+  initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
     for (const npcData of npcs) {
       this.addRemoteNpc(
         npcData.id,
