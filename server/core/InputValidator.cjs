@@ -440,6 +440,24 @@ class ServerInputValidator {
             }
           };
 
+        case 'player_respawn_request':
+          // Valida richiesta respawn player
+          const respawnErrors = [];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            respawnErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            respawnErrors.push('Client ID too long');
+          }
+
+          return {
+            isValid: respawnErrors.length === 0,
+            errors: respawnErrors,
+            sanitizedData: {
+              clientId: data.clientId
+            }
+          };
+
         default:
           // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
           return {

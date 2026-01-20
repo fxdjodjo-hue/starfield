@@ -60,6 +60,14 @@ class ProjectileDamageHandler {
       this.mapServer.combatManager.stopPlayerCombat(clientId);
     }
 
+    // FA DIMENTICARE IL PLAYER MORTO A TUTTI GLI NPC CHE LO STAVANO ATTACCANDO
+    if (this.mapServer.npcManager && typeof this.mapServer.npcManager.forgetDeadPlayer === 'function') {
+      const forgottenCount = this.mapServer.npcManager.forgetDeadPlayer(clientId);
+      if (forgottenCount > 0) {
+        ServerLoggerWrapper.combat(`Made ${forgottenCount} NPCs forget dead player: ${clientId}`);
+      }
+    }
+
     // Rimuovi respawn automatico - ora gestito dal client
 
     return playerData; // Ritorna per permettere broadcast esterno

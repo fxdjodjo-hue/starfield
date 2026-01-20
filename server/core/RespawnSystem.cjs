@@ -19,8 +19,8 @@ class RespawnSystem {
       return false;
     }
 
-    // Spawn sicuro fisso a (0,0) - come richiesto dall'utente
-    const safeSpawnPosition = { x: 0, y: 0 };
+    // Spawn sicuro fisso a (400, 0) - come richiesto dall'utente
+    const safeSpawnPosition = { x: 400, y: 0 };
 
     playerData.position = { ...safeSpawnPosition };
 

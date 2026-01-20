@@ -179,6 +179,32 @@ class ServerNpcManager {
   get WORLD_BOTTOM() {
     return this.getWorldBounds().WORLD_BOTTOM;
   }
+
+  /**
+   * Fa dimenticare un player morto a tutti gli NPC che lo stavano attaccando
+   * @param {string} deadPlayerId - ID del player morto
+   */
+  forgetDeadPlayer(deadPlayerId) {
+    let forgottenCount = 0;
+
+    for (const [npcId, npc] of this.npcs.entries()) {
+      // Se questo NPC stava attaccando il player morto
+      if (npc.lastAttackerId === deadPlayerId) {
+        // Resetta lo stato di aggressione
+        npc.lastDamage = null;
+        npc.lastAttackerId = null;
+
+        ServerLoggerWrapper.info('NPC_MANAGER', `NPC ${npcId} (${npc.type}) forgot dead player ${deadPlayerId}`);
+        forgottenCount++;
+      }
+    }
+
+    if (forgottenCount > 0) {
+      ServerLoggerWrapper.info('NPC_MANAGER', `Forgot dead player ${deadPlayerId} for ${forgottenCount} NPCs`);
+    }
+
+    return forgottenCount;
+  }
 }
 
 module.exports = ServerNpcManager;

@@ -80,15 +80,20 @@ class RespawnCoordinator {
   }
 
   /**
-   * Fallback: reset basilare degli stats
+   * Fallback: reset basilare degli stats (10% dei valori base)
    */
   resetPlayerStatsBasic(clientId) {
     const playerData = this.mapServer.players.get(clientId);
     if (!playerData) return;
 
-    playerData.health = 10000;
-    playerData.shield = 10000;
-    ServerLoggerWrapper.info('RESPAWN', `Applied basic stats reset for ${clientId}`);
+    // Valori base massimi (senza upgrade)
+    const baseMaxHealth = 100000;
+    const baseMaxShield = 50000;
+
+    // Respawn al 10% dei valori base
+    playerData.health = Math.floor(baseMaxHealth * 0.1);
+    playerData.shield = Math.floor(baseMaxShield * 0.1);
+    ServerLoggerWrapper.info('RESPAWN', `Applied basic stats reset for ${clientId}: HP=${playerData.health}, Shield=${playerData.shield} (10% of base)`);
   }
 
   /**
@@ -98,8 +103,8 @@ class RespawnCoordinator {
     const playerData = this.mapServer.players.get(clientId);
     if (!playerData) return;
 
-    playerData.position = { x: 0, y: 0 };
-    ServerLoggerWrapper.info('RESPAWN', `Spawned ${clientId} at origin (0,0)`);
+    playerData.position = { x: 400, y: 0 };
+    ServerLoggerWrapper.info('RESPAWN', `Spawned ${clientId} at safe location (400, 0)`);
   }
 
   /**
@@ -109,7 +114,25 @@ class RespawnCoordinator {
     const playerData = this.mapServer.players.get(clientId);
     if (!playerData) return;
 
-    // Broadcast a tutti i client connessi
+    // Invia messaggio al player che sta facendo respawn (IMPORTANTE!)
+    if (playerData.ws) {
+      try {
+        playerData.ws.send(JSON.stringify({
+          type: 'player_respawn',
+          clientId: clientId,
+          position: playerData.position,
+          health: playerData.health,
+          maxHealth: playerData.maxHealth,
+          shield: playerData.shield,
+          maxShield: playerData.maxShield
+        }));
+        ServerLoggerWrapper.info('RESPAWN', `Sent respawn message to player ${clientId}`);
+      } catch (error) {
+        ServerLoggerWrapper.warn('RESPAWN', `Failed to send respawn to player ${clientId}: ${error.message}`);
+      }
+    }
+
+    // Broadcast agli altri player (per aggiornare la loro vista)
     for (const [otherClientId, otherPlayerData] of this.mapServer.players.entries()) {
       if (otherPlayerData.ws && otherClientId !== clientId) {
         try {
