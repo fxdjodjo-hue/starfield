@@ -4,8 +4,8 @@
     "shield": 50000,
     "damage": 500,
     "range": 400,
-    "rangeWidth": 1280,
-    "rangeHeight": 720,
+    "rangeWidth": 1920,
+    "rangeHeight": 1080,
     "cooldown": 1500,
     "speed": 300
   },

@@ -108,8 +108,15 @@ class ProjectileCollision {
       // Velocità relativa
       const relativeSpeed = Math.max(playerSpeed, projSpeed);
       
-      // Raggio fisso 80px per missili
-      const collisionRadius = 80;
+      // Raggio dinamico per player (aumenta con velocità alta)
+      let collisionRadius = 80;
+
+      // Aumenta raggio dinamicamente se player si muove velocemente
+      // Per ogni 100 px/s di velocità relativa, aggiungi 10px al raggio (max +80px)
+      if (relativeSpeed > 200) {
+        const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
+        collisionRadius += speedBonus;
+      }
       
       if (distance < collisionRadius) {
         return { playerData, clientId };
@@ -125,8 +132,6 @@ class ProjectileCollision {
    */
   checkSpecificTargetCollision(projectile) {
     const targetId = projectile.targetId;
-
-    console.log(`[COLLISION] Checking specific collision for projectile ${projectile.id}, targetId: ${targetId}, position: (${projectile.position.x.toFixed(1)}, ${projectile.position.y.toFixed(1)})`);
 
     // Determina se il target è un NPC o un player basandosi sul formato dell'ID
     // NPC hanno ID come "npc_0", "npc_1", etc.
@@ -170,8 +175,6 @@ class ProjectileCollision {
           // Raggio di collisione dinamico
           const collisionRadius = this.calculateCollisionRadius(relativeSpeed, true);
 
-          console.log(`[COLLISION] Projectile ${projectile.id} vs NPC ${npc.id}: proj_pos=(${projectile.position.x.toFixed(1)}, ${projectile.position.y.toFixed(1)}), npc_pos=(${npc.position.x.toFixed(1)}, ${npc.position.y.toFixed(1)}), distance=${distance.toFixed(1)}, radius=${collisionRadius}, hit=${distance < collisionRadius}`);
-
           if (distance < collisionRadius) {
             console.log(`[COLLISION] 💥 HIT! Projectile ${projectile.id} hit NPC ${npc.id}`);
             return { entity: npc, type: 'npc' };
@@ -214,8 +217,15 @@ class ProjectileCollision {
           // Velocità relativa (quanto velocemente si avvicinano)
           const relativeSpeed = Math.max(playerSpeed, projSpeed);
           
-          // Raggio fisso 80px per missili
-          const collisionRadius = 80;
+      // Raggio dinamico per player target (aumenta con velocità alta)
+      let collisionRadius = 120; // AUMENTATO da 80 a 120 per player
+
+      // Aumenta raggio dinamicamente se player si muove velocemente
+      // Per ogni 100 px/s di velocità relativa, aggiungi 15px al raggio (max +120px)
+      if (relativeSpeed > 200) {
+        const speedBonus = Math.min(120, (relativeSpeed - 200) / 100 * 15);
+        collisionRadius += speedBonus;
+      }
           
           if (distance < collisionRadius) {
             return { entity: playerData, type: 'player' };

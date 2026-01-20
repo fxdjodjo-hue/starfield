@@ -137,13 +137,18 @@ export class AssetManager {
       return this.spritesheets.get(basePath)!;
     }
 
+    console.log(`[DEBUG_ASSET] Loading spritesheet: ${basePath}`);
+
     // Load atlas file
     const atlasPath = `${basePath}.atlas`;
+    console.log(`[DEBUG_ASSET] Fetching atlas: ${atlasPath}`);
     const atlasResponse = await fetch(atlasPath);
     if (!atlasResponse.ok) {
+      console.error(`[DEBUG_ASSET] Failed to load atlas: ${atlasPath}, status: ${atlasResponse.status}`);
       throw new Error(`Failed to load atlas: ${atlasPath}`);
     }
     const atlasContent = await atlasResponse.text();
+    console.log(`[DEBUG_ASSET] Atlas loaded, content length: ${atlasContent.length}`);
 
     // Try to parse with utils parser first (supports multiple images)
     let allFrames: Array<{name: string, x: number, y: number, width: number, height: number}> = [];
@@ -153,8 +158,10 @@ export class AssetManager {
 
     try {
       // Use parser to get all sections
+      console.log(`[DEBUG_ASSET] Parsing atlas for ${basePath}`);
       const sections = AtlasParser.parseAtlasTextAll(atlasContent);
-      
+      console.log(`[DEBUG_ASSET] Atlas parsed: ${sections.length} sections found`);
+
       if (sections.length > 1) {
         // Multiple images: combine them into a single canvas
         const images: HTMLImageElement[] = [];
@@ -220,10 +227,15 @@ export class AssetManager {
         frameHeight = sections[0].frames[0]?.height || 0;
       } else {
         // Single image: use standard parser
+        console.log(`[DEBUG_ASSET] Single image case for ${basePath}`);
         const atlasData = AtlasParser.parse(atlasContent);
+        console.log(`[DEBUG_ASSET] Atlas parsed: ${atlasData.frames?.length || 0} frames found`);
         const imagePath = `${basePath}.png`;
+        console.log(`[DEBUG_ASSET] Loading image: ${imagePath}`);
         combinedImage = await this.loadImage(imagePath);
+        console.log(`[DEBUG_ASSET] Image loaded: ${combinedImage.naturalWidth}x${combinedImage.naturalHeight}`);
         allFrames = atlasData.frames;
+        console.log(`[DEBUG_ASSET] Final frames count: ${allFrames.length}`);
         
         // Calcola frameWidth e frameHeight dal primo frame valido
         if (atlasData.frames.length > 0) {
@@ -312,8 +324,26 @@ export class AssetManager {
    * Create an AnimatedSprite from a spritesheet
    */
   async createAnimatedSprite(basePath: string, scale: number = 1): Promise<AnimatedSprite> {
-    const spritesheet = await this.loadSpritesheet(basePath);
-    return new AnimatedSprite(spritesheet, scale);
+    console.log(`[DEBUG_ASSET] Creating AnimatedSprite for: ${basePath}`);
+    try {
+      const spritesheet = await this.loadSpritesheet(basePath);
+      console.log(`[DEBUG_ASSET] Spritesheet loaded for ${basePath}:`, {
+        hasImage: !!spritesheet.image,
+        frameCount: spritesheet.frames?.length || 0,
+        frameWidth: spritesheet.frameWidth,
+        frameHeight: spritesheet.frameHeight
+      });
+      const animatedSprite = new AnimatedSprite(spritesheet, scale);
+      console.log(`[DEBUG_ASSET] AnimatedSprite created for ${basePath}:`, {
+        framesCount: animatedSprite.spritesheet.frames?.length || 0,
+        frameWidth: animatedSprite.spritesheet.frameWidth,
+        frameHeight: animatedSprite.spritesheet.frameHeight
+      });
+      return animatedSprite;
+    } catch (error) {
+      console.error(`[DEBUG_ASSET] Failed to create AnimatedSprite for ${basePath}:`, error);
+      throw error;
+    }
   }
 
   /**

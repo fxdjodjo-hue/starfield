@@ -114,10 +114,9 @@ class ProjectileHoming {
 
     // Poi cerca tra gli NPC
     const npcs = this.mapServer.npcManager.getAllNpcs();
-    console.log(`[SERVER_HOMING] Looking for NPC targetId: ${targetId}, found ${npcs.length} NPCs`);
     for (const npc of npcs) {
-      console.log(`[SERVER_HOMING] Checking NPC: id=${npc.id}, type=${npc.type}, targetId match: ${npc.id === targetId}`);
       if (npc.id === targetId) {
+        // Log solo quando trova il target (evento raro)
         console.log(`[SERVER_HOMING] Found target NPC: ${npc.id}`);
         return {
           position: npc.position,

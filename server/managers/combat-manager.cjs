@@ -237,6 +237,74 @@ class ServerCombatManager {
   }
 
   /**
+   * Esegue attacco deterministico (MMO style) - hit garantito
+   * @param {string} ownerId - ID di chi spara (npcId)
+   * @param {Object} ownerPosition - Posizione di chi spara {x, y}
+   * @param {Object} targetPlayer - Player target (con clientId)
+   * @param {number} damage - Danno del proiettile
+   * @param {number} hitTime - Timestamp quando applicare il danno
+   * @param {string} projectileType - Tipo di proiettile
+   * @returns {string|null} ID del proiettile creato
+   */
+  performDeterministicAttack(ownerId, ownerPosition, targetPlayer, damage, hitTime, projectileType = 'scouter_laser') {
+    // Crea proiettile homing VISUALE (non fisico)
+    const projectileId = `${ownerId}_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Calcola direzione iniziale
+    const dx = targetPlayer.position.x - ownerPosition.x;
+    const dy = targetPlayer.position.y - ownerPosition.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance === 0) {
+      return null; // Non sparare se posizioni coincidenti
+    }
+
+    // Normalizza direzione
+    const directionX = dx / distance;
+    const directionY = dy / distance;
+
+    // Posizione di spawn
+    const projectilePos = {
+      x: ownerPosition.x + directionX * SERVER_CONSTANTS.PROJECTILE.SPAWN_OFFSET,
+      y: ownerPosition.y + directionY * SERVER_CONSTANTS.PROJECTILE.SPAWN_OFFSET
+    };
+
+    // Velocità per movimento visivo (non fisica)
+    const velocity = {
+      x: directionX * SERVER_CONSTANTS.PROJECTILE.SPEED,
+      y: directionY * SERVER_CONSTANTS.PROJECTILE.SPEED
+    };
+
+    try {
+      // Crea proiettile con dati speciali per hit deterministico
+      const projectileData = {
+        id: projectileId,
+        playerId: ownerId,
+        position: projectilePos,
+        velocity: velocity,
+        damage: damage,
+        projectileType: projectileType,
+        targetId: targetPlayer.clientId, // Target per homing visivo
+        hitTime: hitTime, // Quando applicare il danno (deterministico)
+        isDeterministic: true, // Flag per identificare proiettili deterministici
+        createdAt: Date.now(),
+        lastUpdate: Date.now()
+      };
+
+      this.mapServer.projectileManager.projectiles.set(projectileId, projectileData);
+
+      // Broadcast ai client (NPC projectiles are excluded from sender)
+      const excludeSender = true; // NPC projectiles not visible to themselves
+      this.mapServer.projectileManager.broadcaster.broadcastProjectileFired(projectileData, excludeSender, damage);
+
+      return projectileId;
+    } catch (error) {
+      ServerLoggerWrapper.error('COMBAT', `Failed to create deterministic projectile ${projectileId}: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Esegue attacco generico (player o NPC) con traiettoria lineare
    * @param {string} ownerId - ID di chi spara (playerId o npcId)
    * @param {Object} ownerPosition - Posizione di chi spara {x, y}
@@ -340,8 +408,13 @@ class ServerCombatManager {
    * Processa logica di combat per un singolo NPC
    */
   processNpcCombat(npc, now) {
-    // NPC entra in combattimento solo se è stato colpito almeno una volta (flag di combat)
-    if (!npc.lastDamage) return;
+    // NPC attacca SOLO se è in modalità aggressive (non appena un player entra nel range)
+    if (npc.behavior !== 'aggressive') {
+      return; // Non attaccare se non è aggressivo
+    }
+
+    // Per proiettili deterministici, permettiamo multipli proiettili attivi
+    // dato che ogni colpo è garantito e non ci sono collisioni fisiche
 
     // Controlla cooldown attacco
     const lastAttack = this.npcAttackCooldowns.get(npc.id) || 0;
@@ -365,9 +438,9 @@ class ServerCombatManager {
       const distanceSq = dx * dx + dy * dy;
 
       if (distanceSq <= attackRangeSq) {
-        // Player nel range - NPC attacca
+        // Player nel range E NPC è aggressivo - NPC attacca
         if (process.env.DEBUG_COMBAT === 'true') {
-          console.log(`[NPC ${npc.id}] Attacca player ${clientId} nel range. Distanza: ${Math.sqrt(distanceSq).toFixed(1)}`);
+          console.log(`[NPC ${npc.id}] Attacca player ${clientId} nel range (comportamento: ${npc.behavior}). Distanza: ${Math.sqrt(distanceSq).toFixed(1)}`);
         }
         this.performNpcAttack(npc, playerData, now);
         break; // Un attacco per tick
@@ -406,14 +479,17 @@ class ServerCombatManager {
     // Calcola danno NPC
     const damage = npc.damage || NPC_CONFIG[npc.type].stats.damage;
 
-    // Usa la funzione comune per creare il proiettile
-    const projectileId = this.performAttack(
+    // HIT DETERMINISTICO (MMO Style): Il colpo è deciso ora, non al momento dell'impatto
+    const hitTime = now + 600; // 600ms di viaggio del proiettile (tempo fisso)
+
+    // Crea proiettile homing con hit garantito
+    const projectileId = this.performDeterministicAttack(
       npc.id,
       npc.position,
-      targetPlayer.position,
+      targetPlayer,
       damage,
-      'scouter_laser',
-      targetPlayer.clientId
+      hitTime,
+      'scouter_laser'
     );
 
     // Aggiorna cooldown sempre quando l'NPC prova ad attaccare (indipendentemente dal successo)
@@ -421,7 +497,7 @@ class ServerCombatManager {
 
     if (process.env.DEBUG_COMBAT === 'true') {
       if (projectileId) {
-        console.log(`[NPC ${npc.id}] Attacco riuscito contro ${targetPlayer.clientId}. Projectile: ${projectileId}`);
+        console.log(`[NPC ${npc.id}] Attacco deterministico riuscito contro ${targetPlayer.clientId}. Projectile: ${projectileId}, hitTime: ${hitTime}`);
       } else {
         console.log(`[NPC ${npc.id}] Attacco fallito contro ${targetPlayer.clientId} - proiettile non creato`);
       }

@@ -142,7 +142,6 @@ export const MESSAGE_TYPES = {
   STOP_COMBAT: 'stop_combat',
   COMBAT_UPDATE: 'combat_update',
   COMBAT_ERROR: 'combat_error',
-  COMBAT_ERROR: 'combat_error',
   PROJECTILE_FIRED: 'projectile_fired',
   PROJECTILE_UPDATE: 'projectile_update',
   PROJECTILE_DESTROYED: 'projectile_destroyed',

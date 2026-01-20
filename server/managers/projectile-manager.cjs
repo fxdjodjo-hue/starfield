@@ -102,8 +102,9 @@ class ServerProjectileManager {
         continue;
       }
 
-      // HOMING LOGIC: Per tutti i proiettili con target (player e NPC)
-      if (projectile.targetId && projectile.targetId !== -1) {
+      // HOMING LOGIC: Solo per proiettili NON deterministici
+      // I proiettili deterministici fanno homing visivo ma non vengono distrutti per target mancante
+      if (projectile.targetId && projectile.targetId !== -1 && !projectile.isDeterministic) {
         const homingResult = this.homing.updateProjectileHoming(projectile);
         if (!homingResult) {
           // Target non trovato - rimuovi proiettile immediatamente per prevenire memory leak
@@ -125,17 +126,56 @@ class ServerProjectileManager {
       const deltaTime = (now - projectile.lastUpdate) / 1000; // secondi
       this.physics.simulateMovement(projectile, deltaTime);
 
-      // Verifica collisioni con il TARGET SPECIFICO (se presente)
-      if (projectile.targetId && projectile.targetId !== -1) {
+      // GESTIONE PROIETTILI DETERMINISTICI (MMO Style) - HIT SOLO BASATO SU TEMPO
+      if (projectile.isDeterministic && projectile.hitTime) {
+        if (now >= projectile.hitTime) {
+          console.log(`[PROJECTILE] 🎯 DETERMINISTIC HIT TIME REACHED for ${projectileId}`);
+
+          // HIT DETERMINISTICO: Applica danno automaticamente (NON basato su posizione)
+          const targetPlayer = Array.from(this.mapServer.players.values())
+            .find(player => player.clientId === projectile.targetId);
+
+          if (targetPlayer) {
+            // FIX VISIVO: Teleporta il proiettile alla posizione del target prima della distruzione
+            projectile.position.x = targetPlayer.position.x;
+            projectile.position.y = targetPlayer.position.y;
+
+            // Applica danno al player target
+            const actualDamage = this.calculateProjectileDamage(projectile);
+            const playerDead = this.damageHandler.handlePlayerDamage(targetPlayer.clientId, actualDamage, projectile.playerId);
+            this.broadcaster.broadcastEntityDamaged(targetPlayer, projectile, 'player', actualDamage);
+
+            if (playerDead) {
+              ServerLoggerWrapper.combat(`Player ${targetPlayer.clientId} killed by ${projectile.playerId} (deterministic hit)`);
+              this.damageHandler.handlePlayerDeath(targetPlayer.clientId, projectile.playerId);
+              this.broadcaster.broadcastEntityDestroyed(targetPlayer, projectile.playerId, 'player');
+            }
+          }
+
+          // Rimuovi IL PROIETTILE SUBITO (non aspettare altre condizioni)
+          this.projectiles.delete(projectileId);
+          this.broadcaster.broadcastProjectileDestroyedAtPosition(projectileId, 'deterministic_hit', projectile.position);
+          console.log(`[PROJECTILE] ✅ DETERMINISTIC PROJECTILE ${projectileId} DESTROYED`);
+          continue;
+        }
+
+        // Proiettile deterministico ancora in volo - SALTA tutte le altre logiche (homing, collisioni, timeout)
+        // NON deve essere distrutto per distanza, collisioni o timeout
+        continue;
+      }
+
+      // Verifica collisioni con il TARGET SPECIFICO (per proiettili NON deterministici)
+      else if (projectile.targetId && projectile.targetId !== -1) {
         const targetHit = this.collision.checkSpecificTargetCollision(projectile);
         if (targetHit) {
+          console.log(`[PROJECTILE] 🎯 HOMING HIT! Projectile ${projectileId} hit specific target ${projectile.targetId}`);
           // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
           projectile.velocity.x = 0;
           projectile.velocity.y = 0;
-          
+
           // Salva posizione per il broadcast prima di rimuovere
           const collisionPosition = { ...projectile.position };
-          
+
           if (targetHit.type === 'npc') {
             // Applica danno all'NPC target
             const actualDamage = this.calculateProjectileDamage(projectile);
@@ -162,7 +202,7 @@ class ServerProjectileManager {
 
           // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
           this.projectiles.delete(projectileId);
-          
+
           // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
           this.broadcaster.broadcastProjectileDestroyedAtPosition(projectileId, 'target_hit', collisionPosition);
           continue;
@@ -201,13 +241,16 @@ class ServerProjectileManager {
       if (isNpcProjectile) {
         const hitPlayer = this.collision.checkPlayerCollision(projectile);
         if (hitPlayer) {
+          console.log(`[PROJECTILE] 💥 GENERIC HIT! NPC projectile ${projectileId} hit player ${hitPlayer.clientId} (was homing: ${projectile.targetId ? 'YES' : 'NO'})`);
+
           // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
           projectile.velocity.x = 0;
           projectile.velocity.y = 0;
-          
+
           // Salva posizione per il broadcast prima di rimuovere
           const collisionPosition = { ...projectile.position };
-          
+
+          const actualDamage = this.calculateProjectileDamage(projectile);
           const playerDead = this.damageHandler.handlePlayerDamage(hitPlayer.clientId, actualDamage, projectile.playerId);
           this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player', actualDamage);
 
@@ -219,9 +262,14 @@ class ServerProjectileManager {
 
           // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
           this.projectiles.delete(projectileId);
-          
+
           // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
           this.broadcaster.broadcastProjectileDestroyedAtPosition(projectileId, 'target_hit', collisionPosition);
+          console.log(`[PROJECTILE] ✅ NPC projectile ${projectileId} removed successfully`);
+
+          // CRITICO: Per proiettili homing, annulla anche il targetId per evitare che continuino a cercare
+          projectile.targetId = null;
+
           continue;
         }
       }
@@ -269,10 +317,13 @@ class ServerProjectileManager {
       }
 
       // Verifica timeout intelligente basato sul tipo di proiettile
-      const maxLifetime = this.physics.calculateProjectileLifetime(projectile);
-      if (now - projectile.createdAt > maxLifetime) {
-        projectilesToRemove.push(projectileId);
-        continue;
+      // I proiettili deterministici NON hanno timeout - vivono fino al hitTime
+      if (!projectile.isDeterministic) {
+        const maxLifetime = this.physics.calculateProjectileLifetime(projectile);
+        if (now - projectile.createdAt > maxLifetime) {
+          projectilesToRemove.push(projectileId);
+          continue;
+        }
       }
     }
 

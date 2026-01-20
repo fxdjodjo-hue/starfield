@@ -106,6 +106,14 @@ export class RenderSystem extends BaseSystem {
    * Imposta lo sprite per le fiamme del motore
    */
   setEngflamesSprite(sprite: AnimatedSprite): void {
+    console.log(`[DEBUG_FLAMES] setEngflamesSprite called with:`, sprite ? 'VALID sprite' : 'NULL sprite');
+    if (sprite) {
+      console.log(`[DEBUG_FLAMES] Sprite properties:`, {
+        frames: sprite.spritesheet.frames?.length || 'no frames',
+        frameWidth: sprite.spritesheet.frameWidth,
+        frameHeight: sprite.spritesheet.frameHeight
+      });
+    }
     this.engflamesSprite = sprite;
   }
 
@@ -226,9 +234,6 @@ export class RenderSystem extends BaseSystem {
       this.renderExplosion(ctx, transform, explosion, screenX, screenY);
     } else if (repairEffect) {
       this.renderRepairEffect(ctx, transform, repairEffect, screenX, screenY);
-    } else if (components.sprite || components.animatedSprite) {
-      // Render generic sprites (projectiles, effects, etc.)
-      this.renderGenericSprite(ctx, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else if (npc) {
       // Render NPC - supporta sia AnimatedSprite che Sprite
       const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
@@ -236,6 +241,15 @@ export class RenderSystem extends BaseSystem {
       
       // Renderizza aim PRIMA dello sprite NPC (sotto) con gli stessi offset dello sprite
       const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
+      if (isSelected) {
+        console.log(`[DEBUG_AIM] ✅ Found SELECTED NPC ${entity.id} - aim should appear`);
+      } else {
+        // DEBUG: Log NPC senza selezione (solo uno ogni tanto per non spam)
+        if (Math.random() < 0.005) { // 0.5% chance per non spam
+          console.log(`[DEBUG_AIM] NPC ${entity.id} not selected - no aim visible`);
+        }
+      }
+
       if (isSelected) {
         // Ottieni offset dallo sprite per centrare correttamente l'aim
         let offsetX = 0;
@@ -286,6 +300,9 @@ export class RenderSystem extends BaseSystem {
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
         }
       }
+    } else if (components.sprite || components.animatedSprite) {
+      // Render generic sprites (projectiles, effects, etc.)
+      this.renderGenericSprite(ctx, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else {
       // Render player - usa isPlayerEntity già definito all'inizio del metodo
       if (isPlayerEntity) {
@@ -296,24 +313,6 @@ export class RenderSystem extends BaseSystem {
         
         const floatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime);
         
-        
-        // Renderizza fiamme del motore PRIMA della nave (sotto nello z-order)
-        if (velocity && this.engflamesSprite && this.engflamesOpacity > 0) {
-          const isMoving = Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1;
-          if (isMoving) {
-            const params = EngineFlamesRenderer.getRenderParams(
-              transform,
-              screenX,
-              screenY + floatOffsetY,
-              this.engflamesAnimationTime,
-              this.engflamesOpacity,
-              camera
-            );
-            if (params) {
-              EngineFlamesRenderer.render(ctx, this.engflamesSprite, params);
-            }
-          }
-        }
         
         // Priority: AnimatedSprite > Sprite
         // Forza il rendering anche se isLoaded() ritorna false, verifica solo dimensioni
@@ -340,6 +339,8 @@ export class RenderSystem extends BaseSystem {
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
         }
+
+
         return; // Player renderizzato, esci immediatamente per evitare doppio rendering
       } else if (isRemotePlayer) {
         // Render remote player - similar to local player but without engine flames
@@ -461,6 +462,18 @@ export class RenderSystem extends BaseSystem {
 
     const velocity = this.ecs.getComponent(playerEntity, Velocity);
     const isMoving = velocity ? (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1) : false;
+
+    // DEBUG: Log velocity del player per fiamme motore
+    if (!velocity) {
+      console.log(`[DEBUG_FLAMES] Player has no Velocity component!`);
+    } else if (!isMoving) {
+      // Log solo occasionalmente per non spam
+      if (Math.random() < 0.01) {
+        console.log(`[DEBUG_FLAMES] Player not moving enough - velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)})`);
+      }
+    } else {
+      console.log(`[DEBUG_FLAMES] ✅ Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
+    }
     
     // Gestisci fiamme del motore
     if (this.engflamesSprite) {
@@ -483,6 +496,14 @@ export class RenderSystem extends BaseSystem {
       worldOpacity = this.cameraSystem.getWorldOpacity();
     }
 
+    // DEBUG: Log opacità globale per investigare problema rendering
+    if (worldOpacity < 1) {
+      console.log(`[DEBUG_RENDER] worldOpacity: ${worldOpacity}, isZoomAnimating: ${isZoomAnimating}`);
+    }
+    if (worldOpacity === 1 && !isZoomAnimating) {
+      console.log(`[DEBUG_RENDER] Zoom animation finished - opacity back to normal`);
+    }
+
     // Salva stato e applica opacità
     ctx.save();
     ctx.globalAlpha = worldOpacity;
@@ -502,10 +523,10 @@ export class RenderSystem extends BaseSystem {
 
     // Render NPC beam effects (laser attacks) - TEMPORANEAMENTE DISABILITATO
     // TODO: Riabilitare dopo aver fixato il sistema di selezione NPC
-    // Render debug range circle for player (only in development) - SOPRA TUTTO
-    // if (import.meta.env.DEV) {
-    //   this.renderPlayerRangeCircle(ctx, camera);
-    // }
+    // Render debug range circle for player (only in development) - SOPRA TUTTO - TEMPORANEAMENTE ABILITATO
+    if (import.meta.env.DEV) {
+      this.renderPlayerRangeCircle(ctx, camera);
+    }
 
     // Ripristina opacità
     ctx.restore();
@@ -639,6 +660,25 @@ export class RenderSystem extends BaseSystem {
         const screenPos = ScreenSpace.toScreen(playerTransform, camera, width, height);
         const components = this.getCachedComponents(playerEntity);
         
+        // Render engine flames BEFORE player ship (behind in z-order)
+        const playerVelocity = this.ecs.getComponent(playerEntity, Velocity);
+        if (playerVelocity && this.engflamesSprite && this.engflamesOpacity > 0) {
+          const isMoving = Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.y) > 0.1;
+          if (isMoving) {
+            const params = EngineFlamesRenderer.getRenderParams(
+              playerTransform,
+              screenPos.x,
+              screenPos.y,
+              this.engflamesAnimationTime,
+              this.engflamesOpacity,
+              camera
+            );
+            if (params) {
+              EngineFlamesRenderer.render(ctx, this.engflamesSprite, params);
+            }
+          }
+        }
+
         // Render player entity
         this.renderGameEntity(ctx, playerEntity, playerTransform, screenPos.x, screenPos.y, {
           explosion: components.explosion,
@@ -828,10 +868,18 @@ export class RenderSystem extends BaseSystem {
     // Carica l'immagine in modo lazy se non è già caricata
     if (!this.aimImage) {
       this.aimImage = this.assetManager.getOrLoadImage('/assets/aim/aim.png');
+      console.log(`[DEBUG_AIM] Loading aim.png...`);
     }
 
     // Se l'immagine non è ancora caricata, non renderizzare nulla
     if (!this.aimImage || !this.aimImage.complete || this.aimImage.naturalWidth === 0) {
+      if (!this.aimImage) {
+        console.log(`[DEBUG_AIM] aimImage is null`);
+      } else if (!this.aimImage.complete) {
+        console.log(`[DEBUG_AIM] aimImage not complete yet`);
+      } else if (this.aimImage.naturalWidth === 0) {
+        console.log(`[DEBUG_AIM] aimImage has 0 width - load failed`);
+      }
       return;
     }
 
@@ -850,6 +898,7 @@ export class RenderSystem extends BaseSystem {
       size
     );
 
+    console.log(`[DEBUG_AIM] ✅ Aim RENDERED for NPC at (${screenX.toFixed(1)}, ${screenY.toFixed(1)})`);
     ctx.restore();
   }
 

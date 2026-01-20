@@ -120,7 +120,9 @@ export class SystemFactory {
     const guardAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/guard/alien60', guardDef?.spriteScale || 0.8);
     const pyramidAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/pyramid/alien90', pyramidDef?.spriteScale || 1.5);
     const teleportAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/teleport/teleport', 1.0);
+    console.log(`[DEBUG_FLAMES] Creating engflames AnimatedSprite...`);
     const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/engflames/engflames', 0.5);
+    console.log(`[DEBUG_FLAMES] engflames AnimatedSprite created:`, engflamesAnimatedSprite ? 'SUCCESS' : 'FAILED');
     const spaceStationSprite = await context.assetManager.createSprite('/assets/spacestation/spacestation.png');
 
     // Crea sistemi
