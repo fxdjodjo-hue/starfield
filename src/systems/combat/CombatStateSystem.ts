@@ -347,6 +347,12 @@ export class CombatStateSystem extends BaseSystem {
         // Verifica che siamo ancora in range prima di creare il laser
         const playerEntity = this.playerSystem?.getPlayerEntity();
         if (playerEntity) {
+          // Controlla se il giocatore è morto
+          const playerHealth = this.ecs.getComponent(playerEntity, Health);
+          if (playerHealth && playerHealth.isDead()) {
+            return; // Non creare laser se il giocatore è morto
+          }
+
           const playerTransform = this.ecs.getComponent(playerEntity, Transform);
           const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
@@ -364,28 +370,14 @@ export class CombatStateSystem extends BaseSystem {
               });
               this.lastLaserFireTime = now;
 
-              // Incrementa contatore sequenza e log ritmica
+              // Incrementa contatore sequenza
               this.laserSequenceCount++;
-              const sequenceDisplay = (sequencePosition + 1) === 0 ? 4 : (sequencePosition + 1);
 
               // CAMBIA PATTERN OGNI CICLO DI 4 LASER
               if (this.laserSequenceCount % 4 === 0) {
                 this.rhythmPattern = (this.rhythmPattern + 1) % 3; // 3 pattern diversi
-                console.log(`[LASER RHYTHM] 🔄 Pattern changed to ${this.rhythmPattern + 1}/3 at laser ${this.laserSequenceCount}`);
               }
 
-              let rhythmNote = ' ⚡ VELOCE!';
-              switch (this.rhythmPattern) {
-                case 0:
-                  if (sequencePosition === 0) rhythmNote = ' 🐌 RALLENTATO!';
-                  else if (sequencePosition === 1) rhythmNote = ' ⚡⚡ SUPER-VELOCE!';
-                  else rhythmNote = ' ⚡ VELOCE!';
-                  break;
-                case 1: rhythmNote = (sequencePosition === 3 || sequencePosition === 0) ? ' 🚀 ACCELERATO!' : ' ⚡ NORMALE!'; break;
-                case 2: rhythmNote = ' 🎲 CASUALE!'; break;
-              }
-
-              console.log(`[LASER RHYTHM] Pattern ${this.rhythmPattern + 1}/3 - Shot ${sequenceDisplay}/4 (abs: ${this.laserSequenceCount}), interval: ${Math.round(interval)}ms${rhythmNote}`);
             }
           }
         }
