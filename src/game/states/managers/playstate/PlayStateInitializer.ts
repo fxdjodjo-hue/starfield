@@ -569,5 +569,29 @@ export class PlayStateInitializer {
         uiSystem.addSystemMessage('Welcome to Starfield! Use the chat to communicate.');
       }
     }, 1000);
+
+    // Configura InputSystem per disabilitare input quando pannelli UI sono aperti
+    this.setupInputSystemUIPanelIntegration();
+  }
+
+  /**
+   * Setup event listeners to disable InputSystem when UI panels are open
+   */
+  private setupInputSystemUIPanelIntegration(): void {
+    // Trova l'InputSystem nell'ECS
+    const allSystems = this.world.getECS().getSystems();
+    const inputSystem = allSystems.find(s => s.constructor.name === 'InputSystem');
+
+    if (inputSystem && typeof inputSystem.setInputDisabled === 'function') {
+      // Disable input when a UI panel is opened
+      document.addEventListener('uiPanelOpened', () => {
+        inputSystem.setInputDisabled(true);
+      });
+
+      // Re-enable input when a UI panel is closed
+      document.addEventListener('uiPanelClosed', () => {
+        inputSystem.setInputDisabled(false);
+      });
+    }
   }
 }

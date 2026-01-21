@@ -15,7 +15,6 @@ export interface LeaderboardEntry {
   honor: number;
   recentHonor: number;
   rankingPoints: number;
-  kills: number;
   playTime: number; // in secondi
   level: number;
   rankName: string; // Rank militare (es. "Chief General")
@@ -26,7 +25,7 @@ export interface LeaderboardEntry {
  */
 export interface LeaderboardData {
   entries: LeaderboardEntry[];
-  sortBy: 'ranking_points' | 'honor' | 'experience' | 'kills';
+  sortBy: 'ranking_points' | 'honor' | 'experience';
   playerRank?: number; // Posizione del giocatore corrente
 }
 
@@ -42,6 +41,7 @@ export class LeaderboardPanel extends BasePanel {
   private refreshButton: HTMLElement | null = null;
   private sortButtons: Map<string, HTMLElement> = new Map();
   private loadingIndicator: HTMLElement | null = null;
+  private loadingSpinner: HTMLElement | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
 
   constructor(config: PanelConfig, clientNetworkSystem?: ClientNetworkSystem | null) {
@@ -58,6 +58,20 @@ export class LeaderboardPanel extends BasePanel {
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
     this.clientNetworkSystem = clientNetworkSystem;
+
+    // Ascolta gli eventi di riconnessione per richiedere automaticamente la leaderboard
+    clientNetworkSystem.onReconnected(() => {
+      if (this.isVisible && this.leaderboardData.entries.length === 0) {
+        console.log('[LeaderboardPanel] Connection restored, requesting leaderboard');
+        this.requestLeaderboard();
+      }
+    });
+
+    // Se il pannello è già visibile e non abbiamo ancora richiesto la leaderboard,
+    // richiedila automaticamente ora che abbiamo il ClientNetworkSystem
+    if (this.isVisible && this.leaderboardData.entries.length === 0) {
+      this.requestLeaderboard();
+    }
   }
 
   /**
@@ -68,28 +82,31 @@ export class LeaderboardPanel extends BasePanel {
     if (!this.sortButtons) {
       this.sortButtons = new Map();
     }
-    
+
     const content = document.createElement('div');
     content.className = 'leaderboard-content';
     content.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
       padding: 24px;
-      height: 100%;
       display: flex;
       flex-direction: column;
-      gap: 16px;
-      position: relative;
+      gap: 12px;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 25px;
-      overflow-y: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
       -ms-user-select: none;
+      box-sizing: border-box;
     `;
 
     // Hide scrollbar
@@ -186,8 +203,7 @@ export class LeaderboardPanel extends BasePanel {
     const sortOptions = [
       { id: 'ranking_points', label: 'Ranking' },
       { id: 'honor', label: 'Honor' },
-      { id: 'experience', label: 'Experience' },
-      { id: 'kills', label: 'Kills' }
+      { id: 'experience', label: 'Experience' }
     ];
 
     sortOptions.forEach(option => {
@@ -285,8 +301,11 @@ export class LeaderboardPanel extends BasePanel {
     tableContainer.style.cssText = `
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden;
       scrollbar-width: thin;
       scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+      min-height: 0; /* Permette al flex item di shrinkare correttamente */
+      padding-bottom: 20px; /* Spazio extra per vedere l'ultimo elemento */
     `;
 
     // Table
@@ -315,8 +334,7 @@ export class LeaderboardPanel extends BasePanel {
       { text: 'Rank', align: 'left' },
       { text: 'Level', align: 'right' },
       { text: 'Experience', align: 'right' },
-      { text: 'Honor', align: 'right' },
-      { text: 'Kills', align: 'right' }
+      { text: 'Honor', align: 'right' }
     ];
     
     headers.forEach(header => {
@@ -346,13 +364,69 @@ export class LeaderboardPanel extends BasePanel {
     tableContainer.appendChild(table);
     content.appendChild(tableContainer);
 
+    // Aggiungi loading spinner centrato
+    this.loadingSpinner = document.createElement('div');
+    this.loadingSpinner.id = 'leaderboard-loading-spinner';
+    this.loadingSpinner.style.cssText = `
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      display: none;
+      z-index: 1000;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 20px;
+      border-radius: 15px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    `;
+
+    const spinnerCircle = document.createElement('div');
+    spinnerCircle.style.cssText = `
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-left: 4px solid rgba(0, 255, 136, 0.8);
+      border-radius: 50%;
+      animation: leaderboard-spin 1s linear infinite;
+      margin: 0 auto;
+    `;
+
+    const spinnerText = document.createElement('div');
+    spinnerText.textContent = 'Loading leaderboard...';
+    spinnerText.style.cssText = `
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 14px;
+      font-weight: 600;
+      text-align: center;
+      margin-top: 12px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      letter-spacing: 0.5px;
+    `;
+
+    this.loadingSpinner.appendChild(spinnerCircle);
+    this.loadingSpinner.appendChild(spinnerText);
+    content.appendChild(this.loadingSpinner);
+
+    // Aggiungi CSS animation per lo spinner
+    const spinnerStyle = document.createElement('style');
+    spinnerStyle.textContent = `
+      @keyframes leaderboard-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    content.appendChild(spinnerStyle);
+
     return content;
   }
 
   /**
    * Imposta il tipo di ordinamento
    */
-  setSortBy(sortBy: 'ranking_points' | 'honor' | 'experience' | 'kills'): void {
+  setSortBy(sortBy: 'ranking_points' | 'honor' | 'experience'): void {
     this.leaderboardData.sortBy = sortBy;
     
     // Aggiorna stili dei pulsanti
@@ -373,6 +447,28 @@ export class LeaderboardPanel extends BasePanel {
   }
 
   /**
+   * Richiede la leaderboard dal server con retry se necessario
+   */
+  private requestLeaderboardWithRetry(retryCount: number = 0): void {
+    if (this.clientNetworkSystem) {
+      console.log(`[LeaderboardPanel] ClientNetworkSystem available, requesting leaderboard (attempt ${retryCount + 1})`);
+      this.requestLeaderboard();
+    } else if (retryCount < 5) {
+      // Lo spinner è già stato mostrato in onShow()
+      // Riprova con intervallo crescente se il ClientNetworkSystem non è ancora disponibile
+      const delay = Math.min(100 * Math.pow(2, retryCount), 1000); // 100ms, 200ms, 400ms, 800ms, 1000ms
+      setTimeout(() => {
+        this.requestLeaderboardWithRetry(retryCount + 1);
+      }, delay);
+    } else {
+      // Nascondi spinner se fallisce
+      if (this.loadingSpinner) {
+        this.loadingSpinner.style.display = 'none';
+      }
+    }
+  }
+
+  /**
    * Richiede la leaderboard dal server
    */
   requestLeaderboard(): void {
@@ -381,11 +477,15 @@ export class LeaderboardPanel extends BasePanel {
       return;
     }
 
-    // Mostra loading
-    if (this.loadingIndicator) {
-      this.loadingIndicator.style.display = 'block';
+    if (!this.clientNetworkSystem.isConnected()) {
+      console.log('[LeaderboardPanel] Not connected to server, skipping leaderboard request');
+      return;
     }
 
+
+    // Il loading spinner è già stato mostrato in requestLeaderboardWithRetry
+
+    // Nascondi eventuali dati precedenti
     const tbody = this.container.querySelector('#leaderboard-tbody');
     if (tbody) {
       tbody.innerHTML = '';
@@ -461,9 +561,9 @@ export class LeaderboardPanel extends BasePanel {
    * Aggiorna la visualizzazione della leaderboard
    */
   private updateDisplay(): void {
-    // Nascondi loading
-    if (this.loadingIndicator) {
-      this.loadingIndicator.style.display = 'none';
+    // Nascondi loading spinner quando i dati arrivano
+    if (this.loadingSpinner) {
+      this.loadingSpinner.style.display = 'none';
     }
 
     const tbody = this.container.querySelector('#leaderboard-tbody');
@@ -474,7 +574,7 @@ export class LeaderboardPanel extends BasePanel {
     if (this.leaderboardData.entries.length === 0) {
       const emptyRow = document.createElement('tr');
       emptyRow.innerHTML = `
-        <td colspan="7" style="text-align: center; padding: 40px; color: rgba(255, 255, 255, 0.5);">
+        <td colspan="6" style="text-align: center; padding: 40px; color: rgba(255, 255, 255, 0.5);">
           No players found
         </td>
       `;
@@ -583,24 +683,12 @@ export class LeaderboardPanel extends BasePanel {
         width: 120px;
       `;
 
-      // Kills
-      const killsCell = document.createElement('td');
-      killsCell.textContent = entry.kills.toLocaleString();
-      killsCell.style.cssText = `
-        padding: 12px 8px;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-        color: rgba(255, 255, 255, 0.8);
-        width: 100px;
-      `;
-
       row.appendChild(rankCell);
       row.appendChild(usernameCell);
       row.appendChild(rankNameCell);
       row.appendChild(levelCell);
       row.appendChild(expCell);
       row.appendChild(honorCell);
-      row.appendChild(killsCell);
 
       tbody.appendChild(row);
     });
@@ -610,8 +698,24 @@ export class LeaderboardPanel extends BasePanel {
    * Callback quando il pannello viene mostrato
    */
   protected onShow(): void {
-    // Richiedi leaderboard quando viene mostrato
-    this.requestLeaderboard();
+    // Assicurati che lo spinner sia stato creato
+    if (!this.loadingSpinner) {
+      this.loadingSpinner = this.container?.querySelector('#leaderboard-loading-spinner') as HTMLElement;
+      if (!this.loadingSpinner) {
+        // Prova a cercare in tutto il documento
+        this.loadingSpinner = document.querySelector('#leaderboard-loading-spinner') as HTMLElement;
+      }
+    }
+
+    // Mostra immediatamente lo spinner quando il pannello si apre
+    if (this.loadingSpinner) {
+      this.loadingSpinner.style.display = 'block';
+    }
+
+    // Ritarda leggermente per assicurarsi che tutto sia inizializzato
+    setTimeout(() => {
+      this.requestLeaderboardWithRetry();
+    }, 50);
   }
 
   /**

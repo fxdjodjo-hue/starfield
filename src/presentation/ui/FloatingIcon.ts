@@ -76,6 +76,38 @@ export abstract class BasePanel {
     return `top: ${centerY}px; left: ${centerX}px;`;
   }
 
+  /**
+   * Aggiorna la posizione e dimensioni del pannello quando la finestra viene ridimensionata
+   */
+  updatePosition(): void {
+    // Ricalcola le dimensioni scalate basandosi sulla nuova viewport
+    const displayManager = DisplayManager.getInstance();
+    const { width: viewportWidth, height: viewportHeight } = displayManager.getLogicalSize();
+
+    // Usa la stessa logica di scalatura del getScaledPanelSize
+    const DESIGN_REFERENCE = { width: 1920, height: 1080 };
+    const scaleX = viewportWidth / DESIGN_REFERENCE.width;
+    const scaleY = viewportHeight / DESIGN_REFERENCE.height;
+    const scale = Math.min(Math.max(Math.min(scaleX, scaleY), 0.6), 1.2);
+
+    const maxWidth = viewportWidth * 0.85;
+    const maxHeight = viewportHeight * 0.85;
+
+    const scaledWidth = Math.min(this.config.size.width * scale, maxWidth);
+    const scaledHeight = Math.min(this.config.size.height * scale, maxHeight);
+
+    // Aggiorna dimensioni del pannello
+    this.container.style.width = `${Math.round(scaledWidth)}px`;
+    this.container.style.height = `${Math.round(scaledHeight)}px`;
+
+    // Ricalcola posizione centrale
+    const centerX = viewportWidth / 2 - scaledWidth / 2;
+    const centerY = viewportHeight / 2 - scaledHeight / 2;
+
+    this.container.style.top = `${Math.round(centerY)}px`;
+    this.container.style.left = `${Math.round(centerX)}px`;
+  }
+
 
   /**
    * Mostra il pannello
@@ -93,6 +125,14 @@ export abstract class BasePanel {
     this.container.style.opacity = '1';
     this.container.style.transform = 'scale(1)';
     this.isVisible = true;
+
+    // Chiama il callback quando il pannello viene mostrato
+    this.onShow();
+
+    // Notifica il cambio di stato del pannello
+    document.dispatchEvent(new CustomEvent('panelVisibilityChanged', {
+      detail: { panelId: this.config.id, isVisible: true }
+    }));
   }
 
   /**
@@ -103,14 +143,23 @@ export abstract class BasePanel {
     this.container.style.transform = 'scale(0.95)';
     this.container.style.pointerEvents = 'none';
 
+    // Chiama il callback quando il pannello viene nascosto
+    this.onHide();
+
+    // Aggiorna lo stato di visibilità immediatamente
+    this.isVisible = false;
+
+    // Notifica il cambio di stato del pannello
+    document.dispatchEvent(new CustomEvent('panelVisibilityChanged', {
+      detail: { panelId: this.config.id, isVisible: false }
+    }));
+
     // Rimuovi dal DOM dopo l'animazione
     setTimeout(() => {
       if (this.container.parentNode) {
         this.container.style.display = 'none';
       }
     }, 300);
-
-    this.isVisible = false;
   }
 
   /**
@@ -136,6 +185,22 @@ export abstract class BasePanel {
    */
   getConfig(): PanelConfig {
     return this.config;
+  }
+
+  /**
+   * Callback quando il pannello viene mostrato
+   * Può essere sovrascritto dalle sottoclassi
+   */
+  protected onShow(): void {
+    // Implementazione di default vuota - può essere sovrascritta
+  }
+
+  /**
+   * Callback quando il pannello viene nascosto
+   * Può essere sovrascritto dalle sottoclassi
+   */
+  protected onHide(): void {
+    // Implementazione di default vuota - può essere sovrascritta
   }
 
   /**

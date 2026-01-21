@@ -22,6 +22,14 @@ const BASE_PANEL_SIZE = {
   height: 850,
 } as const;
 
+/**
+ * Dimensioni speciali per pannelli che necessitano più spazio verticale
+ */
+const LARGE_PANEL_SIZE = {
+  width: 1500,
+  height: 1000, // 150px più alto per mostrare più righe leaderboard
+} as const;
+
 export interface PanelConfig {
   id: string;
   icon: string; // Unicode icon or CSS class
@@ -39,7 +47,7 @@ const PANEL_CONFIGS_BASE = {
     icon: '🏆',
     title: 'Leaderboard',
     position: 'center-left' as const,
-    size: { ...BASE_PANEL_SIZE }
+    size: { ...LARGE_PANEL_SIZE }
   },
 
   quest: {
@@ -47,7 +55,7 @@ const PANEL_CONFIGS_BASE = {
     icon: '⊳',
     title: 'Missions & Quests',
     position: 'center-left-below' as const,
-    size: { ...BASE_PANEL_SIZE }
+    size: { ...LARGE_PANEL_SIZE }
   },
 
   upgrade: {
@@ -55,7 +63,7 @@ const PANEL_CONFIGS_BASE = {
     icon: '⊹',
     title: 'Upgrade',
     position: 'center-left-below2' as const,
-    size: { ...BASE_PANEL_SIZE }
+    size: { ...LARGE_PANEL_SIZE }
   }
 } as const;
 

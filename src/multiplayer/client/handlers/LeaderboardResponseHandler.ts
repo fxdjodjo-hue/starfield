@@ -32,7 +32,6 @@ export class LeaderboardResponseHandler extends BaseMessageHandler {
         honor: entry.honor,
         recentHonor: entry.recentHonor,
         rankingPoints: entry.rankingPoints,
-        kills: entry.kills,
         playTime: entry.playTime,
         level: entry.level,
         rankName: entry.rankName

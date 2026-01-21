@@ -5,10 +5,15 @@
 
 import { DamageSystem } from './DamageSystem';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
+import { Transform } from '../../entities/spatial/Transform';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
 
 export interface RespawnConfig {
   health: number;
+  maxHealth?: number;
   shield: number;
+  maxShield?: number;
   position: { x: number; y: number };
   isDead?: boolean;
   respawnTime?: number;
@@ -25,7 +30,7 @@ export class RespawnSystem {
   private static defaultPlayerRespawn: RespawnConfig = {
     health: 10000,
     shield: 10000,
-    position: { x: 0, y: 0 },
+    position: { x: 400, y: 0 },
     isDead: false,
     respawnTime: undefined
   };
@@ -48,7 +53,7 @@ export class RespawnSystem {
     try {
       const respawnConfig = { ...this.defaultPlayerRespawn };
 
-      // Applica configurazione
+      // Applica configurazione (nessun ECS per contesto server)
       this.applyRespawnConfig(playerData, respawnConfig);
 
       LoggerWrapper.gameplay(`Player ${playerData.playerId || playerData.clientId} respawned`, {
@@ -84,7 +89,7 @@ export class RespawnSystem {
       const baseConfig = this.getNpcRespawnConfig(npcData.type);
       const finalConfig = { ...baseConfig, ...respawnConfig };
 
-      // Applica configurazione
+      // Applica configurazione (nessun ECS per contesto server)
       this.applyRespawnConfig(npcData, finalConfig);
 
       LoggerWrapper.ai(`NPC ${npcData.id} (${npcData.type}) respawned`, {
@@ -114,20 +119,13 @@ export class RespawnSystem {
   static respawnEntity(
     entityData: any,
     config: RespawnConfig,
+    ecs?: any, // ECS opzionale per aggiornare componenti
     context?: RespawnContext
   ): RespawnConfig {
     try {
       // Applica configurazione
-      this.applyRespawnConfig(entityData, config);
+      this.applyRespawnConfig(entityData, config, ecs);
 
-      LoggerWrapper.system(`Entity respawned`, {
-        entityId: entityData.id || entityData.playerId || entityData.clientId,
-        entityType: context?.entityType || 'unknown',
-        position: config.position,
-        health: config.health,
-        shield: config.shield,
-        context: context
-      });
 
       return config;
     } catch (error) {
@@ -161,7 +159,7 @@ export class RespawnSystem {
 
       setTimeout(() => {
         try {
-          const finalConfig = this.respawnEntity(entityData, config, context);
+          const finalConfig = this.respawnEntity(entityData, config, undefined, context);
           onRespawn(finalConfig);
         } catch (error) {
           LoggerWrapper.error(LogCategory.SYSTEM, 'Respawn callback failed', error as Error, {
@@ -212,22 +210,54 @@ export class RespawnSystem {
   /**
    * Applica configurazione di respawn ai dati dell'entità
    */
-  private static applyRespawnConfig(entityData: any, config: RespawnConfig): void {
-    // Reset salute e scudo
+  private static applyRespawnConfig(entityData: any, config: RespawnConfig, ecs?: any): void {
+    // ATTENZIONE: entityData potrebbe essere l'entità ECS stessa o un oggetto dati del server
+    // Per il client, dobbiamo gestire entrambi i casi
+
+    // Reset salute e scudo (proprietà dirette per retrocompatibilità)
     entityData.health = config.health;
-    entityData.maxHealth = config.health; // Assumi che maxHealth sia uguale a health iniziale
+    entityData.maxHealth = config.maxHealth ?? config.health;
     entityData.shield = config.shield;
-    entityData.maxShield = config.shield; // Assumi che maxShield sia uguale a shield iniziale
+    entityData.maxShield = config.maxShield ?? config.shield;
 
     // Reset stato morte
     entityData.isDead = config.isDead ?? false;
 
-    // Imposta posizione
+    // Imposta posizione nella proprietà diretta (per retrocompatibilità)
     if (entityData.position) {
       entityData.position.x = config.position.x;
       entityData.position.y = config.position.y;
     } else {
       entityData.position = { ...config.position };
+    }
+
+    // AGGIORNA I COMPONENTI ECS SE ABBIAMO ACCESSO ALL'ECS
+    if (ecs) {
+      try {
+        // Aggiorna Transform component (per PositionTracker)
+        const transformComponent = ecs.getComponent(entityData, Transform);
+        if (transformComponent) {
+          transformComponent.x = config.position.x;
+          transformComponent.y = config.position.y;
+        }
+
+        // AGGIORNA ANCHE I COMPONENTI HEALTH E SHIELD (per l'UI)
+        // Questi vengono letti da UpgradeStatsManager e altri sistemi UI
+        const healthComponent = ecs.getComponent(entityData, Health);
+        if (healthComponent) {
+          healthComponent.current = config.health;
+          healthComponent.max = config.maxHealth ?? config.health;
+        }
+
+        const shieldComponent = ecs.getComponent(entityData, Shield);
+        if (shieldComponent) {
+          shieldComponent.current = config.shield;
+          shieldComponent.max = config.maxShield ?? config.shield;
+        }
+
+      } catch (error) {
+        console.error('[RespawnSystem] Error accessing ECS components:', error.message);
+      }
     }
 
     // Reset timestamp respawn
@@ -237,6 +267,7 @@ export class RespawnSystem {
     entityData.lastDamage = undefined;
     entityData.lastAttackerId = undefined;
     entityData.lastUpdate = Date.now();
+
   }
 
   /**

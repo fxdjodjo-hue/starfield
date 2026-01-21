@@ -93,7 +93,25 @@ export class PlayerControlSystem extends BaseSystem {
     // Passa lo stato di combattimento al movement manager
     this.movementManager.setAttackActivatedCallback(() => this.attackActivated);
 
+    // Setup UI panel event listeners to disable input when panels are open
+    this.setupUIPanelEventListeners();
+
     this.managersInitialized = true;
+  }
+
+  /**
+   * Setup event listeners for UI panels to disable input when panels are open
+   */
+  private setupUIPanelEventListeners(): void {
+    // Disable input when a UI panel is opened
+    document.addEventListener('uiPanelOpened', () => {
+      this.inputManager.setInputDisabled(true);
+    });
+
+    // Re-enable input when a UI panel is closed
+    document.addEventListener('uiPanelClosed', () => {
+      this.inputManager.setInputDisabled(false);
+    });
   }
 
   /**

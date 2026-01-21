@@ -339,10 +339,6 @@ export class ParallaxSystem extends BaseSystem {
       // Renderizza stella con movimento applicato e twinkling
       this.renderStar(ctx, finalScreenX, finalScreenY, size, alpha, starSeed);
 
-      // DEBUG: Log stelle ferme con twinkling ogni tanto
-      if (i === 0 && Math.random() < 0.001) {
-        console.log(`[STAR_MOVEMENT] Stars stationary with twinkling (scientifically accurate)`);
-      }
     }
   }
 

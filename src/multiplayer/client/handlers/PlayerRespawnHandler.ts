@@ -4,6 +4,7 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { DeathPopupManager } from '../../../presentation/ui/managers/death/DeathPopupManager';
 import { Transform } from '../../../entities/spatial/Transform';
 import { RespawnSystem } from '../../../core/domain/RespawnSystem';
+import { PlayerPositionTracker } from '../managers/PlayerPositionTracker';
 
 /**
  * Handles player_respawn messages from the server
@@ -30,26 +31,55 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
     const isLocalPlayer = clientId === networkSystem.getLocalClientId();
 
     if (isLocalPlayer) {
-      // Player locale respawnato - aggiorna la posizione dell'entità locale
-
       // Aggiorna la posizione del player locale nell'ECS
       const playerSystem = networkSystem.getPlayerSystem();
       const ecs = networkSystem.getECS();
 
       if (playerSystem && ecs) {
         const playerEntity = playerSystem.getPlayerEntity();
+
         if (playerEntity) {
           // Usa RespawnSystem per gestire il respawn completo
-          RespawnSystem.respawnPlayer(ecs, playerEntity, {
+          RespawnSystem.respawnEntity(playerEntity, {
             position: { x: position.x, y: position.y },
-            health: { current: health, max: maxHealth },
-            shield: { current: shield, max: maxShield }
-          });
+            health: health,        // Valore corrente
+            maxHealth: maxHealth,  // Valore massimo
+            shield: shield,        // Valore corrente
+            maxShield: maxShield   // Valore massimo
+          }, ecs); // Passa l'ECS per aggiornare i componenti
+
+          // INVALIDA IL CACHE DELLA POSIZIONE DEL PLAYER NEL POSITION TRACKER
+          // Questo è CRITICO per forzare il refresh della posizione dopo il respawn
+          try {
+            const positionTracker = networkSystem.getPositionTracker();
+            if (positionTracker) {
+              positionTracker.invalidateCache();
+            }
+          } catch (error) {
+            console.error('[PlayerRespawnHandler] Error invalidating position cache:', error);
+          }
 
           // Aggiorna anche la camera se necessario - cerca il CameraSystem nell'ECS
           const cameraSystem = ecs.getSystems().find(system => system.constructor.name === 'CameraSystem') as any;
-          if (cameraSystem && cameraSystem.setTargetPosition) {
-            cameraSystem.setTargetPosition(position.x, position.y);
+          if (cameraSystem && cameraSystem.centerOn) {
+            cameraSystem.centerOn(position.x, position.y);
+          }
+
+          // AGGIORNA L'UI CON I NUOVI VALORI HP/SHIELD DOPO RESPAWN
+          try {
+            const uiSystem = networkSystem.getUiSystem();
+            if (uiSystem && uiSystem.updatePlayerData) {
+              // Passa i valori aggiornati all'HUD
+              const updatedData = {
+                health: health,
+                maxHealth: maxHealth,
+                shield: shield,
+                maxShield: maxShield
+              };
+              uiSystem.updatePlayerData(updatedData);
+            }
+          } catch (error) {
+            console.error('[PlayerRespawnHandler] Error updating UI after respawn:', error);
           }
         } else {
           console.error('[PlayerRespawnHandler] Player entity not available');

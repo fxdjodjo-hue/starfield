@@ -727,6 +727,13 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Restituisce il PlayerPositionTracker
+   */
+  getPositionTracker(): PlayerPositionTracker {
+    return this.positionTracker;
+  }
+
+  /**
    * Richiede il respawn del player al server
    */
   private requestPlayerRespawn(): void {

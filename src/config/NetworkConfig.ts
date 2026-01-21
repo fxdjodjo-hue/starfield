@@ -553,7 +553,7 @@ export interface EconomyUpdateMessage extends BaseMessage {
  */
 export interface LeaderboardRequestMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.REQUEST_LEADERBOARD;
-  sortBy?: 'honor' | 'experience' | 'kills' | 'playTime';
+  sortBy?: 'honor' | 'experience' | 'playTime';
   limit?: number;
 }
 
@@ -570,7 +570,6 @@ export interface LeaderboardResponseMessage extends BaseMessage {
     honor: number;
     recentHonor?: number;
     rankingPoints: number;
-    kills: number;
     playTime: number;
     level: number;
     rankName: string;

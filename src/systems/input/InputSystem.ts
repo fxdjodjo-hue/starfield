@@ -9,6 +9,7 @@ export class InputSystem extends BaseSystem {
   private canvas: HTMLCanvasElement;
   private mousePosition = { x: 0, y: 0 };
   private isMouseDown = false;
+  private inputDisabled = false;
   private onMouseState?: (pressed: boolean, x: number, y: number, button?: number) => void;
   private onMouseMoveWhilePressed?: (x: number, y: number) => void;
   private onRightMouseState?: (pressed: boolean, x: number, y: number) => void;
@@ -56,6 +57,13 @@ export class InputSystem extends BaseSystem {
     this.onKeyRelease = callback;
   }
 
+  /**
+   * Abilita o disabilita l'input del sistema
+   */
+  setInputDisabled(disabled: boolean): void {
+    this.inputDisabled = disabled;
+  }
+
 
   update(deltaTime: number): void {
     // Per ora non c'è logica di update specifica
@@ -82,6 +90,8 @@ export class InputSystem extends BaseSystem {
   private setupEventListeners(): void {
     // Mouse move
     this.canvas.addEventListener('mousemove', (event) => {
+      if (this.inputDisabled) return;
+
       const rect = this.canvas.getBoundingClientRect();
       this.mousePosition.x = event.clientX - rect.left;
       this.mousePosition.y = event.clientY - rect.top;
@@ -94,6 +104,8 @@ export class InputSystem extends BaseSystem {
 
     // Mouse down
     this.canvas.addEventListener('mousedown', (event) => {
+      if (this.inputDisabled) return;
+
       if (event.button === 0) { // Click sinistro
         this.isMouseDown = true;
         this.onMouseState?.(true, this.mousePosition.x, this.mousePosition.y, event.button);
@@ -104,6 +116,8 @@ export class InputSystem extends BaseSystem {
 
     // Mouse up
     this.canvas.addEventListener('mouseup', (event) => {
+      if (this.inputDisabled) return;
+
       if (event.button === 0) { // Click sinistro
         this.isMouseDown = false;
         this.onMouseState?.(false, this.mousePosition.x, this.mousePosition.y, event.button);
@@ -114,6 +128,8 @@ export class InputSystem extends BaseSystem {
 
     // Gestione tastiera
     window.addEventListener('keydown', (event) => {
+      if (this.inputDisabled) return;
+
       // Non intercettare input se un campo input ha il focus
       const activeElement = document.activeElement;
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
@@ -139,6 +155,8 @@ export class InputSystem extends BaseSystem {
 
     // Gestisci rilascio tasti
     window.addEventListener('keyup', (event) => {
+      if (this.inputDisabled) return;
+
       const activeElement = document.activeElement;
       if (activeElement instanceof HTMLInputElement || activeElement instanceof HTMLTextAreaElement) {
         return;

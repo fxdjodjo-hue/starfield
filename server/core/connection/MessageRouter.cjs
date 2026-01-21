@@ -702,10 +702,41 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
       }
     );
 
-    ServerLoggerWrapper.database(`RPC response`, {
+    // Debug dettagliato per capire quanti giocatori ci sono
+    const { count: totalUserProfiles, error: profilesError } = await supabase
+      .from('user_profiles')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: totalUserProfilesNonAdmin, error: nonAdminError } = await supabase
+      .from('user_profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_administrator', false);
+
+    const { count: totalCurrencies, error: currenciesError } = await supabase
+      .from('player_currencies')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: totalStats, error: statsError } = await supabase
+      .from('player_stats')
+      .select('*', { count: 'exact', head: true });
+
+    const actualReturned = Array.isArray(leaderboardData) ? leaderboardData.length : 0;
+    const highestPlayerId = Array.isArray(leaderboardData) && leaderboardData.length > 0
+      ? Math.max(...leaderboardData.map(p => p.player_id))
+      : 'Unknown';
+
+    ServerLoggerWrapper.database(`Leaderboard detailed stats`, {
+      requested: limit,
+      returned: actualReturned,
+      databaseBreakdown: {
+        totalUserProfiles: totalUserProfiles || 0,
+        totalNonAdminProfiles: totalUserProfilesNonAdmin || 0,
+        totalCurrencies: totalCurrencies || 0,
+        totalStats: totalStats || 0
+      },
+      highestPlayerId: highestPlayerId,
+      sortBy: sortBy,
       hasData: !!leaderboardData,
-      dataType: Array.isArray(leaderboardData) ? 'array' : typeof leaderboardData,
-      dataLength: Array.isArray(leaderboardData) ? leaderboardData.length : 'N/A',
       hasError: !!leaderboardError,
       errorMessage: leaderboardError?.message
     });

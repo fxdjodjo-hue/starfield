@@ -308,10 +308,6 @@ export class AssetLoader {
       return { success: true, loadedCount: 0, failedCount: 0, totalTime: 0 };
     }
 
-    LoggerWrapper.system('Starting critical assets preload', {
-      assetCount: criticalAssets.length,
-      assets: criticalAssets
-    });
 
     try {
       // Load each asset individually to avoid infinite retry loops
@@ -326,12 +322,6 @@ export class AssetLoader {
       const failedCount = results.size - loadedCount;
       const totalTime = Date.now() - startTime;
 
-      LoggerWrapper.system('Critical assets preload completed', {
-        loadedCount: loadedCount,
-        failedCount: failedCount,
-        totalTime: totalTime,
-        successRate: `${loadedCount}/${criticalAssets.length}`
-      });
 
       // Log fallimenti specifici per debugging
       if (failedCount > 0) {

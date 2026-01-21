@@ -207,6 +207,50 @@ export class QuestPanel extends BasePanel {
 
     content.appendChild(questContainer);
 
+    // Aggiungi overlay WIP (Work in Progress)
+    const wipOverlay = document.createElement('div');
+    wipOverlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      border-radius: 25px;
+    `;
+
+    const wipText = document.createElement('div');
+    wipText.style.cssText = `
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 28px;
+      font-weight: 700;
+      text-align: center;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      letter-spacing: 1px;
+    `;
+    wipText.textContent = '🚧 WORK IN PROGRESS 🚧';
+
+    const wipSubtext = document.createElement('div');
+    wipSubtext.style.cssText = `
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 16px;
+      font-weight: 400;
+      text-align: center;
+      margin-top: 12px;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    `;
+    wipSubtext.textContent = 'Quest & Mission system coming soon!';
+
+    wipOverlay.appendChild(wipText);
+    wipOverlay.appendChild(wipSubtext);
+    content.appendChild(wipOverlay);
+
     return content;
   }
 

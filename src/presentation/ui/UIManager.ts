@@ -56,6 +56,13 @@ export class UIManager {
             !target.closest('.ui-floating-icon') &&
             !target.closest('.ui-panel')) {
           openPanel.hide();
+          // Notifica che i controlli del player possono essere riabilitati
+          console.log('[UIManager] Emitting uiPanelClosed event (click outside)');
+          document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+          // Ferma completamente l'evento per evitare che muova il player
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
         }
       }
     };
@@ -68,8 +75,9 @@ export class UIManager {
       if (keyboardEvent.key === 'Escape') {
         const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
         if (openPanel) {
-          console.log('[UIManager] Closing open panel due to ESC key');
           openPanel.hide();
+          // Notifica che i controlli del player possono essere riabilitati
+          document.dispatchEvent(new CustomEvent('uiPanelClosed'));
         }
       }
     };
@@ -182,16 +190,22 @@ export class UIManager {
 
   /**
    * Apre un pannello specifico chiudendo tutti gli altri (solo un pannello per volta)
-   * Se il pannello è già aperto, rimane aperto (comportamento intuitivo)
+   * Se il pannello è già aperto, lo chiude (comportamento toggle intuitivo)
    */
   openPanel(panelId: string): void {
     const panel = this.panels.get(panelId);
     if (!panel) return;
 
-    // Se il pannello è già aperto, non fare nulla (comportamento intuitivo)
+    // Se il pannello è già aperto, chiudilo (toggle behavior)
     if (panel.isPanelVisible()) {
+      panel.hide();
+      // Notifica che i controlli del player possono essere riabilitati
+      document.dispatchEvent(new CustomEvent('uiPanelClosed'));
       return;
     }
+
+    // Notifica che i controlli del player dovrebbero essere disabilitati
+    document.dispatchEvent(new CustomEvent('uiPanelOpened'));
 
     // Altrimenti chiudi tutti i pannelli tranne quello specifico e apri quello specifico
     this.closeAllPanelsExcept(panelId);
