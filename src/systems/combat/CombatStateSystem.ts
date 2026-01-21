@@ -48,6 +48,8 @@ export class CombatStateSystem extends BaseSystem {
   private activeBeamEntities: Set<number> = new Set(); // Traccia laser beam attivi
   private lastLaserFireTime: number = 0;
   private lastLaserSoundTime: number = 0; // Per evitare suoni duplicati // Per controllo frequenza laser
+  private laserSequenceCount: number = 0; // Contatore per ritmica
+  private rhythmPattern: number = 0; // Pattern ritmico corrente (0-2)
   // Sistema laser NPC
   private npcLaserFireTimes: Map<number, number> = new Map(); // entityId -> lastFireTime
   private npcLastInRange: Map<number, number> = new Map(); // entityId -> lastTimeInRange
@@ -315,7 +317,28 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     const now = Date.now();
-    if (now - this.lastLaserFireTime >= GAME_CONSTANTS.COMBAT.PLAYER_LASER_VISUAL_INTERVAL) {
+
+    // PATTERN RITMICI DIVERSI PER MENO MONOTONIA
+    const sequencePosition = this.laserSequenceCount % 4;
+    let interval = GAME_CONSTANTS.COMBAT.PLAYER_LASER_VISUAL_INTERVAL; // 350ms base
+
+    switch (this.rhythmPattern) {
+      case 0: // Pattern originale: 3 veloci + 1 rallentato + 1 super-veloce
+        if (sequencePosition === 0) interval *= 1.43; // 4° rallentato
+        else if (sequencePosition === 1) interval *= 0.6; // 1° del nuovo ciclo super-veloce
+        break;
+
+      case 1: // Pattern accelerando: 2 normali + 2 accelerati
+        if (sequencePosition === 3 || sequencePosition === 0) interval *= 0.7; // 3° e 4° accelerati
+        break;
+
+      case 2: // Pattern irregolare: variazioni casuali piccole
+        const variation = (Math.random() - 0.5) * 0.4; // ±20% variazione
+        interval *= (1 + variation);
+        break;
+    }
+
+    if (now - this.lastLaserFireTime >= interval) {
       // È tempo di creare un nuovo laser
       const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
       if (selectedNpcs.length > 0) {
@@ -340,6 +363,29 @@ export class CombatStateSystem extends BaseSystem {
                 console.error('[LASER] Failed to create periodic laser:', error);
               });
               this.lastLaserFireTime = now;
+
+              // Incrementa contatore sequenza e log ritmica
+              this.laserSequenceCount++;
+              const sequenceDisplay = (sequencePosition + 1) === 0 ? 4 : (sequencePosition + 1);
+
+              // CAMBIA PATTERN OGNI CICLO DI 4 LASER
+              if (this.laserSequenceCount % 4 === 0) {
+                this.rhythmPattern = (this.rhythmPattern + 1) % 3; // 3 pattern diversi
+                console.log(`[LASER RHYTHM] 🔄 Pattern changed to ${this.rhythmPattern + 1}/3 at laser ${this.laserSequenceCount}`);
+              }
+
+              let rhythmNote = ' ⚡ VELOCE!';
+              switch (this.rhythmPattern) {
+                case 0:
+                  if (sequencePosition === 0) rhythmNote = ' 🐌 RALLENTATO!';
+                  else if (sequencePosition === 1) rhythmNote = ' ⚡⚡ SUPER-VELOCE!';
+                  else rhythmNote = ' ⚡ VELOCE!';
+                  break;
+                case 1: rhythmNote = (sequencePosition === 3 || sequencePosition === 0) ? ' 🚀 ACCELERATO!' : ' ⚡ NORMALE!'; break;
+                case 2: rhythmNote = ' 🎲 CASUALE!'; break;
+              }
+
+              console.log(`[LASER RHYTHM] Pattern ${this.rhythmPattern + 1}/3 - Shot ${sequenceDisplay}/4 (abs: ${this.laserSequenceCount}), interval: ${Math.round(interval)}ms${rhythmNote}`);
             }
           }
         }

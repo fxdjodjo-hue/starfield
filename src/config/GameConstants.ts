@@ -20,7 +20,7 @@ export const COMBAT = {
   NPC_MIN_COOLDOWN: 500,        // Cooldown minimo NPC (ms)
   DAMAGE_TIMEOUT: 10000,        // Timeout danno NPC (ms)
   PLAYER_DAMAGE_COOLDOWN: PLAYER_CONFIG.stats.cooldown, // Cooldown danno effettivo player (ms) - da PLAYER_CONFIG
-  PLAYER_LASER_VISUAL_INTERVAL: 500 // Intervallo laser visivi player (ms) - effetto più responsivo
+  PLAYER_LASER_VISUAL_INTERVAL: 350 // Intervallo laser visivi player (ms) - effetto più responsivo
 } as const;
 
 export const NETWORK = {

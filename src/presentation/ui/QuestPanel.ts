@@ -227,28 +227,16 @@ export class QuestPanel extends BasePanel {
 
     const wipText = document.createElement('div');
     wipText.style.cssText = `
-      color: rgba(255, 255, 255, 0.9);
-      font-size: 28px;
+      color: rgba(255, 255, 255, 0.95);
+      font-size: 36px;
       font-weight: 700;
       text-align: center;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-      letter-spacing: 1px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+      letter-spacing: 2px;
     `;
     wipText.textContent = '🚧 WORK IN PROGRESS 🚧';
 
-    const wipSubtext = document.createElement('div');
-    wipSubtext.style.cssText = `
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 16px;
-      font-weight: 400;
-      text-align: center;
-      margin-top: 12px;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-    `;
-    wipSubtext.textContent = 'Quest & Mission system coming soon!';
-
     wipOverlay.appendChild(wipText);
-    wipOverlay.appendChild(wipSubtext);
     content.appendChild(wipOverlay);
 
     return content;
