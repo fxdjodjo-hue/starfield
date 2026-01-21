@@ -2,6 +2,7 @@ import { ECS } from '../../../infrastructure/ecs/ECS';
 import { Transform } from '../../../entities/spatial/Transform';
 import { Velocity } from '../../../entities/spatial/Velocity';
 import { Authority } from '../../../entities/spatial/Authority';
+import { Health } from '../../../entities/combat/Health';
 import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { RateLimiter, RATE_LIMITS } from './RateLimiter';
 import { NetworkTickManager } from './NetworkTickManager';
@@ -92,6 +93,11 @@ export class NetworkPositionSyncManager {
   sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
     if (!this.connectionManager.isConnectionActive()) return;
 
+    // 🔴 CRITICAL: Non mandare position updates se il giocatore è morto
+    if (this.isPlayerDead()) {
+      return; // Non inviare aggiornamenti se morto
+    }
+
     // 🔴 CRITICAL: Non mandare position updates finché non riceviamo il welcome e il clientId persistente
     if (this.isClientReady && !this.isClientReady()) {
       // Accumula la posizione per quando il client sarà pronto
@@ -178,5 +184,34 @@ export class NetworkPositionSyncManager {
            normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI &&
            velocityX >= -500 && velocityX <= 500 && // Reasonable max speed for space ship
            velocityY >= -500 && velocityY <= 500;   // Prevents speed hacking
+  }
+
+  /**
+   * Controlla se il giocatore locale è morto
+   */
+  private isPlayerDead(): boolean {
+    try {
+      if (!this.ecs) {
+        return false; // Se non abbiamo ECS, assumiamo che non sia morto
+      }
+
+      // Trova l'entità del giocatore locale
+      const playerEntity = this.ecs.getEntitiesWithComponents(Transform, Authority)
+        .find(entity => {
+          const authority = this.ecs!.getComponent(entity, Authority);
+          return authority && authority.ownerId === this.clientId;
+        });
+
+      if (playerEntity) {
+        const health = this.ecs.getComponent(playerEntity, Health);
+        if (health && health.isDead()) {
+          return true;
+        }
+      }
+    } catch (error) {
+      console.warn('[CLIENT] Error checking if player is dead:', error);
+    }
+
+    return false;
   }
 }
