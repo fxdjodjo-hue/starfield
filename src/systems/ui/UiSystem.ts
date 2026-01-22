@@ -12,6 +12,7 @@ import { UIHUDManager } from './managers/UIHUDManager';
 import { UIChatManager } from './managers/UIChatManager';
 import { UINicknameManager } from './managers/UINicknameManager';
 import { UIAudioManager } from './managers/UIAudioManager';
+import { FpsCounter } from '../../presentation/ui/FpsCounter';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -25,6 +26,7 @@ export class UiSystem extends System {
   private chatManager!: UIChatManager;
   private nicknameManager!: UINicknameManager;
   private audioManager!: UIAudioManager;
+  private fpsCounter!: FpsCounter;
   private managersInitialized: boolean = false;
 
   // Legacy references (maintained for backward compatibility)
@@ -85,6 +87,9 @@ export class UiSystem extends System {
       // Initialize audio manager
       this.audioManager = new UIAudioManager();
 
+      // Initialize FPS counter
+      this.fpsCounter = new FpsCounter();
+
       this.managersInitialized = true;
     } catch (error) {
       console.error('UI Error in UiSystem.initializeManagers():', error);
@@ -99,11 +104,30 @@ export class UiSystem extends System {
     try {
       this.panelManager.initializePanels();
       this.panelManager.setupQuestPanelIntegration(() => this.panelManager.updatePanels());
+      this.panelManager.setupQuestPanelIntegration(() => this.panelManager.updatePanels());
       this.chatManager.initialize();
+
+      // Setup listener per impostazioni
+      this.setupSettingsListeners();
     } catch (error) {
       console.error('UI Error in UiSystem.initialize():', error);
       // Non bloccare l'esecuzione, sistema UI non funzionante ma app continua
     }
+  }
+
+  private setupSettingsListeners(): void {
+
+
+    document.addEventListener('settings:ui:chat', (e: any) => {
+      // Usa il nuovo metodo setChatVisibility per nascondere/mostrare tutto
+      this.chatManager.setChatVisibility(e.detail);
+    });
+
+    document.addEventListener('settings:graphics:show_fps', (e: any) => {
+      if (this.fpsCounter) {
+        this.fpsCounter.setVisibility(e.detail);
+      }
+    });
   }
 
   /**
@@ -290,6 +314,9 @@ export class UiSystem extends System {
 
   update(deltaTime: number): void {
     this.panelManager.updateRealtimePanels(deltaTime);
+    if (this.fpsCounter) {
+      this.fpsCounter.update(deltaTime);
+    }
   }
   public getUpgradePanel(): UpgradePanel | null {
     return this.panelManager.getUpgradePanel();
@@ -325,6 +352,9 @@ export class UiSystem extends System {
     }
     this.chatManager.destroy();
     this.audioManager.destroy();
+    if (this.fpsCounter) {
+      this.fpsCounter.destroy();
+    }
   }
 
   // ========== REMOVED METHODS - Now in managers ==========

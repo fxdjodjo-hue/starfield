@@ -15,12 +15,19 @@ export class DamageTextSystem extends BaseSystem {
   private cameraSystem: any = null; // Cache del sistema camera
   private damageSystem: DamageSystem | null = null; // Riferimento al DamageSystem per gestire i contatori dei testi
 
+  private visible: boolean = true;
+
   constructor(ecs: ECS, cameraSystem?: any, damageSystem?: DamageSystem) {
     super(ecs);
     // Usa il cameraSystem passato o cercalo
     this.cameraSystem = cameraSystem || this.findCameraSystem();
     // Salva il riferimento al DamageSystem
-    this.damageSystem = damageSystem;
+    this.damageSystem = damageSystem || null;
+
+    // Listen for settings changes
+    document.addEventListener('settings:ui:damage_numbers', (e: any) => {
+      this.visible = e.detail;
+    });
   }
 
   /**
@@ -83,7 +90,7 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
-    if (!ctx.canvas || !this.cameraSystem) {
+    if (!ctx.canvas || !this.cameraSystem || !this.visible) {
       return; // Silenziosamente senza log per evitare spam
     }
 

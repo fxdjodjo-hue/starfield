@@ -12,7 +12,25 @@ export class ChatVisibilityManager {
     private readonly inputElement: HTMLInputElement,
     private readonly toggleButton: HTMLElement,
     private readonly targetHeight: number
-  ) {}
+  ) {
+    // Initialize in hidden state
+    this.messagesContainer.style.display = 'none';
+    this.inputContainer.style.display = 'none';
+    this.toggleButton.textContent = '+';
+
+    // Force container height to header height
+    // Since header might not be rendered yet, we use a safe estimation or try to read it
+    // But since we are in constructor, offsetHeight might be 0 if not attached.
+    // However, ChatUIRenderer created it with styles.
+    // Let's set it to valid collapsed height.
+    // Using header.offsetHeight is risky if 0.
+    // But wait, ChatUIRenderer sets styles. 
+    // Let's try to set it to 'auto' or a calculated value if possible.
+    // We don't have header height here easily without DOM. 
+    // But we can reset height to 'auto' temporarily or just trust reset later.
+    // Actually, setting height to '50px' (approx) or letting it wrap content is best.
+    this.container.style.height = 'auto'; // Collapse to header
+  }
 
   /**
    * Shows the chat with expansion animation

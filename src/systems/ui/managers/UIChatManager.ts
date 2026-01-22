@@ -28,18 +28,18 @@ export class UIChatManager {
   /**
    * Inizializza la chat
    */
+  /**
+   * Inizializza la chat
+   */
   initialize(): void {
+    const container = this.chatPanel.getContainer();
     // Assicurati che il pannello chat sia nel DOM anche se nascosto
-    if (!document.body.contains(this.chatPanel['container'])) {
-      // Imposta gli stili per lo stato nascosto prima di aggiungere al DOM
-      const container = this.chatPanel['container'];
-      const headerHeight = this.chatPanel['header'].offsetHeight || 49;
-      container.style.height = headerHeight + 'px';
-      container.style.display = 'none'; // NASCONDI durante il caricamento
-      this.chatPanel['messagesContainer'].style.display = 'none';
-      this.chatPanel['inputContainer'].style.display = 'none';
-      this.chatPanel['toggleButton'].textContent = '+';
-      this.chatPanel['_isVisible'] = false;
+    if (container && !document.body.contains(container)) {
+      // Nascondi inizialmente usando il metodo pubblico
+      this.chatPanel.setContainerVisibility(false);
+
+      // Assicurati che anche internamente sia nascosto (solo header)
+      this.chatPanel.hide();
 
       document.body.appendChild(container);
     }
@@ -49,18 +49,24 @@ export class UIChatManager {
    * Mostra la chat (chiamato quando tutto è pronto)
    */
   show(): void {
-    if (this.chatPanel && this.chatPanel['container']) {
-      const container = this.chatPanel['container'];
-      const headerHeight = this.chatPanel['header'].offsetHeight || 49;
-      container.style.height = headerHeight + 'px';
-      container.style.display = 'flex';
-      this.chatPanel['messagesContainer'].style.display = 'none';
-      this.chatPanel['inputContainer'].style.display = 'none';
-      this.chatPanel['toggleButton'].textContent = '+';
-      this.chatPanel['_isVisible'] = false;
-      
-      // Usa fade-in sincronizzato
-      applyFadeIn(container);
+    if (this.chatPanel) {
+      // Rendi visibile il contenitore
+      this.chatPanel.setContainerVisibility(true);
+
+      const container = this.chatPanel.getContainer();
+      if (container) {
+        // Usa fade-in sincronizzato
+        applyFadeIn(container);
+      }
+    }
+  }
+
+  /**
+   * Imposta la visibilità totale della chat (toggle settings)
+   */
+  setChatVisibility(visible: boolean): void {
+    if (this.chatPanel) {
+      this.chatPanel.setContainerVisibility(visible);
     }
   }
 
@@ -79,7 +85,7 @@ export class UIChatManager {
 
     // Abilita modalità multiplayer per il ChatManager
     // Usa playerId se disponibile, altrimenti clientId come fallback
-    const playerId = clientNetworkSystem.gameContext?.playerId;
+    const playerId = clientNetworkSystem.gameContext?.playerDbId;
     const localPlayerId = playerId ? `${playerId}` : clientNetworkSystem.clientId;
     this.chatManager.setMultiplayerMode(true, localPlayerId);
 
@@ -96,7 +102,7 @@ export class UIChatManager {
       const errorHandler = new ErrorMessageHandler(this.chatManager);
       clientNetworkSystem.getMessageRouter().registerHandler(chatHandler);
       clientNetworkSystem.getMessageRouter().registerHandler(errorHandler);
-      
+
       this.handlersRegistered = true;
     }
   }

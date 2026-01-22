@@ -34,7 +34,7 @@ export interface PanelConfig {
   id: string;
   icon: string; // Unicode icon or CSS class
   title: string;
-  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'center-left-below2' | 'bottom-left' | 'bottom-right';
+  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'center-left-below2' | 'center-left-below3' | 'bottom-left' | 'bottom-right';
   size: { width: number; height: number };
 }
 
@@ -52,7 +52,7 @@ const PANEL_CONFIGS_BASE = {
 
   quest: {
     id: 'quest-panel',
-    icon: '⊳',
+    icon: '📜',
     title: 'Missions & Quests',
     position: 'center-left-below' as const,
     size: { ...LARGE_PANEL_SIZE }
@@ -60,10 +60,18 @@ const PANEL_CONFIGS_BASE = {
 
   upgrade: {
     id: 'upgrade-panel',
-    icon: '⊹',
+    icon: '⏫',
     title: 'Upgrade',
     position: 'center-left-below2' as const,
     size: { ...LARGE_PANEL_SIZE }
+  },
+
+  settings: {
+    id: 'settings-panel',
+    icon: '⚙️',
+    title: 'Settings',
+    position: 'center-left-below3' as const,
+    size: { ...BASE_PANEL_SIZE }
   }
 } as const;
 
@@ -81,22 +89,22 @@ export type PanelType = keyof typeof PANEL_CONFIGS_BASE;
 export function getScaledPanelSize(baseSize: { width: number; height: number }): { width: number; height: number } {
   const displayManager = DisplayManager.getInstance();
   const { width: viewportWidth, height: viewportHeight } = displayManager.getLogicalSize();
-  
+
   // Calcola fattori di scala separati per width e height
   const scaleX = viewportWidth / DESIGN_REFERENCE.width;
   const scaleY = viewportHeight / DESIGN_REFERENCE.height;
-  
+
   // Usa il fattore di scala minore per mantenere il pannello visibile
   // ma limita tra 0.6 e 1.2 per evitare estremi
   const scale = Math.min(Math.max(Math.min(scaleX, scaleY), 0.6), 1.2);
-  
+
   // Assicura che il pannello non superi l'85% della viewport
   const maxWidth = viewportWidth * 0.85;
   const maxHeight = viewportHeight * 0.85;
-  
+
   const scaledWidth = Math.min(baseSize.width * scale, maxWidth);
   const scaledHeight = Math.min(baseSize.height * scale, maxHeight);
-  
+
   return {
     width: Math.round(scaledWidth),
     height: Math.round(scaledHeight)
@@ -147,6 +155,7 @@ export const ICON_POSITIONS = {
   'center-left': 'center-left',
   'center-left-below': 'center-left-below',
   'center-left-below2': 'center-left-below2',
+  'center-left-below3': 'center-left-below3',
   'top-left': 'top-left',
   'top-right': 'top-right',
   'bottom-left': 'bottom-left',

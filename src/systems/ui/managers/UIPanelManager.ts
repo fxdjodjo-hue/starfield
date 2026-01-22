@@ -2,6 +2,7 @@ import { UIManager } from '../../../presentation/ui/UIManager';
 import { LeaderboardPanel } from '../../../presentation/ui/LeaderboardPanel';
 import { QuestPanel } from '../../../presentation/ui/QuestPanel';
 import { UpgradePanel } from '../../../presentation/ui/UpgradePanel';
+import { SettingsPanel } from '../../../presentation/ui/SettingsPanel';
 import { getPanelConfig } from '../../../presentation/ui/PanelConfig';
 import type { QuestSystem } from '../../quest/QuestSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
@@ -50,6 +51,11 @@ export class UIPanelManager {
     const upgradeConfig = getPanelConfig('upgrade');
     this.upgradePanel = new UpgradePanel(upgradeConfig, this.ecs, this.playerSystem || undefined, this.clientNetworkSystem || undefined);
     this.uiManager.registerPanel(this.upgradePanel);
+
+    // Crea e registra il pannello settings
+    const settingsConfig = getPanelConfig('settings');
+    const settingsPanel = new SettingsPanel(settingsConfig);
+    this.uiManager.registerPanel(settingsPanel);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
@@ -142,6 +148,17 @@ export class UIPanelManager {
    */
   getUpgradePanel(): UpgradePanel | null {
     return this.uiManager.getPanel('upgrade-panel') as UpgradePanel;
+  }
+
+  /**
+   * Imposta la visibilità delle icone UI
+   */
+  setIconsVisibility(visible: boolean): void {
+    if (visible) {
+      this.uiManager.showUI();
+    } else {
+      this.uiManager.hideUI();
+    }
   }
 
   /**

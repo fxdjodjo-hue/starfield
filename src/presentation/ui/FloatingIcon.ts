@@ -204,6 +204,14 @@ export abstract class BasePanel {
   }
 
   /**
+   * Aggiorna il pannello con nuovi dati
+   * Può essere sovrascritto dalle sottoclassi
+   */
+  update(data: any): void {
+    // Implementazione di default vuota - puà essere sovrascritta
+  }
+
+  /**
    * Distrugge il pannello
    */
   destroy(): void {
@@ -293,11 +301,13 @@ export class FloatingIcon {
       case 'top-right':
         return `top: ${margin}px; right: ${margin}px;`;
       case 'center-left':
-        return `top: 50%; left: ${margin}px; transform: translateY(-50%);`;
+        return `top: 41%; left: ${margin}px; transform: translateY(-50%);`;
       case 'center-left-below':
-        return `top: 56%; left: ${margin}px; transform: translateY(-50%);`;
+        return `top: 47%; left: ${margin}px; transform: translateY(-50%);`;
       case 'center-left-below2':
-        return `top: 62%; left: ${margin}px; transform: translateY(-50%);`;
+        return `top: 53%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below3':
+        return `top: 59%; left: ${margin}px; transform: translateY(-50%);`;
       case 'bottom-left':
         return `bottom: ${margin}px; left: ${margin}px;`;
       case 'bottom-right':

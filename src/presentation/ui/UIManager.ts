@@ -35,9 +35,23 @@ export class UIManager {
    */
   private setupPanelEventListeners(): void {
     // Ascolta eventi personalizzati per i cambi di stato dei pannelli
+    // Ascolta eventi personalizzati per i cambi di stato dei pannelli
     document.addEventListener('panelVisibilityChanged', (event: any) => {
       const { panelId, isVisible } = event.detail;
       this.updatePanelIcon(panelId);
+
+      // Se un pannello è stato chiuso, verifica se tutti i pannelli sono chiusi
+      // e in tal caso riabilita i controlli
+      if (!isVisible) {
+        // Usa un piccolo timeout per permettere l'aggiornamento dello stato isVisible del pannello
+        // (anche se l'evento viene emesso dopo l'aggiornamento della flag, è più sicuro)
+        setTimeout(() => {
+          if (!this.hasOpenPanels()) {
+            console.log('[UIManager] All panels closed, emitting uiPanelClosed');
+            document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+          }
+        }, 10);
+      }
     });
 
     // Gestione centralizzata del click fuori dai pannelli
@@ -53,8 +67,8 @@ export class UIManager {
 
         // Chiudi il pannello se il click è fuori da esso e non su elementi UI
         if (panelContainer && !panelContainer.contains(target) &&
-            !target.closest('.ui-floating-icon') &&
-            !target.closest('.ui-panel')) {
+          !target.closest('.ui-floating-icon') &&
+          !target.closest('.ui-panel')) {
           openPanel.hide();
           // Notifica che i controlli del player possono essere riabilitati
           console.log('[UIManager] Emitting uiPanelClosed event (click outside)');

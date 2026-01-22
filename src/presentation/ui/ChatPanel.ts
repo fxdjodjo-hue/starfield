@@ -35,11 +35,11 @@ export class ChatPanel {
     // ecs and playerSystem parameters kept for API compatibility but no longer used
     this.context = context || null;
     this.isEnabled = true;
-    
+
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     this.dprCompensation = 1 / dpr;
     this.targetHeight = Math.round(300 * this.dprCompensation);
-    
+
     this.initializeManagers();
     // Inizializza in stato chiuso (solo header visibile)
     this.visibilityManager.hide();
@@ -53,7 +53,7 @@ export class ChatPanel {
 
     // Initialize UI renderer first
     this.uiRenderer = new ChatUIRenderer(this.dprCompensation, this.targetHeight);
-    
+
     // Create panel UI
     const panelElements = this.uiRenderer.createPanel();
     this.container = panelElements.container;
@@ -133,6 +133,19 @@ export class ChatPanel {
    */
   hide(): void {
     this.visibilityManager.hide();
+  }
+
+  /**
+   * Imposta la visibilità dell'intero contenitore chat (incluso header)
+   */
+  setContainerVisibility(visible: boolean): void {
+    if (this.container) {
+      this.container.style.display = visible ? 'flex' : 'none';
+    }
+  }
+
+  getContainer(): HTMLElement {
+    return this.container;
   }
 
 
