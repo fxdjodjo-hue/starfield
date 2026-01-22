@@ -28,12 +28,12 @@ export class RemoteCombatTracker {
         npcId: npcId,
         startTime: Date.now()
       });
-      console.log(`[REMOTE_COMBAT] Player ${playerId} started combat against NPC ${npcId}`);
+      // console.log(`[REMOTE_COMBAT] Player ${playerId} started combat against NPC ${npcId}`);
     } else {
       // Giocatore remoto interrompe combattimento
       if (this.remotePlayerCombatState.has(playerId)) {
         this.remotePlayerCombatState.delete(playerId);
-        console.log(`[REMOTE_COMBAT] Player ${playerId} stopped combat`);
+        // console.log(`[REMOTE_COMBAT] Player ${playerId} stopped combat`);
       }
     }
   }
@@ -77,7 +77,7 @@ export class RemoteCombatTracker {
 
     for (const entity of remotePlayerEntities) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
-      if (remotePlayerComponent && remotePlayerComponent.authId === playerId) {
+      if (remotePlayerComponent && remotePlayerComponent.clientId === playerId) {
         return entity.id;
       }
     }
@@ -89,7 +89,7 @@ export class RemoteCombatTracker {
    * Ottiene l'entity ID dell'NPC target (se esiste)
    */
   getNpcEntityId(npcId: string): number | null {
-    return this.remoteNpcSystem.getRemoteNpcEntity(npcId);
+    return this.remoteNpcSystem.getRemoteNpcEntity(npcId) ?? null;
   }
 
   /**
@@ -97,7 +97,7 @@ export class RemoteCombatTracker {
    */
   clearAllCombatStates(): void {
     this.remotePlayerCombatState.clear();
-    console.log('[REMOTE_COMBAT] Cleared all remote player combat states');
+    // console.log('[REMOTE_COMBAT] Cleared all remote player combat states');
   }
 
   /**

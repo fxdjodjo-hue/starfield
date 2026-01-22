@@ -167,7 +167,7 @@ export class EntityStateSystem {
         if (!damageTaken) {
           damageTaken = new DamageTaken();
           ecs.addComponent(entity, DamageTaken, damageTaken);
-          console.log(`[DAMAGE] Aggiunto componente DamageTaken all'entità ${entity.id} (health damage)`);
+          // console.log(`[DAMAGE] Aggiunto componente DamageTaken all'entità ${entity.id} (health damage)`);
         }
         damageTaken.takeDamage(Date.now());
       }

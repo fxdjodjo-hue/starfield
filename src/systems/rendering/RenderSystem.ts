@@ -223,7 +223,7 @@ export class RenderSystem extends BaseSystem {
     const isPlayerLaser = components.sprite && components.sprite.image?.src?.includes('laser1.png') && components.projectile && components.sprite.image.complete;
     const isNpcLaser = components.sprite && components.sprite.image?.src?.includes('npc_frigate_projectile.png') && components.projectile && components.sprite.image.complete;
 
-    // Debug dettagliato per capire perché i laser non vengono identificati
+    /* DEBUG: Verbose laser identification logs disabled for playtest
     if (components.sprite && components.projectile) {
       console.log('[DEBUG_LASER_IDENTIFICATION]', {
         entityId: entity.id,
@@ -240,8 +240,10 @@ export class RenderSystem extends BaseSystem {
         containsNpcFrigate: components.sprite.image?.src?.includes('npc_frigate_projectile.png')
       });
     }
+    */
 
     if (isPlayerLaser || isNpcLaser) {
+      /* DEBUG: Verbose render logs disabled for playtest
       const velocity = this.ecs.getComponent(entity, Velocity) as Velocity | null;
       console.log('[DEBUG_RENDER] 🎯 RENDERING LASER PROJECTILE:', {
         entityId: entity.id,
@@ -257,6 +259,7 @@ export class RenderSystem extends BaseSystem {
         imageSrc: components.sprite?.image?.src?.split('/').pop(), // Solo nome file
         imageComplete: components.sprite?.image?.complete
       });
+      */
       // Assicurati che tutti i componenti necessari siano presenti
       if (!components.sprite || !components.sprite.image || !components.projectile) {
         return;
@@ -369,7 +372,7 @@ export class RenderSystem extends BaseSystem {
         }
       }
     } else if ((components.sprite || components.animatedSprite) && !isPlayerEntity && !this.ecs.hasComponent(entity, Asteroid) && !this.ecs.hasComponent(entity, SpaceStation)) {
-      // Debug: check if this is a projectile that should be a laser
+      /* DEBUG: Verbose render logs disabled for playtest
       if (components.projectile) {
         console.log('[DEBUG_RENDER] Projectile with sprite not identified as laser:', {
           entityId: entity.id,
@@ -382,6 +385,7 @@ export class RenderSystem extends BaseSystem {
           isNpcLaser: components.sprite?.image?.src?.includes('npc_frigate_projectile.png')
         });
       }
+      */
       // Render generic sprites (projectiles, effects, etc.) - exclude player entities and asteroids
       this.renderGenericSprite(ctx, entity, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else {

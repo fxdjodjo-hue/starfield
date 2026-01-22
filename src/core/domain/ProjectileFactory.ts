@@ -46,7 +46,7 @@ export class ProjectileFactory {
    * Unifica createProjectile, createSingleProjectile, createProjectileAt
    */
   static create(ecs: ECS, config: ProjectileConfig, assetManager?: AssetManager): Entity {
-    console.log('[DEBUG_PROJECTILE] create() called with assetManager:', !!assetManager, 'config.isRemote:', config.isRemote);
+    // console.log('[DEBUG_PROJECTILE] create() called with assetManager:', !!assetManager, 'config.isRemote:', config.isRemote);
     try {
       const projectileId = config.projectileId || IDGenerator.generateProjectileId(String(config.ownerId));
 
@@ -153,6 +153,7 @@ export class ProjectileFactory {
           }
         }
 
+        /*
         console.log('[DEBUG_PROJECTILE] Adding Sprite component for remote projectile:', {
           projectileId: projectileId,
           projectileType: config.projectileType,
@@ -161,18 +162,21 @@ export class ProjectileFactory {
           imageSrc: image?.src,
           isRemote: config.isRemote
         });
+        */
 
         // Crea sprite con immagine caricata o null
         const sprite = new Sprite(image, 48, 12, 0, 0); // Dimensioni laser tipiche
         ecs.addComponent(entity, Sprite, sprite);
 
-        console.log('[DEBUG_PROJECTILE] Sprite component added to entity:', entity.id);
+        // console.log('[DEBUG_PROJECTILE] Sprite component added to entity:', entity.id);
       } else {
+        /*
         console.log('[DEBUG_PROJECTILE] Not adding Sprite component:', {
           projectileId: projectileId,
           isRemote: config.isRemote,
           projectileType: config.projectileType
         });
+        */
       }
 
       // Assegna ID al componente projectile per riferimento
@@ -323,7 +327,7 @@ export class ProjectileFactory {
     ownerId?: number,
     assetManager?: AssetManager
   ): Entity {
-    console.log('[DEBUG_PROJECTILE] createRemoteUnified called with assetManager:', !!assetManager);
+    // console.log('[DEBUG_PROJECTILE] createRemoteUnified called with assetManager:', !!assetManager);
     // Converti velocity in direction
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
     const directionX = speed > 0 ? velocity.x / speed : 0;

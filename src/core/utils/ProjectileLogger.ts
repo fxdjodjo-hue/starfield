@@ -47,7 +47,7 @@ export interface ProjectileLogEntry {
 export class ProjectileLogger {
   private static logHistory: Map<string, ProjectileLogEntry[]> = new Map();
   private static maxHistoryPerProjectile = 50; // Limite per evitare memory leaks
-  private static enabled = true; // Flag per abilitare/disabilitare il logging
+  private static enabled = false; // Disabilitato per playtest
 
   /**
    * Abilita/disabilita il logging centralizzato

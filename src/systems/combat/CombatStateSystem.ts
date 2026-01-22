@@ -899,7 +899,7 @@ export class CombatStateSystem extends BaseSystem {
         activeBeamEntities.add(visualEntity.id);
       }
 
-      // Debug: verifica che il laser abbia Velocity
+      /*
       const velocity = ecs.getComponent(visualEntity, 'Velocity');
       console.log('[BEAM-EFFECT] Created unified beam effect for player:', {
         playerId,
@@ -911,6 +911,7 @@ export class CombatStateSystem extends BaseSystem {
         velocityY: velocity?.y,
         speed: Math.sqrt((velocity?.x || 0) ** 2 + (velocity?.y || 0) ** 2)
       });
+      */
 
     } catch (error) {
       console.warn('[BEAM-EFFECT] Failed to create beam effect:', error);

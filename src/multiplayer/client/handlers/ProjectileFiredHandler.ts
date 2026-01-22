@@ -20,6 +20,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     const localClientId = networkSystem.getLocalClientId();
     const isLocalPlayer = message.playerId === String(localAuthId) || message.playerId === String(localClientId);
 
+    /*
     console.log('[DEBUG_PROJECTILE] Received projectile_fired message:', {
       projectileId: message.projectileId,
       playerId: message.playerId,
@@ -29,6 +30,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       localAuthId: localAuthId,
       localClientId: localClientId
     });
+    */
 
     // Missile logic removed - missiles are no longer supported
 
@@ -54,7 +56,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     // in CombatStateSystem. Ignoriamo il messaggio 'projectile_fired' dal server per i laser
     // per evitare duplicazioni, flicker e lag visivo.
     if (message.projectileType === 'laser') {
-      if (import.meta.env.DEV) console.log(`[DEBUG_PROJECTILE] Skipping visual for ${isLocalPlayer ? 'local' : 'remote'} player laser (handled by simulation)`);
+      // if (import.meta.env.DEV) console.log(`[DEBUG_PROJECTILE] Skipping visual for ${isLocalPlayer ? 'local' : 'remote'} player laser (handled by simulation)`);
       return;
     }
 
@@ -63,19 +65,21 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
   }
 
   private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {
+    /*
     console.log('[DEBUG_PROJECTILE] showProjectile called for:', {
       projectileId: message.projectileId,
       playerId: message.playerId,
       projectileType: message.projectileType,
       isLocalPlayer: isLocalPlayer
     });
+    */
 
     // ✅ UNIFICATO: Crea proiettili remoti direttamente con ProjectileFactory
     // Ora tutti i proiettili seguono lo stesso flusso del ProjectileSystem
 
     const ecs = networkSystem.getECS();
     if (!ecs) {
-      console.log('[DEBUG_PROJECTILE] ECS not available');
+      // console.log('[DEBUG_PROJECTILE] ECS not available');
       return;
     }
 
@@ -90,7 +94,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         x: localPlayerPos.x,
         y: localPlayerPos.y
       };
-      console.log('[DEBUG_PROJECTILE] Using local player position:', localPlayerPos);
+      // console.log('[DEBUG_PROJECTILE] Using local player position:', localPlayerPos);
     }
 
 
@@ -98,21 +102,21 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     let assetManager = null;
     try {
       const systems = ecs.getSystems();
-      console.log('[DEBUG_PROJECTILE] Looking for RenderSystem among', systems.length, 'systems');
+      // console.log('[DEBUG_PROJECTILE] Looking for RenderSystem among', systems.length, 'systems');
       for (const system of systems) {
-        console.log('[DEBUG_PROJECTILE] System:', system.constructor.name);
+        // console.log('[DEBUG_PROJECTILE] System:', system.constructor.name);
         if (system.constructor.name === 'RenderSystem') {
-          console.log('[DEBUG_PROJECTILE] Found RenderSystem, calling getAssetManager');
+          // console.log('[DEBUG_PROJECTILE] Found RenderSystem, calling getAssetManager');
           assetManager = (system as any).getAssetManager();
-          console.log('[DEBUG_PROJECTILE] AssetManager from RenderSystem:', !!assetManager);
+          // console.log('[DEBUG_PROJECTILE] AssetManager from RenderSystem:', !!assetManager);
           break;
         }
       }
     } catch (error) {
-      console.log('[DEBUG_PROJECTILE] Could not find AssetManager:', error);
+      // console.log('[DEBUG_PROJECTILE] Could not find AssetManager:', error);
     }
 
-    console.log('[DEBUG_PROJECTILE] Creating remote projectile via ProjectileFactory, hasAssetManager:', !!assetManager);
+    // console.log('[DEBUG_PROJECTILE] Creating remote projectile via ProjectileFactory, hasAssetManager:', !!assetManager);
     const entity = ProjectileFactory.createRemoteUnified(
       ecs,
       message.projectileId,
@@ -125,7 +129,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       undefined, // ownerId - not used for remote projectiles
       assetManager
     );
-    console.log('[DEBUG_PROJECTILE] Remote projectile created, entity ID:', entity.id);
+    // console.log('[DEBUG_PROJECTILE] Remote projectile created, entity ID:', entity.id);
 
     // ✅ NOTA: Non creiamo più il beam effect qui per i laser dei giocatori remoti
     // perché ora usiamo la Soluzione 2 (Simulazione Locale) in CombatStateSystem.
