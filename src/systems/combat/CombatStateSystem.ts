@@ -775,11 +775,38 @@ export class CombatStateSystem extends BaseSystem {
     const targetX = npcTransform.x;
     const targetY = npcTransform.y;
 
+    // Calcola il vettore direzione verso il target
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Normalizza la direzione
+    const dirX = dx / distance;
+    const dirY = dy / distance;
+
+    // Calcola il vettore perpendicolare (ruotato di 90 gradi) per l'offset laterale
+    // Perpendicolare a (x, y) è (-y, x)
+    const perpX = -dirY;
+    const perpY = dirX;
+
+    // Configura l'offset laterale (distanza dal centro)
+    const lateralOffset = 18; // 18px dal centro per ogni lato
+
+    // Calcola i punti di inizio sinistro e destro
+    const leftStartX = startX + (perpX * lateralOffset);
+    const leftStartY = startY + (perpY * lateralOffset);
+
+    const rightStartX = startX - (perpX * lateralOffset);
+    const rightStartY = startY - (perpY * lateralOffset);
+
     // Usa serverId dell'NPC invece dell'entity.id per il targeting
     const npcComponent = this.ecs.getComponent(npcEntity, Npc);
     const targetId = npcComponent?.serverId || npcEntity.id.toString();
 
-    await this.createVisualProjectile(startX, startY, targetX, targetY, playerEntity.id, targetId);
+    // Crea DUE proiettili visivi (sinistro e destro)
+    // Passiamo un flag per evitare il doppio suono
+    await this.createVisualProjectile(leftStartX, leftStartY, targetX, targetY, playerEntity.id, targetId, true);
+    await this.createVisualProjectile(rightStartX, rightStartY, targetX, targetY, playerEntity.id, targetId, false);
   }
 
   /**
@@ -894,14 +921,14 @@ export class CombatStateSystem extends BaseSystem {
    * Crea un proiettile visivo che viaggia dal player all'NPC
    * Questo è solo un effetto visivo, il danno rimane gestito da hitscan
    */
-  private async createVisualProjectile(startX: number, startY: number, targetX: number, targetY: number, ownerId: number, targetId: number): Promise<void> {
+  private async createVisualProjectile(startX: number, startY: number, targetX: number, targetY: number, ownerId: number, targetId: number, playSound: boolean = true): Promise<void> {
     // ✅ RIUTILIZZA IL METODO STATICO CONDIVISO
     // Elimina duplicazione di codice - usa la stessa logica per tutti i giocatori
     const audioSystem = this.clientNetworkSystem?.getAudioSystem();
 
     // Gestisci throttling suono per player locale (evita spam)
-    let shouldPlaySound = true;
-    if (audioSystem) {
+    let shouldPlaySound = playSound;
+    if (audioSystem && shouldPlaySound) {
       const now = Date.now();
       if ((now - this.lastLaserSoundTime) < 100) { // Minimo 100ms tra suoni
         shouldPlaySound = false;
