@@ -35,6 +35,47 @@ export class SettingsPanel extends BasePanel {
       -ms-overflow-style: none;
     `;
 
+        // Inject styles for sliders and glassmorphism components
+        const style = document.createElement('style');
+        style.textContent = `
+      .settings-slider {
+        -webkit-appearance: none;
+        width: 100%;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        outline: none;
+        transition: opacity .2s;
+      }
+      .settings-slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+      }
+      .settings-slider::-moz-range-thumb {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.5);
+      }
+      .settings-tab-active {
+        background: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
+      }
+    `;
+        content.appendChild(style);
+
         // Close button
         const closeButton = document.createElement('button');
         closeButton.textContent = 'X';
@@ -93,17 +134,17 @@ export class SettingsPanel extends BasePanel {
             btn.textContent = tab.charAt(0).toUpperCase() + tab.slice(1);
             const isActive = this.activeTab === tab;
             btn.style.cssText = `
-        flex: 1;
-        padding: 10px;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 600;
-        background: ${isActive ? 'rgba(59, 130, 246, 0.6)' : 'rgba(255, 255, 255, 0.05)'};
-        color: rgba(255, 255, 255, ${isActive ? '1' : '0.6'});
-        border: 1px solid ${isActive ? 'rgba(59, 130, 246, 0.4)' : 'rgba(255, 255, 255, 0.1)'};
-        transition: all 0.2s ease;
-      `;
+                flex: 1;
+                padding: 10px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                background: ${isActive ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)'};
+                color: rgba(255, 255, 255, ${isActive ? '1' : '0.6'});
+                border: 1px solid ${isActive ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
+                transition: all 0.2s ease;
+                ${isActive ? 'box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);' : ''}
+            `;
             btn.addEventListener('click', () => {
                 this.activeTab = tab as any;
                 this.refreshContent(container);
@@ -113,10 +154,12 @@ export class SettingsPanel extends BasePanel {
                     b.style.background = 'rgba(255, 255, 255, 0.05)';
                     b.style.color = 'rgba(255, 255, 255, 0.6)';
                     b.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+                    b.style.boxShadow = 'none';
                 });
-                btn.style.background = 'rgba(59, 130, 246, 0.6)';
+                btn.style.background = 'rgba(255, 255, 255, 0.2)';
                 btn.style.color = 'rgba(255, 255, 255, 1)';
-                btn.style.borderColor = 'rgba(59, 130, 246, 0.4)';
+                btn.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                btn.style.boxShadow = '0 0 15px rgba(255, 255, 255, 0.1)';
             });
             nav.appendChild(btn);
         });
@@ -125,12 +168,12 @@ export class SettingsPanel extends BasePanel {
         // Content container
         const container = document.createElement('div');
         container.style.cssText = `
-      flex: 1;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    `;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            `;
         this.refreshContent(container);
         content.appendChild(container);
 
@@ -174,13 +217,13 @@ export class SettingsPanel extends BasePanel {
     private createToggle(parent: HTMLElement, label: string, desc: string, defaultValue: boolean, onChange: (val: boolean) => void): void {
         const row = document.createElement('div');
         row.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-    `;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            `;
 
         const info = document.createElement('div');
         const title = document.createElement('div');
@@ -209,13 +252,13 @@ export class SettingsPanel extends BasePanel {
     private createSlider(parent: HTMLElement, label: string, defaultValue: number, onChange: (val: number) => void): void {
         const row = document.createElement('div');
         row.style.cssText = `
-        padding: 12px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    `;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            `;
 
         const header = document.createElement('div');
         header.style.cssText = 'display: flex; justify-content: space-between; color: white; font-weight: 600;';
@@ -228,10 +271,12 @@ export class SettingsPanel extends BasePanel {
 
         const slider = document.createElement('input');
         slider.type = 'range';
+        slider.className = 'settings-slider';
         slider.min = '0';
         slider.max = '100';
         slider.value = defaultValue.toString();
-        slider.style.width = '100%';
+        // Width handled by class/parent, but explicit set is fine
+        // slider.style.width = '100%';
 
         slider.addEventListener('input', (e) => {
             const val = (e.target as HTMLInputElement).value;
