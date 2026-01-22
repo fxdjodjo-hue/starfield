@@ -30,14 +30,10 @@ export class AuthInitializationManager {
    * Inizializza la schermata
    */
   async initialize(sessionManager: AuthSessionManager, hasJustLoggedIn: boolean): Promise<void> {
-    // Se siamo in modalità playtest, mostra prima il popup del codice
-    // Per ora lo mostriamo sempre per semplicità come richiesto dall'utente
-    this.playtestModal.show(this.authContainer, (code) => {
-      // Quando sbloccato, procedi con il controllo sessione
-      if (!hasJustLoggedIn) {
-        sessionManager.checkExistingSession();
-      }
-    });
+    // Playtest disabilitato - procedi direttamente
+    if (!hasJustLoggedIn) {
+      sessionManager.checkExistingSession();
+    }
   }
 
   /**
