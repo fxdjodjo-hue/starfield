@@ -368,7 +368,7 @@ export class RenderSystem extends BaseSystem {
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
         }
       }
-    } else if ((components.sprite || components.animatedSprite) && !isPlayerEntity && !this.ecs.hasComponent(entity, Asteroid)) {
+    } else if ((components.sprite || components.animatedSprite) && !isPlayerEntity && !this.ecs.hasComponent(entity, Asteroid) && !this.ecs.hasComponent(entity, SpaceStation)) {
       // Debug: check if this is a projectile that should be a laser
       if (components.projectile) {
         console.log('[DEBUG_RENDER] Projectile with sprite not identified as laser:', {

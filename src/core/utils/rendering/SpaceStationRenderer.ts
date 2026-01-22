@@ -9,7 +9,7 @@ export class SpaceStationRenderer {
    */
   static getFloatOffset(frameTime?: number): number {
     const time = frameTime !== undefined ? frameTime : Date.now();
-    // Fluttuazione più lenta (0.002) e ampia (±4 pixel) rispetto al player
-    return Math.sin(time * 0.002) * 4;
+    // Fluttuazione lenta e maestosa (0.0015) con ampia escursione (±10 pixel)
+    return Math.sin(time * 0.0015) * 10;
   }
 }

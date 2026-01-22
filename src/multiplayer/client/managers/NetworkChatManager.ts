@@ -10,7 +10,7 @@ export class NetworkChatManager {
   private readonly connectionManager: NetworkConnectionManager;
   private readonly rateLimiter: RateLimiter;
   private readonly eventSystem: NetworkEventManager;
-  private readonly clientId: string;
+  public clientId: string;
 
   constructor(
     connectionManager: NetworkConnectionManager,

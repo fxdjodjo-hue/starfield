@@ -607,6 +607,9 @@ export class ClientNetworkSystem extends BaseSystem {
     if (this.positionSyncManager) {
       this.positionSyncManager.clientId = newClientId;
     }
+    if (this.chatManager) {
+      this.chatManager.clientId = newClientId;
+    }
 
     // 🔴 CRITICAL: Segnala che ora siamo "ready" - possiamo iniziare a inviare messaggi
     this.hasReceivedWelcome = true;
