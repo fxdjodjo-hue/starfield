@@ -7,3 +7,13 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1dmxhbndrcXpocW5id2J2d2lzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NzU0NzQ3MCwiZXhwIjoyMDgzMTIzNDcwfQ.4LSQUyGTukt2NFd26Vi0uHMu89lgVn2OdRaQnjoM8to
+      - key: IS_PLAYTEST
+        value: false
+      - key: PLAYTEST_CODE
+        value: STARSPACETEST-2026
+      - key: MAX_ACCOUNTS
+        value: 20
+      - key: ALLOWED_ORIGIN
+        value: *
