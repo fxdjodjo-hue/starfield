@@ -84,6 +84,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
+      // Log request for debugging
+      ServerLoggerWrapper.debug('API', `${req.method} ${req.url}`);
+
       // Parse URL
       const url = new URL(req.url, `http://${req.headers.host}`);
       const pathParts = url.pathname.split('/').filter(p => p);
@@ -166,6 +169,34 @@ const server = http.createServer(async (req, res) => {
             ServerLoggerWrapper.error('API', `Exception in create-profile: ${error.message}`);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
+          }
+        });
+        return;
+      }
+
+      // POST /api/verify-playtest-code - Verifica codice accesso playtest
+      if (pathParts[0] === 'api' && pathParts[1] === 'verify-playtest-code' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+          try {
+            const { code } = JSON.parse(body);
+            if (!IS_PLAYTEST || !PLAYTEST_CODE) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+              return;
+            }
+
+            if (code === PLAYTEST_CODE) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+            } else {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Invalid playtest code' }));
+            }
+          } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
           }
         });
         return;

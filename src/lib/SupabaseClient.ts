@@ -224,6 +224,9 @@ export const gameAPI = {
   // Create player profile after Supabase registration (calls server API)
   createPlayerProfile: async (username: string) => {
     try {
+      // Get playtest code from session storage if available
+      const playtestCode = sessionStorage.getItem('playtest_code');
+
       // Get current user from Supabase auth
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) {
@@ -237,7 +240,10 @@ export const gameAPI = {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
         },
-        body: JSON.stringify({ username })
+        body: JSON.stringify({
+          username,
+          playtestCode: playtestCode || undefined
+        })
       });
 
       const result = await response.json();
