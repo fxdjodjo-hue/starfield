@@ -84,9 +84,6 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      // Log request for debugging
-      ServerLoggerWrapper.debug('API', `${req.method} ${req.url}`);
-
       // Parse URL
       const url = new URL(req.url, `http://${req.headers.host}`);
       const pathParts = url.pathname.split('/').filter(p => p);
