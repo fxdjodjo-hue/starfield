@@ -52,14 +52,14 @@ export class CombatStateManager {
    * Processes player combat state and sends requests to server
    */
   processPlayerCombat(): void {
-    console.log(`[CLIENT_PROCESS_COMBAT] Processing player combat state`);
+    // console.log(`[CLIENT_PROCESS_COMBAT] Processing player combat state`);
 
     const playerEntity = this.playerSystem.getPlayerEntity();
     const playerDamage = playerEntity ? this.ecs.getComponent(playerEntity, Damage) : null;
 
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-    
-    
+
+
     // Debug log (only in dev, throttled to avoid spam)
     if (import.meta.env.DEV && selectedNpcs.length > 0) {
       const debugPlayerControlSystem = this.getPlayerControlSystem();
@@ -99,9 +99,9 @@ export class CombatStateManager {
 
     const margin = 100;
     const isOffScreen = npcScreenPos.x < -margin ||
-                       npcScreenPos.x > canvasSize.width + margin ||
-                       npcScreenPos.y < -margin ||
-                       npcScreenPos.y > canvasSize.height + margin;
+      npcScreenPos.x > canvasSize.width + margin ||
+      npcScreenPos.y < -margin ||
+      npcScreenPos.y > canvasSize.height + margin;
 
 
     const rangeWidth = getPlayerRangeWidth();
@@ -118,10 +118,10 @@ export class CombatStateManager {
 
 
     if (inRange && attackActivated) {
-      console.log(`[CLIENT_COMBAT_ACTIVATE] Player can attack NPC ${selectedNpc.id}, inRange=${inRange}, attackActivated=${attackActivated}`);
+      // console.log(`[CLIENT_COMBAT_ACTIVATE] Player can attack NPC ${selectedNpc.id}, inRange=${inRange}, attackActivated=${attackActivated}`);
 
       if (this.currentAttackTarget !== selectedNpc.id) {
-        console.log(`[CLIENT_COMBAT_START] Starting combat with NPC ${selectedNpc.id}`);
+        // console.log(`[CLIENT_COMBAT_START] Starting combat with NPC ${selectedNpc.id}`);
         this.sendStartCombat(selectedNpc);
         this.startAttackLogging(selectedNpc);
         this.currentAttackTarget = selectedNpc.id;
@@ -132,12 +132,12 @@ export class CombatStateManager {
       // 🔥 AGGIUNTO: Fire laser automatically during combat (server-authoritative)
       // Il server gestisce il rate limiting e la creazione dei proiettili
       // Il client invia solo la richiesta di start_combat e mantiene il combattimento attivo
-      console.log(`[COMBAT-CLIENT] Player combat active - laser firing handled by server`);
-      
-    // NON fermare mai il combattimento per questioni di range
-    // Il server gestisce il range, il client mantiene sempre il combattimento attivo
+      // console.log(`[COMBAT-CLIENT] Player combat active - laser firing handled by server`);
+
+      // NON fermare mai il combattimento per questioni di range
+      // Il server gestisce il range, il client mantiene sempre il combattimento attivo
     } else if (!attackActivated && this.currentAttackTarget !== null) {
-      console.log(`[CLIENT_COMBAT_STOP] Stopping combat - attack deactivated (NPC ${this.currentAttackTarget})`);
+      // console.log(`[CLIENT_COMBAT_STOP] Stopping combat - attack deactivated (NPC ${this.currentAttackTarget})`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;
@@ -150,7 +150,7 @@ export class CombatStateManager {
    * Sends start combat request to server
    */
   private sendStartCombat(npcEntity: Entity): void {
-    console.log(`[CLIENT_COMBAT_DEBUG] SENDING start_combat for NPC ${npcEntity.id} to server`);
+    // console.log(`[CLIENT_COMBAT_DEBUG] SENDING start_combat for NPC ${npcEntity.id} to server`);
 
     // Invia effettivamente il messaggio
     const networkSystem = this.getClientNetworkSystem();
@@ -160,7 +160,7 @@ export class CombatStateManager {
         npcId: npcEntity.id,
         playerId: networkSystem.gameContext.authId || networkSystem.getLocalClientId()
       };
-      console.log(`[CLIENT_COMBAT_MESSAGE] Message:`, message);
+      // console.log(`[CLIENT_COMBAT_MESSAGE] Message:`, message);
       networkSystem.sendMessage(message);
     }
     const clientNetworkSystem = this.getClientNetworkSystem();

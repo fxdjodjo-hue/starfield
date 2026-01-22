@@ -31,7 +31,8 @@ class GlobalMonitorUI {
   private isVisible: boolean = false;
 
   updateGlobalState(state: any) {
-    // Log base per debugging
+    // Log base per debugging disabled for playtest
+    /*
     console.group('🌍 Global Monitor Update');
     console.log('Server:', state.server);
     console.log('Players:', state.players.length);
@@ -43,6 +44,7 @@ class GlobalMonitorUI {
     }
 
     console.groupEnd();
+    */
 
     // Qui puoi implementare l'aggiornamento di una dashboard reale
     // Es: aggiornare elementi DOM, charts, etc.

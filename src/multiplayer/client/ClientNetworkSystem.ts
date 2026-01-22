@@ -355,7 +355,7 @@ export class ClientNetworkSystem extends BaseSystem {
     return dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD || dr > ROTATION_THRESHOLD;
   }
 
-  private sendMessage(message: NetMessage): void {
+  public sendMessage(message: NetMessage): void {
     // Ensure clientId is always included
     const messageWithClientId = {
       ...message,

@@ -146,7 +146,7 @@ export class EntityFactory {
       );
     }
 
-    console.log(`[EntityFactory] Created ${asteroidConfig.asteroids.length} asteroids`);
+    // console.log(`[EntityFactory] Created ${asteroidConfig.asteroids.length} asteroids`);
   }
 
   /**

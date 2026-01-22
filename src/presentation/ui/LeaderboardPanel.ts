@@ -62,7 +62,7 @@ export class LeaderboardPanel extends BasePanel {
     // Ascolta gli eventi di riconnessione per richiedere automaticamente la leaderboard
     clientNetworkSystem.onReconnected(() => {
       if (this.isVisible && this.leaderboardData.entries.length === 0) {
-        console.log('[LeaderboardPanel] Connection restored, requesting leaderboard');
+        // console.log('[LeaderboardPanel] Connection restored, requesting leaderboard');
         this.requestLeaderboard();
       }
     });
@@ -336,7 +336,7 @@ export class LeaderboardPanel extends BasePanel {
       { text: 'Experience', align: 'right' },
       { text: 'Honor', align: 'right' }
     ];
-    
+
     headers.forEach(header => {
       const th = document.createElement('th');
       th.textContent = header.text;
@@ -428,7 +428,7 @@ export class LeaderboardPanel extends BasePanel {
    */
   setSortBy(sortBy: 'ranking_points' | 'honor' | 'experience'): void {
     this.leaderboardData.sortBy = sortBy;
-    
+
     // Aggiorna stili dei pulsanti
     this.sortButtons.forEach((button, id) => {
       if (id === sortBy) {
@@ -451,7 +451,7 @@ export class LeaderboardPanel extends BasePanel {
    */
   private requestLeaderboardWithRetry(retryCount: number = 0): void {
     if (this.clientNetworkSystem) {
-      console.log(`[LeaderboardPanel] ClientNetworkSystem available, requesting leaderboard (attempt ${retryCount + 1})`);
+      // console.log(`[LeaderboardPanel] ClientNetworkSystem available, requesting leaderboard (attempt ${retryCount + 1})`);
       this.requestLeaderboard();
     } else if (retryCount < 5) {
       // Lo spinner è già stato mostrato in onShow()
@@ -478,7 +478,7 @@ export class LeaderboardPanel extends BasePanel {
     }
 
     if (!this.clientNetworkSystem.isConnected()) {
-      console.log('[LeaderboardPanel] Not connected to server, skipping leaderboard request');
+      // console.log('[LeaderboardPanel] Not connected to server, skipping leaderboard request');
       return;
     }
 
@@ -586,7 +586,7 @@ export class LeaderboardPanel extends BasePanel {
     this.leaderboardData.entries.forEach((entry, index) => {
       const row = document.createElement('tr');
       const isCurrentPlayer = this.leaderboardData.playerRank === entry.rank;
-      
+
       row.style.cssText = `
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         transition: background 0.2s ease;

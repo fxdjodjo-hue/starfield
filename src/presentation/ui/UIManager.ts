@@ -47,7 +47,7 @@ export class UIManager {
         // (anche se l'evento viene emesso dopo l'aggiornamento della flag, è più sicuro)
         setTimeout(() => {
           if (!this.hasOpenPanels()) {
-            console.log('[UIManager] All panels closed, emitting uiPanelClosed');
+            // console.log('[UIManager] All panels closed, emitting uiPanelClosed');
             document.dispatchEvent(new CustomEvent('uiPanelClosed'));
           }
         }, 10);
@@ -71,7 +71,7 @@ export class UIManager {
           !target.closest('.ui-panel')) {
           openPanel.hide();
           // Notifica che i controlli del player possono essere riabilitati
-          console.log('[UIManager] Emitting uiPanelClosed event (click outside)');
+          // console.log('[UIManager] Emitting uiPanelClosed event (click outside)');
           document.dispatchEvent(new CustomEvent('uiPanelClosed'));
           // Ferma completamente l'evento per evitare che muova il player
           e.preventDefault();

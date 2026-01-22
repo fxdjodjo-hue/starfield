@@ -26,7 +26,7 @@ export class NetworkPositionSyncManager {
     private readonly positionTracker: PlayerPositionTracker,
     public clientId: string,
     private readonly isClientReady?: () => boolean
-  ) {}
+  ) { }
 
 
   /**
@@ -175,15 +175,15 @@ export class NetworkPositionSyncManager {
     const velocityY = pos.velocityY ?? 0;
 
     return Number.isFinite(pos.x) &&
-           Number.isFinite(pos.y) &&
-           Number.isFinite(pos.rotation) &&
-           Number.isFinite(velocityX) &&
-           Number.isFinite(velocityY) &&
-           pos.x >= -15000 && pos.x <= 15000 && // Tighter position bounds for space game
-           pos.y >= -15000 && pos.y <= 15000 && // Reasonable space area
-           normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI &&
-           velocityX >= -500 && velocityX <= 500 && // Reasonable max speed for space ship
-           velocityY >= -500 && velocityY <= 500;   // Prevents speed hacking
+      Number.isFinite(pos.y) &&
+      Number.isFinite(pos.rotation) &&
+      Number.isFinite(velocityX) &&
+      Number.isFinite(velocityY) &&
+      pos.x >= -15000 && pos.x <= 15000 && // Tighter position bounds for space game
+      pos.y >= -15000 && pos.y <= 15000 && // Reasonable space area
+      normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI &&
+      velocityX >= -500 && velocityX <= 500 && // Reasonable max speed for space ship
+      velocityY >= -500 && velocityY <= 500;   // Prevents speed hacking
   }
 
   /**
@@ -204,7 +204,7 @@ export class NetworkPositionSyncManager {
         if (authority && authority.ownerId === this.clientId) {
           const health = this.ecs.getComponent(entity, Health);
           if (health && health.isDead()) {
-            console.log(`[CLIENT] Player ${this.clientId} is dead (HP: ${health.current}/${health.max})`);
+            // console.log(`[CLIENT] Player ${this.clientId} is dead (HP: ${health.current}/${health.max})`);
             return true;
           }
         }
@@ -227,7 +227,7 @@ export class NetworkPositionSyncManager {
 
             // Se è vicino alla posizione del giocatore e ha HP = 0
             if (distance < 10 && health.current <= 0) {
-              console.log(`[CLIENT] Player near position (${playerPosition.x}, ${playerPosition.y}) is dead (HP: ${health.current})`);
+              // console.log(`[CLIENT] Player near position (${playerPosition.x}, ${playerPosition.y}) is dead (HP: ${health.current})`);
               return true;
             }
           }

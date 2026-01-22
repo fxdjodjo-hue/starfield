@@ -439,6 +439,12 @@ export class ProjectileSystem extends BaseSystem {
     }
   }
 
+  /* DEBUG: Laser creation logging removed for playtest
+  private logLaserCreation(startX: number, startY: number, targetX: number, targetY: number): void {
+    // console.log('[ProjectileSystem] Laser created:', { start: { x: startX, y: startY }, target: { x: targetX, y: targetY } });
+  }
+  */
+
   /**
    * Applica danno a un'entità (modifica gli HP/shield, la UI è gestita dal CombatSystem)
    */
@@ -452,7 +458,7 @@ export class ProjectileSystem extends BaseSystem {
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isPlayerDamage = playerEntity && targetEntity.id === playerEntity.id;
 
-    // Registra che l'entità è stata danneggiata (per comportamenti AI reattivi)
+    /*
     let damageTaken = this.ecs.getComponent(targetEntity, DamageTaken);
     if (!damageTaken) {
       damageTaken = new DamageTaken();
@@ -461,6 +467,13 @@ export class ProjectileSystem extends BaseSystem {
     }
     damageTaken.takeDamage(Date.now());
     console.log(`[DAMAGE] Entità ${targetEntity.id} danneggiata, tempo: ${Date.now()}`);
+    */
+    let damageTaken = this.ecs.getComponent(targetEntity, DamageTaken);
+    if (!damageTaken) {
+      damageTaken = new DamageTaken();
+      this.ecs.addComponent(targetEntity, DamageTaken, damageTaken);
+    }
+    damageTaken.takeDamage(Date.now());
 
     let damageToHp = damage;
 

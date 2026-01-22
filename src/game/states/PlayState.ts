@@ -156,7 +156,7 @@ export class PlayState extends GameState {
   async enter(_context: GameContext): Promise<void> {
     // PLAYTEST METRICS: Log inizio sessione
     this.sessionStartTime = Date.now();
-    console.log(`[PLAYTEST] Session started at ${new Date().toISOString()}`);
+    // console.log(`[PLAYTEST] Session started at ${new Date().toISOString()}`);
 
     // Marca come inizializzato per evitare doppia inizializzazione
     (this as any)._initialized = true;
@@ -203,7 +203,7 @@ export class PlayState extends GameState {
     if (this.sessionStartTime > 0) {
       const sessionDuration = Date.now() - this.sessionStartTime;
       const durationMinutes = Math.round(sessionDuration / 60000 * 100) / 100;
-      console.log(`[PLAYTEST] Session ended after ${durationMinutes} minutes`);
+      // console.log(`[PLAYTEST] Session ended after ${durationMinutes} minutes`);
     }
 
     this.initializeManagers();
