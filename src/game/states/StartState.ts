@@ -60,6 +60,7 @@ export class StartState extends GameState {
     this.authScreen.destroy();
   }
 
+
   /**
    * Restituisce la AuthScreen per accesso esterno
    */

@@ -197,6 +197,7 @@ class ServerInputValidator {
     return { isValid: false, errors };
   }
 
+
   /**
    * Valida heartbeat - connessione keep-alive
    */
@@ -285,6 +286,27 @@ class ServerInputValidator {
   validate(messageType, data) {
     try {
       switch (messageType) {
+        case 'join':
+          // Valida messaggio di join del client
+          const joinErrors = [];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            joinErrors.push('Invalid or missing clientId');
+          }
+
+          if (!data.nickname || typeof data.nickname !== 'string') {
+            joinErrors.push('Invalid or missing nickname');
+          }
+
+          return {
+            isValid: joinErrors.length === 0,
+            errors: joinErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              nickname: data.nickname,
+              // Altri campi possono essere aggiunti se necessario
+            }
+          };
         case 'position_update':
           return this.validatePosition(data);
         case 'heartbeat':
@@ -294,6 +316,7 @@ class ServerInputValidator {
           return this.validateCombat(data);
         case 'chat_message':
           return this.validateChat(data);
+        // SECURITY: test_damage RIMOSSO - metodo client eliminato per sicurezza
         case 'projectile_fired':
           // Valida sia posizione che velocità
           const posResult = this.validatePosition(data.position);
@@ -355,12 +378,92 @@ class ServerInputValidator {
               upgradeType: data.upgradeType
             }
           };
-        default:
-          // Per messaggi sconosciuti, valida solo struttura base
+
+        case 'request_player_data':
+          // Valida richiesta dati player
+          const playerDataErrors = [];
+
+          if (!data.playerId || typeof data.playerId !== 'string') {
+            playerDataErrors.push('Invalid or missing playerId');
+          } else if (data.playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            playerDataErrors.push('Player ID too long');
+          } else if (!this.LIMITS.IDENTIFIERS.UUID_PATTERN.test(data.playerId)) {
+            playerDataErrors.push('Player ID must be a valid UUID');
+          }
+
           return {
-            isValid: typeof data === 'object' && data !== null,
-            errors: typeof data === 'object' && data !== null ? [] : ['Invalid data structure'],
-            sanitizedData: data
+            isValid: playerDataErrors.length === 0,
+            errors: playerDataErrors,
+            sanitizedData: {
+              playerId: data.playerId
+            }
+          };
+
+        case 'save_request':
+          // Valida richiesta salvataggio
+          const saveErrors = [];
+
+          if (!data.playerId || typeof data.playerId !== 'string') {
+            saveErrors.push('Invalid or missing playerId');
+          } else if (data.playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            saveErrors.push('Player ID too long');
+          }
+
+          if (typeof data.timestamp !== 'number' || isNaN(data.timestamp) || data.timestamp <= 0) {
+            saveErrors.push('Invalid timestamp');
+          }
+
+          return {
+            isValid: saveErrors.length === 0,
+            errors: saveErrors,
+            sanitizedData: {
+              playerId: data.playerId,
+              timestamp: data.timestamp
+            }
+          };
+
+        case 'global_monitor_request':
+          // Valida richiesta monitoraggio globale (solo admin)
+          const monitorErrors = [];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            monitorErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            monitorErrors.push('Client ID too long');
+          }
+
+          return {
+            isValid: monitorErrors.length === 0,
+            errors: monitorErrors,
+            sanitizedData: {
+              clientId: data.clientId
+            }
+          };
+
+        case 'player_respawn_request':
+          // Valida richiesta respawn player
+          const respawnErrors = [];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            respawnErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            respawnErrors.push('Client ID too long');
+          }
+
+          return {
+            isValid: respawnErrors.length === 0,
+            errors: respawnErrors,
+            sanitizedData: {
+              clientId: data.clientId
+            }
+          };
+
+        default:
+          // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
+          return {
+            isValid: false,
+            errors: [`Unknown message type: ${messageType}. Only explicitly allowed message types are accepted.`],
+            sanitizedData: null
           };
       }
     } catch (error) {

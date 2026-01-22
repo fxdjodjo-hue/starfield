@@ -18,6 +18,11 @@ dist-ssr
 **/*.d.ts
 **/*.d.ts.map
 
+# Electron build output
+dist-electron
+dist-server
+*.exe
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

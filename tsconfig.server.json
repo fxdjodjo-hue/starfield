@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "outDir": "dist-server/shared",
+    "rootDir": "shared",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "noEmit": false,
+    "erasableSyntaxOnly": false,
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false
+  },
+  "ts-node": {
+    "esm": false
+  },
+  "include": ["shared/**/*.ts"],
+  "exclude": ["src", "node_modules"]
+}

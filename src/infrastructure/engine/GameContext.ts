@@ -1,16 +1,7 @@
-import { AssetManager } from '../AssetManager';
+import { AssetManager } from '../../core/services/AssetManager';
 import { NETWORK_CONFIG } from '../../config/NetworkConfig';
-
-/**
- * Stato di connessione al server
- */
-export enum ConnectionState {
-  DISCONNECTED = 'disconnected',
-  CONNECTING = 'connecting',
-  CONNECTED = 'connected',
-  RECONNECTING = 'reconnecting',
-  ERROR = 'error'
-}
+import { type PlayerUuid, type PlayerDbId, type ClientId } from '../../config/NetworkConfig';
+import { ConnectionState } from '../../multiplayer/client/managers/NetworkStateManager';
 
 /**
  * Stato di un giocatore connesso
@@ -50,12 +41,12 @@ export class GameContext {
   public gameContainer: HTMLElement;
   public assetManager: AssetManager;
 
-  // Identità client
-  public localClientId: string = '';           // ID univoco di questo client (WebSocket ID)
-  public authId: string = '';                  // Auth ID dell'utente (UUID Supabase)
-  public playerId: number = 0;                 // ID numerico sequenziale del player
-  public playerNickname: string = '';          // Nickname del player
-  public sessionId: string = '';               // ID sessione corrente
+  // Identità client - separazione esplicita con branded types
+  public localClientId: ClientId = '' as ClientId;           // ID univoco di questo client (WebSocket ID)
+  public authId: PlayerUuid = '' as PlayerUuid;              // Auth ID dell'utente (UUID Supabase)
+  public playerDbId: PlayerDbId = 0 as PlayerDbId;           // ID numerico database del player
+  public playerNickname: string = '';                        // Nickname del player
+  public sessionId: string = '';                             // ID sessione corrente
 
   // Dati giocatore (sincronizzati dal server)
   public playerInventory: {

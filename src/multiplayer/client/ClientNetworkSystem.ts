@@ -5,68 +5,31 @@ import { RemotePlayerSystem } from '../../systems/multiplayer/RemotePlayerSystem
 import { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { RemoteNpcSystem } from '../../systems/multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../../systems/multiplayer/RemoteProjectileSystem';
-import { Projectile } from '../../entities/combat/Projectile';
-import { Transform } from '../../entities/spatial/Transform';
-import { Velocity } from '../../entities/spatial/Velocity';
-import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
-import { Authority } from '../../entities/spatial/Authority';
 
-// Nuovi sistemi specializzati
-import { RemoteExplosionSystem } from '../../systems/client/RemoteExplosionSystem';
-import { AudioNotificationSystem } from '../../systems/client/AudioNotificationSystem';
-import { UINotificationSystem } from '../../systems/client/UINotificationSystem';
-
-// Refactored components - Separation of Concerns
+// Modular architecture components
 import { NetworkConnectionManager } from './managers/NetworkConnectionManager';
-import { NetworkEventSystem } from './managers/NetworkEventSystem';
+import { NetworkEventManager } from './managers/NetworkEventManager';
 import { RemoteEntityManager } from './managers/RemoteEntityManager';
 import { RateLimiter, RATE_LIMITS } from './managers/RateLimiter';
+import { NetworkStateManager, ConnectionState } from './managers/NetworkStateManager';
+import { NetworkInitializationManager } from './managers/NetworkInitializationManager';
+import { IDGenerator } from '../../core/utils/IDGenerator';
+import { NetworkAuthenticationManager } from './managers/NetworkAuthenticationManager';
+import { NetworkPositionSyncManager } from './managers/NetworkPositionSyncManager';
+import { NetworkCombatManager } from './managers/NetworkCombatManager';
+import { NetworkPlayerDataManager } from './managers/NetworkPlayerDataManager';
+import { NetworkChatManager } from './managers/NetworkChatManager';
 
 // New modular components
 import { MessageRouter } from './handlers/MessageRouter';
-import { WelcomeHandler } from './handlers/WelcomeHandler';
-import { RemotePlayerUpdateHandler } from './handlers/RemotePlayerUpdateHandler';
-import { PlayerJoinedHandler } from './handlers/PlayerJoinedHandler';
-import { PlayerLeftHandler } from './handlers/PlayerLeftHandler';
-import { PlayerRespawnHandler } from './handlers/PlayerRespawnHandler';
-import { PlayerStateUpdateHandler } from './handlers/PlayerStateUpdateHandler';
-// NPC handlers
-import { InitialNpcsHandler } from './handlers/InitialNpcsHandler';
-import { NpcJoinedHandler } from './handlers/NpcJoinedHandler';
-import { NpcSpawnHandler } from './handlers/NpcSpawnHandler';
-import { NpcBulkUpdateHandler } from './handlers/NpcBulkUpdateHandler';
-import { NpcLeftHandler } from './handlers/NpcLeftHandler';
-// Combat handlers
-import { CombatUpdateHandler } from './handlers/CombatUpdateHandler';
-import { ProjectileFiredHandler } from './handlers/ProjectileFiredHandler';
-import { ProjectileUpdateHandler } from './handlers/ProjectileUpdateHandler';
-import { ProjectileDestroyedHandler } from './handlers/ProjectileDestroyedHandler';
-import { EntityDamagedHandler } from './handlers/EntityDamagedHandler';
-import { EntityDestroyedHandler } from './handlers/EntityDestroyedHandler';
-import { ExplosionCreatedHandler } from './handlers/ExplosionCreatedHandler';
-import { StopCombatHandler } from './handlers/StopCombatHandler';
-import { PlayerDataResponseHandler } from './handlers/PlayerDataResponseHandler';
-import { LeaderboardResponseHandler } from './handlers/LeaderboardResponseHandler';
-import { SaveResponseHandler } from './handlers/SaveResponseHandler';
 import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { NetworkTickManager } from './managers/NetworkTickManager';
+import { DeathPopupManager } from '../../presentation/ui/managers/death/DeathPopupManager';
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
-import { NETWORK_CONFIG, MESSAGE_TYPES } from '../../config/NetworkConfig';
-
-// Supabase client for JWT token
-import { supabase } from '../../lib/supabase';
-
-// Connection states to prevent race conditions
-enum ConnectionState {
-  DISCONNECTED = 'disconnected',
-  CONNECTING = 'connecting',
-  CONNECTED = 'connected',
-  RECONNECTING = 'reconnecting',
-  ERROR = 'error'
-}
+import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, type ClientId, secureLogger } from '../../config/NetworkConfig';
 
 /**
  * Sistema di rete client modulare per multiplayer
@@ -75,64 +38,49 @@ enum ConnectionState {
 export class ClientNetworkSystem extends BaseSystem {
   // Core dependencies
   public readonly gameContext: GameContext;
-  public readonly clientId: string;
+  public clientId: string;
   private audioSystem: any = null;
   private logSystem: any = null;
   private uiSystem: any = null;
   private economySystem: any = null;
   private rewardSystem: any = null;
 
-  // REFACTORED: Modular architecture with separated concerns
+  // Modular architecture components
   private readonly connectionManager: NetworkConnectionManager;
-  private readonly eventSystem: NetworkEventSystem;
+  private readonly eventSystem: NetworkEventManager;
   private readonly entityManager: RemoteEntityManager;
   private readonly tickManager: NetworkTickManager;
   private readonly positionTracker: PlayerPositionTracker;
   private readonly rateLimiter: RateLimiter;
+  private readonly stateManager: NetworkStateManager;
+  private readonly initManager: NetworkInitializationManager;
+  private readonly authManager: NetworkAuthenticationManager;
+  private readonly positionSyncManager: NetworkPositionSyncManager;
+  private readonly combatManager: NetworkCombatManager;
+  private readonly playerDataManager: NetworkPlayerDataManager;
+  private readonly chatManager: NetworkChatManager;
 
   // Legacy components (to be phased out)
-  public readonly remotePlayerManager: RemotePlayerManager; // TODO: Deprecate
-  private readonly messageRouter: MessageRouter; // TODO: Move to connectionManager
+  public readonly remotePlayerManager: RemotePlayerManager;
+  private readonly messageRouter: MessageRouter;
 
-  // ECS reference
-  private ecs: ECS | null = null;
+  // System references
+  private remotePlayerSystem: RemotePlayerSystem;
+  private remoteNpcSystem: RemoteNpcSystem | null = null;
+  private remoteProjectileSystem: RemoteProjectileSystem | null = null;
+  private playerSystem: PlayerSystem | null = null;
+  private deathPopupManager: DeathPopupManager;
+  // ecs is inherited from System base class and is always non-null
 
-  // Player info
-  private playerId?: number;
+  // Player info - ora con branded type
+  private playerDbId?: PlayerDbId;
+  private hasReceivedWelcome: boolean = false;
 
   // Callbacks for external systems
-  private onPlayerIdReceived?: (playerId: number) => void;
+  private onPlayerIdReceived?: (playerDbId: PlayerDbId) => void;
 
-  // Position sync state
-  private lastSentPosition: { x: number; y: number } | null = null;
-  private lastInvalidPositionLog = 0;
-  private hasReceivedWelcome = false;
-  private pendingPosition: { x: number; y: number; rotation: number } | null = null;
-
-  // Error handling callbacks
-  private onDisconnectedCallback?: () => void;
-  private onConnectionErrorCallback?: (error: Event) => void;
-  private onReconnectingCallback?: () => void;
-  private onReconnectedCallback?: () => void;
-  private onConnectedCallback?: () => void;
-
-  // Initialization state management
-  private initializationPromise: Promise<void> | null = null;
-  private initializationResolver: (() => void) | null = null;
-  private isInitialized = false;
-
-  // JWT Authentication retry management
-  private jwtRetryCount = 0;
-  private maxJwtRetries = 3;
-  private jwtRetryDelay = 2000; // Start with 2 seconds
-  private jwtRetryTimeout: NodeJS.Timeout | null = null;
-  private isRetryingJwt = false;
-
-  // Connection state management to prevent race conditions
-  private connectionState = ConnectionState.DISCONNECTED;
-  private connectionPromise: Promise<void> | null = null;
-  private connectionResolver: (() => void) | null = null;
-  private connectionRejector: ((error: Error) => void) | null = null;
+  // Legacy socket reference (for backward compatibility)
+  private socket: WebSocket | null = null;
 
   constructor(ecs: ECS, gameContext: GameContext, remotePlayerSystem: RemotePlayerSystem, serverUrl: string = NETWORK_CONFIG.DEFAULT_SERVER_URL, remoteNpcSystem?: RemoteNpcSystem, remoteProjectileSystem?: RemoteProjectileSystem, audioSystem?: any) {
     super(ecs);
@@ -143,7 +91,10 @@ export class ClientNetworkSystem extends BaseSystem {
     this.remoteProjectileSystem = remoteProjectileSystem || null;
 
     // Generate unique client ID
-    this.clientId = 'client_' + Math.random().toString(36).substr(2, 9);
+    this.clientId = IDGenerator.generateClientId();
+
+    // Track if we've received welcome (clientId is valid)
+    this.hasReceivedWelcome = false;
 
     // REFACTORED: Initialize modular architecture
     this.connectionManager = new NetworkConnectionManager(
@@ -155,317 +106,169 @@ export class ClientNetworkSystem extends BaseSystem {
       this.handleReconnecting.bind(this)
     );
 
-    this.eventSystem = new NetworkEventSystem(ecs, gameContext);
+    this.eventSystem = new NetworkEventManager(ecs, gameContext);
     this.entityManager = new RemoteEntityManager(ecs, remotePlayerSystem);
     this.positionTracker = new PlayerPositionTracker(ecs);
     this.rateLimiter = new RateLimiter();
 
-    // Initialize network tick manager
+    // Initialize network tick manager (callbacks will be set after managers are created)
     this.tickManager = new NetworkTickManager(
-      this.sendHeartbeat.bind(this),
-      this.sendPlayerPosition.bind(this)
+      () => this.stateManager.sendHeartbeat(),
+      (position) => this.positionSyncManager.sendPlayerPosition(position)
     );
 
-    // LEGACY: Initialize old components for backward compatibility (TODO: Remove)
+    // Initialize state manager
+    this.stateManager = new NetworkStateManager(
+      this.connectionManager,
+      this.rateLimiter,
+      this.tickManager,
+      this.clientId,
+      () => this.isReady() // Callback per controllare se il client è ready
+    );
+
+    // Initialize initialization manager
     this.messageRouter = new MessageRouter();
-    this.remotePlayerManager = new RemotePlayerManager(ecs, remotePlayerSystem);
+    this.initManager = new NetworkInitializationManager(
+      this.messageRouter,
+      this.connectionManager,
+      this.tickManager,
+      this.positionTracker,
+      this.stateManager,
+      gameContext,
+      this.clientId,
+      remoteNpcSystem,
+      remoteProjectileSystem
+    );
+
+    // Initialize authentication manager
+    this.authManager = new NetworkAuthenticationManager(
+      this.connectionManager,
+      this.eventSystem,
+      this.stateManager,
+      gameContext
+    );
+
+    // Initialize position sync manager
+    this.positionSyncManager = new NetworkPositionSyncManager(
+      ecs,
+      this.connectionManager,
+      this.rateLimiter,
+      this.tickManager,
+      this.positionTracker,
+      this.clientId,
+      () => this.isReady() // Callback per controllare se il client è ready
+    );
+
+    // Initialize combat manager
+    this.combatManager = new NetworkCombatManager(
+      this.connectionManager,
+      this.rateLimiter,
+      this.eventSystem,
+      this.entityManager,
+      this.clientId,
+      () => this.entityManager.getCurrentCombatNpcId(),
+      (message) => this.sendMessage(message),
+      () => this.isConnected(),
+      () => this.isReady()
+    );
+
+    // Initialize player data manager
+    this.playerDataManager = new NetworkPlayerDataManager(
+      this.connectionManager,
+      gameContext,
+      this.clientId,
+      (message) => this.sendMessage(message),
+      () => this.isConnected()
+    );
+
+    // Initialize chat manager
+    this.chatManager = new NetworkChatManager(
+      this.connectionManager,
+      this.rateLimiter,
+      this.eventSystem,
+      this.clientId
+    );
+
+
+    // Initialize death popup manager
+    this.deathPopupManager = new DeathPopupManager(gameContext);
 
     // Register message handlers
-    this.registerMessageHandlers();
+    this.initManager.registerMessageHandlers();
+
+    // Legacy components for backward compatibility
+    this.remotePlayerManager = new RemotePlayerManager(ecs, remotePlayerSystem);
 
     // Don't connect automatically - will be called manually after systems are set up
   }
 
-  /**
-   * Get the RemotePlayerSystem reference
-   */
-  public getRemotePlayerSystem(): RemotePlayerSystem {
+  getRemotePlayerSystem(): RemotePlayerSystem {
     return this.remotePlayerSystem;
   }
 
-  /**
-   * Set the PlayerSystem reference
-   */
-  public setPlayerSystem(playerSystem: PlayerSystem): void {
+  setPlayerSystem(playerSystem: PlayerSystem): void {
     this.playerSystem = playerSystem;
   }
 
-  /**
-   * Get the PlayerSystem reference
-   */
-  public getPlayerSystem(): PlayerSystem | null {
+  getPlayerSystem(): PlayerSystem | null {
     return this.playerSystem;
   }
 
-  /**
-   * Welcome state management
-   */
-  public setHasReceivedWelcome(received: boolean): void {
-    this.hasReceivedWelcome = received;
+  // DEPRECATED: Ora usiamo updateClientId() che gestisce automaticamente lo stato ready
+
+  getPendingPosition(): { x: number; y: number; rotation: number } | null {
+    return this.positionSyncManager.getPendingPosition();
   }
 
-  public getPendingPosition(): { x: number; y: number; rotation: number } | null {
-    return this.pendingPosition;
+  clearPendingPosition(): void {
+    this.positionSyncManager.clearPendingPosition();
   }
 
-  public clearPendingPosition(): void {
-    this.pendingPosition = null;
+  setCurrentCombatNpcId(npcId: string | null): void {
+    this.entityManager.setCurrentCombatNpcId(npcId);
   }
 
-  public setCurrentCombatNpcId(npcId: string | null): void {
-    this.currentCombatNpcId = npcId;
+  getCurrentCombatNpcId(): string | null {
+    return this.entityManager.getCurrentCombatNpcId();
   }
 
-  public getCurrentCombatNpcId(): string | null {
-    return this.currentCombatNpcId;
-  }
-
-  public invalidatePositionCache(): void {
+  invalidatePositionCache(): void {
     this.positionTracker.invalidateCache();
   }
 
-  public getHasReceivedWelcome(): boolean {
-    return this.hasReceivedWelcome;
+  getHasReceivedWelcome(): boolean {
+    return this.positionSyncManager.getHasReceivedWelcome();
   }
 
-  /**
-   * Registers all message handlers with the message router
-   */
-  private registerMessageHandlers(): void {
-    // Crea lista base di handler sempre presenti
-    const handlers = [
-      new WelcomeHandler(),
-      new RemotePlayerUpdateHandler(),
-      new PlayerJoinedHandler(),
-      new PlayerLeftHandler(),
-      new PlayerRespawnHandler(),
-      new PlayerStateUpdateHandler(),
-      new PlayerDataResponseHandler(),
-      new SaveResponseHandler(),
-      new LeaderboardResponseHandler()
-    ];
-
-    // Aggiungi handlers NPC se il sistema è disponibile
-    if (this.remoteNpcSystem) {
-      handlers.push(
-        new InitialNpcsHandler(),
-        new NpcJoinedHandler(),
-        new NpcSpawnHandler(),
-        new NpcBulkUpdateHandler(),
-        new NpcLeftHandler()
-      );
-    }
-
-    // Aggiungi handlers di combattimento se il sistema è disponibile
-    if (this.remoteProjectileSystem) {
-      handlers.push(
-        new CombatUpdateHandler(),
-        new StopCombatHandler(),
-        new ProjectileFiredHandler(),
-        new ProjectileUpdateHandler(),
-        new ProjectileDestroyedHandler(),
-        new EntityDamagedHandler(),
-        new EntityDestroyedHandler(),
-        new ExplosionCreatedHandler()
-      );
-    }
-
-    // Registra tutti gli handler (questo sovrascrive quelli precedenti)
-    this.messageRouter.registerHandlers(handlers);
+  getLocalPlayerPosition(): { x: number; y: number; rotation: number } {
+    return this.positionSyncManager.getLocalPlayerPosition();
   }
 
-  /**
-   * Handles JWT authentication errors with retry logic instead of page reload
-   */
-  private handleJwtAuthenticationError(reason: string): void {
-    console.error(`❌ [CLIENT] JWT Authentication failed: ${reason}`);
-
-    if (this.jwtRetryCount >= this.maxJwtRetries) {
-      console.error(`🚨 [CLIENT] Max JWT retry attempts (${this.maxJwtRetries}) exceeded`);
-      this.showAuthenticationErrorToUser('Sessione scaduta. Ricarica la pagina per accedere nuovamente.');
-      return;
-    }
-
-    if (this.isRetryingJwt) {
-      console.warn('⚠️ [CLIENT] JWT retry already in progress');
-      return;
-    }
-
-    this.isRetryingJwt = true;
-    this.jwtRetryCount++;
-
-    const delay = this.jwtRetryDelay * Math.pow(2, this.jwtRetryCount - 1); // Exponential backoff
-
-
-    this.showAuthenticationErrorToUser(`Reconnection attempt ${this.jwtRetryCount}/${this.maxJwtRetries}...`);
-
-    this.jwtRetryTimeout = setTimeout(async () => {
-      try {
-        // Try to refresh the session
-        const { data, error } = await supabase.auth.refreshSession();
-
-        if (error) {
-          console.error('❌ [CLIENT] Session refresh failed:', error);
-          this.isRetryingJwt = false;
-          this.handleJwtAuthenticationError('Session refresh failed');
-          return;
-        }
-
-        if (data.session?.access_token) {
-          this.isRetryingJwt = false;
-          this.jwtRetryCount = 0; // Reset on success
-          // Retry the connection
-          await this.connect();
-        } else {
-          console.error('❌ [CLIENT] Session refresh returned no token');
-          this.isRetryingJwt = false;
-          this.handleJwtAuthenticationError('No token after refresh');
-        }
-      } catch (error) {
-        console.error('❌ [CLIENT] JWT retry failed:', error);
-        this.isRetryingJwt = false;
-        this.handleJwtAuthenticationError('Retry failed');
-      }
-    }, delay);
-  }
-
-  /**
-   * Shows authentication error to user (requires UI system integration)
-   */
-  private showAuthenticationErrorToUser(message: string): void {
-    // Try to show error through UI system if available
-    if (this.uiSystem && typeof this.uiSystem.showError === 'function') {
-      this.uiSystem.showError('Authentication Error', message);
-    } else {
-      // Fallback: use browser alert (not ideal but better than silent failure)
-      alert(`Authentication Error: ${message}`);
-    }
-
-    // Disconnect from server
-    this.connectionManager.disconnect();
-  }
-
-  /**
-   * Shows rate limiting notification to user
-   */
-  private showRateLimitNotification(actionType: string, waitTime?: number): void {
-    const messages = {
-      'chat_message': 'Chat messages too frequent. Please try again in a few seconds.',
-      'combat_action': 'Combat actions too frequent. Please slow down.',
-      'position_update': 'Position updates too frequent.',
-      'heartbeat': 'Unstable connection - heartbeat rate limited.'
-    };
-
-    const message = messages[actionType as keyof typeof messages] || `Action "${actionType}" rate limited. Please try again later.`;
-
-    // Try to show notification through UI system
-    if (this.uiSystem && typeof this.uiSystem.showNotification === 'function') {
-      this.uiSystem.showNotification('Rate Limit', message, 'warning');
-    } else if (this.uiSystem && typeof this.uiSystem.showError === 'function') {
-      this.uiSystem.showError('Rate Limit', message);
-    } else {
-      // Fallback: console warning (already present)
-      console.warn(`⚠️ [RATE_LIMIT] ${message}`);
-    }
-  }
-
-  /**
-   * Handles successful connection establishment
-   */
   private async handleConnected(socket: WebSocket): Promise<void> {
     this.socket = socket;
-    this.connectionState = ConnectionState.CONNECTED;
-
-    // Reset tick manager timing on (re)connection
-    this.tickManager.reset();
-
-    // Notify external systems of successful (re)connection
-    if (this.onReconnectedCallback) {
-      this.onReconnectedCallback();
-    }
-
-    // Notify external systems of successful connection
-    if (this.onConnectedCallback) {
-      this.onConnectedCallback();
-    }
-
-    // 🔴 CRITICAL SECURITY: Verifica che abbiamo sia una sessione valida che un token JWT
-    if (!this.gameContext.localClientId || this.gameContext.localClientId.startsWith('client_')) {
-      console.error('❌ [CLIENT] Tentativo di connessione senza sessione valida - rilogin necessario');
-      // Disconnetti e gestisci errore con retry invece di reload forzato
-      this.connectionManager.disconnect();
-      this.handleJwtAuthenticationError('Invalid user session');
-      return;
-    }
-
-    // 🔴 CRITICAL SECURITY: Ottieni il JWT token corrente da Supabase
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.access_token) {
-      console.error('❌ [CLIENT] No valid JWT token available - rilogin necessario');
-      this.connectionManager.disconnect();
-      this.handleJwtAuthenticationError('JWT token not available');
-      return;
-    }
-
-    // Invalidate position tracker cache on connection (player might have moved)
-    this.positionTracker.invalidateCache();
-
-    // Send SECURE join message with JWT token
-    const currentPosition = this.getLocalPlayerPosition();
-    const nicknameToSend = this.gameContext.playerNickname || 'Player';
-
-    this.sendMessage({
-      type: MESSAGE_TYPES.JOIN,
-      clientId: this.clientId,
-      nickname: nicknameToSend,
-      // 🔴 CRITICAL SECURITY: Include JWT token for server-side validation
-      authToken: session.access_token,
-      // playerId sarà assegnato dal server nel welcome message
-      userId: this.gameContext.localClientId,
-      position: currentPosition
-    });
+    await this.initManager.handleConnected(socket, this.authManager);
   }
 
-  /**
-   * Handles incoming messages from the connection manager
-   */
   private handleMessage(data: string): void {
     try {
       const message: NetMessage = JSON.parse(data);
 
-      if (message.type === 'player_state_update') {
+      // Handle simple acknowledgment messages that don't need handlers
+      if (message.type === MESSAGE_TYPES.POSITION_ACK ||
+        message.type === MESSAGE_TYPES.HEARTBEAT_ACK ||
+        message.type === MESSAGE_TYPES.WORLD_UPDATE) {
+        return; // No action needed
       }
 
-      if (message.type === 'initial_npcs') {
+      // 🔧 FIX: Assicurati che ogni messaggio abbia un clientId valido
+      // Per i messaggi ricevuti dal server, usa il nostro clientId locale
+      if (!message.clientId || message.clientId === 'undefined') {
+        message.clientId = this.clientId;
       }
 
-      // Handle simple messages that don't need dedicated handlers
-      switch (message.type) {
-        case MESSAGE_TYPES.POSITION_ACK:
-          // Position acknowledgment - no action needed
-          break;
-
-        case MESSAGE_TYPES.HEARTBEAT_ACK:
-          // Heartbeat acknowledgment - connection is alive
-          break;
-
-        case MESSAGE_TYPES.WORLD_UPDATE:
-          // World update - could be handled by dedicated system in future
-          break;
-
-
-        case 'projectile_updates':
-          this.handleProjectileUpdates(message as any);
-          break;
-
-        default:
-          // Route to appropriate handler
-          if (import.meta.env.DEV && message.type === 'chat_message') {
-            console.log('[ClientNetworkSystem] Routing chat message:', message);
-          }
-          this.messageRouter.route(message, this);
-          break;
-      }
+      // Route all other messages to appropriate handlers
+      secureLogger.log('Routing message:', { type: message.type, clientId: message.clientId });
+      this.messageRouter.route(message, this);
     } catch (error) {
       if (import.meta.env.DEV) {
         console.error('[ClientNetworkSystem] Error handling message:', error);
@@ -473,388 +276,86 @@ export class ClientNetworkSystem extends BaseSystem {
     }
   }
 
-  /**
-   * Handles projectile position updates from server (for homing projectiles)
-   */
-  private handleProjectileUpdates(message: any): void {
-    if (!message.projectiles || !Array.isArray(message.projectiles)) return;
-
-    const remoteProjectileSystem = this.getRemoteProjectileSystem();
-    if (!remoteProjectileSystem) return;
-
-    for (const projectileUpdate of message.projectiles) {
-      // Usa RemoteProjectileSystem per trovare il proiettile tramite projectileId
-      const entityId = remoteProjectileSystem.getRemoteProjectileEntity(projectileUpdate.id);
-      if (!entityId) continue;
-
-      const projectileEntity = this.ecs.getEntity(entityId);
-      if (!projectileEntity) continue;
-
-      // Aggiorna posizione e velocità del proiettile
-      const transform = this.ecs.getComponent(projectileEntity, Transform);
-      const velocity = this.ecs.getComponent(projectileEntity, Velocity);
-      const projectile = this.ecs.getComponent(projectileEntity, Projectile);
-      
-      // Verifica se è un proiettile NPC remoto con interpolazione
-      const isNpcProjectile = projectile && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
-      const interpolation = isNpcProjectile ? this.ecs.getComponent(projectileEntity, InterpolationTarget) : null;
-
-      if (interpolation && projectileUpdate.position) {
-        // Usa interpolazione per movimento fluido (elimina glitch)
-        interpolation.updateTarget(projectileUpdate.position.x, projectileUpdate.position.y, 0);
-      } else if (transform && projectileUpdate.position) {
-        // Fallback: aggiornamento diretto per proiettili senza interpolazione
-        transform.x = projectileUpdate.position.x;
-        transform.y = projectileUpdate.position.y;
-      }
-
-      if (velocity && projectileUpdate.velocity) {
-        velocity.x = projectileUpdate.velocity.x;
-        velocity.y = projectileUpdate.velocity.y;
-      }
-      
-      // CRITICO: Aggiorna direzione e velocità del componente Projectile per rendering corretto
-      if (projectile && projectileUpdate.velocity) {
-        const speed = Math.sqrt(projectileUpdate.velocity.x * projectileUpdate.velocity.x + projectileUpdate.velocity.y * projectileUpdate.velocity.y);
-        if (speed > 0) {
-          projectile.directionX = projectileUpdate.velocity.x / speed;
-          projectile.directionY = projectileUpdate.velocity.y / speed;
-          projectile.speed = speed;
-        }
-      }
-    }
-  }
-
-  /**
-   * Handles disconnection events
-   */
   private handleDisconnected(): void {
-    const wasConnected = this.connectionState === ConnectionState.CONNECTED;
     this.socket = null;
-    this.connectionState = ConnectionState.DISCONNECTED;
-
-    // Reset connection promise
-    if (this.connectionPromise && !wasConnected) {
-      // If we were connecting but not yet connected, reject the promise
-      if (this.connectionRejector) {
-        this.connectionRejector(new Error('Connection lost during establishment'));
-        this.connectionResolver = null;
-        this.connectionRejector = null;
-      }
-    }
-    this.connectionPromise = null;
-
-    // Notify external systems
-    if (this.onDisconnectedCallback) {
-      this.onDisconnectedCallback();
-    }
-
-    // Additional cleanup if needed
+    this.stateManager.handleDisconnected();
   }
 
-  /**
-   * Handles connection errors
-   */
   private handleConnectionError(error: Event): void {
-
-    // Notify external systems
-    if (this.onConnectionErrorCallback) {
-      this.onConnectionErrorCallback(error);
-    }
+    this.stateManager.handleConnectionError(error);
   }
 
-  /**
-   * Handles reconnection attempts
-   */
   private handleReconnecting(): void {
-
-    // Notify external systems
-    if (this.onReconnectingCallback) {
-      this.onReconnectingCallback();
-    }
+    this.stateManager.handleReconnecting();
   }
 
-
-  /**
-   * Registers callback for disconnection events
-   * Allows other systems (UI, ECS) to react to disconnections
-   */
   onDisconnected(callback: () => void): void {
-    this.onDisconnectedCallback = callback;
+    this.stateManager.onDisconnected(callback);
   }
 
-  /**
-   * Registers callback for connection error events
-   */
   onConnectionError(callback: (error: Event) => void): void {
-    this.onConnectionErrorCallback = callback;
+    this.stateManager.onConnectionError(callback);
   }
 
-  /**
-   * Registers callback for reconnection attempts
-   */
   onReconnecting(callback: () => void): void {
-    this.onReconnectingCallback = callback;
+    this.stateManager.onReconnecting(callback);
   }
 
-  /**
-   * Registers callback for successful reconnection
-   */
   onReconnected(callback: () => void): void {
-    this.onReconnectedCallback = callback;
+    this.stateManager.onReconnected(callback);
   }
 
-  /**
-   * Registers callback for successful connection events
-   */
   onConnected(callback: () => void): void {
-    this.onConnectedCallback = callback;
+    this.stateManager.onConnected(callback);
   }
 
-  /**
-   * Connects to the server using the connection manager with race condition prevention
-   */
   async connect(): Promise<void> {
-    // Prevent multiple concurrent connection attempts
-    if (this.connectionState === ConnectionState.CONNECTING ||
-        this.connectionState === ConnectionState.CONNECTED) {
-      return this.connectionPromise || Promise.resolve();
-    }
-
-    if (this.connectionState === ConnectionState.RECONNECTING) {
-      return this.connectionPromise || Promise.resolve();
-    }
-
-    // Set state and create promise
-    this.connectionState = ConnectionState.CONNECTING;
-    this.connectionPromise = new Promise<void>((resolve, reject) => {
-      this.connectionResolver = resolve;
-      this.connectionRejector = reject;
-    });
-
-    try {
-      this.socket = await this.connectionManager.connect();
-
-      // Connection successful
-      this.connectionState = ConnectionState.CONNECTED;
-
-      if (this.connectionResolver) {
-        this.connectionResolver();
-        this.connectionResolver = null;
-        this.connectionRejector = null;
-      }
-
-    } catch (error) {
-      // Connection failed
-      this.connectionState = ConnectionState.ERROR;
-      console.error(`❌ [CLIENT] Socket connection failed:`, error);
-
-      if (this.connectionRejector) {
-        this.connectionRejector(error as Error);
-        this.connectionResolver = null;
-        this.connectionRejector = null;
-      }
-
-      throw error;
-    }
-
-    return this.connectionPromise;
+    await this.stateManager.connect();
+    // Socket is managed internally by connectionManager, no need to store it separately
+    // Legacy socket reference is maintained for backward compatibility but may be null
+    return Promise.resolve();
   }
 
 
-  /**
-   * Updates the network system with detailed logging
-   */
   update(deltaTime: number): void {
     if (!this.connectionManager.isConnectionActive()) {
-      // Log disconnessione ogni 5 secondi per evitare spam
-      if (Math.floor(Date.now() / 5000) % 2 === 0 && !this.lastConnectionLog || Date.now() - this.lastConnectionLog > 5000) {
-        this.lastConnectionLog = Date.now();
-      }
       return;
     }
 
-    // Buffer current position for potential batching
-    const currentPosition = this.positionTracker.getLocalPlayerPosition();
-    this.tickManager.bufferPositionUpdate(currentPosition);
+    // Solo bufferizza aggiornamenti di posizione se il client è ready
+    if (this.isReady()) {
+      const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
 
-    // Delegate periodic operations to tick manager
+      // Invia aggiornamenti solo se la posizione è cambiata significativamente
+      // per evitare di spammare il server con aggiornamenti inutili
+      if (this.shouldSendPositionUpdate(currentPosition)) {
+        this.tickManager.bufferPositionUpdate(currentPosition);
+        this.lastSentPosition = { ...currentPosition };
+      }
+    }
+
     this.tickManager.update(deltaTime);
-
-    // Log dettagliato dello stato ogni 60 secondi (solo se ci sono problemi)
-    const now = Date.now();
-    if (!this.lastStatusLog || now - this.lastStatusLog > 60000) {
-      const stats = this.tickManager.getTimingStats();
-      const connStats = this.connectionManager.getStats();
-      // Log solo se ci sono problemi (drops > 0 o non connesso)
-      if (stats.bufferDrops > 0 || !connStats.isConnected) {
-      }
-      this.lastStatusLog = now;
-    }
   }
 
-  private lastConnectionLog = 0;
-  private lastStatusLog = 0;
+  private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
 
-  /**
-   * Sends heartbeat to keep connection alive
-   */
-  private sendHeartbeat(): void {
-    if (!this.connectionManager.isConnectionActive()) return;
-
-    // RATE LIMITING: Controlla se possiamo inviare heartbeat
-    if (!this.rateLimiter.canSend('heartbeat', RATE_LIMITS.HEARTBEAT.maxRequests, RATE_LIMITS.HEARTBEAT.windowMs)) {
-      // Rate limit superato - salta questo heartbeat
-      return;
+  private shouldSendPositionUpdate(currentPosition: { x: number; y: number; rotation: number }): boolean {
+    if (!this.lastSentPosition) {
+      return true; // Prima volta, invia sempre
     }
 
-    this.connectionManager.send(JSON.stringify({
-      type: MESSAGE_TYPES.HEARTBEAT,
-      clientId: this.clientId,
-      timestamp: Date.now()
-    }));
+    const dx = Math.abs(currentPosition.x - this.lastSentPosition.x);
+    const dy = Math.abs(currentPosition.y - this.lastSentPosition.y);
+    const dr = Math.abs(currentPosition.rotation - this.lastSentPosition.rotation);
+
+    // Invia solo se si è mossi di almeno 5 unità o ruotati di almeno 0.1 radianti
+    const MOVEMENT_THRESHOLD = 5;
+    const ROTATION_THRESHOLD = 0.1;
+
+    return dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD || dr > ROTATION_THRESHOLD;
   }
 
-  /**
-   * Gets the current local player position using the position tracker
-   */
-  private getLocalPlayerPosition(): { x: number; y: number; rotation: number } {
-    return this.positionTracker.getLocalPlayerPosition();
-  }
-
-  /**
-   * Gets the current player velocity for extrapolation
-   */
-  private getCurrentPlayerVelocity(): { x: number; y: number } {
-    try {
-      if (!this.ecs) {
-        console.warn('[CLIENT] ECS not initialized in getCurrentPlayerVelocity');
-        return { x: 0, y: 0 };
-      }
-
-      // Find player entity by Authority component with our client ID
-      const playerEntity = this.ecs.getEntitiesWithComponents(Transform, Velocity, Authority)
-        .find(entity => {
-          const authority = this.ecs!.getComponent(entity, Authority);
-          return authority && authority.ownerId === this.clientId;
-        });
-
-      if (playerEntity) {
-        const velocity = this.ecs!.getComponent(playerEntity, Velocity);
-        if (velocity) {
-          return { x: velocity.x, y: velocity.y };
-        }
-      }
-    } catch (error) {
-      console.warn('[CLIENT] Error getting player velocity:', error);
-    }
-
-    return { x: 0, y: 0 }; // Fallback
-  }
-
-
-
-
-  /**
-   * Synchronizes the player position to the server (called by tick manager)
-   */
-  private sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
-    if (!this.connectionManager.isConnectionActive()) return;
-
-    // IMPORTANTE: Non mandare position updates finché il server non ha confermato il join
-    if (!this.hasReceivedWelcome) {
-      // Accumula la posizione per quando il server sarà pronto
-      this.pendingPosition = position;
-      return;
-    }
-
-    // ✅ FIX: Normalizza la rotazione PRIMA della validazione e invio
-    let normalizedRotation = position.rotation;
-    while (normalizedRotation > Math.PI) normalizedRotation -= 2 * Math.PI;
-    while (normalizedRotation < -Math.PI) normalizedRotation += 2 * Math.PI;
-
-    // OTTIENI VELOCITÀ DAL PLAYER (per extrapolation client-side)
-    const velocity = this.getCurrentPlayerVelocity();
-
-    const normalizedPosition = {
-      x: position.x,
-      y: position.y,
-      rotation: normalizedRotation,
-      velocityX: velocity.x,
-      velocityY: velocity.y
-    };
-
-    // RATE LIMITING: Controlla se possiamo inviare aggiornamenti posizione
-    if (!this.rateLimiter.canSend('position_update', RATE_LIMITS.POSITION_UPDATE.maxRequests, RATE_LIMITS.POSITION_UPDATE.windowMs)) {
-      // Rate limit superato - salta questo aggiornamento per ridurre carico server
-      return;
-    }
-
-    // CLIENT VALIDATION: usa fallback per dati invalidi
-    if (!this.isValidPosition(normalizedPosition)) {
-      if (Date.now() - this.lastInvalidPositionLog > 10000) {
-        console.warn('[CLIENT] Invalid position data, using fallback:', {
-          invalidData: normalizedPosition,
-          clientId: this.clientId,
-          timestamp: new Date().toISOString()
-        });
-        this.lastInvalidPositionLog = Date.now();
-      }
-
-      // Use safer fallback values instead of hardcoded zeros
-      // Use network config fallback position for consistency
-      normalizedPosition.x = NETWORK_CONFIG.FALLBACK_POSITION.x;
-      normalizedPosition.y = NETWORK_CONFIG.FALLBACK_POSITION.y;
-      normalizedPosition.rotation = NETWORK_CONFIG.FALLBACK_POSITION.rotation;
-      normalizedPosition.velocityX = 0; // Always reset velocity on invalid data
-      normalizedPosition.velocityY = 0;
-
-      // TODO: Consider disconnecting client after multiple consecutive invalid messages
-      // This could indicate cheating or serious client-side issues
-    }
-
-    this.connectionManager.send(JSON.stringify({
-      type: MESSAGE_TYPES.POSITION_UPDATE,
-      clientId: this.clientId,
-      x: normalizedPosition.x,
-      y: normalizedPosition.y,
-      rotation: normalizedRotation, // Ora usa la rotazione normalizzata
-      velocityX: normalizedPosition.velocityX,
-      velocityY: normalizedPosition.velocityY,
-      tick: this.tickManager.getTickCounter()
-    }));
-  }
-
-  /**
-   * Valida che la posizione sia valida prima dell'invio
-   */
-  private isValidPosition(pos: { x: number; y: number; rotation: number; velocityX?: number; velocityY?: number }): boolean {
-    // Normalizza la rotation per accettare valori non normalizzati
-    let normalizedRotation = pos.rotation;
-    while (normalizedRotation > Math.PI) normalizedRotation -= 2 * Math.PI;
-    while (normalizedRotation < -Math.PI) normalizedRotation += 2 * Math.PI;
-
-    const velocityX = pos.velocityX ?? 0;
-    const velocityY = pos.velocityY ?? 0;
-
-    return Number.isFinite(pos.x) &&
-           Number.isFinite(pos.y) &&
-           Number.isFinite(pos.rotation) &&
-           Number.isFinite(velocityX) &&
-           Number.isFinite(velocityY) &&
-           pos.x >= -15000 && pos.x <= 15000 && // Tighter position bounds for space game
-           pos.y >= -15000 && pos.y <= 15000 && // Reasonable space area
-           normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI &&
-           velocityX >= -500 && velocityX <= 500 && // Reasonable max speed for space ship
-           velocityY >= -500 && velocityY <= 500;   // Prevents speed hacking
-  }
-
-
-  /**
-   * Sends a message to the server
-   * Automatically adds clientId if not present
-   */
-  private sendMessage(message: NetMessage): void {
+  public sendMessage(message: NetMessage): void {
     // Ensure clientId is always included
     const messageWithClientId = {
       ...message,
@@ -864,109 +365,107 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
-   * Checks if connected
+   * Sends a save request to the server
+   * Public method for PlayState.markAsChanged()
    */
+  sendSaveRequest(playerId: string): void {
+    if (!this.connectionManager.isConnectionActive()) {
+      return;
+    }
+    this.sendMessage({
+      type: 'save_request',
+      clientId: this.clientId,
+      playerId: playerId,
+      timestamp: Date.now()
+    });
+  }
+
+
   isConnected(): boolean {
-    return this.connectionState === ConnectionState.CONNECTED && this.connectionManager.isConnectionActive();
+    return this.stateManager.isConnected();
   }
 
-  /**
-   * Gets the current connection state
-   */
   getConnectionState(): ConnectionState {
-    return this.connectionState;
+    return this.stateManager.getConnectionState();
   }
 
-  /**
-   * Gets the RemoteNpcSystem instance
-   */
   getRemoteNpcSystem(): RemoteNpcSystem | null {
     return this.remoteNpcSystem;
   }
-
-  /**
-   * Sets the RemoteNpcSystem instance
-   */
   setRemoteNpcSystem(remoteNpcSystem: RemoteNpcSystem): void {
     this.entityManager.setRemoteSystems(remoteNpcSystem, this.remoteProjectileSystem || undefined);
 
-    // LEGACY: Update old reference for backward compatibility
+    // Legacy reference for backward compatibility
     this.remoteNpcSystem = remoteNpcSystem;
+
+    // Update initialization manager with new system reference
+    this.initManager.setRemoteSystems(remoteNpcSystem, this.remoteProjectileSystem || undefined);
 
     // Ri-registra gli handler per includere quelli NPC ora che il sistema è disponibile
     if (remoteNpcSystem) {
-      this.registerMessageHandlers();
+      this.initManager.registerMessageHandlers();
     }
   }
 
-  /**
-   * Sets the RemoteProjectileSystem instance
-   */
   setRemoteProjectileSystem(remoteProjectileSystem: RemoteProjectileSystem): void {
     this.entityManager.setRemoteSystems(this.remoteNpcSystem || undefined, remoteProjectileSystem);
 
-    // LEGACY: Update old reference for backward compatibility
+    // Legacy reference for backward compatibility
     this.remoteProjectileSystem = remoteProjectileSystem;
+
+    // Update initialization manager with new system reference
+    this.initManager.setRemoteSystems(this.remoteNpcSystem || undefined, remoteProjectileSystem);
 
     // Ri-registra gli handler per includere quelli di combattimento ora che il sistema è disponibile
     if (remoteProjectileSystem) {
-      this.registerMessageHandlers();
+      this.initManager.registerMessageHandlers();
+
+      // Ora che tutti gli handler sono registrati (incluso EntityDestroyedHandler), configura il DeathPopupManager
+      this.configureDeathPopupManager();
     }
   }
 
-  /**
-   * Sets the ECS reference for combat management
-   */
   setEcs(ecs: ECS): void {
     this.ecs = ecs;
   }
-
-  /**
-   * Stops combat when server sends stop_combat message
-   */
   stopCombat(): void {
     if (!this.ecs) {
-      console.warn(`⚠️ [CLIENT] ECS not available in ClientNetworkSystem.stopCombat()`);
+      secureLogger.error('ECS not available in stopCombat');
       return;
     }
 
     // Find the CombatSystem and stop combat immediately
-    const combatSystem = this.ecs.systems?.find((system: any) =>
+    const systems = this.ecs.getSystems();
+    const combatSystem = systems.find((system: any) =>
       typeof system.stopCombatImmediately === 'function'
-    );
+    ) as any;
 
     if (combatSystem) {
       combatSystem.stopCombatImmediately();
 
       // Also deactivate attack in PlayerControlSystem to prevent auto-attack on next NPC click
-      const playerControlSystem = this.ecs.systems?.find((system: any) =>
+      const playerControlSystem = systems.find((system: any) =>
         typeof system.deactivateAttack === 'function'
-      );
+      ) as any;
 
       if (playerControlSystem) {
         playerControlSystem.deactivateAttack();
       }
     } else {
-      console.warn(`⚠️ [CLIENT] CombatSystem not found, cannot stop combat`);
+      secureLogger.error('CombatSystem not found, cannot stop combat');
     }
   }
 
-  /**
-   * Manually connect to the server (called after systems are set up)
-   */
   async connectToServer(): Promise<void> {
     try {
       await this.connect();
     } catch (error) {
       console.error(`❌ [CLIENT] Connection failed:`, error);
+      throw error; // Rilancia l'errore per permettere al chiamante di gestirlo
     }
   }
 
-  /**
-   * Gets the EntityDestroyedHandler instance
-   */
   getEntityDestroyedHandler(): any {
-    // Trova l'handler EntityDestroyedHandler tra quelli registrati (robusto contro minificazione)
     if (this.messageRouter) {
       const handlers = (this.messageRouter as any).handlers || [];
       return handlers.find((handler: any) => typeof handler.setRewardSystem === 'function') || null;
@@ -974,23 +473,30 @@ export class ClientNetworkSystem extends BaseSystem {
     return null;
   }
 
-  /**
-   * Gets the RemoteProjectileSystem instance
-   */
   getRemoteProjectileSystem(): RemoteProjectileSystem | null {
     return this.remoteProjectileSystem;
   }
 
-  /**
-   * Gets the ECS instance
-   */
+
   getECS(): ECS | null {
     return this.ecs;
   }
 
   /**
-   * Sends notification of explosion created to the server
+   * Abilita/disabilita l'input del giocatore (usato durante morte/respawn)
    */
+  setPlayerInputEnabled(enabled: boolean): void {
+    // Trova il PlayerControlSystem nell'ECS
+    const systems = this.ecs.getSystems();
+    const playerControlSystem = systems.find((system: any) =>
+      system.constructor.name === 'PlayerControlSystem'
+    ) as any;
+
+    if (playerControlSystem && playerControlSystem.setInputForcedDisabled) {
+      playerControlSystem.setInputForcedDisabled(!enabled);
+    }
+  }
+
   sendExplosionCreated(data: {
     explosionId: string;
     entityId: string;
@@ -1015,10 +521,6 @@ export class ClientNetworkSystem extends BaseSystem {
     this.connectionManager.send(JSON.stringify(message));
   }
 
-  /**
-   * Creates a remote explosion for synchronized visual effects
-   * Delegates to the NetworkEventSystem
-   */
   async createRemoteExplosion(message: {
     explosionId: string;
     entityId: string;
@@ -1029,379 +531,261 @@ export class ClientNetworkSystem extends BaseSystem {
     await this.eventSystem.createRemoteExplosion(message);
   }
 
-  /**
-   * Imposta i frame dell'esplosione precaricati per evitare lag
-   * Delega al ExplosionSystem
-   */
   setPreloadedExplosionFrames(frames: HTMLImageElement[]): void {
-    this.explosionSystem.setPreloadedExplosionFrames(frames);
+    this.eventSystem.setPreloadedExplosionFrames(frames);
   }
 
-
-  /**
-   * Sends request to start combat against an NPC
-   */
   sendStartCombat(data: {
     npcId: string;
     playerId: string;
   }): void {
-    if (!this.connectionManager.isConnectionActive()) {
-      return;
-    }
-
-    if (!this.clientId) {
-      return;
-    }
-
-
-    // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
-    if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
-      this.showRateLimitNotification('combat_action');
-      return;
-    }
-
-    // Salva l'NPC corrente per stop_combat
-    this.entityManager.setCurrentCombatNpcId(data.npcId);
-
-    const message = {
-      type: MESSAGE_TYPES.START_COMBAT,
-      clientId: this.clientId,
-      npcId: data.npcId,
-      playerId: data.playerId
-    };
-
-    this.connectionManager.send(JSON.stringify(message));
+    this.combatManager.sendStartCombat(data, this);
   }
 
-  /**
-   * Sends request to stop combat
-   */
   sendStopCombat(data: {
     playerId: string;
     npcId?: string;
   }): void {
-    if (!this.socket || !this.isConnected) {
-      return;
-    }
-
-    const message = {
-      type: MESSAGE_TYPES.STOP_COMBAT,
-      clientId: this.clientId,
-      playerId: data.playerId,
-      npcId: data.npcId || this.getCurrentCombatNpcId() || 'unknown'
-    };
-
-    this.sendMessage(message);
+    this.combatManager.sendStopCombat(data);
   }
 
-  /**
-   * Sends notification of a fired projectile to the server
-   */
   sendProjectileFired(data: {
     projectileId: string;
     playerId: string;
     position: { x: number; y: number };
     velocity: { x: number; y: number };
-    // damage rimosso: calcolato dal server (Server Authoritative)
     projectileType: string;
   }): void {
-    if (!this.connectionManager.isConnectionActive()) {
-      return;
-    }
-
-    // RATE LIMITING: Controlla se possiamo inviare azioni di combattimento
-    if (!this.rateLimiter.canSend('combat_action', RATE_LIMITS.COMBAT_ACTION.maxRequests, RATE_LIMITS.COMBAT_ACTION.windowMs)) {
-      this.showRateLimitNotification('combat_action');
-      return;
-    }
-
-    const message = {
-      type: MESSAGE_TYPES.PROJECTILE_FIRED,
-      clientId: this.clientId,
-      projectileId: data.projectileId,
-      playerId: data.playerId,
-      position: data.position,
-      velocity: data.velocity,
-      // damage rimosso: sarà calcolato dal server (Server Authoritative)
-      projectileType: data.projectileType
-    };
-
-    this.connectionManager.send(JSON.stringify(message));
+    // Use authId (UUID) instead of clientId for playerId validation
+    const playerId = this.gameContext.authId || data.playerId;
+    this.combatManager.sendProjectileFired({
+      ...data,
+      playerId: playerId
+    });
   }
 
-  // 🔴 SECURITY: sendPlayerUpgrades RIMOSSO - gli upgrade passano SOLO da requestSkillUpgrade
-
-  /**
-   * Gets the local client ID
-   */
   getLocalClientId(): string {
-    return this.clientId;
+    // Usa l'ID assegnato dal server (gameContext.localClientId) se disponibile,
+    // altrimenti usa quello generato localmente (clientId)
+    return this.gameContext.localClientId || this.clientId;
   }
 
   /**
-   * Requests a stat upgrade to the server (Server Authoritative)
-   * Costs credits and cosmos instead of skill points
+   * 🔄 CRITICAL: Aggiorna il clientId al valore persistente inviato dal server
+   * Questo viene chiamato dal WelcomeHandler quando il server assegna un clientId persistente
    */
+  updateClientId(newClientId: string): void {
+    // Salva il vecchio clientId per trasferire eventuali aggiornamenti pendenti
+    const oldClientId = this.clientId;
+
+    // Aggiorna sia il clientId interno che quello nel context
+    this.clientId = newClientId;
+    this.gameContext.localClientId = newClientId as ClientId;
+
+    // 🔄 CRITICAL: Aggiorna clientId anche nei manager che lo usano
+    if (this.playerDataManager) {
+      this.playerDataManager.clientId = newClientId;
+    }
+    if (this.stateManager) {
+      this.stateManager.clientId = newClientId;
+    }
+    if (this.connectionManager) {
+      this.connectionManager.setClientId(newClientId);
+    }
+    if (this.combatManager) {
+      // Aggiorna clientId anche nel combat manager
+      (this.combatManager as any).clientId = newClientId;
+    }
+
+    // 🔄 CRITICAL: Se il clientId è cambiato, trasferisci eventuali aggiornamenti posizione pendenti
+    // Questo previene il "doppio player" quando il clientId viene aggiornato dal welcome
+    if (oldClientId !== newClientId) {
+      // Qui dovremmo notificare al server di trasferire eventuali aggiornamenti posizione
+      // dal vecchio clientId al nuovo clientId, ma per ora ci affidiamo al rate limiting
+      // e alla pulizia automatica della queue nel server
+    }
+    if (this.positionSyncManager) {
+      this.positionSyncManager.clientId = newClientId;
+    }
+    if (this.chatManager) {
+      this.chatManager.clientId = newClientId;
+    }
+
+    // 🔴 CRITICAL: Segnala che ora siamo "ready" - possiamo iniziare a inviare messaggi
+    this.hasReceivedWelcome = true;
+  }
+
+  /**
+   * Check if client has received welcome and is ready to send messages
+   */
+  isReady(): boolean {
+    return this.hasReceivedWelcome;
+  }
+
   requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage'): void {
-    if (!this.socket || !this.isConnected) {
-      return;
-    }
-
-    const message = {
-      type: 'skill_upgrade_request',
-      clientId: this.clientId,  // WebSocket client ID
-      playerId: this.gameContext.authId,  // User/auth ID (UUID)
-      upgradeType: upgradeType
-    };
-
-    this.sendMessage(message);
-
-    // Setup timeout per gestire risposte mancanti
-    setTimeout(() => {
-    }, 3000);
+    this.playerDataManager.requestSkillUpgrade(upgradeType);
   }
 
-  /**
-   * Sends a chat message to the server
-   */
   sendChatMessage(content: string): void {
-    if (!this.connectionManager.isConnectionActive() || !this.clientId) {
-      console.warn('💬 [CHAT] Cannot send message: not connected');
-      return;
-    }
-
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      console.warn('💬 [CHAT] Cannot send empty message');
-      return;
-    }
-
-    // RATE LIMITING: Controlla se possiamo inviare messaggi chat
-    if (!this.rateLimiter.canSend('chat_message', RATE_LIMITS.CHAT_MESSAGE.maxRequests, RATE_LIMITS.CHAT_MESSAGE.windowMs)) {
-      this.showRateLimitNotification('chat_message');
-      return;
-    }
-
-    const message = {
-      type: 'chat_message',
-      clientId: this.clientId,
-      content: content.trim(),
-      timestamp: Date.now()
-    };
-
-    if (import.meta.env.DEV) {
-      console.log('[CHAT] Sending message:', { clientId: this.clientId, content: content.trim().substring(0, 50) });
-    }
-
-    this.connectionManager.send(JSON.stringify(message));
+    this.chatManager.sendChatMessage(content);
   }
 
-  /**
-   * Sets the AudioSystem instance
-   */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
-    // Propaga riferimento al NetworkEventSystem (che contiene i sottosistemi)
     this.eventSystem.initializeExternalSystems(audioSystem, this.uiSystem, this.logSystem, this.economySystem);
   }
 
-  /**
-   * Gets the audio system for playing sounds
-   */
   getAudioSystem(): any {
-    return this.audioSystem || this.gameContext?.audioSystem || null;
+    return this.audioSystem || null;
   }
 
-  /**
-   * Gets the message router for registering handlers
-   */
   getMessageRouter(): MessageRouter {
     return this.messageRouter;
   }
 
-  /**
-   * Disconnects from the server
-   */
+
   disconnect(): void {
     this.connectionManager.disconnect();
     this.socket = null;
   }
 
-  /**
-   * Imposta il riferimento al LogSystem per le notifiche di log
-   * Propaga ai sottosistemi
-   */
   setLogSystem(logSystem: any): void {
     this.logSystem = logSystem;
-    // Propaga ai sottosistemi solo se tutti i sistemi necessari sono disponibili
-    if (this.uiNotificationSystem && this.uiSystem && this.logSystem && this.economySystem) {
-      this.uiNotificationSystem.setUISystems(this.uiSystem, this.logSystem, this.economySystem);
-    }
+    this.eventSystem.initializeExternalSystems(this.audioSystem, this.uiSystem, this.logSystem, this.economySystem);
   }
 
-  /**
-   * Resets all upgrade progress states in the UI
-   */
   resetAllUpgradeProgress(): void {
-    const uiSystem = this.uiSystem;
-    if (uiSystem && typeof uiSystem.resetAllUpgradeProgress === 'function') {
-      uiSystem.resetAllUpgradeProgress();
+    if (this.uiSystem && typeof this.uiSystem.resetAllUpgradeProgress === 'function') {
+      this.uiSystem.resetAllUpgradeProgress();
     }
   }
 
-  /**
-   * Ottiene il riferimento al LogSystem
-   */
   getLogSystem(): any {
     return this.logSystem;
   }
 
-  /**
-   * Imposta il riferimento al UiSystem per aggiornare l'HUD
-   * Propaga ai sottosistemi specializzati
-   */
   setUiSystem(uiSystem: any): void {
     this.uiSystem = uiSystem;
-    // Propaga ai sottosistemi solo se tutti i sistemi necessari sono disponibili
-    if (this.uiNotificationSystem && this.uiSystem && this.logSystem && this.economySystem) {
-      this.uiNotificationSystem.setUISystems(this.uiSystem, this.logSystem, this.economySystem);
-    }
+    this.eventSystem.initializeExternalSystems(this.audioSystem, this.uiSystem, this.logSystem, this.economySystem);
   }
 
-  /**
-   * Ottiene il riferimento al UiSystem
-   */
   getUiSystem(): any {
     return this.uiSystem;
   }
 
-  /**
-   * Imposta il riferimento al EconomySystem per aggiornare l'inventario
-   */
   setEconomySystem(economySystem: any): void {
     this.economySystem = economySystem;
-    // Propaga ai sottosistemi solo se tutti i sistemi necessari sono disponibili
-    if (this.uiNotificationSystem && this.uiSystem && this.logSystem && this.economySystem) {
-      this.uiNotificationSystem.setUISystems(this.uiSystem, this.logSystem, this.economySystem);
-    }
+    this.eventSystem.initializeExternalSystems(this.audioSystem, this.uiSystem, this.logSystem, this.economySystem);
   }
 
-  /**
-   * Ottiene il riferimento al EconomySystem
-   */
   getEconomySystem(): any {
     return this.economySystem;
   }
 
-  /**
-   * Imposta il riferimento al RewardSystem per assegnare ricompense
-   */
   setRewardSystem(rewardSystem: any): void {
     this.rewardSystem = rewardSystem;
   }
 
-  /**
-   * Ottiene il riferimento al RewardSystem
-   */
   getRewardSystem(): any {
     return this.rewardSystem;
   }
 
   /**
-   * Inizializza il sistema di rete con gestione dello stato di inizializzazione
-   * Previene race conditions nei callback
+   * Configura il DeathPopupManager negli handler appropriati
    */
-  initialize(): Promise<void> {
-    if (this.initializationPromise) {
-      return this.initializationPromise;
+  configureDeathPopupManager(): void {
+    if (this.messageRouter) {
+      const handlers = (this.messageRouter as any).handlers || [];
+
+      // Trova e configura EntityDestroyedHandler
+      const entityDestroyedHandler = handlers.find((handler: any) =>
+        handler.constructor?.name === 'EntityDestroyedHandler' ||
+        handler.messageType === MESSAGE_TYPES.ENTITY_DESTROYED
+      );
+
+      if (entityDestroyedHandler && typeof entityDestroyedHandler.setDeathPopupManager === 'function') {
+        entityDestroyedHandler.setDeathPopupManager(this.deathPopupManager);
+      }
+
+      // Trova e configura PlayerRespawnHandler
+      const playerRespawnHandler = handlers.find((handler: any) =>
+        handler.constructor?.name === 'PlayerRespawnHandler'
+      );
+      if (playerRespawnHandler && typeof playerRespawnHandler.setDeathPopupManager === 'function') {
+        playerRespawnHandler.setDeathPopupManager(this.deathPopupManager);
+      }
     }
 
-    this.initializationPromise = new Promise((resolve) => {
-      this.initializationResolver = resolve;
+    // Imposta il callback di respawn nel DeathPopupManager
+    this.deathPopupManager.setOnRespawnCallback(() => {
+      this.requestPlayerRespawn();
     });
-
-    return this.initializationPromise;
   }
 
   /**
-   * Segna il sistema come inizializzato e risolve eventuali promise in attesa
+   * Restituisce il DeathPopupManager
    */
+  getDeathPopupManager(): DeathPopupManager {
+    return this.deathPopupManager;
+  }
+
+  /**
+   * Restituisce il PlayerPositionTracker
+   */
+  getPositionTracker(): PlayerPositionTracker {
+    return this.positionTracker;
+  }
+
+  /**
+   * Richiede il respawn del player al server
+   */
+  private requestPlayerRespawn(): void {
+    const message = {
+      type: 'player_respawn_request',
+      clientId: this.clientId,
+      playerId: this.gameContext.authId
+    };
+
+    this.sendMessage(message);
+
+    // Nasconde il popup immediatamente dopo aver inviato la richiesta
+    this.deathPopupManager.hideDeathPopup();
+  }
+
+  initialize(): Promise<void> {
+    return this.initManager.initialize();
+  }
+
   markAsInitialized(): void {
-    this.isInitialized = true;
-    if (this.initializationResolver) {
-      this.initializationResolver();
-      this.initializationResolver = null;
-    }
+    this.initManager.markAsInitialized();
   }
 
-  /**
-   * Verifica se il sistema è completamente inizializzato
-   */
   isSystemInitialized(): boolean {
-    return this.isInitialized;
+    return this.initManager.isSystemInitialized();
   }
 
-  /**
-   * Imposta callback per quando viene ricevuto il player ID
-   * Ora sicuro da race conditions grazie al sistema di inizializzazione
-   */
-  setOnPlayerIdReceived(callback: (playerId: number) => void): void {
+  setOnPlayerIdReceived(callback: (playerDbId: PlayerDbId) => void): void {
     this.onPlayerIdReceived = callback;
   }
 
-  /**
-   * Ottiene statistiche del rate limiter per debugging
-   */
   getRateLimiterStats() {
     return this.rateLimiter.getStats();
   }
 
-  /**
-   * Richiede i dati completi del giocatore al server (dopo welcome)
-   */
-  requestPlayerData(playerId: string): void {
-    if (!this.connectionManager.isConnectionActive()) {
-      console.warn('📊 [PLAYER_DATA] Cannot request player data - not connected');
-      return;
-    }
-
-    const message = {
-      type: MESSAGE_TYPES.REQUEST_PLAYER_DATA,
-      clientId: this.clientId,
-      playerId: playerId,
-      timestamp: Date.now()
-    };
-
-    this.connectionManager.send(JSON.stringify(message));
+  requestPlayerData(playerUuid: PlayerUuid): void {
+    this.playerDataManager.requestPlayerData(playerUuid);
   }
 
-  /**
-   * Cleanup method to clear timeouts and prevent memory leaks
-   */
   destroy(): void {
-    // Clear JWT retry timeout
-    if (this.jwtRetryTimeout) {
-      clearTimeout(this.jwtRetryTimeout);
-      this.jwtRetryTimeout = null;
-    }
-
-    // Reset connection state
-    this.connectionState = ConnectionState.DISCONNECTED;
-    if (this.connectionPromise && this.connectionRejector) {
-      this.connectionRejector(new Error('System destroyed during connection'));
-    }
-    this.connectionPromise = null;
-    this.connectionResolver = null;
-    this.connectionRejector = null;
+    // Cleanup managers
+    this.authManager.destroy();
+    this.stateManager.destroy();
+    this.initManager.destroy();
 
     // Disconnect from server
     this.connectionManager.disconnect();
 
     // Clear callbacks
     this.onPlayerIdReceived = undefined;
-    this.onDisconnectedCallback = undefined;
-    this.onConnectionErrorCallback = undefined;
-    this.onReconnectingCallback = undefined;
-    this.onReconnectedCallback = undefined;
-    this.onConnectedCallback = undefined;
   }
 }

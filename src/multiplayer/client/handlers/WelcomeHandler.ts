@@ -1,9 +1,11 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
-import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
-import type { WelcomeMessage } from '../../../config/NetworkConfig';
+import { MESSAGE_TYPES, type WelcomeMessage, type ClientId } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Transform } from '../../../entities/spatial/Transform';
+import { Health } from '../../../entities/combat/Health';
+import { Shield } from '../../../entities/combat/Shield';
+import { PLAYTEST_CONFIG } from '../../../config/GameConstants';
 
 /**
  * Handles welcome messages from the server
@@ -17,21 +19,35 @@ export class WelcomeHandler extends BaseMessageHandler {
 
   handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): void {
     // Set the local client ID (WebSocket connection ID)
-    const serverClientId = message.clientId || networkSystem.clientId;
-    networkSystem.gameContext.localClientId = serverClientId;
-    // Update the network system's clientId to match the server-assigned ID
-    networkSystem.clientId = serverClientId;
+    const serverClientId: ClientId = message.clientId || (networkSystem.clientId as ClientId);
 
-    // Aggiorna ChatManager con il clientId corretto assegnato dal server
+    // 🔄 CRITICAL: Se il server ci ha inviato un clientId persistente (player_{playerId}),
+    // estrai il playerId numerico e usalo come clientId
+    let clientIdToUse = serverClientId;
+    if (serverClientId.startsWith('player_')) {
+      const extractedId = serverClientId.replace('player_', '');
+      if (!isNaN(Number(extractedId))) {
+        clientIdToUse = extractedId; // Usa solo il numero
+      }
+    }
+
+    networkSystem.updateClientId(clientIdToUse);
+    networkSystem.gameContext.localClientId = clientIdToUse;
+
+    // Note: clientId in ClientNetworkSystem is readonly, server-assigned ID is stored in gameContext.localClientId
+
+    // Aggiorna ChatManager con il playerId corretto (se disponibile)
+    // Usa playerId se disponibile, altrimenti clientId come fallback
     const uiSystem = networkSystem.getUiSystem();
     if (uiSystem) {
       try {
         const chatManager = uiSystem.getChatManager();
         if (chatManager) {
-          chatManager.setLocalPlayerId(serverClientId);
-          if (import.meta.env.DEV) {
-            console.log('[WelcomeHandler] Updated ChatManager localPlayerId to:', serverClientId);
-          }
+          // Usa playerId se disponibile (più stabile, identifica il player nel database)
+          // Altrimenti usa clientId come fallback (identifica la connessione WebSocket)
+          const playerId = message.playerDbId;
+          const localPlayerId = playerId ? `${playerId}` : serverClientId;
+          chatManager.setLocalPlayerId(localPlayerId);
         }
       } catch (error) {
         // ChatManager potrebbe non essere ancora inizializzato, non è critico
@@ -41,16 +57,13 @@ export class WelcomeHandler extends BaseMessageHandler {
       }
     }
 
-    // Salva l'auth ID dell'utente (UUID Supabase)
-    networkSystem.gameContext.authId = message.playerId;
+    // Salva l'auth ID dell'utente (UUID Supabase) - ora con branded type
+    networkSystem.gameContext.authId = message.playerId; // playerId è ora PlayerUuid
 
-    // Nota: playerId UUID ora è salvato in gameContext.authId
-    // Il playerId numerico è salvato in gameContext.playerId
-
-      // Salva il player_id numerico del giocatore REGISTRATO (per display/HUD)
+    // Salva il player_id numerico del giocatore REGISTRATO (per display/HUD)
     if (message.playerDbId && message.playerDbId > 0) {
-      // Salva il player_id numerico valido
-      networkSystem.gameContext.playerId = message.playerDbId;
+      // Salva il player_id numerico valido - ora con branded type
+      networkSystem.gameContext.playerDbId = message.playerDbId; // playerDbId è ora PlayerDbId
 
       // 🔧 FIX RACE CONDITION: Invece di chiamare direttamente il callback,
       // segnaliamo che abbiamo ricevuto il player ID e lasciamo che il sistema
@@ -67,10 +80,10 @@ export class WelcomeHandler extends BaseMessageHandler {
 
     // SERVER AUTHORITATIVE: Ricevi lo stato iniziale dal server
     if (message.initialState) {
-      const { position, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
+      const { position, health, maxHealth, shield, maxShield, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
-      networkSystem.setHasReceivedWelcome(true);
+      // Il welcome è già gestito da updateClientId() che imposta isReady()
 
       // Applica posizione iniziale se necessario
       const playerSystem = networkSystem.getPlayerSystem();
@@ -88,10 +101,31 @@ export class WelcomeHandler extends BaseMessageHandler {
         }
       }
 
+      // Applica hp e shield iniziali dal server (valori attuali salvati nel database)
+      if (playerEntity && health !== undefined && maxHealth !== undefined) {
+        const ecs = networkSystem.getECS();
+        const healthComponent = ecs?.getComponent(playerEntity, Health);
+        if (healthComponent) {
+          healthComponent.current = health;
+          healthComponent.max = maxHealth;
+          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied health: ${health}/${maxHealth}`);
+        }
+      }
+
+      if (playerEntity && shield !== undefined && maxShield !== undefined) {
+        const ecs = networkSystem.getECS();
+        const shieldComponent = ecs?.getComponent(playerEntity, Shield);
+        if (shieldComponent) {
+          shieldComponent.current = shield;
+          shieldComponent.max = maxShield;
+          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied shield: ${shield}/${maxShield}`);
+        }
+      }
+
       // 🔄 RICHIEDI DATI COMPLETI: Se il server ha indicato lazy loading, richiedi i dati completi
       if (inventoryLazy || upgradesLazy || questsLazy) {
-        const playerId = message.playerId || networkSystem.gameContext.localClientId;
-        networkSystem.requestPlayerData(playerId);
+        const playerUuid = message.playerId || networkSystem.gameContext.authId;
+        networkSystem.requestPlayerData(playerUuid);
       }
     }
   }

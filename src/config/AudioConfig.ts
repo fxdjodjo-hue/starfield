@@ -8,7 +8,7 @@ export type AudioConfig = {
 
 export const AUDIO_CONFIG: AudioConfig = {
   masterVolume: 1.0,
-  musicVolume: 0.5, // Volume molto basso per background ambientale
+  musicVolume: 0.7, // Volume musica di background
   effectsVolume: 0.8,
   uiVolume: 0.9,
   enabled: true
@@ -26,12 +26,15 @@ export const AUDIO_ASSETS = {
     collect: 'effects/collect.wav',
     upgrade: 'effects/upgrade.wav',
     damage: 'effects/damage.wav',
-    engine: 'effects/engine/enginesoundeffect.mp3'
+    engine: 'effects/engine/enginesoundeffect.mp3',
+    playerLogin: 'effects/playerlogin/bubbleSounds.mp3',
+    portal: 'effects/portal/portal.mp3',
+    portalBassdrop: 'effects/portal/bassdrop.mp3'
   },
 
   // Musica
   music: {
-    background: 'music/bgmusic.mp3',
+    background: 'music/bgmusicpalantir.mp3',
     ambience: 'ambient/ambience.mp3',
     menu: 'music/menu_theme.mp3',
     gameplay: 'music/gameplay_theme.mp3',
@@ -56,12 +59,15 @@ export const AUDIO_ASSETS = {
 };
 
 // Categorie audio per gestione granulare
-export enum AudioCategory {
-  MASTER = 'master',
-  MUSIC = 'music',
-  EFFECTS = 'effects',
-  UI = 'ui'
-}
+// Usa const object invece di enum per compatibilità con erasableSyntaxOnly
+export const AudioCategory = {
+  MASTER: 'master',
+  MUSIC: 'music',
+  EFFECTS: 'effects',
+  UI: 'ui'
+} as const;
+
+export type AudioCategory = typeof AudioCategory[keyof typeof AudioCategory];
 
 // Configurazioni specifiche per diversi contesti di gioco
 export const CONTEXT_AUDIO_CONFIGS = {

@@ -126,7 +126,7 @@ export class LogSystem extends BaseSystem {
    * Log specifico per inizio attacco
    */
   logAttackStart(targetName: string): void {
-    this.addLogMessage(`🔥 Attack started against ${targetName}`, LogType.ATTACK_START, 2000);
+    this.addLogMessage(`Attack started against ${targetName}`, LogType.ATTACK_START, 2000);
   }
 
   /**
@@ -148,7 +148,7 @@ export class LogSystem extends BaseSystem {
    * Log specifico per NPC ucciso
    */
   logNpcKilled(npcName: string): void {
-    this.addLogMessage(`💀 ${npcName} defeated!`, LogType.NPC_KILLED, 4000);
+    this.addLogMessage(`${npcName} defeated!`, LogType.NPC_KILLED, 4000);
   }
 
   /**
@@ -165,7 +165,7 @@ export class LogSystem extends BaseSystem {
 
     // Mostra messaggio solo se ci sono ricompense
     if (rewards.length > 0) {
-      const rewardText = `🎁 Rewards: ${rewards.join(', ')}`;
+      const rewardText = `Rewards: ${rewards.join(', ')}`;
       this.addLogMessage(rewardText, LogType.REWARD, duration);
     }
   }

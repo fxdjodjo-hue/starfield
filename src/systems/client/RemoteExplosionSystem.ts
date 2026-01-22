@@ -2,7 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { GameContext } from '../../infrastructure/engine/GameContext';
-import { AtlasParser } from '../../utils/AtlasParser';
+import { AtlasParser } from '../../core/utils/AtlasParser';
 
 /**
  * Remote Explosion System - gestisce creazione esplosioni remote

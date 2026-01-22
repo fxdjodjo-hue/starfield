@@ -9,40 +9,59 @@ export interface BaseMessage {
 
 /**
  * Determines the server URL based on environment
- * Automatically detects production vs development
+ * SECURITY: Always uses WSS in production, explicit configuration required
+ * CRITICAL: FAIL-FAST - No auto-detect, no fallback, crash on invalid config
  */
 function getServerUrl(): string {
-  // Check for explicit environment variable
+  // Check for explicit environment variable (required for security)
   if (import.meta.env?.VITE_SERVER_URL) {
-    return import.meta.env.VITE_SERVER_URL;
+    const url = import.meta.env.VITE_SERVER_URL;
+
+    // 🔴 CRITICAL SECURITY: PRODUCTION MUST USE WSS - NO EXCEPTIONS, NO WARNINGS, CRASH IMMEDIATO
+    if (import.meta.env.PROD) {
+      if (!url.startsWith('wss://')) {
+        throw new Error('🚨 SECURITY VIOLATION: Production builds MUST use WSS (secure WebSocket). WS:// is FORBIDDEN in production. CRASHING IMMEDIATELY.');
+      }
+    }
+
+    return url;
   }
 
-  // Auto-detect production environment
-  const isProduction = window.location.hostname !== 'localhost' && 
-                       window.location.hostname !== '127.0.0.1' &&
-                       !window.location.hostname.startsWith('192.168.');
+  // Allow fallback for Electron apps (detected by various methods)
+  const isElectron = (
+    // Method 1: Check for electron in userAgent
+    (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron')) ||
+    // Method 2: Check for window.process
+    (typeof window !== 'undefined' && window.process && window.process.type) ||
+    // Method 3: Check for electron require
+    (typeof window !== 'undefined' && window.require && window.require('electron'))
+  );
 
-  if (isProduction) {
-    // Production: use Render server with WSS (secure WebSocket)
-    return 'wss://starfield-n5ix.onrender.com';
+
+  if (import.meta.env.PROD && !isElectron) {
+    throw new Error('🚨 SECURITY VIOLATION: VITE_SERVER_URL must be explicitly set in production. No auto-detect, no fallback. CRASHING IMMEDIATELY.');
   }
 
-  // Development: use localhost
+  // Development only: use localhost (WS for server compatibility)
   return 'ws://localhost:3000';
 }
 
 /**
- * Gets the HTTP/HTTPS API base URL from WebSocket URL
+ * Gets the API base URL from WebSocket URL
+ * SECURITY: Always returns HTTPS URLs in production, HTTP in development
  */
 export function getApiBaseUrl(): string {
   const wsUrl = getServerUrl();
-  // Convert ws:// to http:// or wss:// to https://
+  // SECURITY: Convert wss:// to https://
   if (wsUrl.startsWith('wss://')) {
     return wsUrl.replace('wss://', 'https://');
-  } else if (wsUrl.startsWith('ws://')) {
+  }
+  // Development: Convert ws:// to http://
+  if (wsUrl.startsWith('ws://')) {
     return wsUrl.replace('ws://', 'http://');
   }
-  return wsUrl;
+  // SECURITY: Invalid protocol
+  throw new Error('SECURITY VIOLATION: Invalid WebSocket URL - must use WS or WSS');
 }
 
 /**
@@ -50,7 +69,7 @@ export function getApiBaseUrl(): string {
  * Centralizes all network-related constants for maintainability
  */
 export const NETWORK_CONFIG = {
-  // Connection settings - auto-detects environment
+  // Connection settings - environment-driven (NO auto-detect)
   DEFAULT_SERVER_URL: getServerUrl(),
 
   // Timing intervals (in milliseconds)
@@ -83,6 +102,13 @@ export type ClientId = string & { readonly __brand: unique symbol };
 export type NpcId = string & { readonly __brand: unique symbol };
 export type ProjectileId = string & { readonly __brand: unique symbol };
 export type ExplosionId = string & { readonly __brand: unique symbol };
+
+/**
+ * Branded types per identificatori giocatore
+ * Separazione esplicita tra UUID autenticazione e ID database
+ */
+export type PlayerUuid = string & { readonly __brand: unique symbol }; // UUID Supabase (auth)
+export type PlayerDbId = number & { readonly __brand: unique symbol }; // ID numerico database
 
 /**
  * Network message types
@@ -125,6 +151,7 @@ export const MESSAGE_TYPES = {
   START_COMBAT: 'start_combat',
   STOP_COMBAT: 'stop_combat',
   COMBAT_UPDATE: 'combat_update',
+  COMBAT_ERROR: 'combat_error',
   PROJECTILE_FIRED: 'projectile_fired',
   PROJECTILE_UPDATE: 'projectile_update',
   PROJECTILE_DESTROYED: 'projectile_destroyed',
@@ -138,7 +165,7 @@ export const MESSAGE_TYPES = {
   ECONOMY_UPDATE: 'economy_update',
   SAVE_REQUEST: 'save_request',
   SAVE_RESPONSE: 'save_response',
-  
+
   // Leaderboard messages
   REQUEST_LEADERBOARD: 'request_leaderboard',
   LEADERBOARD_RESPONSE: 'leaderboard_response'
@@ -163,7 +190,7 @@ export function isValidMessageType(type: string): type is NetworkMessageType {
 export interface NpcJoinedMessage {
   type: typeof MESSAGE_TYPES.NPC_JOINED;
   npcId: NpcId;
-  npcType: 'Scouter' | 'Kronos';
+  npcType: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
   position: { x: number; y: number; rotation: number };
   health: { current: number; max: number };
   shield: { current: number; max: number };
@@ -177,7 +204,7 @@ export interface NpcSpawnMessage {
   type: typeof MESSAGE_TYPES.NPC_SPAWN;
   npc: {
     id: NpcId;
-    type: 'Scouter' | 'Kronos';
+    type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };
@@ -192,7 +219,7 @@ export interface InitialNpcsMessage {
   type: typeof MESSAGE_TYPES.INITIAL_NPCS;
   npcs: Array<{
     id: NpcId;
-    type: 'Scouter' | 'Kronos';
+    type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };
@@ -267,6 +294,15 @@ export interface StopCombatMessage {
 }
 
 /**
+ * Errore di combattimento
+ */
+export interface CombatErrorMessage {
+  type: typeof MESSAGE_TYPES.COMBAT_ERROR;
+  error: string;
+  details?: any;
+}
+
+/**
  * Aggiornamento stato combattimento
  */
 export interface CombatUpdateMessage {
@@ -284,10 +320,12 @@ export interface ProjectileFiredMessage {
   type: typeof MESSAGE_TYPES.PROJECTILE_FIRED;
   projectileId: ProjectileId;
   playerId: ClientId;
+  clientId?: ClientId; // ID connessione WebSocket per identificare giocatore locale
   position: { x: number; y: number };
   velocity: { x: number; y: number };
   damage: number;
-  projectileType: 'laser' | 'plasma' | 'missile';
+  projectileType: 'laser' | 'npc_laser';
+  targetId?: string | null;
 }
 
 /**
@@ -305,7 +343,7 @@ export interface ProjectileUpdateMessage {
 export interface ProjectileDestroyedMessage {
   type: typeof MESSAGE_TYPES.PROJECTILE_DESTROYED;
   projectileId: ProjectileId;
-  reason: 'collision' | 'out_of_bounds' | 'timeout';
+  reason: 'collision' | 'out_of_bounds' | 'timeout' | 'target_hit';
 }
 
 /**
@@ -313,13 +351,14 @@ export interface ProjectileDestroyedMessage {
  */
 export interface EntityDamagedMessage {
   type: typeof MESSAGE_TYPES.ENTITY_DAMAGED;
-  entityId: EntityId;
+  entityId: EntityId | string;
   entityType: 'player' | 'npc';
   damage: number;
   attackerId: ClientId;
   newHealth: number;
   newShield: number;
   position: { x: number; y: number };
+  projectileType?: 'laser' | 'npc_laser';
 }
 
 /**
@@ -327,7 +366,7 @@ export interface EntityDamagedMessage {
  */
 export interface EntityDestroyedMessage {
   type: typeof MESSAGE_TYPES.ENTITY_DESTROYED;
-  entityId: EntityId;
+  entityId: EntityId | string;
   entityType: 'player' | 'npc';
   destroyerId: ClientId;
   position: { x: number; y: number };
@@ -344,7 +383,7 @@ export interface EntityDestroyedMessage {
 export interface ExplosionCreatedMessage {
   type: typeof MESSAGE_TYPES.EXPLOSION_CREATED;
   explosionId: ExplosionId;
-  entityId: EntityId;
+  entityId: EntityId | string;
   entityType: 'player' | 'npc';
   position: { x: number; y: number };
   explosionType: 'entity_death' | 'projectile_impact' | 'special';
@@ -368,22 +407,24 @@ export interface PlayerRespawnMessage {
  */
 export interface PlayerStateUpdateMessage {
   type: typeof MESSAGE_TYPES.PLAYER_STATE_UPDATE;
-  inventory: {
+  inventory?: {
     credits: number;
     cosmos: number;
     experience: number;
     honor: number;
     skillPoints: number;
   };
-  upgrades: {
+  upgrades?: {
     [key: string]: number; // Upgrade levels
   };
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
-  health: number;
-  maxHealth: number;
-  shield: number;
-  maxShield: number;
-  source: string;
+  health?: number;
+  maxHealth?: number;
+  shield?: number;
+  maxShield?: number;
+  source?: string;
+  healthRepaired?: number; // Valore HP riparato (per messaggi di riparazione)
+  shieldRepaired?: number; // Valore Shield riparato (per messaggi di riparazione)
   rewardsEarned?: {
     credits: number;
     cosmos: number;
@@ -400,8 +441,8 @@ export interface PlayerStateUpdateMessage {
 export interface WelcomeMessage {
   type: typeof MESSAGE_TYPES.WELCOME;
   clientId: ClientId;
-  playerId: string; // Player ID (UUID dell'utente)
-  playerDbId?: number; // Player ID numerico per database
+  playerId: PlayerUuid; // Player ID (UUID dell'utente) - nome JSON invariato per compatibilità server
+  playerDbId?: PlayerDbId; // Player ID numerico per database - nome JSON invariato
   initialState?: {
     // Dati essenziali (sempre inclusi)
     position: { x: number; y: number; rotation: number };
@@ -462,12 +503,12 @@ export type PlayerMessage =
 // Player data messages
 export interface RequestPlayerDataMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.REQUEST_PLAYER_DATA;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
 }
 
 export interface PlayerDataResponseMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.PLAYER_DATA_RESPONSE;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
   inventory: {
     credits: number;
     cosmos: number;
@@ -482,6 +523,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
     damageUpgrades: number;
   };
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
+  isAdministrator?: boolean; // Admin status
   quests: any[];
   timestamp: number;
 }
@@ -489,7 +531,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
 export interface SaveRequestMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.SAVE_REQUEST;
   clientId: string;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
   timestamp: number;
 }
 
@@ -506,7 +548,7 @@ export interface SaveResponseMessage extends BaseMessage {
  */
 export interface EconomyUpdateMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.ECONOMY_UPDATE;
-  playerId: string;
+  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
   inventory: {
     credits: number;
     cosmos: number;
@@ -521,7 +563,7 @@ export interface EconomyUpdateMessage extends BaseMessage {
  */
 export interface LeaderboardRequestMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.REQUEST_LEADERBOARD;
-  sortBy?: 'honor' | 'experience' | 'kills' | 'playTime';
+  sortBy?: 'honor' | 'experience' | 'playTime';
   limit?: number;
 }
 
@@ -532,13 +574,12 @@ export interface LeaderboardResponseMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.LEADERBOARD_RESPONSE;
   entries: Array<{
     rank: number;
-    playerId: number;
+    playerId: PlayerDbId; // Nome JSON invariato per compatibilità server
     username: string;
     experience: number;
     honor: number;
     recentHonor?: number;
     rankingPoints: number;
-    kills: number;
     playTime: number;
     level: number;
     rankName: string;
@@ -560,3 +601,32 @@ export type NetworkMessageUnion =
   | SaveResponseMessage
   | LeaderboardRequestMessage
   | LeaderboardResponseMessage;
+
+/**
+ * SECURITY: Conditional logging utility - logs only in development
+ * Prevents information disclosure in production builds
+ */
+export const secureLogger = {
+  log: (message: string, ...args: any[]) => {
+    if (import.meta.env.DEV) {
+      // Skip verbose NPC updates to reduce log spam
+      if (message.includes('npc_bulk_update') ||
+        (args.length > 0 && args[0]?.type === 'npc_bulk_update')) return;
+    }
+  },
+  warn: (message: string, ...args: any[]) => {
+    if (import.meta.env.DEV) {
+      console.warn(`[${new Date().toISOString()}] ⚠️ ${message}`, ...args);
+    }
+  },
+  error: (message: string, ...args: any[]) => {
+    // SECURITY: Errors are logged even in production for debugging
+    // but without sensitive data
+    console.error(`[${new Date().toISOString()}] ❌ ${message}`, ...args);
+  },
+  security: (message: string, data?: any) => {
+    // SECURITY: Security events always logged, but sanitized
+    const sanitizedData = import.meta.env.DEV ? data : '[REDACTED]';
+    console.warn(`[${new Date().toISOString()}] 🔒 SECURITY: ${message}`, sanitizedData);
+  }
+};

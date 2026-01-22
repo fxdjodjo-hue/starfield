@@ -1,7 +1,10 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { GameSettings } from '../../core/settings/GameSettings';
 import { DamageText } from '../../entities/combat/DamageText';
 import { Transform } from '../../entities/spatial/Transform';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
+import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import type { DamageSystem } from '../combat/DamageSystem';
 import { DisplayManager } from '../../infrastructure/display';
 
@@ -12,13 +15,22 @@ import { DisplayManager } from '../../infrastructure/display';
 export class DamageTextSystem extends BaseSystem {
   private cameraSystem: any = null; // Cache del sistema camera
   private damageSystem: DamageSystem | null = null; // Riferimento al DamageSystem per gestire i contatori dei testi
+  private visible: boolean = true;
 
   constructor(ecs: ECS, cameraSystem?: any, damageSystem?: DamageSystem) {
     super(ecs);
+
+    // Initialize visibility from settings
+    this.visible = GameSettings.getInstance().interface.showDamageNumbers;
     // Usa il cameraSystem passato o cercalo
     this.cameraSystem = cameraSystem || this.findCameraSystem();
     // Salva il riferimento al DamageSystem
-    this.damageSystem = damageSystem;
+    this.damageSystem = damageSystem || null;
+
+    // Listen for settings changes
+    document.addEventListener('settings:ui:damage_numbers', (e: any) => {
+      this.visible = e.detail;
+    });
   }
 
   /**
@@ -36,10 +48,14 @@ export class DamageTextSystem extends BaseSystem {
    * Rimuove un testo di danno quando scade naturalmente
    */
   private cleanupDamageText(targetEntityId: number, damageTextEntity: any): void {
+    // Ottieni il projectileType dal componente DamageText prima di rimuoverlo
+    const damageText = this.ecs.getComponent(damageTextEntity, DamageText);
+    const projectileType = damageText?.projectileType;
+
     this.ecs.removeEntity(damageTextEntity);
     // Decrementa il contatore dei testi attivi nel DamageSystem
     if (this.damageSystem && this.damageSystem.decrementDamageTextCount) {
-      this.damageSystem.decrementDamageTextCount(targetEntityId);
+      this.damageSystem.decrementDamageTextCount(targetEntityId, projectileType);
     }
   }
 
@@ -77,7 +93,7 @@ export class DamageTextSystem extends BaseSystem {
    * Renderizza i testi di danno
    */
   render(ctx: CanvasRenderingContext2D): void {
-    if (!ctx.canvas || !this.cameraSystem) {
+    if (!ctx.canvas || !this.cameraSystem || !this.visible) {
       return; // Silenziosamente senza log per evitare spam
     }
 
@@ -99,11 +115,25 @@ export class DamageTextSystem extends BaseSystem {
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
         if (!targetTransform) continue;
 
-        worldX = targetTransform.x + damageText.initialOffsetX;
-        worldY = targetTransform.y + damageText.currentOffsetY;
+        // Per entità remote, usa coordinate interpolate se disponibili (come RenderSystem)
+        let renderX = targetTransform.x;
+        let renderY = targetTransform.y;
 
-        worldX = targetTransform.x + damageText.initialOffsetX;
-        worldY = targetTransform.y + damageText.currentOffsetY;
+        // Controlla se è un'entità remota con interpolazione (NPC, RemotePlayer, etc.)
+        const authority = this.ecs.getComponent(targetEntity, Authority);
+        const isRemoteEntity = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
+
+        if (isRemoteEntity) {
+          // Usa valori interpolati per entità remote
+          const interpolationTarget = this.ecs.getComponent(targetEntity, InterpolationTarget);
+          if (interpolationTarget) {
+            renderX = interpolationTarget.renderX;
+            renderY = interpolationTarget.renderY;
+          }
+        }
+
+        worldX = renderX + damageText.initialOffsetX;
+        worldY = renderY + damageText.currentOffsetY;
 
         // Salva l'ultima posizione valida
         damageText.lastWorldX = worldX;

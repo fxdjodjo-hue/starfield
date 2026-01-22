@@ -11,7 +11,7 @@ import { DamageText } from '../../entities/combat/DamageText';
  * Segue il principio Single Responsibility
  */
 export class DamageSystem extends BaseSystem {
-  private activeDamageTexts: Map<number, number> = new Map();
+  private activeLaserTexts: Map<number, number> = new Map(); // entityId -> count
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -20,17 +20,21 @@ export class DamageSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato da altri sistemi quando applicano danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser'): void {
     if (damage <= 0) {
       return;
     }
 
     const targetEntityId = targetEntity.id;
 
-    // Controlla quanti testi sono già attivi per questa entità
-    const activeCount = this.activeDamageTexts.get(targetEntityId) || 0;
+    // Usa contatore per testi di danno attivi
+    const activeMap = this.activeLaserTexts;
+    const maxTexts = 3; // Max 3 testi di danno
+
+    // Controlla quanti testi sono già attivi per questa entità e tipo
+    const activeCount = activeMap.get(targetEntityId) || 0;
     // Per danni bounds non applicare limiti - mostra sempre
-    if (!isBoundsDamage && activeCount >= 3) return;
+    if (!isBoundsDamage && activeCount >= maxTexts) return;
 
     // Determina il colore e offset del testo
     const playerEntity = this.ecs.getPlayerEntity();
@@ -45,7 +49,7 @@ export class DamageSystem extends BaseSystem {
       offsetY = -30;
       offsetX = (Math.random() - 0.5) * 25; // ±12.5px
     } else {
-      // Tutti i danni HP (player o NPC) usano il rosso
+      // Tutti i danni HP usano il rosso
       textColor = '#ff4444';
       offsetY = -30; // Default, sarà aggiustato sotto
       offsetX = (Math.random() - 0.5) * 20; // ±10px
@@ -58,11 +62,11 @@ export class DamageSystem extends BaseSystem {
 
     // Crea il testo di danno
     const damageTextEntity = this.ecs.createEntity();
-    const damageText = new DamageText(damage, targetEntityId, offsetX, offsetY, textColor);
+    const damageText = new DamageText(damage, targetEntityId, offsetX, offsetY, textColor, 1000, projectileType);
     this.ecs.addComponent(damageTextEntity, DamageText, damageText);
 
-    // Aggiorna il contatore
-    this.activeDamageTexts.set(targetEntityId, activeCount + 1);
+    // Aggiorna il contatore appropriato
+    activeMap.set(targetEntityId, activeCount + 1);
   }
 
   /**
@@ -79,13 +83,14 @@ export class DamageSystem extends BaseSystem {
    * Decrementa il contatore dei testi di danno attivi per un'entità
    * Chiamato dal DamageTextSystem quando un testo scade
    */
-  public decrementDamageTextCount(targetEntityId: number): void {
-    const currentCount = this.activeDamageTexts.get(targetEntityId) || 0;
+  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser'): void {
+    const activeMap = this.activeLaserTexts;
+    const currentCount = activeMap.get(targetEntityId) || 0;
     if (currentCount > 0) {
-      this.activeDamageTexts.set(targetEntityId, currentCount - 1);
+      activeMap.set(targetEntityId, currentCount - 1);
       // Rimuovi la chiave se il contatore arriva a 0
       if (currentCount - 1 === 0) {
-        this.activeDamageTexts.delete(targetEntityId);
+        activeMap.delete(targetEntityId);
       }
     }
   }
@@ -102,6 +107,7 @@ export class DamageSystem extends BaseSystem {
    * Cleanup delle risorse per prevenire memory leaks
    */
   public destroy(): void {
-    this.activeDamageTexts.clear();
+    this.activeLaserTexts.clear();
+    this.activeMissileTexts.clear();
   }
 }

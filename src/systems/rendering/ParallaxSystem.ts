@@ -19,9 +19,9 @@ interface StarLayer {
 }
 
 const STAR_LAYERS: StarLayer[] = [
-  { speed: 0.05, density: 3, minSize: 0.5, maxSize: 1.2, alpha: 0.4 },  // Layer lontano
-  { speed: 0.15, density: 2, minSize: 0.8, maxSize: 1.8, alpha: 0.6 },  // Layer medio
-  { speed: 0.30, density: 1, minSize: 1.2, maxSize: 2.5, alpha: 0.8 },  // Layer vicino
+  { speed: 0.05, density: 5, minSize: 0.5, maxSize: 1.2, alpha: 0.4 },  // Layer lontano - Stelle moderate
+  { speed: 0.15, density: 4, minSize: 0.8, maxSize: 1.8, alpha: 0.6 },  // Layer medio - Stelle bilanciate
+  { speed: 0.30, density: 2, minSize: 1.0, maxSize: 1.8, alpha: 0.8 },  // Layer vicino - Stelle essenziali
 ];
 
 const STAR_GRID_SIZE = 400; // Dimensione cella griglia in pixel
@@ -231,12 +231,16 @@ export class ParallaxSystem extends BaseSystem {
     // DISABLED: Meteore - da riattivare quando funzionano
     // this.renderMeteors(ctx);
 
-    // Renderizza stelle procedurali (zero memoria, infinite stelle)
-    this.renderProceduralStars(ctx, camera, width, height);
-
-    // Renderizza entità parallax esistenti (es. background sprite se riattivato)
+    // Renderizza entità parallax esistenti (background, ecc.) PRIMA delle stelle
+    // Ordina per zIndex per controllare l'ordine di rendering
     const parallaxEntities = this.ecs.getEntitiesWithComponents(Transform, ParallaxLayer);
-    for (const entity of parallaxEntities) {
+    const sortedEntities = parallaxEntities.slice().sort((a, b) => {
+      const parallaxA = this.ecs.getComponent(a, ParallaxLayer);
+      const parallaxB = this.ecs.getComponent(b, ParallaxLayer);
+      return (parallaxA?.zIndex || 0) - (parallaxB?.zIndex || 0);
+    });
+
+    for (const entity of sortedEntities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const parallax = this.ecs.getComponent(entity, ParallaxLayer);
       const sprite = this.ecs.getComponent(entity, Sprite);
@@ -245,6 +249,9 @@ export class ParallaxSystem extends BaseSystem {
         this.renderParallaxElement(ctx, transform, parallax, camera, sprite);
       }
     }
+
+    // Renderizza stelle procedurali DOPO il background (zero memoria, infinite stelle)
+    this.renderProceduralStars(ctx, camera, width, height);
   }
 
   /**
@@ -304,7 +311,7 @@ export class ParallaxSystem extends BaseSystem {
       const starSeed = seed + i;
       const localX = this.hash(cellX, cellY, starSeed) * STAR_GRID_SIZE;
       const localY = this.hash(cellX, cellY, starSeed + 1) * STAR_GRID_SIZE;
-      
+
       // Posizione mondo della stella
       const worldX = cellX * STAR_GRID_SIZE + localX;
       const worldY = cellY * STAR_GRID_SIZE + localY;
@@ -313,9 +320,13 @@ export class ParallaxSystem extends BaseSystem {
       const screenX = worldX - parallaxX + screenWidth / 2;
       const screenY = worldY - parallaxY + screenHeight / 2;
 
+      // Stelle ferme come nella realtà spaziale (no movimento)
+      const finalScreenX = screenX;
+      const finalScreenY = screenY;
+
       // Salta se fuori schermo
-      if (screenX < -10 || screenX > screenWidth + 10 || 
-          screenY < -10 || screenY > screenHeight + 10) {
+      if (finalScreenX < -10 || finalScreenX > screenWidth + 10 ||
+          finalScreenY < -10 || finalScreenY > screenHeight + 10) {
         continue;
       }
 
@@ -325,25 +336,39 @@ export class ParallaxSystem extends BaseSystem {
       const alphaMod = 0.7 + this.hash(cellX, cellY, starSeed + 3) * 0.3;
       const alpha = layer.alpha * alphaMod;
 
-      // Renderizza stella
-      this.renderStar(ctx, screenX, screenY, size, alpha);
+      // Renderizza stella con movimento applicato e twinkling
+      this.renderStar(ctx, finalScreenX, finalScreenY, size, alpha, starSeed);
+
     }
   }
 
   /**
    * Renderizza una singola stella
    */
-  private renderStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, alpha: number): void {
-    ctx.globalAlpha = alpha;
+  private renderStar(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, baseAlpha: number, starSeed?: number): void {
+    // Aggiungi effetto twinkling per stelle piccole
+    let finalAlpha = baseAlpha;
+    if (size < 1.2 && starSeed !== undefined) {
+      // Stelle piccole: effetto twinkling basato sul tempo e seed
+      const time = Date.now() * 0.001;
+      const twinkleSpeed = 2.0; // Velocità del twinkling
+      const twinkleIntensity = 0.3; // Intensità massima del twinkling
+
+      // Crea variazione sinusoidale unica per ogni stella
+      const twinkle = Math.sin(time * twinkleSpeed + starSeed * 0.1) * twinkleIntensity;
+      finalAlpha = Math.max(0.1, baseAlpha + twinkle); // Non andare sotto 0.1 per mantenerla visibile
+    }
+
+    ctx.globalAlpha = finalAlpha;
     ctx.fillStyle = '#ffffff';
-    
+
     ctx.beginPath();
     ctx.arc(x, y, size, 0, Math.PI * 2);
     ctx.fill();
 
-    // Glow sottile per stelle più grandi
+    // Glow sottile per stelle più grandi (senza twinkling)
     if (size > 1.5) {
-      ctx.globalAlpha = alpha * 0.3;
+      ctx.globalAlpha = baseAlpha * 0.3;
       ctx.beginPath();
       ctx.arc(x, y, size * 2, 0, Math.PI * 2);
       ctx.fill();
@@ -384,12 +409,34 @@ export class ParallaxSystem extends BaseSystem {
     const screenX = screenPos.x;
     const screenY = screenPos.y;
 
-    // Salta se l'elemento è fuori dallo schermo (con margine aumentato per mappa grande)
-    const margin = 200; // Aumentato a 200 per la mappa 21000x13100
-    if (screenX < -margin || screenX > width + margin ||
-        screenY < -margin || screenY > height + margin) {
-      ctx.restore();
-      return;
+    // Culling intelligente: per elementi con sprite (es. background), controlla se il rettangolo è visibile
+    // Per elementi piccoli (stelle), usa il culling semplice sul centro
+    if (sprite && sprite.isLoaded() && sprite.image) {
+      // Calcola le dimensioni scalate dello sprite
+      const spriteWidth = sprite.width * transform.scaleX;
+      const spriteHeight = sprite.height * transform.scaleY;
+      
+      // Calcola i bordi del rettangolo dello sprite (centrato su screenX, screenY)
+      const spriteLeft = screenX - spriteWidth / 2;
+      const spriteRight = screenX + spriteWidth / 2;
+      const spriteTop = screenY - spriteHeight / 2;
+      const spriteBottom = screenY + spriteHeight / 2;
+      
+      // Controlla se il rettangolo interseca lo schermo (con margine)
+      const margin = 100;
+      if (spriteRight < -margin || spriteLeft > width + margin ||
+          spriteBottom < -margin || spriteTop > height + margin) {
+        ctx.restore();
+        return;
+      }
+    } else {
+      // Culling semplice per elementi piccoli (stelle)
+      const margin = 200;
+      if (screenX < -margin || screenX > width + margin ||
+          screenY < -margin || screenY > height + margin) {
+        ctx.restore();
+        return;
+      }
     }
 
     // Applica trasformazioni
@@ -398,7 +445,11 @@ export class ParallaxSystem extends BaseSystem {
     ctx.scale(transform.scaleX, transform.scaleY);
 
     // Renderizza sprite se disponibile, altrimenti punto luminoso
-    if (sprite && sprite.isLoaded()) {
+    if (sprite && sprite.isLoaded() && sprite.image) {
+      // Abilita image smoothing per qualità migliore
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      
       // Renderizza l'immagine sprite
       const spriteX = -sprite.width / 2 + sprite.offsetX;
       const spriteY = -sprite.height / 2 + sprite.offsetY;

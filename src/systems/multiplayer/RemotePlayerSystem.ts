@@ -4,10 +4,11 @@ import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
-import { EntityFactory } from '../../factories/EntityFactory';
+import { GameEntityFactory } from '../../factories/GameEntityFactory';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
+import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
@@ -19,13 +20,13 @@ export class RemotePlayerSystem extends BaseSystem {
   // Logging per evitare spam di aggiornamenti posizione
   private lastUpdateLog = new Map<string, number>();
   // Factory per creare entità
-  private entityFactory: EntityFactory;
+  private entityFactory: GameEntityFactory;
 
   constructor(ecs: ECS, animatedSprite: AnimatedSprite | null = null) {
     super(ecs);
     // Usa AnimatedSprite condiviso per tutti i remote player
     this.sharedAnimatedSprite = animatedSprite;
-    this.entityFactory = new EntityFactory(ecs);
+    this.entityFactory = new GameEntityFactory(ecs);
   }
 
   /**
@@ -75,7 +76,7 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Ottiene info di un remote player
    */
-  getRemotePlayerInfo(clientId: string): {nickname: string, rank: string} | undefined {
+  getRemotePlayerInfo(clientId: string): { nickname: string, rank: string } | undefined {
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
@@ -186,8 +187,8 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Ottiene le posizioni di tutti i giocatori remoti per la minimappa
    */
-  getRemotePlayerPositions(): Array<{x: number, y: number}> {
-    const positions: Array<{x: number, y: number}> = [];
+  getRemotePlayerPositions(): Array<{ x: number, y: number }> {
+    const positions: Array<{ x: number, y: number }> = [];
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer, Transform);
     for (const entity of remotePlayerEntities) {
       const transform = this.ecs.getComponent(entity, Transform);
@@ -288,24 +289,23 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Aggiorna le statistiche di salute e scudo di un giocatore remoto
    */
-  updatePlayerStats(clientId: string, health: number, maxHealth: number, shield: number, maxShield: number): void {
+  updatePlayerStats(clientId: string, health: number, maxHealth: number | undefined, shield: number, maxShield: number | undefined): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (!entity) {
       console.warn(`[REMOTE_PLAYER] Cannot update stats for unknown player ${clientId}`);
       return;
     }
 
-    const healthComponent = this.ecs.getComponent(entity, Health);
-    const shieldComponent = this.ecs.getComponent(entity, Shield);
-
-    if (healthComponent) {
-      healthComponent.current = health;
-      healthComponent.max = maxHealth;
-    }
-
-    if (shieldComponent) {
-      shieldComponent.current = shield;
-      shieldComponent.max = maxShield;
-    }
+    // Usa EntityStateSystem per aggiornare lo stato
+    EntityStateSystem.updateEntityState(this.ecs, entity, {
+      health: {
+        current: health,
+        max: maxHealth
+      },
+      shield: {
+        current: shield,
+        max: maxShield
+      }
+    });
   }
 }

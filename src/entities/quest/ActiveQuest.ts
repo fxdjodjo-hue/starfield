@@ -4,9 +4,13 @@ import { Quest } from './Quest';
  * Componente ActiveQuest - Gestisce le quest attive del giocatore
  */
 export class ActiveQuest {
+  public quests: Quest[];
+
   constructor(
-    public quests: Quest[] = []
-  ) {}
+    quests: Quest[] = []
+  ) {
+    this.quests = quests;
+  }
 
   /**
    * Aggiunge una nuova quest attiva

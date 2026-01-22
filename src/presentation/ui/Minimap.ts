@@ -1,4 +1,4 @@
-import { CONFIG } from '../../utils/config/Config';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
 
 /**
@@ -76,7 +76,7 @@ export class Minimap {
     this.scale = Math.min(scaleX, scaleY); // Usa la scala più piccola per far entrare tutto
 
     this.entityDotSize = Math.round(3 * this.dprCompensation); // Dimensione compensata dei pallini
-    this.visible = true;
+    this.visible = false; // Inizia nascosta, verrà mostrata dopo l'animazione camera
     this.enabled = true;
   }
 

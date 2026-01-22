@@ -2,24 +2,30 @@ import type { QuestObjective, QuestReward } from '../presentation/ui/QuestPanel'
 
 /**
  * Tipi di obiettivi supportati
+ * Usa const object invece di enum per compatibilità con erasableSyntaxOnly
  */
-export enum ObjectiveType {
-  KILL = 'kill',
-  COLLECT = 'collect',
-  EXPLORE = 'explore',
-  INTERACT = 'interact'
-}
+export const ObjectiveType = {
+  KILL: 'kill',
+  COLLECT: 'collect',
+  EXPLORE: 'explore',
+  INTERACT: 'interact'
+} as const;
+
+export type ObjectiveType = typeof ObjectiveType[keyof typeof ObjectiveType];
 
 /**
  * Tipi di ricompense supportati
+ * Usa const object invece di enum per compatibilità con erasableSyntaxOnly
  */
-export enum RewardType {
-  CREDITS = 'credits',
-  COSMOS = 'cosmos',
-  EXPERIENCE = 'experience',
-  HONOR = 'honor',
-  ITEM = 'item'
-}
+export const RewardType = {
+  CREDITS: 'credits',
+  COSMOS: 'cosmos',
+  EXPERIENCE: 'experience',
+  HONOR: 'honor',
+  ITEM: 'item'
+} as const;
+
+export type RewardType = typeof RewardType[keyof typeof RewardType];
 
 /**
  * Configurazione di un singolo obiettivo
@@ -110,13 +116,16 @@ export class QuestRegistry {
 
 /**
  * Sistema di eventi per il tracking delle quest
+ * Usa const object invece di enum per compatibilità con erasableSyntaxOnly
  */
-export enum QuestEventType {
-  NPC_KILLED = 'npc_killed',
-  ITEM_COLLECTED = 'item_collected',
-  LOCATION_VISITED = 'location_visited',
-  INTERACTION_COMPLETED = 'interaction_completed'
-}
+export const QuestEventType = {
+  NPC_KILLED: 'npc_killed',
+  ITEM_COLLECTED: 'item_collected',
+  LOCATION_VISITED: 'location_visited',
+  INTERACTION_COMPLETED: 'interaction_completed'
+} as const;
+
+export type QuestEventType = typeof QuestEventType[keyof typeof QuestEventType];
 
 export interface QuestEvent {
   type: QuestEventType;

@@ -3,6 +3,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { DisplayManager } from '../../infrastructure/display';
+import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
 
 /**
  * PlayerStatusDisplaySystem - Sistema semplice per mostrare HP e Shield del giocatore
@@ -44,7 +45,7 @@ export class PlayerStatusDisplaySystem extends System {
       bottom: ${Math.round(20 * c)}px;
       left: 50%;
       transform: translateX(-50%);
-      display: flex;
+      display: none;
       align-items: stretch;
       gap: ${Math.round(32 * c)}px;
       background: rgba(255, 255, 255, 0.1);
@@ -63,12 +64,16 @@ export class PlayerStatusDisplaySystem extends System {
 
     document.body.appendChild(this.statusElement);
     this.updateDisplay();
+    
+    // Nascondi inizialmente - verrà mostrato quando la schermata di autenticazione viene nascosta
+    this.hide();
   }
 
   /**
    * Aggiorna il display con i valori attuali di HP e Shield
+   * Metodo pubblico per permettere aggiornamenti forzati da altri sistemi
    */
-  private updateDisplay(): void {
+  public updateDisplay(): void {
     if (!this.statusElement || !this.playerEntity) return;
 
     const health = this.ecs.getComponent(this.playerEntity, Health);
@@ -214,6 +219,26 @@ export class PlayerStatusDisplaySystem extends System {
     const rect = this.statusElement.getBoundingClientRect();
     return screenX >= rect.left && screenX <= rect.right &&
            screenY >= rect.top && screenY <= rect.bottom;
+  }
+
+  /**
+   * Mostra il display HP/Shield
+   */
+  show(): void {
+    if (this.statusElement) {
+      this.statusElement.style.display = 'flex';
+      // Usa fade-in sincronizzato (mantiene translateX(-50%) per centrare)
+      applyFadeIn(this.statusElement, 'translateX(-50%)');
+    }
+  }
+
+  /**
+   * Nasconde il display HP/Shield
+   */
+  hide(): void {
+    if (this.statusElement) {
+      this.statusElement.style.display = 'none';
+    }
   }
 
   /**

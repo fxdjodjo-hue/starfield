@@ -18,7 +18,7 @@ export class NetworkTickManager {
 
   // Callbacks for network operations
   private sendHeartbeatCallback?: () => void;
-  private sendPositionCallback?: () => void;
+  private sendPositionCallback?: (position: { x: number; y: number; rotation: number }) => void;
 
   constructor(
     sendHeartbeat: () => void,
@@ -83,33 +83,34 @@ export class NetworkTickManager {
   }
 
   /**
-   * Flushes the position buffer, sending the most recent position
+   * Flushes the position buffer, sending all buffered positions in sequence
    */
   private flushPositionBuffer(): void {
     if (this.positionBuffer.length === 0 || !this.sendPositionCallback) {
       return;
     }
 
-    // Send the most recent position update
-    const latestUpdate = this.positionBuffer[this.positionBuffer.length - 1];
+    // Send ALL buffered positions in sequence to prevent teleport detection
+    for (const update of this.positionBuffer) {
+      // Check if position OR rotation actually changed since last sent
+      const shouldSend = !this.lastSentPosition ||
+        Math.abs(update.position.x - this.lastSentPosition.x) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
+        Math.abs(update.position.y - this.lastSentPosition.y) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
+        Math.abs(update.position.rotation - this.lastSentPosition.rotation) > NETWORK_CONFIG.ROTATION_CHANGE_THRESHOLD;
 
-    // Check if position OR rotation actually changed since last sent
-    const shouldSend = !this.lastSentPosition ||
-      Math.abs(latestUpdate.position.x - this.lastSentPosition.x) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
-      Math.abs(latestUpdate.position.y - this.lastSentPosition.y) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
-      Math.abs(latestUpdate.position.rotation - this.lastSentPosition.rotation) > NETWORK_CONFIG.ROTATION_CHANGE_THRESHOLD;
-
-    if (shouldSend) {
-      this.sendPositionCallback(latestUpdate.position);
-      this.lastSentPosition = {
-        x: latestUpdate.position.x,
-        y: latestUpdate.position.y,
-        rotation: latestUpdate.position.rotation
-      };
+      if (shouldSend) {
+        this.sendPositionCallback(update.position);
+        this.lastSentPosition = {
+          x: update.position.x,
+          y: update.position.y,
+          rotation: update.position.rotation
+        };
+      }
     }
 
-    // Clear buffer after sending
+    // Clear the buffer after sending all updates
     this.positionBuffer = [];
+    this.bufferDropCount = 0;
   }
 
   /**
@@ -168,7 +169,7 @@ export class NetworkTickManager {
         this.flushPositionBuffer(); // Flush any buffered updates first
         this.sendPositionCallback(positionToSend);
         this.lastPositionSyncTime = Date.now();
-        this.lastSentPosition = { x: positionToSend.x, y: positionToSend.y };
+        this.lastSentPosition = { x: positionToSend.x, y: positionToSend.y, rotation: positionToSend.rotation };
       }
     }
   }
@@ -183,7 +184,7 @@ export class NetworkTickManager {
   /**
    * Updates the position sync callback
    */
-  setPositionCallback(callback: () => void): void {
+  setPositionCallback(callback: (position: { x: number; y: number; rotation: number }) => void): void {
     this.sendPositionCallback = callback;
   }
 

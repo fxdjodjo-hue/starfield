@@ -1,0 +1,110 @@
+{
+  "global": {
+    "spawnArea": {
+      "width": 4000,
+      "height": 4000
+    },
+    "minCooldown": 500
+  },
+  "Scouter": {
+    "type": "Scouter",
+    "defaultBehavior": "cruise",
+    "spriteScale": 0.8,
+    "stats": {
+      "health": 2000,
+      "shield": 2000,
+      "damage": 200000,
+      "range": 600,
+      "cooldown": 1200,
+      "speed": 350
+    },
+    "rewards": {
+      "credits": 400,
+      "cosmos": 1,
+      "experience": 400,
+      "honor": 2
+    },
+    "ai": {
+      "aggressionLevel": "low",
+      "targetPriority": "nearest",
+      "formation": "scattered"
+    },
+    "description": "Nemico base dello spazio profondo"
+  },
+  "Kronos": {
+    "type": "Kronos",
+    "defaultBehavior": "cruise",
+    "spriteScale": 0.16,
+    "transformScale": 4.5,
+    "stats": {
+      "health": 5000,
+      "shield": 5000,
+      "damage": 5000,
+      "range": 400,
+      "cooldown": 1500,
+      "speed": 300
+    },
+    "rewards": {
+      "credits": 800,
+      "cosmos": 2,
+      "experience": 800,
+      "honor": 4
+    },
+    "ai": {
+      "aggressionLevel": "medium",
+      "targetPriority": "weakest",
+      "formation": "patrol"
+    },
+    "description": "Nave da guerra di medie dimensioni"
+  },
+  "Guard": {
+    "type": "Guard",
+    "defaultBehavior": "cruise",
+    "spriteScale": 1,
+    "stats": {
+      "health": 3000,
+      "shield": 3000,
+      "damage": 2500,
+      "range": 500,
+      "cooldown": 1000,
+      "speed": 350
+    },
+    "rewards": {
+      "credits": 300,
+      "cosmos": 1,
+      "experience": 300,
+      "honor": 2
+    },
+    "ai": {
+      "aggressionLevel": "low",
+      "targetPriority": "nearest",
+      "formation": "pack"
+    },
+    "description": "Guardia della flotta Kronos"
+  },
+  "Pyramid": {
+    "type": "Pyramid",
+    "defaultBehavior": "cruise",
+    "spriteScale": 0.6,
+    "stats": {
+      "health": 8000,
+      "shield": 8000,
+      "damage": 4000,
+      "range": 450,
+      "cooldown": 1800,
+      "speed": 150
+    },
+    "rewards": {
+      "credits": 1000,
+      "cosmos": 3,
+      "experience": 1000,
+      "honor": 6
+    },
+    "ai": {
+      "aggressionLevel": "high",
+      "targetPriority": "nearest",
+      "formation": "solo"
+    },
+    "description": "Pyramid - Nave da guerra avanzata"
+  }
+}

@@ -1,5 +1,6 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { GameSettings } from '../../core/settings/GameSettings';
 import type { AudioConfig } from '../../config/AudioConfig';
 import { AUDIO_ASSETS } from '../../config/AudioConfig';
 
@@ -18,6 +19,12 @@ export default class AudioSystem extends System {
   private audioContext: AudioContext | null = null;
   private sounds: Map<string, HTMLAudioElement> = new Map();
   private musicInstance: HTMLAudioElement | null = null;
+
+  // Cache per suoni precaricati (per sincronizzazione perfetta)
+  private preloadedSounds: Map<string, HTMLAudioElement> = new Map();
+  // Pool di istanze audio precaricate per riproduzioni multiple istantanee
+  private audioPool: Map<string, HTMLAudioElement[]> = new Map();
+  private readonly POOL_SIZE = 3; // Numero di istanze nel pool per ogni suono
 
   // Debouncing system to prevent sound duplication
   private lastPlayedTimes: Map<string, number> = new Map();
@@ -38,6 +45,84 @@ export default class AudioSystem extends System {
   init(): void {
     // Inizializzazione sistema audio
     this.setupAudio();
+    // Precariare suoni importanti per sincronizzazione perfetta
+    this.preloadImportantSounds();
+
+    // Setup listener per impostazioni
+    this.setupSettingsListeners();
+
+    // Apply saved settings
+    const settings = GameSettings.getInstance();
+    this.setMasterVolume(settings.audio.master / 100);
+    this.setEffectsVolume(settings.audio.sfx / 100);
+    this.setMusicVolume(settings.audio.music / 100);
+  }
+
+  private setupSettingsListeners(): void {
+    document.addEventListener('settings:volume:master', (e: any) => {
+      this.setMasterVolume(e.detail);
+    });
+    document.addEventListener('settings:volume:sfx', (e: any) => {
+      this.setEffectsVolume(e.detail);
+    });
+    document.addEventListener('settings:volume:music', (e: any) => {
+      this.setMusicVolume(e.detail);
+    });
+  }
+
+  /**
+   * Precariare suoni importanti per evitare delay di caricamento
+   */
+  private async preloadImportantSounds(): Promise<void> {
+    const importantSounds = ['explosion'];
+
+    for (const soundKey of importantSounds) {
+      const assetPath = this.getAssetPath(soundKey, 'effects');
+      if (!assetPath) continue;
+
+      const audioUrl = `/assets/audio/${assetPath}`;
+
+      // Crea pool di istanze precaricate per riproduzioni multiple istantanee
+      const pool: HTMLAudioElement[] = [];
+      for (let i = 0; i < this.POOL_SIZE; i++) {
+        const audio = new Audio(audioUrl);
+        audio.volume = 0; // Volume 0 durante il precaricamento
+        audio.preload = 'auto';
+
+        try {
+          await audio.load();
+          pool.push(audio);
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.warn(`[AudioSystem] Failed to preload sound ${soundKey} instance ${i}:`, error);
+          }
+        }
+      }
+
+      if (pool.length > 0) {
+        this.audioPool.set(soundKey, pool);
+        this.preloadedSounds.set(soundKey, pool[0]); // Mantieni anche la prima istanza per compatibilità
+      }
+    }
+  }
+
+  /**
+   * Ottiene un'istanza audio dal pool (per riproduzione istantanea)
+   */
+  private getAudioFromPool(key: string): HTMLAudioElement | null {
+    const pool = this.audioPool.get(key);
+    if (!pool || pool.length === 0) return null;
+
+    // Trova un'istanza non in riproduzione
+    for (const audio of pool) {
+      if (audio.paused || audio.ended) {
+        audio.currentTime = 0; // Reset al tempo 0
+        return audio;
+      }
+    }
+
+    // Se tutte le istanze sono in riproduzione, usa la prima (per allowMultiple)
+    return pool[0];
   }
 
   update(deltaTime: number): void {
@@ -127,13 +212,61 @@ export default class AudioSystem extends System {
         return;
       }
 
-      const audio = new Audio(`/assets/audio/${assetPath}`);
-      audio.volume = this.config.masterVolume * volume;
+      // Usa suono precaricato se disponibile (per sincronizzazione perfetta)
+      let audio: HTMLAudioElement;
+      const audioUrl = `/assets/audio/${assetPath}`;
+
+      // Prova a ottenere un'istanza dal pool (più veloce)
+      const pooledAudio = this.getAudioFromPool(key);
+      if (pooledAudio) {
+        audio = pooledAudio;
+      } else if (this.preloadedSounds.has(key)) {
+        // Fallback: usa l'istanza precaricata se il pool non è disponibile
+        audio = this.preloadedSounds.get(key)!;
+        audio.currentTime = 0;
+      } else {
+        // Fallback: carica normalmente se non precaricato
+        audio = new Audio(audioUrl);
+      }
+
+      // Salva metadati per il ricalcolo del volume
+      this.activeSoundCategories.set(soundKey, category);
+      this.activeSoundBaseVolumes.set(soundKey, volume);
+
+      // Calcola volume iniziale: Master * Category * Instance(volume argument)
+      let categoryVolume = 1.0;
+      if (category === 'music') categoryVolume = this.config.musicVolume;
+      else if (category === 'effects') categoryVolume = this.config.effectsVolume;
+      else if (category === 'ui') categoryVolume = this.config.uiVolume;
+
+      const finalVolume = this.config.masterVolume * categoryVolume * volume;
+
+      if (Number.isFinite(finalVolume)) {
+        audio.volume = Math.max(0, Math.min(1, finalVolume));
+      } else {
+        audio.volume = 0;
+      }
+
       audio.loop = loop;
 
+      // Aggiungi listener per errori di caricamento
+
       // Gestisci la riproduzione con retry per superare blocchi del browser
+      // Per suoni precaricati, la riproduzione dovrebbe essere istantanea
       const playAudio = async (retryCount = 0) => {
         try {
+          // Per suoni precaricati, assicurati che siano pronti prima di riprodurre
+          if (this.preloadedSounds.has(key) && audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+            // Attendi che il suono precaricato sia pronto (dovrebbe essere già pronto)
+            await new Promise((resolve) => {
+              if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+                resolve(undefined);
+              } else {
+                audio.addEventListener('canplaythrough', () => resolve(undefined), { once: true });
+              }
+            });
+          }
+
           await audio.play();
         } catch (error) {
           if (retryCount < 2) {
@@ -155,6 +288,8 @@ export default class AudioSystem extends System {
       if (!loop) {
         audio.addEventListener('ended', () => {
           this.sounds.delete(soundKey);
+          this.activeSoundCategories.delete(soundKey);
+          this.activeSoundBaseVolumes.delete(soundKey);
         });
 
         // Safety timeout per suoni che potrebbero non finire correttamente
@@ -173,10 +308,16 @@ export default class AudioSystem extends System {
     if (!this.config.enabled) return;
 
     try {
-      // Ferma musica precedente se presente
-      if (this.musicInstance) {
-        this.musicInstance.pause();
-        this.musicInstance.currentTime = 0;
+      // Ferma musica precedente se presente (solo se è una chiave diversa)
+      if (this.musicInstance && this.musicInstance.src) {
+        const currentKey = this.musicInstance.src.split('/').pop()?.replace('.mp3', '') || '';
+        if (currentKey !== key) {
+          this.musicInstance.pause();
+          this.musicInstance.currentTime = 0;
+        } else {
+          // Stessa musica, non fare nulla
+          return;
+        }
       }
 
       // Cerca il path nell'AUDIO_ASSETS
@@ -186,15 +327,37 @@ export default class AudioSystem extends System {
         return;
       }
 
-      this.musicInstance = new Audio(`/assets/audio/${assetPath}`);
+      const audioUrl = `/assets/audio/${assetPath}`;
+
+      this.musicInstance = new Audio(audioUrl);
       this.musicInstance.volume = this.config.masterVolume * volume;
       this.musicInstance.loop = true;
 
-      this.musicInstance.play().catch(error => {
-        // console.warn(`Audio system: Failed to play music '${key}':`, error);
+      // Verifica errori di caricamento
+      this.musicInstance.addEventListener('error', (e) => {
+        console.error(`Audio system: Error loading music '${key}':`, e);
+        if (this.musicInstance?.error) {
+          console.error(`Audio system: Error code: ${this.musicInstance.error.code}, message: ${this.musicInstance.error.message}`);
+        }
       });
+
+      // Stesso approccio semplice dei suoni normali
+      const playMusic = async (retryCount = 0) => {
+        try {
+          await this.musicInstance!.play();
+        } catch (error) {
+          if (retryCount < 2) {
+            console.warn(`Audio system: Failed to play music '${key}' (attempt ${retryCount + 1}), retrying...`, error);
+            setTimeout(() => playMusic(retryCount + 1), 50 * (retryCount + 1));
+          } else {
+            console.warn(`Audio system: Failed to play music '${key}' after ${retryCount + 1} attempts:`, error);
+          }
+        }
+      };
+
+      playMusic();
     } catch (error) {
-      // console.warn(`Audio system: Failed to play music '${key}':`, error);
+      console.warn(`Audio system: Failed to create music '${key}':`, error);
     }
   }
 
@@ -219,29 +382,33 @@ export default class AudioSystem extends System {
 
   // Controlli volume
   setMasterVolume(volume: number): void {
+    const oldMasterVolume = this.config.masterVolume;
     this.config.masterVolume = Math.max(0, Math.min(1, volume));
-    this.updateAllVolumes();
+    this.updateAllVolumes(oldMasterVolume);
   }
 
   setMusicVolume(volume: number): void {
     this.config.musicVolume = Math.max(0, Math.min(1, volume));
-    if (this.musicInstance) {
-      this.musicInstance.volume = this.config.masterVolume * volume;
-    }
+    this.updateAllVolumes();
   }
 
   setEffectsVolume(volume: number): void {
     this.config.effectsVolume = Math.max(0, Math.min(1, volume));
+    this.updateAllVolumes();
   }
 
   setUIVolume(volume: number): void {
     this.config.uiVolume = Math.max(0, Math.min(1, volume));
+    this.updateAllVolumes();
   }
 
   // Toggle audio
   toggleAudio(): void {
+    const oldStatus = this.config.enabled;
     this.config.enabled = !this.config.enabled;
-    if (!this.config.enabled) {
+
+    if (oldStatus && !this.config.enabled) {
+      // Disabilitato: ferma tutto
       this.stopAllSounds();
     }
   }
@@ -252,6 +419,8 @@ export default class AudioSystem extends System {
       audio.pause();
       audio.currentTime = 0;
       this.sounds.delete(key);
+      this.activeSoundCategories.delete(key);
+      this.activeSoundBaseVolumes.delete(key);
     }
   }
 
@@ -271,7 +440,11 @@ export default class AudioSystem extends System {
 
       // Curva ease-in per fade più naturale
       const easedProgress = progress * progress;
-      audio.volume = this.config.masterVolume * startVolume + (this.config.masterVolume * targetVolume - this.config.masterVolume * startVolume) * easedProgress;
+      const newVolume = this.config.masterVolume * startVolume + (this.config.masterVolume * targetVolume - this.config.masterVolume * startVolume) * easedProgress;
+
+      if (Number.isFinite(newVolume)) {
+        audio.volume = Math.max(0, Math.min(1, newVolume));
+      }
 
       if (progress < 1) {
         requestAnimationFrame(fadeStep);
@@ -292,7 +465,12 @@ export default class AudioSystem extends System {
         return;
       }
 
-      const startVolume = audio.volume / this.config.masterVolume;
+      // Calcola volume relativo di partenza in modo sicuro
+      let startRelativeVolume = 0;
+      if (this.config.masterVolume > 0.0001) {
+        startRelativeVolume = audio.volume / this.config.masterVolume;
+      }
+
       const startTime = Date.now();
 
       const fadeStep = () => {
@@ -301,7 +479,11 @@ export default class AudioSystem extends System {
 
         // Curva ease-out per fade più naturale
         const easedProgress = 1 - Math.pow(1 - progress, 2);
-        audio.volume = this.config.masterVolume * (startVolume * (1 - easedProgress));
+        const newVolume = this.config.masterVolume * (startRelativeVolume * (1 - easedProgress));
+
+        if (Number.isFinite(newVolume)) {
+          audio.volume = Math.max(0, Math.min(1, newVolume));
+        }
 
         if (progress < 1) {
           requestAnimationFrame(fadeStep);
@@ -327,16 +509,40 @@ export default class AudioSystem extends System {
     this.stopMusic();
   }
 
-  private updateAllVolumes(): void {
+  // Mappa per tenere traccia della categoria di ogni suono attivo
+  private activeSoundCategories: Map<string, keyof typeof AUDIO_ASSETS> = new Map();
+  // Mappa per tenere traccia del volume base (instance volume) di ogni suono attivo
+  private activeSoundBaseVolumes: Map<string, number> = new Map();
+
+  private updateAllVolumes(oldMasterVolume?: number): void {
     // Aggiorna volume di tutti gli audio attivi
-    this.sounds.forEach(audio => {
-      // Il volume relativo viene mantenuto, ma moltiplicato per master volume
-      const relativeVolume = audio.volume / this.config.masterVolume || 1;
-      audio.volume = this.config.masterVolume * relativeVolume;
+    this.sounds.forEach((audio, key) => {
+      const category = this.activeSoundCategories.get(key) || 'effects';
+      const instanceVolume = this.activeSoundBaseVolumes.get(key) || 1.0;
+
+      let categoryVolume = 1.0;
+      if (category === 'music') {
+        categoryVolume = this.config.musicVolume;
+      } else if (category === 'effects') {
+        categoryVolume = this.config.effectsVolume;
+      } else if (category === 'ui') {
+        categoryVolume = this.config.uiVolume;
+      }
+
+      // Calcola nuovo volume: Master * Category * Instance
+      const newVolume = this.config.masterVolume * categoryVolume * instanceVolume;
+
+      // Applica solo se finito
+      if (Number.isFinite(newVolume)) {
+        audio.volume = Math.max(0, Math.min(1, newVolume));
+      }
     });
 
     if (this.musicInstance) {
-      this.musicInstance.volume = this.config.masterVolume * this.config.musicVolume;
+      const newMusicVolume = this.config.masterVolume * this.config.musicVolume;
+      if (Number.isFinite(newMusicVolume)) {
+        this.musicInstance.volume = Math.max(0, Math.min(1, newMusicVolume));
+      }
     }
   }
 
@@ -355,12 +561,13 @@ export default class AudioSystem extends System {
   }
 
   updateConfig(newConfig: Partial<AudioConfig>): void {
+    const oldMasterVolume = this.config.masterVolume;
     this.config = { ...this.config, ...newConfig };
-    this.applyConfigChanges();
+    this.applyConfigChanges(oldMasterVolume);
   }
 
-  private applyConfigChanges(): void {
-    this.updateAllVolumes();
+  private applyConfigChanges(oldMasterVolume?: number): void {
+    this.updateAllVolumes(oldMasterVolume);
   }
 
   private getAssetPath(key: string, category: keyof typeof AUDIO_ASSETS): string | null {
@@ -370,4 +577,5 @@ export default class AudioSystem extends System {
     }
     return null;
   }
+
 }

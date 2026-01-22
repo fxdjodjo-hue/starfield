@@ -5,417 +5,11 @@
  */
 
 import type { PanelConfig } from './PanelConfig';
-import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
+import { DisplayManager } from '../../infrastructure/display';
+import { BasePanel, FloatingIcon } from './FloatingIcon';
 
 export interface PanelData {
   [key: string]: any; // Flexible data structure for different panels
-}
-
-/**
- * Classe base astratta per i pannelli UI
- * Definisce l'interfaccia comune per tutti i pannelli
- */
-export abstract class BasePanel {
-  protected container: HTMLElement;
-  protected content: HTMLElement;
-  protected isVisible: boolean = false;
-  protected config: PanelConfig;
-
-  constructor(config: PanelConfig) {
-    this.config = config;
-    this.container = this.createPanelContainer();
-    this.content = this.createPanelContent();
-    this.container.appendChild(this.content); // AGGIUNGI IL CONTENT AL CONTAINER!
-    this.setupEventListeners();
-  }
-
-  /**
-   * Crea il contenitore principale del pannello
-   */
-  private createPanelContainer(): HTMLElement {
-    const container = document.createElement('div');
-    container.id = `panel-${this.config.id}`;
-    container.className = 'ui-panel';
-    
-    // Usa border-radius compensato per DPR
-    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
-    const borderRadius = Math.round(DISPLAY_CONSTANTS.BORDER_RADIUS_LG / dpr);
-    
-    container.style.cssText = `
-      position: fixed;
-      ${this.getPositionStyles()}
-      width: ${this.config.size.width}px;
-      height: ${this.config.size.height}px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: ${borderRadius}px;
-      box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-      z-index: 2000;
-      opacity: 0;
-      transform: scale(0.95);
-      pointer-events: none;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      overflow: hidden;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-    `;
-
-    return container;
-  }
-
-  /**
-   * Crea il contenuto del pannello (implementato dalle sottoclassi)
-   */
-  protected abstract createPanelContent(): HTMLElement;
-
-  /**
-   * Restituisce gli stili di posizione basati sulla configurazione
-   */
-  private getPositionStyles(): string {
-    // Calcola la posizione centrale basandosi sulle dimensioni del pannello
-    const { width, height } = DisplayManager.getInstance().getLogicalSize();
-    const centerX = width / 2 - this.config.size.width / 2;
-    const centerY = height / 2 - this.config.size.height / 2;
-
-    return `top: ${centerY}px; left: ${centerX}px;`;
-  }
-
-  /**
-   * Imposta gli event listener
-   */
-  private setupEventListeners(): void {
-    // Chiudi pannello cliccando fuori
-    document.addEventListener('click', (e) => {
-      if (this.isVisible && !this.container.contains(e.target as Node)) {
-        this.hide();
-      }
-    });
-
-    // Previeni chiusura quando si clicca dentro il pannello
-    this.container.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
-  }
-
-  /**
-   * Mostra il pannello
-   */
-  show(): void {
-    if (this.isVisible) return;
-
-    this.isVisible = true;
-
-    // Emette evento per aggiornare l'icona corrispondente
-    const event = new CustomEvent('panelVisibilityChanged', {
-      detail: { panelId: this.config.id, isVisible: true }
-    });
-    document.dispatchEvent(event);
-
-    // Assicura che sia nel DOM PRIMA di applicare gli stili
-    if (!document.body.contains(this.container)) {
-      document.body.appendChild(this.container);
-    }
-
-    // Assicura che sia visibile
-    this.container.style.display = 'block';
-
-    // Ricalcola posizione centrale (responsive) - PRIMA degli stili di animazione
-    this.updatePosition();
-
-    // Piccola pausa per permettere al browser di applicare la posizione
-    setTimeout(() => {
-      this.container.style.opacity = '1';
-      this.container.style.transform = 'scale(1)';
-      this.container.style.pointerEvents = 'auto';
-    }, 10);
-
-    this.onShow();
-  }
-
-  /**
-   * Nasconde il pannello
-   */
-  hide(): void {
-    if (!this.isVisible) return;
-
-    this.isVisible = false;
-    this.container.style.opacity = '0';
-    this.container.style.transform = 'scale(0.95)';
-    this.container.style.pointerEvents = 'none';
-
-    // Nascondi completamente dopo l'animazione
-    setTimeout(() => {
-      if (!this.isVisible) {
-        this.container.style.display = 'none';
-      }
-    }, 300);
-
-    // Emette evento per aggiornare l'icona corrispondente
-    const event = new CustomEvent('panelVisibilityChanged', {
-      detail: { panelId: this.config.id, isVisible: false }
-    });
-    document.dispatchEvent(event);
-
-    this.onHide();
-  }
-
-  /**
-   * Toggle visibilità pannello
-   */
-  toggle(): void {
-    if (this.isVisible) {
-      this.hide();
-    } else {
-      this.show();
-    }
-  }
-
-  /**
-   * Aggiorna i dati del pannello
-   */
-  abstract update(data: PanelData): void;
-
-  /**
-   * Callback chiamato quando il pannello viene mostrato
-   */
-  protected onShow(): void {
-    // Implementato dalle sottoclassi se necessario
-  }
-
-  /**
-   * Callback chiamato quando il pannello viene nascosto
-   */
-  protected onHide(): void {
-    // Implementato dalle sottoclassi se necessario
-  }
-
-  /**
-   * Verifica se il pannello è visibile
-   */
-  isPanelVisible(): boolean {
-    return this.isVisible;
-  }
-
-  /**
-   * Restituisce la configurazione del pannello
-   */
-  getConfig(): PanelConfig {
-    return this.config;
-  }
-
-  /**
-   * Aggiorna la posizione del pannello (usato per il responsive design)
-   */
-  updatePosition(): void {
-    if (!this.isVisible) return;
-
-    const { width, height } = DisplayManager.getInstance().getLogicalSize();
-    const centerX = width / 2 - this.config.size.width / 2;
-    const centerY = height / 2 - this.config.size.height / 2;
-
-    this.container.style.left = `${centerX}px`;
-    this.container.style.top = `${centerY}px`;
-  }
-
-  /**
-   * Distrugge il pannello e rimuove gli elementi dal DOM
-   */
-  destroy(): void {
-    if (document.body.contains(this.container)) {
-      document.body.removeChild(this.container);
-    }
-  }
-}
-
-/**
- * Gestore delle icone flottanti che aprono i pannelli
- */
-export class FloatingIcon {
-  private element: HTMLElement;
-  private panel: BasePanel;
-  private config: PanelConfig;
-  private isHovered: boolean = false;
-  private onOpenPanel?: (panelId: string) => void;
-
-  constructor(panel: BasePanel, onOpenPanel?: (panelId: string) => void) {
-    this.panel = panel;
-    this.config = panel.getConfig();
-    this.onOpenPanel = onOpenPanel;
-    this.element = this.createIconElement(this.config);
-    this.setupEventListeners();
-  }
-
-  /**
-   * Crea l'elemento icona
-   */
-  private createIconElement(config: PanelConfig): HTMLElement {
-    const icon = document.createElement('div');
-    icon.id = `icon-${config.id}`;
-    icon.className = 'ui-floating-icon';
-    icon.innerHTML = config.icon;
-    icon.title = config.title;
-
-    // Usa dimensioni responsive con compensazione DPR
-    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
-    const dprCompensation = 1 / dpr;
-    const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE * dprCompensation);
-    const borderRadius = Math.round(DISPLAY_CONSTANTS.BORDER_RADIUS_SM * dprCompensation);
-    const fontSize = Math.round(20 * dprCompensation);
-    
-    icon.style.cssText = `
-      position: fixed;
-      ${this.getIconPosition(config.position)}
-      width: ${iconSize}px;
-      height: ${iconSize}px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      border-radius: ${borderRadius}px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: ${fontSize}px;
-      color: rgba(255, 255, 255, 0.8);
-      cursor: pointer;
-      z-index: 1500;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow:
-        0 4px 12px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-    `;
-
-    return icon;
-  }
-
-  /**
-   * Restituisce la posizione dell'icona usando margini responsive compensati per DPR
-   */
-  private getIconPosition(position: string): string {
-    // Usa il margine standard compensato per DPR
-    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
-    const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
-
-    switch (position) {
-      case 'top-left':
-        return `top: ${margin}px; left: ${margin}px;`;
-      case 'top-right':
-        return `top: ${margin}px; right: ${margin}px;`;
-      case 'center-left':
-        return `top: 50%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below':
-        return `top: 56%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below2':
-        return `top: 62%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'bottom-left':
-        return `bottom: ${margin}px; left: ${margin}px;`;
-      case 'bottom-right':
-        return `bottom: ${margin}px; right: ${margin}px;`;
-      default:
-        return `top: 50%; left: ${margin}px; transform: translateY(-50%);`; // Default al centro sinistro
-    }
-  }
-
-  /**
-   * Imposta gli event listeners
-   */
-  private setupEventListeners(): void {
-    this.element.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (this.onOpenPanel) {
-        // Usa il nuovo sistema: apri pannello chiudendo tutti gli altri
-        this.onOpenPanel(this.config.id);
-      } else {
-        // Fallback al comportamento precedente
-        this.panel.toggle();
-      }
-    });
-
-    this.element.addEventListener('mouseenter', () => {
-      this.isHovered = true;
-      this.updateStyle();
-    });
-
-    this.element.addEventListener('mouseleave', () => {
-      this.isHovered = false;
-      this.updateStyle();
-    });
-  }
-
-  /**
-   * Aggiorna lo stile dell'icona basato sullo stato
-   */
-  private updateStyle(): void {
-    if (this.panel.isPanelVisible()) {
-      // Stato attivo - glass con accento bianco
-      this.element.style.background = 'rgba(255, 255, 255, 0.2)';
-      this.element.style.color = 'rgba(255, 255, 255, 0.9)';
-      this.element.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-      this.element.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
-    } else if (this.isHovered) {
-      // Hover - glass più intenso
-      this.element.style.background = 'rgba(255, 255, 255, 0.15)';
-      this.element.style.color = 'rgba(255, 255, 255, 0.9)';
-      this.element.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-      this.element.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
-    } else {
-      // Stato normale - glass sottile
-      this.element.style.background = 'rgba(255, 255, 255, 0.1)';
-      this.element.style.color = 'rgba(255, 255, 255, 0.8)';
-      this.element.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      this.element.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
-    }
-  }
-
-  /**
-   * Mostra l'icona
-   */
-  show(): void {
-    if (!document.body.contains(this.element)) {
-      document.body.appendChild(this.element);
-    }
-    this.element.style.display = 'flex';
-  }
-
-  /**
-   * Nasconde l'icona
-   */
-  hide(): void {
-    this.element.style.display = 'none';
-  }
-
-  /**
-   * Aggiorna lo stato visuale dell'icona
-   */
-  updateState(): void {
-    this.updateStyle();
-  }
-
-  /**
-   * Restituisce l'ID del pannello associato
-   */
-  getPanelId(): string {
-    return this.config.id;
-  }
-
-  /**
-   * Distrugge l'icona
-   */
-  destroy(): void {
-    if (document.body.contains(this.element)) {
-      document.body.removeChild(this.element);
-    }
-  }
 }
 
 /**
@@ -425,8 +19,11 @@ export class FloatingIcon {
 export class UIManager {
   private panels: Map<string, BasePanel> = new Map();
   private icons: Map<string, FloatingIcon> = new Map();
-  private isVisible: boolean = true;
+  private isVisible: boolean = false; // Inizia nascosto, verrà mostrato dopo l'animazione camera
   private unsubscribeResize: (() => void) | null = null;
+  private documentClickHandler: ((e: Event) => void) | null = null;
+  private documentKeydownHandler: ((e: Event) => void) | null = null;
+  private panelJustOpened: boolean = false;
 
   constructor() {
     this.setupResizeHandler();
@@ -438,10 +35,68 @@ export class UIManager {
    */
   private setupPanelEventListeners(): void {
     // Ascolta eventi personalizzati per i cambi di stato dei pannelli
+    // Ascolta eventi personalizzati per i cambi di stato dei pannelli
     document.addEventListener('panelVisibilityChanged', (event: any) => {
       const { panelId, isVisible } = event.detail;
       this.updatePanelIcon(panelId);
+
+      // Se un pannello è stato chiuso, verifica se tutti i pannelli sono chiusi
+      // e in tal caso riabilita i controlli
+      if (!isVisible) {
+        // Usa un piccolo timeout per permettere l'aggiornamento dello stato isVisible del pannello
+        // (anche se l'evento viene emesso dopo l'aggiornamento della flag, è più sicuro)
+        setTimeout(() => {
+          if (!this.hasOpenPanels()) {
+            // console.log('[UIManager] All panels closed, emitting uiPanelClosed');
+            document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+          }
+        }, 10);
+      }
     });
+
+    // Gestione centralizzata del click fuori dai pannelli
+    this.documentClickHandler = (e: Event) => {
+      const target = e.target as HTMLElement;
+
+      // Trova il pannello attualmente aperto (se esiste)
+      const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
+
+      if (openPanel && !this.panelJustOpened) {
+        // Usa la proprietà container del pannello
+        const panelContainer = (openPanel as any).container;
+
+        // Chiudi il pannello se il click è fuori da esso e non su elementi UI
+        if (panelContainer && !panelContainer.contains(target) &&
+          !target.closest('.ui-floating-icon') &&
+          !target.closest('.ui-panel')) {
+          openPanel.hide();
+          // Notifica che i controlli del player possono essere riabilitati
+          // console.log('[UIManager] Emitting uiPanelClosed event (click outside)');
+          document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+          // Ferma completamente l'evento per evitare che muova il player
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+        }
+      }
+    };
+
+    document.addEventListener('click', this.documentClickHandler);
+
+    // Gestione centralizzata di ESC per chiudere pannelli
+    this.documentKeydownHandler = (e: Event) => {
+      const keyboardEvent = e as KeyboardEvent;
+      if (keyboardEvent.key === 'Escape') {
+        const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
+        if (openPanel) {
+          openPanel.hide();
+          // Notifica che i controlli del player possono essere riabilitati
+          document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+        }
+      }
+    };
+
+    document.addEventListener('keydown', this.documentKeydownHandler);
   }
 
   /**
@@ -536,22 +191,45 @@ export class UIManager {
   }
 
   /**
+   * Chiude tutti i pannelli tranne quello specificato
+   */
+  closeAllPanelsExcept(exceptPanelId: string): void {
+    this.panels.forEach((panel, panelId) => {
+      if (panelId !== exceptPanelId) {
+        panel.hide();
+      }
+    });
+    this.icons.forEach(icon => icon.updateState());
+  }
+
+  /**
    * Apre un pannello specifico chiudendo tutti gli altri (solo un pannello per volta)
-   * Se il pannello è già aperto, lo chiude
+   * Se il pannello è già aperto, lo chiude (comportamento toggle intuitivo)
    */
   openPanel(panelId: string): void {
     const panel = this.panels.get(panelId);
     if (!panel) return;
 
-    // Se il pannello è già aperto, chiudilo
+    // Se il pannello è già aperto, chiudilo (toggle behavior)
     if (panel.isPanelVisible()) {
       panel.hide();
+      // Notifica che i controlli del player possono essere riabilitati
+      document.dispatchEvent(new CustomEvent('uiPanelClosed'));
       return;
     }
 
-    // Altrimenti chiudi tutti i pannelli e apri quello specifico
-    this.closeAllPanels();
+    // Notifica che i controlli del player dovrebbero essere disabilitati
+    document.dispatchEvent(new CustomEvent('uiPanelOpened'));
+
+    // Altrimenti chiudi tutti i pannelli tranne quello specifico e apri quello specifico
+    this.closeAllPanelsExcept(panelId);
     panel.show();
+
+    // Previene chiusura immediata per 300ms dopo apertura
+    this.panelJustOpened = true;
+    setTimeout(() => {
+      this.panelJustOpened = false;
+    }, 300);
   }
 
   /**
@@ -582,6 +260,16 @@ export class UIManager {
    * Distrugge tutti i pannelli e icone
    */
   destroy(): void {
+    // Rimuovi gli event listener globali
+    if (this.documentClickHandler) {
+      document.removeEventListener('click', this.documentClickHandler);
+      this.documentClickHandler = null;
+    }
+    if (this.documentKeydownHandler) {
+      document.removeEventListener('keydown', this.documentKeydownHandler);
+      this.documentKeydownHandler = null;
+    }
+
     // Rimuovi la sottoscrizione al resize
     if (this.unsubscribeResize) {
       this.unsubscribeResize();

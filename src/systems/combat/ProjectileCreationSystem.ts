@@ -8,10 +8,11 @@ import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
-import { ProjectileFactory } from '../../factories/ProjectileFactory';
+import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import AudioSystem from '../audio/AudioSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
-import { calculateDirection } from '../../utils/MathUtils';
+import { MathUtils } from '../../core/utils/MathUtils';
+import { IDGenerator } from '../../core/utils/IDGenerator';
 
 /**
  * Sistema dedicato alla creazione di proiettili
@@ -75,7 +76,7 @@ export class ProjectileCreationSystem extends BaseSystem {
 
   /**
    * Crea un proiettile in una posizione e direzione specifica
-   * Per il player, crea 2 laser visivi (dual laser)
+   * Crea un singolo proiettile per il player
    */
   private createProjectileAt(attackerEntity: Entity, attackerTransform: Transform, damage: number, directionX: number, directionY: number, targetEntity: Entity): void {
     // Determina se è il player locale
@@ -90,62 +91,14 @@ export class ProjectileCreationSystem extends BaseSystem {
     const targetY = attackerTransform.y + directionY * GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET * 2;
 
     if (isLocalPlayer) {
-      // Player: crea 2 laser visivi (dual laser)
-      const dualLaserOffset = 40; // Offset perpendicolare per i due laser (px)
-      
-      // Calcola direzione perpendicolare (ruota di 90 gradi)
-      const perpX = -directionY;
-      const perpY = directionX;
-      
-      // Posizioni spawn per i due laser (sinistra e destra)
-      const leftOffsetX = perpX * dualLaserOffset;
-      const leftOffsetY = perpY * dualLaserOffset;
-      const rightOffsetX = -perpX * dualLaserOffset;
-      const rightOffsetY = -perpY * dualLaserOffset;
-      
-      // Crea primo laser (sinistra) - con danno
-      const projectileId1 = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const projectileEntity1 = ProjectileFactory.createProjectile(
-        this.ecs,
-        damage, // Danno completo
-        attackerTransform.x + leftOffsetX,
-        attackerTransform.y + leftOffsetY,
-        targetX + leftOffsetX,
-        targetY + leftOffsetY,
-        attackerEntity.id,
-        targetEntity.id,
-        isLocalPlayer && this.clientNetworkSystem ? this.clientNetworkSystem.getLocalClientId() : `npc_${attackerEntity.id}`,
-        animatedSprite || undefined,
-        attackerTransform.rotation
-      );
-      const projectileComponent1 = this.ecs.getComponent(projectileEntity1, Projectile);
-      if (projectileComponent1) {
-        (projectileComponent1 as any).id = projectileId1;
-      }
-      
-      // Crea secondo laser (destra) - solo visivo (danno = 0)
-      const projectileId2 = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const projectileEntity2 = ProjectileFactory.createProjectile(
-        this.ecs,
-        0, // Danno 0 - solo visivo
-        attackerTransform.x + rightOffsetX,
-        attackerTransform.y + rightOffsetY,
-        targetX + rightOffsetX,
-        targetY + rightOffsetY,
-        attackerEntity.id,
-        targetEntity.id,
-        isLocalPlayer && this.clientNetworkSystem ? this.clientNetworkSystem.getLocalClientId() : `npc_${attackerEntity.id}`,
-        animatedSprite || undefined,
-        attackerTransform.rotation
-      );
-      const projectileComponent2 = this.ecs.getComponent(projectileEntity2, Projectile);
-      if (projectileComponent2) {
-        (projectileComponent2 as any).id = projectileId2;
-      }
+      // 🚫 PLAYER LOCALE: NON creare proiettili localmente!
+      // I proiettili del player vengono creati SOLO dal server (server-authoritative)
+      // Il ProjectileFiredHandler li aggiungerà al RemoteProjectileSystem quando arrivano dal server
+      return;
     } else {
       // NPC: crea singolo laser
-      const projectileId = `proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const projectileEntity = ProjectileFactory.createProjectile(
+      const projectileId = IDGenerator.generateProjectileId(attackerEntity.id.toString());
+      const projectileEntity = ProjectileFactory.createLaser(
         this.ecs,
         damage,
         attackerTransform.x,

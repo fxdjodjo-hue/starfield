@@ -9,7 +9,7 @@ const LOG_LEVELS = {
 };
 
 const LOG_COLORS = {
-  ERROR: '\x1b[31m', WARN: '\x1b[33m', INFO: '\x1b[36m', DEBUG: '\x1b[35m', RESET: '\x1b[0m', BOLD: '\x1b[1m'
+  ERROR: '\x1b[31m', WARN: '\x1b[33m', INFO: '\x1b[32m', DEBUG: '\x1b[34m', RESET: '\x1b[0m', BOLD: '\x1b[1m'
 };
 
 class Logger {
@@ -46,19 +46,30 @@ class Logger {
   }
 }
 
-const logger = new Logger(process.env.LOG_LEVEL ? LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] : LOG_LEVELS.INFO);
+// Determina livello log basato sull'ambiente
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultLogLevel = isProduction ? LOG_LEVELS.INFO : LOG_LEVELS.DEBUG;
+
+// Permetti override tramite variabile d'ambiente
+const logger = new Logger(process.env.LOG_LEVEL ? LOG_LEVELS[process.env.LOG_LEVEL.toUpperCase()] : defaultLogLevel);
 
 // Monitoraggio performance messaggi
 let messageCount = 0;
 let lastMessageCountReset = Date.now();
 
-// Reset contatore ogni 30 secondi e log performance
+// Reset contatore ogni 30 secondi e log performance condizionale
 setInterval(() => {
   const now = Date.now();
   const elapsed = (now - lastMessageCountReset) / 1000; // secondi
   const mps = messageCount / elapsed;
 
-  logger.info('PERF', `Message throughput: ${messageCount} messages in ${elapsed.toFixed(1)}s (${mps.toFixed(1)} msg/s)`);
+  // In produzione logga solo anomalie o a intervalli più lunghi
+  const isProduction = process.env.NODE_ENV === 'production';
+  const shouldLog = !isProduction || mps > 50 || mps < 1; // Log anomalie in produzione
+
+  if (shouldLog) {
+    logger.debug('PERF', `Message throughput: ${messageCount} messages in ${elapsed.toFixed(1)}s (${mps.toFixed(1)} msg/s)`);
+  }
 
   messageCount = 0;
   lastMessageCountReset = now;

@@ -2,12 +2,15 @@ import { Component } from '../../infrastructure/ecs/Component';
 
 /**
  * Livelli di autorità per il multiplayer
+ * Usa const object invece di enum per compatibilità con erasableSyntaxOnly
  */
-export enum AuthorityLevel {
-  SERVER_AUTHORITATIVE = 'server_authoritative',    // Solo server decide (movimento, combattimento)
-  CLIENT_PREDICTIVE = 'client_predictive',          // Client predice, server corregge (input)
-  CLIENT_LOCAL = 'client_local'                     // Solo client (UI, suoni, effetti locali)
-}
+export const AuthorityLevel = {
+  SERVER_AUTHORITATIVE: 'server_authoritative',    // Solo server decide (movimento, combattimento)
+  CLIENT_PREDICTIVE: 'client_predictive',          // Client predice, server corregge (input)
+  CLIENT_LOCAL: 'client_local'                     // Solo client (UI, suoni, effetti locali)
+} as const;
+
+export type AuthorityLevel = typeof AuthorityLevel[keyof typeof AuthorityLevel];
 
 /**
  * Componente Authority - definisce chi ha l'autorità su questa entity nel multiplayer

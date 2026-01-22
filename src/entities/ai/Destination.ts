@@ -1,4 +1,5 @@
 import { Component } from '../../infrastructure/ecs/Component';
+import { MathUtils } from '../../core/utils/MathUtils';
 
 /**
  * Componente Destination - rappresenta il punto target per il movimento
@@ -32,17 +33,15 @@ export class Destination extends Component {
    * Calcola la direzione verso la destinazione
    */
   getDirection(fromX: number, fromY: number): { x: number; y: number } {
-    const dx = this.x - fromX;
-    const dy = this.y - fromY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const { direction, distance } = MathUtils.calculateDirection(this.x, this.y, fromX, fromY);
 
     if (distance === 0) {
       return { x: 0, y: 0 };
     }
 
     return {
-      x: dx / distance,
-      y: dy / distance
+      x: direction.x,
+      y: direction.y
     };
   }
 
@@ -50,9 +49,7 @@ export class Destination extends Component {
    * Calcola la distanza dalla posizione corrente
    */
   getDistance(fromX: number, fromY: number): number {
-    const dx = this.x - fromX;
-    const dy = this.y - fromY;
-    return Math.sqrt(dx * dx + dy * dy);
+    return MathUtils.calculateDistance(this.x, this.y, fromX, fromY);
   }
 
   /**

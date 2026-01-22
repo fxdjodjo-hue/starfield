@@ -35,7 +35,6 @@ export class MessageRouter {
     if (handler) {
       try {
         if (import.meta.env.DEV && message.type === 'chat_message') {
-          console.log('[MessageRouter] Routing chat_message to handler:', handler.constructor.name);
         }
         handler.handle(message, networkSystem);
       } catch (error) {
@@ -59,6 +58,15 @@ export class MessageRouter {
    */
   private findHandler(messageType: string): MessageHandler | undefined {
     return this.handlers.find(handler => handler.canHandle(messageType));
+  }
+
+  /**
+   * Gets a handler by message type (public method for inter-handler communication)
+   * @param messageType The message type to find a handler for
+   * @returns The handler that can handle the message type, or undefined
+   */
+  getHandler(messageType: string): MessageHandler | undefined {
+    return this.findHandler(messageType);
   }
 
   /**

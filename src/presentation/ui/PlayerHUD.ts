@@ -1,4 +1,5 @@
 import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
+import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
 
 /**
  * Interfaccia per i dati del Player HUD
@@ -51,7 +52,7 @@ export class PlayerHUD {
       position: fixed;
       top: ${margin}px;
       left: ${margin}px;
-      display: flex;
+      display: none;
       align-items: center;
       gap: ${gap}px;
       background: rgba(255, 255, 255, 0.1);
@@ -94,6 +95,7 @@ export class PlayerHUD {
           <div class="stat-value">0</div>
         </div>
       </div>
+
     `;
 
     this.attachGlassStyles();
@@ -295,8 +297,12 @@ export class PlayerHUD {
     if (!document.body.contains(this.container)) {
       document.body.appendChild(this.container);
     }
+    
     this.container.style.display = 'flex';
     this.isVisible = true;
+    
+    // Usa fade-in sincronizzato
+    applyFadeIn(this.container);
   }
 
   /**

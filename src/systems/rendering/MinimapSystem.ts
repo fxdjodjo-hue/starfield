@@ -2,14 +2,16 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { Portal } from '../../entities/spatial/Portal';
 import { Minimap } from '../../presentation/ui/Minimap';
 import { Camera } from '../../entities/spatial/Camera';
-import { CONFIG } from '../../utils/config/Config';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 import { DisplayManager } from '../../infrastructure/display';
 
 /**
- * Sistema per gestire la minimappa quadrata
- * Gestisce rendering e interazione click-to-move
+ * MinimapSystem - Sistema ECS per rendering minimappa e navigazione
+ * Responsabilità: Rendering entità su minimappa quadrata, gestione click-to-move,
+ * sincronizzazione camera, evidenziazione entità selezionate
  */
 export class MinimapSystem extends BaseSystem {
   private minimap: Minimap;
@@ -21,6 +23,8 @@ export class MinimapSystem extends BaseSystem {
   private isMouseDownInMinimap: boolean = false;
   private mapBackgroundImage: HTMLImageElement | null = null;
   private clientNetworkSystem: any = null;
+  private fadeStartTime: number | null = null;
+  private fadeDuration: number = 600; // millisecondi, sincronizzato con altri elementi UI
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -53,12 +57,20 @@ export class MinimapSystem extends BaseSystem {
    * Carica l'immagine di sfondo della mappa
    */
   private loadMapBackground(mapName: string = 'sol_system'): void {
+    // Prova prima bg1forse.jpg (potrebbe essere più grande), altrimenti bg.jpg
     this.mapBackgroundImage = new Image();
-    this.mapBackgroundImage.src = `/assets/maps/${mapName}/bg.jpg`;
-
-    // Gestione errori di caricamento
+    
+    // Prova prima bg1forse.jpg
+    this.mapBackgroundImage.src = `/assets/maps/${mapName}/bg1forse.jpg`;
+    
+    // Gestione errori di caricamento - fallback a bg.jpg
     this.mapBackgroundImage.onerror = () => {
-      this.mapBackgroundImage = null;
+      this.mapBackgroundImage = new Image();
+      this.mapBackgroundImage.src = `/assets/maps/${mapName}/bg.jpg`;
+      this.mapBackgroundImage.onerror = () => {
+        this.mapBackgroundImage = null;
+        console.warn(`[MinimapSystem] Failed to load background image for map: ${mapName}`);
+      };
     };
   }
 
@@ -156,6 +168,24 @@ export class MinimapSystem extends BaseSystem {
   render(ctx: CanvasRenderingContext2D): void {
     if (!this.minimap.visible) return;
 
+    // Calcola opacità per fade-in sincronizzato
+    let opacity = 1;
+    if (this.fadeStartTime !== null) {
+      const elapsed = Date.now() - this.fadeStartTime;
+      if (elapsed < this.fadeDuration) {
+        // Easing cubic-bezier(0.4, 0, 0.2, 1) approssimato
+        const progress = elapsed / this.fadeDuration;
+        const easedProgress = progress < 1 ? 1 - Math.pow(1 - progress, 3) : 1;
+        opacity = easedProgress;
+      } else {
+        this.fadeStartTime = null; // Fade completato
+      }
+    }
+
+    // Applica opacità al rendering
+    ctx.save();
+    ctx.globalAlpha = opacity;
+
     // Trova la posizione del player per le linee di riferimento
     let playerPos: { x: number, y: number } | null = null;
     if (this.camera) {
@@ -165,8 +195,11 @@ export class MinimapSystem extends BaseSystem {
 
     this.renderMinimapBackground(ctx, playerPos);
     this.renderEntities(ctx);
+    this.renderPortals(ctx);
     this.renderRemotePlayers(ctx);
     this.renderPlayerIndicator(ctx);
+
+    ctx.restore();
   }
 
   /**
@@ -340,6 +373,20 @@ export class MinimapSystem extends BaseSystem {
   }
 
   /**
+   * Renderizza i portali sulla minimappa come cerchi bianchi
+   */
+  private renderPortals(ctx: CanvasRenderingContext2D): void {
+    const portalEntities = this.ecs.getEntitiesWithComponents(Portal);
+
+    portalEntities.forEach(entityId => {
+      const transform = this.ecs.getComponent(entityId, Transform);
+      if (transform) {
+        this.renderPortalDot(ctx, transform.x, transform.y);
+      }
+    });
+  }
+
+  /**
    * Renderizza i giocatori remoti sulla minimappa
    */
   private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
@@ -409,6 +456,28 @@ export class MinimapSystem extends BaseSystem {
     ctx.shadowBlur = 2;
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Ripristina stato
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza un portale come cerchio bianco vuoto
+   */
+  private renderPortalDot(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
+    const pos = this.minimap.worldToMinimap(worldX, worldY);
+    const c = this.minimap.getDprCompensation();
+    const radius = Math.round(6 * c);
+
+    // Salva stato
+    ctx.save();
+
+    // Cerchio bianco vuoto (solo contorno)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 1.0)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
     ctx.stroke();
 
     // Ripristina stato
@@ -508,6 +577,21 @@ export class MinimapSystem extends BaseSystem {
    */
   toggleVisibility(): void {
     this.minimap.visible = !this.minimap.visible;
+  }
+
+  /**
+   * Mostra la minimappa
+   */
+  show(): void {
+    this.minimap.visible = true;
+    this.fadeStartTime = Date.now();
+  }
+
+  /**
+   * Nasconde la minimappa
+   */
+  hide(): void {
+    this.minimap.visible = false;
   }
 
   /**

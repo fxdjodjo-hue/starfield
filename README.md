@@ -16,6 +16,8 @@ Un gioco spaziale 2D realizzato con TypeScript, Canvas API e architettura ECS (E
 
 Il progetto segue un'architettura **modulare e scalabile** con separazione chiara delle responsabilità:
 
+### Client-Side (TypeScript/ECS)
+
 ```
 src/
 ├── game/                          # 🎮 Logica di gioco
@@ -52,6 +54,11 @@ src/
 │       ├── Transform.ts           # Posizione e trasformazioni
 │       └── Velocity.ts            # Velocità e movimento
 ├── systems/                       # ⚙️ Sistemi di gioco
+│   ├── game/                      # Inizializzazione gioco (FASE 1.3)
+│   │   ├── GameInitializationSystem.ts  # Orchestratore (153 righe)
+│   │   ├── SystemFactory.ts       # Creazione sistemi e asset
+│   │   ├── SystemConfigurator.ts  # Configurazione interazioni
+│   │   └── EntityFactory.ts       # Creazione entità iniziali
 │   ├── ai/                        # Sistemi AI
 │   │   ├── NpcBehaviorSystem.ts   # Comportamenti NPC
 │   │   └── NpcSelectionSystem.ts  # Sistema selezione NPC
@@ -75,6 +82,45 @@ src/
     └── rendering/                 # Future: utility rendering
 ```
 
+### Server-Side (Node.js/CommonJS)
+
+```
+server/
+├── core/                          # 🏗️ Core server infrastructure
+│   ├── connection/                # WebSocket & Messaging (FASE 1.1)
+│   │   ├── WebSocketConnectionManager.cjs  # Gestione connessioni (245 righe)
+│   │   └── MessageRouter.cjs      # Routing messaggi (delegazione handler)
+│   ├── database/                 # Database operations
+│   │   └── PlayerDataManager.cjs  # Load/save player data
+│   ├── auth/                      # Authentication
+│   │   └── AuthenticationManager.cjs  # Security validation
+│   └── messaging/                 # Messaging
+│       └── MessageBroadcaster.cjs # Formattazione e broadcast
+├── managers/                      # 🎮 Game managers
+│   ├── projectile/                # Projectile system (FASE 1.2)
+│   │   ├── ProjectileSpawner.cjs  # Creazione proiettili
+│   │   ├── ProjectilePhysics.cjs  # Movimento e fisica
+│   │   ├── ProjectileCollision.cjs # Rilevamento collisioni
+│   │   ├── ProjectileHoming.cjs   # Logica homing avanzata
+│   │   ├── ProjectileBroadcaster.cjs # Eventi di rete
+│   │   └── ProjectileDamageHandler.cjs # Danno e ricompense
+│   ├── projectile-manager.cjs     # Orchestratore (316 righe)
+│   ├── npc/                       # NPC system (FASE 1.4)
+│   │   ├── NpcSpawner.cjs         # Creazione e inizializzazione
+│   │   ├── NpcRespawnSystem.cjs   # Gestione respawn
+│   │   ├── NpcDamageHandler.cjs   # Danni NPC/player
+│   │   ├── NpcRewardSystem.cjs    # Ricompense e notifiche
+│   │   └── NpcBroadcaster.cjs     # Broadcasting spawn
+│   └── npc-manager.cjs            # Orchestratore (154 righe)
+└── core/
+    ├── map/                       # Map system (FASE 1.5)
+    │   ├── NpcMovementSystem.cjs  # Movimento e comportamenti NPC
+    │   ├── MapBroadcaster.cjs     # Broadcasting messaggi
+    │   └── PositionUpdateProcessor.cjs # Processamento queue posizioni
+    └── map-server.cjs             # Orchestratore (111 righe)
+└── ...
+```
+
 ### 📋 Principi Architetturali
 
 1. **🎯 Single Responsibility** - Ogni modulo ha una responsabilità precisa
@@ -84,14 +130,35 @@ src/
 5. **🎮 Game Loop Pulito** - Update → Render → Repeat con fixed timestep
 6. **📚 Documentazione Granulare** - README per ogni cartella con esempi pratici
 
-### 📋 Principi Architetturali
+### 🔄 Refactoring Phase 1 (Completato)
 
-1. **🎯 Single Responsibility** - Ogni modulo ha una responsabilità precisa
-2. **🔄 Dependency Inversion** - Dipendenze verso l'interno (UI → Game → Systems → Entities → Infrastructure → Utils)
-3. **📦 Open/Closed** - Aperto all'estensione, chiuso alla modifica
-4. **🔌 Plugin Architecture** - Sistemi indipendenti e sostituibili
-5. **🎮 Game Loop Pulito** - Update → Render → Repeat con fixed timestep
-6. **📚 Documentazione Granulare** - README per ogni cartella con esempi pratici
+**Obiettivo**: Modularizzazione e riduzione complessità dei file core.
+
+#### FASE 1.1 - WebSocket & Messaging
+- **WebSocketConnectionManager.cjs**: 245 righe (gestione connessioni)
+- **MessageRouter.cjs**: Routing centralizzato con handler puri
+- **Separazione**: Connection ≠ Routing ≠ Business Logic
+
+#### FASE 1.2 - Projectile System
+- **projectile-manager.cjs**: 316 righe (orchestratore)
+- **Moduli specializzati**: Spawner, Physics, Collision, Homing, Broadcaster, DamageHandler
+- **API invariata**: Nessun cambiamento di gameplay
+
+#### FASE 1.3 - Game Initialization
+- **GameInitializationSystem.ts**: 153 righe (orchestratore)
+- **SystemFactory.ts**: Creazione sistemi e caricamento asset
+- **SystemConfigurator.ts**: Configurazione interazioni tra sistemi
+- **EntityFactory.ts**: Creazione entità iniziali (player, teleport)
+
+#### FASE 1.4 - NPC Manager
+- **npc-manager.cjs**: 154 righe (orchestratore)
+- **Moduli specializzati**: Spawner, RespawnSystem, DamageHandler, RewardSystem, Broadcaster
+- **API invariata**: Nessun cambiamento di gameplay
+
+#### FASE 1.5 - Map Server
+- **map-server.cjs**: 111 righe (orchestratore)
+- **Moduli specializzati**: NpcMovementSystem, MapBroadcaster, PositionUpdateProcessor
+- **API invariata**: Nessun cambiamento di gameplay
 
 ## 🎮 Come Giocare
 
@@ -251,3 +318,8 @@ Contributi benvenuti! L'architettura modulare facilita l'aggiunta di nuove funzi
 ---
 
 *Realizzato con TypeScript, Canvas 2D e architettura ECS per un'esperienza di gioco moderna e scalabile!* 🚀✨
+
+*Aggiornato il: 2026-01-22*
+#   D e p l o y   t r i g g e r   w i t h   V I T E _ S E R V E R _ U R L 
+ 
+ 

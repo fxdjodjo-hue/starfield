@@ -10,6 +10,7 @@ export class ChatManager {
   private localPlayerId: string = 'local-player';
   private context: any = null;
   private messageCallbacks: ((message: ChatMessage) => void)[] = [];
+  private recentMessageIds: Set<string> = new Set();
 
   constructor(chatPanel: ChatPanel, context?: any) {
     this.chatPanel = chatPanel;
@@ -56,8 +57,26 @@ export class ChatManager {
     }
 
     // Non mostrare messaggi propri (già mostrati localmente)
+    // Controllo multiplo per sicurezza
     if (message.senderId === this.localPlayerId) {
+      if (import.meta.env.DEV) {
+      }
       return;
+    }
+
+    // Controllo duplicati per ID (prevenzione aggiuntiva)
+    if (message.id && this.recentMessageIds.has(message.id)) {
+      if (import.meta.env.DEV) {
+      }
+      return;
+    }
+
+    // Aggiungi ID alla lista dei messaggi recenti (pulizia dopo 5 minuti)
+    if (message.id) {
+      this.recentMessageIds.add(message.id);
+      setTimeout(() => {
+        this.recentMessageIds.delete(message.id);
+      }, 5 * 60 * 1000); // 5 minuti
     }
 
     // Aggiungi alla chat
@@ -66,7 +85,8 @@ export class ChatManager {
       sender: message.senderName,
       content: message.content,
       timestamp: message.timestamp,
-      type: 'user' // o 'network' se vuoi distinguere
+      type: 'user', // o 'network' se vuoi distinguere
+      isAdministrator: message.isAdministrator || false
     });
   }
 
@@ -219,4 +239,5 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   type: 'user' | 'system' | 'network';
+  isAdministrator?: boolean;
 }

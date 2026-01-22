@@ -64,7 +64,7 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Acquista un upgrade Damage (+1% Damage)
+   * Acquista un upgrade Weapon Damage (+1% Weapon Damage)
    */
   upgradeDamage(): boolean {
     this._damageUpgrades++;
@@ -105,7 +105,7 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Rollback upgrade Damage (per errori)
+   * Rollback upgrade Weapon Damage (per errori)
    */
   rollbackDamage(): boolean {
     if (this._damageUpgrades > 0) {
@@ -137,7 +137,7 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Damage (1.0 + upgrades * 0.01)
+   * Calcola il bonus moltiplicatore per Weapon Damage (1.0 + upgrades * 0.01)
    */
   getDamageBonus(): number {
     return 1.0 + (this._damageUpgrades * 0.01);

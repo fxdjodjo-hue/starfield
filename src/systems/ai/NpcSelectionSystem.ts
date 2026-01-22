@@ -3,6 +3,8 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Npc } from '../../entities/ai/Npc';
 import { Transform } from '../../entities/spatial/Transform';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { LogSystem } from '../rendering/LogSystem';
+import { LogType } from '../../presentation/ui/LogMessage';
 
 /**
  * Sistema di selezione NPC - gestisce click su NPC e selezione
@@ -74,6 +76,10 @@ export class NpcSelectionSystem extends BaseSystem {
    * Seleziona un NPC specifico (deselezionando gli altri)
    */
   private selectNpc(npcEntity: any): void {
+    // Verifica se l'NPC è già selezionato PRIMA di deselezionare tutti (per evitare log duplicati)
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    const alreadySelected = selectedNpcs.length > 0 && selectedNpcs[0].id === npcEntity.id;
+    
     // Ogni volta che si seleziona un NPC, disattiva l'attacco per dare controllo totale al giocatore
     this.deactivateAttackOnAnySelection();
 
@@ -82,6 +88,8 @@ export class NpcSelectionSystem extends BaseSystem {
 
     // Aggiungi selezione al NPC selezionato
     this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
+
+    // Selection logged removed
   }
 
   /**

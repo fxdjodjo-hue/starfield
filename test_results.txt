@@ -1,0 +1,19 @@
+﻿--- Starting Playtest Setup Verification ---
+Ô£à Registration without code (Status: 403, Expected: 403)
+Ô£à Registration with wrong code (Status: 403, Expected: 403)
+ÔØî Registration with correct code (Status: 403, Expected: 401)
+   Response: {"error":"Invalid playtest code."}
+Testing Rate Limiting (sending 6 requests)...
+ÔØî Rate limit request 1 (Status: 403, Expected: 429)
+   Response: {"error":"Invalid playtest code."}
+ÔØî Rate limit request 2 (Status: 403, Expected: 429)
+   Response: {"error":"Invalid playtest code."}
+Ô£à Rate limit request 3 (Status: 429, Expected: 429)
+Ô£à Rate limit request 4 (Status: 429, Expected: 429)
+Ô£à Rate limit request 5 (Status: 429, Expected: 429)
+Ô£à Rate limit hit (request 6) (Status: 429, Expected: 429)
+Ô£à CORS restricted origin (Status: 200, Expected: 200)
+Testing Crash Recovery...
+Ô£à Trigger crash (Status: 200, Expected: 200)
+Waiting 500ms for crash propagation...
+Ô£à Verify server still alive after crash (Status: 200, Expected: 200)

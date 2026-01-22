@@ -10,6 +10,7 @@ import { Damage } from '../../entities/combat/Damage';
 import { Npc } from '../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import { getNpcDefinition } from '../../config/NpcConfig';
+import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
 
 /**
  * Sistema per la gestione degli NPC remoti in multiplayer
@@ -27,6 +28,7 @@ export class RemoteNpcSystem extends BaseSystem {
 
   // Tracking per logging ridotto
   private lastBulkUpdateLog = 0;
+  private lastStatusLog = 0;
 
   constructor(ecs: ECS, npcSprites: Map<string, HTMLImageElement>, assetManager?: any) {
     super(ecs);
@@ -39,16 +41,36 @@ export class RemoteNpcSystem extends BaseSystem {
    * Supporta sia Sprite normali che AnimatedSprite (spritesheet)
    */
   private initializeNpcSprites(sprites: Map<string, HTMLImageElement>): void {
-    // Scouter sprite
+    // Scouter sprite - usa scala dal config (single source of truth)
+    const scouterDef = getNpcDefinition('Scouter');
     const scouterImage = sprites.get('scouter');
     if (scouterImage) {
-      this.npcSprites.set('Scouter', new Sprite(scouterImage, scouterImage.width * 0.15, scouterImage.height * 0.15));
+      const scale = scouterDef?.spriteScale || 0.8;
+      this.npcSprites.set('Scouter', new Sprite(scouterImage, scouterImage.width * scale, scouterImage.height * scale));
     }
 
-    // Kronos sprite
+    // Kronos sprite - usa scala dal config
+    const kronosDef = getNpcDefinition('Kronos');
     const kronosImage = sprites.get('kronos');
     if (kronosImage) {
-      this.npcSprites.set('Kronos', new Sprite(kronosImage, kronosImage.width * 0.16, kronosImage.height * 0.16));
+      const scale = kronosDef?.spriteScale || 0.16;
+      this.npcSprites.set('Kronos', new Sprite(kronosImage, kronosImage.width * scale, kronosImage.height * scale));
+    }
+
+    // Guard sprite - usa scala dal config
+    const guardDef = getNpcDefinition('Guard');
+    const guardImage = sprites.get('guard');
+    if (guardImage) {
+      const scale = guardDef?.spriteScale || 0.8;
+      this.npcSprites.set('Guard', new Sprite(guardImage, guardImage.width * scale, guardImage.height * scale));
+    }
+
+    // Pyramid sprite - usa scala dal config
+    const pyramidDef = getNpcDefinition('Pyramid');
+    const pyramidImage = sprites.get('pyramid');
+    if (pyramidImage) {
+      const scale = pyramidDef?.spriteScale || 1.5;
+      this.npcSprites.set('Pyramid', new Sprite(pyramidImage, pyramidImage.width * scale, pyramidImage.height * scale));
     }
   }
 
@@ -79,23 +101,34 @@ export class RemoteNpcSystem extends BaseSystem {
    * Aggiorna l'immagine di uno sprite NPC (se caricata dinamicamente)
    */
   updateNpcSprite(type: string, image: HTMLImageElement): void {
-    const scale = type === 'Scouter' ? 0.15 : 0.16;
+    // Usa scala dal config (single source of truth)
+    const npcDef = getNpcDefinition(type);
+    const scale = npcDef?.spriteScale || (type === 'Scouter' ? 0.8 : 0.16);
     this.npcSprites.set(type, new Sprite(image, image.width * scale, image.height * scale));
   }
 
   /**
    * Crea un nuovo NPC remoto
    */
-  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
+  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
     // Verifica se l'NPC esiste già
     if (this.remoteNpcs.has(npcId)) {
-      this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, behavior);
-      return this.remoteNpcs.get(npcId)!.entityId;
+      // NPC già esistente - aggiorna invece di creare duplicato
+      // Log per debug duplicati
+      const existingNpcData = this.remoteNpcs.get(npcId)!;
+      console.warn(`[RemoteNpcSystem] Duplicate NPC creation attempt for ${npcId} (${type}) - updating existing entity ${existingNpcData.entityId} instead`);
+
+      this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, shield, behavior);
+      return existingNpcData.entityId;
     }
 
+    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos, Guard, Pyramid)
+    const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' || normalizedType === 'Guard' || normalizedType === 'Pyramid' ? normalizedType : type;
+
     // Ottieni lo sprite o animatedSprite per questo tipo di NPC
-    const animatedSprite = this.npcAnimatedSprites.get(type);
-    const sprite = this.npcSprites.get(type);
+    const animatedSprite = this.npcAnimatedSprites.get(validType);
+    const sprite = this.npcSprites.get(validType);
     
     if (!animatedSprite && !sprite) {
       return -1;
@@ -105,10 +138,11 @@ export class RemoteNpcSystem extends BaseSystem {
     const entity = this.ecs.createEntity();
 
     // Componenti spaziali con interpolazione
-    // Per Kronos, usa scala maggiore
-    const scale = type === 'Kronos' ? 4.5 : 1;
-    this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, scale, scale));
-    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation));
+    // Usa scala dal config (single source of truth)
+    const npcDef = getNpcDefinition(validType);
+    const transformScale = npcDef?.transformScale || (npcDef?.spriteScale || 1);
+    this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, transformScale, transformScale));
+    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation, true));
 
     // Componenti visivi - priorità ad AnimatedSprite se disponibile
     if (animatedSprite) {
@@ -121,11 +155,10 @@ export class RemoteNpcSystem extends BaseSystem {
     this.ecs.addComponent(entity, Health, new Health(health.current, health.max));
     this.ecs.addComponent(entity, Shield, new Shield(shield.current, shield.max));
 
-    // Componenti NPC
-    const npcDef = getNpcDefinition(type);
+    // Componenti NPC - usa il tipo normalizzato
     if (npcDef) {
       this.ecs.addComponent(entity, Damage, new Damage(npcDef.stats.damage, npcDef.stats.range, npcDef.stats.cooldown));
-      this.ecs.addComponent(entity, Npc, new Npc(type, behavior, npcId)); // npcId è l'ID server
+      this.ecs.addComponent(entity, Npc, new Npc(validType, behavior, npcId)); // Usa validType normalizzato
     }
 
     // Authority: NPC controllati SOLO dal server
@@ -154,39 +187,37 @@ export class RemoteNpcSystem extends BaseSystem {
       return;
     }
 
-    // Aggiorna posizione con interpolazione
+    // Crea update object per EntityStateSystem
+    const update: any = {};
+
     if (position) {
-      const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
-      if (interpolation) {
-        interpolation.updateTarget(position.x, position.y, position.rotation || 0);
-      }
+      update.position = {
+        x: position.x,
+        y: position.y,
+        rotation: position.rotation || 0
+      };
     }
 
-    // Aggiorna salute
     if (health) {
-      const healthComponent = this.ecs.getComponent(entity, Health);
-      if (healthComponent) {
-        healthComponent.current = health.current;
-        healthComponent.max = health.max;
-      }
+      update.health = {
+        current: health.current,
+        max: health.max
+      };
     }
 
-    // Aggiorna shield
     if (shield) {
-      const shieldComponent = this.ecs.getComponent(entity, Shield);
-      if (shieldComponent) {
-        shieldComponent.current = shield.current;
-        shieldComponent.max = shield.max;
-      }
+      update.shield = {
+        current: shield.current,
+        max: shield.max
+      };
     }
 
-    // Aggiorna comportamento
     if (behavior) {
-      const npcComponent = this.ecs.getComponent(entity, Npc);
-      if (npcComponent) {
-        npcComponent.behavior = behavior;
-      }
+      update.behavior = behavior;
     }
+
+    // Usa EntityStateSystem per aggiornare lo stato
+    EntityStateSystem.updateEntityState(this.ecs, entity, update);
   }
 
   /**
@@ -232,7 +263,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Inizializza NPC dal messaggio initial_npcs
    */
-  initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Kronos', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
+  initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
     for (const npcData of npcs) {
       this.addRemoteNpc(
         npcData.id,
@@ -295,11 +326,45 @@ export class RemoteNpcSystem extends BaseSystem {
   }
 
   /**
-   * Update periodico (principalmente per logging)
+   * Update periodico - verifica consistenza e cleanup
    */
   update(deltaTime: number): void {
-    // No periodic logging needed
+    // Verifica periodica di consistenza (ogni 10 secondi)
+    this.lastStatusLog += deltaTime;
+    if (this.lastStatusLog > 10000) {
+      this.checkConsistency();
+      this.lastStatusLog = 0;
+    }
   }
 
-  private lastStatusLog = 0;
+  /**
+   * Verifica la consistenza tra entità ECS e registro remoto
+   * Utile per identificare NPC "orfani" o duplicati
+   */
+  private checkConsistency(): void {
+    const npcsInECS = this.ecs.getEntitiesWithComponents(Npc);
+    const registeredNpcIds = new Set(this.remoteNpcs.keys());
+
+    let orphanedCount = 0;
+    let validCount = 0;
+
+    for (const entity of npcsInECS) {
+      const npcComponent = this.ecs.getComponent(entity, Npc);
+      if (npcComponent && npcComponent.serverId) {
+        if (registeredNpcIds.has(npcComponent.serverId)) {
+          validCount++;
+        } else {
+          orphanedCount++;
+          console.warn(`[RemoteNpcSystem] Orphaned NPC entity ${entity.id} with serverId ${npcComponent.serverId} - not in remote registry`);
+          // Rimuovi entità orfana automaticamente
+          this.ecs.removeEntity(entity);
+        }
+      }
+    }
+
+    // Log summary se ci sono problemi
+    if (orphanedCount > 0) {
+      console.warn(`[RemoteNpcSystem] Consistency check: ${validCount} valid NPCs, ${orphanedCount} orphaned NPCs removed, ${this.remoteNpcs.size} registered`);
+    }
+  }
 }

@@ -28,6 +28,8 @@ export interface NpcAI {
 export interface NpcDefinition {
   type: string;
   defaultBehavior: string;
+  spriteScale?: number; // Scala dello sprite (per AnimatedSprite e Sprite)
+  transformScale?: number; // Scala del Transform (opzionale, default 1)
   stats: NpcStats;
   rewards: NpcRewards;
   spawns?: string[]; // Tipi di NPC che questo NPC può generare
@@ -37,12 +39,6 @@ export interface NpcDefinition {
 
 // Carica configurazione condivisa
 import npcConfigData from '../../shared/npc-config.json';
-
-// Dichiarazione per import JSON
-declare module '*.json' {
-  const value: any;
-  export default value;
-}
 
 /**
  * Definizioni di tutti gli NPC del gioco - caricate da file condiviso

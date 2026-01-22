@@ -7,20 +7,16 @@ const { createClient } = require('@supabase/supabase-js');
 
 // Sistema di logging
 const { logger, messageCount } = require('./server/logger.cjs');
+const ServerLoggerWrapper = require('./server/core/infrastructure/ServerLoggerWrapper.cjs');
 
 // Supabase client per il server
 const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbwbvwis.supabase.co';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
 
-console.log('🔍 [SERVER] SUPABASE CONFIG:');
-console.log('   URL:', supabaseUrl);
-console.log('   KEY starts with:', supabaseServiceKey.substring(0, 20) + '...');
-console.log('   KEY length:', supabaseServiceKey.length);
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 // Database è configurato correttamente - le policy RLS sono applicate
-console.log('✅ [SERVER] Database configured with service role access');
 
 // Carica configurazioni centralizzate
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('./server/config/constants.cjs');
@@ -29,6 +25,7 @@ const { SERVER_CONSTANTS, NPC_CONFIG } = require('./server/config/constants.cjs'
 const ServerNpcManager = require('./server/managers/npc-manager.cjs');
 const ServerCombatManager = require('./server/managers/combat-manager.cjs');
 const ServerProjectileManager = require('./server/managers/projectile-manager.cjs');
+const RepairManager = require('./server/managers/repair-manager.cjs');
 
 // Core
 const MapServer = require('./server/core/map-server.cjs');
@@ -37,6 +34,31 @@ const WebSocketConnectionManager = require('./server/core/websocket-manager.cjs'
 
 // Crea server HTTP per healthcheck e WebSocket sulla stessa porta
 const PORT = process.env.PORT || 3000;
+const IS_PLAYTEST = process.env.IS_PLAYTEST === 'true';
+const PLAYTEST_CODE = process.env.PLAYTEST_CODE;
+const MAX_ACCOUNTS = parseInt(process.env.MAX_ACCOUNTS || '20');
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
+// Simple in-memory rate limiter for login/register
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 5;
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const userData = rateLimitMap.get(ip) || { count: 0, firstRequest: now };
+
+  if (now - userData.firstRequest > RATE_LIMIT_WINDOW) {
+    userData.count = 1;
+    userData.firstRequest = now;
+  } else {
+    userData.count++;
+  }
+
+  rateLimitMap.set(ip, userData);
+  return userData.count <= MAX_REQUESTS_PER_WINDOW;
+}
+
 const http = require('http');
 
 // Crea server HTTP con API endpoints sicuri
@@ -51,7 +73,7 @@ const server = http.createServer(async (req, res) => {
   // API endpoints sicuri
   if (req.url?.startsWith('/api/')) {
     // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -68,13 +90,40 @@ const server = http.createServer(async (req, res) => {
 
       // POST /api/create-profile - Crea profilo giocatore
       if (pathParts[0] === 'api' && pathParts[1] === 'create-profile' && req.method === 'POST') {
-        console.log('📡 [API] Received create-profile request');
+        const ip = req.socket.remoteAddress;
+        if (!checkRateLimit(ip)) {
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Too many requests. Please try again later.' }));
+          return;
+        }
+
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', async () => {
           try {
-            const { username } = JSON.parse(body);
-            console.log('📡 [API] Parsed request body:', { username });
+            const { username, playtestCode } = JSON.parse(body);
+
+            // PLAYTEST GATE: Verify playtest code if enabled
+            if (IS_PLAYTEST && PLAYTEST_CODE) {
+              if (playtestCode !== PLAYTEST_CODE) {
+                res.writeHead(403, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid playtest code.' }));
+                return;
+              }
+            }
+
+            // PLAYTEST GATE: Check max accounts
+            if (IS_PLAYTEST) {
+              const { count, error: countError } = await supabase
+                .from('players')
+                .select('*', { count: 'exact', head: true });
+
+              if (!countError && count >= MAX_ACCOUNTS) {
+                res.writeHead(403, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Maximum account limit reached for this playtest.' }));
+                return;
+              }
+            }
 
             // Verifica autenticazione
             const authHeader = req.headers.authorization;
@@ -95,31 +144,56 @@ const server = http.createServer(async (req, res) => {
             }
 
             // Crea profilo usando RPC sicura
-            console.log('🔧 [API] Calling RPC create_player_profile:', { auth_id: user.id, username });
             const { data, error } = await supabase.rpc('create_player_profile', {
               auth_id_param: user.id,
               username_param: username
             });
 
-            console.log('🔧 [API] RPC response:', { data, error });
 
             if (error) {
-              console.error('❌ [API] RPC error:', error);
+              ServerLoggerWrapper.warn('API', `RPC error creating player profile: ${error.message}`);
               res.writeHead(400, { 'Content-Type': 'application/json' });
               res.end(JSON.stringify({ error: error.message }));
               return;
             }
 
-            console.log('✅ [API] Profile created successfully:', data);
             // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
             const profileData = Array.isArray(data) && data.length > 0 ? data[0] : data;
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ data: profileData }));
 
           } catch (error) {
-            console.error('❌ [API] Exception in create-profile:', error);
+            ServerLoggerWrapper.error('API', `Exception in create-profile: ${error.message}`);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
+          }
+        });
+        return;
+      }
+
+      // POST /api/verify-playtest-code - Verifica codice accesso playtest
+      if (pathParts[0] === 'api' && pathParts[1] === 'verify-playtest-code' && req.method === 'POST') {
+        let body = '';
+        req.on('data', chunk => body += chunk);
+        req.on('end', async () => {
+          try {
+            const { code } = JSON.parse(body);
+            if (!IS_PLAYTEST || !PLAYTEST_CODE) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+              return;
+            }
+
+            if (code === PLAYTEST_CODE) {
+              res.writeHead(200, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: true }));
+            } else {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: 'Invalid playtest code' }));
+            }
+          } catch (error) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
           }
         });
         return;
@@ -144,7 +218,6 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
-          console.log('📡 [API] Received lazy-data request for:', authId);
 
           // Usa la RPC consolidata per ottenere SOLO i dati lazy
           const { data, error } = await supabase.rpc('get_player_complete_data_secure', {
@@ -152,7 +225,7 @@ const server = http.createServer(async (req, res) => {
           });
 
           if (error) {
-            console.error('❌ [API] Lazy data RPC error:', error);
+            ServerLoggerWrapper.warn('API', `Lazy data RPC error: ${error.message}`);
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
             return;
@@ -167,12 +240,11 @@ const server = http.createServer(async (req, res) => {
             quests: lazyData.quests_data ? JSON.parse(lazyData.quests_data) : []
           };
 
-          console.log('✅ [API] Lazy data retrieved successfully');
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: response }));
 
         } catch (error) {
-          console.error('❌ [API] Exception in lazy-data:', error);
+          ServerLoggerWrapper.error('API', `Exception in lazy-data: ${error.message}`);
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message }));
         }
@@ -218,9 +290,7 @@ const server = http.createServer(async (req, res) => {
             quests: data.quests_data ? JSON.parse(data.quests_data) : []
           };
 
-          res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: playerData }));
-
         } catch (error) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message }));
@@ -270,6 +340,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Internal server error' }));
@@ -290,9 +361,7 @@ const wss = new WebSocket.Server({
 
 // Avvia il server sulla porta configurata
 server.listen(parseInt(PORT), '0.0.0.0', () => {
-  logger.info('SERVER', `🚀 Server started on 0.0.0.0:${PORT}`);
-  logger.info('SERVER', `🌐 WebSocket available at ws://0.0.0.0:${PORT}`);
-  logger.info('SERVER', `💚 Health check available at http://0.0.0.0:${PORT}/health`);
+  ServerLoggerWrapper.info('SERVER', `Server started on port ${PORT} with WebSocket and health check endpoints`);
 });
 
 const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
@@ -302,15 +371,84 @@ setInterval(() => {
   mapServer.tick();
 }, 50);
 
+// Autosave player data ogni 60 secondi (solo valori critici per playtest)
+setInterval(() => {
+  performAutosave();
+}, 60000);
+
+async function performAutosave() {
+  try {
+    const connectedPlayers = mapServer.players.size;
+    if (connectedPlayers === 0) return; // No players to save
+
+    let savedCount = 0;
+    const errors = [];
+
+    // Salva solo valori critici per ogni player connesso
+    for (const [clientId, playerData] of mapServer.players.entries()) {
+      try {
+        // Estrai solo i dati critici da salvare
+        const criticalData = {
+          playerId: playerData.playerId,
+          userId: playerData.userId,
+          // Valute principali
+          inventory: {
+            credits: playerData.inventory?.credits || 0,
+            cosmos: playerData.inventory?.cosmos || 0,
+            experience: playerData.inventory?.experience || 0,
+            honor: playerData.inventory?.honor || 0,
+            skillPoints: playerData.inventory?.skillPoints || 0
+          },
+          // Upgrade principali
+          upgrades: {
+            hpUpgrades: playerData.upgrades?.hpUpgrades || 0,
+            shieldUpgrades: playerData.upgrades?.shieldUpgrades || 0,
+            speedUpgrades: playerData.upgrades?.speedUpgrades || 0,
+            damageUpgrades: playerData.upgrades?.damageUpgrades || 0
+          }
+        };
+
+        // Usa il PlayerDataManager per salvare
+        await wsManager.playerDataManager.savePlayerData(criticalData);
+        savedCount++;
+      } catch (playerError) {
+        errors.push(`Player ${clientId}: ${playerError.message}`);
+        ServerLoggerWrapper.error('AUTOSAVE', `Failed to save player ${clientId}: ${playerError.message}`);
+      }
+    }
+
+    ServerLoggerWrapper.info('AUTOSAVE', `✅ Autosave completed: ${savedCount}/${connectedPlayers} players saved`);
+
+    if (errors.length > 0) {
+      ServerLoggerWrapper.warn('AUTOSAVE', `⚠️ Autosave errors: ${errors.join(', ')}`);
+    }
+
+  } catch (error) {
+    ServerLoggerWrapper.error('AUTOSAVE', `❌ Autosave failed: ${error.message}`);
+  }
+}
+
 // Il messaggio di avvio è già nel callback di server.listen()
 
 
-// Istanza della mappa principale
-const mapServer = new MapServer('default_map');
+// Istanza della mappa principale con configurazione NPC
+const mapServer = new MapServer('default_map', {
+  npcConfig: {
+    scouterCount: 20,
+    frigateCount: 10,  // Kronos
+    guardCount: 10,
+    pyramidCount: 10
+  }
+});
 mapServer.initialize();
 
 // Aggiungi combat manager alla mappa
 mapServer.combatManager = new ServerCombatManager(mapServer);
+
+// Aggiungi repair manager alla mappa
+mapServer.repairManager = new RepairManager(mapServer);
+
+ServerLoggerWrapper.info('SERVER', 'Map system initialized with combat and repair managers');
 
 /**
  * Processa la queue degli aggiornamenti posizione per ridurre race conditions
@@ -336,4 +474,15 @@ process.on('SIGINT', () => {
     logger.info('SERVER', '✅ Server shut down gracefully');
     process.exit(0);
   });
+});
+
+// Global Error Handling to prevent crashes
+process.on('uncaughtException', (error) => {
+  ServerLoggerWrapper.error('FATAL', `Uncaught Exception: ${error.message}`);
+  ServerLoggerWrapper.error('FATAL', error.stack);
+  // Optional: Graceful shutdown or alert
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  ServerLoggerWrapper.error('FATAL', `Unhandled Rejection at: ${promise}, reason: ${reason}`);
 });

@@ -1,6 +1,6 @@
 import { World } from '../../infrastructure/engine/World';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
-import { QuestManager } from './QuestManager';
+import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
 import {
@@ -120,7 +120,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
   private handleQuestCompletion(quest: any, activeQuestComponent: ActiveQuest): void {
     // Mostra messaggio di completamento quest nel log
     if (this.logSystem) {
-      this.logSystem.addLogMessage(`🎉 Quest "${quest.title}" completed!`, LogType.REWARD, 5000);
+      this.logSystem.addLogMessage(`Quest "${quest.title}" completed!`, LogType.REWARD, 5000);
     }
 
     // Completa la quest e ottieni le ricompense

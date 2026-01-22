@@ -2,10 +2,14 @@
 // Dipendenze consentite: logger.cjs, managers (npc, combat, projectile)
 
 const { logger } = require('../logger.cjs');
-const { SERVER_CONSTANTS, NPC_CONFIG } = require('../config/constants.cjs');
+const ServerLoggerWrapper = require('./infrastructure/ServerLoggerWrapper.cjs');
 const ServerNpcManager = require('../managers/npc-manager.cjs');
 const ServerCombatManager = require('../managers/combat-manager.cjs');
 const ServerProjectileManager = require('../managers/projectile-manager.cjs');
+const NpcMovementSystem = require('./map/NpcMovementSystem.cjs');
+const MapBroadcaster = require('./map/MapBroadcaster.cjs');
+const PositionUpdateProcessor = require('./map/PositionUpdateProcessor.cjs');
+const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
 
 class MapServer {
   constructor(mapId, config = {}) {
@@ -26,27 +30,41 @@ class MapServer {
     this.positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
 
     // Configurazione NPC per questa mappa
-    this.npcConfig = config.npcConfig || { scouterCount: 25, frigateCount: 25 };
+    this.npcConfig = config.npcConfig || { scouterCount: 0, frigateCount: 0, guardCount: 0, pyramidCount: 1 };
+
+    // Sistema di monitoraggio globale
+    this.globalMonitor = new GlobalGameMonitor(this);
+
+    // Setup hook per eventi critici
+    this.setupGlobalMonitorHooks();
+
+    // Logging periodico: 30s in DEV, 60s in PROD
+    const logInterval = process.env.NODE_ENV === 'production' ? 60000 : 30000;
+    setInterval(() => {
+      if (this.globalMonitor.isEnabled) {
+        this.globalMonitor.logGlobalSummary();
+      }
+    }, logInterval);
   }
 
   // Inizializzazione della mappa
   initialize() {
-    logger.info('MAP', `Initializing map ${this.mapId}...`);
+    ServerLoggerWrapper.system(`Initializing map ${this.mapId}...`);
     this.npcManager.initializeWorldNpcs(
       this.npcConfig.scouterCount,
-      this.npcConfig.frigateCount
+      this.npcConfig.frigateCount,
+      this.npcConfig.guardCount || 0,
+      this.npcConfig.pyramidCount || 1
     );
   }
 
   // Gestione giocatori
   addPlayer(clientId, playerData) {
     this.players.set(clientId, playerData);
-    logger.info('MAP', `Player ${clientId} joined map ${this.mapId}`);
   }
 
   removePlayer(clientId) {
     this.players.delete(clientId);
-    logger.info('MAP', `Player ${clientId} left map ${this.mapId}`);
   }
 
   // Metodi delegati ai managers
@@ -58,7 +76,8 @@ class MapServer {
   tick() {
     try {
       // 1. Movimento NPC
-      this.updateNpcMovements();
+      const allNpcs = this.npcManager.getAllNpcs();
+      NpcMovementSystem.updateMovements(allNpcs, this.players, this.npcManager);
 
       // 2. Logica di combat NPC (attacchi automatici)
       if (this.combatManager) {
@@ -72,414 +91,88 @@ class MapServer {
       this.projectileManager.broadcastHomingProjectileUpdates();
 
       // 4. Broadcast aggiornamenti NPC significativi
-      this.broadcastNpcUpdates();
+      MapBroadcaster.broadcastNpcUpdates(this.players, allNpcs);
 
       // 5. Processa aggiornamenti posizione giocatori
-      this.processPositionUpdates();
+      PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);
+
+      // 6. Processa riparazioni player
+      if (this.repairManager) {
+        this.repairManager.updateRepairs(Date.now());
+      }
 
     } catch (error) {
-      console.error(`❌ [MapServer:${this.mapId}] Error in tick:`, error);
+      ServerLoggerWrapper.error('MAP', `Error in tick for map ${this.mapId}: ${error.message}`);
     }
   }
 
-  // Broadcasting specifico della mappa
+  // Broadcasting specifico della mappa (delegato a MapBroadcaster)
   broadcastToMap(message, excludeClientId = null) {
-    const payload = JSON.stringify(message);
-    let sentCount = 0;
-    let excludedCount = 0;
-    let closedCount = 0;
-
-    for (const [clientId, playerData] of this.players.entries()) {
-      if (excludeClientId && clientId === excludeClientId) {
-        excludedCount++;
-        continue;
-      }
-
-      if (playerData.ws.readyState === WebSocket.OPEN) {
-        try {
-          playerData.ws.send(payload);
-          sentCount++;
-        } catch (error) {
-          console.error(`[MapServer] Error sending to ${clientId}:`, error);
-        }
-      } else {
-        closedCount++;
-      }
-    }
-
-    if (message.type === 'chat_message') {
-      const { logger } = require('../logger.cjs');
-      logger.info('MAP', `Chat broadcast: sent=${sentCount}, excluded=${excludedCount}, closed=${closedCount}, total=${this.players.size}`);
-    }
+    return MapBroadcaster.broadcastToMap(this.players, message, excludeClientId);
   }
 
-  // Broadcasting con interest radius (solo giocatori entro il raggio)
+  // Broadcasting con interest radius (delegato a MapBroadcaster)
   broadcastNear(position, radius, message, excludeClientId = null) {
-    const payload = JSON.stringify(message);
-    const radiusSq = radius * radius; // Evita sqrt per performance
-
-    for (const [clientId, playerData] of this.players.entries()) {
-      if (excludeClientId && clientId === excludeClientId) continue;
-      if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
-
-      // Calcola distanza quadrata
-      const dx = playerData.position.x - position.x;
-      const dy = playerData.position.y - position.y;
-      const distSq = dx * dx + dy * dy;
-
-      // Invia solo se entro il raggio
-      if (distSq <= radiusSq) {
-        playerData.ws.send(payload);
-      }
-    }
+    MapBroadcaster.broadcastNear(this.players, position, radius, message, excludeClientId);
   }
 
-  // Sistema di movimento NPC semplice (server-side)
-  updateNpcMovements() {
-    const allNpcs = this.npcManager.getAllNpcs();
-
-    for (const npc of allNpcs) {
-      const deltaTime = 1000 / 60; // Fixed timestep per fisica server
-
-      // Validazione posizione iniziale
-      if (!Number.isFinite(npc.position.x) || !Number.isFinite(npc.position.y)) {
-        console.warn(`⚠️ [SERVER] NPC ${npc.id} has invalid initial position: (${npc.position.x}, ${npc.position.y}), skipping`);
-        continue;
-      }
-
-      // Salva posizione iniziale per calcolare movimento significativo
-      const startX = npc.position.x;
-      const startY = npc.position.y;
-
-    // Movimento semplice con velocity
-    const speed = NPC_CONFIG[npc.type].stats.speed;
-
-    // Validazione velocità: assicurati che siano finite
-    if (!Number.isFinite(npc.velocity.x) || !Number.isFinite(npc.velocity.y)) {
-      console.warn(`⚠️ [SERVER] NPC ${npc.id} velocity became NaN, resetting. Speed: ${speed}, deltaTime: ${deltaTime}`);
-      npc.velocity.x = (Math.random() - 0.5) * 100;
-      npc.velocity.y = (Math.random() - 0.5) * 100;
-    }
-
-    // Validazione parametri movimento
-    if (!Number.isFinite(speed) || speed <= 0) {
-      console.warn(`⚠️ [SERVER] NPC ${npc.id} invalid speed: ${speed}`);
-      return; // Salta questo NPC
-    }
-
-    if (!Number.isFinite(deltaTime) || deltaTime <= 0) {
-      console.warn(`⚠️ [SERVER] NPC ${npc.id} invalid deltaTime: ${deltaTime}`);
-      return; // Salta questo NPC
-    }
-
-      // Calcola info su player nel range di attacco
-      const now = Date.now();
-      const attackRange = NPC_CONFIG[npc.type].stats.range || 600;
-      const attackRangeSq = attackRange * attackRange;
-      let hasPlayerInRange = false;
-
-      for (const [clientId, playerData] of this.players.entries()) {
-        if (!playerData.position) continue;
-        const dx = playerData.position.x - npc.position.x;
-        const dy = playerData.position.y - npc.position.y;
-        const distanceSq = dx * dx + dy * dy;
-        if (distanceSq <= attackRangeSq) {
-          hasPlayerInRange = true;
-          break;
-        }
-      }
-
-      // Traccia ultimo momento in cui aveva un player nel range
-      if (hasPlayerInRange) {
-        npc.lastPlayerInRange = now;
-      }
-
-      // Aggiorna comportamento NPC:
-      // - flee: salute < 50%
-      // - aggressive: è stato danneggiato di recente (solo se attaccato)
-      // - cruise: altrimenti
-      const healthPercent = npc.maxHealth > 0 ? npc.health / npc.maxHealth : 1;
-
-      if (healthPercent < 0.5) {
-        // Salute bassa: fuga
-        npc.behavior = 'flee';
-      } else if (
-        npc.lastDamage && (now - npc.lastDamage) < SERVER_CONSTANTS.TIMEOUTS.DAMAGE_TIMEOUT
-      ) {
-        // Danno recente: aggressive (solo se attaccato)
-        npc.behavior = 'aggressive';
-      } else {
-        // Nessun danno recente: torna in cruise
-        npc.behavior = 'cruise';
-      }
-
-      // Calcola movimento basato sul comportamento
-      let deltaX = 0;
-      let deltaY = 0;
-
-      switch (npc.behavior) {
-        case 'aggressive': {
-          // In aggressive: se player fermo, NPC fermo; se player si muove, NPC insegue
-          // Cerca sempre il player più vicino (anche se fuori dal range di attacco)
-          let targetPlayerData = null;
-          let targetPlayerPos = null;
-          let closestDistSq = Infinity;
-
-          // Cerca sempre il player più vicino tra tutti i players connessi
-          for (const [clientId, playerData] of this.players.entries()) {
-            if (!playerData || !playerData.position) continue;
-            const dx = playerData.position.x - npc.position.x;
-            const dy = playerData.position.y - npc.position.y;
-            const distanceSq = dx * dx + dy * dy;
-            if (distanceSq < closestDistSq) {
-              closestDistSq = distanceSq;
-              targetPlayerData = playerData;
-              targetPlayerPos = { x: playerData.position.x, y: playerData.position.y };
-            }
-          }
-
-          // Se non trovato, prova con l'ultimo attacker noto
-          if (!targetPlayerPos && npc.lastAttackerId) {
-            const attackerData = this.players.get(npc.lastAttackerId);
-            if (attackerData && attackerData.position) {
-              targetPlayerData = attackerData;
-              targetPlayerPos = { x: attackerData.position.x, y: attackerData.position.y };
-            }
-          }
-
-          if (targetPlayerPos && targetPlayerData) {
-            const dx = targetPlayerPos.x - npc.position.x;
-            const dy = targetPlayerPos.y - npc.position.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            
-            // Verifica se il player si sta muovendo
-            const playerSpeedThreshold = 10;
-            const velocityX = targetPlayerData.position.velocityX || 0;
-            const velocityY = targetPlayerData.position.velocityY || 0;
-            const playerIsMoving = 
-              Math.abs(velocityX) > playerSpeedThreshold ||
-              Math.abs(velocityY) > playerSpeedThreshold;
-
-            // Se il player è FUORI dal range di attacco, inseguilo sempre (anche se velocity = 0)
-            // Questo risolve il problema quando il player esce dal range
-            const isPlayerOutOfRange = dist > attackRange;
-
-            if (isPlayerOutOfRange || playerIsMoving) {
-              // Player fuori range O si muove: insegue sempre
-              const dirX = dx / dist;
-              const dirY = dy / dist;
-              const dtSec = deltaTime / 1000;
-
-              // Insegue il player alla velocità base
-              const moveSpeed = speed * dtSec;
-              deltaX = dirX * moveSpeed;
-              deltaY = dirY * moveSpeed;
-              npc.velocity.x = dirX * speed;
-              npc.velocity.y = dirY * speed;
-              npc.position.rotation = Math.atan2(dy, dx);
-            } else {
-              // Player nel range E fermo: NPC resta fermo
-              npc.velocity.x = 0;
-              npc.velocity.y = 0;
-              deltaX = 0;
-              deltaY = 0;
-              // Mantieni la rotazione verso il player anche se fermo
-              if (dx !== 0 || dy !== 0) {
-                npc.position.rotation = Math.atan2(dy, dx);
-              }
-            }
-          } else {
-            // Nessun player valido: resta fermo
-            npc.velocity.x = 0;
-            npc.velocity.y = 0;
-            deltaX = 0;
-            deltaY = 0;
-          }
-          break;
-        }
-        case 'flee': {
-          // Fuga: cerca sempre il player più vicino per decidere direzione e rotazione
-          let closestPlayerPos = null;
-          let closestDistSq = Infinity;
-
-          for (const [clientId, playerData] of this.players.entries()) {
-            if (!playerData.position) continue;
-            const dx = playerData.position.x - npc.position.x;
-            const dy = playerData.position.y - npc.position.y;
-            const distanceSq = dx * dx + dy * dy;
-            if (distanceSq < closestDistSq) {
-              closestDistSq = distanceSq;
-              closestPlayerPos = { x: playerData.position.x, y: playerData.position.y };
-            }
-          }
-
-          if (closestPlayerPos) {
-            const dxToPlayer = closestPlayerPos.x - npc.position.x;
-            const dyToPlayer = closestPlayerPos.y - npc.position.y;
-            const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer) || 1;
-
-            // Se velocity quasi nulla, imposta fuga opposta alla direzione player
-            if (Math.abs(npc.velocity.x) < 0.1 && Math.abs(npc.velocity.y) < 0.1) {
-              const fleeDx = -dxToPlayer;
-              const fleeDy = -dyToPlayer;
-              const fleeLen = Math.sqrt(fleeDx * fleeDx + fleeDy * fleeDy) || 1;
-              const fleeSpeed = speed * 1.5;
-              npc.velocity.x = (fleeDx / fleeLen) * fleeSpeed;
-              npc.velocity.y = (fleeDy / fleeLen) * fleeSpeed;
-            }
-
-            // Se il player è nel range di attacco, lo sprite guarda il player
-            // Altrimenti guarda nella direzione di fuga (stesso sistema del player)
-            if (distToPlayer <= attackRange) {
-              npc.position.rotation = Math.atan2(dyToPlayer, dxToPlayer);
-            } else {
-              // Fuori range: guarda nella direzione di fuga (velocity)
-              if (npc.velocity.x !== 0 || npc.velocity.y !== 0) {
-                npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
-              }
-            }
-          }
-
-          deltaX = npc.velocity.x * (deltaTime / 1000);
-          deltaY = npc.velocity.y * (deltaTime / 1000);
-          break;
-        }
-        case 'cruise': {
-          // Cruise: se non hai una velocity significativa, assegna una direzione casuale
-          if (Math.abs(npc.velocity.x) < 0.1 && Math.abs(npc.velocity.y) < 0.1) {
-            const angle = Math.random() * Math.PI * 2;
-            const cruiseSpeed = speed * 0.5;
-            npc.velocity.x = Math.cos(angle) * cruiseSpeed;
-            npc.velocity.y = Math.sin(angle) * cruiseSpeed;
-          }
-
-          deltaX = npc.velocity.x * (deltaTime / 1000);
-          deltaY = npc.velocity.y * (deltaTime / 1000);
-          break;
-        }
-        default: {
-          // Default: usa velocity corrente se presente
-          deltaX = npc.velocity.x * (deltaTime / 1000);
-          deltaY = npc.velocity.y * (deltaTime / 1000);
-          break;
-        }
-      }
-
-      // Calcola nuova posizione
-      const newX = npc.position.x + deltaX;
-      const newY = npc.position.y + deltaY;
-
-      // Validazione: assicurati che le posizioni siano finite
-      if (!Number.isFinite(newX) || !Number.isFinite(newY)) {
-        console.warn(`⚠️ [SERVER] NPC ${npc.id} position became NaN! old_pos: (${npc.position.x}, ${npc.position.y}) delta: (${deltaX}, ${deltaY}) vel: (${npc.velocity.x}, ${npc.velocity.y}) speed: ${speed} deltaTime: ${deltaTime}`);
-        console.warn(`⚠️ [SERVER] Resetting NPC ${npc.id} to (0, 0)`);
-        npc.position.x = 0;
-        npc.position.y = 0;
-        npc.velocity.x = (Math.random() - 0.5) * 100;
-        npc.velocity.y = (Math.random() - 0.5) * 100;
-        continue; // Salta l'aggiornamento per questo NPC
-      }
-
-      // Applica movimento e controlla confini
-      if (newX >= this.npcManager.WORLD_LEFT && newX <= this.npcManager.WORLD_RIGHT) {
-        npc.position.x = newX;
-      } else {
-        // Rimbalza sui confini X
-        npc.velocity.x = -npc.velocity.x;
-        npc.position.x = Math.max(this.npcManager.WORLD_LEFT, Math.min(this.npcManager.WORLD_RIGHT, newX));
-      }
-
-      if (newY >= this.npcManager.WORLD_TOP && newY <= this.npcManager.WORLD_BOTTOM) {
-        npc.position.y = newY;
-      } else {
-        // Rimbalza sui confini Y
-        npc.velocity.y = -npc.velocity.y;
-        npc.position.y = Math.max(this.npcManager.WORLD_TOP, Math.min(this.npcManager.WORLD_BOTTOM, newY));
-      }
-
-      // Calcola movimento significativo (solo se spostamento > 5px)
-      const dx = npc.position.x - startX;
-      const dy = npc.position.y - startY;
-      const distSq = dx * dx + dy * dy;
-
-      if (distSq > 25) { // 5px threshold
-        npc.lastSignificantMove = Date.now();
-      }
-
-      // Aggiorna rotazione dello sprite basandosi sulla velocity (stesso sistema del player):
-      // - per aggressive e flee usiamo già la rotazione calcolata nel branch sopra
-      // - per cruise e altri comportamenti, usiamo la velocity
-      if (npc.behavior === 'cruise' || npc.behavior === 'idle') {
-        if (npc.velocity.x !== 0 || npc.velocity.y !== 0) {
-          npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
-        }
-      }
-
-      npc.lastUpdate = Date.now();
-    }
-  }
-
-  // Broadcast aggiornamenti NPC
+  // Broadcast aggiornamenti NPC (delegato a MapBroadcaster)
   broadcastNpcUpdates() {
     const npcs = this.npcManager.getAllNpcs();
-    if (npcs.length === 0) return;
+    MapBroadcaster.broadcastNpcUpdates(this.players, npcs);
+  }
 
-    const radius = SERVER_CONSTANTS.NETWORK.WORLD_RADIUS; // Raggio del mondo
-    const radiusSq = radius * radius;
+  // Processa aggiornamenti posizione giocatori (delegato a PositionUpdateProcessor)
+  processPositionUpdates() {
+    PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);
+  }
 
-    // Per ogni giocatore connesso, invia NPC nel suo raggio di interesse ampio
-    for (const [clientId, playerData] of this.players.entries()) {
-      if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
+  // Setup hook per eventi critici nel GlobalGameMonitor
+  setupGlobalMonitorHooks() {
+    // Hook morte player
+    const originalHandlePlayerDeath = this.projectileManager.damageHandler.handlePlayerDeath;
+    this.projectileManager.damageHandler.handlePlayerDeath = (clientId, killerId) => {
+      const result = originalHandlePlayerDeath.call(this.projectileManager.damageHandler, clientId, killerId);
+      this.globalMonitor.addCriticalEvent('PLAYER_DEATH', { clientId, killerId });
+      return result;
+    };
 
-      // Filtra NPC entro il raggio ampio
-      const relevantNpcs = npcs.filter(npc => {
-        const dx = npc.position.x - playerData.position.x;
-        const dy = npc.position.y - playerData.position.y;
-        return (dx * dx + dy * dy) <= radiusSq;
-      });
+    // Hook ricompense NPC
+    const originalAwardRewards = this.npcManager.rewardSystem.awardNpcKillRewards;
+    this.npcManager.rewardSystem.awardNpcKillRewards = (playerId, npcType) => {
+      const result = originalAwardRewards.call(this.npcManager.rewardSystem, playerId, npcType);
+      this.globalMonitor.addCriticalEvent('NPC_KILL_REWARD', { playerId, npcType });
+      return result;
+    };
+  }
 
-      if (relevantNpcs.length === 0) continue;
+  // Metodo per ottenere stato globale (per API esterna)
+  getGlobalGameState() {
+    return this.globalMonitor.getGlobalState();
+  }
 
-      const message = {
-        type: 'npc_bulk_update',
-        npcs: relevantNpcs.map(npc => ({
-          id: npc.id,
-          position: npc.position,
-          health: { current: npc.health, max: npc.maxHealth },
-          shield: { current: npc.shield, max: npc.maxShield },
-          behavior: npc.behavior
-        })),
-        timestamp: Date.now()
-      };
+  // Comandi console utili per debug
+  dumpGlobalState() {
+    console.log('='.repeat(50));
+    console.log('GLOBAL GAME STATE DUMP');
+    console.log('='.repeat(50));
+    console.log(JSON.stringify(this.getGlobalGameState(), null, 2));
+  }
 
-      playerData.ws.send(JSON.stringify(message));
+  monitorPlayer(clientId) {
+    const state = this.globalMonitor.globalState.players.get(clientId);
+    if (state) {
+      console.log(`Monitoring ${clientId}:`, state);
+    } else {
+      console.log(`Player ${clientId} not found`);
     }
   }
 
-  // Processa aggiornamenti posizione giocatori
-  processPositionUpdates() {
-    for (const [clientId, updates] of this.positionUpdateQueue) {
-      if (updates.length === 0) continue;
-
-      const latestUpdate = updates[updates.length - 1];
-
-      const positionBroadcast = {
-        type: 'remote_player_update',
-        clientId,
-        position: {
-          x: latestUpdate.x,
-          y: latestUpdate.y,
-          velocityX: latestUpdate.velocityX || 0,
-          velocityY: latestUpdate.velocityY || 0
-        },
-        rotation: latestUpdate.rotation,
-        tick: latestUpdate.tick,
-        nickname: latestUpdate.nickname,
-        playerId: latestUpdate.playerId
-      };
-
-      this.broadcastToMap(positionBroadcast, clientId);
-      this.positionUpdateQueue.delete(clientId);
+  combatStats() {
+    const combats = this.combatManager?.playerCombats || new Map();
+    console.log(`Active combats: ${combats.size}`);
+    for (const [playerId, combatData] of combats.entries()) {
+      console.log(`  ${playerId}: vs ${combatData.targetId}`);
     }
   }
 }

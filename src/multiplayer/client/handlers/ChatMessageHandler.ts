@@ -17,25 +17,31 @@ export class ChatMessageHandler extends BaseMessageHandler {
 
   handle(message: ChatMessage, networkSystem: ClientNetworkSystem): void {
     // Non mostrare messaggi propri (già mostrati localmente)
-    if (message.clientId === networkSystem.clientId) {
-      if (import.meta.env.DEV) {
-        console.log('[ChatMessageHandler] Ignoring own message:', message.clientId);
-      }
+    // Usa playerId se disponibile, altrimenti clientId come fallback
+    const senderPlayerId = message.playerId;
+    const localPlayerId = networkSystem.gameContext?.playerId;
+    const isOwnMessage = message.clientId === networkSystem.clientId || 
+                         (senderPlayerId && localPlayerId && senderPlayerId === localPlayerId);
+    
+    if (isOwnMessage) {
       return;
     }
 
     // Inoltra il messaggio al ChatManager per la visualizzazione
-    if (import.meta.env.DEV) {
-      console.log('[ChatMessageHandler] Received chat from:', message.senderName, message.clientId);
-    }
+    
+    // Usa playerId come senderId se disponibile, altrimenti clientId come fallback
+    // L'ID del messaggio usa playerId se disponibile per identificare univocamente il player
+    const senderId = senderPlayerId ? `${senderPlayerId}` : message.clientId;
+    const messageId = message.id || `chat_${message.timestamp}_${senderId}_${message.content.substring(0, 20)}`;
     
     this.chatManager.receiveNetworkMessage({
-      id: `chat_${message.timestamp}_${message.clientId}`,
-      senderId: message.clientId,
+      id: messageId,
+      senderId: senderId,
       senderName: message.senderName,
       content: message.content,
       timestamp: new Date(message.timestamp),
-      type: 'user'
+      type: 'user',
+      isAdministrator: message.isAdministrator || false
     });
   }
 }
