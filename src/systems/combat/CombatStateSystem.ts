@@ -850,7 +850,7 @@ export class CombatStateSystem extends BaseSystem {
           targetX: targetPositionOrVelocity.x,
           targetY: targetPositionOrVelocity.y,
           ownerId: parseInt(playerId) || 0,
-          targetId: parseInt(targetId) || -1,
+          targetId: targetId || -1,
           projectileType: 'laser',
           speed: GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED, // Stessa velocità lenta
           lifetime: 15000 // Stessa durata

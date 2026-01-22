@@ -7,6 +7,7 @@ import { Npc } from '../../entities/ai/Npc';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
+import { PlayerSystem } from '../player/PlayerSystem';
 
 /**
  * Sistema per la gestione dei proiettili remoti in multiplayer
@@ -14,7 +15,7 @@ import { LoggerWrapper } from '../../core/data/LoggerWrapper';
  */
 export class RemoteProjectileSystem extends BaseSystem {
   // Mappa projectileId -> entity data
-  private remoteProjectiles: Map<string, {entityId: number, playerId: string, type: string}> = new Map();
+  private remoteProjectiles: Map<string, { entityId: number, playerId: string, type: string }> = new Map();
   // Contatori sparo per alternanza visiva (2 laser / 3 laser) - uno per ogni playerId
   private playerShotCounts: Map<string, number> = new Map();
 
@@ -43,24 +44,19 @@ export class RemoteProjectileSystem extends BaseSystem {
     }
 
     // Determina ownerId e targetId corretti per homing
-    let ownerId: number | undefined;
-    let actualTargetId: number | undefined;
+    let ownerId: number | string | undefined;
+    let actualTargetId: number | string | undefined;
 
     // Se playerId inizia con "npc_", è un proiettile NPC
     if (typeof playerId === 'string' && playerId.startsWith('npc_')) {
       // Proiettile NPC: owner è l'NPC, target è il player
-      const npcId = parseInt(playerId.replace('npc_', ''));
-      ownerId = npcId;
+      ownerId = playerId;
 
       // Trova l'entità player locale come target
       if (targetId) {
-        const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
-        for (const playerEntity of playerEntities) {
-          // Controlla se è un'entità player (non NPC)
-          if (!this.ecs.hasComponent(playerEntity, Npc)) {
-            actualTargetId = playerEntity.id;
-            break;
-          }
+        const playerEntity = this.ecs.getPlayerEntity();
+        if (playerEntity) {
+          actualTargetId = playerEntity.id;
         }
       }
     } else {
@@ -96,7 +92,7 @@ export class RemoteProjectileSystem extends BaseSystem {
       velocity,
       damage,
       projectileType,
-      actualTargetId || targetId
+      actualTargetId !== undefined ? actualTargetId : (targetId || undefined)
     );
 
     // Registra il proiettile nella mappa per tracking

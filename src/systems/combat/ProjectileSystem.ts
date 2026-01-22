@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
@@ -9,6 +10,7 @@ import { Damage } from '../../entities/combat/Damage';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { DamageTaken } from '../../entities/combat/DamageTaken';
 import { Npc } from '../../entities/ai/Npc';
+import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { UiSystem } from '../ui/UiSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { CombatSystem } from './CombatSystem';
@@ -18,25 +20,25 @@ import { TimeManager } from '../../core/utils/TimeManager';
 import { ComponentHelper } from '../../core/data/ComponentHelper';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
 
-  /**
-   * Sistema per gestire i proiettili: movimento, collisione e rimozione
-   */
+/**
+ * Sistema per gestire i proiettili: movimento, collisione e rimozione
+ */
 export class ProjectileSystem extends BaseSystem {
   private uiSystem: UiSystem | null = null;
   private playerSystem: PlayerSystem;
-  private lastDeltaTimeSeconds: number = 1/60; // Fallback per deltaTime
+  private lastDeltaTimeSeconds: number = 1 / 60; // Fallback per deltaTime
 
 
-    constructor(ecs: ECS, playerSystem: PlayerSystem, uiSystem?: UiSystem) {
-      super(ecs);
-      this.playerSystem = playerSystem;
-      this.uiSystem = uiSystem || null;
-    }
+  constructor(ecs: ECS, playerSystem: PlayerSystem, uiSystem?: UiSystem) {
+    super(ecs);
+    this.playerSystem = playerSystem;
+    this.uiSystem = uiSystem || null;
+  }
 
-    update(deltaTime: number): void {
-      const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
-      const deltaTimeSeconds = TimeManager.millisecondsToSeconds(deltaTime);
-      this.lastDeltaTimeSeconds = deltaTimeSeconds; // Salva per uso nei metodi privati
+  update(deltaTime: number): void {
+    const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+    const deltaTimeSeconds = TimeManager.millisecondsToSeconds(deltaTime);
+    this.lastDeltaTimeSeconds = deltaTimeSeconds; // Salva per uso nei metodi privati
 
     for (const projectileEntity of projectiles) {
       if (this.processProjectile(projectileEntity, deltaTime, deltaTimeSeconds)) {
@@ -70,27 +72,27 @@ export class ProjectileSystem extends BaseSystem {
     // 2. Aggiorna homing se necessario (logica semplificata)
     if (this.isHomingProjectile(projectile)) {
       // Applying homing - silent in production
-      this.updateHomingDirection(transform, projectile);
+      this.updateHomingDirection(projectileEntity, transform, projectile);
     }
 
-    // 3. Movimento - solo per proiettili locali, remoti usano interpolazione
+    // 3. Movimento - gestito da MovementSystem per tutti se hanno Velocity.
+    // Qui in ProjectileSystem c'è una logica di fallback per proiettili locali
+    // che potrebbe causare doppio movimento. Per ora la manteniamo per i proiettili locali
+    // ma assicuriamoci che i remoti (NPC) siano gestiti correttamente.
     const isRemote = this.isRemoteProjectile(projectile);
+
+    // Solo i proiettili locali vengono mossi manualmente qui (potrebbe essere rimosso in futuro)
     if (!isRemote) {
-      const oldX = transform.x;
-      const oldY = transform.y;
       transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
       transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
-
-      // Projectile movement - silent in production
-    } else {
-      // Remote projectile - skipping movement
     }
 
     // 4. Riduci lifetime
     projectile.lifetime -= deltaTime;
 
-    // 5. Collisioni - solo per proiettili locali
-    if (!isRemote) {
+    // 5. Collisioni - Abilitate anche per proiettili remoti VISIVI (laser)
+    const isVisualOnly = projectile.damage === 0 || projectile.projectileType === 'npc_laser';
+    if (!isRemote || isVisualOnly) {
       this.checkCollisions(projectileEntity, transform, projectile);
     }
 
@@ -151,7 +153,7 @@ export class ProjectileSystem extends BaseSystem {
    * Aggiorna direzione homing - LOGICA SEMPLIFICATA
    * Tutti i proiettili homing cercano semplicemente il loro targetId
    */
-  private updateHomingDirection(projectileTransform: Transform, projectile: Projectile): void {
+  private updateHomingDirection(entity: Entity, projectileTransform: Transform, projectile: Projectile): void {
     const targetEntity = this.findTargetEntity(projectile.targetId);
     if (!targetEntity) {
       // Homing target not found
@@ -165,8 +167,7 @@ export class ProjectileSystem extends BaseSystem {
     }
 
     // Homing target found - updating direction
-
-    this.calculateAndSetDirection(projectileTransform, targetTransform, projectile);
+    this.calculateAndSetDirection(entity, projectileTransform, targetTransform, projectile);
   }
 
 
@@ -178,7 +179,7 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Calcola e imposta la direzione del proiettile verso il target (per laser)
    */
-  private calculateAndSetDirection(projectileTransform: Transform, targetTransform: Transform, projectile: Projectile): void {
+  private calculateAndSetDirection(entity: Entity, projectileTransform: Transform, targetTransform: Transform, projectile: Projectile): void {
     const { direction, distance } = MathUtils.calculateDirection(
       projectileTransform.x, projectileTransform.y,
       targetTransform.x, targetTransform.y
@@ -187,6 +188,13 @@ export class ProjectileSystem extends BaseSystem {
     if (distance > 0) {
       projectile.directionX = direction.x;
       projectile.directionY = direction.y;
+
+      // CRITICO: Aggiorna anche il componente Velocity per il MovementSystem
+      const velocity = this.ecs.getComponent(entity, Velocity);
+      if (velocity) {
+        velocity.x = direction.x * projectile.speed;
+        velocity.y = direction.y * projectile.speed;
+      }
     }
   }
 
@@ -214,7 +222,14 @@ export class ProjectileSystem extends BaseSystem {
       );
 
       // Se la distanza è minore di una soglia (hitbox), colpisce
-      const hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
+      let hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
+
+      // I proiettili visivi (laser) hanno un raggio di collisione maggiore per evitare
+      // che "orbitino" attorno al target a causa della loro velocità ridotta o 
+      // di scatti nel movimento.
+      if (projectile.damage === 0 || projectile.projectileType === 'npc_laser') {
+        hitDistance *= 1.5; // +50% raggio per visual lasers
+      }
 
       if (distance < hitDistance) {
         // Collision detected
@@ -282,21 +297,49 @@ export class ProjectileSystem extends BaseSystem {
    * Verifica se l'entità target corrisponde al targetId del proiettile (per laser)
    */
   private isLaserTarget(projectile: Projectile, targetEntity: any): boolean {
-    // Usa la stessa logica del metodo findTargetEntity
-    if (typeof projectile.targetId === 'number') {
-      // Target è un numero (entity.id)
-      if (projectile.targetId === targetEntity.id) {
+    const targetId = projectile.targetId;
+
+    if (typeof targetId === 'number') {
+      // Numero: entity.id diretto
+      return targetId === targetEntity.id;
+    }
+
+    if (typeof targetId === 'string') {
+      // NPC Check
+      if (targetId.startsWith('npc_')) {
+        const npc = this.ecs.getComponent(targetEntity, Npc);
+        if (npc && npc.serverId === targetId) {
+          return true;
+        }
+      }
+
+      // Player Check (Remote o Locale)
+      if (targetId.startsWith('player_')) {
+        // Check Remote Player
+        const remote = this.ecs.getComponent(targetEntity, RemotePlayer);
+        if (remote && (remote.clientId === targetId || `player_${remote.clientId}` === targetId)) {
+          return true;
+        }
+
+        // Check Local Player
+        const localPlayer = this.playerSystem.getPlayerEntity();
+        if (localPlayer && targetEntity.id === localPlayer.id) {
+          return true;
+        }
+      }
+
+      // Check for raw clientId (without prefix)
+      const remote = this.ecs.getComponent(targetEntity, RemotePlayer);
+      if (remote && remote.clientId === targetId) {
         return true;
       }
-    } else if (typeof projectile.targetId === 'string') {
-      // Target è una stringa (serverId di NPC)
-      const npc = this.ecs.getComponent(targetEntity, Npc);
-      if (npc && npc.serverId === projectile.targetId) {
+
+      // Fallback: numeric string
+      const parsed = parseInt(targetId, 10);
+      if (!isNaN(parsed) && parsed === targetEntity.id) {
         return true;
       }
     }
-
-    // Target mismatch - continue checking
 
     return false;
   }
@@ -327,8 +370,21 @@ export class ProjectileSystem extends BaseSystem {
           }
         }
       } else if (targetId.startsWith('player_')) {
-        // Potrebbe servire per giocatori remoti in futuro
-        // Player targetId not implemented
+        // Cerca tra i remote players per clientId
+        const remotePlayers = this.ecs.getEntitiesWithComponents(RemotePlayer);
+        for (const remoteEntity of remotePlayers) {
+          const remote = this.ecs.getComponent(remoteEntity, RemotePlayer);
+          if (remote && (remote.clientId === targetId || `player_${remote.clientId}` === targetId)) {
+            return remoteEntity;
+          }
+        }
+
+        // Fallback: è il player locale?
+        const localPlayer = this.playerSystem.getPlayerEntity();
+        if (localPlayer) {
+          // In Starfield, se il target è "player_..." e non è un remote player, è il locale
+          return localPlayer;
+        }
         return null;
       } else {
         // Prova a convertire in numero (fallback)

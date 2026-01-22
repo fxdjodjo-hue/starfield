@@ -27,8 +27,8 @@ export interface ProjectileConfig {
   startY: number;
   targetX: number;
   targetY: number;
-  ownerId: number;
-  targetId: number;
+  ownerId: number | string;
+  targetId: number | string;
   playerId?: string;
   animatedSprite?: AnimatedSprite;
   shipRotation?: number;
@@ -329,15 +329,8 @@ export class ProjectileFactory {
     const directionX = speed > 0 ? velocity.x / speed : 0;
     const directionY = speed > 0 ? velocity.y / speed : 0;
 
-    // Converti targetId se necessario
-    let numericTargetId = -1;
-    if (targetId !== undefined && targetId !== null) {
-      if (typeof targetId === 'string') {
-        numericTargetId = parseInt(targetId, 10) || -1;
-      } else {
-        numericTargetId = targetId;
-      }
-    }
+    // Usa direttamente il targetId (stringa o numero)
+    const numericTargetId = targetId !== undefined && targetId !== null ? targetId : -1;
 
     const config: ProjectileConfig = {
       damage,
