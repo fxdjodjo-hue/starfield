@@ -12,12 +12,14 @@ import { ProjectileVisualState, VisualFadeState } from '../../entities/combat/Pr
 import { RenderLayer } from '../../core/utils/rendering/RenderLayers';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
+import { Sprite } from '../../entities/Sprite';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { MathUtils } from '../utils/MathUtils';
 import { IDGenerator } from '../utils/IDGenerator';
 import { InputValidator } from '../utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
 import { ProjectileLogger } from '../utils/ProjectileLogger';
+import { AssetManager } from '../services/AssetManager';
 
 export interface ProjectileConfig {
   damage: number;
@@ -43,7 +45,8 @@ export class ProjectileFactory {
    * Crea un proiettile completo con tutti i componenti necessari
    * Unifica createProjectile, createSingleProjectile, createProjectileAt
    */
-  static create(ecs: ECS, config: ProjectileConfig): Entity {
+  static create(ecs: ECS, config: ProjectileConfig, assetManager?: AssetManager): Entity {
+    console.log('[DEBUG_PROJECTILE] create() called with assetManager:', !!assetManager, 'config.isRemote:', config.isRemote);
     try {
       const projectileId = config.projectileId || IDGenerator.generateProjectileId(String(config.ownerId));
 
@@ -94,7 +97,7 @@ export class ProjectileFactory {
       } else {
         const projectileSpeed = config.speed ||
           (config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED : // Laser visivi
-           GAME_CONSTANTS.PROJECTILE.SPEED);
+            GAME_CONSTANTS.PROJECTILE.SPEED);
         ecs.addComponent(entity, Velocity, new Velocity(
           direction.x * projectileSpeed,
           direction.y * projectileSpeed,
@@ -131,9 +134,45 @@ export class ProjectileFactory {
       );
       ecs.addComponent(entity, ProjectileVisualState, visualState);
 
-      // Per proiettili remoti, aggiungi interpolazione per movimento fluido
-      if (config.isRemote) {
-        ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(spawnX, spawnY, 0));
+      // NOTA: I proiettili remoti NON usano InterpolationTarget perché si muovono 
+      // autonomamente via Velocity. InterpolationTarget causerebbe il blocco del movimento
+      // nel MovementSystem.
+
+      // Per proiettili remoti laser, aggiungi componente Sprite per rendering visivo
+      if (config.isRemote && (config.projectileType === 'laser' || config.projectileType === 'npc_laser')) {
+        let image: HTMLImageElement | null = null;
+
+        if (assetManager) {
+          // Usa AssetManager per caricare l'immagine
+          if (config.projectileType === 'laser') {
+            // Laser del player
+            image = assetManager.getOrLoadImage('assets/laser/laser1/laser1.png');
+          } else {
+            // Laser NPC - usa frigate come default
+            image = assetManager.getOrLoadImage('assets/npc_ships/kronos/npc_frigate_projectile.png');
+          }
+        }
+
+        console.log('[DEBUG_PROJECTILE] Adding Sprite component for remote projectile:', {
+          projectileId: projectileId,
+          projectileType: config.projectileType,
+          hasAssetManager: !!assetManager,
+          hasImage: !!image,
+          imageSrc: image?.src,
+          isRemote: config.isRemote
+        });
+
+        // Crea sprite con immagine caricata o null
+        const sprite = new Sprite(image, 48, 12, 0, 0); // Dimensioni laser tipiche
+        ecs.addComponent(entity, Sprite, sprite);
+
+        console.log('[DEBUG_PROJECTILE] Sprite component added to entity:', entity.id);
+      } else {
+        console.log('[DEBUG_PROJECTILE] Not adding Sprite component:', {
+          projectileId: projectileId,
+          isRemote: config.isRemote,
+          projectileType: config.projectileType
+        });
       }
 
       // Assegna ID al componente projectile per riferimento
@@ -281,8 +320,10 @@ export class ProjectileFactory {
     damage: number,
     projectileType: string = 'laser',
     targetId?: string | number,
-    ownerId?: number
+    ownerId?: number,
+    assetManager?: AssetManager
   ): Entity {
+    console.log('[DEBUG_PROJECTILE] createRemoteUnified called with assetManager:', !!assetManager);
     // Converti velocity in direction
     const speed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
     const directionX = speed > 0 ? velocity.x / speed : 0;
@@ -314,7 +355,7 @@ export class ProjectileFactory {
       projectileId
     };
 
-    return this.create(ecs, config);
+    return this.create(ecs, config, assetManager);
   }
 
   /**
