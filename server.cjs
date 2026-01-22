@@ -34,6 +34,31 @@ const WebSocketConnectionManager = require('./server/core/websocket-manager.cjs'
 
 // Crea server HTTP per healthcheck e WebSocket sulla stessa porta
 const PORT = process.env.PORT || 3000;
+const IS_PLAYTEST = process.env.IS_PLAYTEST === 'true';
+const PLAYTEST_CODE = process.env.PLAYTEST_CODE;
+const MAX_ACCOUNTS = parseInt(process.env.MAX_ACCOUNTS || '20');
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+
+// Simple in-memory rate limiter for login/register
+const rateLimitMap = new Map();
+const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
+const MAX_REQUESTS_PER_WINDOW = 5;
+
+function checkRateLimit(ip) {
+  const now = Date.now();
+  const userData = rateLimitMap.get(ip) || { count: 0, firstRequest: now };
+
+  if (now - userData.firstRequest > RATE_LIMIT_WINDOW) {
+    userData.count = 1;
+    userData.firstRequest = now;
+  } else {
+    userData.count++;
+  }
+
+  rateLimitMap.set(ip, userData);
+  return userData.count <= MAX_REQUESTS_PER_WINDOW;
+}
+
 const http = require('http');
 
 // Crea server HTTP con API endpoints sicuri
@@ -48,7 +73,7 @@ const server = http.createServer(async (req, res) => {
   // API endpoints sicuri
   if (req.url?.startsWith('/api/')) {
     // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
@@ -65,11 +90,40 @@ const server = http.createServer(async (req, res) => {
 
       // POST /api/create-profile - Crea profilo giocatore
       if (pathParts[0] === 'api' && pathParts[1] === 'create-profile' && req.method === 'POST') {
+        const ip = req.socket.remoteAddress;
+        if (!checkRateLimit(ip)) {
+          res.writeHead(429, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Too many requests. Please try again later.' }));
+          return;
+        }
+
         let body = '';
         req.on('data', chunk => body += chunk);
         req.on('end', async () => {
           try {
-            const { username } = JSON.parse(body);
+            const { username, playtestCode } = JSON.parse(body);
+
+            // PLAYTEST GATE: Verify playtest code if enabled
+            if (IS_PLAYTEST && PLAYTEST_CODE) {
+              if (playtestCode !== PLAYTEST_CODE) {
+                res.writeHead(403, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Invalid playtest code.' }));
+                return;
+              }
+            }
+
+            // PLAYTEST GATE: Check max accounts
+            if (IS_PLAYTEST) {
+              const { count, error: countError } = await supabase
+                .from('players')
+                .select('*', { count: 'exact', head: true });
+
+              if (!countError && count >= MAX_ACCOUNTS) {
+                res.writeHead(403, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Maximum account limit reached for this playtest.' }));
+                return;
+              }
+            }
 
             // Verifica autenticazione
             const authHeader = req.headers.authorization;
@@ -208,9 +262,7 @@ const server = http.createServer(async (req, res) => {
             quests: data.quests_data ? JSON.parse(data.quests_data) : []
           };
 
-          res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: playerData }));
-
         } catch (error) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: error.message }));
@@ -259,6 +311,7 @@ const server = http.createServer(async (req, res) => {
         });
         return;
       }
+
 
     } catch (error) {
       res.writeHead(500, { 'Content-Type': 'application/json' });
@@ -393,4 +446,15 @@ process.on('SIGINT', () => {
     logger.info('SERVER', '✅ Server shut down gracefully');
     process.exit(0);
   });
+});
+
+// Global Error Handling to prevent crashes
+process.on('uncaughtException', (error) => {
+  ServerLoggerWrapper.error('FATAL', `Uncaught Exception: ${error.message}`);
+  ServerLoggerWrapper.error('FATAL', error.stack);
+  // Optional: Graceful shutdown or alert
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  ServerLoggerWrapper.error('FATAL', `Unhandled Rejection at: ${promise}, reason: ${reason}`);
 });

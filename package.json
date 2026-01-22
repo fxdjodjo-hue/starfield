@@ -11,6 +11,11 @@
     "preview": "vite preview",
     "server": "node server.cjs",
     "server:online": "node tools/start-online.cjs",
+    "playtest:start": "npm run build:server && pm2 start server.cjs --name starfield-playtest",
+    "playtest:stop": "pm2 stop starfield-playtest",
+    "playtest:restart": "pm2 restart starfield-playtest",
+    "playtest:logs": "pm2 logs starfield-playtest",
+    "playtest:status": "pm2 status",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage"
