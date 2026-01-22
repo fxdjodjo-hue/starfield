@@ -9,6 +9,9 @@ export class RemotePlayer extends Component {
   public nickname: string;
   public rank: string;
 
+  public targetId: string | null = null;
+  public lastVisualFireTime: number = 0;
+
   constructor(
     clientId: string,
     nickname: string = '',
@@ -18,6 +21,8 @@ export class RemotePlayer extends Component {
     this.clientId = clientId;
     this.nickname = nickname;
     this.rank = rank;
+    this.targetId = null;
+    this.lastVisualFireTime = 0;
   }
 
   /**

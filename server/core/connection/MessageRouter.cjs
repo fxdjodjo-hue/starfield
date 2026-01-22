@@ -13,12 +13,12 @@ const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
  */
 async function handleJoin(data, sanitizedData, context) {
   const { ws, mapServer, playerDataManager, authManager, messageBroadcaster } = context;
-  
+
   // Carica i dati del giocatore dal database
   let loadedData;
   try {
     loadedData = await playerDataManager.loadPlayerData(data.userId);
-    
+
     // Verifica che playerId sia valido dopo il caricamento
     if (!loadedData || !loadedData.playerId || loadedData.playerId === 0) {
       ServerLoggerWrapper.security(`Invalid player data loaded for ${data.userId}: playerId=${loadedData?.playerId}`);
@@ -32,10 +32,10 @@ async function handleJoin(data, sanitizedData, context) {
     }
   } catch (error) {
     ServerLoggerWrapper.database(`Failed to load player data for ${data.userId}: ${error.message}`);
-    
+
     let errorMessage = 'Failed to load player data. Please contact support.';
     let errorCode = 'LOAD_PLAYER_DATA_FAILED';
-    
+
     if (error.message.includes('ACCESS DENIED')) {
       errorMessage = error.message;
       errorCode = 'ACCESS_DENIED';
@@ -46,7 +46,7 @@ async function handleJoin(data, sanitizedData, context) {
       errorMessage = error.message;
       errorCode = 'DATABASE_ERROR';
     }
-    
+
     ws.send(JSON.stringify({
       type: 'error',
       message: errorMessage,
@@ -219,7 +219,7 @@ async function handleJoin(data, sanitizedData, context) {
     (hp) => authManager.calculateMaxHealth(hp),
     (shield) => authManager.calculateMaxShield(shield)
   );
-  
+
   try {
     ws.send(JSON.stringify(welcomeMessage));
   } catch (error) {
@@ -234,7 +234,7 @@ async function handleJoin(data, sanitizedData, context) {
  */
 function handlePositionUpdate(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
@@ -352,7 +352,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
  */
 function handleHeartbeat(data, sanitizedData, context) {
   const { ws } = context;
-  
+
   ws.send(JSON.stringify({
     type: 'heartbeat_ack',
     clientId: data.clientId,
@@ -365,7 +365,7 @@ function handleHeartbeat(data, sanitizedData, context) {
  */
 async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager, messageBroadcaster } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) {
@@ -488,7 +488,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   }
 
   const recentHonor = await playerDataManager.getRecentHonorAverage(playerData.userId, 30);
-  
+
   ws.send(JSON.stringify({
     type: 'player_state_update',
     inventory: { ...playerData.inventory },
@@ -507,7 +507,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
  */
 function handleProjectileFired(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) {
@@ -586,7 +586,7 @@ function handleStartCombat(data, sanitizedData, context) {
   console.log(`[SERVER_START_COMBAT] Received start_combat: clientId=${data.clientId}, playerId=${data.playerId}, npcId=${data.npcId}`);
 
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) {
@@ -625,6 +625,7 @@ function handleStartCombat(data, sanitizedData, context) {
     data.playerId,
     data.npcId,
     true,
+    data.clientId, // Passa il persistent clientId
     combat.sessionId // Passa il session ID univoco
   );
   mapServer.broadcastToMap(combatUpdate);
@@ -650,7 +651,8 @@ function handleStopCombat(data, sanitizedData, context) {
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
     data.playerId,
     null,
-    false
+    false,
+    data.clientId
   );
   mapServer.broadcastToMap(combatUpdate);
 }
@@ -660,7 +662,7 @@ function handleStopCombat(data, sanitizedData, context) {
  */
 function handleExplosionCreated(data, sanitizedData, context) {
   const { mapServer } = context;
-  
+
   const message = {
     type: 'explosion_created',
     explosionId: data.explosionId,
@@ -678,10 +680,10 @@ function handleExplosionCreated(data, sanitizedData, context) {
  */
 async function handleRequestLeaderboard(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster, playerDataManager } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context (leaderboard è pubblica, playerData può essere null)
   const playerData = contextPlayerData || (data.clientId ? mapServer.players.get(data.clientId) : null);
-  
+
   try {
     const sortBy = data.sortBy || 'ranking_points';
     const limit = data.limit || 100;
@@ -748,13 +750,13 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
         hint: leaderboardError.hint,
         code: leaderboardError.code
       });
-      
+
       // Se la funzione non esiste o c'è un errore di rete, prova a ottenere i player direttamente
-      const isFunctionError = leaderboardError.message?.includes('does not exist') || 
-                              leaderboardError.code === '42883' ||
-                              leaderboardError.message?.includes('ENOTFOUND') ||
-                              leaderboardError.message?.includes('fetch failed');
-      
+      const isFunctionError = leaderboardError.message?.includes('does not exist') ||
+        leaderboardError.code === '42883' ||
+        leaderboardError.message?.includes('ENOTFOUND') ||
+        leaderboardError.message?.includes('fetch failed');
+
       if (isFunctionError) {
         logger.warn('LEADERBOARD', 'RPC call failed, trying direct query fallback');
         try {
@@ -762,13 +764,13 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
           if (!supabase) {
             throw new Error('Supabase client not available for fallback');
           }
-          
+
           const { data: profiles, error: profilesError } = await supabase
             .from('user_profiles')
             .select('player_id, username')
             .order('player_id', { ascending: true })
             .limit(limit);
-          
+
           if (!profilesError && profiles && profiles.length > 0) {
             const simpleEntries = profiles.map((profile, index) => ({
               rank: index + 1,
@@ -783,7 +785,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
               level: 1,
               rankName: 'Recruit'
             }));
-            
+
             const leaderboardResponse = messageBroadcaster.formatLeaderboardResponse(
               simpleEntries,
               sortBy,
@@ -799,7 +801,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
           logger.error('LEADERBOARD', `Fallback query exception: ${fallbackError.message}`);
         }
       }
-      
+
       ws.send(JSON.stringify({
         type: 'leaderboard_response',
         entries: [],
@@ -810,7 +812,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
     }
 
     logger.info('LEADERBOARD', `Query returned ${leaderboardData?.length || 0} entries`);
-    
+
     if (!leaderboardData || leaderboardData.length === 0) {
       logger.warn('LEADERBOARD', 'No leaderboard data returned from database');
       logger.info('LEADERBOARD', 'Raw response:', JSON.stringify(leaderboardData, null, 2));
@@ -831,7 +833,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
     const entries = (leaderboardData || []).map((entry) => {
       const rankingPoints = parseFloat(entry.ranking_points) || 0;
       const rankName = authManager.calculateRankName(rankingPoints);
-      
+
       return {
         rank: parseInt(entry.rank_position) || 0,
         playerId: parseInt(entry.player_id) || 0,
@@ -875,7 +877,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
  */
 async function handleRequestPlayerData(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager, messageBroadcaster } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
@@ -893,7 +895,7 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
   }
 
   const recentHonor = await playerDataManager.getRecentHonorAverage(playerData.userId, 30);
-  
+
   const responseMessage = messageBroadcaster.formatPlayerDataResponse(
     data.playerId,
     playerData.inventory,
@@ -910,13 +912,13 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
  */
 function handleChatMessage(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster, filterChatMessage } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
-  
+
   const now = Date.now();
   logger.info('CHAT', `Received chat message from ${data.clientId}: ${data.content?.substring(0, 50)}`);
-  
+
   if (!data.content || typeof data.content !== 'string') {
     logger.warn('CHAT', 'Invalid content type');
     return;
@@ -1004,7 +1006,7 @@ function handlePlayerRespawnRequest(data, sanitizedData, context) {
  */
 async function handleSaveRequest(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
-  
+
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;

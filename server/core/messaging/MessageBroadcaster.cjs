@@ -107,15 +107,17 @@ class MessageBroadcaster {
    * @param {string} playerId - Player ID (auth_id)
    * @param {string|null} npcId - NPC ID o null
    * @param {boolean} isAttacking - Se il player sta attaccando
+   * @param {string} clientId - Client ID (per identificazione univoca nel client)
    * @param {string|null} sessionId - ID univoco della sessione di combattimento
    * @returns {Object} Combat update message
    */
-  formatCombatUpdateMessage(playerId, npcId, isAttacking, sessionId = null) {
+  formatCombatUpdateMessage(playerId, npcId, isAttacking, clientId, sessionId = null) {
     return {
       type: 'combat_update',
       playerId: playerId,
       npcId: npcId,
       isAttacking: isAttacking,
+      clientId: clientId, // Aggiunto per permettere al client di trovare l'entità RemotePlayer
       sessionId: sessionId, // ID univoco per tracciare la sessione
       lastAttackTime: Date.now()
     };

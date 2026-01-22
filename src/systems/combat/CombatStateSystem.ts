@@ -22,9 +22,9 @@ import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerCo
 import { GAME_CONSTANTS } from '../../config/GameConstants';
 import { LogType } from '../../presentation/ui/LogMessage';
 import { AssetManager } from '../../core/services/AssetManager';
-import npcConfig from '../../../shared/npc-config.json';
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { ProjectileVisualState } from '../../entities/combat/ProjectileVisualState';
+import npcConfig from '../../../shared/npc-config.json';
 
 /**
  * Sistema dedicato alla gestione dello stato del combattimento
@@ -86,7 +86,7 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     return 800; // Fallback range
-  } 
+  }
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -138,7 +138,7 @@ export class CombatStateSystem extends BaseSystem {
 
     // Mantieni selezione valida (controllo leggero, non ogni frame pesante)
     this.maintainValidSelection();
-    
+
     // Process player combat (includes missile firing logic)
     this.processPlayerCombat();
 
@@ -147,6 +147,9 @@ export class CombatStateSystem extends BaseSystem {
 
     // Gestisci laser visivi per NPC in combattimento
     this.processNpcLaserFiring();
+
+    // Gestisci laser visivi per giocatori remoti in combattimento
+    this.processRemotePlayerLaserFiring();
   }
 
   /**
@@ -268,9 +271,9 @@ export class CombatStateSystem extends BaseSystem {
     // Margine di sicurezza per considerare "fuori schermo"
     const margin = 100;
     const isOffScreen = npcScreenPos.x < -margin ||
-                       npcScreenPos.x > canvasSize.width + margin ||
-                       npcScreenPos.y < -margin ||
-                       npcScreenPos.y > canvasSize.height + margin;
+      npcScreenPos.x > canvasSize.width + margin ||
+      npcScreenPos.y < -margin ||
+      npcScreenPos.y > canvasSize.height + margin;
 
     // Calcola se l'NPC è nel rettangolo di range
     const rangeWidth = getPlayerRangeWidth();
@@ -381,6 +384,68 @@ export class CombatStateSystem extends BaseSystem {
             }
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Gestisce la creazione periodica di laser visivi per giocatori remoti in combattimento
+   * Implementa la Soluzione 2: Simulazione locale basata sullo stato di combattimento
+   */
+  private processRemotePlayerLaserFiring(): void {
+    const now = Date.now();
+
+    // OTTIMIZZAZIONE: Recupera entità solo se necessario
+    const remotePlayers = this.ecs.getEntitiesWithComponents(RemotePlayer, Transform);
+    if (remotePlayers.length === 0) return;
+
+    for (const remoteEntity of remotePlayers) {
+      const remotePlayer = this.ecs.getComponent(remoteEntity, RemotePlayer);
+
+      // Simula laser solo se il player ha un target attivo
+      if (!remotePlayer || !remotePlayer.targetId) continue;
+
+      // Verifica cooldown visivo (sincronizzato con il ritmo del player locale)
+      if (now - remotePlayer.lastVisualFireTime < GAME_CONSTANTS.COMBAT.PLAYER_LASER_VISUAL_INTERVAL) {
+        continue;
+      }
+
+      // Trova l'entità target (NPC) tramite il RemoteNpcSystem
+      let targetEntity: Entity | null = null;
+      const remoteNpcSystem = this.clientNetworkSystem?.getRemoteNpcSystem();
+
+      if (remoteNpcSystem) {
+        const npcEntityId = remoteNpcSystem.getRemoteNpcEntity(remotePlayer.targetId);
+        if (npcEntityId !== undefined) {
+          targetEntity = this.ecs.getEntity(npcEntityId) || null;
+        }
+      }
+
+      if (targetEntity) {
+        const remoteTransform = this.ecs.getComponent(remoteEntity, Transform);
+        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
+
+        if (remoteTransform && targetTransform) {
+          // Usa il metodo statico per creare l'effetto laser grafico (danno = 0)
+          CombatStateSystem.createBeamEffectForPlayer(
+            this.ecs,
+            this.assetManager,
+            this.clientNetworkSystem?.getAudioSystem(),
+            remotePlayer.clientId,
+            { x: remoteTransform.x, y: remoteTransform.y },
+            { x: targetTransform.x, y: targetTransform.y },
+            remotePlayer.targetId,
+            this.activeBeamEntities
+          ).catch(err => {
+            if (import.meta.env.DEV) console.warn(`[REMOTE-LASER] Failed for player ${remotePlayer.clientId}:`, err);
+          });
+
+          // Aggiorna il timestamp per il prossimo sparo visivo
+          remotePlayer.lastVisualFireTime = now;
+        }
+      } else {
+        // Se il target non esiste più localmente, resettiamo il targetId per fermare la simulazione
+        remotePlayer.targetId = null;
       }
     }
   }
@@ -619,7 +684,7 @@ export class CombatStateSystem extends BaseSystem {
     this.damageSystem = damageSystem;
   }
 
-  public   setAssetManager(assetManager: AssetManager): void {
+  public setAssetManager(assetManager: AssetManager): void {
     this.assetManager = assetManager;
 
     // DEBUG: Inizializza tool di debug per i laser quando tutti i sistemi sono pronti
@@ -729,57 +794,132 @@ export class CombatStateSystem extends BaseSystem {
   }
 
   /**
-   * Crea un proiettile visivo che viaggia dal player all'NPC
-   * Questo è solo un effetto visivo, il danno rimane gestito da hitscan
+   * Crea beam effect per qualsiasi player (locale o remoto)
+   * Metodo STATICO per riutilizzo da altri sistemi senza duplicare codice
    */
-  private async createVisualProjectile(startX: number, startY: number, targetX: number, targetY: number, ownerId: number, targetId: number): Promise<void> {
-    if (!this.assetManager) {
-      console.warn('[VISUAL-PROJECTILE] AssetManager not available, skipping visual projectile');
+  public static async createBeamEffectForPlayer(
+    ecs: any,
+    assetManager: any,
+    audioSystem: any,
+    playerId: string,
+    playerPosition: { x: number; y: number },
+    targetPositionOrVelocity: { x: number; y: number } | { velocity: { x: number; y: number } },
+    targetId: string,
+    activeBeamEntities?: Set<number> // Opzionale per tracciamento
+  ): Promise<void> {
+    if (!assetManager) {
+      console.warn('[BEAM-EFFECT] AssetManager not available, skipping beam effect');
       return;
     }
 
     try {
-      // Riproduci suono laser visivo immediato per responsività (evita duplicazioni)
-      const now = Date.now();
-      const audioSystem = this.clientNetworkSystem?.getAudioSystem();
-      if (audioSystem && (now - this.lastLaserSoundTime) >= 100) { // Minimo 100ms tra suoni
-        audioSystem.playSound('laser', 0.05, false, true);
-        this.lastLaserSoundTime = now;
+      // Suono laser (stesso del player locale)
+      if (audioSystem) {
+        audioSystem.playSound('laser', 0.03, false, true); // Volume ridotto
       }
 
-      // Carica l'immagine laser per il proiettile visivo
-      const laserImage = await this.assetManager.loadImage('assets/laser/laser1/laser1.png');
+      // Carica immagine laser (stessa del player locale)
+      const laserImage = await assetManager.loadImage('assets/laser/laser1/laser1.png');
 
-      // Crea il proiettile usando ProjectileFactory
-      const projectileEntity = ProjectileFactory.create(this.ecs, {
-        damage: 0, // Danno = 0, questo è solo visivo
-        startX: startX,
-        startY: startY,
-        targetX: targetX,
-        targetY: targetY,
-        ownerId: ownerId,
-        targetId: targetId,
-        projectileType: 'laser',
-        speed: GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED, // Molto più lento per rendere il movimento chiaramente visibile
-        lifetime: 15000 // 15 secondi di vita per laser lenti
+      // Determina se abbiamo una posizione target o una velocity
+      let config: any;
+
+      if ('velocity' in targetPositionOrVelocity) {
+        // Usa velocity diretta (per laser remoti)
+        // Calcola target position basato sulla velocity per permettere calcolo direzione
+        const targetX = playerPosition.x + targetPositionOrVelocity.velocity.x * 1000; // Target lontano nella direzione del movimento
+        const targetY = playerPosition.y + targetPositionOrVelocity.velocity.y * 1000;
+        config = {
+          damage: 0, // SOLO VISIVO
+          startX: playerPosition.x,
+          startY: playerPosition.y,
+          targetX: targetX,
+          targetY: targetY,
+          velocity: targetPositionOrVelocity.velocity, // Usa velocity originale
+          ownerId: parseInt(playerId) || 0,
+          targetId: parseInt(targetId) || -1,
+          projectileType: 'laser',
+          lifetime: 15000 // Stessa durata
+        };
+      } else {
+        // Usa posizione target (per laser locali o calcolati)
+        config = {
+          damage: 0, // SOLO VISIVO
+          startX: playerPosition.x,
+          startY: playerPosition.y,
+          targetX: targetPositionOrVelocity.x,
+          targetY: targetPositionOrVelocity.y,
+          ownerId: parseInt(playerId) || 0,
+          targetId: parseInt(targetId) || -1,
+          projectileType: 'laser',
+          speed: GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED, // Stessa velocità lenta
+          lifetime: 15000 // Stessa durata
+        };
+      }
+
+      // Crea proiettile visivo
+      const visualEntity = ProjectileFactory.create(ecs, config);
+
+      // Aggiungi componenti (stessi del player locale)
+      const laserSprite = new Sprite(laserImage, laserImage.width, laserImage.height);
+      ecs.addComponent(visualEntity, Sprite, laserSprite);
+
+      const visualState = new ProjectileVisualState();
+      ecs.addComponent(visualEntity, ProjectileVisualState, visualState);
+
+      // Tracciamento opzionale
+      if (activeBeamEntities) {
+        activeBeamEntities.add(visualEntity.id);
+      }
+
+      // Debug: verifica che il laser abbia Velocity
+      const velocity = ecs.getComponent(visualEntity, 'Velocity');
+      console.log('[BEAM-EFFECT] Created unified beam effect for player:', {
+        playerId,
+        visualEntityId: visualEntity.id,
+        targetId,
+        usedVelocity: 'velocity' in targetPositionOrVelocity,
+        hasVelocity: !!velocity,
+        velocityX: velocity?.x,
+        velocityY: velocity?.y,
+        speed: Math.sqrt((velocity?.x || 0) ** 2 + (velocity?.y || 0) ** 2)
       });
 
-      // Aggiungi sprite al proiettile - dimensione gestita dal RenderSystem
-      const laserSprite = new Sprite(laserImage, laserImage.width, laserImage.height);
-      this.ecs.addComponent(projectileEntity, Sprite, laserSprite);
-
-      // Aggiungi ProjectileVisualState per garantire rendering corretto
-      const visualState = new ProjectileVisualState();
-      this.ecs.addComponent(projectileEntity, ProjectileVisualState, visualState);
-
-      // Traccia il proiettile attivo per pulizia
-      this.activeBeamEntities.add(projectileEntity.id);
-
-      // Visual projectile created successfully
-
     } catch (error) {
-      console.error('[VISUAL-PROJECTILE] Failed to create visual projectile:', error);
+      console.warn('[BEAM-EFFECT] Failed to create beam effect:', error);
     }
+  }
+
+  /**
+   * Crea un proiettile visivo che viaggia dal player all'NPC
+   * Questo è solo un effetto visivo, il danno rimane gestito da hitscan
+   */
+  private async createVisualProjectile(startX: number, startY: number, targetX: number, targetY: number, ownerId: number, targetId: number): Promise<void> {
+    // ✅ RIUTILIZZA IL METODO STATICO CONDIVISO
+    // Elimina duplicazione di codice - usa la stessa logica per tutti i giocatori
+    const audioSystem = this.clientNetworkSystem?.getAudioSystem();
+
+    // Gestisci throttling suono per player locale (evita spam)
+    let shouldPlaySound = true;
+    if (audioSystem) {
+      const now = Date.now();
+      if ((now - this.lastLaserSoundTime) < 100) { // Minimo 100ms tra suoni
+        shouldPlaySound = false;
+      } else {
+        this.lastLaserSoundTime = now;
+      }
+    }
+
+    await CombatStateSystem.createBeamEffectForPlayer(
+      this.ecs,
+      this.assetManager,
+      shouldPlaySound ? audioSystem : null, // Passa null se throttling attivo
+      ownerId.toString(),
+      { x: startX, y: startY },
+      { x: targetX, y: targetY },
+      targetId.toString(),
+      this.activeBeamEntities // Passa il Set per tracciamento
+    );
   }
 
   /**
