@@ -1,0 +1,279 @@
+{
+  "version": "1.5.0",
+  "gameplay": {
+    "network": {
+      "explosionBroadcastRadius": 150,
+      "globalBroadcastRadius": 300,
+      "maxPlayersPerRoom": 4,
+      "tickRate": 60,
+      "updateInterval": 1000,
+      "networkBufferSize": 1024,
+      "connectionTimeout": 30000,
+      "heartbeatInterval": 10000,
+      "maxReconnectAttempts": 3,
+      "reconnectDelay": 1000,
+      "messageQueueSize": 100,
+      "maxMessageSize": 65536,
+      "compressionThreshold": 1024,
+      "encryptionEnabled": true,
+      "rateLimit": {
+        "maxRequestsPerSecond": 10,
+        "burstLimit": 20,
+        "windowMs": 1000
+      }
+    },
+    "combat": {
+      "baseDamage": 25,
+      "criticalMultiplier": 2.0,
+      "damageReduction": 0.1,
+      "maxHealth": 100,
+      "maxShield": 50,
+      "healthRegenRate": 0.5,
+      "shieldRegenRate": 1.0,
+      "regenerationDelay": 3000,
+      "damageTextDuration": 2000,
+      "damageTextFadeTime": 500,
+      "damageTextRiseSpeed": 50,
+      "fallbackRange": 250,
+      "recentlyInRangeTimeout": 2000,
+      "combatCooldown": 100,
+      "hitStunDuration": 200,
+      "knockbackForce": 200,
+      "maxHitStunStack": 3,
+      "stunDecayRate": 0.1,
+      "damageNumbers": {
+        "fontSize": 16,
+        "fontFamily": "Arial",
+        "color": "#ff0000",
+        "outlineColor": "#000000",
+        "outlineWidth": 2
+      }
+    },
+    "player": {
+      "baseSpeed": 200,
+      "sprintMultiplier": 1.5,
+      "acceleration": 800,
+      "deceleration": 600,
+      "rotationSpeed": 5,
+      "maxSpeed": 300,
+      "minSpeed": 0,
+      "speedRampTime": 0.2,
+      "friction": 0.9,
+      "mass": 1,
+      "collisionRadius": 16,
+      "invincibilityDuration": 1000,
+      "spawnProtection": 2000,
+      "respawnDelay": 3000,
+      "maxRespawns": 3,
+      "experienceMultiplier": 1.0,
+      "levelUpBonus": 1.1,
+      "statGrowthRate": 1.05,
+      "skillPointGain": 1,
+      "stats": {
+        "health": 100,
+        "shield": 50,
+        "damage": 25,
+        "range": 200,
+        "rangeWidth": 1280,
+        "rangeHeight": 720,
+        "cooldown": 200,
+        "speed": 200
+      },
+      "startingResources": {
+        "credits": 10000,
+        "cosmos": 500,
+        "level": 1,
+        "experience": 0,
+        "honor": 0
+      },
+      "spriteSize": {
+        "width": 32,
+        "height": 32
+      },
+      "upgrades": {
+        "maxHpUpgrades": 100,
+        "maxShieldUpgrades": 100,
+        "maxSpeedUpgrades": 50,
+        "maxDamageUpgrades": 100
+      }
+    },
+    "npcs": {
+      "spawnRate": 0.02,
+      "maxCount": 50,
+      "respawnDelay": 5000,
+      "aiUpdateInterval": 100,
+      "detectionRadius": 200,
+      "attackRange": 150,
+      "movementSpeed": 100,
+      "rotationSpeed": 3,
+      "pathfindingInterval": 500,
+      "maxPathLength": 20,
+      "wanderRadius": 300,
+      "aggroRange": 180,
+      "deaggroRange": 250,
+      "aggroTimeout": 10000,
+      "targetSwitchCooldown": 2000,
+      "damageMultiplier": 0.8,
+      "healthMultiplier": 1.2,
+      "experienceReward": 10,
+      "honorReward": 5,
+      "lootDropChance": 0.3,
+      "maxLootDrops": 3
+    },
+    "projectiles": {
+      "homing": {
+        "enabled": true,
+        "turnRate": 0.1,
+        "maxDistance": 500,
+        "speedMultiplier": 0.8,
+        "accuracy": 0.95,
+        "predictionTime": 0.5,
+        "leadTarget": true
+      },
+      "baseSpeed": 400,
+      "lifetime": 5000,
+      "maxRange": 600,
+      "damage": 25,
+      "knockback": 150,
+      "pierceCount": 1,
+      "bounceCount": 0,
+      "explosionRadius": 50,
+      "trailLength": 10,
+      "collisionRadius": 4,
+      "maxProjectilesPerPlayer": 5,
+      "fireRate": 200,
+      "reloadTime": 1000,
+      "ammoCapacity": 30,
+      "spreadAngle": 0.1,
+      "recoil": 0.05
+    },
+    "upgrades": {
+      "maxLevel": 50,
+      "costMultiplier": 1.15,
+      "effectMultiplier": 1.1,
+      "prestigeMultiplier": 2.0,
+      "prestigeCost": 1000,
+      "maxPrestige": 5,
+      "upgradeCategories": {
+        "combat": {
+          "damage": {
+            "baseCost": 10,
+            "maxLevel": 100
+          },
+          "health": {
+            "baseCost": 15,
+            "maxLevel": 100
+          },
+          "shield": {
+            "baseCost": 20,
+            "maxLevel": 100
+          },
+          "speed": {
+            "baseCost": 12,
+            "maxLevel": 50
+          },
+          "fireRate": {
+            "baseCost": 18,
+            "maxLevel": 50
+          }
+        },
+        "economy": {
+          "experienceGain": {
+            "baseCost": 25,
+            "maxLevel": 50
+          },
+          "honorGain": {
+            "baseCost": 30,
+            "maxLevel": 50
+          },
+          "lootMultiplier": {
+            "baseCost": 35,
+            "maxLevel": 30
+          }
+        }
+      }
+    },
+    "economy": {
+      "baseExperience": 10,
+      "experienceMultiplier": 1.0,
+      "honorMultiplier": 1.0,
+      "levelUpExperience": 100,
+      "experienceGrowthRate": 1.2,
+      "maxLevel": 100,
+      "currencyDecayRate": 0.01,
+      "inflationRate": 0.001,
+      "marketFluctuation": 0.1,
+      "taxRate": 0.05,
+      "tradingFee": 0.02
+    },
+    "ui": {
+      "hud": {
+        "healthBar": {
+          "width": 200,
+          "height": 20,
+          "backgroundColor": "#333333",
+          "fillColor": "#00ff00",
+          "borderColor": "#ffffff",
+          "borderWidth": 2
+        },
+        "shieldBar": {
+          "width": 200,
+          "height": 15,
+          "backgroundColor": "#333333",
+          "fillColor": "#0088ff",
+          "borderColor": "#ffffff",
+          "borderWidth": 1
+        },
+        "experienceBar": {
+          "width": 300,
+          "height": 10,
+          "backgroundColor": "#333333",
+          "fillColor": "#ffff00",
+          "borderColor": "#ffffff",
+          "borderWidth": 1
+        }
+      },
+      "minimap": {
+        "size": 150,
+        "zoom": 0.5,
+        "backgroundColor": "#000000",
+        "borderColor": "#ffffff",
+        "playerColor": "#00ff00",
+        "npcColor": "#ff0000",
+        "projectileColor": "#ffff00"
+      },
+      "damageText": {
+        "fontSize": 16,
+        "fontFamily": "Arial",
+        "color": "#ff0000",
+        "outlineColor": "#000000",
+        "outlineWidth": 1,
+        "duration": 2000,
+        "fadeTime": 500,
+        "riseSpeed": 30
+      }
+    },
+    "audio": {
+      "masterVolume": 0.8,
+      "musicVolume": 0.6,
+      "sfxVolume": 0.7,
+      "voiceVolume": 0.8,
+      "muteOnFocusLoss": true,
+      "spatialAudio": true,
+      "maxDistance": 500,
+      "rolloffFactor": 1.0,
+      "refDistance": 100
+    },
+    "debug": {
+      "enabled": true,
+      "showFps": true,
+      "showNetworkStats": true,
+      "showEntityCount": true,
+      "showCollisionBounds": false,
+      "logLevel": "info",
+      "performanceMonitoring": true,
+      "memoryTracking": false,
+      "networkProfiling": false
+    }
+  }
+}

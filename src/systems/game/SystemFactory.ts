@@ -110,7 +110,7 @@ export class SystemFactory {
 
     // Load assets - use spritesheet for player ship
     const playerSprite = await context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.8);
-    
+
     // Carica sprite NPC usando scala dal config (single source of truth)
     const scouterDef = getNpcDefinition('Scouter');
     const kronosDef = getNpcDefinition('Kronos');
@@ -158,7 +158,7 @@ export class SystemFactory {
     }
 
     renderSystem.setEngflamesSprite(engflamesAnimatedSprite);
-    
+
     // Sistemi di combattimento modulari
     const damageSystem = new DamageSystem(ecs);
     const projectileCreationSystem = new ProjectileCreationSystem(ecs);
@@ -179,12 +179,12 @@ export class SystemFactory {
     }
 
     const damageTextSystem = new DamageTextSystem(ecs, cameraSystem, damageSystem);
-    
+
     // Collega il DamageTextSystem al RenderSystem per il rendering
     if (renderSystem && typeof renderSystem.setDamageTextSystem === 'function') {
       renderSystem.setDamageTextSystem(damageTextSystem);
     }
-    
+
     // Collega l'AudioSystem al PortalSystem
     portalSystem.setAudioSystem(audioSystem);
 
@@ -193,7 +193,7 @@ export class SystemFactory {
     // Sistema NPC remoti per multiplayer
     const npcSprites = new Map<string, HTMLImageElement>();
     const remoteNpcSystem = new RemoteNpcSystem(ecs, npcSprites, context.assetManager);
-    
+
     // Registra AnimatedSprite per Scouter, Kronos, Guard e Pyramid
     if (scouterAnimatedSprite) {
       remoteNpcSystem.registerNpcAnimatedSprite('Scouter', scouterAnimatedSprite);

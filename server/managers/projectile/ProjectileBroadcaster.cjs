@@ -43,7 +43,7 @@ class ProjectileBroadcaster {
       // Se non fornito, cerca nel map (per backward compatibility)
       projectile = this.mapServer.projectileManager?.projectiles?.get(projectileId);
     }
-    
+
     if (!projectile) return;
 
     const message = {
@@ -80,6 +80,23 @@ class ProjectileBroadcaster {
    * @param {string} entityType - Tipo entità ('npc' o 'player')
    */
   broadcastEntityDamaged(entity, projectile, entityType = 'npc', actualDamage = null) {
+    let maxHealth = undefined;
+    let maxShield = undefined;
+
+    // Se è un player, calcola maxHealth e maxShield basati sugli upgrade
+    if (entityType === 'player') {
+      const hpUpgrades = entity.upgrades?.hpUpgrades || 0;
+      const shieldUpgrades = entity.upgrades?.shieldUpgrades || 0;
+
+      // Calcolo coerente con AuthenticationManager e client
+      maxHealth = Math.floor(100000 * (1.0 + (hpUpgrades * 0.01)));
+      maxShield = Math.floor(50000 * (1.0 + (shieldUpgrades * 0.01)));
+    } else if (entityType === 'npc') {
+      // Per NPC, usa i valori dallo stato corrente se disponibili, altrimenti dai config
+      maxHealth = entity.maxHealth || entity.health; // Fallback
+      maxShield = entity.maxShield || entity.shield; // Fallback
+    }
+
     const message = {
       type: 'entity_damaged',
       entityId: entityType === 'npc' ? entity.id : entity.clientId,
@@ -88,6 +105,8 @@ class ProjectileBroadcaster {
       attackerId: projectile.playerId,
       newHealth: entity.health,
       newShield: entity.shield,
+      maxHealth: maxHealth,
+      maxShield: maxShield,
       position: entity.position,
       projectileType: projectile.projectileType || 'laser'
     };

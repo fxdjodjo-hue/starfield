@@ -255,8 +255,8 @@ export class ClientNetworkSystem extends BaseSystem {
 
       // Handle simple acknowledgment messages that don't need handlers
       if (message.type === MESSAGE_TYPES.POSITION_ACK ||
-          message.type === MESSAGE_TYPES.HEARTBEAT_ACK ||
-          message.type === MESSAGE_TYPES.WORLD_UPDATE) {
+        message.type === MESSAGE_TYPES.HEARTBEAT_ACK ||
+        message.type === MESSAGE_TYPES.WORLD_UPDATE) {
         return; // No action needed
       }
 

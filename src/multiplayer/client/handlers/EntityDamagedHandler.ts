@@ -35,54 +35,54 @@ export class EntityDamagedHandler extends BaseMessageHandler {
       // Trova l'entità danneggiata
       let targetEntity = null;
 
-        if (message.entityType === 'npc') {
-          // Usa il RemoteNpcSystem per trovare l'entità dell'NPC remoto
-          const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
-          if (remoteNpcSystem) {
-            // FIX: Converti message.entityId a stringa per gli NPC
-            const npcId = message.entityId.toString();
-            const entityId = remoteNpcSystem.getRemoteNpcEntity(npcId);
-            if (entityId !== undefined) {
-              // Ottieni l'entità effettiva dall'ECS usando l'entity ID
-              targetEntity = ecs.getEntity(entityId);
-            }
-          } else {
-            console.error('[EntityDamagedHandler] RemoteNpcSystem not available!');
+      if (message.entityType === 'npc') {
+        // Usa il RemoteNpcSystem per trovare l'entità dell'NPC remoto
+        const remoteNpcSystem = networkSystem.getRemoteNpcSystem();
+        if (remoteNpcSystem) {
+          // FIX: Converti message.entityId a stringa per gli NPC
+          const npcId = message.entityId.toString();
+          const entityId = remoteNpcSystem.getRemoteNpcEntity(npcId);
+          if (entityId !== undefined) {
+            // Ottieni l'entità effettiva dall'ECS usando l'entity ID
+            targetEntity = ecs.getEntity(entityId);
           }
-        } else         if (message.entityType === 'player') {
-          if (message.entityId === networkSystem.getLocalClientId()) {
-            // Giocatore locale - trova l'entità locale
-            const allEntities = ecs.getEntitiesWithComponents(Health, Shield);
-            for (const entity of allEntities) {
-              if (!ecs.hasComponent(entity, RemotePlayer)) {
-                targetEntity = entity;
-                break;
-              }
+        } else {
+          console.error('[EntityDamagedHandler] RemoteNpcSystem not available!');
+        }
+      } else if (message.entityType === 'player') {
+        if (message.entityId === networkSystem.getLocalClientId()) {
+          // Giocatore locale - trova l'entità locale
+          const allEntities = ecs.getEntitiesWithComponents(Health, Shield);
+          for (const entity of allEntities) {
+            if (!ecs.hasComponent(entity, RemotePlayer)) {
+              targetEntity = entity;
+              break;
             }
-          } else {
-            // Giocatore remoto - trova l'entità remota
-            const allEntities = ecs.getEntitiesWithComponents(Health);
-            for (const entity of allEntities) {
-              const remotePlayer = ecs.getComponent(entity, RemotePlayer);
-              if (remotePlayer && remotePlayer.clientId === message.entityId) {
-                targetEntity = entity;
-                break;
-              }
+          }
+        } else {
+          // Giocatore remoto - trova l'entità remota
+          const allEntities = ecs.getEntitiesWithComponents(Health);
+          for (const entity of allEntities) {
+            const remotePlayer = ecs.getComponent(entity, RemotePlayer);
+            if (remotePlayer && remotePlayer.clientId === message.entityId) {
+              targetEntity = entity;
+              break;
             }
           }
         }
+      }
 
-        // Crea damage text se abbiamo trovato l'entità target
-        if (targetEntity) {
-          // Crea damage text per il danno ricevuto dal server
-          if (message.damage > 0) {
-            // Per ora mostriamo tutto come danno HP (bianco/rosso)
-            // In futuro potremmo migliorare la logica per distinguere shield vs HP
-            const isShieldDamage = false;
-            const projectileType = message.projectileType;
-            combatSystem.createDamageText({ id: targetEntity.id }, message.damage, isShieldDamage, false, projectileType);
-          }
+      // Crea damage text se abbiamo trovato l'entità target
+      if (targetEntity) {
+        // Crea damage text per il danno ricevuto dal server
+        if (message.damage > 0) {
+          // Per ora mostriamo tutto come danno HP (bianco/rosso)
+          // In futuro potremmo migliorare la logica per distinguere shield vs HP
+          const isShieldDamage = false;
+          const projectileType = message.projectileType;
+          combatSystem.createDamageText({ id: targetEntity.id }, message.damage, isShieldDamage, false, projectileType);
         }
+      }
     }
 
     // Nota: l'aggiornamento dei valori health/shield è già stato fatto sopra
@@ -120,9 +120,12 @@ export class EntityDamagedHandler extends BaseMessageHandler {
         // Danno a giocatore remoto
         const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
         if (remotePlayerSystem) {
-          // Per i remote players, assumiamo che max health/shield siano gli stessi dei valori correnti ricevuti
-          // In futuro potremmo voler ricevere anche i valori massimi dal server
-          remotePlayerSystem.updatePlayerStats(message.entityId, message.newHealth, message.newHealth, message.newShield, message.newShield);
+          // Per i remote players, usiamo i valori max forniti dal server (se disponibili)
+          // Se non disponibili (undefined in message), passiamo undefined per mantenere i valori attuali
+          const maxHealth = (message as any).maxHealth;
+          const maxShield = (message as any).maxShield;
+
+          remotePlayerSystem.updatePlayerStats(message.entityId.toString(), message.newHealth, maxHealth, message.newShield, maxShield);
         }
       }
     }

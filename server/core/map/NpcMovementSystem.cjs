@@ -200,20 +200,31 @@ class NpcMovementSystem {
    * Applica movimento aggressive (insegue player)
    */
   static applyAggressiveMovement(npc, players, speed, deltaTime, attackRange) {
-    // Cerca sempre il player più vicino (anche se fuori dal range di attacco)
+    // PRIORITÀ 1: Ultimo attaccante
     let targetPlayerData = null;
     let targetPlayerPos = null;
-    let closestDistSq = Infinity;
 
-    for (const [clientId, playerData] of players.entries()) {
-      if (!playerData || !playerData.position) continue;
-      const dx = playerData.position.x - npc.position.x;
-      const dy = playerData.position.y - npc.position.y;
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq < closestDistSq) {
-        closestDistSq = distanceSq;
-        targetPlayerData = playerData;
-        targetPlayerPos = { x: playerData.position.x, y: playerData.position.y };
+    if (npc.lastAttackerId) {
+      const attackerData = players.get(npc.lastAttackerId);
+      if (attackerData && attackerData.position) {
+        targetPlayerData = attackerData;
+        targetPlayerPos = { x: attackerData.position.x, y: attackerData.position.y };
+      }
+    }
+
+    // PRIORITÀ 2: Player più vicino (solo se non c'è un target per retaliation)
+    if (!targetPlayerPos) {
+      let closestDistSq = Infinity;
+      for (const [clientId, playerData] of players.entries()) {
+        if (!playerData || !playerData.position) continue;
+        const dx = playerData.position.x - npc.position.x;
+        const dy = playerData.position.y - npc.position.y;
+        const distanceSq = dx * dx + dy * dy;
+        if (distanceSq < closestDistSq) {
+          closestDistSq = distanceSq;
+          targetPlayerData = playerData;
+          targetPlayerPos = { x: playerData.position.x, y: playerData.position.y };
+        }
       }
     }
 
@@ -373,7 +384,7 @@ class NpcMovementSystem {
 
     // Applica movimento e controlla confini
     const worldBounds = npcManager.getWorldBounds();
-    
+
     if (newX >= worldBounds.WORLD_LEFT && newX <= worldBounds.WORLD_RIGHT) {
       npc.position.x = newX;
     } else {

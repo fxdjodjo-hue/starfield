@@ -94,6 +94,13 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
+   * Ottiene il riferimento all'AssetManager
+   */
+  getAssetManager(): AssetManager | null {
+    return this.assetManager;
+  }
+
+  /**
    * Get or create projectile renderer (lazy initialization)
    */
   private getProjectileRenderer(): ProjectileRenderer {
@@ -215,7 +222,40 @@ export class RenderSystem extends BaseSystem {
     const isPlayerLaser = components.sprite && components.sprite.image?.src?.includes('laser1.png') && components.projectile && components.sprite.image.complete;
     const isNpcLaser = components.sprite && components.sprite.image?.src?.includes('npc_frigate_projectile.png') && components.projectile && components.sprite.image.complete;
 
+    // Debug dettagliato per capire perché i laser non vengono identificati
+    if (components.sprite && components.projectile) {
+      console.log('[DEBUG_LASER_IDENTIFICATION]', {
+        entityId: entity.id,
+        projectileType: components.projectile.projectileType,
+        playerId: components.projectile.playerId,
+        hasSprite: !!components.sprite,
+        hasImage: !!components.sprite.image,
+        imageSrc: components.sprite.image?.src,
+        imageComplete: components.sprite.image?.complete,
+        imageNaturalWidth: components.sprite.image?.naturalWidth,
+        isPlayerLaser: isPlayerLaser,
+        isNpcLaser: isNpcLaser,
+        containsLaser1: components.sprite.image?.src?.includes('laser1.png'),
+        containsNpcFrigate: components.sprite.image?.src?.includes('npc_frigate_projectile.png')
+      });
+    }
+
     if (isPlayerLaser || isNpcLaser) {
+      const velocity = this.ecs.getComponent(entity, 'Velocity');
+      console.log('[DEBUG_RENDER] 🎯 RENDERING LASER PROJECTILE:', {
+        entityId: entity.id,
+        isPlayerLaser: isPlayerLaser,
+        isNpcLaser: isNpcLaser,
+        projectileType: components.projectile.projectileType,
+        playerId: components.projectile.playerId,
+        hasSprite: !!components.sprite,
+        hasVelocity: !!velocity,
+        velocityX: velocity?.x,
+        velocityY: velocity?.y,
+        speed: velocity ? Math.sqrt(velocity.x ** 2 + velocity.y ** 2) : 0,
+        imageSrc: components.sprite?.image?.src?.split('/').pop(), // Solo nome file
+        imageComplete: components.sprite?.image?.complete
+      });
       // Assicurati che tutti i componenti necessari siano presenti
       if (!components.sprite || !components.sprite.image || !components.projectile) {
         return;
@@ -328,6 +368,19 @@ export class RenderSystem extends BaseSystem {
         }
       }
     } else if ((components.sprite || components.animatedSprite) && !isPlayerEntity) {
+      // Debug: check if this is a projectile that should be a laser
+      if (components.projectile) {
+        console.log('[DEBUG_RENDER] Projectile with sprite not identified as laser:', {
+          entityId: entity.id,
+          projectileType: components.projectile.projectileType,
+          playerId: components.projectile.playerId,
+          hasSprite: !!components.sprite,
+          imageSrc: components.sprite?.image?.src,
+          imageComplete: components.sprite?.image?.complete,
+          isPlayerLaser: components.sprite?.image?.src?.includes('laser1.png'),
+          isNpcLaser: components.sprite?.image?.src?.includes('npc_frigate_projectile.png')
+        });
+      }
       // Render generic sprites (projectiles, effects, etc.) - exclude player entities
       this.renderGenericSprite(ctx, entity, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else {

@@ -105,7 +105,7 @@ class ServerCombatManager {
       combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
 
-      ServerLoggerWrapper.combat(`Combat session started: ${sessionId} for player ${playerId} vs ${npcId}`);
+    ServerLoggerWrapper.combat(`Combat session started: ${sessionId} for player ${playerId} vs ${npcId}`);
   }
 
   /**
@@ -430,21 +430,47 @@ class ServerCombatManager {
     const attackRange = NPC_CONFIG[npc.type].stats.range;
     const attackRangeSq = attackRange * attackRange;
 
-    for (const [clientId, playerData] of this.mapServer.players.entries()) {
-      if (!playerData.position) continue;
+    let targetPlayer = null;
 
-      const dx = playerData.position.x - npc.position.x;
-      const dy = playerData.position.y - npc.position.y;
-      const distanceSq = dx * dx + dy * dy;
+    // PRIORITÀ 1: L'ultimo attaccante (Retaliation)
+    if (npc.lastAttackerId) {
+      const attackerData = this.mapServer.players.get(npc.lastAttackerId);
+      if (attackerData && attackerData.position) {
+        const dx = attackerData.position.x - npc.position.x;
+        const dy = attackerData.position.y - npc.position.y;
+        const distSq = dx * dx + dy * dy;
 
-      if (distanceSq <= attackRangeSq) {
-        // Player nel range E NPC è aggressivo - NPC attacca
-        if (process.env.DEBUG_COMBAT === 'true') {
-          console.log(`[NPC ${npc.id}] Attacca player ${clientId} nel range (comportamento: ${npc.behavior}). Distanza: ${Math.sqrt(distanceSq).toFixed(1)}`);
+        if (distSq <= attackRangeSq) {
+          targetPlayer = attackerData;
         }
-        this.performNpcAttack(npc, playerData, now);
-        break; // Un attacco per tick
       }
+    }
+
+    // PRIORITÀ 2: Se l'ultimo attaccante non è più nel range, cerca il più vicino
+    if (!targetPlayer) {
+      let minDistanceSq = Infinity;
+      for (const [clientId, playerData] of this.mapServer.players.entries()) {
+        if (!playerData.position) continue;
+        const dx = playerData.position.x - npc.position.x;
+        const dy = playerData.position.y - npc.position.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq <= attackRangeSq && distSq < minDistanceSq) {
+          minDistanceSq = distSq;
+          targetPlayer = playerData;
+        }
+      }
+    }
+
+    if (targetPlayer) {
+      // Player nel range E NPC è aggressivo - NPC attacca
+      if (process.env.DEBUG_COMBAT === 'true') {
+        const dx = targetPlayer.position.x - npc.position.x;
+        const dy = targetPlayer.position.y - npc.position.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        console.log(`[NPC ${npc.id}] Attacca player ${targetPlayer.clientId} nel range (comportamento: ${npc.behavior}). Distanza: ${dist.toFixed(1)}`);
+      }
+      this.performNpcAttack(npc, targetPlayer, now);
     }
   }
 

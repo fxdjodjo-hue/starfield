@@ -155,7 +155,7 @@ export const MESSAGE_TYPES = {
   ECONOMY_UPDATE: 'economy_update',
   SAVE_REQUEST: 'save_request',
   SAVE_RESPONSE: 'save_response',
-  
+
   // Leaderboard messages
   REQUEST_LEADERBOARD: 'request_leaderboard',
   LEADERBOARD_RESPONSE: 'leaderboard_response'
@@ -341,7 +341,7 @@ export interface ProjectileDestroyedMessage {
  */
 export interface EntityDamagedMessage {
   type: typeof MESSAGE_TYPES.ENTITY_DAMAGED;
-  entityId: EntityId;
+  entityId: EntityId | string;
   entityType: 'player' | 'npc';
   damage: number;
   attackerId: ClientId;
@@ -356,7 +356,7 @@ export interface EntityDamagedMessage {
  */
 export interface EntityDestroyedMessage {
   type: typeof MESSAGE_TYPES.ENTITY_DESTROYED;
-  entityId: EntityId;
+  entityId: EntityId | string;
   entityType: 'player' | 'npc';
   destroyerId: ClientId;
   position: { x: number; y: number };
@@ -373,7 +373,7 @@ export interface EntityDestroyedMessage {
 export interface ExplosionCreatedMessage {
   type: typeof MESSAGE_TYPES.EXPLOSION_CREATED;
   explosionId: ExplosionId;
-  entityId: EntityId;
+  entityId: EntityId | string;
   entityType: 'player' | 'npc';
   position: { x: number; y: number };
   explosionType: 'entity_death' | 'projectile_impact' | 'special';
@@ -601,7 +601,7 @@ export const secureLogger = {
     if (import.meta.env.DEV) {
       // Skip verbose NPC updates to reduce log spam
       if (message.includes('npc_bulk_update') ||
-          (args.length > 0 && args[0]?.type === 'npc_bulk_update')) return;
+        (args.length > 0 && args[0]?.type === 'npc_bulk_update')) return;
     }
   },
   warn: (message: string, ...args: any[]) => {
