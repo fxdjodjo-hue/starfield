@@ -48,7 +48,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     // perché abbiamo già creato il laser locale per responsività immediata in CombatStateSystem.
     // Questo evita duplicazioni e il bug del "laser fermo" (static laser).
     if (isLocalPlayer) {
-      if (import.meta.env.DEV) console.log('[DEBUG_PROJECTILE] Skipping self-broadcast to avoid duplication');
+      // Skip self-broadcast to avoid duplication - local laser already created
       return;
     }
 
