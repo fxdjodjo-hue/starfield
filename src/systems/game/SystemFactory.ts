@@ -41,6 +41,7 @@ import { ParallaxSystem } from '../rendering/ParallaxSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
+import { AsteroidSystem } from '../environment/AsteroidSystem';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Sprite } from '../../entities/Sprite';
 
@@ -89,6 +90,7 @@ export interface CreatedSystems {
   clientNetworkSystem?: any;
   remoteNpcSystem: RemoteNpcSystem;
   remoteProjectileSystem: RemoteProjectileSystem;
+  asteroidSystem: AsteroidSystem;
   assets: {
     playerSprite: AnimatedSprite;
     scouterAnimatedSprite: AnimatedSprite;
@@ -98,6 +100,7 @@ export interface CreatedSystems {
     teleportAnimatedSprite: AnimatedSprite;
     engflamesAnimatedSprite: AnimatedSprite;
     spaceStationSprite: Sprite;
+    asteroidSprite: Sprite;
   };
 }
 
@@ -125,6 +128,7 @@ export class SystemFactory {
     const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/engflames/engflames', 0.5);
     if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] engflames AnimatedSprite created:`, engflamesAnimatedSprite ? 'SUCCESS' : 'FAILED');
     const spaceStationSprite = await context.assetManager.createSprite('/assets/spacestation/spacestation.png');
+    const asteroidSprite = await context.assetManager.createSprite('/assets/asteroid/asteroid.png');
 
     // Crea sistemi
     const audioSystem = new AudioSystem(ecs, AUDIO_CONFIG);
@@ -211,6 +215,9 @@ export class SystemFactory {
     // Sistema proiettili remoti per multiplayer
     const remoteProjectileSystem = new RemoteProjectileSystem(ecs);
 
+    // Sistema per movimento e rotazione asteroidi
+    const asteroidSystem = new AsteroidSystem(ecs);
+
     // Collega sistemi ai sistemi di combattimento modulari
     if (combatStateSystem) {
       combatStateSystem.setPlayerControlSystem(playerControlSystem);
@@ -270,6 +277,7 @@ export class SystemFactory {
       clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,
+      asteroidSystem,
       assets: {
         playerSprite,
         scouterAnimatedSprite,
@@ -278,7 +286,8 @@ export class SystemFactory {
         pyramidAnimatedSprite,
         teleportAnimatedSprite,
         engflamesAnimatedSprite,
-        spaceStationSprite
+        spaceStationSprite,
+        asteroidSprite
       }
     };
   }

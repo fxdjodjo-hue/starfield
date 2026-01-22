@@ -27,7 +27,7 @@ export class SystemConfigurator {
       parallaxSystem, renderSystem, boundsSystem, minimapSystem,
       damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
       rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
-      playerSystem, portalSystem, remoteNpcSystem, remoteProjectileSystem
+      playerSystem, portalSystem, remoteNpcSystem, remoteProjectileSystem, asteroidSystem
     } = systems;
 
     // Ordine importante per l'esecuzione
@@ -49,6 +49,7 @@ export class SystemConfigurator {
       ecs.addSystem(interpolationSystem);
     }
     ecs.addSystem(movementSystem);
+    ecs.addSystem(asteroidSystem); // Aggiorna posizione e rotazione asteroidi
     ecs.addSystem(parallaxSystem);
     ecs.addSystem(renderSystem);
     ecs.addSystem(boundsSystem);

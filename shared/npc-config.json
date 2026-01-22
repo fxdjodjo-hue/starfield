@@ -6,7 +6,7 @@
     "stats": {
       "health": 2000,
       "shield": 2000,
-      "damage": 200000,
+      "damage": 2000,
       "range": 600,
       "cooldown": 1200,
       "speed": 350

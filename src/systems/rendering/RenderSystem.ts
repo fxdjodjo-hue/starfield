@@ -22,6 +22,7 @@ import { PLAYTEST_CONFIG } from '../../config/GameConstants';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
+import { Asteroid } from '../../entities/spatial/Asteroid';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -241,13 +242,13 @@ export class RenderSystem extends BaseSystem {
     }
 
     if (isPlayerLaser || isNpcLaser) {
-      const velocity = this.ecs.getComponent(entity, 'Velocity');
+      const velocity = this.ecs.getComponent(entity, Velocity) as Velocity | null;
       console.log('[DEBUG_RENDER] 🎯 RENDERING LASER PROJECTILE:', {
         entityId: entity.id,
         isPlayerLaser: isPlayerLaser,
         isNpcLaser: isNpcLaser,
-        projectileType: components.projectile.projectileType,
-        playerId: components.projectile.playerId,
+        projectileType: components.projectile?.projectileType,
+        playerId: components.projectile?.playerId,
         hasSprite: !!components.sprite,
         hasVelocity: !!velocity,
         velocityX: velocity?.x,
@@ -289,7 +290,7 @@ export class RenderSystem extends BaseSystem {
 
     // Missiles removed - no longer supported
     const { explosion, repairEffect, npc, sprite, animatedSprite, velocity } = components;
-    
+
     const playerEntity = this.playerSystem.getPlayerEntity();
 
     // Confronta per ID invece che per riferimento, perché l'entità potrebbe essere ricreata
@@ -305,7 +306,7 @@ export class RenderSystem extends BaseSystem {
       // Render NPC - supporta sia AnimatedSprite che Sprite
       const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
       const entitySprite = this.ecs.getComponent(entity, Sprite);
-      
+
       // Renderizza aim PRIMA dello sprite NPC (sotto) con gli stessi offset dello sprite
       const isSelected = this.ecs.hasComponent(entity, SelectedNpc);
       if (isSelected) {
@@ -330,7 +331,7 @@ export class RenderSystem extends BaseSystem {
         }
         this.renderSelectionCircle(ctx, screenX + offsetX, screenY + offsetY);
       }
-      
+
       // Controlla se è un NPC remoto (server authoritative)
       const authority = this.ecs.getComponent(entity, Authority);
       const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
@@ -351,8 +352,8 @@ export class RenderSystem extends BaseSystem {
         if (isRemoteNpc) {
           // NPC remoto: usa direttamente transform.rotation
           const renderTransform: RenderableTransform = {
-            x: screenX, y: screenY, rotation: transform.rotation, 
-            scaleX: (transform.scaleX || 1) * zoom, 
+            x: screenX, y: screenY, rotation: transform.rotation,
+            scaleX: (transform.scaleX || 1) * zoom,
             scaleY: (transform.scaleY || 1) * zoom
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
@@ -360,14 +361,14 @@ export class RenderSystem extends BaseSystem {
           // NPC locale: usa NpcRenderer per calcolare la rotazione
           const rotationAngle = NpcRenderer.getRenderRotation(npc, transform, velocity);
           const renderTransform: RenderableTransform = {
-            x: screenX, y: screenY, rotation: 0, 
-            scaleX: (transform.scaleX || 1) * zoom, 
+            x: screenX, y: screenY, rotation: 0,
+            scaleX: (transform.scaleX || 1) * zoom,
             scaleY: (transform.scaleY || 1) * zoom
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite, rotationAngle);
         }
       }
-    } else if ((components.sprite || components.animatedSprite) && !isPlayerEntity) {
+    } else if ((components.sprite || components.animatedSprite) && !isPlayerEntity && !this.ecs.hasComponent(entity, Asteroid)) {
       // Debug: check if this is a projectile that should be a laser
       if (components.projectile) {
         console.log('[DEBUG_RENDER] Projectile with sprite not identified as laser:', {
@@ -381,7 +382,7 @@ export class RenderSystem extends BaseSystem {
           isNpcLaser: components.sprite?.image?.src?.includes('npc_frigate_projectile.png')
         });
       }
-      // Render generic sprites (projectiles, effects, etc.) - exclude player entities
+      // Render generic sprites (projectiles, effects, etc.) - exclude player entities and asteroids
       this.renderGenericSprite(ctx, entity, transform, components.sprite || null, components.animatedSprite || null, screenX, screenY, camera || null);
     } else {
       // Render player - usa isPlayerEntity già definito all'inizio del metodo
@@ -402,8 +403,8 @@ export class RenderSystem extends BaseSystem {
             // Use spritesheet renderer (no canvas rotation - frame is pre-rotated)
             const zoom = camera?.zoom || 1;
             const renderTransform: SpritesheetRenderTransform = {
-              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
-              scaleX: (transform.scaleX || 1) * zoom, 
+              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation,
+              scaleX: (transform.scaleX || 1) * zoom,
               scaleY: (transform.scaleY || 1) * zoom
             };
             SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
@@ -425,18 +426,18 @@ export class RenderSystem extends BaseSystem {
         // Render remote player - similar to local player but without engine flames
         const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
         const entitySprite = this.ecs.getComponent(entity, Sprite);
-        
+
         // Aggiungi float offset per allineare con player locale
         const floatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime);
-        
+
         if (entityAnimatedSprite) {
           // Verifica che l'immagine esista e abbia dimensioni valide
           const img = entityAnimatedSprite.spritesheet?.image;
           if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
             const zoom = camera?.zoom || 1;
             const renderTransform: SpritesheetRenderTransform = {
-              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
-              scaleX: (transform.scaleX || 1) * zoom, 
+              x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation,
+              scaleX: (transform.scaleX || 1) * zoom,
               scaleY: (transform.scaleY || 1) * zoom
             };
             SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
@@ -445,8 +446,8 @@ export class RenderSystem extends BaseSystem {
           // Fallback to sprite renderer
           const zoom = camera?.zoom || 1;
           const renderTransform: RenderableTransform = {
-            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation, 
-            scaleX: (transform.scaleX || 1) * zoom, 
+            x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation,
+            scaleX: (transform.scaleX || 1) * zoom,
             scaleY: (transform.scaleY || 1) * zoom
           };
           SpriteRenderer.render(ctx, renderTransform, entitySprite);
@@ -459,18 +460,18 @@ export class RenderSystem extends BaseSystem {
         if (isPortal) {
           const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
           const entitySprite = this.ecs.getComponent(entity, Sprite);
-          
+
           if (entityAnimatedSprite) {
             // Verifica che l'immagine esista e abbia dimensioni valide
             const img = entityAnimatedSprite.spritesheet?.image;
             if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
               const zoom = camera?.zoom || 1;
               const renderTransform: SpritesheetRenderTransform = {
-                x: screenX, y: screenY, rotation: transform.rotation, 
-                scaleX: (transform.scaleX || 1) * zoom, 
+                x: screenX, y: screenY, rotation: transform.rotation,
+                scaleX: (transform.scaleX || 1) * zoom,
                 scaleY: (transform.scaleY || 1) * zoom
               };
-              
+
               // Portali e Pyramid: usa animazione temporale (come GIF)
               const totalFrames = entityAnimatedSprite.frameCount;
               if (totalFrames > 0) {
@@ -495,8 +496,8 @@ export class RenderSystem extends BaseSystem {
           } else if (entitySprite && entitySprite.isLoaded()) {
             const zoom = camera?.zoom || 1;
             const renderTransform: RenderableTransform = {
-              x: screenX, y: screenY, rotation: transform.rotation, 
-              scaleX: (transform.scaleX || 1) * zoom, 
+              x: screenX, y: screenY, rotation: transform.rotation,
+              scaleX: (transform.scaleX || 1) * zoom,
               scaleY: (transform.scaleY || 1) * zoom
             };
             SpriteRenderer.render(ctx, renderTransform, entitySprite);
@@ -516,8 +517,22 @@ export class RenderSystem extends BaseSystem {
             };
             SpriteRenderer.render(ctx, renderTransform, entitySprite);
           }
+        } else {
+          // Check for Asteroid entities
+          const isAsteroid = this.ecs.hasComponent(entity, Asteroid);
+          if (isAsteroid) {
+            const entitySprite = this.ecs.getComponent(entity, Sprite);
+            if (entitySprite && entitySprite.isLoaded()) {
+              const zoom = camera?.zoom || 1;
+              const renderTransform: RenderableTransform = {
+                x: screenX, y: screenY, rotation: transform.rotation,
+                scaleX: (transform.scaleX || 1) * zoom,
+                scaleY: (transform.scaleY || 1) * zoom
+              };
+              SpriteRenderer.render(ctx, renderTransform, entitySprite);
+            }
+          }
         }
-        // Se non è un portale/space station e non è player/remote player/NPC/explosion, non renderizzare
       }
     }
 
@@ -535,7 +550,7 @@ export class RenderSystem extends BaseSystem {
     this.portalAnimationTime += deltaTime;
     // Aggiorna timestamp frame per sincronizzare float offset
     this.frameTime += deltaTime;
-    
+
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -553,7 +568,7 @@ export class RenderSystem extends BaseSystem {
     } else {
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] ✅ Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
     }
-    
+
     // Gestisci fiamme del motore
     if (this.engflamesSprite) {
       // Fade in quando inizia a muoversi, fade out quando si ferma
@@ -629,9 +644,9 @@ export class RenderSystem extends BaseSystem {
     const entitiesWithoutPlayer = playerEntity
       ? entities.filter(entity => !entity || entity.id !== playerEntity.id)
       : entities;
-    
+
     // Render space stations PRIMA di tutte le altre entità (più in background)
-    const spaceStations = entitiesWithoutPlayer.filter(entity => 
+    const spaceStations = entitiesWithoutPlayer.filter(entity =>
       this.ecs.hasComponent(entity, SpaceStation)
     );
     for (const entity of spaceStations) {
@@ -669,9 +684,9 @@ export class RenderSystem extends BaseSystem {
         }, camera);
       }
     }
-    
+
     // Render altre entità (portali, NPC, ecc.) - player verrà renderizzato dopo
-    const otherEntities = entitiesWithoutPlayer.filter(entity => 
+    const otherEntities = entitiesWithoutPlayer.filter(entity =>
       !this.ecs.hasComponent(entity, SpaceStation)
     );
     for (const entity of otherEntities) {
@@ -730,17 +745,17 @@ export class RenderSystem extends BaseSystem {
         }
       }
     }
-    
+
     // Render player DOPO tutte le altre entità (sopra portali, NPC e space stations)
     // This ensures the player is rendered on top with proper priority
     if (playerEntity) {
       const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-      
+
       if (playerTransform) {
         const { width, height } = this.displayManager.getLogicalSize();
         const screenPos = ScreenSpace.toScreen(playerTransform, camera, width, height);
         const components = this.getCachedComponents(playerEntity);
-        
+
         // Render engine flames BEFORE player ship (behind in z-order)
         const playerVelocity = this.ecs.getComponent(playerEntity, Velocity);
         if (playerVelocity && this.engflamesSprite && this.engflamesOpacity > 0) {
@@ -840,7 +855,7 @@ export class RenderSystem extends BaseSystem {
     ctx.shadowOffsetY = 1;
     ctx.fillStyle = params.backgroundColor;
     ctx.fillRect(params.x, params.y, barWidth, params.height);
-    
+
     // Reset shadow
     ctx.shadowBlur = 0;
     ctx.shadowOffsetY = 0;
@@ -860,7 +875,7 @@ export class RenderSystem extends BaseSystem {
         ctx.fillStyle = params.fillColor;
       }
       ctx.fillRect(params.x, params.y, params.width, params.height);
-      
+
       // Effetto luce/riflesso sulla parte superiore
       if (params.width > 4) {
         const highlightGradient = ctx.createLinearGradient(
