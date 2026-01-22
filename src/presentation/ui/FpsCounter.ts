@@ -3,8 +3,9 @@ export class FpsCounter {
     private fps: number = 0;
     private frameCount: number = 0;
     private timeAccumulator: number = 0;
-    private lastUpdate: number = 0;
+    private lastTime: number = 0;
     private visible: boolean = false;
+    private animationFrameId: number | null = null;
 
     constructor() {
         this.container = document.createElement('div');
@@ -35,19 +36,25 @@ export class FpsCounter {
         this.container.textContent = 'FPS: --';
     }
 
-    public update(deltaTime: number): void {
-        if (!this.visible) return;
+    // Self-driven loop to measure actual RENDER FPS (not logic UPS)
+    private loop = (timestamp: number): void => {
+        if (!this.lastTime) this.lastTime = timestamp;
+        const deltaTime = timestamp - this.lastTime;
+        this.lastTime = timestamp;
 
         this.frameCount++;
         this.timeAccumulator += deltaTime;
 
         // Update FPS display every 0.5 seconds
         if (this.timeAccumulator >= 500) {
+            // Calculate FPS
             this.fps = Math.round((this.frameCount * 1000) / this.timeAccumulator);
             this.updateDisplay();
             this.frameCount = 0;
             this.timeAccumulator = 0;
         }
+
+        this.animationFrameId = requestAnimationFrame(this.loop);
     }
 
     private updateDisplay(): void {
@@ -64,15 +71,22 @@ export class FpsCounter {
     }
 
     public show(): void {
+        if (this.visible) return;
         this.visible = true;
         this.container.style.display = 'block';
         this.frameCount = 0;
         this.timeAccumulator = 0;
+        this.lastTime = 0;
+        this.animationFrameId = requestAnimationFrame(this.loop);
     }
 
     public hide(): void {
         this.visible = false;
         this.container.style.display = 'none';
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
     }
 
     public setVisibility(visible: boolean): void {
@@ -84,6 +98,7 @@ export class FpsCounter {
     }
 
     public destroy(): void {
+        this.hide(); // Stop loop
         if (this.container && this.container.parentNode) {
             this.container.parentNode.removeChild(this.container);
         }

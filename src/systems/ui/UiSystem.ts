@@ -13,6 +13,7 @@ import { UIChatManager } from './managers/UIChatManager';
 import { UINicknameManager } from './managers/UINicknameManager';
 import { UIAudioManager } from './managers/UIAudioManager';
 import { FpsCounter } from '../../presentation/ui/FpsCounter';
+import { GameSettings } from '../../core/settings/GameSettings';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -89,6 +90,18 @@ export class UiSystem extends System {
 
       // Initialize FPS counter
       this.fpsCounter = new FpsCounter();
+
+      // Apply saved settings
+      const settings = GameSettings.getInstance();
+
+      // Interface settings
+      this.chatManager.setChatVisibility(settings.interface.showChat);
+      // damage numbers setting is handled by DamageTextSystem, but we can emit event or handle it there
+      // Checking if UiSystem handles damage numbers toggle? 
+      // It listens to 'settings:ui:damage_numbers', but doesn't store state itself.
+      // We should emit an event to synchronize systems or let them read settings.
+      // But since we are here, we can set FPS visibility
+      this.fpsCounter.setVisibility(settings.graphics.showFps);
 
       this.managersInitialized = true;
     } catch (error) {
@@ -314,9 +327,7 @@ export class UiSystem extends System {
 
   update(deltaTime: number): void {
     this.panelManager.updateRealtimePanels(deltaTime);
-    if (this.fpsCounter) {
-      this.fpsCounter.update(deltaTime);
-    }
+    // fpsCounter now updates itself using requestAnimationFrame
   }
   public getUpgradePanel(): UpgradePanel | null {
     return this.panelManager.getUpgradePanel();

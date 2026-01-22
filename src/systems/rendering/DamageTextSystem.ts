@@ -1,5 +1,6 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { GameSettings } from '../../core/settings/GameSettings';
 import { DamageText } from '../../entities/combat/DamageText';
 import { Transform } from '../../entities/spatial/Transform';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
@@ -14,11 +15,13 @@ import { DisplayManager } from '../../infrastructure/display';
 export class DamageTextSystem extends BaseSystem {
   private cameraSystem: any = null; // Cache del sistema camera
   private damageSystem: DamageSystem | null = null; // Riferimento al DamageSystem per gestire i contatori dei testi
-
   private visible: boolean = true;
 
   constructor(ecs: ECS, cameraSystem?: any, damageSystem?: DamageSystem) {
     super(ecs);
+
+    // Initialize visibility from settings
+    this.visible = GameSettings.getInstance().interface.showDamageNumbers;
     // Usa il cameraSystem passato o cercalo
     this.cameraSystem = cameraSystem || this.findCameraSystem();
     // Salva il riferimento al DamageSystem

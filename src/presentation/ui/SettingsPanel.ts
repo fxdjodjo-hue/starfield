@@ -1,5 +1,6 @@
 import { BasePanel } from './FloatingIcon';
 import type { PanelConfig } from './PanelConfig';
+import { GameSettings } from '../../core/settings/GameSettings';
 
 /**
  * SettingsPanel - Gestisce le configurazioni di gioco
@@ -138,27 +139,33 @@ export class SettingsPanel extends BasePanel {
 
     private refreshContent(container: HTMLElement): void {
         container.innerHTML = '';
+        const settings = GameSettings.getInstance();
 
         if (this.activeTab === 'graphics') {
-            this.createToggle(container, 'Show FPS', 'Display frames per second', false, (val) => {
+            this.createToggle(container, 'Show FPS', 'Display frames per second', settings.graphics.showFps, (val) => {
+                settings.setShowFps(val);
                 document.dispatchEvent(new CustomEvent('settings:graphics:show_fps', { detail: val }));
             });
         } else if (this.activeTab === 'audio') {
-            this.createSlider(container, 'Master Volume', 100, (val) => {
+            this.createSlider(container, 'Master Volume', settings.audio.master, (val) => {
+                settings.setAudioVolume('master', val);
                 document.dispatchEvent(new CustomEvent('settings:volume:master', { detail: val / 100 }));
             });
-            this.createSlider(container, 'SFX Volume', 80, (val) => {
+            this.createSlider(container, 'SFX Volume', settings.audio.sfx, (val) => {
+                settings.setAudioVolume('sfx', val);
                 document.dispatchEvent(new CustomEvent('settings:volume:sfx', { detail: val / 100 }));
             });
-            this.createSlider(container, 'Music Volume', 60, (val) => {
+            this.createSlider(container, 'Music Volume', settings.audio.music, (val) => {
+                settings.setAudioVolume('music', val);
                 document.dispatchEvent(new CustomEvent('settings:volume:music', { detail: val / 100 }));
             });
         } else if (this.activeTab === 'interface') {
-
-            this.createToggle(container, 'Show Chat', 'Toggle multiplayer chat', true, (val) => {
+            this.createToggle(container, 'Show Chat', 'Toggle multiplayer chat', settings.interface.showChat, (val) => {
+                settings.setShowChat(val);
                 document.dispatchEvent(new CustomEvent('settings:ui:chat', { detail: val }));
             });
-            this.createToggle(container, 'Show Damage Numbers', 'Display floating damage values', true, (val) => {
+            this.createToggle(container, 'Show Damage Numbers', 'Display floating damage values', settings.interface.showDamageNumbers, (val) => {
+                settings.setShowDamageNumbers(val);
                 document.dispatchEvent(new CustomEvent('settings:ui:damage_numbers', { detail: val }));
             });
         }

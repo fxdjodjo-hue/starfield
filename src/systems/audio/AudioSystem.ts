@@ -1,5 +1,6 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { GameSettings } from '../../core/settings/GameSettings';
 import type { AudioConfig } from '../../config/AudioConfig';
 import { AUDIO_ASSETS } from '../../config/AudioConfig';
 
@@ -49,6 +50,12 @@ export default class AudioSystem extends System {
 
     // Setup listener per impostazioni
     this.setupSettingsListeners();
+
+    // Apply saved settings
+    const settings = GameSettings.getInstance();
+    this.setMasterVolume(settings.audio.master / 100);
+    this.setEffectsVolume(settings.audio.sfx / 100);
+    this.setMusicVolume(settings.audio.music / 100);
   }
 
   private setupSettingsListeners(): void {
