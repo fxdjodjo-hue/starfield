@@ -40,7 +40,7 @@ export class PlayerUpgrades extends Component {
 
   // Methods
   /**
-   * Acquista un upgrade HP (+1% HP)
+   * Acquista un upgrade HP (+5% HP)
    */
   upgradeHP(): boolean {
     this._hpUpgrades++;
@@ -48,7 +48,7 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Acquista un upgrade Shield (+1% Shield)
+   * Acquista un upgrade Shield (+5% Shield)
    */
   upgradeShield(): boolean {
     this._shieldUpgrades++;
@@ -56,7 +56,7 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Acquista un upgrade Speed (+1% Speed)
+   * Acquista un upgrade Speed (+0.5% Speed)
    */
   upgradeSpeed(): boolean {
     this._speedUpgrades++;
@@ -64,7 +64,7 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Acquista un upgrade Weapon Damage (+1% Weapon Damage)
+   * Acquista un upgrade Weapon Damage (+5% Weapon Damage)
    */
   upgradeDamage(): boolean {
     this._damageUpgrades++;
@@ -116,31 +116,31 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.01)
+   * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.05)
    */
   getHPBonus(): number {
-    return 1.0 + (this._hpUpgrades * 0.01);
+    return 1.0 + (this._hpUpgrades * 0.05);
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Shield (1.0 + upgrades * 0.01)
+   * Calcola il bonus moltiplicatore per Shield (1.0 + upgrades * 0.05)
    */
   getShieldBonus(): number {
-    return 1.0 + (this._shieldUpgrades * 0.01);
+    return 1.0 + (this._shieldUpgrades * 0.05);
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Speed (1.0 + upgrades * 0.01)
+   * Calcola il bonus moltiplicatore per Speed (1.0 + upgrades * 0.005)
    */
   getSpeedBonus(): number {
-    return 1.0 + (this._speedUpgrades * 0.01);
+    return 1.0 + (this._speedUpgrades * 0.005);
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Weapon Damage (1.0 + upgrades * 0.01)
+   * Calcola il bonus moltiplicatore per Weapon Damage (1.0 + upgrades * 0.05)
    */
   getDamageBonus(): number {
-    return 1.0 + (this._damageUpgrades * 0.01);
+    return 1.0 + (this._damageUpgrades * 0.05);
   }
 
   /**

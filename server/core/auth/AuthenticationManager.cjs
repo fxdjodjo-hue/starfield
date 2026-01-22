@@ -56,11 +56,11 @@ class AuthenticationManager {
     if (!playerData) {
       return { valid: false, error: 'Player data not found' };
     }
-    
+
     if (receivedClientId !== playerData.clientId) {
       return { valid: false, error: 'Invalid client ID' };
     }
-    
+
     return { valid: true };
   }
 
@@ -73,7 +73,7 @@ class AuthenticationManager {
    */
   calculateMaxHealth(hpUpgrades) {
     const baseHealth = 100000;
-    const bonus = 1.0 + (hpUpgrades * 0.01);
+    const bonus = 1.0 + (hpUpgrades * 0.05);
     return Math.floor(baseHealth * bonus);
   }
 
@@ -86,7 +86,7 @@ class AuthenticationManager {
    */
   calculateMaxShield(shieldUpgrades) {
     const baseShield = 50000;
-    const bonus = 1.0 + (shieldUpgrades * 0.01);
+    const bonus = 1.0 + (shieldUpgrades * 0.05);
     return Math.floor(baseShield * bonus);
   }
 

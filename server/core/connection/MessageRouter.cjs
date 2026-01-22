@@ -268,7 +268,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
 
   // Calcola velocità effettiva del giocatore basata sui suoi upgrade
   const playerSpeedUpgrades = playerData.upgrades?.speedUpgrades || 0;
-  const speedMultiplier = 1.0 + (playerSpeedUpgrades * 0.01); // Ogni upgrade = +1% velocità
+  const speedMultiplier = 1.0 + (playerSpeedUpgrades * 0.005); // Ogni upgrade = +0.5% velocità
   const actualMaxSpeed = baseSpeed * speedMultiplier;
 
   // Calcola tempo effettivo dall'ultimo movimento (non dall'ultimo rate limit reset)

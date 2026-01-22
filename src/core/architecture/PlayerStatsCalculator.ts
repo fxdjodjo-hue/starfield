@@ -35,20 +35,20 @@ export interface UpgradeValidation {
 }
 
 export class PlayerStatsCalculator {
-  // Valori base del giocatore
+  // Valori base del giocatore (allineati con server)
   private static readonly BASE_STATS = {
-    health: 10000,
-    shield: 10000,
-    speed: 150,      // velocità base
+    health: 100000,  // allineato con server
+    shield: 50000,   // allineato con server
+    speed: 300,      // velocità base (da player-config.json)
     damage: 500      // danno base
   };
 
-  // Moltiplicatori per upgrade
+  // Moltiplicatori per upgrade (allineati con server)
   private static readonly UPGRADE_MULTIPLIERS = {
-    health: 0.10,    // +10% per upgrade
-    shield: 0.10,    // +10% per upgrade
-    speed: 0.05,     // +5% per upgrade
-    damage: 0.01     // +1% per upgrade
+    health: 0.05,    // +5% per upgrade
+    shield: 0.05,    // +5% per upgrade
+    speed: 0.005,    // +0.5% per upgrade
+    damage: 0.05     // +5% per upgrade
   };
 
   // Costi base per upgrade

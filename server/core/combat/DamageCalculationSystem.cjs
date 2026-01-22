@@ -24,9 +24,9 @@ class DamageCalculationSystem {
       return baseDamage;
     }
 
-    // Formula: damageBonus = 1.0 + (damageUpgrades * 0.01)
-    // Ogni upgrade aumenta il danno dell'1%
-    const damageBonus = 1.0 + (upgrades.damageUpgrades * 0.01);
+    // Formula: damageBonus = 1.0 + (damageUpgrades * 0.05)
+    // Ogni upgrade aumenta il danno del 5%
+    const damageBonus = 1.0 + (upgrades.damageUpgrades * 0.05);
     return Math.floor(baseDamage * damageBonus);
   }
 
