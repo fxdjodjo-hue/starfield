@@ -30,7 +30,8 @@ class PositionUpdateProcessor {
         rotation: latestUpdate.rotation,
         tick: latestUpdate.tick,
         nickname: latestUpdate.nickname,
-        playerId: latestUpdate.playerId
+        playerId: latestUpdate.playerId,
+        rank: latestUpdate.rank // Includi rank nel broadcast
       };
 
       MapBroadcaster.broadcastToMap(players, positionBroadcast, clientId);

@@ -6,7 +6,7 @@ import { PlayerRole } from '../../../entities/player/PlayerRole';
 
 /**
  * Sistema Rank - gestisce il calcolo dei gradi militari
- * Formula semplificata: RankingPoints = exp + (RecentHonor × 2)
+ * Formula: RankingPoints = exp + (Honor × 0.5) + (RecentHonor × 2)
  * Il rank può salire o scendere in base al comportamento recente
  */
 export class RankSystem extends BaseSystem {
@@ -75,13 +75,16 @@ export class RankSystem extends BaseSystem {
 
     if (!experience || !honor) return 0;
 
-    // Formula semplificata: exp + (RecentHonor × 2)
+    // Formula avanzata: exp + (Honor × 0.5) + (RecentHonor × 2)
     // - Exp: progressione permanente (base principale)
-    // - RecentHonor × 2: peso moderato, premia comportamento recente
+    // - Honor × 0.5: reputazione storica (peso leggero)
+    // - RecentHonor × 2: reputazione attuale (ago della bilancia)
     // 
     // Usa RecentHonor dal server se disponibile, altrimenti fallback a honor corrente
     const recentHonorValue = this.recentHonor !== null ? this.recentHonor : honor.honor;
-    const points = experience.totalExpEarned + (recentHonorValue * this.honorMultiplier);
+
+    // Formula: EXP + (Honor * 0.5) + (RecentHonor * 2)
+    const points = experience.totalExpEarned + (honor.honor * 0.5) + (recentHonorValue * this.honorMultiplier);
 
     // Limite minimo: nessuno scende sotto la propria EXP
     // Honor penalizza solo sopra la base

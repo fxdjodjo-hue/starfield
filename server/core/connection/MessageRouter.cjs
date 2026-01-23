@@ -136,8 +136,67 @@ async function handleJoin(data, sanitizedData, context) {
     }
   }
 
+  // Helper per calcolare il rank (duplicato logica client RankSystem)
+  function calculatePlayerRank(experience, totalHonor, recentHonor, isAdministrator) {
+    if (isAdministrator) return 'Administrator';
+
+    // I rank militari e le loro soglie (duplicato da RankSystem.ts)
+    const MILITARY_RANKS = [
+      { name: 'Chief General', minPoints: 100000 },
+      { name: 'General', minPoints: 75000 },
+      { name: 'Basic General', minPoints: 50000 },
+      { name: 'Chief Colonel', minPoints: 35000 },
+      { name: 'Colonel', minPoints: 25000 },
+      { name: 'Basic Colonel', minPoints: 15000 },
+      { name: 'Chief Major', minPoints: 10000 },
+      { name: 'Major', minPoints: 7500 },
+      { name: 'Basic Major', minPoints: 5000 },
+      { name: 'Chief Captain', minPoints: 3500 },
+      { name: 'Captain', minPoints: 2500 },
+      { name: 'Basic Captain', minPoints: 1500 },
+      { name: 'Chief Lieutenant', minPoints: 1000 },
+      { name: 'Lieutenant', minPoints: 750 },
+      { name: 'Basic Lieutenant', minPoints: 500 },
+      { name: 'Chief Sergeant', minPoints: 350 },
+      { name: 'Sergeant', minPoints: 250 },
+      { name: 'Basic Sergeant', minPoints: 150 },
+      { name: 'Chief Space Pilot', minPoints: 100 },
+      { name: 'Space Pilot', minPoints: 50 },
+      { name: 'Basic Space Pilot', minPoints: 25 },
+      { name: 'Recruit', minPoints: 0 }
+    ];
+
+    // Formula: EXP + (Honor * 0.5) + (RecentHonor * 2)
+    // Fallback: usa honor corrente se recentHonor non disponibile
+    const recentHonorValue = recentHonor !== undefined && recentHonor !== null ? recentHonor : totalHonor;
+    const rankingPoints = experience + (totalHonor * 0.5) + (recentHonorValue * 2);
+
+    // Trova il rank
+    for (const rank of MILITARY_RANKS) {
+      if (rankingPoints >= rank.minPoints) {
+        return rank.name;
+      }
+    }
+    return 'Recruit';
+  }
+
   // Aggiorna il clientId nel playerData per coerenza
   playerData.clientId = persistentClientId;
+
+  // Calcola il rank iniziale
+  // NOTA: Qui usiamo honor corrente come approssimazione di recentHonor se non disponibile
+  // Idealmente dovremmo caricare recentHonor dal DB
+  const currentHonor = loadedData.inventory?.honor || 0;
+  // TODO: Caricare recentHonor dal DB per calcolo preciso
+  // Per ora usiamo currentHonor come stima per recentHonor
+  const recentHonorApprox = currentHonor;
+
+  playerData.rank = calculatePlayerRank(
+    loadedData.inventory?.experience || 0,
+    currentHonor,
+    recentHonorApprox,
+    playerData.isAdministrator
+  );
 
   // 🚨 CRITICAL: Inizializza coordinate del player usando la persistenza del DB o spawn come fallback
   // loadedData.position contiene i dati caricati dal DB in PlayerDataManager.loadPlayerData
@@ -161,7 +220,7 @@ async function handleJoin(data, sanitizedData, context) {
 
   mapServer.addPlayer(persistentClientId, playerData);
 
-  ServerLoggerWrapper.info('PLAYER', `Player joined: ${data.nickname} (${playerData.playerId})`);
+  ServerLoggerWrapper.info('PLAYER', `Player joined: ${data.nickname} (${playerData.playerId}) - Rank: ${playerData.rank}`);
 
   // TEMP: Enable repair system after initial sync (replace with explicit load completion)
   // Questo timeout è un hack temporaneo - in futuro sostituire con:
@@ -193,7 +252,8 @@ async function handleJoin(data, sanitizedData, context) {
         rotation: existingPlayerData.position.rotation || 0,
         tick: 0,
         nickname: existingPlayerData.nickname,
-        playerId: existingPlayerData.playerId
+        playerId: existingPlayerData.playerId,
+        rank: existingPlayerData.rank || 'Recruit' // Includi rank
       };
       ws.send(JSON.stringify(existingPlayerBroadcast));
     }
@@ -208,7 +268,8 @@ async function handleJoin(data, sanitizedData, context) {
       rotation: playerData.position.rotation || 0,
       tick: 0,
       nickname: data.nickname,
-      playerId: playerData.playerId
+      playerId: playerData.playerId,
+      rank: playerData.rank // Includi rank
     };
     mapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
   }
@@ -339,6 +400,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
     tick: data.tick,
     nickname: playerData.nickname,
     playerId: playerData.playerId,
+    rank: playerData.rank, // Aggiunto rank alla queue
     senderWs: ws,
     timestamp: Date.now()
   });
