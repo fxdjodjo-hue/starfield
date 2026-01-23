@@ -7,7 +7,7 @@ const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs')
 const WebSocket = require('ws');
 const messageBroadcaster = require('../messaging/MessageBroadcaster.cjs');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
-const playerConfig = require('../../shared/player-config.json');
+const playerConfig = require('../../../shared/player-config.json');
 
 /**
  * Handler per messaggio 'join'
