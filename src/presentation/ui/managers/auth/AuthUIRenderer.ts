@@ -10,6 +10,7 @@ export class AuthUIRenderer {
   private loadingContainer!: HTMLDivElement;
   private authContainer!: HTMLDivElement;
   private versionElement!: HTMLDivElement;
+  private statusElement!: HTMLDivElement;
   private discordIcon!: DiscordIcon;
   private stars: HTMLDivElement[] = [];
   private animationFrameId?: number;
@@ -117,12 +118,42 @@ export class AuthUIRenderer {
       letter-spacing: 1px;
       text-align: center;
       width: 100%;
+      margin-top: 8px;
+    `;
+
+    // Status del Server - sopra la versione
+    this.statusElement = document.createElement('div');
+    this.statusElement.className = 'authscreen-status';
+    this.statusElement.innerHTML = `Status: <span class="status-indicator status-checking">checking...</span>`;
+    this.statusElement.style.cssText = `
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 11px;
+      font-family: 'Courier New', monospace;
+      letter-spacing: 1px;
+      text-align: center;
+      width: 100%;
       margin-top: 32px;
       opacity: 0;
-      animation: fadeIn 1s ease-out 1.5s both;
+      animation: fadeIn 1s ease-out 1.2s both;
+    `;
+
+    // Footer container per raggruppare status e versione
+    const footer = document.createElement('div');
+    footer.style.cssText = `
       position: absolute;
       bottom: 24px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      z-index: 10;
     `;
+    footer.appendChild(this.statusElement);
+    footer.appendChild(this.versionElement);
+
+    // Animazione fade in per la versione (spostata sul container se necessario o lasciata singola)
+    this.versionElement.style.opacity = '0';
+    this.versionElement.style.animation = 'fadeIn 1s ease-out 1.5s both';
 
     // Crea stelle animate
     this.createStarsBackground();
@@ -130,7 +161,7 @@ export class AuthUIRenderer {
     // Assembla tutto
     this.container.appendChild(this.loadingContainer);
     this.container.appendChild(this.authContainer);
-    this.container.appendChild(this.versionElement);
+    this.container.appendChild(footer);
 
     // Aggiungi al DOM
     document.body.appendChild(this.container);
@@ -260,6 +291,23 @@ export class AuthUIRenderer {
         -ms-user-select: none;
       }
 
+      /* Status Indicator Styles */
+      .status-indicator {
+        font-weight: bold;
+        transition: color 0.3s ease;
+      }
+      .status-online {
+        color: #44ff44;
+        text-shadow: 0 0 8px rgba(68, 255, 68, 0.4);
+      }
+      .status-offline {
+        color: #ff4444;
+        text-shadow: 0 0 8px rgba(255, 68, 68, 0.4);
+      }
+      .status-checking {
+        color: rgba(255, 255, 255, 0.4);
+      }
+
       /* Permetti selezione solo per input fields */
       #authscreen-container input {
         user-select: text;
@@ -369,6 +417,23 @@ export class AuthUIRenderer {
     }
     if (this.discordIcon) {
       this.discordIcon.destroy();
+    }
+  }
+
+  /**
+   * Aggiorna lo stato visivo del server
+   */
+  updateServerStatus(status: 'online' | 'offline' | 'checking'): void {
+    if (!this.statusElement) return;
+
+    const indicator = this.statusElement.querySelector('.status-indicator');
+    if (!indicator) return;
+
+    indicator.className = `status-indicator status-${status}`;
+    indicator.textContent = status.toUpperCase();
+
+    if (status === 'checking') {
+      indicator.textContent = 'CHECKING...';
     }
   }
 
