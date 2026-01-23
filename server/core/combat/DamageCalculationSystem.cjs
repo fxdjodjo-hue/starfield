@@ -9,17 +9,18 @@
  */
 
 const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
+const playerConfig = require('../../../shared/player-config.json');
 
 class DamageCalculationSystem {
   /**
    * Calcola il danno del player basato su base damage e upgrade
    * 
-   * @param {number} baseDamage - Danno base (default: 500)
+   * @param {number} baseDamage - Danno base (default: da config)
    * @param {Object} upgrades - Oggetto con upgrade del player (opzionale)
    * @param {number} upgrades.damageUpgrades - Numero di upgrade danno
    * @returns {number} Danno calcolato
    */
-  static calculatePlayerDamage(baseDamage = 500, upgrades = null) {
+  static calculatePlayerDamage(baseDamage = playerConfig.stats.damage, upgrades = null) {
     if (!upgrades || !upgrades.damageUpgrades) {
       return baseDamage;
     }
@@ -33,10 +34,10 @@ class DamageCalculationSystem {
   /**
    * Ottiene il danno base del player
    * 
-   * @returns {number} Danno base (500)
+   * @returns {number} Danno base
    */
   static getBasePlayerDamage() {
-    return 500;
+    return playerConfig.stats.damage;
   }
 }
 
