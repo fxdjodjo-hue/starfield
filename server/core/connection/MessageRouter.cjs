@@ -617,18 +617,19 @@ function handleStartCombat(data, sanitizedData, context) {
   const combat = mapServer.combatManager.playerCombats.get(data.clientId);
   if (combat) {
     mapServer.combatManager.processPlayerCombat(data.clientId, combat, Date.now());
+
+    // Broadcast solo se il combat è stato creato con successo
+    const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
+      data.playerId,
+      data.npcId,
+      true,
+      data.clientId, // Passa il persistent clientId
+      combat.sessionId // Passa il session ID univoco
+    );
+    mapServer.broadcastToMap(combatUpdate);
   } else {
     ServerLoggerWrapper.error('SERVER', `Combat not found after startPlayerCombat for ${data.clientId}`);
   }
-
-  const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
-    data.playerId,
-    data.npcId,
-    true,
-    data.clientId, // Passa il persistent clientId
-    combat.sessionId // Passa il session ID univoco
-  );
-  mapServer.broadcastToMap(combatUpdate);
 }
 
 /**
@@ -1226,8 +1227,8 @@ function validatePlayerContext(type, data, context) {
   // 🚫 SECURITY: Validazione specifica per tipo di messaggio
   switch (type) {
     case 'position_update':
-      // Deve essere in un'area valida della mappa
-      if (data.x < -10000 || data.x > 10000 || data.y < -10000 || data.y > 10000) {
+      // Deve essere in un'area valida della mappa (Map is 21k x 13k, security allows buffer)
+      if (data.x < -12000 || data.x > 12000 || data.y < -10000 || data.y > 10000) {
         logger.error('SECURITY', `🚫 BLOCKED: Invalid position (${data.x}, ${data.y}) from ${data.clientId} playerId:${playerData.playerId}`);
         return { valid: false, reason: 'INVALID_POSITION' };
       }

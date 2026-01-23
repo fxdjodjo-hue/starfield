@@ -60,7 +60,7 @@ class PlayerDataManager {
       // Carica TUTTO in una singola query ottimizzata
       ServerLoggerWrapper.database(`🔍 Loading complete player data for user ${userId}`);
       ServerLoggerWrapper.database(`Using Supabase URL: ${supabaseUrl}`);
-      
+
       const { data: completeData, error: dataError } = await supabase.rpc(
         'get_player_complete_data_secure',
         { auth_id_param: userId }
@@ -75,7 +75,7 @@ class PlayerDataManager {
 
       // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
       const playerDataRaw = Array.isArray(completeData) && completeData.length > 0 ? completeData[0] : completeData;
-      
+
       ServerLoggerWrapper.debug('DATABASE', `Player data parsed for user ${userId}`, {
         found: playerDataRaw?.found,
         player_id: playerDataRaw?.player_id,
@@ -111,19 +111,19 @@ class PlayerDataManager {
           const defaultInventory = this.getDefaultPlayerData().inventory;
           let currencies;
           let hadNullValues = false; // Traccia se il database aveva null
-          
+
           if (playerDataRaw.currencies_data) {
             currencies = JSON.parse(playerDataRaw.currencies_data);
-            
+
             // DATABASE IS SOURCE OF TRUTH: Traccia se il database aveva null
             // IMPORTANTE: Se un valore è null nel DB, significa che non è mai stato impostato
             // Ma se un valore è presente (anche 0), deve essere preservato
             // Se TUTTI i valori principali sono null, significa che il record esiste ma non è mai stato popolato
-            const allMainValuesNull = currencies.credits === null && 
-                                     currencies.cosmos === null && 
-                                     currencies.experience === null && 
-                                     currencies.honor === null;
-            
+            const allMainValuesNull = currencies.credits === null &&
+              currencies.cosmos === null &&
+              currencies.experience === null &&
+              currencies.honor === null;
+
             if (allMainValuesNull) {
               // Se TUTTI i valori sono null, significa che il record esiste ma non è mai stato popolato
               hadNullValues = true;
@@ -142,11 +142,11 @@ class PlayerDataManager {
               if (currencies.experience === null) currencies.experience = defaultInventory.experience;
               if (currencies.honor === null) currencies.honor = defaultInventory.honor;
             }
-            
+
             // Assicurati che skillPoints sia sempre definito
             currencies.skillPoints = Number(currencies.skillPoints || currencies.skill_points_current || 0);
             currencies.skillPointsTotal = Number(currencies.skill_points_total || currencies.skillPointsTotal || currencies.skillPoints || 0);
-            
+
             // Traccia se il database aveva null (per evitare di sovrascrivere con default)
             // IMPORTANTE: Se i valori sono stati aggiunti manualmente nel DB, hadNullValues sarà false
             currencies._hadNullInDb = hadNullValues;
@@ -155,7 +155,7 @@ class PlayerDataManager {
             currencies = { ...defaultInventory };
             currencies._hadNullInDb = false; // Nuovo player, non aveva null
           }
-          
+
           return currencies;
         })(),
         upgrades: (() => {
@@ -175,8 +175,7 @@ class PlayerDataManager {
         })(),
         quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [],
         recentHonor: recentHonor, // Media mobile honor ultimi 30 giorni
-        // 🟢 MMO-CORRECT: Carica HP/shield salvati (dopo migrazione NULL = errore DB)
-        currentHealth: (() => {
+        health: (() => {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedHealth = currencies.current_health;
@@ -185,7 +184,7 @@ class PlayerDataManager {
           }
           return null;
         })(),
-        currentShield: (() => {
+        shield: (() => {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
             const loadedShield = currencies.current_shield;
@@ -215,7 +214,7 @@ class PlayerDataManager {
     } catch (error) {
       ServerLoggerWrapper.database(`Error loading player data: ${error.message}`);
       ServerLoggerWrapper.database(`Error details`, error);
-      
+
       // Per un MMO, qualsiasi errore nel caricamento dei dati del player è critico
       // Non permettere connessioni senza dati validi dal database
       // Rilancia sempre l'errore per bloccare la connessione
@@ -235,7 +234,7 @@ class PlayerDataManager {
       }
 
       const playerId = playerData.userId; // Usa auth_id invece del player_id numerico
-      
+
       // 🔴 CRITICAL: Verifica che inventory esista prima di salvare
       // Se inventory è null/undefined, NON salvare per evitare di sovrascrivere i valori esistenti nel database
       if (!playerData.inventory) {
@@ -301,11 +300,11 @@ class PlayerDataManager {
           return Number(shield) || 53000; // Fallback sicuro
         })()
       };
-      
+
       // 🔴 FIX: Salva SEMPRE i currencies quando vengono modificati durante il gameplay
       // Il server è la fonte di verità - se i valori sono stati modificati in memoria (NPC kills, etc.),
       // devono essere salvati nel database, indipendentemente dallo stato iniziale del DB
-      
+
       // Rimuovi il flag interno prima di salvare (non più necessario)
       delete playerData.inventory._hadNullInDb;
 

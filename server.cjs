@@ -371,64 +371,8 @@ setInterval(() => {
   mapServer.tick();
 }, 50);
 
-// Autosave player data ogni 60 secondi (solo valori critici per playtest)
-setInterval(() => {
-  performAutosave();
-}, 60000);
-
-async function performAutosave() {
-  try {
-    const connectedPlayers = mapServer.players.size;
-    if (connectedPlayers === 0) return; // No players to save
-
-    let savedCount = 0;
-    const errors = [];
-
-    // Salva solo valori critici per ogni player connesso
-    for (const [clientId, playerData] of mapServer.players.entries()) {
-      try {
-        // Estrai solo i dati critici da salvare
-        const criticalData = {
-          playerId: playerData.playerId,
-          userId: playerData.userId,
-          // Valute principali
-          inventory: {
-            credits: playerData.inventory?.credits || 0,
-            cosmos: playerData.inventory?.cosmos || 0,
-            experience: playerData.inventory?.experience || 0,
-            honor: playerData.inventory?.honor || 0,
-            skillPoints: playerData.inventory?.skillPoints || 0
-          },
-          // Upgrade principali
-          upgrades: {
-            hpUpgrades: playerData.upgrades?.hpUpgrades || 0,
-            shieldUpgrades: playerData.upgrades?.shieldUpgrades || 0,
-            speedUpgrades: playerData.upgrades?.speedUpgrades || 0,
-            damageUpgrades: playerData.upgrades?.damageUpgrades || 0
-          }
-        };
-
-        // Usa il PlayerDataManager per salvare
-        await wsManager.playerDataManager.savePlayerData(criticalData);
-        savedCount++;
-      } catch (playerError) {
-        errors.push(`Player ${clientId}: ${playerError.message}`);
-        ServerLoggerWrapper.error('AUTOSAVE', `Failed to save player ${clientId}: ${playerError.message}`);
-      }
-    }
-
-    ServerLoggerWrapper.info('AUTOSAVE', `✅ Autosave completed: ${savedCount}/${connectedPlayers} players saved`);
-
-    if (errors.length > 0) {
-      ServerLoggerWrapper.warn('AUTOSAVE', `⚠️ Autosave errors: ${errors.join(', ')}`);
-    }
-
-  } catch (error) {
-    ServerLoggerWrapper.error('AUTOSAVE', `❌ Autosave failed: ${error.message}`);
-  }
-}
-
 // Il messaggio di avvio è già nel callback di server.listen()
+
 
 
 // Istanza della mappa principale con configurazione NPC
