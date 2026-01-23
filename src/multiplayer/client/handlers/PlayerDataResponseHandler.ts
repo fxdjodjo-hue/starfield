@@ -48,11 +48,11 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       economySystem.setCosmos(message.inventory.cosmos, 'server_update');
       economySystem.setHonor(message.inventory.honor, 'server_update');
       economySystem.setSkillPoints(message.inventory.skillPoints, 'server_update');
-      
+
       // Aggiorna RecentHonor in RankSystem se disponibile
       if (message.recentHonor !== undefined) {
         economySystem.setRecentHonor(message.recentHonor);
-        
+
         // Notifica che i dati sono pronti (per PlayState)
         // Questo viene fatto tramite il context che viene aggiornato sopra
       }
@@ -66,8 +66,9 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     // INIZIALIZZA IL COMPONENTE ECS SKILLPOINTS (necessario per UpgradePanel)
     if (networkSystem.getPlayerSystem() && message.inventory) {
       const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
-      if (playerEntity) {
-        const skillPointsComponent = networkSystem.getECS().getComponent(playerEntity, SkillPoints);
+      const ecs = networkSystem.getECS();
+      if (playerEntity && ecs) {
+        const skillPointsComponent = ecs.getComponent(playerEntity, SkillPoints);
         if (skillPointsComponent) {
           // Inizializza i punti abilità ricevuti dal server
           skillPointsComponent.setPoints(message.inventory.skillPoints || 0);
@@ -76,13 +77,20 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     }
 
     // SINCRONIZZA IL RUOLO DEL PLAYER (Server Authoritative)
-    if (networkSystem.getPlayerSystem() && message.isAdministrator !== undefined) {
-      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
-      if (playerEntity && networkSystem.getECS()) {
-        const ecs = networkSystem.getECS();
-        const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
-        if (playerRole) {
+    // 🔧 FIX: Also check pendingAdministrator from GameContext (from welcome message)
+    const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+    if (playerEntity && networkSystem.getECS()) {
+      const ecs = networkSystem.getECS();
+      const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
+      if (playerRole) {
+        // Use message.isAdministrator if available, otherwise check pending from GameContext
+        if (message.isAdministrator !== undefined) {
           playerRole.setAdministrator(message.isAdministrator);
+          console.log(`[PlayerDataResponse] Applied admin status from message: ${message.isAdministrator}`);
+        } else if (networkSystem.gameContext.pendingAdministrator !== null) {
+          playerRole.setAdministrator(networkSystem.gameContext.pendingAdministrator);
+          console.log(`[PlayerDataResponse] Applied pending admin status: ${networkSystem.gameContext.pendingAdministrator}`);
+          networkSystem.gameContext.pendingAdministrator = null; // Clear after applying
         }
       }
     }
