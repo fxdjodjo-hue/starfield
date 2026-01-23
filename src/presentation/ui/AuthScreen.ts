@@ -33,7 +33,7 @@ export class AuthScreen {
 
     // Initialize managers immediately (UI needs to be created in constructor)
     this.initializeManagers();
-    
+
     // Initialize after managers are ready (async, but constructor can't be async)
     this.init().catch(console.error);
   }
@@ -74,11 +74,11 @@ export class AuthScreen {
         this.context,
         (state) => this.stateManager.setState(state),
         (text) => this.initManager.updateLoadingText(text),
-        (message) => this.validationManager.showError(message),
-        (message) => this.validationManager.showSuccess(message),
+        (message) => this.formManager.showError(message),
+        (message) => this.formManager.showSuccess(message),
         (loggedIn) => this.stateManager.setJustLoggedIn(loggedIn),
         (processing) => this.stateManager.setProcessing(processing),
-        (button, show) => formManagerRef?.showButtonLoading(button, show),
+        (button, show) => this.formManager.showButtonLoading(button, show),
         (email) => this.validationManager.isValidEmail(email),
         (error) => this.validationManager.getFriendlyErrorMessage(error),
         this.onAuthenticated
@@ -144,11 +144,6 @@ export class AuthScreen {
    */
   showConnectionError(message: string, onRetry?: () => void): void {
     this.initializeManagers();
-
-    // Cambia lo stato in error (o usa loading come fallback)
-    if (this.stateManager && typeof this.stateManager.setState === 'function') {
-      this.stateManager.setState('error'); // Se esiste lo stato error
-    }
 
     // Aggiorna il testo con il messaggio di errore
     this.initManager.updateLoadingText(message);

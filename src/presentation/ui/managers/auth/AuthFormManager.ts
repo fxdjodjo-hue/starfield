@@ -11,7 +11,7 @@ export class AuthFormManager {
   private readonly handleLogin: (email: string, password: string, button: HTMLButtonElement) => Promise<void>;
   private readonly handleRegister: (email: string, password: string, confirmPassword: string, nickname: string, button: HTMLButtonElement) => Promise<void>;
   private readonly setState: (state: AuthState) => void;
-  private errorElement?: HTMLDivElement;
+  private feedbackElement?: HTMLDivElement;
 
   constructor(
     authContainer: HTMLElement,
@@ -36,7 +36,7 @@ export class AuthFormManager {
   renderForm(): void {
     // Rimuovi form esistente
     this.authContainer.innerHTML = '';
-    this.errorElement = undefined;
+    this.feedbackElement = undefined;
 
     // Card principale - elegante e trasparente
     const formContainer = document.createElement('div');
@@ -294,19 +294,19 @@ export class AuthFormManager {
     passwordInput.addEventListener('focus', () => this.handleInputFocus(passwordInput));
     passwordInput.addEventListener('blur', () => this.handleInputBlur(passwordInput));
 
-    // Error container
-    this.errorElement = document.createElement('div');
-    this.errorElement.className = 'error-message';
-    this.errorElement.style.cssText = `
-      color: #ff4444;
-      font-size: 12px;
+    // Feedback container
+    this.feedbackElement = document.createElement('div');
+    this.feedbackElement.className = 'auth-feedback-message';
+    this.feedbackElement.style.cssText = `
+      font-size: 13px;
       margin: -20px 0 20px 0;
-      padding: 8px 0;
+      padding: 12px;
       text-align: center;
       opacity: 0;
       transform: translateY(-10px);
-      transition: all 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       min-height: 0;
+      border-radius: 10px;
     `;
 
     // Pulsante login - moderno e animato
@@ -362,7 +362,7 @@ export class AuthFormManager {
     passwordGroup.appendChild(passwordInput);
     form.appendChild(emailGroup);
     form.appendChild(passwordGroup);
-    form.appendChild(this.errorElement);
+    form.appendChild(this.feedbackElement);
     form.appendChild(loginButton);
     form.appendChild(forgotLink);
 
@@ -411,19 +411,19 @@ export class AuthFormManager {
     nicknameInput.addEventListener('focus', () => this.handleInputFocus(nicknameInput));
     nicknameInput.addEventListener('blur', () => this.handleInputBlur(nicknameInput));
 
-    // Error container
-    this.errorElement = document.createElement('div');
-    this.errorElement.className = 'error-message';
-    this.errorElement.style.cssText = `
-      color: #ff4444;
-      font-size: 12px;
+    // Feedback container
+    this.feedbackElement = document.createElement('div');
+    this.feedbackElement.className = 'auth-feedback-message';
+    this.feedbackElement.style.cssText = `
+      font-size: 13px;
       margin: -20px 0 20px 0;
-      padding: 8px 0;
+      padding: 12px;
       text-align: center;
       opacity: 0;
       transform: translateY(-10px);
-      transition: all 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       min-height: 0;
+      border-radius: 10px;
     `;
 
     // Pulsante register
@@ -456,7 +456,7 @@ export class AuthFormManager {
     form.appendChild(emailGroup);
     form.appendChild(passwordGroup);
     form.appendChild(nicknameGroup);
-    form.appendChild(this.errorElement);
+    form.appendChild(this.feedbackElement);
     form.appendChild(registerButton);
 
     return form;
@@ -570,25 +570,43 @@ export class AuthFormManager {
   }
 
   /**
-   * Mostra errore inline
+   * Mostra messaggio di errore
    */
   showError(message: string): void {
-    if (this.errorElement) {
-      this.errorElement.textContent = message;
-      this.errorElement.style.opacity = '1';
-      this.errorElement.style.transform = 'translateY(0)';
-      this.errorElement.style.minHeight = 'auto';
-    }
+    if (!this.feedbackElement) return;
+
+    this.feedbackElement.textContent = message;
+    this.feedbackElement.style.color = '#ff6b6b';
+    this.feedbackElement.style.background = 'rgba(255, 68, 68, 0.1)';
+    this.feedbackElement.style.border = '1px solid rgba(255, 68, 68, 0.2)';
+    this.feedbackElement.style.opacity = '1';
+    this.feedbackElement.style.transform = 'translateY(0)';
+    this.feedbackElement.style.minHeight = 'auto';
   }
 
   /**
-   * Nasconde errore
+   * Mostra messaggio di successo
    */
-  hideError(): void {
-    if (this.errorElement) {
-      this.errorElement.style.opacity = '0';
-      this.errorElement.style.transform = 'translateY(-10px)';
-      this.errorElement.style.minHeight = '0';
+  showSuccess(message: string): void {
+    if (!this.feedbackElement) return;
+
+    this.feedbackElement.textContent = message;
+    this.feedbackElement.style.color = '#00ff88';
+    this.feedbackElement.style.background = 'rgba(0, 255, 136, 0.1)';
+    this.feedbackElement.style.border = '1px solid rgba(0, 255, 136, 0.2)';
+    this.feedbackElement.style.opacity = '1';
+    this.feedbackElement.style.transform = 'translateY(0)';
+    this.feedbackElement.style.minHeight = 'auto';
+  }
+
+  /**
+   * Nasconde feedback
+   */
+  hideFeedback(): void {
+    if (this.feedbackElement) {
+      this.feedbackElement.style.opacity = '0';
+      this.feedbackElement.style.transform = 'translateY(-10px)';
+      this.feedbackElement.style.minHeight = '0';
     }
   }
 

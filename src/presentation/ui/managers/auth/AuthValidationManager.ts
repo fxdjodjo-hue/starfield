@@ -2,7 +2,7 @@
  * Manages input validation and error/success message display
  */
 export class AuthValidationManager {
-  constructor(private readonly authContainer: HTMLElement) {}
+  constructor(private readonly authContainer: HTMLElement) { }
 
   /**
    * Valida formato email
@@ -16,25 +16,20 @@ export class AuthValidationManager {
    * Converte errori tecnici in messaggi user-friendly
    */
   getFriendlyErrorMessage(error: any): string {
-    const message = error.message || '';
+    const message = error?.message?.toLowerCase() || '';
 
-    if (message.includes('Invalid login credentials')) {
+    // Errori di Login
+    if (message.includes('invalid login credentials') || message.includes('invalid email or password')) {
       return 'Invalid email or password';
     }
-    if (message.includes('User already registered')) {
-      return 'An account with this email already exists';
-    }
-    if (message.includes('Password should be at least')) {
-      return 'Password must be at least 6 characters';
-    }
-    if (message.includes('Unable to validate email address')) {
-      return 'Please enter a valid email address';
-    }
-    if (message.includes('Email not confirmed')) {
-      return 'Please check your email and confirm your account';
+
+    // Errori di Registrazione
+    if (message.includes('user already registered') || message.includes('already exists')) {
+      return 'Account already exists with this email';
     }
 
-    return 'An error occurred. Please try again.';
+    // Fallback generico
+    return 'Authentication failed. Please try again.';
   }
 
   /**
