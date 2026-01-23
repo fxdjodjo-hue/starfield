@@ -127,12 +127,20 @@ export class WelcomeHandler extends BaseMessageHandler {
       }
 
       // Applica lo status di Administrator (Server Authoritative)
-      if (playerEntity && isAdministrator !== undefined) {
-        const ecs = networkSystem.getECS();
-        const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
-        if (playerRole) {
-          playerRole.setAdministrator(isAdministrator);
-          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied admin status: ${isAdministrator}`);
+      // 🔧 FIX: Store in GameContext if player entity doesn't exist yet
+      if (isAdministrator !== undefined) {
+        // Always store in GameContext for later application
+        networkSystem.gameContext.pendingAdministrator = isAdministrator;
+
+        if (playerEntity) {
+          const ecs = networkSystem.getECS();
+          const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
+          if (playerRole) {
+            playerRole.setAdministrator(isAdministrator);
+            if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied admin status: ${isAdministrator}`);
+          }
+        } else {
+          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Stored pending admin status: ${isAdministrator} (player entity not ready)`);
         }
       }
 

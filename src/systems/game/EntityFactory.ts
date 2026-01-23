@@ -13,6 +13,7 @@ import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { Asteroid } from '../../entities/spatial/Asteroid';
+import { PlayerRole } from '../../entities/player/PlayerRole';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 import asteroidConfig from '../../../shared/asteroid-config.json';
 
@@ -39,6 +40,17 @@ export class EntityFactory {
     // Aggiungi autorità multiplayer al player (client può predire, server corregge)
     const playerAuthority = new Authority(context.localClientId, AuthorityLevel.CLIENT_PREDICTIVE);
     ecs.addComponent(playerEntity, Authority, playerAuthority);
+
+    // 🔧 FIX: Apply pending administrator status from welcome message
+    if (context.pendingAdministrator !== null) {
+      const playerRole = ecs.getComponent(playerEntity, PlayerRole);
+      if (playerRole) {
+        playerRole.setAdministrator(context.pendingAdministrator);
+        console.log(`[EntityFactory] Applied pending admin status: ${context.pendingAdministrator}`);
+      }
+      // Clear pending status after applying
+      context.pendingAdministrator = null;
+    }
 
     // Rimuovi il vecchio Sprite statico e usa AnimatedSprite per spritesheet
     if (ecs.hasComponent(playerEntity, Sprite)) {

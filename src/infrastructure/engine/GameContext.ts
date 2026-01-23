@@ -57,12 +57,12 @@ export class GameContext {
     skillPoints: number;
     recentHonor?: number; // Media mobile honor ultimi 30 giorni
   } = {
-    credits: 0,
-    cosmos: 0,
-    experience: 0,
-    honor: 0,
-    skillPoints: 0
-  };
+      credits: 0,
+      cosmos: 0,
+      experience: 0,
+      honor: 0,
+      skillPoints: 0
+    };
 
   public playerUpgrades: {
     hpUpgrades: number;
@@ -70,11 +70,11 @@ export class GameContext {
     speedUpgrades: number;
     damageUpgrades: number;
   } = {
-    hpUpgrades: 0,
-    shieldUpgrades: 0,
-    speedUpgrades: 0,
-    damageUpgrades: 0
-  };
+      hpUpgrades: 0,
+      shieldUpgrades: 0,
+      speedUpgrades: 0,
+      damageUpgrades: 0
+    };
 
   public playerQuests: any[] = [];             // Lista quest del giocatore
 
@@ -97,11 +97,15 @@ export class GameContext {
   // Riferimento a AuthScreen per aggiornare lo spinner
   public authScreen: any = null;
 
+  // 🔧 FIX: Store pending administrator status from welcome message
+  // Applied when player entity is created (may arrive before entity exists)
+  public pendingAdministrator: boolean | null = null;
+
   constructor(canvas: HTMLCanvasElement, gameContainer: HTMLElement) {
     this.canvas = canvas;
     this.gameContainer = gameContainer;
     this.assetManager = new AssetManager();
-    
+
     // Initialize server URL from network config
     this.serverUrl = NETWORK_CONFIG.DEFAULT_SERVER_URL;
   }
