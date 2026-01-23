@@ -20,6 +20,7 @@ import { Credits } from '../../entities/currency/Credits';
 import { Cosmos } from '../../entities/currency/Cosmos';
 import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
+import { PlayerRole } from '../../entities/player/PlayerRole';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { ComponentHelper } from '../data/ComponentHelper';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
@@ -46,6 +47,7 @@ export interface ProgressionEntityConfig {
   cosmos?: number;
   experience?: number;
   honor?: number;
+  isAdministrator?: boolean;
 }
 
 export interface FullEntityConfig extends BaseEntityConfig, CombatEntityConfig, ProgressionEntityConfig {
@@ -259,6 +261,11 @@ export class EntityFactory {
    */
   addProgressionComponents(entity: Entity, config: ProgressionEntityConfig): void {
     try {
+      // PlayerRole component
+      if (config.isAdministrator !== undefined) {
+        this.addPlayerRoleComponent(entity, config.isAdministrator);
+      }
+
       // PlayerStats component
       if (config.stats) {
         this.ecs.addComponent(entity, PlayerStats, new PlayerStats(
@@ -335,6 +342,25 @@ export class EntityFactory {
       LoggerWrapper.error(LogCategory.ECS, 'Failed to add progression components', error as Error, {
         entityId: entity.id,
         config
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Aggiunge componente PlayerRole
+   */
+  addPlayerRoleComponent(entity: Entity, isAdministrator: boolean): void {
+    try {
+      this.ecs.addComponent(entity, PlayerRole, new PlayerRole(isAdministrator));
+      LoggerWrapper.ecs('PlayerRole component added to entity', {
+        entityId: entity.id,
+        isAdministrator
+      });
+    } catch (error) {
+      LoggerWrapper.error(LogCategory.ECS, 'Failed to add PlayerRole component', error as Error, {
+        entityId: entity.id,
+        isAdministrator
       });
       throw error;
     }
