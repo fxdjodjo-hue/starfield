@@ -2,10 +2,31 @@ const { app, BrowserWindow, screen } = require('electron');
 const path = require('path');
 const isDev = !app.isPackaged;
 
+let splashWindow = null;
+let mainWindow = null;
+
+function createSplashWindow() {
+    splashWindow = new BrowserWindow({
+        width: 600,
+        height: 600,
+        transparent: true,
+        frame: false,
+        alwaysOnTop: true,
+        icon: path.join(__dirname, '../build/icon.ico'), // Usa icona corretta
+        webPreferences: {
+            nodeIntegration: false,
+            contextIsolation: true
+        }
+    });
+
+    splashWindow.loadFile(path.join(__dirname, 'splash.html'));
+    splashWindow.center();
+}
+
 function createWindow() {
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
-    const win = new BrowserWindow({
+    mainWindow = new BrowserWindow({
         width: Math.min(1920, width),
         height: Math.min(1080, height),
         minWidth: 1280,
@@ -18,40 +39,51 @@ function createWindow() {
         backgroundColor: '#000011',
         autoHideMenuBar: true,
         title: 'StarSpace',
-        icon: path.join(__dirname, '../public/favicon.ico'),
+        icon: path.join(__dirname, '../build/icon.ico'), // Usa icona corretta
         fullscreen: true,
         show: false // Non mostrare finché non è pronta
     });
 
-    // Mostra quando pronto (evita flash bianco)
-    win.once('ready-to-show', () => {
-        win.show();
-        // Apri DevTools per debug
-        if (isDev) {
-            win.webContents.openDevTools();
-        }
+    // Gestione transizione Splash -> Main
+    mainWindow.once('ready-to-show', () => {
+        // Delay artificiale minimo per mostrare il logo (opzionale, ma bello)
+        setTimeout(() => {
+            if (splashWindow && !splashWindow.isDestroyed()) {
+                splashWindow.close();
+            }
+            mainWindow.show();
+
+            // Apri DevTools per debug
+            if (isDev) {
+                // mainWindow.webContents.openDevTools(); // Commentato in attesa di richiesta
+            }
+        }, 2000); // 2 secondi di splash screen
     });
 
     if (isDev) {
         // Development: carica da Vite dev server
-        win.loadURL('http://localhost:5173');
+        mainWindow.loadURL('http://localhost:5173');
     } else {
         // Production: carica i file buildati
-        win.loadFile(path.join(__dirname, '../dist/index.html'));
+        mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
     }
 
     // Mantieni titolo custom
-    win.on('page-title-updated', (e) => e.preventDefault());
+    mainWindow.on('page-title-updated', (e) => e.preventDefault());
 
     // Gestisci link esterni (apri nel browser di default)
-    win.webContents.setWindowOpenHandler(({ url }) => {
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
         require('electron').shell.openExternal(url);
         return { action: 'deny' };
     });
 }
 
 app.whenReady().then(() => {
-    createWindow();
+    createSplashWindow();
+
+    // Defer main window creation slightly to ensure splash screen renders immediately
+    // without contention for resources during the critical startup phase.
+    setTimeout(createWindow, 300);
 
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {

@@ -52,10 +52,11 @@
       "electron/**/*",
       "package.json"
     ],
+    "compression": "normal",
     "win": {
-      "target": "portable",
-      "icon": "build/icon.png",
-      "artifactName": "${productName}.${ext}"
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "artifactName": "${productName} Setup.${ext}"
     }
   }
 }
