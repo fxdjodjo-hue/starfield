@@ -5,7 +5,7 @@ export const VERSION = {
   major: 0,
   minor: 1,
   patch: 0,
-  stage: 'alpha'
+  stage: ''
 } as const;
 
 /**
@@ -13,7 +13,8 @@ export const VERSION = {
  */
 export function getFormattedVersion(): string {
   const { major, minor, patch, stage } = VERSION;
-  return `${major}.${minor}.${patch}-${stage}`;
+  const stageSuffix = stage ? `-${stage}` : '';
+  return `${major}.${minor}.${patch}${stageSuffix}`;
 }
 
 /**
