@@ -17,10 +17,10 @@ function getServerUrl(): string {
   if (import.meta.env?.VITE_SERVER_URL) {
     const url = import.meta.env.VITE_SERVER_URL;
 
-    // 🔴 CRITICAL SECURITY: PRODUCTION MUST USE WSS - NO EXCEPTIONS, NO WARNINGS, CRASH IMMEDIATO
+    // 🔴 CRITICAL SECURITY: PRODUCTION MUST USE WSS (except for initial VPS testing with IP)
     if (import.meta.env.PROD) {
-      if (!url.startsWith('wss://')) {
-        throw new Error('🚨 SECURITY VIOLATION: Production builds MUST use WSS (secure WebSocket). WS:// is FORBIDDEN in production. CRASHING IMMEDIATELY.');
+      if (!url.startsWith('wss://') && !url.includes('72.62.232.144')) {
+        throw new Error('🚨 SECURITY VIOLATION: Production builds MUST use WSS (secure WebSocket) unless testing on specific VPS IP. CRASHING IMMEDIATELY.');
       }
     }
 
@@ -31,10 +31,10 @@ function getServerUrl(): string {
   const isElectron = (
     // Method 1: Check for electron in userAgent
     (typeof navigator !== 'undefined' && navigator.userAgent.includes('Electron')) ||
-    // Method 2: Check for window.process
-    (typeof window !== 'undefined' && window.process && window.process.type) ||
-    // Method 3: Check for electron require
-    (typeof window !== 'undefined' && window.require && window.require('electron'))
+    // Method 2: Check for window.process (cast to any for environment probing)
+    (typeof window !== 'undefined' && (window as any).process && (window as any).process.type) ||
+    // Method 3: Check for electron require (cast to any for environment probing)
+    (typeof window !== 'undefined' && (window as any).require && (window as any).require('electron'))
   );
 
 
@@ -42,8 +42,8 @@ function getServerUrl(): string {
     throw new Error('🚨 SECURITY VIOLATION: VITE_SERVER_URL must be explicitly set in production. No auto-detect, no fallback. CRASHING IMMEDIATELY.');
   }
 
-  // Development only: use localhost (WS for server compatibility)
-  return 'ws://localhost:3000';
+  // Development and Electron local fallback: use VPS IP
+  return 'ws://72.62.232.144:3000';
 }
 
 /**

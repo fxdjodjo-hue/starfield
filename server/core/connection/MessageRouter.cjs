@@ -63,23 +63,23 @@ async function handleJoin(data, sanitizedData, context) {
   // 🟢 MMO-CORRECT: Usa SEMPRE i valori salvati (NULL = errore critico, mai fallback)
   // Se il player esiste, HP deve arrivare dal DB. Se manca → errore, non fallback silenzioso
 
-  if (loadedData.currentHealth === null || loadedData.currentHealth === undefined) {
+  if (loadedData.health === null || loadedData.health === undefined) {
     ServerLoggerWrapper.system(`🚨 CRITICAL: MISSING HEALTH DATA for existing player ${data.userId} (${loadedData.playerId})`);
     ServerLoggerWrapper.system(`This should NEVER happen after DB migration. Check migration status and DB integrity.`);
     throw new Error(`DATABASE ERROR: Missing current_health for player ${loadedData.playerId}. DB migration may have failed.`);
   }
 
-  if (loadedData.currentShield === null || loadedData.currentShield === undefined) {
+  if (loadedData.shield === null || loadedData.shield === undefined) {
     ServerLoggerWrapper.system(`🚨 CRITICAL: MISSING SHIELD DATA for existing player ${data.userId} (${loadedData.playerId})`);
     ServerLoggerWrapper.system(`This should NEVER happen after DB migration. Check migration status and DB integrity.`);
     throw new Error(`DATABASE ERROR: Missing current_shield for player ${loadedData.playerId}. DB migration may have failed.`);
   }
 
-  const savedHealth = Math.min(loadedData.currentHealth, maxHealth);
-  const savedShield = Math.min(loadedData.currentShield, maxShield);
+  const savedHealth = Math.min(loadedData.health, maxHealth);
+  const savedShield = Math.min(loadedData.shield, maxShield);
 
-  logger.info('CONNECTION', `🎯 APPLY Health: loaded=${loadedData.currentHealth}, max=${maxHealth}, applied=${savedHealth}`);
-  logger.info('CONNECTION', `🎯 APPLY Shield: loaded=${loadedData.currentShield}, max=${maxShield}, applied=${savedShield}`);
+  logger.info('CONNECTION', `🎯 APPLY Health: loaded=${loadedData.health}, max=${maxHealth}, applied=${savedHealth}`);
+  logger.info('CONNECTION', `🎯 APPLY Shield: loaded=${loadedData.shield}, max=${maxShield}, applied=${savedShield}`);
 
   const playerData = {
     clientId: data.clientId,
