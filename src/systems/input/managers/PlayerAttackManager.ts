@@ -33,38 +33,43 @@ export class PlayerAttackManager {
     private readonly forceCombatCheck: () => void,
     private readonly stopCombatIfActive: () => void,
     private readonly setAttackActivated: (activated: boolean) => void
-  ) {}
+  ) { }
 
   /**
    * Handles SPACE press for attack activation (toggle mode)
    */
   public handleSpacePress(): void {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
 
-    if (selectedNpcs.length === 0) {
-      const nearestNpc = this.findNearestNpcInRange();
-      if (nearestNpc) {
-        this.selectNpc(nearestNpc, true);
-      } else {
-        const logSystem = this.getLogSystem();
-        if (logSystem) {
-          logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
-        }
+    // Se c'è un NPC selezionato, controlliamo se è in range
+    if (currentlySelectedNpc) {
+      if (this.isNpcInPlayerRange(currentlySelectedNpc)) {
+        this.attackActivated = true;
+        this.lastInputTime = Date.now();
+        this.setAttackActivated(true);
+        this.forceCombatCheck();
         return;
+      } else {
+        // Se è fuori range, deselezionalo e prosegui con la ricerca del più vicino
+        this.deselectCurrentNpc();
       }
     }
 
-    const inRange = this.isSelectedNpcInRange();
-
-    if (!inRange) {
-      this.showOutOfRangeMessage();
-      return;
+    // Se non c'era selezione o era fuori range, cerchiamo il più vicino
+    const nearestNpc = this.findNearestNpcInRange();
+    if (nearestNpc) {
+      this.selectNpc(nearestNpc, false); // false = non disattivare attacco perché lo attiviamo subito dopo
+      this.attackActivated = true;
+      this.lastInputTime = Date.now();
+      this.setAttackActivated(true);
+      this.forceCombatCheck();
+    } else {
+      const logSystem = this.getLogSystem();
+      if (logSystem) {
+        logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
+      }
     }
-
-    this.attackActivated = true;
-    this.lastInputTime = Date.now();
-    this.setAttackActivated(true);
-    this.forceCombatCheck();
   }
 
   /**
@@ -76,37 +81,19 @@ export class PlayerAttackManager {
       if (now - this.lastSpacePressTime > 300) {
         this.lastSpacePressTime = now;
 
-        const nearbyNpc = this.findNearbyNpcForSelection();
         const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
         const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
 
-        if (nearbyNpc && this.isNpcInPlayerRange(nearbyNpc) &&
-            (!currentlySelectedNpc || nearbyNpc.id !== currentlySelectedNpc.id)) {
-          // Non disattivare l'attacco quando selezioni un nuovo NPC con spazio,
-          // perché stai già per attivarlo subito dopo
-          this.selectNpc(nearbyNpc, false);
-          this.handleSpacePress();
+        if (this.attackActivated) {
+          // Se stiamo già attaccando, la barra spaziatrice serve a FERMARE l'attacco
+          this.attackActivated = false;
+          this.setAttackActivated(false);
+          this.deactivateAttack();
+          this.deselectCurrentNpc();
+          this.updatePlayerRotationAfterCombatEnd();
         } else {
-          if (currentlySelectedNpc) {
-            if (this.attackActivated) {
-              this.attackActivated = false;
-              this.setAttackActivated(false);
-              this.deactivateAttack();
-
-              // Quando finisce l'attacco, DESELEZIONA l'NPC per permettere al movimento di controllare la rotazione
-              this.deselectCurrentNpc();
-
-              // Aggiorna immediatamente la rotazione del player verso la direzione corrente del movimento
-              this.updatePlayerRotationAfterCombatEnd();
-            } else {
-              this.handleSpacePress();
-            }
-          } else {
-            const logSystem = this.getLogSystem();
-            if (logSystem) {
-              logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
-            }
-          }
+          // Se non stiamo attaccando, proviamo ad attivare l'attacco (handleSpacePress gestisce la selezione)
+          this.handleSpacePress();
         }
       }
     }
@@ -267,16 +254,22 @@ export class PlayerAttackManager {
    * Deactivates attack forcefully
    */
   deactivateAttack(): void {
-    if (this.attackActivated) {
-      this.attackActivated = false;
-      this.setAttackActivated(false);
+    const wasActivated = this.attackActivated;
 
-      // Deselect all selected NPCs and reset rotation (definitivo)
-      const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-      for (const npcEntity of selectedNpcs) {
-        this.deselectNpcAndReset(npcEntity, false); // Definitivo
-      }
+    // Resetta sempre i flag di attacco
+    this.attackActivated = false;
+    this.setAttackActivated(false);
 
+    // Deselect all selected NPCs and reset rotation (definitivo)
+    // Lo facciamo SEMPRE per garantire un reset pulito
+    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    for (const npcEntity of selectedNpcs) {
+      this.deselectNpcAndReset(npcEntity, false); // Definitivo
+    }
+
+    // Comunica al sistema di combattimento solo se l'attacco era effettivamente attivo
+    // Questo evita la ricorsione infinita (PlayerAttackManager -> CombatSystem -> PlayerAttackManager)
+    if (wasActivated) {
       this.stopCombatIfActive();
     }
   }
@@ -461,7 +454,7 @@ export class PlayerAttackManager {
   private selectNpc(npcEntity: any, deactivateAttack: boolean = true): void {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     const alreadySelected = selectedNpcs.length > 0 && selectedNpcs[0].id === npcEntity.id;
-    
+
     if (deactivateAttack) {
       this.deactivateAttackOnAnySelection();
     }
@@ -477,7 +470,7 @@ export class PlayerAttackManager {
    * Deactivates attack on any selection
    */
   private deactivateAttackOnAnySelection(): void {
-    const playerControlSystem = this.ecs.systems?.find((system) =>
+    const playerControlSystem = this.ecs.getSystems().find((system) =>
       system instanceof PlayerControlSystem
     ) as PlayerControlSystem | undefined;
 

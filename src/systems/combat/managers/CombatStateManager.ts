@@ -120,6 +120,14 @@ export class CombatStateManager {
     if (inRange && attackActivated) {
       // console.log(`[CLIENT_COMBAT_ACTIVATE] Player can attack NPC ${selectedNpc.id}, inRange=${inRange}, attackActivated=${attackActivated}`);
 
+      // Se il target è cambiato (nuova selezione), fermiamo il vecchio e iniziamo il nuovo
+      if (this.currentAttackTarget !== null && this.currentAttackTarget !== selectedNpc.id) {
+        // console.log(`[CLIENT_COMBAT_SWITCH] Switching target from ${this.currentAttackTarget} to ${selectedNpc.id}`);
+        this.sendStopCombat();
+        this.endAttackLogging();
+        this.currentAttackTarget = null;
+      }
+
       if (this.currentAttackTarget !== selectedNpc.id) {
         // console.log(`[CLIENT_COMBAT_START] Starting combat with NPC ${selectedNpc.id}`);
         this.sendStartCombat(selectedNpc);
@@ -128,16 +136,9 @@ export class CombatStateManager {
         this.attackStartedLogged = true;
       }
       // Il combattimento continua sempre - non ci sono pause/riprese
-
-      // 🔥 AGGIUNTO: Fire laser automatically during combat (server-authoritative)
-      // Il server gestisce il rate limiting e la creazione dei proiettili
-      // Il client invia solo la richiesta di start_combat e mantiene il combattimento attivo
-      // console.log(`[COMBAT-CLIENT] Player combat active - laser firing handled by server`);
-
-      // NON fermare mai il combattimento per questioni di range
-      // Il server gestisce il range, il client mantiene sempre il combattimento attivo
-    } else if (!attackActivated && this.currentAttackTarget !== null) {
-      // console.log(`[CLIENT_COMBAT_STOP] Stopping combat - attack deactivated (NPC ${this.currentAttackTarget})`);
+    } else if (this.currentAttackTarget !== null) {
+      // Se l'attacco è stato disattivato O l'NPC non è più in range (anche se attackActivated è true)
+      // console.log(`[CLIENT_COMBAT_STOP] Stopping combat - state changed`);
       this.sendStopCombat();
       this.endAttackLogging();
       this.currentAttackTarget = null;

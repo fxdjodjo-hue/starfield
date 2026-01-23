@@ -52,7 +52,8 @@ export class RemotePlayerSystem extends BaseSystem {
 
     for (const entity of remotePlayerEntities) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
-      if (remotePlayerComponent && remotePlayerComponent.clientId === clientId) {
+      // 🚀 FIX ROBUSTEZZA: Forza il confronto tra stringhe per evitare problemi tra number e string (clientId)
+      if (remotePlayerComponent && remotePlayerComponent.clientId.toString() === clientId.toString()) {
         return entity;
       }
     }
@@ -93,12 +94,27 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Aggiunge un nuovo giocatore remoto o aggiorna posizione se già esistente
    */
-  addRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): number {
+  addRemotePlayer(
+    clientId: string,
+    x: number,
+    y: number,
+    rotation: number = 0,
+    health?: number,
+    maxHealth?: number,
+    shield?: number,
+    maxShield?: number
+  ): number {
     // Verifica se il giocatore remoto esiste già
     const existingEntity = this.findRemotePlayerEntity(clientId);
     if (existingEntity) {
       // Aggiorna posizione del giocatore esistente
       this.updateRemotePlayer(clientId, x, y, rotation);
+
+      // Update stats if provided
+      if (health !== undefined || shield !== undefined) {
+        this.updatePlayerStats(clientId, health || 0, maxHealth, shield || 0, maxShield);
+      }
+
       return existingEntity.id;
     }
 
@@ -112,8 +128,14 @@ export class RemotePlayerSystem extends BaseSystem {
       },
       animatedSprite: this.sharedAnimatedSprite,
       combat: {
-        health: { current: 100, max: 100 }, // HP completo per giocatori remoti
-        shield: { current: 50, max: 50 },   // Scudo completo per giocatori remoti
+        health: {
+          current: health !== undefined ? health : 100,
+          max: maxHealth !== undefined ? maxHealth : 100
+        },
+        shield: {
+          current: shield !== undefined ? shield : 50,
+          max: maxShield !== undefined ? maxShield : 50
+        },
         damage: { value: 50, range: 30, cooldown: 100 } // Valori base per giocatori remoti
       },
       interpolation: true // Abilita interpolazione per movimento fluido
@@ -125,7 +147,16 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Aggiorna posizione e rotazione di un giocatore remoto esistente
    */
-  updateRemotePlayer(clientId: string, x: number, y: number, rotation: number = 0): void {
+  updateRemotePlayer(
+    clientId: string,
+    x: number,
+    y: number,
+    rotation: number = 0,
+    health?: number,
+    maxHealth?: number,
+    shield?: number,
+    maxShield?: number
+  ): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (!entity) {
       // Player remoto non trovato - potrebbe essere normale se non ancora creato
@@ -142,6 +173,11 @@ export class RemotePlayerSystem extends BaseSystem {
       interpolation.updateTarget(x, y, rotation);
     } else {
       console.warn(`[REMOTE_PLAYER] No interpolation component found for ${clientId} entity ${entity.id}`);
+    }
+
+    // Aggiorna anche le statistiche se fornite (per sync in tempo reale)
+    if (health !== undefined || shield !== undefined) {
+      this.updatePlayerStats(clientId, health || 0, maxHealth, shield || 0, maxShield);
     }
   }
 

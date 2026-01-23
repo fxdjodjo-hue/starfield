@@ -64,7 +64,8 @@ export class EntityDamagedHandler extends BaseMessageHandler {
           const allEntities = ecs.getEntitiesWithComponents(Health);
           for (const entity of allEntities) {
             const remotePlayer = ecs.getComponent(entity, RemotePlayer);
-            if (remotePlayer && remotePlayer.clientId === message.entityId) {
+            // 🚀 FIX ROBUSTEZZA: Forza il confronto tra stringhe per evitare problemi tra number e string (clientId)
+            if (remotePlayer && remotePlayer.clientId.toString() === message.entityId.toString()) {
               targetEntity = entity;
               break;
             }

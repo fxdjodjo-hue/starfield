@@ -18,7 +18,7 @@ class RepairManager {
   updateRepairs(now) {
     for (const [playerId, playerData] of this.mapServer.players.entries()) {
       if (playerData.isDead) continue;
-      
+
       this.processPlayerRepair(playerId, playerData, now);
     }
   }
@@ -67,7 +67,7 @@ class RepairManager {
     // Se la riparazione è stata completata, controlla se ha di nuovo bisogno di riparazione
     if (repairState?.completed) {
       const stillNeedsRepair = playerData.health < playerData.maxHealth ||
-                              playerData.shield < playerData.maxShield;
+        playerData.shield < playerData.maxShield;
       if (!stillNeedsRepair) {
         return; // Tutto ancora a posto, non ricominciare
       }
@@ -79,7 +79,7 @@ class RepairManager {
     // Se non sta riparando e può riparare, inizia
     if (!repairState?.isRepairing) {
       const needsRepair = playerData.health < playerData.maxHealth ||
-                         playerData.shield < playerData.maxShield;
+        playerData.shield < playerData.maxShield;
 
       // Non iniziare riparazione automatica nei primi 5 secondi dopo il join
       const JOIN_DELAY = 5000; // 5 secondi
@@ -144,7 +144,7 @@ class RepairManager {
     });
 
     logger.info('REPAIR', `Player ${playerId} stopped repairing`);
-    
+
     // Notifica client
     const playerData = this.mapServer.players.get(playerId);
     if (playerData?.ws) {
@@ -188,8 +188,8 @@ class RepairManager {
     // Broadcast aggiornamento stato player con valori riparati (se c'è stata riparazione)
     if (healthRepaired > 0 || shieldRepaired > 0) {
       this.broadcastPlayerRepairUpdate(playerId, playerData, healthRepaired, shieldRepaired);
-      
-      logger.info('REPAIR', 
+
+      logger.info('REPAIR',
         `Player ${playerId} repaired: +${healthRepaired} HP, +${shieldRepaired} Shield ` +
         `(${playerData.health}/${playerData.maxHealth} HP, ${playerData.shield}/${playerData.maxShield} Shield)`
       );
@@ -198,7 +198,7 @@ class RepairManager {
     // Dopo aver applicato la riparazione e fatto il broadcast, controlla se tutto è riparato
     // Questo gestisce correttamente anche l'ultima riparazione parziale (es. 5k su 10k disponibili)
     if (playerData.health >= playerData.maxHealth &&
-        playerData.shield >= playerData.maxShield) {
+      playerData.shield >= playerData.maxShield) {
       this.completeRepair(playerId, playerData, now);
       return;
     }
@@ -238,19 +238,43 @@ class RepairManager {
    * Broadcast aggiornamento riparazione al client con valori riparati
    */
   broadcastPlayerRepairUpdate(playerId, playerData, healthRepaired, shieldRepaired) {
-    if (!playerData?.ws) return;
+    if (!playerData) return;
 
-    playerData.ws.send(JSON.stringify({
-      type: 'player_state_update',
-      playerId: playerData.playerId,
-      health: playerData.health,
+    // 1. Invia aggiornamento privato al player che sta riparando (per UI feedback e repair text)
+    if (playerData.ws) {
+      playerData.ws.send(JSON.stringify({
+        type: 'player_state_update',
+        playerId: playerData.playerId,
+        health: playerData.health,
+        maxHealth: playerData.maxHealth,
+        shield: playerData.shield,
+        maxShield: playerData.maxShield,
+        healthRepaired: healthRepaired,
+        shieldRepaired: shieldRepaired,
+        recentHonor: playerData.recentHonor || 0
+      }));
+    }
+
+    // 2. 🚀 FIX: Broadcast aggiornamento HP/shield a tutti gli altri player per sincronizzare le barre
+    // Usiamo 'entity_damaged' con damage 0 perché i client lo gestiscono già per i remote player
+    const broadcastMessage = {
+      type: 'entity_damaged',
+      entityId: playerData.clientId, // clientId per identificare il player nel client
+      entityType: 'player',
+      damage: 0,
+      attackerId: 'server',
+      newHealth: playerData.health,
+      newShield: playerData.shield,
       maxHealth: playerData.maxHealth,
-      shield: playerData.shield,
       maxShield: playerData.maxShield,
-      healthRepaired: healthRepaired,
-      shieldRepaired: shieldRepaired,
-      recentHonor: playerData.recentHonor || 0
-    }));
+      position: playerData.position,
+      projectileType: 'repair'
+    };
+
+    // Broadcast a TUTTI i giocatori sulla mappa
+    if (this.mapServer && typeof this.mapServer.broadcastToMap === 'function') {
+      this.mapServer.broadcastToMap(broadcastMessage);
+    }
   }
 
   /**

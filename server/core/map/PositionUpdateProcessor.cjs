@@ -17,6 +17,13 @@ class PositionUpdateProcessor {
       if (updates.length === 0) continue;
 
       const latestUpdate = updates[updates.length - 1];
+      const playerData = players.get(clientId);
+
+      // Only broadcast if player still exists
+      if (!playerData) {
+        positionUpdateQueue.delete(clientId);
+        continue;
+      }
 
       const positionBroadcast = {
         type: 'remote_player_update',
@@ -31,7 +38,15 @@ class PositionUpdateProcessor {
         tick: latestUpdate.tick,
         nickname: latestUpdate.nickname,
         playerId: latestUpdate.playerId,
-        rank: latestUpdate.rank // Includi rank nel broadcast
+        rank: latestUpdate.rank,
+        // 🚀 FIX: Usa i valori LIVE dall'oggetto player, NON quelli salvati nella queue.
+        // Gli update di posizione arrivano a 20 FPS e salvano gli HP in quel momento.
+        // Se una riparazione avviene tra un frame GPS e l'altro, i valori nella queue diventano "stale" (vecchi).
+        // Usando playerData.health garantiamo di inviare sempre l'ultimo valore autorevole del server.
+        health: playerData.health,
+        maxHealth: playerData.maxHealth,
+        shield: playerData.shield,
+        maxShield: playerData.maxShield
       };
 
       MapBroadcaster.broadcastToMap(players, positionBroadcast, clientId);

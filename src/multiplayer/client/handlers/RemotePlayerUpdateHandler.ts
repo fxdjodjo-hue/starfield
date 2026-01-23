@@ -15,7 +15,7 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    const { clientId, position, rotation, nickname, rank } = message;
+    const { clientId, position, rotation, nickname, rank, health, maxHealth, shield, maxShield } = message;
     const now = Date.now();
 
     // Debug: monitora frequenza aggiornamenti ogni 5 secondi
@@ -28,7 +28,17 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
 
     // Delegate to RemotePlayerManager for handling the update
     if (networkSystem.remotePlayerManager) {
-      networkSystem.remotePlayerManager.handleUpdate(clientId, position, rotation, nickname, rank);
+      networkSystem.remotePlayerManager.handleUpdate(
+        clientId,
+        position,
+        rotation,
+        nickname,
+        rank,
+        health,
+        maxHealth,
+        shield,
+        maxShield
+      );
     } else {
       console.warn('[RemotePlayerUpdateHandler] No RemotePlayerManager available');
     }

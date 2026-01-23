@@ -357,8 +357,10 @@ export interface EntityDamagedMessage {
   attackerId: ClientId;
   newHealth: number;
   newShield: number;
+  maxHealth?: number;
+  maxShield?: number;
   position: { x: number; y: number };
-  projectileType?: 'laser' | 'npc_laser';
+  projectileType?: 'laser' | 'npc_laser' | 'repair';
 }
 
 /**

@@ -22,17 +22,33 @@ export class RemotePlayerManager {
    * Handles remote player update
    * Creates new remote player if doesn't exist, otherwise updates existing one
    */
-  handleUpdate(clientId: string, position: any, rotation: number, nickname?: string, rank?: string): void {
+  handleUpdate(
+    clientId: string,
+    position: any,
+    rotation: number,
+    nickname?: string,
+    rank?: string,
+    health?: number,
+    maxHealth?: number,
+    shield?: number,
+    maxShield?: number
+  ): void {
     if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
       // Create new remote player
-      this.createRemotePlayer(clientId, position.x, position.y, rotation || 0);
+      this.createRemotePlayer(clientId, position.x, position.y, rotation || 0, health, maxHealth, shield, maxShield);
       // Set info if provided
       if (nickname) {
         this.setPlayerInfo(clientId, nickname, rank || 'Recruit');
       }
     } else {
-      // Update existing remote player
-      this.updateRemotePlayer(clientId, position.x, position.y, rotation || 0);
+      // Update existing remote player position
+      this.updateRemotePlayer(clientId, position.x, position.y, rotation || 0, health, maxHealth, shield, maxShield);
+
+      // Update stats if provided (legacy call, kept for robustness)
+      if (health !== undefined || shield !== undefined) {
+        this.remotePlayerSystem.updatePlayerStats(clientId, health || 0, maxHealth, shield || 0, maxShield);
+      }
+
       // Update info if provided
       if (nickname) {
         this.setPlayerInfo(clientId, nickname, rank || 'Recruit');
@@ -43,15 +59,15 @@ export class RemotePlayerManager {
   /**
    * Creates a new remote player entity
    */
-  private createRemotePlayer(clientId: string, x: number, y: number, rotation: number): void {
-    this.remotePlayerSystem.addRemotePlayer(clientId, x, y, rotation);
+  private createRemotePlayer(clientId: string, x: number, y: number, rotation: number, health?: number, maxHealth?: number, shield?: number, maxShield?: number): void {
+    this.remotePlayerSystem.addRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield);
   }
 
   /**
    * Updates an existing remote player position
    */
-  private updateRemotePlayer(clientId: string, x: number, y: number, rotation: number): void {
-    this.remotePlayerSystem.updateRemotePlayer(clientId, x, y, rotation);
+  private updateRemotePlayer(clientId: string, x: number, y: number, rotation: number, health?: number, maxHealth?: number, shield?: number, maxShield?: number): void {
+    this.remotePlayerSystem.updateRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield);
   }
 
   /**

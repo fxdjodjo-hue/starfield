@@ -51,6 +51,14 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
           // INVALIDA IL CACHE DELLA POSIZIONE DEL PLAYER NEL POSITION TRACKER
           // Questo è CRITICO per forzare il refresh della posizione dopo il respawn
           try {
+            // FERMA SUBITO IL COMBATTIMENTO quando il player respawna per evitare stati inconsistenti
+            const combatSystem = ecs.getSystems().find((system: any) =>
+              typeof system.stopCombatImmediately === 'function'
+            ) as any;
+            if (combatSystem) {
+              combatSystem.stopCombatImmediately();
+            }
+
             const positionTracker = networkSystem.getPositionTracker();
             if (positionTracker) {
               positionTracker.invalidateCache();

@@ -254,7 +254,11 @@ async function handleJoin(data, sanitizedData, context) {
         tick: 0,
         nickname: existingPlayerData.nickname,
         playerId: existingPlayerData.playerId,
-        rank: existingPlayerData.rank || 'Recruit' // Includi rank
+        rank: existingPlayerData.rank || 'Recruit',
+        health: existingPlayerData.health,
+        maxHealth: existingPlayerData.maxHealth,
+        shield: existingPlayerData.shield,
+        maxShield: existingPlayerData.maxShield
       };
       ws.send(JSON.stringify(existingPlayerBroadcast));
     }
@@ -270,7 +274,11 @@ async function handleJoin(data, sanitizedData, context) {
       tick: 0,
       nickname: data.nickname,
       playerId: playerData.playerId,
-      rank: playerData.rank // Includi rank
+      rank: playerData.rank,
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield
     };
     mapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
   }
@@ -401,7 +409,11 @@ function handlePositionUpdate(data, sanitizedData, context) {
     tick: data.tick,
     nickname: playerData.nickname,
     playerId: playerData.playerId,
-    rank: playerData.rank, // Aggiunto rank alla queue
+    rank: playerData.rank,
+    health: playerData.health,
+    maxHealth: playerData.maxHealth,
+    shield: playerData.shield,
+    maxShield: playerData.maxShield,
     senderWs: ws,
     timestamp: Date.now()
   });
