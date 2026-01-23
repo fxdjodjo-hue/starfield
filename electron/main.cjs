@@ -19,6 +19,7 @@ function createWindow() {
         autoHideMenuBar: true,
         title: 'StarSpace',
         icon: path.join(__dirname, '../public/favicon.ico'),
+        fullscreen: true,
         show: false // Non mostrare finché non è pronta
     });
 
