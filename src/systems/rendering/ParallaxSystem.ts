@@ -235,6 +235,7 @@ export class ParallaxSystem extends BaseSystem {
     // Renderizza entità parallax esistenti (background, ecc.) PRIMA delle stelle
     // Ordina per zIndex per controllare l'ordine di rendering
     const parallaxEntities = this.ecs.getEntitiesWithComponents(Transform, ParallaxLayer);
+
     const sortedEntities = parallaxEntities.slice().sort((a, b) => {
       const parallaxA = this.ecs.getComponent(a, ParallaxLayer);
       const parallaxB = this.ecs.getComponent(b, ParallaxLayer);
@@ -436,6 +437,11 @@ export class ParallaxSystem extends BaseSystem {
       const spriteTop = screenY - spriteHeight / 2;
       const spriteBottom = screenY + spriteHeight / 2;
 
+      // DEBUG: Log bordi per background
+      if (parallax.zIndex === -1) {
+        console.log(`[ParallaxSystem] Background bounds: L:${spriteLeft.toFixed(0)} R:${spriteRight.toFixed(0)} T:${spriteTop.toFixed(0)} B:${spriteBottom.toFixed(0)}, zoom:${zoom}`);
+      }
+
       // Controlla se il rettangolo interseca lo schermo (con margine)
       const margin = 200;
       if (spriteRight < -margin || spriteLeft > width + margin ||
@@ -467,7 +473,6 @@ export class ParallaxSystem extends BaseSystem {
       // Renderizza l'immagine sprite
       const spriteX = -sprite.width / 2 + sprite.offsetX;
       const spriteY = -sprite.height / 2 + sprite.offsetY;
-
       ctx.drawImage(sprite.image, spriteX, spriteY, sprite.width, sprite.height);
     } else {
       // Renderizza come punto luminoso (stelle)

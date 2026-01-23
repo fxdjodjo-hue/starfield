@@ -178,17 +178,15 @@ export class EntityFactory {
       const worldCenterX = 0;
       const worldCenterY = 0;
 
-      // Background visivo: mantiene dimensione originale (2400x1500) senza scaling
-      // Mappa logica: 21000x13100 (coordinate mondo per oggetti)
-      // Scala gli oggetti, non lo sfondo - questo evita sgranatura mantenendo qualità
-      const scaleX = 1.0; // Nessuno scaling, dimensione originale
-      const scaleY = 1.0; // Nessuno scaling, dimensione originale
+      // Background visivo: mantiene dimensione originale senza scaling
+      const scaleX = 1.0;
+      const scaleY = 1.0;
 
       // Componenti spaziali
       ecs.addComponent(entity, Transform, new Transform(worldCenterX, worldCenterY, 0, scaleX, scaleY));
 
-      // Componente parallax - velocità 1.0 per seguire la camera esattamente (background fisso)
-      // zIndex negativo per essere renderizzato prima delle stelle
+      // Componente parallax - zIndex negativo per essere renderizzato prima delle stelle
+      // Il background viene sempre renderizzato al centro dello schermo da ParallaxSystem
       ecs.addComponent(entity, ParallaxLayer, new ParallaxLayer(1.0, 1.0, 0, 0, -1));
 
       // Componente visivo
