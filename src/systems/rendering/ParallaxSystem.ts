@@ -5,6 +5,7 @@ import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Sprite } from '../../entities/Sprite';
 import { CameraSystem } from './CameraSystem';
 import { DisplayManager } from '../../infrastructure/display';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 
 /**
  * Configurazione layer stelle procedurali
@@ -61,7 +62,7 @@ export class ParallaxSystem extends BaseSystem {
   private lastCameraX: number = 0;
   private lastCameraY: number = 0;
   private initialized: boolean = false;
-  
+
   // Sistema meteore
   private meteors: Meteor[] = [];
   private nextMeteorSpawn: number = 0;
@@ -126,18 +127,18 @@ export class ParallaxSystem extends BaseSystem {
     // Aggiorna meteore esistenti
     for (let i = this.meteors.length - 1; i >= 0; i--) {
       const meteor = this.meteors[i];
-      
+
       // Muovi
       meteor.x += meteor.vx * deltaTime;
       meteor.y += meteor.vy * deltaTime;
-      
+
       // Riduci vita
       meteor.life -= deltaTime / meteor.maxLife;
 
       // Rimuovi se morta o fuori schermo
-      if (meteor.life <= 0 || 
-          meteor.x < -200 || meteor.x > screenWidth + 200 ||
-          meteor.y < -200 || meteor.y > screenHeight + 200) {
+      if (meteor.life <= 0 ||
+        meteor.x < -200 || meteor.x > screenWidth + 200 ||
+        meteor.y < -200 || meteor.y > screenHeight + 200) {
         this.meteors.splice(i, 1);
       }
     }
@@ -151,8 +152,8 @@ export class ParallaxSystem extends BaseSystem {
 
     for (const meteor of this.meteors) {
       // Calcola fade in/out basato sulla vita
-      const fadeAlpha = meteor.life < 0.2 ? meteor.life / 0.2 : 
-                        meteor.life > 0.8 ? (1 - meteor.life) / 0.2 : 1;
+      const fadeAlpha = meteor.life < 0.2 ? meteor.life / 0.2 :
+        meteor.life > 0.8 ? (1 - meteor.life) / 0.2 : 1;
       const alpha = meteor.alpha * fadeAlpha;
 
       // Calcola direzione normalizzata
@@ -258,16 +259,16 @@ export class ParallaxSystem extends BaseSystem {
    * Renderizza stelle procedurali - zero memoria, generate al volo
    */
   private renderProceduralStars(
-    ctx: CanvasRenderingContext2D, 
-    camera: any, 
-    screenWidth: number, 
+    ctx: CanvasRenderingContext2D,
+    camera: any,
+    screenWidth: number,
     screenHeight: number
   ): void {
     ctx.save();
 
     for (let layerIndex = 0; layerIndex < STAR_LAYERS.length; layerIndex++) {
       const layer = STAR_LAYERS[layerIndex];
-      
+
       // Calcola posizione camera con parallax
       const parallaxX = camera.x * layer.speed;
       const parallaxY = camera.y * layer.speed;
@@ -326,7 +327,7 @@ export class ParallaxSystem extends BaseSystem {
 
       // Salta se fuori schermo
       if (finalScreenX < -10 || finalScreenX > screenWidth + 10 ||
-          finalScreenY < -10 || finalScreenY > screenHeight + 10) {
+        finalScreenY < -10 || finalScreenY > screenHeight + 10) {
         continue;
       }
 
@@ -399,33 +400,46 @@ export class ParallaxSystem extends BaseSystem {
   private renderParallaxElement(ctx: CanvasRenderingContext2D, transform: Transform, parallax: ParallaxLayer, camera: any, sprite?: Sprite): void {
     ctx.save();
 
-    // Calcola la posizione effettiva considerando l'offset parallax
-    const worldX = transform.x + parallax.offsetX;
-    const worldY = transform.y + parallax.offsetY;
-
-    // Converte in coordinate schermo usando dimensioni logiche
     const { width, height } = DisplayManager.getInstance().getLogicalSize();
-    const screenPos = camera.worldToScreen(worldX, worldY, width, height);
-    const screenX = screenPos.x;
-    const screenY = screenPos.y;
+
+    let screenX: number;
+    let screenY: number;
+
+    // Per il background (zIndex = -1), renderizza sempre al centro dello schermo
+    // invece di usare worldToScreen, così è sempre visibile indipendentemente
+    // dalla posizione della camera
+    if (parallax.zIndex === -1) {
+      screenX = width / 2;
+      screenY = height / 2;
+    } else {
+      // Calcola la posizione effettiva considerando l'offset parallax
+      const worldX = transform.x + parallax.offsetX;
+      const worldY = transform.y + parallax.offsetY;
+
+      // Converte in coordinate schermo usando dimensioni logiche
+      const screenPos = camera.worldToScreen(worldX, worldY, width, height);
+      screenX = screenPos.x;
+      screenY = screenPos.y;
+    }
 
     // Culling intelligente: per elementi con sprite (es. background), controlla se il rettangolo è visibile
     // Per elementi piccoli (stelle), usa il culling semplice sul centro
+    const zoom = camera.zoom || 1;
     if (sprite && sprite.isLoaded() && sprite.image) {
-      // Calcola le dimensioni scalate dello sprite
-      const spriteWidth = sprite.width * transform.scaleX;
-      const spriteHeight = sprite.height * transform.scaleY;
-      
+      // Calcola le dimensioni scalate dello sprite sullo schermo (inclusa la camera zoom)
+      const spriteWidth = sprite.width * transform.scaleX * zoom;
+      const spriteHeight = sprite.height * transform.scaleY * zoom;
+
       // Calcola i bordi del rettangolo dello sprite (centrato su screenX, screenY)
       const spriteLeft = screenX - spriteWidth / 2;
       const spriteRight = screenX + spriteWidth / 2;
       const spriteTop = screenY - spriteHeight / 2;
       const spriteBottom = screenY + spriteHeight / 2;
-      
+
       // Controlla se il rettangolo interseca lo schermo (con margine)
-      const margin = 100;
+      const margin = 200;
       if (spriteRight < -margin || spriteLeft > width + margin ||
-          spriteBottom < -margin || spriteTop > height + margin) {
+        spriteBottom < -margin || spriteTop > height + margin) {
         ctx.restore();
         return;
       }
@@ -433,7 +447,7 @@ export class ParallaxSystem extends BaseSystem {
       // Culling semplice per elementi piccoli (stelle)
       const margin = 200;
       if (screenX < -margin || screenX > width + margin ||
-          screenY < -margin || screenY > height + margin) {
+        screenY < -margin || screenY > height + margin) {
         ctx.restore();
         return;
       }
@@ -449,10 +463,11 @@ export class ParallaxSystem extends BaseSystem {
       // Abilita image smoothing per qualità migliore
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
-      
+
       // Renderizza l'immagine sprite
       const spriteX = -sprite.width / 2 + sprite.offsetX;
       const spriteY = -sprite.height / 2 + sprite.offsetY;
+
       ctx.drawImage(sprite.image, spriteX, spriteY, sprite.width, sprite.height);
     } else {
       // Renderizza come punto luminoso (stelle)

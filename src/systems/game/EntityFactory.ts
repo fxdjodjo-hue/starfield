@@ -160,7 +160,7 @@ export class EntityFactory {
 
       try {
         backgroundSprite = await context.assetManager.createSprite(mapPath);
-      } catch {
+      } catch (e) {
         // Fallback a bg.jpg
         mapPath = `assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`;
         backgroundSprite = await context.assetManager.createSprite(mapPath);
@@ -181,17 +181,15 @@ export class EntityFactory {
       // Background visivo: mantiene dimensione originale (2400x1500) senza scaling
       // Mappa logica: 21000x13100 (coordinate mondo per oggetti)
       // Scala gli oggetti, non lo sfondo - questo evita sgranatura mantenendo qualità
-      const imgWidth = backgroundSprite.width || CONFIG.WORLD_WIDTH;
-      const imgHeight = backgroundSprite.height || CONFIG.WORLD_HEIGHT;
       const scaleX = 1.0; // Nessuno scaling, dimensione originale
       const scaleY = 1.0; // Nessuno scaling, dimensione originale
 
       // Componenti spaziali
       ecs.addComponent(entity, Transform, new Transform(worldCenterX, worldCenterY, 0, scaleX, scaleY));
 
-      // Componente parallax - velocità molto bassa (0.1) per sembrare lontano
+      // Componente parallax - velocità 1.0 per seguire la camera esattamente (background fisso)
       // zIndex negativo per essere renderizzato prima delle stelle
-      ecs.addComponent(entity, ParallaxLayer, new ParallaxLayer(0.1, 0.1, 0, 0, -1));
+      ecs.addComponent(entity, ParallaxLayer, new ParallaxLayer(1.0, 1.0, 0, 0, -1));
 
       // Componente visivo
       ecs.addComponent(entity, Sprite, backgroundSprite);

@@ -57,21 +57,32 @@ export class MinimapSystem extends BaseSystem {
    * Carica l'immagine di sfondo della mappa
    */
   private loadMapBackground(mapName: string = 'sol_system'): void {
-    // Prova prima bg1forse.jpg (potrebbe essere più grande), altrimenti bg.jpg
-    this.mapBackgroundImage = new Image();
+    // Usa percorsi assoluti dal root per maggiore robustezza
+    const primaryPath = `assets/maps/${mapName}/bg1forse.jpg`;
+    const fallbackPath = `assets/maps/${mapName}/bg.jpg`;
 
-    // Prova prima bg1forse.jpg
-    this.mapBackgroundImage.src = `assets/maps/${mapName}/bg1forse.jpg`;
+    this.mapBackgroundImage = new Image();
 
     // Gestione errori di caricamento - fallback a bg.jpg
     this.mapBackgroundImage.onerror = () => {
-      this.mapBackgroundImage = new Image();
-      this.mapBackgroundImage.src = `assets/maps/${mapName}/bg.jpg`;
-      this.mapBackgroundImage.onerror = () => {
+      // Se era già il fallback, allora non c'è altro da provare
+      if (this.mapBackgroundImage && this.mapBackgroundImage.src.endsWith('bg.jpg')) {
         this.mapBackgroundImage = null;
         console.warn(`[MinimapSystem] Failed to load background image for map: ${mapName}`);
+        return;
+      }
+
+      console.log(`[MinimapSystem] Trying fallback background for map: ${mapName}`);
+      this.mapBackgroundImage = new Image();
+      this.mapBackgroundImage.src = fallbackPath;
+      this.mapBackgroundImage.onerror = () => {
+        this.mapBackgroundImage = null;
+        console.warn(`[MinimapSystem] Failed to load fallback background image for map: ${mapName}`);
       };
     };
+
+    // Tenta il caricamento primario
+    this.mapBackgroundImage.src = primaryPath;
   }
 
   /**
