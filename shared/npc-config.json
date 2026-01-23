@@ -12,8 +12,8 @@
       "speed": 350
     },
     "rewards": {
-      "credits": 400,
-      "cosmos": 2,
+      "credits": 1500,
+      "cosmos": 10,
       "experience": 400,
       "honor": 2
     },
@@ -33,7 +33,7 @@
       "health": 50000,
       "shield": 25000,
       "damage": 5000,
-      "range": 800,
+      "range": 600,
       "cooldown": 1500,
       "speed": 300
     },
@@ -58,7 +58,7 @@
       "health": 3000,
       "shield": 3000,
       "damage": 2500,
-      "range": 500,
+      "range": 600,
       "cooldown": 1000,
       "speed": 350
     },
@@ -83,7 +83,7 @@
       "health": 1500,
       "shield": 1500,
       "damage": 3500,
-      "range": 800,
+      "range": 650,
       "cooldown": 1000,
       "speed": 450
     },

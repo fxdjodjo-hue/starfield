@@ -385,8 +385,8 @@ class PlayerDataManager {
         auth_id: playerId,
         credits: playerConfig.startingResources.credits,
         cosmos: playerConfig.startingResources.cosmos,
-        experience: 0,
-        honor: 0
+        experience: playerConfig.startingResources.experience,
+        honor: playerConfig.startingResources.honor
       });
 
       ServerLoggerWrapper.database(`Initial player records created for ${playerId}`);
@@ -464,8 +464,8 @@ class PlayerDataManager {
       inventory: {
         credits: playerConfig.startingResources.credits,
         cosmos: playerConfig.startingResources.cosmos,
-        experience: 0,
-        honor: 0
+        experience: playerConfig.startingResources.experience,
+        honor: playerConfig.startingResources.honor
       },
       quests: []
     };

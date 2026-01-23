@@ -5,8 +5,9 @@
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const WebSocket = require('ws');
+const messageBroadcaster = require('../managers/message-broadcaster.cjs');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
-const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
+const playerConfig = require('../../shared/player-config.json');
 
 /**
  * Handler per messaggio 'join'
@@ -457,12 +458,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
     return;
   }
 
-  const baseUpgradeCosts = {
-    hp: { credits: 5000, cosmos: 10 },
-    shield: { credits: 3000, cosmos: 5 },
-    speed: { credits: 8000, cosmos: 15 },
-    damage: { credits: 15000, cosmos: 25 }
-  };
+  const baseUpgradeCosts = playerConfig.upgradeCosts;
 
   const upgradeLimits = {
     hp: 100,

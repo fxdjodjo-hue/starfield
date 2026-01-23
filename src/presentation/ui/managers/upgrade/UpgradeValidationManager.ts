@@ -1,6 +1,7 @@
 import { ECS } from '../../../../infrastructure/ecs/ECS';
 import { PlayerSystem } from '../../../../systems/player/PlayerSystem';
 import { PlayerUpgrades } from '../../../../entities/player/PlayerUpgrades';
+import playerConfig from '../../../../../../shared/player-config.json';
 
 /**
  * Manages upgrade validation, cost calculation, and upgrade state
@@ -11,21 +12,16 @@ export class UpgradeValidationManager {
   constructor(
     private readonly ecs: ECS,
     private readonly playerSystem: PlayerSystem | null
-  ) {}
+  ) { }
 
   /**
    * Calculates the cost of an upgrade based on current level
    */
   calculateUpgradeCost(statType: string, currentLevel: number): { credits: number, cosmos: number } {
-    const baseCosts = {
-      hp: { credits: 5000, cosmos: 10 },
-      shield: { credits: 3000, cosmos: 5 },
-      speed: { credits: 8000, cosmos: 15 },
-      damage: { credits: 10000, cosmos: 20 }
-    };
+    const baseCosts = playerConfig.upgradeCosts;
 
     const baseCost = baseCosts[statType as keyof typeof baseCosts];
-    
+
     // Moltiplicatore crescente basato sul livello (cresce del 15% per livello)
     const levelMultiplier = 1 + (currentLevel * 0.15);
 

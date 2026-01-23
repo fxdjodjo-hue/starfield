@@ -79,13 +79,6 @@
         "cooldown": 200,
         "speed": 200
       },
-      "startingResources": {
-        "credits": 10000,
-        "cosmos": 500,
-        "level": 1,
-        "experience": 0,
-        "honor": 0
-      },
       "spriteSize": {
         "width": 32,
         "height": 32

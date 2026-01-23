@@ -1,6 +1,7 @@
 /**
  * PlayerStatsCalculator - Calcolo centralizzato delle statistiche giocatore
  * Sostituisce calcoli duplicati di maxHealth/maxShield in tutto il progetto
+ * @deprecated Use shared/player-config.json and UpgradeValidationManager instead
  */
 
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
@@ -53,10 +54,10 @@ export class PlayerStatsCalculator {
 
   // Costi base per upgrade
   private static readonly BASE_UPGRADE_COSTS = {
-    hp: 100,
-    shield: 100,
-    speed: 150,
-    damage: 200
+    hp: 5000,
+    shield: 3000,
+    speed: 8000,
+    damage: 15000
   };
 
   // Moltiplicatore costo per livello (costo aumenta con il livello)
