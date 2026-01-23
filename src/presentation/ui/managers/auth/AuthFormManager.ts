@@ -406,6 +406,7 @@ export class AuthFormManager {
     nicknameInput.type = 'text';
     nicknameInput.placeholder = 'Nickname';
     nicknameInput.required = true;
+    nicknameInput.minLength = 3;
     nicknameInput.maxLength = 20;
     nicknameInput.style.cssText = this.getInputStyle();
     nicknameInput.addEventListener('focus', () => this.handleInputFocus(nicknameInput));

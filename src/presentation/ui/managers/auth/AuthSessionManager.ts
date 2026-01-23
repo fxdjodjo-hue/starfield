@@ -68,12 +68,12 @@ export class AuthSessionManager {
   async handleLogin(email: string, password: string, button: HTMLButtonElement): Promise<void> {
     // Validazione input
     if (!email || !password) {
-      this.showError('Please fill in all fields');
+      this.showError('Login failed: Missing information');
       return;
     }
 
     if (!this.isValidEmail(email)) {
-      this.showError('Please enter a valid email address');
+      this.showError('Login failed: Invalid email format');
       return;
     }
 
@@ -123,22 +123,22 @@ export class AuthSessionManager {
   async handleRegister(email: string, password: string, confirmPassword: string, nickname: string, button: HTMLButtonElement): Promise<void> {
     // Validazione input
     if (!email || !password || !nickname) {
-      this.showError('Please fill in all fields');
+      this.showError('Registration failed: Missing information');
       return;
     }
 
     if (!this.isValidEmail(email)) {
-      this.showError('Please enter a valid email address');
+      this.showError('Registration failed: Invalid email format');
       return;
     }
 
     if (password.length < 6) {
-      this.showError('Password must be at least 6 characters');
+      this.showError('Registration failed: Password too short (min 6)');
       return;
     }
 
-    if (nickname.length < 2) {
-      this.showError('Nickname must be at least 2 characters');
+    if (nickname.length < 3) {
+      this.showError('Registration failed: Nickname too short (min 3)');
       return;
     }
 

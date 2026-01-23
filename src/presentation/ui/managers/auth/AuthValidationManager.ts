@@ -20,16 +20,16 @@ export class AuthValidationManager {
 
     // Errori di Login
     if (message.includes('invalid login credentials') || message.includes('invalid email or password')) {
-      return 'Invalid email or password';
+      return 'Login failed: Invalid email or password';
     }
 
     // Errori di Registrazione
     if (message.includes('user already registered') || message.includes('already exists')) {
-      return 'Account already exists with this email';
+      return 'Registration failed: Email already in use';
     }
 
     // Fallback generico
-    return 'Authentication failed. Please try again.';
+    return 'Authentication failed: Please try again';
   }
 
   /**
