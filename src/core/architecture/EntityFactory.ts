@@ -53,7 +53,7 @@ export interface FullEntityConfig extends BaseEntityConfig, CombatEntityConfig, 
 }
 
 export class EntityFactory {
-  constructor(private ecs: ECS) {}
+  constructor(protected ecs: ECS) { }
 
   /**
    * Crea un'entità con configurazione completa (metodo helper principale)
@@ -78,8 +78,8 @@ export class EntityFactory {
 
       // Aggiungi componenti di progresso
       if (config.stats || config.upgrades || config.skillPoints !== undefined ||
-          config.credits !== undefined || config.cosmos !== undefined ||
-          config.experience !== undefined || config.honor !== undefined) {
+        config.credits !== undefined || config.cosmos !== undefined ||
+        config.experience !== undefined || config.honor !== undefined) {
         this.addProgressionComponents(entity, {
           stats: config.stats,
           upgrades: config.upgrades,

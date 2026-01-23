@@ -78,8 +78,8 @@ export class RepairStartedHandler extends BaseMessageHandler {
     if (!repairFrames) {
       try {
         const atlasPath = repairType === 'hp'
-          ? '/assets/repair/hprestore/hprestore.atlas'
-          : '/assets/repair/shieldrestore/shieldrestore.atlas';
+          ? 'assets/repair/hprestore/hprestore.atlas'
+          : 'assets/repair/shieldrestore/shieldrestore.atlas';
 
         const atlasData = await AtlasParser.parseAtlas(atlasPath);
         repairFrames = await AtlasParser.extractFrames(atlasData);

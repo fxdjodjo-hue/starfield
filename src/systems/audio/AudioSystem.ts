@@ -80,7 +80,7 @@ export default class AudioSystem extends System {
       const assetPath = this.getAssetPath(soundKey, 'effects');
       if (!assetPath) continue;
 
-      const audioUrl = `/assets/audio/${assetPath}`;
+      const audioUrl = `assets/audio/${assetPath}`;
 
       // Crea pool di istanze precaricate per riproduzioni multiple istantanee
       const pool: HTMLAudioElement[] = [];
@@ -214,7 +214,7 @@ export default class AudioSystem extends System {
 
       // Usa suono precaricato se disponibile (per sincronizzazione perfetta)
       let audio: HTMLAudioElement;
-      const audioUrl = `/assets/audio/${assetPath}`;
+      const audioUrl = `assets/audio/${assetPath}`;
 
       // Prova a ottenere un'istanza dal pool (più veloce)
       const pooledAudio = this.getAudioFromPool(key);
@@ -327,7 +327,7 @@ export default class AudioSystem extends System {
         return;
       }
 
-      const audioUrl = `/assets/audio/${assetPath}`;
+      const audioUrl = `assets/audio/${assetPath}`;
 
       this.musicInstance = new Audio(audioUrl);
       this.musicInstance.volume = this.config.masterVolume * volume;

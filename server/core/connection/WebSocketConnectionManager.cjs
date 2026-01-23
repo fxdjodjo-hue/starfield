@@ -189,7 +189,7 @@ class WebSocketConnectionManager {
           } else {
             // Aggiorna playerData nel context prima di route (per messaggi dopo join)
             context.playerData = playerData || this.mapServer.players.get(data.clientId);
-            
+
             // Route tutti gli altri messaggi
             await routeMessage({
               type: data.type,
@@ -242,13 +242,22 @@ class WebSocketConnectionManager {
           ServerLoggerWrapper.info('PLAYER', `Player left: ${playerData.playerId}`);
 
           // Salva i dati del giocatore prima della disconnessione
-          ServerLoggerWrapper.database(`Saving player data on disconnect for ${playerData.userId}`);
-          await this.playerDataManager.savePlayerData(playerData);
+          try {
+            ServerLoggerWrapper.database(`Saving player data on disconnect for ${playerData.userId}`);
+            await this.playerDataManager.savePlayerData(playerData);
+          } catch (saveError) {
+            ServerLoggerWrapper.error('DATABASE', `Failed to save player data on disconnect: ${saveError.message}`);
+          }
 
           // Broadcast player left usando MessageBroadcaster
-          const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(playerData.clientId);
-          this.mapServer.broadcastToMap(playerLeftMsg);
+          try {
+            const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(playerData.clientId);
+            this.mapServer.broadcastToMap(playerLeftMsg);
+          } catch (broadcastError) {
+            ServerLoggerWrapper.error('WEBSOCKET', `Failed to broadcast player left: ${broadcastError.message}`);
+          }
 
+          // CLEANUP: Rimuovi SEMPRE il giocatore dalla mappa, anche se il salvataggio fallisce
           this.mapServer.removePlayer(playerData.clientId);
 
           // Rimuovi anche dalla queue degli aggiornamenti posizione

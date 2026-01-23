@@ -25,15 +25,15 @@ export class RepairStartedHandler extends BaseMessageHandler {
     // Crea effetto visivo di riparazione
     const ecs = networkSystem.getECS();
     const playerSystem = networkSystem.getPlayerSystem();
-    
+
     if (!ecs || !playerSystem) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, 'ECS or PlayerSystem not available for repair start');
+      LoggerWrapper.warn(LogCategory.NETWORK, 'ECS or PlayerSystem not available for repair start');
       return;
     }
 
     const playerEntity = playerSystem.getPlayerEntity();
     if (!playerEntity) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, 'Player entity not found for repair start');
+      LoggerWrapper.warn(LogCategory.NETWORK, 'Player entity not found for repair start');
       return;
     }
 
@@ -79,20 +79,20 @@ export class RepairStartedHandler extends BaseMessageHandler {
     if (!repairFrames) {
       try {
         const atlasPath = repairType === 'hp'
-          ? '/assets/repair/hprestore/hprestore.atlas'
-          : '/assets/repair/shieldrestore/shieldrestore.atlas';
+          ? 'assets/repair/hprestore/hprestore.atlas'
+          : 'assets/repair/shieldrestore/shieldrestore.atlas';
 
         const atlasData = await AtlasParser.parseAtlas(atlasPath);
         repairFrames = await AtlasParser.extractFrames(atlasData);
         this.repairFramesCache[cacheKey] = repairFrames;
       } catch (error) {
-        LoggerWrapper.error(LogCategory.MULTIPLAYER, `Failed to load ${repairType} repair frames`, error as Error);
+        LoggerWrapper.error(LogCategory.NETWORK, `Failed to load ${repairType} repair frames`, error as Error);
         return;
       }
     }
 
     if (!repairFrames || repairFrames.length === 0) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, `No ${repairType} repair frames loaded`);
+      LoggerWrapper.warn(LogCategory.NETWORK, `No ${repairType} repair frames loaded`);
       return;
     }
 
@@ -101,7 +101,7 @@ export class RepairStartedHandler extends BaseMessageHandler {
     const playerTransform = ecs.getComponent(playerEntity, Transform);
 
     if (!playerTransform) {
-      LoggerWrapper.warn(LogCategory.MULTIPLAYER, 'Player transform not found for repair effect');
+      LoggerWrapper.warn(LogCategory.NETWORK, 'Player transform not found for repair effect');
       ecs.removeEntity(repairEffectEntity);
       return;
     }

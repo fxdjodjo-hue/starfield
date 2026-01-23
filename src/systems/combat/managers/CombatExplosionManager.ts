@@ -24,7 +24,7 @@ export class CombatExplosionManager {
     private readonly getClientNetworkSystem: () => ClientNetworkSystem | null,
     private readonly getPreloadedFrames: () => HTMLImageElement[] | null,
     private readonly setPreloadedFrames: (frames: HTMLImageElement[]) => void
-  ) {}
+  ) { }
 
   /**
    * Sets preloaded explosion frames
@@ -116,7 +116,7 @@ export class CombatExplosionManager {
    */
   async loadExplosionFrames(explosionType?: string): Promise<HTMLImageElement[]> {
     try {
-      const atlasPath = `/assets/explosions/explosions_npc/explosion.atlas`;
+      const atlasPath = `assets/explosions/explosions_npc/explosion.atlas`;
       const atlasData = await AtlasParser.parseAtlas(atlasPath);
       const frames = await AtlasParser.extractFrames(atlasData);
       return frames;

@@ -107,7 +107,7 @@ export class GameEntityFactory extends EntityFactory {
    */
   async loadKronosSprite(): Promise<void> {
     if (this.assetManager && !this.kronosAnimatedSprite) {
-      this.kronosAnimatedSprite = await this.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', 0.16);
+      this.kronosAnimatedSprite = await this.assetManager.createAnimatedSprite('assets/npc_ships/kronos/alien90', 0.16);
     }
   }
 
@@ -195,7 +195,7 @@ export class GameEntityFactory extends EntityFactory {
         transform.scaleX = 4.5;
         transform.scaleY = 4.5;
       }
-      
+
       if (this.kronosAnimatedSprite) {
         // Rimuovi Sprite se presente
         if (this.ecs.hasComponent(entity, Sprite)) {
@@ -239,6 +239,13 @@ export class GameEntityFactory extends EntityFactory {
         rotation: 0
       }
     });
+  }
+
+  /**
+   * Imposta logica specializzata per tipi specifici di NPC
+   */
+  private setupSpecializedNpcLogic(entity: Entity, npcDef: any): void {
+    // Implementazione vuota per ora, estendibile in futuro per comportamenti specifici
   }
 
 

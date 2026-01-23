@@ -291,8 +291,8 @@ export class AssetLoader {
     const startTime = Date.now();
     const criticalAssets = [
       // Effetti di riparazione - spesso usati, evitano lag quando il player si ripara
-      '/assets/repair/hprestore/hprestore.png',
-      '/assets/repair/shieldrestore/shieldrestore.png',
+      'assets/repair/hprestore/hprestore.png',
+      'assets/repair/shieldrestore/shieldrestore.png',
 
       // Effetti di danno/repair base (se esistono)
       // '/assets/damage/damage.png',
@@ -382,8 +382,11 @@ export class AssetLoader {
         reject(new Error(`Image failed to load: ${path}`));
       };
 
-      // Forza crossOrigin per evitare problemi CORS
-      img.crossOrigin = 'anonymous';
+      // Solo per richieste HTTP, non per file:// (Electron)
+      // crossOrigin causa problemi con il protocollo file://
+      if (typeof window !== 'undefined' && !window.location.protocol.startsWith('file')) {
+        img.crossOrigin = 'anonymous';
+      }
       img.src = path;
     });
   }

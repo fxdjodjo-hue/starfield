@@ -87,14 +87,18 @@ export class PortalSystem extends BaseSystem {
           const distanceRange = this.PROXIMITY_DISTANCE - this.MAX_VOLUME_DISTANCE;
           const normalizedDistance = distanceRange > 0 ? distanceFromMax / distanceRange : 0;
 
-          const portalVolume = 0.18 * (1 - normalizedDistance); // Volume portale da 0.18 a 0
-          const bassdropVolume = 0.15 * (1 - normalizedDistance); // Volume bassdrop da 0.15 a 0
+          // Ottieni volumi globali dall'AudioSystem
+          const config = this.audioSystem?.getConfig?.() || { masterVolume: 1, effectsVolume: 1 };
+          const globalMultiplier = config.masterVolume * config.effectsVolume;
+
+          const portalVolume = 0.18 * (1 - normalizedDistance) * globalMultiplier;
+          const bassdropVolume = 0.15 * (1 - normalizedDistance) * globalMultiplier;
 
           if (portalAudio) {
-            portalAudio.volume = Math.max(0, Math.min(0.18, portalVolume));
+            portalAudio.volume = Math.max(0, Math.min(1, portalVolume));
           }
           if (bassdropAudio) {
-            bassdropAudio.volume = Math.max(0, Math.min(0.15, bassdropVolume));
+            bassdropAudio.volume = Math.max(0, Math.min(1, bassdropVolume));
           }
         }
 
@@ -117,12 +121,12 @@ export class PortalSystem extends BaseSystem {
   private startPortalSound(portalId: number): void {
     try {
       // Crea istanza audio per il suono principale del portale
-      const portalAudio = new Audio('/assets/audio/effects/portal/portal.mp3');
+      const portalAudio = new Audio('assets/audio/effects/portal/portal.mp3');
       portalAudio.loop = true;
       portalAudio.volume = 0.10; // Volume iniziale più basso
 
       // Crea istanza audio per il bassdrop
-      const bassdropAudio = new Audio('/assets/audio/effects/portal/bassdrop.mp3');
+      const bassdropAudio = new Audio('assets/audio/effects/portal/bassdrop.mp3');
       bassdropAudio.loop = true;
       bassdropAudio.volume = 0.08; // Volume leggermente più basso per il bassdrop
 
@@ -205,7 +209,7 @@ export class PortalSystem extends BaseSystem {
         portalAudio.pause();
         portalAudio.currentTime = 0;
         portalAudio.volume = 0;
-        portalAudio.removeEventListener('error', () => {});
+        portalAudio.removeEventListener('error', () => { });
       } catch (error) {
         console.warn('[PortalSystem] Error stopping portal sound:', error);
       } finally {
@@ -220,7 +224,7 @@ export class PortalSystem extends BaseSystem {
         bassdropAudio.pause();
         bassdropAudio.currentTime = 0;
         bassdropAudio.volume = 0;
-        bassdropAudio.removeEventListener('error', () => {});
+        bassdropAudio.removeEventListener('error', () => { });
       } catch (error) {
         console.warn('[PortalSystem] Error stopping bassdrop sound:', error);
       } finally {

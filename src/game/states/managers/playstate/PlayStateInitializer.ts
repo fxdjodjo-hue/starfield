@@ -48,13 +48,13 @@ export class PlayStateInitializer {
     private readonly setInterpolationSystem: (system: any) => void,
     private readonly getAudioSystem: () => any,
     private readonly setAudioSystem: (system: any) => void
-  ) {}
+  ) { }
 
   /**
    * Hides the loading screen
    */
   hideLoadingScreen(): void {
-    
+
     // Nascondi AuthScreen se disponibile
     if (this.context.authScreen && typeof this.context.authScreen.hide === 'function') {
       this.context.authScreen.hide();
@@ -68,7 +68,7 @@ export class PlayStateInitializer {
         console.warn('[PlayState] authContainer non trovato nel DOM');
       }
     }
-    
+
     // Funzione helper per mostrare la UI
     const showUI = () => {
       // Riproduci suono di login quando l'animazione camera è finita
@@ -86,12 +86,12 @@ export class PlayStateInitializer {
       if (systems?.playerStatusDisplaySystem && typeof systems.playerStatusDisplaySystem.show === 'function') {
         systems.playerStatusDisplaySystem.show();
       }
-      
+
       // Mostra anche la minimap
       if (systems?.minimapSystem && typeof systems.minimapSystem.show === 'function') {
         systems.minimapSystem.show();
       }
-      
+
       // Mostra anche il PlayerHUD (barra in alto a sinistra) se disponibile
       const uiSystem = this.getUiSystem();
       if (uiSystem) {
@@ -101,19 +101,19 @@ export class PlayStateInitializer {
             playerHUD.show();
           }
         }
-        
+
         // Mostra anche la chat
         if (typeof uiSystem.showChat === 'function') {
           uiSystem.showChat();
         }
-        
+
         // Mostra anche le icone dei pannelli (3 icone a sinistra)
         if (typeof uiSystem.showPanelIcons === 'function') {
           uiSystem.showPanelIcons();
         }
       }
     };
-    
+
     // Zoom out dalla nave quando il player logga
     const cameraSystem = this.getCameraSystem();
     if (cameraSystem && typeof cameraSystem.animateZoomOut === 'function') {
@@ -157,7 +157,7 @@ export class PlayStateInitializer {
         // RecentHonor non è critico - RankSystem ha già un fallback che usa honor corrente
         // Possiamo procedere anche senza RecentHonor
         let hasRecentHonor = true; // Sempre true - non bloccheremo per questo
-        
+
         // Verifica anche in RankSystem (potrebbe essere impostato prima che arrivi nel context)
         if (!hasRecentHonor && economySystem) {
           const rankSystem = (economySystem as any).rankSystem;
@@ -166,8 +166,8 @@ export class PlayStateInitializer {
           }
         }
 
-        const hasInventory = this.context.playerInventory !== undefined && 
-                            this.context.playerInventory.experience > 0;
+        const hasInventory = this.context.playerInventory !== undefined &&
+          this.context.playerInventory.experience > 0;
 
 
         // Aggiorna il testo di loading se AuthScreen è disponibile
@@ -233,7 +233,7 @@ export class PlayStateInitializer {
    */
   async initializeMultiplayerSystems(): Promise<void> {
     // Carica AnimatedSprite per i remote player (stesso del player normale)
-    const remotePlayerSprite = await this.context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.8);
+    const remotePlayerSprite = await this.context.assetManager.createAnimatedSprite('assets/ships/ship106/ship106', 0.8);
 
     // Crea sistema remote player
     const remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), remotePlayerSprite);
@@ -278,7 +278,7 @@ export class PlayStateInitializer {
    * Initializes the game world and creates entities
    */
   async initializeGame(): Promise<void> {
-    
+
     try {
       // Delega l'inizializzazione al GameInitializationSystem e ottieni il player entity
       const playerEntity = await this.gameInitSystem.initialize();
@@ -287,76 +287,76 @@ export class PlayStateInitializer {
       // Ora che i sistemi sono stati creati, imposta il ClientNetworkSystem
       this.setupClientNetworkSystem();
 
-    // Ottieni riferimenti ai sistemi creati
-    const systems = this.gameInitSystem.getSystems();
-    this.setQuestSystem(systems.questSystem);
-    const uiSystem = this.getUiSystem();
-    if (!uiSystem && systems.uiSystem) {
-      this.setUiSystem(systems.uiSystem);
-    }
-    this.setQuestManager(systems.questManager);
-    this.setCameraSystem(systems.cameraSystem);
-    this.setMovementSystem(systems.movementSystem);
+      // Ottieni riferimenti ai sistemi creati
+      const systems = this.gameInitSystem.getSystems();
+      this.setQuestSystem(systems.questSystem);
+      const uiSystem = this.getUiSystem();
+      if (!uiSystem && systems.uiSystem) {
+        this.setUiSystem(systems.uiSystem);
+      }
+      this.setQuestManager(systems.questManager);
+      this.setCameraSystem(systems.cameraSystem);
+      this.setMovementSystem(systems.movementSystem);
 
-    // Ora che i sistemi sono stati creati, imposta NPC e proiettili remoti nel ClientNetworkSystem
-    if (systems.remoteNpcSystem) {
-      this.setRemoteNpcSystem(systems.remoteNpcSystem);
+      // Ora che i sistemi sono stati creati, imposta NPC e proiettili remoti nel ClientNetworkSystem
+      if (systems.remoteNpcSystem) {
+        this.setRemoteNpcSystem(systems.remoteNpcSystem);
+        const clientNetworkSystem = this.getClientNetworkSystem();
+        if (clientNetworkSystem && typeof clientNetworkSystem.setRemoteNpcSystem === 'function') {
+          clientNetworkSystem.setRemoteNpcSystem(systems.remoteNpcSystem);
+        }
+      }
+      if (systems.remoteProjectileSystem) {
+        this.setRemoteProjectileSystem(systems.remoteProjectileSystem);
+        const clientNetworkSystem = this.getClientNetworkSystem();
+        if (clientNetworkSystem && typeof clientNetworkSystem.setRemoteProjectileSystem === 'function') {
+          clientNetworkSystem.setRemoteProjectileSystem(systems.remoteProjectileSystem);
+        }
+      }
+
+      // InterpolationSystem è già stato creato e aggiunto in GameInitializationSystem
+      // Recuperalo dall'ECS per impostare il riferimento
+      const allSystems = this.world.getECS().getSystems();
+      const interpolationSystem = allSystems.find(s => s.constructor.name === 'InterpolationSystem');
+      if (interpolationSystem) {
+        this.setInterpolationSystem(interpolationSystem);
+      }
+      this.setAudioSystem(systems.audioSystem);
+
+      // Collega l'EconomySystem all'UiSystem
+      if (systems.economySystem) {
+        this.setEconomySystem(systems.economySystem);
+        const uiSystem = this.getUiSystem();
+        if (uiSystem) {
+          uiSystem.setEconomySystem(systems.economySystem);
+        }
+      }
+
+      // Collega il PlayerSystem all'UiSystem
+      if (systems.playerSystem) {
+        const uiSystem = this.getUiSystem();
+        if (uiSystem) {
+          uiSystem.setPlayerSystem(systems.playerSystem);
+        }
+      }
+
+      // Collega il ClientNetworkSystem all'UiSystem (per UpgradePanel)
       const clientNetworkSystem = this.getClientNetworkSystem();
-      if (clientNetworkSystem && typeof clientNetworkSystem.setRemoteNpcSystem === 'function') {
-        clientNetworkSystem.setRemoteNpcSystem(systems.remoteNpcSystem);
+      if (clientNetworkSystem) {
+        const uiSystem = this.getUiSystem();
+        if (uiSystem) {
+          uiSystem.setClientNetworkSystem(clientNetworkSystem);
+          // NOTA: initializeNetworkSystem() verrà chiamato DOPO la connessione al server
+          // perché ha bisogno del messaggio "welcome" per completare
+        }
+      } else {
+        console.warn('[PlayStateInitializer] ClientNetworkSystem non disponibile');
       }
-    }
-    if (systems.remoteProjectileSystem) {
-      this.setRemoteProjectileSystem(systems.remoteProjectileSystem);
-      const clientNetworkSystem = this.getClientNetworkSystem();
-      if (clientNetworkSystem && typeof clientNetworkSystem.setRemoteProjectileSystem === 'function') {
-        clientNetworkSystem.setRemoteProjectileSystem(systems.remoteProjectileSystem);
+
+      // Collega il PlayerSystem al ClientNetworkSystem (per sincronizzazione upgrade)
+      if (systems.playerSystem && clientNetworkSystem) {
+        clientNetworkSystem.setPlayerSystem(systems.playerSystem);
       }
-    }
-
-    // InterpolationSystem è già stato creato e aggiunto in GameInitializationSystem
-    // Recuperalo dall'ECS per impostare il riferimento
-    const allSystems = this.world.getECS().getSystems();
-    const interpolationSystem = allSystems.find(s => s.constructor.name === 'InterpolationSystem');
-    if (interpolationSystem) {
-      this.setInterpolationSystem(interpolationSystem);
-    }
-    this.setAudioSystem(systems.audioSystem);
-
-    // Collega l'EconomySystem all'UiSystem
-    if (systems.economySystem) {
-      this.setEconomySystem(systems.economySystem);
-      const uiSystem = this.getUiSystem();
-      if (uiSystem) {
-        uiSystem.setEconomySystem(systems.economySystem);
-      }
-    }
-
-    // Collega il PlayerSystem all'UiSystem
-    if (systems.playerSystem) {
-      const uiSystem = this.getUiSystem();
-      if (uiSystem) {
-        uiSystem.setPlayerSystem(systems.playerSystem);
-      }
-    }
-
-    // Collega il ClientNetworkSystem all'UiSystem (per UpgradePanel)
-    const clientNetworkSystem = this.getClientNetworkSystem();
-    if (clientNetworkSystem) {
-      const uiSystem = this.getUiSystem();
-      if (uiSystem) {
-        uiSystem.setClientNetworkSystem(clientNetworkSystem);
-        // NOTA: initializeNetworkSystem() verrà chiamato DOPO la connessione al server
-        // perché ha bisogno del messaggio "welcome" per completare
-      }
-    } else {
-      console.warn('[PlayStateInitializer] ClientNetworkSystem non disponibile');
-    }
-
-    // Collega il PlayerSystem al ClientNetworkSystem (per sincronizzazione upgrade)
-    if (systems.playerSystem && clientNetworkSystem) {
-      clientNetworkSystem.setPlayerSystem(systems.playerSystem);
-    }
 
     } catch (error) {
       console.error('[PlayStateInitializer] Errore in initializeGame():', error);
@@ -463,7 +463,7 @@ export class PlayStateInitializer {
     if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
       this.context.authScreen.updateLoadingText('Loading multiplayer systems...');
     }
-    
+
     await this.initializeMultiplayerSystems();
 
     // Aggiorna il testo di loading durante l'inizializzazione del gioco
@@ -490,18 +490,18 @@ export class PlayStateInitializer {
     if (clientNetworkSystem && typeof clientNetworkSystem.connectToServer === 'function') {
       try {
         await clientNetworkSystem.connectToServer();
-        
+
         // Aggiorna il testo durante l'attesa della risposta del server
         if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
           this.context.authScreen.updateLoadingText('Synchronizing with server...');
         }
-        
+
         // 🔧 FIX: Inizializza il sistema di rete DOPO la connessione (ha bisogno del welcome message)
         await this.initializeNetworkSystem();
-        
+
         // Piccolo delay per dare tempo al server di processare la connessione
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         // Aggiorna il testo di loading dopo la connessione
         if (this.context.authScreen && typeof this.context.authScreen.updateLoadingText === 'function') {
           this.context.authScreen.updateLoadingText('Loading player data...');
@@ -580,7 +580,7 @@ export class PlayStateInitializer {
   private setupInputSystemUIPanelIntegration(): void {
     // Trova l'InputSystem nell'ECS
     const allSystems = this.world.getECS().getSystems();
-    const inputSystem = allSystems.find(s => s.constructor.name === 'InputSystem');
+    const inputSystem = allSystems.find(s => s.constructor.name === 'InputSystem') as any;
 
     if (inputSystem && typeof inputSystem.setInputDisabled === 'function') {
       // Disable input when a UI panel is opened

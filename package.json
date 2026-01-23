@@ -1,7 +1,7 @@
 {
-  "name": "starfield",
+  "name": "starspace",
   "private": true,
-  "version": "0.1.0-alpha",
+  "version": "0.1.0",
   "type": "module",
   "main": "electron/main.cjs",
   "scripts": {
@@ -43,7 +43,7 @@
   },
   "build": {
     "appId": "com.starfield.game",
-    "productName": "Starfield",
+    "productName": "StarSpace",
     "directories": {
       "output": "dist-electron"
     },
@@ -53,7 +53,9 @@
       "package.json"
     ],
     "win": {
-      "target": "portable"
+      "target": "portable",
+      "icon": "build/icon.png",
+      "artifactName": "${productName}.${ext}"
     }
   }
 }

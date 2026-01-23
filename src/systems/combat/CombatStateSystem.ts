@@ -842,7 +842,7 @@ export class CombatStateSystem extends BaseSystem {
     try {
       // Suono laser (stesso del player locale)
       if (audioSystem) {
-        audioSystem.playSound('laser', 0.03, false, true); // Volume ridotto
+        audioSystem.playSound('laser', 0.03, false, true, 'effects'); // Volume ridotto, canale effects
       }
 
       // Carica immagine laser (stessa del player locale)

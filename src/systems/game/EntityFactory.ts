@@ -155,14 +155,14 @@ export class EntityFactory {
   static async createMapBackground(ecs: ECS, context: GameContext): Promise<void> {
     try {
       // Prova prima bg1forse.jpg se esiste (potrebbe essere più grande), altrimenti bg.jpg
-      let mapPath = `/assets/maps/${CONFIG.CURRENT_MAP}/bg1forse.jpg`;
+      let mapPath = `assets/maps/${CONFIG.CURRENT_MAP}/bg1forse.jpg`;
       let backgroundSprite: Sprite | null = null;
 
       try {
         backgroundSprite = await context.assetManager.createSprite(mapPath);
       } catch {
         // Fallback a bg.jpg
-        mapPath = `/assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`;
+        mapPath = `assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`;
         backgroundSprite = await context.assetManager.createSprite(mapPath);
       }
 

@@ -10,13 +10,11 @@ import { AtlasParser } from '../../core/utils/AtlasParser';
  */
 export class RemoteExplosionSystem extends BaseSystem {
   private gameContext: GameContext;
-  private ecs: ECS;
   private explosionFramesCache: HTMLImageElement[] | null = null;
   private audioSystem: any = null;
 
   constructor(ecs: ECS, gameContext: GameContext) {
     super(ecs);
-    this.ecs = ecs;
     this.gameContext = gameContext;
 
     // Precarica i frame dell'esplosione all'avvio per evitare lag al primo utilizzo
@@ -37,6 +35,13 @@ export class RemoteExplosionSystem extends BaseSystem {
     } catch (error) {
       console.warn('[ExplosionSystem] Error starting preload:', error);
     }
+  }
+
+  /**
+   * Update system loop (required by base class)
+   */
+  update(deltaTime: number): void {
+    // No continuous logic needed for this system
   }
 
   /**
@@ -106,7 +111,7 @@ export class RemoteExplosionSystem extends BaseSystem {
     }
 
     try {
-      const atlasPath = `/assets/explosions/explosions_npc/explosion.atlas`;
+      const atlasPath = `assets/explosions/explosions_npc/explosion.atlas`;
       const atlasData = await AtlasParser.parseAtlas(atlasPath);
       const frames = await AtlasParser.extractFrames(atlasData);
 

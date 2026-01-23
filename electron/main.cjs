@@ -6,8 +6,10 @@ function createWindow() {
     const { width, height } = screen.getPrimaryDisplay().workAreaSize;
 
     const win = new BrowserWindow({
-        width: Math.min(1280, width),
-        height: Math.min(720, height),
+        width: Math.min(1920, width),
+        height: Math.min(1080, height),
+        minWidth: 1280,
+        minHeight: 720,
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
@@ -15,18 +17,34 @@ function createWindow() {
         },
         backgroundColor: '#000011',
         autoHideMenuBar: true,
-        title: 'StarSpace'
+        title: 'StarSpace',
+        icon: path.join(__dirname, '../public/favicon.ico'),
+        show: false // Non mostrare finché non è pronta
+    });
+
+    // Mostra quando pronto (evita flash bianco)
+    win.once('ready-to-show', () => {
+        win.show();
+        // Apri DevTools per debug
+        win.webContents.openDevTools();
     });
 
     if (isDev) {
+        // Development: carica da Vite dev server
         win.loadURL('http://localhost:5173');
-        // win.webContents.openDevTools();
     } else {
+        // Production: carica i file buildati
         win.loadFile(path.join(__dirname, '../dist/index.html'));
-        win.webContents.openDevTools();
     }
 
+    // Mantieni titolo custom
     win.on('page-title-updated', (e) => e.preventDefault());
+
+    // Gestisci link esterni (apri nel browser di default)
+    win.webContents.setWindowOpenHandler(({ url }) => {
+        require('electron').shell.openExternal(url);
+        return { action: 'deny' };
+    });
 }
 
 app.whenReady().then(() => {
@@ -43,4 +61,13 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
+});
+
+// Gestione crash/hang
+app.on('render-process-gone', (event, webContents, details) => {
+    console.error('Render process gone:', details);
+});
+
+app.on('child-process-gone', (event, details) => {
+    console.error('Child process gone:', details);
 });

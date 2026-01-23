@@ -983,7 +983,7 @@ export class RenderSystem extends BaseSystem {
 
     // Carica l'immagine in modo lazy se non è già caricata
     if (!this.aimImage) {
-      this.aimImage = this.assetManager.getOrLoadImage('/assets/aim/aim.png');
+      this.aimImage = this.assetManager.getOrLoadImage('assets/aim/aim.png');
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] Loading aim.png...`);
     }
 

@@ -22,7 +22,7 @@ export class DiscordIcon {
     const c = this.dprCompensation;
     const margin = Math.round(20 * c);
     const size = Math.round(40 * c);
-    
+
     const icon = document.createElement('a');
     icon.href = this.discordUrl;
     icon.target = '_blank';
@@ -51,7 +51,7 @@ export class DiscordIcon {
 
     // Icona Discord
     const img = document.createElement('img');
-    img.src = '/discordlogo.webp';
+    img.src = 'discordlogo.webp';
     img.alt = 'Discord';
     img.style.cssText = `
       width: ${Math.round(24 * c)}px;

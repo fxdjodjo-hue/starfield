@@ -59,14 +59,14 @@ export class MinimapSystem extends BaseSystem {
   private loadMapBackground(mapName: string = 'sol_system'): void {
     // Prova prima bg1forse.jpg (potrebbe essere più grande), altrimenti bg.jpg
     this.mapBackgroundImage = new Image();
-    
+
     // Prova prima bg1forse.jpg
-    this.mapBackgroundImage.src = `/assets/maps/${mapName}/bg1forse.jpg`;
-    
+    this.mapBackgroundImage.src = `assets/maps/${mapName}/bg1forse.jpg`;
+
     // Gestione errori di caricamento - fallback a bg.jpg
     this.mapBackgroundImage.onerror = () => {
       this.mapBackgroundImage = new Image();
-      this.mapBackgroundImage.src = `/assets/maps/${mapName}/bg.jpg`;
+      this.mapBackgroundImage.src = `assets/maps/${mapName}/bg.jpg`;
       this.mapBackgroundImage.onerror = () => {
         this.mapBackgroundImage = null;
         console.warn(`[MinimapSystem] Failed to load background image for map: ${mapName}`);
@@ -213,7 +213,7 @@ export class MinimapSystem extends BaseSystem {
     const y = this.minimap.y;
     const w = this.minimap.width;
     const h = this.minimap.height;
-    
+
     // Compensazione DPR dalla minimap
     const c = this.minimap.getDprCompensation();
 
@@ -409,7 +409,7 @@ export class MinimapSystem extends BaseSystem {
     const remotePlayerPositions = remotePlayerSystem.getRemotePlayerPositions();
 
     // Renderizza ogni giocatore remoto come pallino giallo
-    remotePlayerPositions.forEach((position: {x: number, y: number}) => {
+    remotePlayerPositions.forEach((position: { x: number, y: number }) => {
       this.renderEntityDot(ctx, position.x, position.y, '#FFFF00'); // Giallo per giocatori remoti
     });
   }
@@ -611,7 +611,7 @@ export class MinimapSystem extends BaseSystem {
     const y = this.minimap.y;
     const w = this.minimap.width;
     const h = this.minimap.height;
-    
+
     // Compensazione DPR
     const c = this.minimap.getDprCompensation();
 
@@ -627,7 +627,7 @@ export class MinimapSystem extends BaseSystem {
 
     // Il click è nel pannello glass completo?
     return screenX >= glassX && screenX <= glassX + glassW &&
-           screenY >= glassY && screenY <= glassY + glassH;
+      screenY >= glassY && screenY <= glassY + glassH;
   }
 
   /**
@@ -638,7 +638,7 @@ export class MinimapSystem extends BaseSystem {
     const y = this.minimap.y;
     const w = this.minimap.width;
     const h = this.minimap.height;
-    
+
     // Compensazione DPR
     const c = this.minimap.getDprCompensation();
 
@@ -654,7 +654,7 @@ export class MinimapSystem extends BaseSystem {
 
     // Il click è nel pannello glass?
     if (screenX >= glassX && screenX <= glassX + glassW &&
-        screenY >= glassY && screenY <= glassY + glassH) {
+      screenY >= glassY && screenY <= glassY + glassH) {
       // Sì, ma è nell'area effettiva della minimappa?
       return !this.minimap.isPointInside(screenX, screenY);
     }
@@ -669,7 +669,7 @@ export class MinimapSystem extends BaseSystem {
   private renderMapName(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number): void {
     // Formatta il nome della mappa (tutto maiuscolo)
     const mapName = CONFIG.CURRENT_MAP.toUpperCase();
-    
+
     // Compensazione DPR
     const c = this.minimap.getDprCompensation();
     const fontSize = Math.round(14 * c);

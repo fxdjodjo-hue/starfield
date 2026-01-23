@@ -18,6 +18,16 @@ export class CameraSystem extends BaseSystem {
   } | null = null;
   private isZoomAnimating: boolean = false;
 
+  // Speed-based zoom (disabled)
+  private lastPosition: { x: number; y: number } | null = null;
+  private currentSpeed: number = 0;
+  private targetSpeedZoom: number = 1;
+  private currentSpeedZoom: number = 1;
+  private readonly BASE_ZOOM: number = 1;  // Zoom normale
+  private readonly MIN_SPEED_ZOOM: number = 1;  // Disabled
+  private readonly MAX_SPEED_FOR_ZOOM: number = 400;
+  private readonly ZOOM_LERP_SPEED: number = 3;
+
   constructor(ecs: ECS) {
     super(ecs);
     // Crea una camera globale che segue il player
@@ -51,7 +61,7 @@ export class CameraSystem extends BaseSystem {
     if (centerX !== undefined && centerY !== undefined) {
       this.camera.centerOn(centerX, centerY);
     }
-    
+
     this.isZoomAnimating = true;
     this.zoomAnimation = {
       active: true,
@@ -72,26 +82,66 @@ export class CameraSystem extends BaseSystem {
   }
 
   /**
+   * Aggiorna lo zoom basato sulla velocità del player
+   * Chiamare questo metodo con la posizione corrente del player
+   */
+  updateSpeedZoom(playerX: number, playerY: number, deltaTime: number): void {
+    // Non aggiornare durante l'animazione zoom
+    if (this.isZoomAnimating) {
+      return;
+    }
+
+    // Calcola la velocità basata sulla differenza di posizione
+    if (this.lastPosition) {
+      const dx = playerX - this.lastPosition.x;
+      const dy = playerY - this.lastPosition.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Velocità in pixel al secondo (deltaTime è in ms)
+      const instantSpeed = distance / (deltaTime / 1000);
+
+      // Smooth la velocità per evitare scatti
+      this.currentSpeed = this.currentSpeed * 0.9 + instantSpeed * 0.1;
+    }
+
+    this.lastPosition = { x: playerX, y: playerY };
+
+    // Calcola il target zoom basato sulla velocità
+    const speedRatio = Math.min(this.currentSpeed / this.MAX_SPEED_FOR_ZOOM, 1);
+    this.targetSpeedZoom = this.BASE_ZOOM - (this.BASE_ZOOM - this.MIN_SPEED_ZOOM) * speedRatio;
+
+    // Interpola smoothly verso il target zoom
+    const lerpFactor = 1 - Math.exp(-this.ZOOM_LERP_SPEED * (deltaTime / 1000));
+    this.currentSpeedZoom = this.currentSpeedZoom + (this.targetSpeedZoom - this.currentSpeedZoom) * lerpFactor;
+
+    // Applica lo zoom (solo se non c'è animazione in corso)
+    this.camera.setZoom(this.currentSpeedZoom);
+  }
+
+  /**
    * Aggiorna la camera (gestisce animazioni zoom)
    */
   update(deltaTime: number): void {
     if (this.zoomAnimation && this.zoomAnimation.active) {
       this.zoomAnimation.elapsed += deltaTime;
       const progress = Math.min(this.zoomAnimation.elapsed / this.zoomAnimation.duration, 1);
-      
+
       // Easing smooth ease-out
       const easedProgress = 1 - Math.pow(1 - progress, 3);
-      
-      const currentZoom = this.zoomAnimation.startZoom + 
+
+      const currentZoom = this.zoomAnimation.startZoom +
         (this.zoomAnimation.targetZoom - this.zoomAnimation.startZoom) * easedProgress;
-      
+
       this.camera.setZoom(currentZoom);
-      
+
       if (progress >= 1) {
         this.zoomAnimation.active = false;
         const onComplete = this.zoomAnimation.onComplete;
         this.zoomAnimation = null;
         this.isZoomAnimating = false;
+
+        // Resetta lo speed zoom al valore finale dell'animazione
+        this.currentSpeedZoom = currentZoom;
 
         // Chiama il callback se presente
         if (onComplete) {
@@ -102,13 +152,20 @@ export class CameraSystem extends BaseSystem {
   }
 
   /**
+   * Ottiene la velocità corrente del player (per debug/UI)
+   */
+  getCurrentSpeed(): number {
+    return this.currentSpeed;
+  }
+
+  /**
    * Ottiene l'opacità del mondo durante l'animazione zoom (per fade-in)
    */
   getWorldOpacity(): number {
     if (!this.zoomAnimation || !this.zoomAnimation.active) {
       return 1;
     }
-    
+
     const progress = Math.min(this.zoomAnimation.elapsed / this.zoomAnimation.duration, 1);
     // Fade-in più veloce: inizia a 0.3 e arriva a 1.0 entro il 40% dell'animazione
     if (progress < 0.4) {

@@ -124,14 +124,14 @@ export class ProjectileRenderer {
       // È un proiettile NPC
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
       if (npcType === 'Kronos') {
-        return this.assetManager.getOrLoadImage('/assets/npc_ships/kronos/npc_frigate_projectile.png');
+        return this.assetManager.getOrLoadImage('assets/npc_ships/kronos/npc_frigate_projectile.png');
       } else {
-        return this.assetManager.getOrLoadImage('/assets/npc_ships/scouter/npc_scouter_projectile.png');
+        return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
       }
     }
 
     // Default: scouter projectile
-    return this.assetManager.getOrLoadImage('/assets/npc_ships/scouter/npc_scouter_projectile.png');
+    return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
   }
 
   /**

@@ -1,5 +1,5 @@
 import { supabase } from '../../../../lib/SupabaseClient';
-import { getApiBaseUrl } from '../../../../config/NetworkConfig';
+import { getApiBaseUrl, type PlayerUuid, type ClientId } from '../../../../config/NetworkConfig';
 import type { GameContext } from '../../../../infrastructure/engine/GameContext';
 import { AuthState } from './AuthState';
 import { AlphaDisclaimerModal } from './AlphaDisclaimerModal';
@@ -91,21 +91,21 @@ export class AuthSessionManager {
       }
 
       if (data.user) {
-        
+
         // Segna che abbiamo appena fatto login per evitare controlli di sessione
         this.setJustLoggedIn(true);
 
         // Imposta ID e nickname nel context
-        this.context.authId = data.user.id;
-        this.context.localClientId = data.user.id;
+        this.context.authId = data.user.id as PlayerUuid;
+        this.context.localClientId = data.user.id as ClientId;
         this.context.playerNickname = data.user.user_metadata?.display_name ||
-                                     data.user.user_metadata?.username ||
-                                     'Player'; // Fallback
+          data.user.user_metadata?.username ||
+          'Player'; // Fallback
 
-        
+
         // NON chiamare setState(VERIFIED) qui - notifyAuthenticated() gestirà lo stato
         // Il container deve rimanere visibile per mostrare lo spinner
-        
+
         this.notifyAuthenticated();
       }
     } catch (error: any) {
@@ -219,8 +219,8 @@ export class AuthSessionManager {
         this.setJustLoggedIn(true);
 
         // Imposta ID e nickname nel context
-        this.context.authId = data.user.id;
-        this.context.localClientId = data.user.id;
+        this.context.authId = data.user.id as PlayerUuid;
+        this.context.localClientId = data.user.id as ClientId;
         this.context.playerNickname = nickname; // Usiamo il nickname dal form
 
         if (data.user.email_confirmed_at) {
@@ -255,7 +255,7 @@ export class AuthSessionManager {
    * Mostra lo spinner e passa al gioco (PlayState aspetterà i dati)
    */
   notifyAuthenticated(): void {
-    
+
     // Mostra lo spinner di loading
     this.setState(AuthState.LOADING);
     this.updateLoadingText('Connecting to server...');

@@ -112,23 +112,23 @@ export class SystemFactory {
     const { ecs, context, world, questManager, questSystem, uiSystem, playState, clientNetworkSystem } = deps;
 
     // Load assets - use spritesheet for player ship
-    const playerSprite = await context.assetManager.createAnimatedSprite('/assets/ships/ship106/ship106', 0.8);
+    const playerSprite = await context.assetManager.createAnimatedSprite('assets/ships/ship106/ship106', 0.8);
 
     // Carica sprite NPC usando scala dal config (single source of truth)
     const scouterDef = getNpcDefinition('Scouter');
     const kronosDef = getNpcDefinition('Kronos');
     const guardDef = getNpcDefinition('Guard');
     const pyramidDef = getNpcDefinition('Pyramid');
-    const scouterAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/scouter/alien120', scouterDef?.spriteScale || 0.8);
-    const kronosAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/kronos/alien90', kronosDef?.spriteScale || 0.16);
-    const guardAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/guard/alien60', guardDef?.spriteScale || 0.8);
-    const pyramidAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/npc_ships/pyramid/alien90', pyramidDef?.spriteScale || 1.5);
-    const teleportAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/teleport/teleport', 1.0);
+    const scouterAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/scouter/alien120', scouterDef?.spriteScale || 0.8);
+    const kronosAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/kronos/alien90', kronosDef?.spriteScale || 0.16);
+    const guardAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/guard/alien60', guardDef?.spriteScale || 0.8);
+    const pyramidAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/pyramid/alien90', pyramidDef?.spriteScale || 1.5);
+    const teleportAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/teleport/teleport', 1.0);
     if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] Creating engflames AnimatedSprite...`);
-    const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('/assets/engflames/engflames', 0.5);
+    const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/engflames/engflames', 0.5);
     if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] engflames AnimatedSprite created:`, engflamesAnimatedSprite ? 'SUCCESS' : 'FAILED');
-    const spaceStationSprite = await context.assetManager.createSprite('/assets/spacestation/spacestation.png');
-    const asteroidSprite = await context.assetManager.createSprite('/assets/asteroid/asteroid.png');
+    const spaceStationSprite = await context.assetManager.createSprite('assets/spacestation/spacestation.png');
+    const asteroidSprite = await context.assetManager.createSprite('assets/asteroid/asteroid.png');
 
     // Crea sistemi
     const audioSystem = new AudioSystem(ecs, AUDIO_CONFIG);
@@ -171,7 +171,7 @@ export class SystemFactory {
     // Carica explosion frames
     let explosionFrames: any[] = [];
     try {
-      const explosionAtlasData = await AtlasParser.parseAtlas('/assets/explosions/explosions_npc/explosion.atlas');
+      const explosionAtlasData = await AtlasParser.parseAtlas('assets/explosions/explosions_npc/explosion.atlas');
       explosionFrames = await AtlasParser.extractFrames(explosionAtlasData);
 
       // Explosion frames sono gestiti dal ClientNetworkSystem per sincronizzazione
