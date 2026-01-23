@@ -7,7 +7,7 @@ ADD COLUMN IF NOT EXISTS last_x DOUBLE PRECISION DEFAULT 200,
 ADD COLUMN IF NOT EXISTS last_y DOUBLE PRECISION DEFAULT 200,
 ADD COLUMN IF NOT EXISTS last_rotation DOUBLE PRECISION DEFAULT 0;
 
--- 2. Update get_player_complete_data_secure to return position data
+-- 2. Rimuove e ricrea la funzione di caricamento dati (SENZA skill points)
 DROP FUNCTION IF EXISTS public.get_player_complete_data_secure(UUID);
 CREATE OR REPLACE FUNCTION get_player_complete_data_secure(auth_id_param UUID)
 RETURNS TABLE(
@@ -42,8 +42,6 @@ BEGIN
         'cosmos', COALESCE(pc.cosmos, 100),
         'experience', COALESCE(pc.experience, 0),
         'honor', COALESCE(pc.honor, 0),
-        'skill_points_current', COALESCE(pc.skill_points, 0),
-        'skill_points_total', COALESCE(pc.skill_points_total, 0),
         'current_health', COALESCE(pc.current_health, 127000),
         'current_shield', COALESCE(pc.current_shield, 53000)
       )::text
@@ -53,8 +51,6 @@ BEGIN
         'cosmos', 100,
         'experience', 0,
         'honor', 0,
-        'skill_points_current', 0,
-        'skill_points_total', 0,
         'current_health', 127000,
         'current_shield', 53000
       )::text
@@ -100,7 +96,7 @@ BEGIN
       NULL::VARCHAR(50),
       FALSE::BOOLEAN,
       FALSE,
-      '{"credits": 1000, "cosmos": 100, "experience": 0, "honor": 0, "skill_points_current": 0, "skill_points_total": 0, "current_health": 127000, "current_shield": 53000}',
+      '{"credits": 1000, "cosmos": 100, "experience": 0, "honor": 0, "current_health": 127000, "current_shield": 53000}',
       '{"hpUpgrades": 0, "shieldUpgrades": 0, "speedUpgrades": 0, "damageUpgrades": 0}',
       '[]',
       200::DOUBLE PRECISION,
@@ -180,15 +176,13 @@ BEGIN
   -- Update currencies if provided
   IF currencies_data IS NOT NULL THEN
     INSERT INTO public.player_currencies (
-      auth_id, credits, cosmos, experience, honor, skill_points, skill_points_total, current_health, current_shield
+      auth_id, credits, cosmos, experience, honor, current_health, current_shield
     ) VALUES (
       auth_id_param,
       (currencies_data->>'credits')::BIGINT,
       (currencies_data->>'cosmos')::BIGINT,
       (currencies_data->>'experience')::BIGINT,
       (currencies_data->>'honor')::INTEGER,
-      (currencies_data->>'skill_points')::BIGINT,
-      (currencies_data->>'skill_points_total')::BIGINT,
       (currencies_data->>'current_health')::INTEGER,
       (currencies_data->>'current_shield')::INTEGER
     )
@@ -197,8 +191,6 @@ BEGIN
       cosmos = EXCLUDED.cosmos,
       experience = EXCLUDED.experience,
       honor = EXCLUDED.honor,
-      skill_points = EXCLUDED.skill_points,
-      skill_points_total = EXCLUDED.skill_points_total,
       current_health = EXCLUDED.current_health,
       current_shield = EXCLUDED.current_shield,
       updated_at = NOW();
