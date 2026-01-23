@@ -1,7 +1,7 @@
 {
   "stats": {
-    "health": 100000,
-    "shield": 50000,
+    "health": 10000,
+    "shield": 5000,
     "damage": 500,
     "range": 400,
     "rangeWidth": 1920,
