@@ -106,7 +106,11 @@ class PlayerDataManager {
         userId: userId,     // auth_id per identificazione
         nickname: playerDataRaw.username || 'Unknown',
         isAdministrator: playerDataRaw.is_administrator || false, // Admin status
-        position: { x: 0, y: 0, rotation: 0 }, // Posizione verrà impostata dal client
+        position: {
+          x: playerDataRaw.last_x !== null ? playerDataRaw.last_x : 200,
+          y: playerDataRaw.last_y !== null ? playerDataRaw.last_y : 200,
+          rotation: playerDataRaw.last_rotation !== null ? playerDataRaw.last_rotation : 0
+        },
         inventory: (() => {
           const defaultInventory = this.getDefaultPlayerData().inventory;
           let currencies;
@@ -143,17 +147,9 @@ class PlayerDataManager {
               if (currencies.honor === null) currencies.honor = defaultInventory.honor;
             }
 
-            // Assicurati che skillPoints sia sempre definito
-            currencies.skillPoints = Number(currencies.skillPoints || currencies.skill_points_current || 0);
-            currencies.skillPointsTotal = Number(currencies.skill_points_total || currencies.skillPointsTotal || currencies.skillPoints || 0);
-
-            // Traccia se il database aveva null (per evitare di sovrascrivere con default)
-            // IMPORTANTE: Se i valori sono stati aggiunti manualmente nel DB, hadNullValues sarà false
-            currencies._hadNullInDb = hadNullValues;
           } else {
             // Nessun record nel database, usa default (nuovo player)
             currencies = { ...defaultInventory };
-            currencies._hadNullInDb = false; // Nuovo player, non aveva null
           }
 
           return currencies;
@@ -284,8 +280,6 @@ class PlayerDataManager {
         cosmos: Number(playerData.inventory.cosmos ?? 0),
         experience: Number(playerData.inventory.experience ?? 0),
         honor: Number(playerData.inventory.honor ?? 0),
-        skill_points: Number(playerData.inventory.skillPoints ?? 0),
-        skill_points_total: Number(playerData.inventory.skillPointsTotal ?? playerData.inventory.skillPoints ?? 0),
         // 🟢 MMO-CORRECT: Salva SEMPRE HP/shield correnti (persistenza vera)
         // NULL ora significa "errore DB", mai "ottimizzazione"
         // Questo garantisce che ogni logout/login mantenga lo stato esatto
@@ -305,8 +299,6 @@ class PlayerDataManager {
       // Il server è la fonte di verità - se i valori sono stati modificati in memoria (NPC kills, etc.),
       // devono essere salvati nel database, indipendentemente dallo stato iniziale del DB
 
-      // Rimuovi il flag interno prima di salvare (non più necessario)
-      delete playerData.inventory._hadNullInDb;
 
       // Prepare profile data (e.g., is_administrator)
       // 🔒 SECURITY: NON salvare is_administrator dal client - è gestito solo dal database
@@ -323,7 +315,12 @@ class PlayerDataManager {
           stats_data: statsData,
           upgrades_data: upgradesData,
           currencies_data: currenciesData,
-          profile_data: profileData
+          profile_data: profileData,
+          position_data: {
+            x: playerData.position?.x || 200,
+            y: playerData.position?.y || 200,
+            rotation: playerData.position?.rotation || 0
+          }
         }
       );
 
@@ -388,9 +385,7 @@ class PlayerDataManager {
         credits: 1000,
         cosmos: 100,
         experience: 0,
-        honor: 0,
-        skill_points: 0,
-        skill_points_total: 0
+        honor: 0
       });
 
       ServerLoggerWrapper.database(`Initial player records created for ${playerId}`);
@@ -469,9 +464,7 @@ class PlayerDataManager {
         credits: 1000,
         cosmos: 100,
         experience: 0,
-        honor: 0,
-        skillPoints: 0,
-        skillPointsTotal: 0
+        honor: 0
       },
       quests: []
     };
