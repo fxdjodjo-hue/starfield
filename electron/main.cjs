@@ -26,7 +26,9 @@ function createWindow() {
     win.once('ready-to-show', () => {
         win.show();
         // Apri DevTools per debug
-        win.webContents.openDevTools();
+        if (isDev) {
+            win.webContents.openDevTools();
+        }
     });
 
     if (isDev) {
