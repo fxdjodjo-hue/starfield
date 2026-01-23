@@ -12,7 +12,7 @@ import { PlayerRole } from '../../../entities/player/PlayerRole';
 export class RankSystem extends BaseSystem {
   private playerEntity: any = null;
   private recentHonor: number | null = null; // Media mobile honor ultimi 30 giorni (dal server)
-  
+
   // Moltiplicatore per RecentHonor (configurabile tra 1.5-3)
   private readonly honorMultiplier: number = 2;
 
@@ -87,7 +87,7 @@ export class RankSystem extends BaseSystem {
     // Honor penalizza solo sopra la base
     return Math.max(points, experience.totalExpEarned);
   }
-  
+
 
   /**
    * Calcola il rank attuale basato sui punti ranking
@@ -137,7 +137,7 @@ export class RankSystem extends BaseSystem {
   /**
    * Ottiene tutti i ranghi disponibili
    */
-  static getAllRanks(): Array<{name: string, minPoints: number}> {
+  static getAllRanks(): Array<{ name: string, minPoints: number }> {
     return [...RankSystem.MILITARY_RANKS];
   }
 

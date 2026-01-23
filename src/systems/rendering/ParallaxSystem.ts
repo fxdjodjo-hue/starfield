@@ -438,11 +438,6 @@ export class ParallaxSystem extends BaseSystem {
       const spriteTop = screenY - spriteHeight / 2;
       const spriteBottom = screenY + spriteHeight / 2;
 
-      // DEBUG: Log bordi per background
-      if (parallax.zIndex === -1) {
-        console.log(`[ParallaxSystem] Background bounds: L:${spriteLeft.toFixed(0)} R:${spriteRight.toFixed(0)} T:${spriteTop.toFixed(0)} B:${spriteBottom.toFixed(0)}, zoom:${zoom}`);
-      }
-
       // Controlla se il rettangolo interseca lo schermo (con margine)
       const margin = 200;
       if (spriteRight < -margin || spriteLeft > width + margin ||

@@ -137,15 +137,18 @@ export class GameEntityFactory extends EntityFactory {
     });
 
     // Componenti di progresso (inizializzati con valori che verranno sovrascritti dal server se serverAuthoritative)
-    this.addProgressionComponents(entity, config.progression || {
-      stats: { kills: 0, deaths: 0, missionsCompleted: 0, playTime: 0 },
-      upgrades: { hpUpgrades: 0, shieldUpgrades: 0, speedUpgrades: 0, damageUpgrades: 0 },
-      skillPoints: config.serverAuthoritative ? 0 : playerDef.startingResources.skillPoints,
-      credits: config.serverAuthoritative ? 0 : playerDef.startingResources.credits,
-      cosmos: config.serverAuthoritative ? 0 : playerDef.startingResources.cosmos,
-      experience: config.serverAuthoritative ? 0 : playerDef.startingResources.experience,
-      honor: config.serverAuthoritative ? 0 : playerDef.startingResources.honor
-    });
+    // IMPORTANTE: isAdministrator deve essere sempre presente per creare il componente PlayerRole
+    const progressionConfig = {
+      stats: config.progression?.stats || { kills: 0, deaths: 0, missionsCompleted: 0, playTime: 0 },
+      upgrades: config.progression?.upgrades || { hpUpgrades: 0, shieldUpgrades: 0, speedUpgrades: 0, damageUpgrades: 0 },
+      skillPoints: config.progression?.skillPoints ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.skillPoints),
+      credits: config.progression?.credits ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.credits),
+      cosmos: config.progression?.cosmos ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.cosmos),
+      experience: config.progression?.experience ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.experience),
+      honor: config.progression?.honor ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.honor),
+      isAdministrator: config.progression?.isAdministrator ?? false
+    };
+    this.addProgressionComponents(entity, progressionConfig);
 
     // Quest system
     this.ecs.addComponent(entity, ActiveQuest, new ActiveQuest());
