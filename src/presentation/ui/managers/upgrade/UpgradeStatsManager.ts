@@ -17,7 +17,7 @@ export class UpgradeStatsManager {
     private readonly playerSystem: PlayerSystem | null,
     private readonly container: HTMLElement | null,
     private readonly calculateCost: (statType: string, currentLevel: number) => { credits: number, cosmos: number }
-  ) {}
+  ) { }
 
   /**
    * Gets the initial value of a statistic
@@ -32,6 +32,8 @@ export class UpgradeStatsManager {
         return playerDef.stats.shield ? `${playerDef.stats.shield.toLocaleString()}` : '0';
       case 'speed':
         return `${playerDef.stats.speed} u/s`;
+      case 'damage':
+        return `${playerDef.stats.damage}`;
       default:
         return '0';
     }
@@ -98,13 +100,13 @@ export class UpgradeStatsManager {
       // Update displayed levels
       const hpLevel = this.container.querySelector('.stat-level-hp') as HTMLElement;
       if (hpLevel) hpLevel.textContent = `Lv.${playerUpgrades.hpUpgrades}`;
-      
+
       const shieldLevel = this.container.querySelector('.stat-level-shield') as HTMLElement;
       if (shieldLevel) shieldLevel.textContent = `Lv.${playerUpgrades.shieldUpgrades}`;
-      
+
       const speedLevel = this.container.querySelector('.stat-level-speed') as HTMLElement;
       if (speedLevel) speedLevel.textContent = `Lv.${playerUpgrades.speedUpgrades}`;
-      
+
       const damageLevel = this.container.querySelector('.stat-level-damage') as HTMLElement;
       if (damageLevel) damageLevel.textContent = `Lv.${playerUpgrades.damageUpgrades}`;
 
@@ -158,12 +160,13 @@ export class UpgradeStatsManager {
       damage: '.upgrade-damage'
     };
 
+    const uiContainer = this.container;
     Object.entries(containerClasses).forEach(([statType, containerClass]) => {
       const currentValue = playerUpgrades[`${statType}Upgrades` as keyof PlayerUpgrades] as number;
       const maxValue = upgradeLimits[`max${statType.charAt(0).toUpperCase() + statType.slice(1)}Upgrades`];
 
       // Find the container and then the internal button
-      const container = this.container.querySelector(containerClass) as HTMLElement;
+      const container = uiContainer.querySelector(containerClass) as HTMLElement;
       if (!container) return;
 
       const upgradeButton = container.querySelector('.ui-upgrade-btn') as HTMLElement;
@@ -193,7 +196,7 @@ export class UpgradeStatsManager {
         // Update the cost
         if (costLabel) {
           const newCost = calculateCost(statType, currentValue);
-          
+
           // Update or create the credits line
           let creditsLine = costLabel.querySelector('.cost-credits') as HTMLElement;
           if (newCost.credits > 0) {

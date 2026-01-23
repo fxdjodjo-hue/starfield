@@ -1,8 +1,8 @@
 {
   "stats": {
-    "health": 100000,
-    "shield": 50000,
-    "damage": 500,
+    "health": 10000,
+    "shield": 5000,
+    "damage": 600,
     "range": 400,
     "rangeWidth": 1920,
     "rangeHeight": 1080,
@@ -20,6 +20,24 @@
   "spriteSize": {
     "width": 112,
     "height": 112
+  },
+  "upgradeCosts": {
+    "hp": {
+      "credits": 5000,
+      "cosmos": 10
+    },
+    "shield": {
+      "credits": 3000,
+      "cosmos": 5
+    },
+    "speed": {
+      "credits": 8000,
+      "cosmos": 15
+    },
+    "damage": {
+      "credits": 15000,
+      "cosmos": 25
+    }
   },
   "upgrades": {
     "maxHpUpgrades": 100,
