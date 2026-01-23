@@ -1,7 +1,7 @@
 import { ECS } from '../../../../infrastructure/ecs/ECS';
 import { PlayerSystem } from '../../../../systems/player/PlayerSystem';
 import { PlayerUpgrades } from '../../../../entities/player/PlayerUpgrades';
-import playerConfig from '../../../../../../shared/player-config.json';
+import playerConfig from '../../../../../shared/player-config.json';
 
 /**
  * Manages upgrade validation, cost calculation, and upgrade state
