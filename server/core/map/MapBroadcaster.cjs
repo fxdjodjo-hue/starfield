@@ -7,6 +7,7 @@
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
+const WebSocket = require('ws');
 
 class MapBroadcaster {
   /**
