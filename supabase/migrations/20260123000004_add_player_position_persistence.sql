@@ -1,13 +1,13 @@
--- Migration: Add player position persistence
+-- Migration: Add player position persistence (FIXED version)
 -- Description: Adds last_x, last_y, last_rotation columns to user_profiles and updates RPCs
 
--- 1. Add new columns to user_profiles
+-- 1. Aggiunge le colonne per la posizione (se non esistono)
 ALTER TABLE public.user_profiles 
 ADD COLUMN IF NOT EXISTS last_x DOUBLE PRECISION DEFAULT 200,
 ADD COLUMN IF NOT EXISTS last_y DOUBLE PRECISION DEFAULT 200,
 ADD COLUMN IF NOT EXISTS last_rotation DOUBLE PRECISION DEFAULT 0;
 
--- 2. Rimuove e ricrea la funzione di caricamento dati (SENZA skill points)
+-- 2. Rimuove e ricrea la funzione di caricamento dati (CORRETTA)
 DROP FUNCTION IF EXISTS public.get_player_complete_data_secure(UUID);
 CREATE OR REPLACE FUNCTION get_player_complete_data_secure(auth_id_param UUID)
 RETURNS TABLE(
@@ -26,13 +26,13 @@ RETURNS TABLE(
 DECLARE
   result_record RECORD;
 BEGIN
-  -- Prima ottieni i dati base del profilo
+  -- Carica i dati unendo profilo, currencies e upgrades
   SELECT
     up.auth_id,
     up.player_id,
     up.username,
     COALESCE(up.is_administrator, FALSE) as is_administrator,
-    TRUE as found,
+    TRUE as found, -- Campo 'found' esplicito
     up.last_x,
     up.last_y,
     up.last_rotation,
@@ -95,7 +95,7 @@ BEGIN
       NULL::BIGINT,
       NULL::VARCHAR(50),
       FALSE::BOOLEAN,
-      FALSE,
+      FALSE, -- found = FALSE
       '{"credits": 1000, "cosmos": 100, "experience": 0, "honor": 0, "current_health": 127000, "current_shield": 53000}',
       '{"hpUpgrades": 0, "shieldUpgrades": 0, "speedUpgrades": 0, "damageUpgrades": 0}',
       '[]',
@@ -119,7 +119,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. Update update_player_data_secure to handle position
+-- 3. Rimuove e ricrea la funzione di salvataggio dati
 DROP FUNCTION IF EXISTS public.update_player_data_secure(UUID, JSONB, JSONB, JSONB, JSONB, JSONB);
 DROP FUNCTION IF EXISTS public.update_player_data_secure(UUID, JSONB, JSONB, JSONB, JSONB, JSONB, JSONB);
 CREATE OR REPLACE FUNCTION update_player_data_secure(
