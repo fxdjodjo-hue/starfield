@@ -226,7 +226,8 @@ async function handleJoin(data, sanitizedData, context) {
     playerData,
     data.nickname,
     (hp) => authManager.calculateMaxHealth(hp),
-    (shield) => authManager.calculateMaxShield(shield)
+    (shield) => authManager.calculateMaxShield(shield),
+    playerData.isAdministrator
   );
 
   try {
@@ -842,7 +843,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
 
     const entries = (leaderboardData || []).map((entry) => {
       const rankingPoints = parseFloat(entry.ranking_points) || 0;
-      const rankName = authManager.calculateRankName(rankingPoints);
+      const rankName = authManager.calculateRankName(rankingPoints, entry.is_administrator || false);
 
       return {
         rank: parseInt(entry.rank_position) || 0,

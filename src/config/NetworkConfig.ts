@@ -450,6 +450,7 @@ export interface WelcomeMessage {
     maxHealth: number;
     shield: number;
     maxShield: number;
+    isAdministrator?: boolean;
 
     // Flag per lazy loading
     inventoryLazy?: boolean;

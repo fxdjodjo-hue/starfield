@@ -23,9 +23,10 @@ class MessageBroadcaster {
    * @param {string} nickname - Nickname del player
    * @param {Function} calculateMaxHealth - Funzione per calcolare max health
    * @param {Function} calculateMaxShield - Funzione per calcolare max shield
+   * @param {boolean} isAdministrator - Status di amministratore
    * @returns {Object} Welcome message object
    */
-  formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield) {
+  formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false) {
     return {
       type: 'welcome',
       clientId: playerData.clientId,
@@ -49,7 +50,8 @@ class MessageBroadcaster {
         shield: playerData.shield,
         maxShield: playerData.maxShield,
         // RecentHonor calcolato dal server (non lazy perché serve per il ranking)
-        recentHonor: playerData.recentHonor || 0
+        recentHonor: playerData.recentHonor || 0,
+        isAdministrator: isAdministrator
       }
     };
   }

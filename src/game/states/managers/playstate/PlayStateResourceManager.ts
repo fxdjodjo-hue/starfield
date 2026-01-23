@@ -9,6 +9,7 @@ import { InterpolationTarget } from '../../../../entities/spatial/InterpolationT
 import { AnimatedSprite } from '../../../../entities/AnimatedSprite';
 import { Npc } from '../../../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
+import { PlayerRole } from '../../../../entities/player/PlayerRole';
 
 /**
  * Manages PlayState resources: nicknames, entities, cleanup
@@ -28,7 +29,7 @@ export class PlayStateResourceManager {
     private readonly getCameraSystem: () => any,
     private readonly getMovementSystem: () => any,
     private readonly getEconomySystem: () => any
-  ) {}
+  ) { }
 
   /**
    * Gets the current player rank using RankSystem
@@ -38,7 +39,7 @@ export class PlayStateResourceManager {
 
     const systems = this.gameInitSystem.getSystems();
     const rankSystem = systems.rankSystem;
-    
+
     if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
       return rankSystem.calculateCurrentRank();
     }
@@ -60,21 +61,25 @@ export class PlayStateResourceManager {
     if (!movementSystem) return;
 
     const nickname = this.context.playerNickname || 'Commander';
-    
+
     // Ottieni RankSystem per verificare se RecentHonor è disponibile
     let rank = 'Recruit';
     if (this.gameInitSystem) {
       const systems = this.gameInitSystem.getSystems();
       const rankSystem = systems.rankSystem;
-      
+
       // Mostra il rank solo se RecentHonor è disponibile (evita salti da Recruit a rank alto)
+      // ECCEZIONE: Se è un Administrator, mostralo subito
       if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
+        const playerEntity = this.getPlayerEntity();
+        const playerRole = playerEntity ? this.world.getECS().getComponent(playerEntity, PlayerRole) : null;
+        const isAdmin = playerRole instanceof PlayerRole ? playerRole.isAdministrator : false;
+
         // Verifica se RecentHonor è stato impostato (non null)
         const recentHonor = (rankSystem as any).recentHonor;
-        if (recentHonor !== null && recentHonor !== undefined) {
+        if (isAdmin || (recentHonor !== null && recentHonor !== undefined)) {
           rank = rankSystem.calculateCurrentRank();
         }
-        // Altrimenti mantieni "Recruit" finché RecentHonor non arriva
       }
     }
 
@@ -151,7 +156,7 @@ export class PlayStateResourceManager {
         // Verifica se l'NPC è visibile sulla schermata
         const screenPos = camera.worldToScreen(renderX, renderY, canvasSize.width, canvasSize.height);
         const isVisible = screenPos.x >= -100 && screenPos.x <= canvasSize.width + 100 &&
-                         screenPos.y >= -100 && screenPos.y <= canvasSize.height + 100;
+          screenPos.y >= -100 && screenPos.y <= canvasSize.height + 100;
 
         if (isVisible) {
           visibleNpcIds.add(entity.id);

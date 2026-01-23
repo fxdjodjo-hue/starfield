@@ -94,9 +94,14 @@ class AuthenticationManager {
    * Calcola il rank militare basato sui ranking points
    * 
    * @param {number} rankingPoints - Punti ranking del player
+   * @param {boolean} isAdministrator - Se il player è un amministratore
    * @returns {string} Nome del rank
    */
-  calculateRankName(rankingPoints) {
+  calculateRankName(rankingPoints, isAdministrator = false) {
+    if (isAdministrator) {
+      return 'Administrator';
+    }
+
     const ranks = [
       { name: 'Chief General', minPoints: 100000 },
       { name: 'General', minPoints: 75000 },

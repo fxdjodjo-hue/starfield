@@ -5,6 +5,7 @@ import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Transform } from '../../../entities/spatial/Transform';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
+import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { PLAYTEST_CONFIG } from '../../../config/GameConstants';
 
 /**
@@ -27,7 +28,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (serverClientId.startsWith('player_')) {
       const extractedId = serverClientId.replace('player_', '');
       if (!isNaN(Number(extractedId))) {
-        clientIdToUse = extractedId; // Usa solo il numero
+        clientIdToUse = extractedId as ClientId; // Usa solo il numero con cast branded
       }
     }
 
@@ -80,7 +81,10 @@ export class WelcomeHandler extends BaseMessageHandler {
 
     // SERVER AUTHORITATIVE: Ricevi lo stato iniziale dal server
     if (message.initialState) {
-      const { position, health, maxHealth, shield, maxShield, inventoryLazy, upgradesLazy, questsLazy } = message.initialState;
+      const {
+        position, health, maxHealth, shield, maxShield,
+        inventoryLazy, upgradesLazy, questsLazy, isAdministrator
+      } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
       // Il welcome è già gestito da updateClientId() che imposta isReady()
@@ -119,6 +123,16 @@ export class WelcomeHandler extends BaseMessageHandler {
           shieldComponent.current = shield;
           shieldComponent.max = maxShield;
           if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied shield: ${shield}/${maxShield}`);
+        }
+      }
+
+      // Applica lo status di Administrator (Server Authoritative)
+      if (playerEntity && isAdministrator !== undefined) {
+        const ecs = networkSystem.getECS();
+        const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
+        if (playerRole) {
+          playerRole.setAdministrator(isAdministrator);
+          if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied admin status: ${isAdministrator}`);
         }
       }
 
