@@ -2,6 +2,7 @@
 // Delega specifiche responsabilità ad altri sistemi
 
 const ServerLoggerWrapper = require('./infrastructure/ServerLoggerWrapper.cjs');
+const playerConfig = require('../shared/player-config.json');
 
 class RespawnCoordinator {
   constructor(mapServer) {
@@ -87,8 +88,9 @@ class RespawnCoordinator {
     if (!playerData) return;
 
     // Valori base massimi (senza upgrade)
-    const baseMaxHealth = 100000;
-    const baseMaxShield = 50000;
+    // Valori base massimi (senza upgrade)
+    const baseMaxHealth = playerConfig.stats.health;
+    const baseMaxShield = playerConfig.stats.shield;
 
     // Respawn al 10% dei valori base
     playerData.health = Math.floor(baseMaxHealth * 0.1);

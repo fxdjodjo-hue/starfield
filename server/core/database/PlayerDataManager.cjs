@@ -5,6 +5,7 @@
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { createClient } = require('@supabase/supabase-js');
+const playerConfig = require('../../shared/player-config.json');
 
 // Supabase client - usa le stesse variabili d'ambiente di server.cjs
 // IMPORTANTE: Assicurati che dotenv.config() sia chiamato PRIMA di richiedere questo modulo
@@ -285,13 +286,13 @@ class PlayerDataManager {
         // Questo garantisce che ogni logout/login mantenga lo stato esatto
         current_health: (() => {
           // 🛡️ FIX: Assicura valori validi - mai null per rispettare vincolo DB
-          const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : playerData.maxHealth || 127000;
-          return Number(health) || 127000; // Fallback sicuro
+          const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : playerData.maxHealth || playerConfig.stats.health;
+          return Number(health) || playerConfig.stats.health; // Fallback sicuro
         })(),
         current_shield: (() => {
           // 🛡️ FIX: Assicura valori validi - mai null per rispettare vincolo DB
-          const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : playerData.maxShield || 53000;
-          return Number(shield) || 53000; // Fallback sicuro
+          const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : playerData.maxShield || playerConfig.stats.shield;
+          return Number(shield) || playerConfig.stats.shield; // Fallback sicuro
         })()
       };
 
@@ -382,8 +383,8 @@ class PlayerDataManager {
       // Currencies iniziali
       await supabase.from('player_currencies').insert({
         auth_id: playerId,
-        credits: 1000,
-        cosmos: 100,
+        credits: playerConfig.startingResources.credits,
+        cosmos: playerConfig.startingResources.cosmos,
         experience: 0,
         honor: 0
       });
@@ -461,8 +462,8 @@ class PlayerDataManager {
         damageUpgrades: 0
       },
       inventory: {
-        credits: 1000,
-        cosmos: 100,
+        credits: playerConfig.startingResources.credits,
+        cosmos: playerConfig.startingResources.cosmos,
         experience: 0,
         honor: 0
       },

@@ -4,6 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
+const playerConfig = require('../../shared/player-config.json');
 
 class ProjectileBroadcaster {
   constructor(mapServer) {
@@ -89,8 +90,9 @@ class ProjectileBroadcaster {
       const shieldUpgrades = entity.upgrades?.shieldUpgrades || 0;
 
       // Calcolo coerente con AuthenticationManager e client
-      maxHealth = Math.floor(100000 * (1.0 + (hpUpgrades * 0.05)));
-      maxShield = Math.floor(50000 * (1.0 + (shieldUpgrades * 0.05)));
+      // Calcolo coerente con AuthenticationManager e client
+      maxHealth = Math.floor(playerConfig.stats.health * (1.0 + (hpUpgrades * 0.05)));
+      maxShield = Math.floor(playerConfig.stats.shield * (1.0 + (shieldUpgrades * 0.05)));
     } else if (entityType === 'npc') {
       // Per NPC, usa i valori dallo stato corrente se disponibili, altrimenti dai config
       maxHealth = entity.maxHealth || entity.health; // Fallback

@@ -461,7 +461,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
     hp: { credits: 5000, cosmos: 10 },
     shield: { credits: 3000, cosmos: 5 },
     speed: { credits: 8000, cosmos: 15 },
-    damage: { credits: 10000, cosmos: 20 }
+    damage: { credits: 15000, cosmos: 25 }
   };
 
   const upgradeLimits = {

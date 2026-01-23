@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs
 
 const { logger } = require('../../logger.cjs');
+const playerConfig = require('../../shared/player-config.json');
 
 /**
  * Gestisce autenticazione e security checks inline
@@ -72,7 +73,7 @@ class AuthenticationManager {
    * @returns {number} Max health calcolato
    */
   calculateMaxHealth(hpUpgrades) {
-    const baseHealth = 100000;
+    const baseHealth = playerConfig.stats.health;
     const bonus = 1.0 + (hpUpgrades * 0.05);
     return Math.floor(baseHealth * bonus);
   }
@@ -85,7 +86,7 @@ class AuthenticationManager {
    * @returns {number} Max shield calcolato
    */
   calculateMaxShield(shieldUpgrades) {
-    const baseShield = 50000;
+    const baseShield = playerConfig.stats.shield;
     const bonus = 1.0 + (shieldUpgrades * 0.05);
     return Math.floor(baseShield * bonus);
   }
