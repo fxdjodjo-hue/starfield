@@ -20,12 +20,6 @@ export interface PlayerStats {
   maxSpeed: number;
   damageMultiplier: number;
   totalUpgrades: number;
-  upgradeCost: {
-    hp: number;
-    shield: number;
-    speed: number;
-    damage: number;
-  };
 }
 
 export interface UpgradeValidation {
@@ -51,17 +45,6 @@ export class PlayerStatsCalculator {
     speed: 0.005,    // +0.5% per upgrade
     damage: 0.06     // +6% per upgrade
   };
-
-  // Costi base per upgrade
-  private static readonly BASE_UPGRADE_COSTS = {
-    hp: 5000,
-    shield: 3000,
-    speed: 8000,
-    damage: 15000
-  };
-
-  // Moltiplicatore costo per livello (costo aumenta con il livello)
-  private static readonly COST_SCALING = 1.5;
 
   /**
    * Calcola salute massima basata sugli upgrade
@@ -89,7 +72,7 @@ export class PlayerStatsCalculator {
   }
 
   /**
-   * Calcola scudo massimo basato sugli upgrade
+   * Calcola scudo massimo basata sugli upgrade
    */
   static calculateMaxShield(shieldUpgrades: number): number {
     const upgrades = InputValidator.validateNumber(shieldUpgrades, 'shieldUpgrades');
@@ -189,13 +172,7 @@ export class PlayerStatsCalculator {
       maxShield: this.calculateMaxShield(upgrades.shieldUpgrades),
       maxSpeed: this.calculateMaxSpeed(upgrades.speedUpgrades),
       damageMultiplier: this.calculateDamageMultiplier(upgrades.damageUpgrades),
-      totalUpgrades: upgrades.hpUpgrades + upgrades.shieldUpgrades + upgrades.speedUpgrades + upgrades.damageUpgrades,
-      upgradeCost: {
-        hp: this.calculateUpgradeCost('hp', upgrades.hpUpgrades),
-        shield: this.calculateUpgradeCost('shield', upgrades.shieldUpgrades),
-        speed: this.calculateUpgradeCost('speed', upgrades.speedUpgrades),
-        damage: this.calculateUpgradeCost('damage', upgrades.damageUpgrades)
-      }
+      totalUpgrades: upgrades.hpUpgrades + upgrades.shieldUpgrades + upgrades.speedUpgrades + upgrades.damageUpgrades
     };
 
     LoggerWrapper.debug(LogCategory.GAMEPLAY, `Calculated complete player stats`, {
@@ -204,53 +181,6 @@ export class PlayerStatsCalculator {
     });
 
     return stats;
-  }
-
-  /**
-   * Calcola costo di un upgrade specifico
-   */
-  static calculateUpgradeCost(upgradeType: keyof typeof PlayerStatsCalculator.BASE_UPGRADE_COSTS, currentLevel: number): number {
-    const baseCost = this.BASE_UPGRADE_COSTS[upgradeType];
-    // Costo aumenta esponenzialmente con il livello
-    const cost = Math.floor(baseCost * Math.pow(this.COST_SCALING, currentLevel));
-
-    LoggerWrapper.debug(LogCategory.GAMEPLAY, `Calculated upgrade cost`, {
-      upgradeType,
-      currentLevel,
-      baseCost,
-      cost,
-      scalingFactor: this.COST_SCALING
-    });
-
-    return cost;
-  }
-
-  /**
-   * Valida se un giocatore può permettersi un upgrade
-   */
-  static validateUpgradePurchase(
-    upgradeType: keyof typeof PlayerStatsCalculator.BASE_UPGRADE_COSTS,
-    currentLevel: number,
-    playerCredits: number
-  ): UpgradeValidation {
-    const cost = this.calculateUpgradeCost(upgradeType, currentLevel);
-
-    const canAfford = playerCredits >= cost;
-
-    if (!canAfford) {
-      return {
-        isValid: false,
-        error: `Insufficient credits. Need ${cost}, have ${playerCredits}`,
-        canAfford: false,
-        cost
-      };
-    }
-
-    return {
-      isValid: true,
-      canAfford: true,
-      cost
-    };
   }
 
   /**
@@ -391,10 +321,4 @@ export class PlayerStatsCalculator {
     return { ...this.UPGRADE_MULTIPLIERS };
   }
 
-  /**
-   * Ottiene costi base upgrade
-   */
-  static getBaseUpgradeCosts() {
-    return { ...this.BASE_UPGRADE_COSTS };
-  }
 }
