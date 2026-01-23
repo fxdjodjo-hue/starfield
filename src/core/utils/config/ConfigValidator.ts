@@ -1,13 +1,16 @@
 import { z } from 'zod';
 
+declare const process: any;
+declare const require: any;
+
 // Dynamic configuration loading for both development and packaged environments
 let playerConfigData: any = null;
 let npcConfigData: any = null;
 
 // Detect if we're running in a packaged Electron app
 const isPackaged = typeof process !== 'undefined' &&
-                   process.resourcesPath &&
-                   (process.resourcesPath.includes('app.asar') || process.resourcesPath.includes('app'));
+  process.resourcesPath &&
+  (process.resourcesPath.includes('app.asar') || process.resourcesPath.includes('app'));
 
 export async function loadConfigs(): Promise<void> {
   try {
@@ -23,8 +26,8 @@ export async function loadConfigs(): Promise<void> {
       npcConfigData = JSON.parse(fs.readFileSync(npcPath, 'utf8'));
     } else {
       // In development, use dynamic imports
-      const playerModule = await import('../../../../public/player-config.json');
-      const npcModule = await import('../../../../public/npc-config.json');
+      const playerModule = await import('../../../../shared/player-config.json');
+      const npcModule = await import('../../../../shared/npc-config.json');
 
       playerConfigData = playerModule.default;
       npcConfigData = npcModule.default;
@@ -93,15 +96,9 @@ const NpcRewardsSchema = z.object({
 });
 
 const NpcAISchema = z.object({
-  aggressionLevel: z.enum(['low', 'medium', 'high'], {
-    errorMap: () => ({ message: 'Aggression level must be low, medium, or high' })
-  }),
-  targetPriority: z.enum(['nearest', 'weakest', 'players', 'defense'], {
-    errorMap: () => ({ message: 'Target priority must be nearest, weakest, players, or defense' })
-  }),
-  formation: z.enum(['scattered', 'patrol', 'pack', 'solo', 'swarm'], {
-    errorMap: () => ({ message: 'Formation must be scattered, patrol, pack, solo, or swarm' })
-  })
+  aggressionLevel: z.enum(['low', 'medium', 'high']),
+  targetPriority: z.enum(['nearest', 'weakest', 'players', 'defense']),
+  formation: z.enum(['scattered', 'patrol', 'pack', 'solo', 'swarm'])
 });
 
 const NpcDefinitionSchema = z.object({
@@ -128,13 +125,14 @@ export class ConfigValidator {
     try {
       PlayerConfigSchema.parse(config);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         try {
-          const errors = error.errors?.map(err => `${err.path.join('.')}: ${err.message}`) || [`ZodError: ${error.message}`];
+          // Cast a any per evitare problemi di typing con versioni diverse di Zod
+          const errors = (error as any).errors?.map((err: any) => `${err.path.join('.')}: ${err.message}`) || [`ZodError: ${error.message}`];
           console.error('❌ [ConfigValidator] Player config validation failed:', errors);
           return { success: false, errors };
-        } catch (mapError) {
+        } catch (mapError: any) {
           console.error('❌ [ConfigValidator] Player config validation failed with ZodError:', error.message);
           return { success: false, errors: [`ZodError: ${error.message}`] };
         }
@@ -151,13 +149,14 @@ export class ConfigValidator {
     try {
       NpcConfigSchema.parse(config);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         try {
-          const errors = error.errors?.map(err => `${err.path.join('.')}: ${err.message}`) || [`ZodError: ${error.message}`];
+          // Cast a any per evitare problemi di typing con versioni diverse di Zod
+          const errors = (error as any).errors?.map((err: any) => `${err.path.join('.')}: ${err.message}`) || [`ZodError: ${error.message}`];
           console.error('❌ [ConfigValidator] NPC config validation failed:', errors);
           return { success: false, errors };
-        } catch (mapError) {
+        } catch (mapError: any) {
           console.error('❌ [ConfigValidator] NPC config validation failed with ZodError:', error.message);
           return { success: false, errors: [`ZodError: ${error.message}`] };
         }
