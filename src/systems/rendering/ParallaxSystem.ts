@@ -406,12 +406,13 @@ export class ParallaxSystem extends BaseSystem {
     let screenX: number;
     let screenY: number;
 
-    // Per il background (zIndex = -1), renderizza sempre al centro dello schermo
-    // invece di usare worldToScreen, così è sempre visibile indipendentemente
-    // dalla posizione della camera
+    // Per il background (zIndex = -1), usa un calcolo parallax che mantiene
+    // il background sempre visibile e lo muove con effetto parallax
     if (parallax.zIndex === -1) {
-      screenX = width / 2;
-      screenY = height / 2;
+      // Il background si muove più lentamente della camera (effetto parallax)
+      // speedX/Y = 0.1 significa che il background si muove al 10% della velocità camera
+      screenX = width / 2 - camera.x * parallax.speedX;
+      screenY = height / 2 - camera.y * parallax.speedY;
     } else {
       // Calcola la posizione effettiva considerando l'offset parallax
       const worldX = transform.x + parallax.offsetX;

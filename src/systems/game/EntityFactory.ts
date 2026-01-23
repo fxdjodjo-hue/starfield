@@ -185,9 +185,9 @@ export class EntityFactory {
       // Componenti spaziali
       ecs.addComponent(entity, Transform, new Transform(worldCenterX, worldCenterY, 0, scaleX, scaleY));
 
-      // Componente parallax - zIndex negativo per essere renderizzato prima delle stelle
-      // Il background viene sempre renderizzato al centro dello schermo da ParallaxSystem
-      ecs.addComponent(entity, ParallaxLayer, new ParallaxLayer(1.0, 1.0, 0, 0, -1));
+      // Componente parallax - speedX/Y = 0.1 per effetto parallax (muove al 10% della camera)
+      // zIndex negativo per essere renderizzato prima delle stelle
+      ecs.addComponent(entity, ParallaxLayer, new ParallaxLayer(0.1, 0.1, 0, 0, -1));
 
       // Componente visivo
       ecs.addComponent(entity, Sprite, backgroundSprite);
