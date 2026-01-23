@@ -5,7 +5,7 @@
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const WebSocket = require('ws');
-const messageBroadcaster = require('../managers/message-broadcaster.cjs');
+const messageBroadcaster = require('../messaging/MessageBroadcaster.cjs');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
 const playerConfig = require('../../shared/player-config.json');
 
