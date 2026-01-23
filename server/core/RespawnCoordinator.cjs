@@ -2,7 +2,7 @@
 // Delega specifiche responsabilità ad altri sistemi
 
 const ServerLoggerWrapper = require('./infrastructure/ServerLoggerWrapper.cjs');
-const playerConfig = require('../shared/player-config.json');
+const playerConfig = require('../../shared/player-config.json');
 
 class RespawnCoordinator {
   constructor(mapServer) {

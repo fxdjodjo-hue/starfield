@@ -5,7 +5,7 @@
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { createClient } = require('@supabase/supabase-js');
-const playerConfig = require('../../shared/player-config.json');
+const playerConfig = require('../../../shared/player-config.json');
 
 // Supabase client - usa le stesse variabili d'ambiente di server.cjs
 // IMPORTANTE: Assicurati che dotenv.config() sia chiamato PRIMA di richiedere questo modulo

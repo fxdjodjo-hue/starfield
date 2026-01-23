@@ -3,7 +3,7 @@
 // Dipendenze: logger.cjs
 
 const { logger } = require('../../logger.cjs');
-const playerConfig = require('../../shared/player-config.json');
+const playerConfig = require('../../../shared/player-config.json');
 
 /**
  * Gestisce autenticazione e security checks inline

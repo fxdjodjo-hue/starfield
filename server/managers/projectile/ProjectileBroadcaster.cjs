@@ -4,7 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const { SERVER_CONSTANTS } = require('../../config/constants.cjs');
-const playerConfig = require('../../shared/player-config.json');
+const playerConfig = require('../../../shared/player-config.json');
 
 class ProjectileBroadcaster {
   constructor(mapServer) {
