@@ -227,6 +227,7 @@ export abstract class BasePanel {
  */
 export class FloatingIcon {
   private element: HTMLElement;
+  private tooltip: HTMLElement;
   private panel: BasePanel;
   private config: PanelConfig;
   private isHovered: boolean = false;
@@ -236,7 +237,9 @@ export class FloatingIcon {
     this.panel = panel;
     this.config = panel.getConfig();
     this.onOpenPanel = onOpenPanel;
+
     this.element = this.createIconElement(this.config);
+    this.tooltip = this.createTooltipElement(this.config);
     this.setupEventListeners();
   }
 
@@ -247,7 +250,6 @@ export class FloatingIcon {
     const icon = document.createElement('div');
     icon.id = `icon-${config.id}`;
     icon.className = 'ui-floating-icon';
-    icon.title = config.title;
 
     // Usa dimensioni responsive con compensazione DPR
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
@@ -313,6 +315,94 @@ export class FloatingIcon {
   }
 
   /**
+   * Crea l'elemento tooltip HUD personalizzato
+   */
+  private createTooltipElement(config: PanelConfig): HTMLElement {
+    const tooltip = document.createElement('div');
+    tooltip.className = 'ui-hud-tooltip';
+    tooltip.textContent = config.title;
+
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    const dprCompensation = 1 / dpr;
+
+    tooltip.style.cssText = `
+      position: fixed;
+      ${this.getTooltipPosition(config.position)}
+      padding: ${Math.round(8 * dprCompensation)}px ${Math.round(14 * dprCompensation)}px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: ${Math.round(8 * dprCompensation)}px;
+      color: white;
+      font-size: ${Math.round(12 * dprCompensation)}px;
+      font-weight: 600;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      white-space: nowrap;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateX(${config.position.includes('left') ? '-10px' : '10px'});
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 2100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    `;
+
+    return tooltip;
+  }
+
+  /**
+   * Calcola la posizione del tooltip basata sulla posizione dell'icona
+   */
+  private getTooltipPosition(position: string): string {
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
+    const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE / dpr);
+    const tooltipGap = Math.round(12 / dpr);
+
+    // Se l'icona è a sinistra, il tooltip va a destra dell'icona
+    if (position.includes('left')) {
+      const leftOffset = margin + iconSize + tooltipGap;
+      const topOffset = this.getVerticalOffset(position);
+      return `top: ${topOffset}; left: ${leftOffset}px; transform-origin: left center;`;
+    }
+
+    // Se l'icona è a destra, il tooltip va a sinistra dell'icona
+    if (position.includes('right')) {
+      const rightOffset = margin + iconSize + tooltipGap;
+      const topOffset = this.getVerticalOffset(position);
+      return `top: ${topOffset}; right: ${rightOffset}px; transform-origin: right center;`;
+    }
+
+    return '';
+  }
+
+  private getVerticalOffset(position: string): string {
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
+
+    switch (position) {
+      case 'top-left':
+      case 'top-right':
+        return `${margin + 12 / dpr}px`;
+      case 'bottom-left':
+      case 'bottom-right':
+        return `auto; bottom: ${margin + 12 / dpr}px;`;
+      case 'center-left':
+        return '41%';
+      case 'center-left-below':
+        return '47%';
+      case 'center-left-below2':
+        return '53%';
+      case 'center-left-below3':
+        return '59%';
+      default:
+        return '50%';
+    }
+  }
+
+  /**
    * Restituisce la posizione dell'icona usando margini responsive compensati per DPR
    */
   private getIconPosition(position: string): string {
@@ -348,6 +438,7 @@ export class FloatingIcon {
   private setupEventListeners(): void {
     this.element.addEventListener('click', (e) => {
       e.stopPropagation();
+      this.hideTooltip(); // Nascondi tooltip al click
       if (this.onOpenPanel) {
         // Usa il nuovo sistema: apri pannello chiudendo tutti gli altri
         this.onOpenPanel(this.config.id);
@@ -360,12 +451,47 @@ export class FloatingIcon {
     this.element.addEventListener('mouseenter', () => {
       this.isHovered = true;
       this.updateStyle();
+      this.showTooltip();
     });
 
     this.element.addEventListener('mouseleave', () => {
       this.isHovered = false;
       this.updateStyle();
+      this.hideTooltip();
     });
+  }
+
+  private showTooltip(): void {
+    if (!document.body.contains(this.tooltip)) {
+      document.body.appendChild(this.tooltip);
+    }
+    // Breve ritardo per permettere il rendering del display:block prima dell'opacità
+    requestAnimationFrame(() => {
+      this.tooltip.style.opacity = '1';
+      this.tooltip.style.transform = `translateY(-50%) ${this.config.position.includes('left') ? 'translateX(0)' : 'translateX(0)'}`;
+    });
+    // Correzione translateY per tooltip centrati
+    if (this.config.position.includes('center')) {
+      this.tooltip.style.transform = 'translateY(-50%) translateX(0)';
+    } else {
+      this.tooltip.style.transform = 'translateX(0)';
+    }
+  }
+
+  private hideTooltip(): void {
+    this.tooltip.style.opacity = '0';
+    if (this.config.position.includes('center')) {
+      this.tooltip.style.transform = `translateY(-50%) ${this.config.position.includes('left') ? 'translateX(-10px)' : 'translateX(10px)'}`;
+    } else {
+      this.tooltip.style.transform = `${this.config.position.includes('left') ? 'translateX(-10px)' : 'translateX(10px)'}`;
+    }
+
+    // Rimuovi dal DOM dopo l'animazione
+    setTimeout(() => {
+      if (!this.isHovered && this.tooltip.parentNode) {
+        document.body.removeChild(this.tooltip);
+      }
+    }, 200);
   }
 
   /**
@@ -411,6 +537,7 @@ export class FloatingIcon {
    */
   hide(): void {
     this.element.style.display = 'none';
+    this.hideTooltip();
   }
 
   /**
@@ -431,8 +558,12 @@ export class FloatingIcon {
    * Distrugge l'icona
    */
   destroy(): void {
+    this.hideTooltip();
     if (document.body.contains(this.element)) {
       document.body.removeChild(this.element);
+    }
+    if (this.tooltip.parentNode) {
+      document.body.removeChild(this.tooltip);
     }
   }
 }
