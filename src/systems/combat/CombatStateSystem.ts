@@ -125,7 +125,8 @@ export class CombatStateSystem extends BaseSystem {
     // 🎯 EDGE DETECTION: controlla se lo stato dell'attacco è cambiato
     const currentAttackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
-    // 🛡️ CONTINUOUS SAFE ZONE CHECK: Se il player entra in safe zone, ferma subito tutto
+    // 🛡️ CONTINUOUS SAFE ZONE CHECK - REMOVED: Allow combat in safe zone
+    /*
     const playerEntity = this.playerSystem?.getPlayerEntity();
     const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
     if (playerTransform && this.isInSafeZone(playerTransform.x, playerTransform.y)) {
@@ -133,6 +134,7 @@ export class CombatStateSystem extends BaseSystem {
         this.stopCombatImmediately();
       }
     }
+    */
 
     if (currentAttackActivated !== this.lastAttackActivatedState) {
       // 🔥 CAMBIAMENTO DI STATO: gestisci transizione
@@ -188,14 +190,15 @@ export class CombatStateSystem extends BaseSystem {
       return;
     }
 
-    // 🛡️ SAFE ZONE CHECK: Impedisci l'attacco nelle zone sicure
-    if (this.isInSafeZone(playerTransform.x, playerTransform.y) ||
-      this.isInSafeZone(npcTransform.x, npcTransform.y)) {
+    // 🛡️ SAFE ZONE CHECK - REMOVED: Allow attacking FROM safe zone
+    /*
+    if (this.isInSafeZone(playerTransform.x, playerTransform.y)) { // REMOVED check for npcTransform: Allow attacking NPCs in safe zones
       if (this.logSystem) {
         this.logSystem.addLogMessage('Combat disabled in Safe Zone!', LogType.ATTACK_FAILED, 2000);
       }
       return;
     }
+    */
 
     // 🔥 CONTROLLO RANGE RETTANGOLARE PRIMA DI INIZIARE COMBATTIMENTO 🔥
     if (!playerTransform || !npcTransform) {
@@ -313,12 +316,13 @@ export class CombatStateSystem extends BaseSystem {
     // NON deselezionare mai temporaneamente - lascia che il face-up gestisca la logica
     // Il combattimento continua sempre, il face-up si occupa di puntare verso l'ultimo target conosciuto
 
-    // 🛡️ SAFE ZONE CHECK: Ferma il combattimento se si entra in una zona sicura
-    if (this.isInSafeZone(playerTransform.x, playerTransform.y) ||
-      this.isInSafeZone(npcTransform.x, npcTransform.y)) {
+    // 🛡️ SAFE ZONE CHECK - REMOVED
+    /*
+    if (this.isInSafeZone(playerTransform.x, playerTransform.y)) { // REMOVED check for npcTransform: Allow targeting NPCs in safe zones
       this.stopCombatImmediately();
       return;
     }
+    */
 
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range - inizia combattimento
@@ -390,11 +394,12 @@ export class CombatStateSystem extends BaseSystem {
           const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
           if (playerTransform && npcTransform) {
-            // 🛡️ SAFE ZONE VISUAL BLOCK: Impedisce la creazione di laser in zona sicura
-            if (this.isInSafeZone(playerTransform.x, playerTransform.y) ||
-              this.isInSafeZone(npcTransform.x, npcTransform.y)) {
+            // 🛡️ SAFE ZONE VISUAL BLOCK - REMOVED: Allow visuals in Safe Zone
+            /*
+            if (this.isInSafeZone(playerTransform.x, playerTransform.y)) { // REMOVED check for npcTransform
               return;
             }
+            */
 
             const rangeWidth = getPlayerRangeWidth();
             const rangeHeight = getPlayerRangeHeight();

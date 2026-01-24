@@ -43,7 +43,8 @@ export class PlayerAttackManager {
     const playerEntity = this.getPlayerEntity();
     const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
 
-    // 🛡️ SAFE ZONE CHECK: Impedisci l'attivazione in zona sicura
+    // 🛡️ SAFE ZONE CHECK - REMOVED: Allow player to attack FROM safe zone (as requested)
+    /*
     if (playerTransform && this.isInSafeZone(playerTransform.x, playerTransform.y)) {
       const logSystem = this.getLogSystem();
       if (logSystem) {
@@ -51,6 +52,7 @@ export class PlayerAttackManager {
       }
       return;
     }
+    */
 
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
@@ -59,7 +61,8 @@ export class PlayerAttackManager {
     if (currentlySelectedNpc) {
       const npcTransform = this.ecs.getComponent(currentlySelectedNpc, Transform);
 
-      // 🛡️ TARGET SAFE ZONE CHECK
+      // 🛡️ TARGET SAFE ZONE CHECK - REMOVED: Allow attacking NPCs in safe zones
+      /* 
       if (npcTransform && this.isInSafeZone(npcTransform.x, npcTransform.y)) {
         const logSystem = this.getLogSystem();
         if (logSystem) {
@@ -67,6 +70,7 @@ export class PlayerAttackManager {
         }
         return;
       }
+      */
 
       if (this.isNpcInPlayerRange(currentlySelectedNpc)) {
         this.attackActivated = true;
@@ -83,7 +87,8 @@ export class PlayerAttackManager {
     // Se non c'era selezione o era fuori range, cerchiamo il più vicino
     const nearestNpc = this.findNearestNpcInRange();
     if (nearestNpc) {
-      // 🛡️ DOUBLE CHECK SAFE ZONE for nearest target
+      // 🛡️ DOUBLE CHECK SAFE ZONE for nearest target - REMOVED: Allow selecting NPCs in safe zones
+      /*
       const npcTransform = this.ecs.getComponent(nearestNpc, Transform);
       if (npcTransform && this.isInSafeZone(npcTransform.x, npcTransform.y)) {
         const logSystem = this.getLogSystem();
@@ -92,6 +97,7 @@ export class PlayerAttackManager {
         }
         return;
       }
+      */
 
       this.selectNpc(nearestNpc, false); // false = non disattivare attacco perché lo attiviamo subito dopo
       this.attackActivated = true;

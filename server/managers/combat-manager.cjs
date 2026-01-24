@@ -86,7 +86,8 @@ class ServerCombatManager {
       return;
     }
 
-    // 🛡️ SAFE ZONE CHECK: Verifica se il player o l'NPC sono in una zona sicura
+    // 🛡️ SAFE ZONE CHECK - REMOVED: Allow player to start combat ANYWHERE
+    /*
     const playerData = this.mapServer.players.get(playerId);
     if (playerData && (this.isInSafeZone(playerData.position) || this.isInSafeZone(existingNpc.position))) {
       if (context && context.ws) {
@@ -98,6 +99,7 @@ class ServerCombatManager {
       }
       return;
     }
+    */
 
     ServerLoggerWrapper.combat(`Start combat: ${playerId} vs ${npcId}`);
 
@@ -204,7 +206,8 @@ class ServerCombatManager {
       return;
     }
 
-    // 🛡️ SAFE ZONE CHECK: Ferma il combattimento se si entra in una zona sicura
+    // 🛡️ SAFE ZONE CHECK - REMOVED: Allow player to attack ANYWHERE
+    /*
     if (this.isInSafeZone(playerData.position) || this.isInSafeZone(npc.position)) {
       this.playerCombats.delete(playerId);
       if (playerData.ws) {
@@ -216,6 +219,7 @@ class ServerCombatManager {
       }
       return;
     }
+    */
 
     // Verifica che il player abbia una posizione
     if (!playerData.position) {
