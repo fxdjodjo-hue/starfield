@@ -35,6 +35,10 @@ class NpcMovementSystem {
 
       for (const [clientId, playerData] of players.entries()) {
         if (!playerData.position || playerData.isDead) continue;
+
+        // 🛡️ SAFE ZONE CHECK: NPC ignora i player nelle zone sicure per il tracking di base
+        if (this.isInSafeZone(playerData.position)) continue;
+
         const dx = playerData.position.x - npc.position.x;
         const dy = playerData.position.y - npc.position.y;
         const distSq = dx * dx + dy * dy;
@@ -53,10 +57,13 @@ class NpcMovementSystem {
         let targetValid = false;
 
         if (targetPlayer && !targetPlayer.isDead && targetPlayer.position) {
-          const dx = targetPlayer.position.x - npc.position.x;
-          const dy = targetPlayer.position.y - npc.position.y;
-          const distSq = dx * dx + dy * dy;
-          if (distSq <= pursuitRangeSq) targetValid = true;
+          // 🛡️ SAFE ZONE CHECK: Target invalido se entra in zona sicura
+          if (!this.isInSafeZone(targetPlayer.position)) {
+            const dx = targetPlayer.position.x - npc.position.x;
+            const dy = targetPlayer.position.y - npc.position.y;
+            const distSq = dx * dx + dy * dy;
+            if (distSq <= pursuitRangeSq) targetValid = true;
+          }
         }
 
         if (!targetValid) npc.lastAttackerId = null;
@@ -114,10 +121,13 @@ class NpcMovementSystem {
     // 3. 🚀 PROACTIVE AGGRO: Aggressività per prossimità (Attack on Sight)
     const detectionRange = npcConfig.ai?.detectionRange || 0;
     if (detectionRange > 0 && closestPlayer && closestPlayer.distSq <= (detectionRange * detectionRange)) {
-      // Inizia a puntare il player che lo ha "triggerato"
-      npc.lastAttackerId = closestPlayer.id;
-      npc.lastDamage = now; // Simula un colpo per attivare la logica temporale esistente
-      return 'aggressive';
+      // 🛡️ SAFE ZONE CHECK: Non attivare aggro se il player è in una zona sicura
+      if (!this.isInSafeZone(closestPlayer.data.position)) {
+        // Inizia a puntare il player che lo ha "triggerato"
+        npc.lastAttackerId = closestPlayer.id;
+        npc.lastDamage = now; // Simula un colpo per attivare la logica temporale esistente
+        return 'aggressive';
+      }
     }
 
     return 'cruise';
@@ -276,6 +286,25 @@ class NpcMovementSystem {
     }
 
     return true;
+  }
+
+  /**
+   * Verifica se una posizione si trova all'interno di una Safe Zone
+   * @param {object} position - {x, y}
+   * @returns {boolean}
+   */
+  static isInSafeZone(position) {
+    if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return false;
+
+    for (const zone of SERVER_CONSTANTS.SAFE_ZONES) {
+      const dx = position.x - zone.x;
+      const dy = position.y - zone.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= zone.radius * zone.radius) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
