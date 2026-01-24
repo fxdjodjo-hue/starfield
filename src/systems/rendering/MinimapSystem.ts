@@ -376,7 +376,7 @@ export class MinimapSystem extends BaseSystem {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
     // Distanza massima di visibilità radar (1500 unità)
-    const RADAR_RANGE = 1300;
+    const RADAR_RANGE = 1200;
     const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE
 
     npcEntities.forEach(entityId => {
