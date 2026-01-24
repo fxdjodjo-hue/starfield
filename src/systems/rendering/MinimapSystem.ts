@@ -375,9 +375,9 @@ export class MinimapSystem extends BaseSystem {
     const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
-    // Distanza massima di visibilità radar (3000 unità)
-    const RADAR_RANGE = 3000;
-    const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE;
+    // Distanza massima di visibilità radar (1500 unità)
+    const RADAR_RANGE = 1300;
+    const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE
 
     npcEntities.forEach(entityId => {
       const transform = this.ecs.getComponent(entityId, Transform);
@@ -433,8 +433,8 @@ export class MinimapSystem extends BaseSystem {
     // Ottieni le posizioni di tutti i giocatori remoti
     const remotePlayerPositions = remotePlayerSystem.getRemotePlayerPositions();
 
-    // Distanza massima di visibilità radar (3000 unità) - deve matchare renderEntities
-    const RADAR_RANGE = 3000;
+    // Distanza massima di visibilità radar (1500 unità) - deve matchare renderEntities
+    const RADAR_RANGE = 1500;
     const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE;
 
     // Renderizza ogni giocatore remoto come pallino giallo
