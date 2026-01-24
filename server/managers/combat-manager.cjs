@@ -495,25 +495,29 @@ class ServerCombatManager {
           if (distSq <= attackRangeSq) {
             targetPlayer = attackerData;
           }
+        } else {
+          // Bersaglio entrato in Safe Zone - dimenticalo per ora
+          npc.lastAttackerId = null;
         }
       }
     }
 
-    // PRIORITÀ 2: Se l'ultimo attaccante non è più nel range, cerca il più vicino
+    // PRIORITÀ 2: Se l'ultimo attaccante non è più nel range o è in Safe Zone, cerca il più vicino
     if (!targetPlayer) {
       let minDistanceSq = Infinity;
       for (const [clientId, playerData] of this.mapServer.players.entries()) {
-        if (!playerData.position) continue;
+        if (!playerData.position || playerData.isDead) continue;
+
+        // 🛡️ SAFE ZONE CHECK: NPC non punta player in una zona sicura
+        if (this.isInSafeZone(playerData.position)) continue;
+
         const dx = playerData.position.x - npc.position.x;
         const dy = playerData.position.y - npc.position.y;
         const distSq = dx * dx + dy * dy;
 
         if (distSq <= attackRangeSq && distSq < minDistanceSq) {
-          // 🛡️ SAFE ZONE CHECK: NPC non punta player in una zona sicura
-          if (!this.isInSafeZone(playerData.position)) {
-            minDistanceSq = distSq;
-            targetPlayer = playerData;
-          }
+          minDistanceSq = distSq;
+          targetPlayer = playerData;
         }
       }
     }

@@ -10,6 +10,7 @@ import { LogType } from '../../../presentation/ui/LogMessage';
 import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
 import { PlayerControlSystem } from '../PlayerControlSystem';
 import { MathUtils } from '../../../core/utils/MathUtils';
+import { CONFIG } from '../../../core/utils/config/GameConfig';
 
 /**
  * Manages player attack, NPC selection, and range validation
@@ -39,11 +40,34 @@ export class PlayerAttackManager {
    * Handles SPACE press for attack activation (toggle mode)
    */
   public handleSpacePress(): void {
+    const playerEntity = this.getPlayerEntity();
+    const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
+
+    // 🛡️ SAFE ZONE CHECK: Impedisci l'attivazione in zona sicura
+    if (playerTransform && this.isInSafeZone(playerTransform.x, playerTransform.y)) {
+      const logSystem = this.getLogSystem();
+      if (logSystem) {
+        logSystem.addLogMessage('Combat disabled in Safe Zone!', LogType.ATTACK_FAILED, 2000);
+      }
+      return;
+    }
+
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
 
     // Se c'è un NPC selezionato, controlliamo se è in range
     if (currentlySelectedNpc) {
+      const npcTransform = this.ecs.getComponent(currentlySelectedNpc, Transform);
+
+      // 🛡️ TARGET SAFE ZONE CHECK
+      if (npcTransform && this.isInSafeZone(npcTransform.x, npcTransform.y)) {
+        const logSystem = this.getLogSystem();
+        if (logSystem) {
+          logSystem.addLogMessage('Target is in Safe Zone!', LogType.ATTACK_FAILED, 2000);
+        }
+        return;
+      }
+
       if (this.isNpcInPlayerRange(currentlySelectedNpc)) {
         this.attackActivated = true;
         this.lastInputTime = Date.now();
@@ -59,6 +83,16 @@ export class PlayerAttackManager {
     // Se non c'era selezione o era fuori range, cerchiamo il più vicino
     const nearestNpc = this.findNearestNpcInRange();
     if (nearestNpc) {
+      // 🛡️ DOUBLE CHECK SAFE ZONE for nearest target
+      const npcTransform = this.ecs.getComponent(nearestNpc, Transform);
+      if (npcTransform && this.isInSafeZone(npcTransform.x, npcTransform.y)) {
+        const logSystem = this.getLogSystem();
+        if (logSystem) {
+          logSystem.addLogMessage('Target is in Safe Zone!', LogType.ATTACK_FAILED, 2000);
+        }
+        return;
+      }
+
       this.selectNpc(nearestNpc, false); // false = non disattivare attacco perché lo attiviamo subito dopo
       this.attackActivated = true;
       this.lastInputTime = Date.now();
@@ -81,9 +115,6 @@ export class PlayerAttackManager {
       if (now - this.lastSpacePressTime > 300) {
         this.lastSpacePressTime = now;
 
-        const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
-        const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
-
         if (this.attackActivated) {
           // Se stiamo già attaccando, la barra spaziatrice serve a FERMARE l'attacco
           this.attackActivated = false;
@@ -92,11 +123,25 @@ export class PlayerAttackManager {
           this.deselectCurrentNpc();
           this.updatePlayerRotationAfterCombatEnd();
         } else {
-          // Se non stiamo attaccando, proviamo ad attivare l'attacco (handleSpacePress gestisce la selezione)
+          // Se non stiamo attaccando, proviamo ad attivare l'attacco
           this.handleSpacePress();
         }
       }
     }
+  }
+
+  /**
+   * Verifica se una posizione è in una Safe Zone
+   */
+  private isInSafeZone(x: number, y: number): boolean {
+    for (const zone of CONFIG.SAFE_ZONES) {
+      const dx = x - zone.x;
+      const dy = y - zone.y;
+      if (dx * dx + dy * dy <= zone.radius * zone.radius) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

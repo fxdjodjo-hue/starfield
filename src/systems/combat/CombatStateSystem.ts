@@ -125,6 +125,15 @@ export class CombatStateSystem extends BaseSystem {
     // 🎯 EDGE DETECTION: controlla se lo stato dell'attacco è cambiato
     const currentAttackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
+    // 🛡️ CONTINUOUS SAFE ZONE CHECK: Se il player entra in safe zone, ferma subito tutto
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
+    if (playerTransform && this.isInSafeZone(playerTransform.x, playerTransform.y)) {
+      if (this.currentAttackTarget !== null || currentAttackActivated) {
+        this.stopCombatImmediately();
+      }
+    }
+
     if (currentAttackActivated !== this.lastAttackActivatedState) {
       // 🔥 CAMBIAMENTO DI STATO: gestisci transizione
       if (currentAttackActivated) {
@@ -180,26 +189,8 @@ export class CombatStateSystem extends BaseSystem {
     }
 
     // 🛡️ SAFE ZONE CHECK: Impedisci l'attacco nelle zone sicure
-    let inSafeZone = false;
-    for (const zone of CONFIG.SAFE_ZONES) {
-      // Controlla player
-      const pdx = playerTransform.x - zone.x;
-      const pdy = playerTransform.y - zone.y;
-      if (pdx * pdx + pdy * pdy <= zone.radius * zone.radius) {
-        inSafeZone = true;
-        break;
-      }
-
-      // Controlla target
-      const tdx = npcTransform.x - zone.x;
-      const tdy = npcTransform.y - zone.y;
-      if (tdx * tdx + tdy * tdy <= zone.radius * zone.radius) {
-        inSafeZone = true;
-        break;
-      }
-    }
-
-    if (inSafeZone) {
+    if (this.isInSafeZone(playerTransform.x, playerTransform.y) ||
+      this.isInSafeZone(npcTransform.x, npcTransform.y)) {
       if (this.logSystem) {
         this.logSystem.addLogMessage('Combat disabled in Safe Zone!', LogType.ATTACK_FAILED, 2000);
       }
@@ -322,6 +313,13 @@ export class CombatStateSystem extends BaseSystem {
     // NON deselezionare mai temporaneamente - lascia che il face-up gestisca la logica
     // Il combattimento continua sempre, il face-up si occupa di puntare verso l'ultimo target conosciuto
 
+    // 🛡️ SAFE ZONE CHECK: Ferma il combattimento se si entra in una zona sicura
+    if (this.isInSafeZone(playerTransform.x, playerTransform.y) ||
+      this.isInSafeZone(npcTransform.x, npcTransform.y)) {
+      this.stopCombatImmediately();
+      return;
+    }
+
     if (inRange && attackActivated && this.currentAttackTarget !== selectedNpc.id) {
       // Player in range - inizia combattimento
       this.sendStartCombat(selectedNpc);
@@ -392,6 +390,12 @@ export class CombatStateSystem extends BaseSystem {
           const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
           if (playerTransform && npcTransform) {
+            // 🛡️ SAFE ZONE VISUAL BLOCK: Impedisce la creazione di laser in zona sicura
+            if (this.isInSafeZone(playerTransform.x, playerTransform.y) ||
+              this.isInSafeZone(npcTransform.x, npcTransform.y)) {
+              return;
+            }
+
             const rangeWidth = getPlayerRangeWidth();
             const rangeHeight = getPlayerRangeHeight();
             const dx = Math.abs(npcTransform.x - playerTransform.x);
@@ -749,6 +753,20 @@ export class CombatStateSystem extends BaseSystem {
     if (this.damageSystem) {
       this.damageSystem.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
     }
+  }
+
+  /**
+   * Verifica se una posizione è in una Safe Zone
+   */
+  private isInSafeZone(x: number, y: number): boolean {
+    for (const zone of CONFIG.SAFE_ZONES) {
+      const dx = x - zone.x;
+      const dy = y - zone.y;
+      if (dx * dx + dy * dy <= zone.radius * zone.radius) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
