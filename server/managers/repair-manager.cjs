@@ -42,7 +42,7 @@ class RepairManager {
 
     let repairState = this.playerRepairStates.get(playerId);
 
-    // Se è in combattimento, ferma riparazione e rimuovi il timestamp di fine combattimento
+    // Se è in combattimento (sta attaccando), ferma riparazione
     if (isInCombat) {
       if (repairState?.isRepairing) {
         this.stopRepair(playerId);
@@ -52,7 +52,16 @@ class RepairManager {
       return;
     }
 
-    // Calcola tempo dalla fine dell'ultimo combattimento
+    // 🚀 FIX ROBUSTO: Se ha ricevuto danno recentemente, blocca la riparazione
+    // Questo gestisce il caso in cui un NPC ti attacca ma tu non rispondi al fuoco
+    if (timeSinceLastDamage < REPAIR_START_DELAY) {
+      if (repairState?.isRepairing) {
+        this.stopRepair(playerId);
+      }
+      return;
+    }
+
+    // Calcola tempo dalla fine dell'ultimo combattimento (quando il player ha smesso di sparare)
     const lastCombatEndTime = this.playerCombatEndTimes.get(playerId);
     const timeSinceLastCombatEnd = lastCombatEndTime ? (now - lastCombatEndTime) : Infinity;
 
