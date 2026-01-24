@@ -91,9 +91,9 @@ export class MathUtils {
    */
   static isPointInRectangle(pointX: number, pointY: number, rectX: number, rectY: number, rectWidth: number, rectHeight: number): boolean {
     return pointX >= rectX &&
-           pointX <= rectX + rectWidth &&
-           pointY >= rectY &&
-           pointY <= rectY + rectHeight;
+      pointX <= rectX + rectWidth &&
+      pointY >= rectY &&
+      pointY <= rectY + rectHeight;
   }
 
   /**
@@ -104,8 +104,15 @@ export class MathUtils {
     rect2X: number, rect2Y: number, rect2Width: number, rect2Height: number
   ): boolean {
     return rect1X < rect2X + rect2Width &&
-           rect1X + rect1Width > rect2X &&
-           rect1Y < rect2Y + rect2Height &&
-           rect1Y + rect1Height > rect2Y;
+      rect1X + rect1Width > rect2X &&
+      rect1Y < rect2Y + rect2Height &&
+      rect1Y + rect1Height > rect2Y;
+  }
+  /**
+   * Interpolazione lineare tra due angoli (corregge il wrap-around)
+   */
+  static lerpAngle(start: number, end: number, factor: number): number {
+    const diff = MathUtils.angleDifference(start, end);
+    return start + diff * MathUtils.clamp(factor, 0, 1);
   }
 }

@@ -7,10 +7,7 @@
 import playerConfigData from '../../shared/player-config.json';
 
 // Dichiarazione per import JSON
-declare module '*.json' {
-  const value: any;
-  export default value;
-}
+
 
 export interface PlayerStats {
   health: number;
@@ -50,6 +47,7 @@ export interface PlayerDefinition {
   spriteSize: PlayerSpriteSize;
   upgrades: PlayerUpgrades;
   description?: string;
+  rotationSpeed?: number;
 }
 
 /**

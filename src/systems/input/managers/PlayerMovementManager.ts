@@ -28,7 +28,7 @@ export class PlayerMovementManager {
     private readonly getLastMouseY: () => number,
     private readonly getKeysPressed: () => Set<string>,
     private readonly setIsMousePressed: (pressed: boolean) => void
-  ) {}
+  ) { }
 
   /**
    * Imposta il callback per sapere se l'attacco è attivo
@@ -65,7 +65,27 @@ export class PlayerMovementManager {
   /**
    * Ruota la nave verso il target impostato (se presente)
    */
-  faceTowardsTarget(): void {
+
+
+  /**
+   * Helper to smoothly rotate entity towards target angle
+   */
+  private smoothRotate(transform: Transform, targetAngle: number, deltaTime: number): void {
+    const playerDef = getPlayerDefinition();
+    const rotationSpeed = playerDef.rotationSpeed || 5; // Default to 5 from config if missing
+
+    // Calculate t for lerp based on time and speed
+    // factor = 1 - e^(-speed * dt) gives framerate independent smoothing
+    // or simple linear interpolation: t = speed * dt
+    const t = rotationSpeed * (deltaTime / 1000);
+
+    transform.rotation = MathUtils.lerpAngle(transform.rotation, targetAngle, t);
+  }
+
+  /**
+   * Ruota la nave verso il target impostato (se presente)
+   */
+  faceTowardsTarget(deltaTime: number): void {
     if (this.faceTargetX === null || this.faceTargetY === null) return;
 
     const playerEntity = this.getPlayerEntity();
@@ -75,7 +95,7 @@ export class PlayerMovementManager {
     if (!transform) return;
 
     const angle = Math.atan2(this.faceTargetY - transform.y, this.faceTargetX - transform.x);
-    transform.rotation = angle;
+    this.smoothRotate(transform, angle, deltaTime);
   }
 
   /**
@@ -93,7 +113,7 @@ export class PlayerMovementManager {
   /**
    * Moves player towards minimap target
    */
-  movePlayerTowardsMinimapTarget(): void {
+  movePlayerTowardsMinimapTarget(deltaTime: number): void {
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity || this.minimapTargetX === null || this.minimapTargetY === null) return;
 
@@ -116,7 +136,7 @@ export class PlayerMovementManager {
       // Imposta rotazione solo se non siamo in combattimento attivo
       if (!this.isAttackActivated()) {
         const angle = Math.atan2(dirY, dirX);
-        transform.rotation = angle;
+        this.smoothRotate(transform, angle, deltaTime);
       }
     } else {
       velocity.stop();
@@ -132,7 +152,7 @@ export class PlayerMovementManager {
   /**
    * Moves player towards mouse position
    */
-  movePlayerTowardsMouse(): void {
+  movePlayerTowardsMouse(deltaTime: number): void {
     const playerEntity = this.getPlayerEntity();
     const camera = this.getCamera();
     if (!playerEntity || !camera) return;
@@ -161,7 +181,7 @@ export class PlayerMovementManager {
       // Imposta rotazione solo se non siamo in combattimento attivo
       if (!this.isAttackActivated()) {
         const angle = Math.atan2(dirY, dirX);
-        transform.rotation = angle;
+        this.smoothRotate(transform, angle, deltaTime);
       }
     } else {
       velocity.stop();
@@ -172,7 +192,7 @@ export class PlayerMovementManager {
   /**
    * Moves player with keyboard (WASD)
    */
-  movePlayerWithKeyboard(): void {
+  movePlayerWithKeyboard(deltaTime: number): void {
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -203,7 +223,7 @@ export class PlayerMovementManager {
         const angle = Math.atan2(vy, vx);
         const transform = this.ecs.getComponent(playerEntity, Transform);
         if (transform) {
-          transform.rotation = angle;
+          this.smoothRotate(transform, angle, deltaTime);
         }
       }
     }

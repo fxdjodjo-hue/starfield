@@ -7,7 +7,7 @@ import { Damage } from '../../../entities/combat/Damage';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { LogType } from '../../../presentation/ui/LogMessage';
-import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
+import { getPlayerRangeWidth, getPlayerRangeHeight, getPlayerDefinition } from '../../../config/PlayerConfig';
 import { PlayerControlSystem } from '../PlayerControlSystem';
 import { MathUtils } from '../../../core/utils/MathUtils';
 import { CONFIG } from '../../../core/utils/config/GameConfig';
@@ -22,7 +22,7 @@ export class PlayerAttackManager {
   private lastFaceUpdateTime: number = 0;
   private lastFaceAngle: number = 0;
   private readonly FACE_UPDATE_INTERVAL = 50; // ms tra aggiornamenti rotazione
-  private readonly MIN_ANGLE_CHANGE = 0.05; // radianti minimi per aggiornare
+  private readonly MIN_ANGLE_CHANGE = 0.001; // radianti minimi per aggiornare (reduced for precision)
 
   // Mantiene riferimento all'ultimo target per face-up anche quando deselezionato temporaneamente
   private lastFaceTarget: { x: number; y: number } | null = null;
@@ -359,7 +359,7 @@ export class PlayerAttackManager {
    * Sets rotation to movement direction or neutral (0) if stationary
    * Also updates InterpolationTarget to prevent interpolation conflicts
    */
-  private resetShipRotation(): void {
+  public resetShipRotation(): void {
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -397,13 +397,20 @@ export class PlayerAttackManager {
    * Se non ci sono NPC selezionati, usa l'ultimo target salvato (per deselezioni temporanee)
    * Usa InterpolationTarget per rotazioni fluide senza vibrazioni
    */
-  faceSelectedNpc(): void {
+  /**
+   * Ruota la nave verso l'NPC selezionato durante combattimento
+   * Se non ci sono NPC selezionati, usa l'ultimo target salvato (per deselezioni temporanee)
+   * Usa InterpolationTarget per rotazioni fluide senza vibrazioni
+   */
+  faceSelectedNpc(deltaTime: number): void {
     const now = Date.now();
 
-    // Throttling: non aggiornare troppo frequentemente
+    // Throttling removed for smooth rotation
+    /*
     if (now - this.lastFaceUpdateTime < this.FACE_UPDATE_INTERVAL) {
       return;
     }
+    */
 
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity) return;
@@ -453,8 +460,11 @@ export class PlayerAttackManager {
     if (playerInterpolation) {
       playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle);
     } else {
-      // Fallback se non c'è InterpolationTarget
-      playerTransform.rotation = angle;
+      // Fallback se non c'è InterpolationTarget: usa Smooth Rotation
+      const playerDef = getPlayerDefinition();
+      const rotationSpeed = playerDef.rotationSpeed || 5;
+      const t = rotationSpeed * (deltaTime / 1000);
+      playerTransform.rotation = MathUtils.lerpAngle(playerTransform.rotation, angle, t);
     }
 
     // Aggiorna timestamp e ultimo angolo

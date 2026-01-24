@@ -4,6 +4,7 @@ import { Camera } from '../../entities/spatial/Camera';
 import { LogSystem } from '../rendering/LogSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
+import { DisplayManager } from '../../infrastructure/display';
 
 // Modular architecture managers
 import { PlayerAudioManager } from './managers/PlayerAudioManager';
@@ -262,8 +263,8 @@ export class PlayerControlSystem extends BaseSystem {
     }
 
     const isMoving = this.movementManager.hasMinimapTarget() ||
-                     this.inputManager.isKeyboardMoving() ||
-                     this.inputManager.getIsMousePressed();
+      this.inputManager.isKeyboardMoving() ||
+      this.inputManager.getIsMousePressed();
 
     // Gestisci suono del motore - evita chiamate multiple rapide
     if (isMoving && !this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
@@ -280,11 +281,11 @@ export class PlayerControlSystem extends BaseSystem {
 
     // Priorità: movimento minimappa > movimento tastiera > movimento mouse > fermo
     if (this.movementManager.hasMinimapTarget()) {
-      this.movementManager.movePlayerTowardsMinimapTarget();
+      this.movementManager.movePlayerTowardsMinimapTarget(deltaTime);
     } else if (this.inputManager.isKeyboardMoving()) {
-      this.movementManager.movePlayerWithKeyboard();
+      this.movementManager.movePlayerWithKeyboard(deltaTime);
     } else if (this.inputManager.getIsMousePressed()) {
-      this.movementManager.movePlayerTowardsMouse();
+      this.movementManager.movePlayerTowardsMouse(deltaTime);
     } else {
       this.movementManager.stopPlayerMovement();
     }
@@ -294,7 +295,7 @@ export class PlayerControlSystem extends BaseSystem {
     if (this.attackActivated) {
       const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
       if (selectedNpcs.length > 0) {
-        this.attackManager.faceSelectedNpc();
+        this.attackManager.faceSelectedNpc(deltaTime);
       } else {
         // If attack is active but no NPC is selected (e.g., NPC died or despawned)
         // Deactivate attack and reset rotation once
@@ -308,13 +309,48 @@ export class PlayerControlSystem extends BaseSystem {
   /**
    * Gestisce lo stato del mouse (premuto/rilasciato)
    */
+  private mouseDownTime: number = 0;
+  private mouseDownPos: { x: number; y: number } = { x: 0, y: 0 };
+  private readonly CLICK_THRESHOLD_MS = 200;
+  private readonly CLICK_DISTANCE_THRESHOLD = 5;
+
+  /**
+   * Gestisce lo stato del mouse (premuto/rilasciato)
+   */
   handleMouseState(pressed: boolean, x: number, y: number): void {
     if (!this.playerEntity) return;
     this.initializeManagers();
 
-    // Se si clicca con il mouse normale, cancella il target della minimappa
     if (pressed) {
+      // Mouse Down: Start tracking click attempt
+      this.mouseDownTime = Date.now();
+      this.mouseDownPos = { x, y };
+
+      // Clear existing minimap target to allow manual steering immediately
       this.movementManager.clearMinimapTarget();
+    } else {
+      // Mouse Up: Check if it was a click or a drag release
+      const pressDuration = Date.now() - this.mouseDownTime;
+      const moveDistance = Math.sqrt(
+        Math.pow(x - this.mouseDownPos.x, 2) +
+        Math.pow(y - this.mouseDownPos.y, 2)
+      );
+
+      // If brief press and little movement -> It's a Click-to-Move!
+      if (pressDuration < this.CLICK_THRESHOLD_MS && moveDistance < this.CLICK_DISTANCE_THRESHOLD) {
+        if (this.camera) {
+          // Calculate world position
+          // Using DisplayManager logical size (similar to PlayerMovementManager)
+          const { width, height } = DisplayManager.getInstance().getLogicalSize();
+          // NOTE: Camera.screenToWorld uses logical coordinates. 
+          // InputSystem gives coordinates relative to canvas.
+
+          // Let's rely on camera.screenToWorld from Mouse position
+          const worldPos = this.camera.screenToWorld(x, y, width, height);
+
+          this.movementManager.movePlayerTo(worldPos.x, worldPos.y);
+        }
+      }
     }
 
     this.inputManager.handleMouseState(pressed, x, y);
