@@ -184,7 +184,7 @@ export class UIHUDManager {
     this.playerHUD.updateData(hudData);
     // NON mostrare automaticamente - viene mostrato da hideLoadingScreen() quando la schermata di autenticazione è nascosta
     // this.playerHUD.show();
-    
+
     // Mostra anche la chat (ora che tutto è pronto)
     if (showChatCallback) {
       showChatCallback();
@@ -266,6 +266,7 @@ export class UIHUDManager {
       this.showExpandedHud();
     }
   }
+
 
   /**
    * Imposta il listener per il toggle dell'HUD

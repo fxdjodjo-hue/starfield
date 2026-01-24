@@ -410,7 +410,7 @@ export class AuthFormManager {
 
     // Nickname
     const nicknameGroup = document.createElement('div');
-    nicknameGroup.style.cssText = 'margin-bottom: 28px;';
+    nicknameGroup.style.cssText = 'margin-bottom: 28px; position: relative;';
     const nicknameInput = document.createElement('input');
     nicknameInput.type = 'text';
     nicknameInput.placeholder = 'Nickname';
@@ -418,8 +418,41 @@ export class AuthFormManager {
     nicknameInput.minLength = 3;
     nicknameInput.maxLength = 20;
     nicknameInput.style.cssText = this.getInputStyle();
-    nicknameInput.addEventListener('focus', () => this.handleInputFocus(nicknameInput));
-    nicknameInput.addEventListener('blur', () => this.handleInputBlur(nicknameInput));
+
+    // Warning message for nickname - Absolute positioning to avoid layout shift
+    const nicknameWarning = document.createElement('p');
+    nicknameWarning.textContent = 'Nickname cannot be changed once created';
+    nicknameWarning.style.cssText = `
+      color: rgba(255, 107, 107, 0.9);
+      font-size: 11px;
+      margin: 0;
+      padding: 4px 0 0 4px;
+      font-weight: 300;
+      letter-spacing: 0.3px;
+      opacity: 0;
+      transform: translateY(-5px);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      pointer-events: none;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      width: 100%;
+    `;
+
+    nicknameInput.addEventListener('focus', () => {
+      this.handleInputFocus(nicknameInput);
+      nicknameWarning.style.opacity = '1';
+      nicknameWarning.style.transform = 'translateY(0)';
+    });
+
+    nicknameInput.addEventListener('blur', () => {
+      this.handleInputBlur(nicknameInput);
+      nicknameWarning.style.opacity = '0';
+      nicknameWarning.style.transform = 'translateY(-5px)';
+    });
+
+    nicknameGroup.appendChild(nicknameInput);
+    nicknameGroup.appendChild(nicknameWarning);
 
     // Feedback container
     this.feedbackElement = document.createElement('div');

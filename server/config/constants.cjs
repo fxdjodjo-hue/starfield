@@ -37,7 +37,16 @@ const SERVER_CONSTANTS = {
     START_DELAY: 5000,      // 5 secondi fuori dal combattimento
     AMOUNT: 10000,            // 10k HP/shield ogni applicazione
     INTERVAL: 2000            // Ogni 2 secondi
-  }
+  },
+
+  SAFE_ZONES: [
+    {
+      name: 'Space Station',
+      x: 0,
+      y: 0,
+      radius: 800 // Raggio della zona sicura attorno alla stazione
+    }
+  ]
 };
 
 // Configurazione NPC caricata da file condiviso (single source of truth)

@@ -24,6 +24,7 @@ import { LogType } from '../../presentation/ui/LogMessage';
 import { AssetManager } from '../../core/services/AssetManager';
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { ProjectileVisualState } from '../../entities/combat/ProjectileVisualState';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 import npcConfig from '../../../shared/npc-config.json';
 
 /**
@@ -170,11 +171,42 @@ export class CombatStateSystem extends BaseSystem {
       return;
     }
 
-    // 🔥 CONTROLLO RANGE RETTANGOLARE PRIMA DI INIZIARE COMBATTIMENTO 🔥
     const playerEntity = this.playerSystem?.getPlayerEntity();
     const playerTransform = playerEntity ? this.ecs.getComponent(playerEntity, Transform) : null;
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
+    if (!playerTransform || !npcTransform) {
+      return;
+    }
+
+    // 🛡️ SAFE ZONE CHECK: Impedisci l'attacco nelle zone sicure
+    let inSafeZone = false;
+    for (const zone of CONFIG.SAFE_ZONES) {
+      // Controlla player
+      const pdx = playerTransform.x - zone.x;
+      const pdy = playerTransform.y - zone.y;
+      if (pdx * pdx + pdy * pdy <= zone.radius * zone.radius) {
+        inSafeZone = true;
+        break;
+      }
+
+      // Controlla target
+      const tdx = npcTransform.x - zone.x;
+      const tdy = npcTransform.y - zone.y;
+      if (tdx * tdx + tdy * tdy <= zone.radius * zone.radius) {
+        inSafeZone = true;
+        break;
+      }
+    }
+
+    if (inSafeZone) {
+      if (this.logSystem) {
+        this.logSystem.addLogMessage('Combat disabled in Safe Zone!', LogType.ATTACK_FAILED, 2000);
+      }
+      return;
+    }
+
+    // 🔥 CONTROLLO RANGE RETTANGOLARE PRIMA DI INIZIARE COMBATTIMENTO 🔥
     if (!playerTransform || !npcTransform) {
       return;
     }

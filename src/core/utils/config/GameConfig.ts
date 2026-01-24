@@ -43,4 +43,14 @@ export const CONFIG = {
   // Layer parallasse
   PARALLAX_LAYERS: 5,
   PARALLAX_SPEED_MULTIPLIER: 0.8,
+
+  // Zone di sicurezza
+  SAFE_ZONES: [
+    {
+      name: 'Space Station',
+      x: 0,
+      y: 0,
+      radius: 800
+    }
+  ]
 } as const;

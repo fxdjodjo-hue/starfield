@@ -42,6 +42,7 @@ import { CameraSystem } from '../rendering/CameraSystem';
 import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { AsteroidSystem } from '../environment/AsteroidSystem';
+import { SafeZoneSystem } from './SafeZoneSystem';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Sprite } from '../../entities/Sprite';
 
@@ -91,6 +92,7 @@ export interface CreatedSystems {
   remoteNpcSystem: RemoteNpcSystem;
   remoteProjectileSystem: RemoteProjectileSystem;
   asteroidSystem: AsteroidSystem;
+  safeZoneSystem: SafeZoneSystem;
   assets: {
     playerSprite: AnimatedSprite;
     scouterAnimatedSprite: AnimatedSprite;
@@ -218,6 +220,9 @@ export class SystemFactory {
     // Sistema per movimento e rotazione asteroidi
     const asteroidSystem = new AsteroidSystem(ecs);
 
+    // Sistema Safe Zone
+    const safeZoneSystem = new SafeZoneSystem(ecs, uiSystem!);
+
     // Collega sistemi ai sistemi di combattimento modulari
     if (combatStateSystem) {
       combatStateSystem.setPlayerControlSystem(playerControlSystem);
@@ -278,6 +283,7 @@ export class SystemFactory {
       remoteNpcSystem,
       remoteProjectileSystem,
       asteroidSystem,
+      safeZoneSystem,
       assets: {
         playerSprite,
         scouterAnimatedSprite,

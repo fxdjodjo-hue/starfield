@@ -39,7 +39,7 @@ export class PlayerHUD {
   private createHUDContainer(): HTMLElement {
     const container = document.createElement('div');
     container.id = 'player-hud';
-    
+
     // Dimensioni compensate per DPR
     const c = this.dprCompensation;
     const margin = Math.round(20 * c);
@@ -47,7 +47,7 @@ export class PlayerHUD {
     const borderRadius = Math.round(25 * c);
     const paddingV = Math.round(12 * c);
     const paddingH = Math.round(20 * c);
-    
+
     container.style.cssText = `
       position: fixed;
       top: ${margin}px;
@@ -95,7 +95,6 @@ export class PlayerHUD {
           <div class="stat-value">0</div>
         </div>
       </div>
-
     `;
 
     this.attachGlassStyles();
@@ -113,7 +112,7 @@ export class PlayerHUD {
 
     const style = document.createElement('style');
     style.id = 'player-hud-styles';
-    
+
     // Calcola dimensioni compensate per DPR
     const c = this.dprCompensation;
     const circleSize = Math.round(50 * c);
@@ -125,7 +124,7 @@ export class PlayerHUD {
     const gap24 = Math.round(24 * c);
     const marginLeft8 = Math.round(8 * c);
     const minWidth90 = Math.round(90 * c);
-    
+
     style.textContent = `
       /* Container principale con effetto glassmorphism */
       #player-hud {
@@ -297,10 +296,10 @@ export class PlayerHUD {
     if (!document.body.contains(this.container)) {
       document.body.appendChild(this.container);
     }
-    
+
     this.container.style.display = 'flex';
     this.isVisible = true;
-    
+
     // Usa fade-in sincronizzato
     applyFadeIn(this.container);
   }

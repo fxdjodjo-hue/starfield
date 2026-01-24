@@ -15,6 +15,25 @@ class ServerCombatManager {
     this.combatStartCooldowns = new Map(); // playerId -> lastCombatStartTime
   }
 
+  /**
+   * Verifica se una posizione si trova all'interno di una Safe Zone
+   * @param {object} position - {x, y}
+   * @returns {boolean}
+   */
+  isInSafeZone(position) {
+    if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return false;
+
+    for (const zone of SERVER_CONSTANTS.SAFE_ZONES) {
+      const dx = position.x - zone.x;
+      const dy = position.y - zone.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= zone.radius * zone.radius) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Pattern ritmico come moltiplicatori rispetto al cooldown base
   // Usa PLAYER_CONFIG.stats.cooldown per single source of truth
 
@@ -64,6 +83,19 @@ class ServerCombatManager {
     const existingNpc = this.mapServer.npcManager.getNpc(npcId);
     if (!existingNpc) {
       ServerLoggerWrapper.warn('COMBAT', `Player ${playerId} tried to start combat with non-existing NPC ${npcId}`);
+      return;
+    }
+
+    // 🛡️ SAFE ZONE CHECK: Verifica se il player o l'NPC sono in una zona sicura
+    const playerData = this.mapServer.players.get(playerId);
+    if (playerData && (this.isInSafeZone(playerData.position) || this.isInSafeZone(existingNpc.position))) {
+      if (context && context.ws) {
+        context.ws.send(JSON.stringify({
+          type: 'combat_error',
+          message: 'Combat is disabled in Safe Zones',
+          code: 'SAFE_ZONE_PROTECTION'
+        }));
+      }
       return;
     }
 
@@ -169,6 +201,19 @@ class ServerCombatManager {
     const npc = this.mapServer.npcManager.getNpc(combat.npcId);
     if (!npc) {
       this.playerCombats.delete(playerId);
+      return;
+    }
+
+    // 🛡️ SAFE ZONE CHECK: Ferma il combattimento se si entra in una zona sicura
+    if (this.isInSafeZone(playerData.position) || this.isInSafeZone(npc.position)) {
+      this.playerCombats.delete(playerId);
+      if (playerData.ws) {
+        playerData.ws.send(JSON.stringify({
+          type: 'stop_combat',
+          reason: 'safe_zone',
+          playerId: playerId
+        }));
+      }
       return;
     }
 
@@ -426,6 +471,11 @@ class ServerCombatManager {
       return;
     }
 
+    // 🛡️ SAFE ZONE NPC CHECK: NPC non attacca se è in una zona sicura
+    if (this.isInSafeZone(npc.position)) {
+      return;
+    }
+
     // Trova player nel raggio di attacco
     const attackRange = NPC_CONFIG[npc.type].stats.range;
     const attackRangeSq = attackRange * attackRange;
@@ -436,12 +486,15 @@ class ServerCombatManager {
     if (npc.lastAttackerId) {
       const attackerData = this.mapServer.players.get(npc.lastAttackerId);
       if (attackerData && attackerData.position) {
-        const dx = attackerData.position.x - npc.position.x;
-        const dy = attackerData.position.y - npc.position.y;
-        const distSq = dx * dx + dy * dy;
+        // 🛡️ SAFE ZONE CHECK: Ignora l'attaccante se è entrato in una zona sicura
+        if (!this.isInSafeZone(attackerData.position)) {
+          const dx = attackerData.position.x - npc.position.x;
+          const dy = attackerData.position.y - npc.position.y;
+          const distSq = dx * dx + dy * dy;
 
-        if (distSq <= attackRangeSq) {
-          targetPlayer = attackerData;
+          if (distSq <= attackRangeSq) {
+            targetPlayer = attackerData;
+          }
         }
       }
     }
@@ -456,8 +509,11 @@ class ServerCombatManager {
         const distSq = dx * dx + dy * dy;
 
         if (distSq <= attackRangeSq && distSq < minDistanceSq) {
-          minDistanceSq = distSq;
-          targetPlayer = playerData;
+          // 🛡️ SAFE ZONE CHECK: NPC non punta player in una zona sicura
+          if (!this.isInSafeZone(playerData.position)) {
+            minDistanceSq = distSq;
+            targetPlayer = playerData;
+          }
         }
       }
     }
@@ -486,6 +542,11 @@ class ServerCombatManager {
 
     if (!targetPlayer.position || !Number.isFinite(targetPlayer.position.x) || !Number.isFinite(targetPlayer.position.y)) {
       ServerLoggerWrapper.error('COMBAT', `Invalid player position for NPC ${npc.id} attack`);
+      return;
+    }
+
+    // 🛡️ FINAL SAFE ZONE SECURITY CHECK
+    if (this.isInSafeZone(npc.position) || this.isInSafeZone(targetPlayer.position)) {
       return;
     }
 

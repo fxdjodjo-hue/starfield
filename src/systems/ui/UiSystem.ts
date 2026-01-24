@@ -14,6 +14,7 @@ import { UINicknameManager } from './managers/UINicknameManager';
 import { UIAudioManager } from './managers/UIAudioManager';
 import { FpsCounter } from '../../presentation/ui/FpsCounter';
 import { GameSettings } from '../../core/settings/GameSettings';
+import { CONFIG } from '../../core/utils/config/GameConfig';
 
 /**
  * Sistema di orchestrazione per la gestione dell'interfaccia utente
@@ -28,6 +29,7 @@ export class UiSystem extends System {
   private nicknameManager!: UINicknameManager;
   private audioManager!: UIAudioManager;
   private fpsCounter!: FpsCounter;
+  private safeZoneElement: HTMLElement | null = null;
   private managersInitialized: boolean = false;
 
   // Legacy references (maintained for backward compatibility)
@@ -102,6 +104,9 @@ export class UiSystem extends System {
       // We should emit an event to synchronize systems or let them read settings.
       // But since we are here, we can set FPS visibility
       this.fpsCounter.setVisibility(settings.graphics.showFps);
+
+      // Create Safe Zone indicator
+      this.createSafeZoneIndicator();
 
       this.managersInitialized = true;
     } catch (error) {
@@ -236,6 +241,75 @@ export class UiSystem extends System {
    */
   hideExpandedHud(): void {
     this.hudManager.hideExpandedHud();
+  }
+
+  /**
+   * Imposta lo stato della Safe Zone nell'HUD (centrato in alto)
+   */
+  setSafeZone(isSafe: boolean): void {
+    const safeIndicator = document.getElementById('safe-zone-text-indicator');
+    if (safeIndicator) {
+      safeIndicator.style.display = isSafe ? 'block' : 'none';
+    }
+  }
+
+  /**
+   * Crea l'elemento DOM per l'indicatore della mappa e Safe Zone centrato
+   */
+  private createSafeZoneIndicator(): void {
+    if (this.safeZoneElement) return;
+
+    // Container per le info sulla posizione globale
+    this.safeZoneElement = document.createElement('div');
+    this.safeZoneElement.id = 'world-location-indicator';
+
+    // Stile minimalista centrato in alto
+    this.safeZoneElement.style.cssText = `
+      position: fixed;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      z-index: 999;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      opacity: 0.9;
+    `;
+
+    // Nome della mappa
+    const mapName = document.createElement('div');
+    mapName.id = 'map-name-indicator';
+    mapName.textContent = CONFIG.CURRENT_MAP.toUpperCase();
+    mapName.style.cssText = `
+      color: #ffffff;
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      font-size: 22px;
+      font-weight: 300;
+      letter-spacing: 8px;
+      text-shadow: 0 2px 15px rgba(0, 0, 0, 0.6);
+    `;
+
+    // Testo SAFEZONE
+    const safeZoneText = document.createElement('div');
+    safeZoneText.id = 'safe-zone-text-indicator';
+    safeZoneText.textContent = 'SAFEZONE';
+    safeZoneText.style.cssText = `
+      color: #ffffff;
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 4px;
+      margin-top: 6px;
+      display: none; /* Visibile solo quando in safe zone */
+      text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    `;
+
+    this.safeZoneElement.appendChild(mapName);
+    this.safeZoneElement.appendChild(safeZoneText);
+    document.body.appendChild(this.safeZoneElement);
   }
 
   /**

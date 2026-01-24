@@ -67,6 +67,7 @@ export class SystemConfigurator {
     if (uiSystem) {
       ecs.addSystem(uiSystem);
     }
+    ecs.addSystem(systems.safeZoneSystem);
     ecs.addSystem(playerStatusDisplaySystem);
   }
 
