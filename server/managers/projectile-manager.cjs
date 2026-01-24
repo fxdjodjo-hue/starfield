@@ -32,8 +32,18 @@ class ServerProjectileManager {
    * Server è completamente autorevole per il calcolo del danno
    */
   calculateProjectileDamage(projectile) {
-    // Usa il danno inviato dal client
-    return projectile.damage || 0;
+    // Usa il danno base inviato dal client
+    const baseDamage = projectile.damage || 0;
+
+    if (baseDamage <= 0) return 0;
+
+    // 🎲 RNG DAMAGE: Applica una variabilità del ±10%
+    // Esempio: 700 danno -> range [630, 770]
+    const variation = 0.10; // 10% di variazione
+    const randomFactor = 1 - variation + (Math.random() * variation * 2);
+
+    // Ritorna intero per pulizia
+    return Math.floor(baseDamage * randomFactor);
   }
 
   /**
@@ -299,7 +309,7 @@ class ServerProjectileManager {
 
           // Rimuovi immediatamente dal map per evitare ulteriori aggiornamenti
           this.projectiles.delete(projectileId);
-          
+
           // Broadcast immediato della distruzione DOPO la rimozione (usa posizione salvata)
           this.broadcaster.broadcastProjectileDestroyedAtPosition(projectileId, 'collision', collisionPosition);
           continue;
@@ -327,7 +337,7 @@ class ServerProjectileManager {
     projectilesToRemove.forEach(item => {
       const id = typeof item === 'string' ? item : item.id;
       const projectile = this.projectiles.get(id);
-      
+
       // Se il proiettile è già stato rimosso (rimozione immediata per collisioni), salta
       if (!projectile) return;
 
