@@ -214,6 +214,24 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.playerSystem;
   }
 
+  /**
+   * Trova l'entità di qualsiasi giocatore (locale o remoto) tramite clientId
+   */
+  public findAnyPlayerEntity(clientId: string): any | null {
+    // 1. Controlla se è il player locale
+    if (clientId === this.getLocalClientId()) {
+      const playerEntity = this.playerSystem?.getPlayerEntity();
+      if (playerEntity) return playerEntity;
+    }
+
+    // 2. Cerca tra i player remoti
+    if (this.remotePlayerSystem) {
+      return this.remotePlayerSystem.findRemotePlayerEntity(clientId);
+    }
+
+    return null;
+  }
+
   // DEPRECATED: Ora usiamo updateClientId() che gestisce automaticamente lo stato ready
 
   getPendingPosition(): { x: number; y: number; rotation: number } | null {

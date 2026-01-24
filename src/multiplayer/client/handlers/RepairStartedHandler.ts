@@ -23,51 +23,55 @@ export class RepairStartedHandler extends BaseMessageHandler {
 
     // Crea effetto visivo di riparazione
     const ecs = networkSystem.getECS();
-    const playerSystem = networkSystem.getPlayerSystem();
 
-    if (!ecs || !playerSystem) {
-      console.warn('[RepairStartedHandler] ECS or PlayerSystem not available');
+    if (!ecs) {
+      console.warn('[RepairStartedHandler] ECS not available');
       return;
     }
 
-    const playerEntity = playerSystem.getPlayerEntity();
-    if (!playerEntity) {
-      console.warn('[RepairStartedHandler] Player entity not found');
+    // 🚀 FIX: Trova l'entità corretta (locale o remota)
+    // Se il messaggio ha un clientId, usalo. Altrimenti fallback al player locale.
+    const targetEntity = message.clientId
+      ? networkSystem.findAnyPlayerEntity(message.clientId)
+      : networkSystem.getPlayerSystem()?.getPlayerEntity();
+
+    if (!targetEntity) {
+      // Temporaneamente rimosso log per evitare spam se il player remoto non è ancora caricato
       return;
     }
 
-    // Verifica se esiste già un effetto di riparazione (evita duplicati)
+    // Verifica se esiste già un effetto di riparazione per questa entità (evita duplicati)
     const existingRepairEffects = ecs.getEntitiesWithComponents(RepairEffect);
     for (const entity of existingRepairEffects) {
       const repairEffect = ecs.getComponent(entity, RepairEffect);
-      if (repairEffect && repairEffect.targetEntityId === playerEntity.id) {
+      if (repairEffect && repairEffect.targetEntityId === targetEntity.id) {
         // Effetto già esistente, non crearne un altro
         return;
       }
     }
 
-    // Determina quali tipi di riparazione mostrare controllando i danni del player
-    const healthComponent = ecs.getComponent(playerEntity, Health);
-    const shieldComponent = ecs.getComponent(playerEntity, Shield);
+    // Determina quali tipi di riparazione mostrare controllando i danni
+    const healthComponent = ecs.getComponent(targetEntity, Health);
+    const shieldComponent = ecs.getComponent(targetEntity, Shield);
 
     const needsHPRepair = healthComponent && healthComponent.current < healthComponent.max;
     const needsShieldRepair = shieldComponent && shieldComponent.current < shieldComponent.max;
 
     // Crea effetto HP se necessario
     if (needsHPRepair) {
-      await this.createRepairEffect(ecs, playerEntity, 'hp');
+      await this.createRepairEffect(ecs, targetEntity, 'hp');
     }
 
     // Crea effetto Shield se necessario
     if (needsShieldRepair) {
-      await this.createRepairEffect(ecs, playerEntity, 'shield');
+      await this.createRepairEffect(ecs, targetEntity, 'shield');
     }
   }
 
   /**
    * Crea un effetto di riparazione per un tipo specifico (HP o shield)
    */
-  private async createRepairEffect(ecs: any, playerEntity: any, repairType: 'hp' | 'shield'): Promise<void> {
+  private async createRepairEffect(ecs: any, targetEntity: any, repairType: 'hp' | 'shield'): Promise<void> {
     // Carica i frame appropriati
     const cacheKey = repairType;
     if (!this.repairFramesCache) {
@@ -97,23 +101,22 @@ export class RepairStartedHandler extends BaseMessageHandler {
 
     // Crea entità effetto riparazione
     const repairEffectEntity = ecs.createEntity();
-    const playerTransform = ecs.getComponent(playerEntity, Transform);
+    const targetTransform = ecs.getComponent(targetEntity, Transform);
 
-    if (!playerTransform) {
-      console.warn('[RepairStartedHandler] Player transform not found');
+    if (!targetTransform) {
+      console.warn('[RepairStartedHandler] Target transform not found');
       ecs.removeEntity(repairEffectEntity);
       return;
     }
 
-    // Crea Transform per l'effetto (stessa posizione del player)
-    const effectTransform = new Transform(playerTransform.x, playerTransform.y, 0);
+    // Crea Transform per l'effetto (stessa posizione del target)
+    const effectTransform = new Transform(targetTransform.x, targetTransform.y, 0);
 
     // Crea RepairEffect con loop infinito (50ms per frame)
-    const repairEffect = new RepairEffect(repairFrames, 50, playerEntity.id);
+    const repairEffect = new RepairEffect(repairFrames, 50, targetEntity.id);
 
     // Aggiungi componenti
     ecs.addComponent(repairEffectEntity, Transform, effectTransform);
     ecs.addComponent(repairEffectEntity, RepairEffect, repairEffect);
-
   }
 }

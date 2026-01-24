@@ -11,33 +11,31 @@ export class RepairCompleteHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    if (import.meta.env.DEV) {
-    }
+    // 🚀 FIX: Trova l'entità corretta (locale o remota)
+    const targetEntity = message.clientId
+      ? networkSystem.findAnyPlayerEntity(message.clientId)
+      : networkSystem.getPlayerSystem()?.getPlayerEntity();
 
-    // Rimuovi effetto visivo di riparazione
-    removeRepairEffect(networkSystem);
+    if (targetEntity) {
+      // Rimuovi effetto visivo di riparazione per questa entità
+      removeRepairEffect(networkSystem, targetEntity);
+    }
   }
 }
 
 // Helper condiviso per rimuovere effetto
-function removeRepairEffect(networkSystem: ClientNetworkSystem): void {
+function removeRepairEffect(networkSystem: ClientNetworkSystem, targetEntity: any): void {
   const ecs = networkSystem.getECS();
-  const playerSystem = networkSystem.getPlayerSystem();
 
-  if (!ecs || !playerSystem) {
+  if (!ecs || !targetEntity) {
     return;
   }
 
-  const playerEntity = playerSystem.getPlayerEntity();
-  if (!playerEntity) {
-    return;
-  }
-
-  // Trova e rimuovi tutti gli effetti di riparazione per questo player
+  // Trova e rimuovi tutti gli effetti di riparazione per questa entità specifica
   const repairEffectEntities = ecs.getEntitiesWithComponents(RepairEffect);
   for (const entity of repairEffectEntities) {
     const repairEffect = ecs.getComponent(entity, RepairEffect);
-    if (repairEffect && repairEffect.targetEntityId === playerEntity.id) {
+    if (repairEffect && repairEffect.targetEntityId === targetEntity.id) {
       ecs.removeEntity(entity);
     }
   }

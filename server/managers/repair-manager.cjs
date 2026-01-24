@@ -130,13 +130,21 @@ class RepairManager {
 
     logger.info('REPAIR', `Player ${playerId} started repairing`);
 
-    // Notifica client
+    // Notifica TUTTI i client sulla mappa per mostrare l'effetto grafico
     const playerData = this.mapServer.players.get(playerId);
-    if (playerData?.ws) {
-      playerData.ws.send(JSON.stringify({
+    if (playerData) {
+      const startMessage = {
         type: 'repair_started',
-        playerId: playerData.playerId
-      }));
+        playerId: playerData.playerId,
+        clientId: playerData.clientId // Necessario per identificare l'entità nel client
+      };
+
+      if (this.mapServer.broadcastToMap) {
+        this.mapServer.broadcastToMap(startMessage);
+      } else if (playerData.ws) {
+        // Fallback se broadcast non disponibile
+        playerData.ws.send(JSON.stringify(startMessage));
+      }
     }
   }
 
@@ -154,13 +162,20 @@ class RepairManager {
 
     logger.info('REPAIR', `Player ${playerId} stopped repairing`);
 
-    // Notifica client
+    // Notifica TUTTI i client sulla mappa per rimuovere l'effetto grafico
     const playerData = this.mapServer.players.get(playerId);
-    if (playerData?.ws) {
-      playerData.ws.send(JSON.stringify({
+    if (playerData) {
+      const stopMessage = {
         type: 'repair_stopped',
-        playerId: playerData.playerId
-      }));
+        playerId: playerData.playerId,
+        clientId: playerData.clientId
+      };
+
+      if (this.mapServer.broadcastToMap) {
+        this.mapServer.broadcastToMap(stopMessage);
+      } else if (playerData.ws) {
+        playerData.ws.send(JSON.stringify(stopMessage));
+      }
     }
   }
 
@@ -234,12 +249,17 @@ class RepairManager {
 
     ServerLoggerWrapper.info('REPAIR', `Player ${playerId} repair completed (HP:${playerData.maxHealth}, Shield:${playerData.maxShield})`);
 
-    // Notifica client con repair_complete invece di repair_stopped
-    if (playerData?.ws) {
-      playerData.ws.send(JSON.stringify({
-        type: 'repair_complete',
-        playerId: playerData.playerId
-      }));
+    // Notifica TUTTI i client con repair_complete
+    const completeMessage = {
+      type: 'repair_complete',
+      playerId: playerData.playerId,
+      clientId: playerData.clientId
+    };
+
+    if (this.mapServer.broadcastToMap) {
+      this.mapServer.broadcastToMap(completeMessage);
+    } else if (playerData?.ws) {
+      playerData.ws.send(JSON.stringify(completeMessage));
     }
   }
 
