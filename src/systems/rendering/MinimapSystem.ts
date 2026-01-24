@@ -369,16 +369,30 @@ export class MinimapSystem extends BaseSystem {
    * Renderizza tutte le entità sulla minimappa
    */
   private renderEntities(ctx: CanvasRenderingContext2D): void {
+    if (!this.camera) return;
+
     // Renderizza NPC
     const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
 
+    // Distanza massima di visibilità radar (3000 unità)
+    const RADAR_RANGE = 3000;
+    const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE;
+
     npcEntities.forEach(entityId => {
       const transform = this.ecs.getComponent(entityId, Transform);
       if (transform) {
-        const isSelected = selectedNpcs.includes(entityId);
-        const color = isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor;
-        this.renderEntityDot(ctx, transform.x, transform.y, color);
+        // Calcola distanza al quadrato per evitare sqrt costosa
+        const dx = transform.x - this.camera!.x;
+        const dy = transform.y - this.camera!.y;
+        const distSq = dx * dx + dy * dy;
+
+        // Renderizza solo se entro il raggio radar
+        if (distSq <= RADAR_RANGE_SQ) {
+          const isSelected = selectedNpcs.includes(entityId);
+          const color = isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor;
+          this.renderEntityDot(ctx, transform.x, transform.y, color);
+        }
       }
     });
   }
@@ -401,7 +415,7 @@ export class MinimapSystem extends BaseSystem {
    * Renderizza i giocatori remoti sulla minimappa
    */
   private renderRemotePlayers(ctx: CanvasRenderingContext2D): void {
-    if (!this.clientNetworkSystem) {
+    if (!this.clientNetworkSystem || !this.camera) {
       return;
     }
 
@@ -419,9 +433,21 @@ export class MinimapSystem extends BaseSystem {
     // Ottieni le posizioni di tutti i giocatori remoti
     const remotePlayerPositions = remotePlayerSystem.getRemotePlayerPositions();
 
+    // Distanza massima di visibilità radar (3000 unità) - deve matchare renderEntities
+    const RADAR_RANGE = 3000;
+    const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE;
+
     // Renderizza ogni giocatore remoto come pallino giallo
     remotePlayerPositions.forEach((position: { x: number, y: number }) => {
-      this.renderEntityDot(ctx, position.x, position.y, '#FFFF00'); // Giallo per giocatori remoti
+      // Calcola distanza al quadrato
+      const dx = position.x - this.camera!.x;
+      const dy = position.y - this.camera!.y;
+      const distSq = dx * dx + dy * dy;
+
+      // Renderizza solo se entro il raggio radar
+      if (distSq <= RADAR_RANGE_SQ) {
+        this.renderEntityDot(ctx, position.x, position.y, '#FFFF00'); // Giallo per giocatori remoti
+      }
     });
   }
 

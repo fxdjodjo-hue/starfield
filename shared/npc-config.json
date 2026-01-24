@@ -34,8 +34,8 @@
       "shield": 25000,
       "damage": 5000,
       "range": 600,
-      "cooldown": 1500,
-      "speed": 300
+      "cooldown": 2000,
+      "speed": 350
     },
     "rewards": {
       "credits": 80000,
@@ -83,7 +83,7 @@
       "health": 1500,
       "shield": 1500,
       "damage": 3500,
-      "range": 650,
+      "range": 500,
       "cooldown": 1000,
       "speed": 450
     },
