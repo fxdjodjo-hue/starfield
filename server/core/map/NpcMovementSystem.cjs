@@ -28,6 +28,34 @@ class NpcMovementSystem {
       const startX = npc.position.x;
       const startY = npc.position.y;
 
+      const now = Date.now();
+      const attackRange = NPC_CONFIG[npc.type].stats.range;
+      const PURSUIT_RANGE = attackRange * 4;
+      const pursuitRangeSq = PURSUIT_RANGE * PURSUIT_RANGE;
+
+      // 🚀 ENGAGEMENT LOCK: Valida il target attuale
+      if (npc.lastAttackerId) {
+        const targetPlayer = players.get(npc.lastAttackerId);
+        let targetValid = false;
+
+        if (targetPlayer && !targetPlayer.isDead && targetPlayer.position) {
+          const dx = targetPlayer.position.x - npc.position.x;
+          const dy = targetPlayer.position.y - npc.position.y;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq <= pursuitRangeSq) {
+            targetValid = true;
+          }
+        }
+
+        if (!targetValid) {
+          // Reset del target se non è più valido (morto o troppo lontano)
+          npc.lastAttackerId = null;
+          // Non resettiamo lastDamage perché l'NPC deve rimanere in stato aggressive 
+          // finché non scade il timer naturale, cercando il prossimo player più vicino
+        }
+      }
+
       // Movimento semplice con velocity
       const speed = NPC_CONFIG[npc.type].stats.speed;
 
@@ -53,8 +81,6 @@ class NpcMovementSystem {
       }
 
       // Calcola comportamento e movimento
-      const now = Date.now();
-      const attackRange = NPC_CONFIG[npc.type].stats.range;
       const behavior = this.calculateBehavior(npc, now, players, attackRange);
       npc.behavior = behavior;
 

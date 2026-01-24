@@ -43,7 +43,13 @@ class NpcDamageHandler {
 
     npc.lastUpdate = Date.now();
     npc.lastDamage = Date.now(); // Traccia quando è stato danneggiato
-    npc.lastAttackerId = attackerId; // Traccia l'ultimo player che lo ha colpito
+
+    // 🚀 ENGAGEMENT LOCK: Imposta l'attaccante solo se l'NPC non ne ha già uno.
+    // Questo previene il comportamento confuso tra più player.
+    // Il reset del target avviene nel NpcMovementSystem se il player muore o scappa.
+    if (!npc.lastAttackerId) {
+      npc.lastAttackerId = attackerId;
+    }
 
     // Damage details logging removed for production - too verbose
 
