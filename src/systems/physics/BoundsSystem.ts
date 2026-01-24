@@ -20,11 +20,19 @@ export class BoundsSystem extends BaseSystem {
   // Timer accumulatore per il danno periodico
   private damageTimer = 0;
   private readonly DAMAGE_INTERVAL = 1000; // 1 secondo
-  private readonly DAMAGE_AMOUNT = 10;
+  private readonly DAMAGE_AMOUNT = 1000;
 
   // Timer atomico per warning vocale periodico (basato su timestamp assoluti)
   private lastWarningTime = 0;
   private readonly WARNING_INTERVAL = 3000; // 3 secondi
+
+  // Asset animazione radiazione
+  private radiationAtlas: any = null;
+  private radiationFrames: HTMLImageElement[] = [];
+  private radiationAnimationFrame = 0;
+  private animationTimer = 0;
+  private readonly FRAME_DURATION = 1000 / 15; // 15 FPS per l'animazione
+  private isLoadingRadiation = false;
 
   // Sistema audio
   private audioSystem: any = null;
@@ -36,6 +44,26 @@ export class BoundsSystem extends BaseSystem {
   constructor(ecs: ECS, cameraSystem: CameraSystem) {
     super(ecs);
     this.cameraSystem = cameraSystem;
+    this.loadRadiationAssets();
+  }
+
+  /**
+   * Carica gli asset per l'animazione della radiazione
+   */
+  private async loadRadiationAssets(): Promise<void> {
+    if (this.isLoadingRadiation) return;
+    this.isLoadingRadiation = true;
+
+    try {
+      const { AtlasParser } = await import('../../core/utils/AtlasParser');
+      const atlasData = await AtlasParser.parseAtlas('assets/radiation/radiation.atlas');
+      this.radiationFrames = await AtlasParser.extractFrames(atlasData);
+      console.log(`[BoundsSystem] Cucinati ${this.radiationFrames.length} frame di radiazione.`);
+    } catch (error) {
+      console.error('[BoundsSystem] Errore caricamento radiation assets:', error);
+    } finally {
+      this.isLoadingRadiation = false;
+    }
   }
 
   /**
@@ -67,6 +95,13 @@ export class BoundsSystem extends BaseSystem {
       // Accumula tempo per il danno periodico
       this.damageTimer += deltaTime;
 
+      // Aggiorna animazione radiazione
+      this.animationTimer += deltaTime;
+      if (this.animationTimer >= this.FRAME_DURATION) {
+        this.radiationAnimationFrame = (this.radiationAnimationFrame + 1) % Math.max(1, this.radiationFrames.length);
+        this.animationTimer = 0;
+      }
+
       // Riproduci warning vocale ogni 3 secondi (controllo atomico)
       const now = Date.now();
       if (now - this.lastWarningTime >= this.WARNING_INTERVAL) {
@@ -88,12 +123,59 @@ export class BoundsSystem extends BaseSystem {
       // Reset di tutti i timer quando torna dentro i bounds
       this.damageTimer = 0;
       this.lastWarningTime = 0;
+      this.radiationAnimationFrame = 0;
     }
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    // Renderizza le linee di confine rosse
+    // 1. Renderizza le linee di confine rosse
     this.renderBounds(ctx);
+
+    // 2. Se fuori bounds, renderizza l'effetto radiazione overlay
+    if (this.playerEntity) {
+      const transform = this.ecs.getComponent(this.playerEntity, Transform);
+      if (transform && this.isOutOfBounds(transform.x, transform.y)) {
+        this.renderRadiationOverlay(ctx);
+      }
+    }
+  }
+
+  /**
+   * Renderizza l'effetto visivo della radiazione centrato sul giocatore
+   */
+  private renderRadiationOverlay(ctx: CanvasRenderingContext2D): void {
+    if (this.radiationFrames.length === 0 || !this.playerEntity) return;
+
+    const transform = this.ecs.getComponent(this.playerEntity, Transform);
+    if (!transform) return;
+
+    const camera = this.cameraSystem.getCamera();
+    if (!camera) return;
+
+    // Ottieni dimensioni logiche e posizione schermo del player
+    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    const screenPos = camera.worldToScreen(transform.x, transform.y, width, height);
+
+    const frame = this.radiationFrames[this.radiationAnimationFrame];
+    if (!frame) return;
+
+    ctx.save();
+
+    // Effetto "glow" energetico
+    ctx.globalAlpha = 0.8;
+    ctx.globalCompositeOperation = 'screen';
+
+    // Disegna l'animazione centrata sull'astronave
+    const size = 350; // Dimensione dell'effetto attorno al player
+    ctx.drawImage(
+      frame,
+      screenPos.x - size / 2,
+      screenPos.y - size / 2,
+      size,
+      size
+    );
+
+    ctx.restore();
   }
 
   /**
@@ -101,9 +183,9 @@ export class BoundsSystem extends BaseSystem {
    */
   private isOutOfBounds(x: number, y: number): boolean {
     return x < this.BOUNDS_LEFT ||
-           x > this.BOUNDS_RIGHT ||
-           y < this.BOUNDS_TOP ||
-           y > this.BOUNDS_BOTTOM;
+      x > this.BOUNDS_RIGHT ||
+      y < this.BOUNDS_TOP ||
+      y > this.BOUNDS_BOTTOM;
   }
 
   /**

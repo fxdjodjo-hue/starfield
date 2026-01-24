@@ -11,6 +11,7 @@ export class AuthFormManager {
   private readonly handleLogin: (email: string, password: string, button: HTMLButtonElement) => Promise<void>;
   private readonly handleRegister: (email: string, password: string, confirmPassword: string, nickname: string, button: HTMLButtonElement) => Promise<void>;
   private readonly setState: (state: AuthState) => void;
+  private readonly onPlayClickSound?: () => void;
   private feedbackElement?: HTMLDivElement;
 
   constructor(
@@ -20,7 +21,8 @@ export class AuthFormManager {
     handleLogin: (email: string, password: string, button: HTMLButtonElement) => Promise<void>,
     handleRegister: (email: string, password: string, confirmPassword: string, nickname: string, button: HTMLButtonElement) => Promise<void>,
     setState: (state: AuthState) => void,
-    showButtonLoading: (button: HTMLButtonElement, show: boolean) => void
+    showButtonLoading: (button: HTMLButtonElement, show: boolean) => void,
+    onPlayClickSound?: () => void
   ) {
     this.authContainer = authContainer;
     this.getCurrentState = getCurrentState;
@@ -28,6 +30,7 @@ export class AuthFormManager {
     this.handleLogin = handleLogin;
     this.handleRegister = handleRegister;
     this.setState = setState;
+    this.onPlayClickSound = onPlayClickSound;
   }
 
   /**
@@ -120,6 +123,7 @@ export class AuthFormManager {
           });
           link.addEventListener('click', (e) => {
             e.preventDefault();
+            if (this.onPlayClickSound) this.onPlayClickSound();
             this.setState(AuthState.REGISTER);
           });
         }
@@ -158,6 +162,7 @@ export class AuthFormManager {
           });
           link.addEventListener('click', (e) => {
             e.preventDefault();
+            if (this.onPlayClickSound) this.onPlayClickSound();
             this.setState(AuthState.LOGIN);
           });
         }
@@ -253,6 +258,7 @@ export class AuthFormManager {
           });
           link.addEventListener('click', (e) => {
             e.preventDefault();
+            if (this.onPlayClickSound) this.onPlayClickSound();
             this.setState(AuthState.LOGIN);
           });
         }
@@ -362,6 +368,7 @@ export class AuthFormManager {
     });
     forgotAnchor.addEventListener('click', (e) => {
       e.preventDefault();
+      if (this.onPlayClickSound) this.onPlayClickSound();
       this.setState(AuthState.FORGOT_PASSWORD);
     });
     forgotLink.appendChild(forgotAnchor);
@@ -601,6 +608,7 @@ export class AuthFormManager {
     // Click
     button.addEventListener('mousedown', () => {
       if (!this.isProcessing()) {
+        if (this.onPlayClickSound) this.onPlayClickSound();
         button.style.transform = 'translateY(0) scale(0.98)';
       }
     });

@@ -92,7 +92,8 @@ export class AuthScreen {
         (email, password, button) => this.sessionManager.handleLogin(email, password, button),
         (email, password, confirmPassword, nickname, button) => this.sessionManager.handleRegister(email, password, confirmPassword, nickname, button),
         (state) => this.stateManager.setState(state),
-        (button, show) => this.formManager.showButtonLoading(button, show)
+        (button, show) => this.formManager.showButtonLoading(button, show),
+        () => this.initManager.playClickSound()
       );
 
       // Set form manager reference

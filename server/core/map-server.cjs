@@ -65,6 +65,9 @@ class MapServer {
 
   removePlayer(clientId) {
     this.players.delete(clientId);
+    if (this.hazardManager) {
+      this.hazardManager.removePlayer(clientId);
+    }
   }
 
   // Metodi delegati ai managers
@@ -99,6 +102,11 @@ class MapServer {
       // 6. Processa riparazioni player
       if (this.repairManager) {
         this.repairManager.updateRepairs(Date.now());
+      }
+
+      // 7. Processa hazard ambientali (radiazioni)
+      if (this.hazardManager) {
+        this.hazardManager.updateHazards(Date.now());
       }
 
     } catch (error) {

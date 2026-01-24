@@ -15,6 +15,11 @@ export class AuthInitializationManager {
   private playtestModal: PlaytestCodeModal;
   private statusInterval?: any;
 
+  // Audio system for login screen
+  private backgroundMusic: HTMLAudioElement | null = null;
+  private uiSound: HTMLAudioElement | null = null;
+  private interactionListener: (() => void) | null = null;
+
   constructor() {
     // Initialize UI renderer
     this.uiRenderer = new AuthUIRenderer();
@@ -26,12 +31,106 @@ export class AuthInitializationManager {
     this.authContainer = uiElements.authContainer;
 
     this.playtestModal = new PlaytestCodeModal();
+
+    // Initialize audio systems
+    this.initializeMusic();
+    this.initializeUISound();
+  }
+
+  /**
+   * Inizializza l'oggetto Audio per la musica di sottofondo
+   */
+  private initializeMusic(): void {
+    try {
+      this.backgroundMusic = new Audio('assets/audio/loginscreenmusic/loginmusic.mp3');
+      this.backgroundMusic.loop = true;
+      this.backgroundMusic.volume = 0; // Inizia muto per il fade-in
+
+      // Gestione autoplay: molti browser bloccano audio non richiesto dall'utente
+      this.interactionListener = () => {
+        this.tryPlayMusic();
+      };
+      document.addEventListener('click', this.interactionListener, { once: true });
+      document.addEventListener('keydown', this.interactionListener, { once: true });
+    } catch (e) {
+      console.warn('[AuthAudio] Failed to initialize background music:', e);
+    }
+  }
+
+  /**
+   * Inizializza l'oggetto Audio per gli effetti sonori UI
+   */
+  private initializeUISound(): void {
+    try {
+      this.uiSound = new Audio('assets/audio/loginscreenmusic/uiSounds.mp3');
+      this.uiSound.volume = 0.4; // Volume personalizzato per i click
+    } catch (e) {
+      console.warn('[AuthAudio] Failed to initialize UI sound:', e);
+    }
+  }
+
+  /**
+   * Riproduce l'effetto sonoro dei click
+   */
+  public playClickSound(): void {
+    if (!this.uiSound) return;
+
+    // Reset della traccia per permettere riproduzioni veloci consecutive
+    this.uiSound.currentTime = 0;
+    this.uiSound.play().catch(err => {
+      // Ignora errori di riproduzione silenziosamente
+    });
+  }
+
+  /**
+   * Tenta di riprodurre la musica con un effetto di entrata graduale
+   */
+  private tryPlayMusic(): void {
+    if (!this.backgroundMusic || !this.backgroundMusic.paused) return;
+    this.fadeInMusic();
+  }
+
+  /**
+   * Entrata graduale della musica
+   */
+  private fadeInMusic(): void {
+    if (!this.backgroundMusic) return;
+
+    const targetVolume = 0.5; // Volume finale desiderato
+    this.backgroundMusic.volume = 0;
+
+    this.backgroundMusic.play().then(() => {
+      const fadeDuration = 10000; // 3 secondi per un'entrata molto dolce
+      const interval = 50; // ogni 50ms
+      const steps = fadeDuration / interval;
+      const volumeStep = targetVolume / steps;
+
+      const fadeInterval = setInterval(() => {
+        if (!this.backgroundMusic) {
+          clearInterval(fadeInterval);
+          return;
+        }
+
+        if (this.backgroundMusic.volume < targetVolume - volumeStep) {
+          this.backgroundMusic.volume += volumeStep;
+        } else {
+          this.backgroundMusic.volume = targetVolume;
+          clearInterval(fadeInterval);
+        }
+      }, interval);
+    }).catch(err => {
+      // Autoplay ancora bloccato o file non trovato
+      console.log('[AuthAudio] Playback blocked or failed:', err.message);
+    });
   }
 
   /**
    * Inizializza la schermata
    */
   async initialize(sessionManager: AuthSessionManager, hasJustLoggedIn: boolean): Promise<void> {
+    // Tenta il play immediato (potrebbe fallire se non c'è stata interazione)
+    this.tryPlayMusic();
+
     // Playtest disabilitato - procedi direttamente
     if (!hasJustLoggedIn) {
       await sessionManager.checkExistingSession();
@@ -80,6 +179,8 @@ export class AuthInitializationManager {
    * Nasconde la schermata (chiamato quando i dati sono pronti)
    */
   hide(): void {
+    // Dissolvenza musica
+    this.fadeOutMusic();
 
     // Fade out animato più duraturo
     this.container.style.transition = 'opacity 1.2s ease-out';
@@ -100,9 +201,48 @@ export class AuthInitializationManager {
   }
 
   /**
+   * Sfuma gradualmente la musica fino a fermarla
+   */
+  private fadeOutMusic(): void {
+    if (!this.backgroundMusic) return;
+
+    const startVolume = this.backgroundMusic.volume;
+    const fadeDuration = 1000; // 1 secondo
+    const interval = 50; // ogni 50ms
+    const steps = fadeDuration / interval;
+    const volumeStep = startVolume / steps;
+
+    const fadeInterval = setInterval(() => {
+      if (!this.backgroundMusic) {
+        clearInterval(fadeInterval);
+        return;
+      }
+
+      if (this.backgroundMusic.volume > volumeStep) {
+        this.backgroundMusic.volume -= volumeStep;
+      } else {
+        this.backgroundMusic.volume = 0;
+        this.backgroundMusic.pause();
+        clearInterval(fadeInterval);
+      }
+    }, interval);
+  }
+
+  /**
    * Distrugge la schermata
    */
   destroy(): void {
+    // Cleanup audio
+    if (this.backgroundMusic) {
+      this.backgroundMusic.pause();
+      this.backgroundMusic = null;
+    }
+
+    if (this.interactionListener) {
+      document.removeEventListener('click', this.interactionListener);
+      document.removeEventListener('keydown', this.interactionListener);
+    }
+
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }

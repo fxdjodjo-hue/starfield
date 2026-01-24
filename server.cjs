@@ -26,6 +26,7 @@ const ServerNpcManager = require('./server/managers/npc-manager.cjs');
 const ServerCombatManager = require('./server/managers/combat-manager.cjs');
 const ServerProjectileManager = require('./server/managers/projectile-manager.cjs');
 const RepairManager = require('./server/managers/repair-manager.cjs');
+const HazardManager = require('./server/managers/hazard-manager.cjs');
 
 // Core
 const MapServer = require('./server/core/map-server.cjs');
@@ -392,7 +393,10 @@ mapServer.combatManager = new ServerCombatManager(mapServer);
 // Aggiungi repair manager alla mappa
 mapServer.repairManager = new RepairManager(mapServer);
 
-ServerLoggerWrapper.info('SERVER', 'Map system initialized with combat and repair managers');
+// Aggiungi hazard manager alla mappa
+mapServer.hazardManager = new HazardManager(mapServer);
+
+ServerLoggerWrapper.info('SERVER', 'Map system initialized with combat, repair and hazard managers');
 
 /**
  * Processa la queue degli aggiornamenti posizione per ridurre race conditions

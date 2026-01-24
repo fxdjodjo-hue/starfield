@@ -247,9 +247,30 @@ export class UiSystem extends System {
    * Imposta lo stato della Safe Zone nell'HUD (centrato in alto)
    */
   setSafeZone(isSafe: boolean): void {
-    const safeIndicator = document.getElementById('safe-zone-text-indicator');
-    if (safeIndicator) {
-      safeIndicator.style.display = isSafe ? 'block' : 'none';
+    if (this.safeZoneElement) {
+      const safeIndicator = document.getElementById('safe-zone-text-indicator');
+
+      if (isSafe) {
+        if (safeIndicator) safeIndicator.style.display = 'block';
+        this.safeZoneElement.style.display = 'flex';
+
+        requestAnimationFrame(() => {
+          if (this.safeZoneElement) {
+            this.safeZoneElement.style.opacity = '1';
+          }
+        });
+      } else {
+        this.safeZoneElement.style.opacity = '0';
+
+        // ASPETTA che la dissolvenza finisca prima di togliere il display
+        // Questo evita che SAFEZONE sparisca di scatto
+        setTimeout(() => {
+          if (this.safeZoneElement && this.safeZoneElement.style.opacity === '0') {
+            this.safeZoneElement.style.display = 'none';
+            if (safeIndicator) safeIndicator.style.display = 'none';
+          }
+        }, 850); // Leggermente più della transizione (0.8s)
+      }
     }
   }
 
@@ -263,48 +284,51 @@ export class UiSystem extends System {
     this.safeZoneElement = document.createElement('div');
     this.safeZoneElement.id = 'world-location-indicator';
 
-    // Stile minimalista centrato in alto
+    // Stile minimalista centrato in alto - Più in basso e più grande
     this.safeZoneElement.style.cssText = `
       position: fixed;
-      top: 60px;
+      top: 100px;
       left: 50%;
       transform: translateX(-50%);
       text-align: center;
       z-index: 999;
       pointer-events: none;
-      display: flex;
+      display: none;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
-      opacity: 0.9;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
     `;
 
-    // Nome della mappa
+    // Nome della mappa - Molto più grande
     const mapName = document.createElement('div');
     mapName.id = 'map-name-indicator';
     mapName.textContent = CONFIG.CURRENT_MAP.toUpperCase();
     mapName.style.cssText = `
       color: #ffffff;
       font-family: 'Segoe UI', Roboto, sans-serif;
-      font-size: 22px;
-      font-weight: 300;
-      letter-spacing: 8px;
-      text-shadow: 0 2px 15px rgba(0, 0, 0, 0.6);
+      font-size: 32px;
+      font-weight: 200;
+      letter-spacing: 12px;
+      text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+      margin-left: 12px; /* Compensa l'ultimo spacing */
     `;
 
-    // Testo SAFEZONE
+    // Testo SAFEZONE - Più grande e grassetto
     const safeZoneText = document.createElement('div');
     safeZoneText.id = 'safe-zone-text-indicator';
     safeZoneText.textContent = 'SAFEZONE';
     safeZoneText.style.cssText = `
       color: #ffffff;
       font-family: 'Segoe UI', Roboto, sans-serif;
-      font-size: 14px;
+      font-size: 18px;
       font-weight: 800;
-      letter-spacing: 4px;
-      margin-top: 6px;
-      display: none; /* Visibile solo quando in safe zone */
-      text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+      letter-spacing: 6px;
+      margin-top: 2px;
+      text-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
+      opacity: 0.8;
+      margin-left: 6px;
     `;
 
     this.safeZoneElement.appendChild(mapName);
