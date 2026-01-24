@@ -106,3 +106,59 @@ app.on('render-process-gone', (event, webContents, details) => {
 app.on('child-process-gone', (event, details) => {
     console.error('Child process gone:', details);
 });
+
+// --- AUTO UPDATER LOGIC ---
+const { autoUpdater } = require('electron-updater');
+
+// Configurazione base logging
+autoUpdater.logger = require('electron-log');
+if (autoUpdater.logger) {
+    autoUpdater.logger.transports.file.level = 'info';
+}
+
+function initAutoUpdater() {
+    if (isDev) {
+        console.log('Skipping auto-update check in dev mode');
+        return;
+    }
+
+    console.log('Initializing Auto-Updater...');
+
+    autoUpdater.on('checking-for-update', () => {
+        console.log('Checking for update...');
+    });
+
+    autoUpdater.on('update-available', (info) => {
+        console.log('Update available.', info);
+        // Qui potremmo inviare un messaggio alla splash screen per mostrare "Scaricamento..."
+    });
+
+    autoUpdater.on('update-not-available', (info) => {
+        console.log('Update not available.', info);
+    });
+
+    autoUpdater.on('error', (err) => {
+        console.error('Error in auto-updater. ', err);
+    });
+
+    autoUpdater.on('download-progress', (progressObj) => {
+        let log_message = "Download speed: " + progressObj.bytesPerSecond;
+        log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
+        log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
+        console.log(log_message);
+    });
+
+    autoUpdater.on('update-downloaded', (info) => {
+        console.log('Update downloaded');
+        // Installa subito e riavvia? O chiedi?
+        // Per ora: installa subito al prossimo riavvio
+        // autoUpdater.quitAndInstall(); 
+    });
+
+    // Avvia controllo
+    autoUpdater.checkForUpdatesAndNotify();
+}
+
+app.whenReady().then(() => {
+    initAutoUpdater(); // Avvia controllo update
+});
