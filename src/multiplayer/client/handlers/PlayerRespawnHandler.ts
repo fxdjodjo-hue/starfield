@@ -106,13 +106,14 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
 
     } else {
       // Update the respawned player's position and stats
-      if (networkSystem.remotePlayerManager) {
-        // For remote players, use handleUpdate to update position
-        // This will create the player if doesn't exist, or update if exists
-        networkSystem.remotePlayerManager.handleUpdate(clientId, position, 0);
+      const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
+      if (remotePlayerSystem) {
+        // 🚀 FIX: Usa snapRemotePlayer invece di un update normale.
+        // Questo forza la posizione immediata senza l'effetto "volo" (interpolazione)
+        // dalla posizione di morte allo spawn.
+        remotePlayerSystem.snapRemotePlayer(clientId, position.x, position.y, 0);
 
-        // Note: health/shield updates for remote players would need to be handled
-        // through the RemotePlayerSystem if needed for UI display
+        // Note: health/shield updates for remote players are handled via regular state sync
       }
     }
   }

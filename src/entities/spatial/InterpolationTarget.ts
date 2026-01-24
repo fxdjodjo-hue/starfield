@@ -35,8 +35,8 @@ export class InterpolationTarget {
    */
   private static isValidPosition(x: number, y: number): boolean {
     return Number.isFinite(x) && Number.isFinite(y) &&
-           x >= this.MIN_POSITION && x <= this.MAX_POSITION &&
-           y >= this.MIN_POSITION && y <= this.MAX_POSITION;
+      x >= this.MIN_POSITION && x <= this.MAX_POSITION &&
+      y >= this.MIN_POSITION && y <= this.MAX_POSITION;
   }
 
   /**
@@ -169,6 +169,23 @@ export class InterpolationTarget {
 
     // Aggiorna timestamp ultimo aggiornamento
     this.lastUpdateTime = now;
+  }
+
+  /**
+   * SNAP TO - Forza la posizione immediata senza interpolazione
+   * Usato per respawn o teleport per evitare l'effetto "volo"
+   */
+  snapTo(x: number, y: number, rotation: number): void {
+    const sanitizedPos = InterpolationTarget.sanitizePosition(x, y, this.targetX, this.targetY);
+
+    this.renderX = this.targetX = sanitizedPos.x;
+    this.renderY = this.targetY = sanitizedPos.y;
+    this.renderRotation = this.targetRotation = rotation;
+
+    this.lastUpdateTime = Date.now();
+    this.stabilityCounter = 0;
+    this.lastStableX = sanitizedPos.x;
+    this.lastStableY = sanitizedPos.y;
   }
 
   /**

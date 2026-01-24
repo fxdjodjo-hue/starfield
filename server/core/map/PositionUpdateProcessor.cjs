@@ -19,8 +19,10 @@ class PositionUpdateProcessor {
       const latestUpdate = updates[updates.length - 1];
       const playerData = players.get(clientId);
 
-      // Only broadcast if player still exists
-      if (!playerData) {
+      // Only broadcast if player still exists and is ALIVE
+      // 🚀 FIX VISIBILITÀ: Se il player è morto, non broadcastare la posizione.
+      // Questo impedisce che altri client "ricreino" l'entità morta tramite gli update di posizione periodici.
+      if (!playerData || playerData.isDead) {
         positionUpdateQueue.delete(clientId);
         continue;
       }

@@ -47,7 +47,7 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Trova l'entità di un giocatore remoto tramite clientId
    */
-  private findRemotePlayerEntity(clientId: string): Entity | null {
+  public findRemotePlayerEntity(clientId: string): Entity | null {
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
 
     for (const entity of remotePlayerEntities) {
