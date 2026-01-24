@@ -1,5 +1,5 @@
 import { InputValidator } from '../../core/utils/InputValidator';
-import { LoggerWrapper } from '../../core/data/LoggerWrapper';
+import { LoggerWrapper, LogCategory } from '../../core/data/LoggerWrapper';
 
 /**
  * InterpolationTarget SEMPLIFICATO - Sistema essenziale per Remote Player
@@ -155,7 +155,7 @@ export class InterpolationTarget {
     let sanitizedRotation = rotation;
     const rotationValidation = InputValidator.validateNumber(rotation, 'rotation');
     if (!rotationValidation.isValid) {
-      LoggerWrapper.warn('SYSTEM', `Invalid rotation ${rotation}, keeping current ${this.targetRotation}`, {
+      LoggerWrapper.warn(LogCategory.SYSTEM, `Invalid rotation ${rotation}, keeping current ${this.targetRotation}`, {
         rotation,
         currentRotation: this.targetRotation
       });
