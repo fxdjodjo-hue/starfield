@@ -213,59 +213,42 @@ export class BoundsSystem extends BaseSystem {
 
     ctx.save();
 
-    // Ottieni dimensioni logiche
     const { width, height } = DisplayManager.getInstance().getLogicalSize();
-
-    // Converti coordinate mondo in coordinate schermo
-    const topLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_TOP, width, height);
-    const topRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_TOP, width, height);
-    const bottomRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_BOTTOM, width, height);
-    const bottomLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_BOTTOM, width, height);
-
-    // Disegna solo "Particelle di Polvere" stellare (punti casuali lungo i bordi)
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Bianco puro brillante
     const now = Date.now();
-    const flowSpeed = 0.000005; // Velocità estremamente ridotta per un effetto quasi impercettibile e solenne
+    const flowSpeed = 0.000005;
 
-    // Funzione helper snella per spruzzare polvere che viaggia lungo un segmento
-    const sprinkleDust = (p1: { x: number, y: number }, p2: { x: number, y: number }, reverse: boolean = false) => {
-      const dx_total = p2.x - p1.x;
-      const dy_total = p2.y - p1.y;
-      const dist = Math.sqrt(dx_total * dx_total + dy_total * dy_total);
+    const worldW = this.BOUNDS_RIGHT - this.BOUNDS_LEFT;
+    const worldH = this.BOUNDS_BOTTOM - this.BOUNDS_TOP;
+    const totalPerim = 2 * (worldW + worldH);
 
-      // Parametri dinamici ottimizzati per visibilità
-      const step = 15; // Più densità (era 25)
-      const count = Math.floor(dist / step);
-      const t_flow = (now * flowSpeed) % 1.0;
+    const step = 20;
+    const particleCount = Math.floor(totalPerim / step);
+    const flowOffset = (now * flowSpeed * totalPerim) % totalPerim;
 
-      for (let i = 0; i < count; i++) {
-        let t_base = (i / count);
-        let t = (t_base + (reverse ? -t_flow : t_flow));
-        if (t < 0) t += 1.0;
-        if (t > 1) t -= 1.0;
+    ctx.fillStyle = 'white';
 
-        // Posizione laterale fissa (basata sull'indice per stabilità, non sul tempo)
-        // Questo rimuove l'effetto oscillazione/spirale mantenendo l'area sfumata
-        const jitterX = (Math.sin(i * 3.7) * 25);
-        const jitterY = (Math.sin(i * 5.2) * 25);
+    for (let i = 0; i < particleCount; i++) {
+      let d = (i * step + flowOffset) % totalPerim;
+      let wx, wy;
 
-        const x = p1.x + dx_total * t + jitterX;
-        const y = p1.y + dy_total * t + jitterY;
-
-        // Visibilità bilanciata (opacità quasi costante per ridurre lo scintillio)
-        const pulse = 0.5 + Math.abs(Math.sin(now * 0.001 + i * 0.5)) * 0.2;
-
-        ctx.globalAlpha = pulse;
-        const size = 1.5; // Dimensione ridotta (era 3.5)
-        ctx.fillRect(x, y, size, size);
+      if (d < worldW) {
+        wx = this.BOUNDS_LEFT + d; wy = this.BOUNDS_TOP;
+      } else if (d < worldW + worldH) {
+        wx = this.BOUNDS_RIGHT; wy = this.BOUNDS_TOP + (d - worldW);
+      } else if (d < 2 * worldW + worldH) {
+        wx = this.BOUNDS_RIGHT - (d - (worldW + worldH)); wy = this.BOUNDS_BOTTOM;
+      } else {
+        wx = this.BOUNDS_LEFT; wy = this.BOUNDS_BOTTOM - (d - (2 * worldW + worldH));
       }
-    };
 
-    // Applica polvere stellare che scorre lentamente in senso orario
-    sprinkleDust(topLeft, topRight);
-    sprinkleDust(topRight, bottomRight);
-    sprinkleDust(bottomRight, bottomLeft);
-    sprinkleDust(bottomLeft, topLeft);
+      const driftX = (Math.sin(i * 3.7 + now * 0.0003) * 20);
+      const driftY = (Math.sin(i * 5.2 + now * 0.0004) * 20);
+      const screenPos = camera.worldToScreen(wx, wy, width, height);
+      const pulse = 0.5 + Math.abs(Math.sin(now * 0.001 + i * 0.5)) * 0.2;
+
+      ctx.globalAlpha = pulse;
+      ctx.fillRect(screenPos.x + driftX, screenPos.y + driftY, 1.5, 1.5);
+    }
 
     ctx.restore();
   }
