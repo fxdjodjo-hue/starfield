@@ -435,6 +435,55 @@ export default class AudioSystem extends System {
     }
   }
 
+  /**
+   * Riproduce un suono ambientale in loop con volume dinamico
+   * @param key Chiave dell'asset (es. 'spaceStation')
+   * @param volume Volume target (0.0 - 1.0)
+   * @param category Categoria per il controllo volume (default: 'effects')
+   */
+  playAmbience(key: string, volume: number, category: keyof typeof AUDIO_ASSETS = 'effects'): void {
+    if (!this.config.enabled) return;
+
+    const soundKey = `ambience_${key}`;
+    let audio = this.sounds.get(soundKey);
+
+    // Se volume basso, ferma e rimuovi per risparmiare risorse
+    if (volume <= 0.01) {
+      if (audio) {
+        audio.pause();
+        this.sounds.delete(soundKey);
+        this.activeSoundCategories.delete(soundKey);
+        this.activeSoundBaseVolumes.delete(soundKey);
+      }
+      return;
+    }
+
+    // Se non esiste, crea nuova istanza
+    if (!audio) {
+      // Cerca in 'music' perché l'abbiamo messo lì nel config, ma permetti override
+      const assetPath = this.getAssetPath(key, 'music') || this.getAssetPath(key, 'effects');
+      if (!assetPath) return;
+
+      audio = new Audio(`assets/audio/${assetPath}`);
+      audio.loop = true;
+      this.sounds.set(soundKey, audio);
+      this.activeSoundCategories.set(soundKey, category);
+
+      audio.play().catch(e => console.warn(`[AudioSystem] Failed to play ambience ${key}`, e));
+    }
+
+    // Aggiorna volume base
+    this.activeSoundBaseVolumes.set(soundKey, volume);
+
+    // Applica volume immediato
+    const master = this.config.masterVolume;
+    const catVol = category === 'music' ? this.config.musicVolume :
+      category === 'effects' ? this.config.effectsVolume :
+        category === 'ui' ? this.config.uiVolume : 1.0;
+
+    audio.volume = Math.max(0, Math.min(1, master * catVol * volume));
+  }
+
   stopMusic(): void {
     if (this.musicInstance) {
       this.musicInstance.pause();

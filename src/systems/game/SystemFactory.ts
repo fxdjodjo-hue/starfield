@@ -221,7 +221,7 @@ export class SystemFactory {
     const asteroidSystem = new AsteroidSystem(ecs);
 
     // Sistema Safe Zone
-    const safeZoneSystem = new SafeZoneSystem(ecs, uiSystem!);
+    const safeZoneSystem = new SafeZoneSystem(ecs, uiSystem!, audioSystem);
 
     // Collega sistemi ai sistemi di combattimento modulari
     if (combatStateSystem) {

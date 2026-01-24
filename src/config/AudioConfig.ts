@@ -40,7 +40,8 @@ export const AUDIO_ASSETS = {
     gameplay: 'music/gameplay_theme.mp3',
     battle: 'music/battle_theme.mp3',
     victory: 'music/victory_theme.mp3',
-    defeat: 'music/defeat_theme.mp3'
+    defeat: 'music/defeat_theme.mp3',
+    spaceStation: '../spacestation/spaceStationSoundEffect.mp3'
   },
 
   // UI
