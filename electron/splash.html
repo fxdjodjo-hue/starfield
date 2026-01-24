@@ -37,11 +37,63 @@
                 transform: scale(1);
             }
         }
+
+        #status-container {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            text-align: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 14px;
+        }
+
+        #progress-container {
+            width: 200px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 10px auto 0;
+            border-radius: 2px;
+            overflow: hidden;
+            display: none;
+            /* Nascosto finché non scarica */
+        }
+
+        #progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #0088ff;
+            transition: width 0.2s;
+        }
     </style>
 </head>
 
 <body>
     <img src="./starspacelogo.png" alt="StarSpace Logo">
+
+    <div id="status-container">
+        <div id="status">Checking for updates...</div>
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+    </div>
+
+    <script>
+        const { ipcRenderer } = require('electron');
+        const statusEl = document.getElementById('status');
+        const barEl = document.getElementById('progress-bar');
+        const progressContainer = document.getElementById('progress-container');
+
+        ipcRenderer.on('update-message', (event, text) => {
+            statusEl.innerText = text;
+        });
+
+        ipcRenderer.on('download-progress', (event, percent) => {
+            progressContainer.style.display = 'block';
+            barEl.style.width = percent + '%';
+            statusEl.innerText = `Downloading update: ${Math.round(percent)}%`;
+        });
+    </script>
 </body>
 
 </html>

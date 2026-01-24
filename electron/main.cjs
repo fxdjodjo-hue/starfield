@@ -107,7 +107,6 @@ app.on('child-process-gone', (event, details) => {
     console.error('Child process gone:', details);
 });
 
-// --- AUTO UPDATER LOGIC ---
 const { autoUpdater } = require('electron-updater');
 
 // Configurazione base logging
@@ -124,35 +123,57 @@ function initAutoUpdater() {
 
     console.log('Initializing Auto-Updater...');
 
+    function sendStatusToSplash(text) {
+        if (splashWindow && !splashWindow.isDestroyed()) {
+            splashWindow.webContents.send('update-message', text);
+        }
+    }
+
     autoUpdater.on('checking-for-update', () => {
         console.log('Checking for update...');
+        sendStatusToSplash('Checking for updates...');
     });
 
     autoUpdater.on('update-available', (info) => {
         console.log('Update available.', info);
-        // Qui potremmo inviare un messaggio alla splash screen per mostrare "Scaricamento..."
+        sendStatusToSplash('Update found! Downloading...');
     });
 
     autoUpdater.on('update-not-available', (info) => {
         console.log('Update not available.', info);
+        sendStatusToSplash('Starting game...');
     });
 
     autoUpdater.on('error', (err) => {
         console.error('Error in auto-updater. ', err);
+        sendStatusToSplash('Update error. Starting anyway...');
+        // In caso di errore, avvia comunque il gioco dopo breve delay
+        setTimeout(() => {
+            if (mainWindow && !mainWindow.isVisible()) {
+                if (splashWindow && !splashWindow.isDestroyed()) splashWindow.close();
+                mainWindow.show();
+            }
+        }, 2000);
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
+        // Invia percentuale alla splash screen
+        if (splashWindow && !splashWindow.isDestroyed()) {
+            splashWindow.webContents.send('download-progress', progressObj.percent);
+        }
+
         let log_message = "Download speed: " + progressObj.bytesPerSecond;
         log_message = log_message + ' - Downloaded ' + progressObj.percent + '%';
-        log_message = log_message + ' (' + progressObj.transferred + "/" + progressObj.total + ')';
         console.log(log_message);
     });
 
     autoUpdater.on('update-downloaded', (info) => {
         console.log('Update downloaded');
-        // Installa subito e riavvia? O chiedi?
-        // Per ora: installa subito al prossimo riavvio
-        // autoUpdater.quitAndInstall(); 
+        sendStatusToSplash('Update downloaded. Installing...');
+        // Installa subito e riavvia
+        setTimeout(() => {
+            autoUpdater.quitAndInstall(true, true);
+        }, 1000);
     });
 
     // Avvia controllo
