@@ -324,29 +324,30 @@ export class FloatingIcon {
 
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     const dprCompensation = 1 / dpr;
+    const borderRadius = Math.round(DISPLAY_CONSTANTS.BORDER_RADIUS_SM * dprCompensation);
 
+    // Stile coordinato con la UI dei pannelli (Glassmorphism coerente)
     tooltip.style.cssText = `
       position: fixed;
       ${this.getTooltipPosition(config.position)}
-      padding: ${Math.round(8 * dprCompensation)}px ${Math.round(14 * dprCompensation)}px;
-      background: rgba(15, 23, 42, 0.85);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      padding: ${Math.round(6 * dprCompensation)}px ${Math.round(14 * dprCompensation)}px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: ${Math.round(8 * dprCompensation)}px;
-      color: white;
+      border-radius: ${borderRadius}px;
+      color: rgba(255, 255, 255, 0.9);
       font-size: ${Math.round(12 * dprCompensation)}px;
-      font-weight: 600;
-      font-family: 'Segoe UI', system-ui, sans-serif;
-      letter-spacing: 0.5px;
+      font-weight: 700;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      letter-spacing: 1px;
       text-transform: uppercase;
       white-space: nowrap;
       pointer-events: none;
       opacity: 0;
-      transform: translateX(${config.position.includes('left') ? '-10px' : '10px'});
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 2100;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      z-index: 2500;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     `;
 
     return tooltip;
@@ -361,34 +362,41 @@ export class FloatingIcon {
     const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE / dpr);
     const tooltipGap = Math.round(12 / dpr);
 
-    // Se l'icona è a sinistra, il tooltip va a destra dell'icona
+    const verticalAnchor = this.getVerticalAnchor(position);
+    const initialTranslateX = position.includes('left') ? '-10px' : '10px';
+
+    // Centratura perfetta: usiamo gli stessi valori top dell'icona e translateY(-50%)
     if (position.includes('left')) {
       const leftOffset = margin + iconSize + tooltipGap;
-      const topOffset = this.getVerticalOffset(position);
-      return `top: ${topOffset}; left: ${leftOffset}px; transform-origin: left center;`;
+      return `top: ${verticalAnchor}; left: ${leftOffset}px; transform: translateY(-50%) translateX(${initialTranslateX});`;
     }
 
-    // Se l'icona è a destra, il tooltip va a sinistra dell'icona
     if (position.includes('right')) {
       const rightOffset = margin + iconSize + tooltipGap;
-      const topOffset = this.getVerticalOffset(position);
-      return `top: ${topOffset}; right: ${rightOffset}px; transform-origin: right center;`;
+      return `top: ${verticalAnchor}; right: ${rightOffset}px; transform: translateY(-50%) translateX(${initialTranslateX});`;
     }
 
     return '';
   }
 
-  private getVerticalOffset(position: string): string {
+  /**
+   * Restituisce l'ancoraggio verticale IDENTICO a quello delle icone
+   */
+  private getVerticalAnchor(position: string): string {
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
+    const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE / dpr);
 
     switch (position) {
       case 'top-left':
       case 'top-right':
-        return `${margin + 12 / dpr}px`;
+        // Per top-x, l'icona è a 'margin' top. Il centro è margin + size/2
+        return `${margin + iconSize / 2}px`;
       case 'bottom-left':
       case 'bottom-right':
-        return `auto; bottom: ${margin + 12 / dpr}px;`;
+        // Per bottom-x, l'icona è a 'margin' bottom. Il centro è viewport - margin - size/2
+        const { height } = DisplayManager.getInstance().getLogicalSize();
+        return `${height - margin - iconSize / 2}px`;
       case 'center-left':
         return '41%';
       case 'center-left-below':
@@ -411,24 +419,15 @@ export class FloatingIcon {
     const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
 
     switch (position) {
-      case 'top-left':
-        return `top: ${margin}px; left: ${margin}px;`;
-      case 'top-right':
-        return `top: ${margin}px; right: ${margin}px;`;
-      case 'center-left':
-        return `top: 41%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below':
-        return `top: 47%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below2':
-        return `top: 53%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below3':
-        return `top: 59%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'bottom-left':
-        return `bottom: ${margin}px; left: ${margin}px;`;
-      case 'bottom-right':
-        return `bottom: ${margin}px; right: ${margin}px;`;
-      default:
-        return `top: 50%; left: ${margin}px; transform: translateY(-50%);`; // Default al centro sinistro
+      case 'top-left': return `top: ${margin}px; left: ${margin}px;`;
+      case 'top-right': return `top: ${margin}px; right: ${margin}px;`;
+      case 'center-left': return `top: 41%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below': return `top: 47%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below2': return `top: 53%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below3': return `top: 59%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'bottom-left': return `bottom: ${margin}px; left: ${margin}px;`;
+      case 'bottom-right': return `bottom: ${margin}px; right: ${margin}px;`;
+      default: return `top: 50%; left: ${margin}px; transform: translateY(-50%);`; // Default al centro sinistro
     }
   }
 
@@ -465,28 +464,21 @@ export class FloatingIcon {
     if (!document.body.contains(this.tooltip)) {
       document.body.appendChild(this.tooltip);
     }
-    // Breve ritardo per permettere il rendering del display:block prima dell'opacità
-    requestAnimationFrame(() => {
-      this.tooltip.style.opacity = '1';
-      this.tooltip.style.transform = `translateY(-50%) ${this.config.position.includes('left') ? 'translateX(0)' : 'translateX(0)'}`;
-    });
-    // Correzione translateY per tooltip centrati
-    if (this.config.position.includes('center')) {
-      this.tooltip.style.transform = 'translateY(-50%) translateX(0)';
-    } else {
-      this.tooltip.style.transform = 'translateX(0)';
-    }
+
+    // Forza reflow
+    this.tooltip.offsetHeight;
+
+    // Animazione (sempre centrata in Y, solo slide in X)
+    this.tooltip.style.opacity = '1';
+    this.tooltip.style.transform = 'translateY(-50%) translateX(0)';
   }
 
   private hideTooltip(): void {
-    this.tooltip.style.opacity = '0';
-    if (this.config.position.includes('center')) {
-      this.tooltip.style.transform = `translateY(-50%) ${this.config.position.includes('left') ? 'translateX(-10px)' : 'translateX(10px)'}`;
-    } else {
-      this.tooltip.style.transform = `${this.config.position.includes('left') ? 'translateX(-10px)' : 'translateX(10px)'}`;
-    }
+    const xTranslate = this.config.position.includes('left') ? '-10px' : '10px';
 
-    // Rimuovi dal DOM dopo l'animazione
+    this.tooltip.style.opacity = '0';
+    this.tooltip.style.transform = `translateY(-50%) translateX(${xTranslate})`;
+
     setTimeout(() => {
       if (!this.isHovered && this.tooltip.parentNode) {
         document.body.removeChild(this.tooltip);

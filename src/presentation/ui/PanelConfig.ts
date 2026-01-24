@@ -56,7 +56,7 @@ const PANEL_CONFIGS_BASE = {
     id: 'quest-panel',
     icon: '📜',
     svgPath: 'assets/svg/gameUi/dart-mission-goal-success-svgrepo-com.svg',
-    title: 'Missions & Quests',
+    title: 'Missions',
     position: 'center-left-below' as const,
     size: { ...LARGE_PANEL_SIZE }
   },
