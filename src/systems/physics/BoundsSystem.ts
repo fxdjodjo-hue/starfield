@@ -166,7 +166,7 @@ export class BoundsSystem extends BaseSystem {
     ctx.globalCompositeOperation = 'screen';
 
     // Disegna l'animazione centrata sull'astronave
-    const size = 350; // Dimensione dell'effetto attorno al player
+    const size = 250; // Dimensione ridotta per un effetto meno invasivo
     ctx.drawImage(
       frame,
       screenPos.x - size / 2,
@@ -205,36 +205,67 @@ export class BoundsSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza le linee di confine rosse (esattamente ai bordi della mappa)
+   * Renderizza i confini della mappa come particelle di "Polvere Stellare"
    */
   private renderBounds(ctx: CanvasRenderingContext2D): void {
-    ctx.save();
-
-    // Stile della linea di confine
-    ctx.strokeStyle = '#ff0000';
-    ctx.lineWidth = 3;
-    ctx.setLineDash([]); // Linea continua
-    ctx.globalAlpha = 0.8;
-
-    // Ottieni la camera dal camera system
     const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
-    // Converti coordinate mondo in coordinate schermo usando dimensioni logiche
+    ctx.save();
+
+    // Ottieni dimensioni logiche
     const { width, height } = DisplayManager.getInstance().getLogicalSize();
+
+    // Converti coordinate mondo in coordinate schermo
     const topLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_TOP, width, height);
     const topRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_TOP, width, height);
     const bottomRight = camera.worldToScreen(this.BOUNDS_RIGHT, this.BOUNDS_BOTTOM, width, height);
     const bottomLeft = camera.worldToScreen(this.BOUNDS_LEFT, this.BOUNDS_BOTTOM, width, height);
 
-    // Disegna il rettangolo di confine
-    ctx.beginPath();
-    ctx.moveTo(topLeft.x, topLeft.y);
-    ctx.lineTo(topRight.x, topRight.y);
-    ctx.lineTo(bottomRight.x, bottomRight.y);
-    ctx.lineTo(bottomLeft.x, bottomLeft.y);
-    ctx.closePath();
-    ctx.stroke();
+    // Disegna solo "Particelle di Polvere" stellare (punti casuali lungo i bordi)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Bianco puro brillante
+    const now = Date.now();
+    const flowSpeed = 0.000005; // Velocità estremamente ridotta per un effetto quasi impercettibile e solenne
+
+    // Funzione helper snella per spruzzare polvere che viaggia lungo un segmento
+    const sprinkleDust = (p1: { x: number, y: number }, p2: { x: number, y: number }, reverse: boolean = false) => {
+      const dx_total = p2.x - p1.x;
+      const dy_total = p2.y - p1.y;
+      const dist = Math.sqrt(dx_total * dx_total + dy_total * dy_total);
+
+      // Parametri dinamici ottimizzati per visibilità
+      const step = 15; // Più densità (era 25)
+      const count = Math.floor(dist / step);
+      const t_flow = (now * flowSpeed) % 1.0;
+
+      for (let i = 0; i < count; i++) {
+        let t_base = (i / count);
+        let t = (t_base + (reverse ? -t_flow : t_flow));
+        if (t < 0) t += 1.0;
+        if (t > 1) t -= 1.0;
+
+        // Posizione laterale fissa (basata sull'indice per stabilità, non sul tempo)
+        // Questo rimuove l'effetto oscillazione/spirale mantenendo l'area sfumata
+        const jitterX = (Math.sin(i * 3.7) * 25);
+        const jitterY = (Math.sin(i * 5.2) * 25);
+
+        const x = p1.x + dx_total * t + jitterX;
+        const y = p1.y + dy_total * t + jitterY;
+
+        // Visibilità bilanciata (opacità quasi costante per ridurre lo scintillio)
+        const pulse = 0.5 + Math.abs(Math.sin(now * 0.001 + i * 0.5)) * 0.2;
+
+        ctx.globalAlpha = pulse;
+        const size = 1.5; // Dimensione ridotta (era 3.5)
+        ctx.fillRect(x, y, size, size);
+      }
+    };
+
+    // Applica polvere stellare che scorre lentamente in senso orario
+    sprinkleDust(topLeft, topRight);
+    sprinkleDust(topRight, bottomRight);
+    sprinkleDust(bottomRight, bottomLeft);
+    sprinkleDust(bottomLeft, topLeft);
 
     ctx.restore();
   }
