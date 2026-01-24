@@ -43,7 +43,7 @@
   },
   "build": {
     "appId": "com.starfield.game",
-    "productName": "StarSpace",
+    "productName": "Starspace",
     "directories": {
       "output": "dist-electron"
     },
@@ -56,7 +56,7 @@
     "win": {
       "target": "nsis",
       "icon": "build/icon.ico",
-      "artifactName": "${productName} Setup.${ext}"
+      "artifactName": "${productName}Setup.${ext}"
     }
   }
 }

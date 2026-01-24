@@ -49,13 +49,25 @@ function createWindow() {
         // Delay artificiale minimo per mostrare il logo (opzionale, ma bello)
         setTimeout(() => {
             if (splashWindow && !splashWindow.isDestroyed()) {
-                splashWindow.close();
+                // Effetto fade-out prima di chiudere
+                let opacity = 1.0;
+                const fadeInterval = setInterval(() => {
+                    opacity -= 0.1;
+                    if (opacity <= 0) {
+                        clearInterval(fadeInterval);
+                        splashWindow.close();
+                        mainWindow.show();
+                    } else {
+                        splashWindow.setOpacity(opacity);
+                    }
+                }, 30); // Circa 300ms totali
+            } else {
+                mainWindow.show();
             }
-            mainWindow.show();
 
             // Apri DevTools per debug
             if (isDev) {
-                // mainWindow.webContents.openDevTools(); // Commentato in attesa di richiesta
+                // mainWindow.webContents.openDevTools();
             }
         }, 2000); // 2 secondi di splash screen
     });

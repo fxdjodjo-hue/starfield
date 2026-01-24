@@ -56,10 +56,35 @@ export class AuthSessionManager {
   }
 
   /**
-   * Salta il controllo della sessione esistente - sempre mostra login form
+   * Verifica se esiste una sessione attiva per il login persistente
    */
   async checkExistingSession(): Promise<void> {
-    this.setState(AuthState.LOGIN);
+    try {
+      this.setProcessing(true);
+      this.updateLoadingText('Checking session...');
+
+      const { data: { session }, error } = await supabase.auth.getSession();
+
+      if (error) {
+        throw error;
+      }
+
+      if (session?.user) {
+        console.log('✅ [AuthSessionManager] Sessione esistente trovata per:', session.user.email);
+
+        // NON autologgare più per richiesta utente
+        // Impostiamo però lo stato su LOGIN perché vogliamo mostrare il form
+        this.setState(AuthState.LOGIN);
+      } else {
+        // Nessuna sessione, mostra il form di login
+        this.setState(AuthState.LOGIN);
+      }
+    } catch (error) {
+      console.warn('⚠️ [AuthSessionManager] Errore controllo sessione:', error);
+      this.setState(AuthState.LOGIN);
+    } finally {
+      this.setProcessing(false);
+    }
   }
 
   /**
@@ -91,6 +116,11 @@ export class AuthSessionManager {
       }
 
       if (data.user) {
+        // Se il login ha successo, Supabase gestisce già la persistenza del token
+        // ma se volessimo che il sistema "dimentichi" l'utente in futuro
+        // potremmo gestire qui un logout esplicito se l'utente non avesse spuntato "Ricordami"
+        // Per ora, Supabase salva sempre la sessione.
+
 
         // Segna che abbiamo appena fatto login per evitare controlli di sessione
         this.setJustLoggedIn(true);

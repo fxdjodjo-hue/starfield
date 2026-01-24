@@ -277,6 +277,15 @@ export class AuthFormManager {
     emailInput.type = 'email';
     emailInput.placeholder = 'Email';
     emailInput.required = true;
+
+    // Tenta di recuperare l'ultima email usata dall'utente (se salvata localmente)
+    import('../../../../lib/SupabaseClient').then(async ({ supabase }) => {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.user?.email) {
+        emailInput.value = data.session.user.email;
+      }
+    });
+
     emailInput.style.cssText = this.getInputStyle();
     emailInput.addEventListener('focus', () => this.handleInputFocus(emailInput));
     emailInput.addEventListener('blur', () => this.handleInputBlur(emailInput));

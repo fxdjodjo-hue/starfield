@@ -34,7 +34,7 @@ export class AuthInitializationManager {
   async initialize(sessionManager: AuthSessionManager, hasJustLoggedIn: boolean): Promise<void> {
     // Playtest disabilitato - procedi direttamente
     if (!hasJustLoggedIn) {
-      sessionManager.checkExistingSession();
+      await sessionManager.checkExistingSession();
     }
 
     // Inizia il controllo dello stato del server
