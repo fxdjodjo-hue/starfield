@@ -842,7 +842,13 @@ export class CombatStateSystem extends BaseSystem {
     try {
       // Suono laser (stesso del player locale)
       if (audioSystem) {
-        audioSystem.playSound('laser', 0.03, false, true, 'effects'); // Volume ridotto, canale effects
+        // 🚀 FIX SPAZIALE: Usa playSoundAt per attenuare i laser lontani
+        audioSystem.playSoundAt(
+          'laser',
+          playerPosition.x,
+          playerPosition.y,
+          { volume: 0.03, allowMultiple: true, category: 'effects' }
+        );
       }
 
       // Carica immagine laser (stessa del player locale)

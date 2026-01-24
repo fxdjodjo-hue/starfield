@@ -38,8 +38,13 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     const audioSystem = networkSystem.getAudioSystem();
     if (audioSystem) {
       if (message.playerId.startsWith('npc_')) {
-        // Suono NPC gestito quando arrivano i loro proiettili dal server
-        audioSystem.playSound('scouterLaser', 0.05, false, true);
+        // 🚀 FIX SPAZIALE: Usa playSoundAt per i proiettili NPC per attenuare quelli lontani
+        audioSystem.playSoundAt(
+          'scouterLaser',
+          message.position.x,
+          message.position.y,
+          { volume: 0.05, allowMultiple: true, category: 'effects' }
+        );
       }
       // Suono laser player gestito lato client nei laser visivi per responsività immediata
     }

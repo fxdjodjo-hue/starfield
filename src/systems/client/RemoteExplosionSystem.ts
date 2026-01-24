@@ -87,7 +87,13 @@ export class RemoteExplosionSystem extends BaseSystem {
 
       // Riproduci suono esplosione sincronizzato
       if (this.audioSystem) {
-        this.audioSystem.playSound('explosion', 0.1, false, true); // Volume ridotto
+        // 🚀 FIX SPAZIALE: Usa playSoundAt per attenuare le esplosioni lontane
+        this.audioSystem.playSoundAt(
+          'explosion',
+          message.position.x,
+          message.position.y,
+          { volume: 0.1, allowMultiple: true, category: 'effects' }
+        );
       }
 
     } catch (error) {

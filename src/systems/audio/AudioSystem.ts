@@ -164,6 +164,80 @@ export default class AudioSystem extends System {
 
   // Metodi pubblici per gestione audio
 
+  /**
+   * Riproduce un suono in una posizione specifica (Positional Audio)
+   * Il volume viene attenuato in base alla distanza dal centro della camera
+   * @param key Chiave del suono
+   * @param x Coordinata X del mondo
+   * @param y Coordinata Y del mondo
+   * @param options Opzioni extra (volume base, loop, etc.)
+   */
+  playSoundAt(
+    key: string,
+    x: number,
+    y: number,
+    options: {
+      volume?: number;
+      loop?: boolean;
+      allowMultiple?: boolean;
+      category?: keyof typeof AUDIO_ASSETS;
+      debounceMs?: number;
+      maxDistance?: number;
+    } = {}
+  ): void {
+    if (!this.config.enabled) return;
+
+    // Distanza massima di default (2000 unità)
+    const maxDistance = options.maxDistance || 2000;
+    let finalVolume = options.volume !== undefined ? options.volume : this.config.effectsVolume;
+
+    try {
+      // Ottieni la posizione del player o del centro camera
+      const cameraSystem = this.ecs.getSystems().find(s => s.constructor.name === 'CameraSystem') as any;
+
+      if (cameraSystem) {
+        const camera = cameraSystem.getCamera();
+        // 🚀 FIX: La camera usa x/y come centro del mondo direttamente.
+        // In precedenza chiamavo getCenter() che non esiste, causando il fallback al volume pieno.
+        const cameraX = camera.x;
+        const cameraY = camera.y;
+
+        const dx = x - cameraX;
+        const dy = y - cameraY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance > maxDistance) {
+          // Suono troppo lontano, non riprodurre nulla
+          return;
+        }
+
+        // Calcola attenuazione lineare: 1.0 (vicino) -> 0.0 (maxDistance)
+        const attenuation = 1 - (distance / maxDistance);
+
+        // Applica curva quadratica per una caduta del suono più naturale (opzionale)
+        const smoothedAttenuation = attenuation * attenuation;
+
+        finalVolume *= smoothedAttenuation;
+      }
+    } catch (err) {
+      // In caso di errore nel calcolo della distanza, usa il volume originale
+      // (meglio sentire il suono che avere un crash o silenzio totale)
+    }
+
+    // Se il volume è trascurabile, ignora
+    if (finalVolume < 0.001) return;
+
+    // Riproduci il suono con il volume calcolato
+    this.playSound(
+      key,
+      finalVolume,
+      options.loop || false,
+      options.allowMultiple || false,
+      options.category || 'effects',
+      options.debounceMs || 50
+    );
+  }
+
   playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false, allowMultiple: boolean = false, category: keyof typeof AUDIO_ASSETS = 'effects', debounceMs: number = 50): void {
     if (!this.config.enabled) return;
 

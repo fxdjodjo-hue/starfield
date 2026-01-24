@@ -16,6 +16,13 @@ export class AudioNotificationSystem extends BaseSystem {
   }
 
   /**
+   * Update system loop (required by abstract base class)
+   */
+  update(deltaTime: number): void {
+    // No continuous logic needed for this notification system
+  }
+
+  /**
    * Imposta riferimento all'audio system
    */
   setAudioSystem(audioSystem: any): void {
@@ -32,12 +39,20 @@ export class AudioNotificationSystem extends BaseSystem {
       switch (message.type) {
         case 'entity_damaged':
           // Suono danno entity
-          this.audioSystem.playSound('entity_damage', 0.3, false, true);
+          if (message.position) {
+            this.audioSystem.playSoundAt('entity_damage', message.position.x, message.position.y, { volume: 0.3, allowMultiple: true });
+          } else {
+            this.audioSystem.playSound('entity_damage', 0.3, false, true);
+          }
           break;
 
         case 'entity_destroyed':
           // Suono distruzione entity
-          this.audioSystem.playSound('entity_destroyed', 0.4, false, true);
+          if (message.position) {
+            this.audioSystem.playSoundAt('entity_destroyed', message.position.x, message.position.y, { volume: 0.4, allowMultiple: true });
+          } else {
+            this.audioSystem.playSound('entity_destroyed', 0.4, false, true);
+          }
           break;
 
         case 'explosion_created':
