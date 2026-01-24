@@ -18,355 +18,224 @@ class NpcMovementSystem {
     const deltaTime = 1000 / 60; // Fixed timestep per fisica server
 
     for (const npc of allNpcs) {
-      // Validazione posizione iniziale
       if (!Number.isFinite(npc.position.x) || !Number.isFinite(npc.position.y)) {
-        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} has invalid initial position: (${npc.position.x}, ${npc.position.y}), skipping`);
         continue;
       }
 
-      // Salva posizione iniziale per calcolare movimento significativo
       const startX = npc.position.x;
       const startY = npc.position.y;
-
       const now = Date.now();
-      const attackRange = NPC_CONFIG[npc.type].stats.range;
-      const PURSUIT_RANGE = attackRange * 4;
-      const pursuitRangeSq = PURSUIT_RANGE * PURSUIT_RANGE;
+      const npcConfig = NPC_CONFIG[npc.type];
+      const attackRange = npcConfig.stats.range;
+      const speed = npcConfig.stats.speed;
 
-      // 🚀 ENGAGEMENT LOCK: Valida il target attuale
+      // 🔍 OTTIMIZZAZIONE: Trova il player più vicino una sola volta per NPC
+      let closestPlayer = null;
+      let closestDistSq = Infinity;
+
+      for (const [clientId, playerData] of players.entries()) {
+        if (!playerData.position || playerData.isDead) continue;
+        const dx = playerData.position.x - npc.position.x;
+        const dy = playerData.position.y - npc.position.y;
+        const distSq = dx * dx + dy * dy;
+
+        if (distSq < closestDistSq) {
+          closestDistSq = distSq;
+          closestPlayer = { id: clientId, data: playerData, distSq: distSq };
+        }
+      }
+
+      // 🚀 ENGAGEMENT LOCK: Valida se il target attuale è ancora valido
       if (npc.lastAttackerId) {
         const targetPlayer = players.get(npc.lastAttackerId);
+        const PURSUIT_RANGE = attackRange * 4;
+        const pursuitRangeSq = PURSUIT_RANGE * PURSUIT_RANGE;
         let targetValid = false;
 
         if (targetPlayer && !targetPlayer.isDead && targetPlayer.position) {
           const dx = targetPlayer.position.x - npc.position.x;
           const dy = targetPlayer.position.y - npc.position.y;
           const distSq = dx * dx + dy * dy;
-
-          if (distSq <= pursuitRangeSq) {
-            targetValid = true;
-          }
+          if (distSq <= pursuitRangeSq) targetValid = true;
         }
 
-        if (!targetValid) {
-          // Reset del target se non è più valido (morto o troppo lontano)
-          npc.lastAttackerId = null;
-          // Non resettiamo lastDamage perché l'NPC deve rimanere in stato aggressive 
-          // finché non scade il timer naturale, cercando il prossimo player più vicino
-        }
+        if (!targetValid) npc.lastAttackerId = null;
       }
 
-      // Movimento semplice con velocity
-      const speed = NPC_CONFIG[npc.type].stats.speed;
-
-      // Validazione velocità: assicurati che siano finite
+      // Validazione velocità
       if (!Number.isFinite(npc.velocity.x) || !Number.isFinite(npc.velocity.y)) {
-        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} velocity became NaN, resetting with config-based speed`);
-        // Reset con velocità basata sulla configurazione NPC invece di valori casuali fissi
-        const resetSpeed = speed * 0.3; // 30% della velocità massima come fallback
         const angle = Math.random() * Math.PI * 2;
-        npc.velocity.x = Math.cos(angle) * resetSpeed;
-        npc.velocity.y = Math.sin(angle) * resetSpeed;
+        npc.velocity.x = Math.cos(angle) * speed * 0.3;
+        npc.velocity.y = Math.sin(angle) * speed * 0.3;
       }
 
-      // Validazione parametri movimento
-      if (!Number.isFinite(speed) || speed <= 0) {
-        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} invalid speed: ${speed}`);
-        continue; // Salta questo NPC
-      }
-
-      if (!Number.isFinite(deltaTime) || deltaTime <= 0) {
-        ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} invalid deltaTime: ${deltaTime}`);
-        continue; // Salta questo NPC
-      }
-
-      // Calcola comportamento e movimento
-      const behavior = this.calculateBehavior(npc, now, players, attackRange);
+      // Determina comportamento e movimento
+      const behavior = this.calculateBehavior(npc, now, closestPlayer, attackRange, npcConfig);
       npc.behavior = behavior;
 
-      // Calcola movimento basato sul comportamento
-      const movement = this.calculateMovement(npc, players, speed, deltaTime, attackRange, behavior);
-      const { deltaX, deltaY } = movement;
+      const movement = this.calculateMovement(npc, closestPlayer, players, speed, deltaTime, attackRange, behavior);
 
       // Calcola nuova posizione
-      const newX = npc.position.x + deltaX;
-      const newY = npc.position.y + deltaY;
+      const newX = npc.position.x + movement.deltaX;
+      const newY = npc.position.y + movement.deltaY;
 
       // Validazione e applicazione movimento
-      if (!this.validateAndApplyMovement(npc, newX, newY, deltaX, deltaY, speed, deltaTime, npcManager)) {
-        continue; // Salta questo NPC se validazione fallita
+      if (this.validateAndApplyMovement(npc, newX, newY, movement.deltaX, movement.deltaY, speed, deltaTime, npcManager)) {
+        const dxSignificant = npc.position.x - startX;
+        const dySignificant = npc.position.y - startY;
+        if ((dxSignificant * dxSignificant + dySignificant * dySignificant) > 25) {
+          npc.lastSignificantMove = now;
+        }
       }
 
-      // Calcola movimento significativo (solo se spostamento > 5px)
-      const dx = npc.position.x - startX;
-      const dy = npc.position.y - startY;
-      const distSq = dx * dx + dy * dy;
-
-      if (distSq > 25) { // 5px threshold
-        npc.lastSignificantMove = Date.now();
-      }
-
-      // Aggiorna rotazione dello sprite basandosi sulla velocity
+      // Rotazione per stati non combattivi
       if (behavior === 'cruise' || behavior === 'idle') {
         if (npc.velocity.x !== 0 || npc.velocity.y !== 0) {
           npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
         }
       }
 
-      npc.lastUpdate = Date.now();
+      npc.lastUpdate = now;
     }
   }
 
   /**
-   * Calcola comportamento NPC basato su salute, danno recente, e presenza player
-   * @param {Object} npc - NPC da analizzare
-   * @param {number} now - Timestamp corrente
-   * @param {Map} players - Map di players
-   * @param {number} attackRange - Range di attacco
-   * @returns {string} Comportamento: 'flee', 'aggressive', o 'cruise'
+   * Calcola comportamento NPC
    */
-  static calculateBehavior(npc, now, players, attackRange) {
-    // Calcola info su player nel range di attacco
-    const attackRangeSq = attackRange * attackRange;
-    let hasPlayerInRange = false;
-
-    for (const [clientId, playerData] of players.entries()) {
-      if (!playerData.position) continue;
-      const dx = playerData.position.x - npc.position.x;
-      const dy = playerData.position.y - npc.position.y;
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq <= attackRangeSq) {
-        hasPlayerInRange = true;
-        break;
-      }
-    }
-
-    // Traccia ultimo momento in cui aveva un player nel range
-    if (hasPlayerInRange) {
-      npc.lastPlayerInRange = now;
-    }
-
-    // Aggiorna comportamento NPC:
-    // - flee: salute < 50%
-    // - aggressive: danneggiato E player nel range esteso E non troppo tempo fa
-    // - cruise: default
+  static calculateBehavior(npc, now, closestPlayer, attackRange, npcConfig) {
     const healthPercent = npc.maxHealth > 0 ? npc.health / npc.maxHealth : 1;
-    const PURSUIT_RANGE = attackRange * 4; // Range di inseguimento esteso - aumentato per test
-    const MAX_AGGRO_TIME = 30000; // 30 secondi max di aggressività
-    const pursuitRangeSq = PURSUIT_RANGE * PURSUIT_RANGE;
 
-    // Controlla se il player è ancora nel range di inseguimento
-    let playerInPursuitRange = false;
-    let withinTimeLimit = false;
+    // 1. Fuga se salute bassa
+    if (healthPercent < 0.5) return 'flee';
 
-    if (npc.lastDamage) { // Solo se è stato danneggiato almeno una volta
-      // Controllo temporale: non rimanere aggressivo per sempre
-      if ((now - npc.lastDamage) < MAX_AGGRO_TIME) {
-        withinTimeLimit = true;
+    // 2. Aggressività per danno ricevuto (Combat Lock)
+    if (npc.lastAttackerId) return 'aggressive';
 
-        // Controllo spaziale: player deve essere nel range
-        for (const [clientId, playerData] of players.entries()) {
-          if (!playerData.position) continue;
-          const dx = playerData.position.x - npc.position.x;
-          const dy = playerData.position.y - npc.position.y;
-          const distanceSq = dx * dx + dy * dy;
-          if (distanceSq <= pursuitRangeSq) {
-            playerInPursuitRange = true;
-            break;
-          }
-        }
-      } else {
-        // Tempo limite superato: resetta lastDamage per evitare spam nei log
-        npc.lastDamage = null;
-      }
-    }
-
-    if (healthPercent < 0.5) {
-      // Salute bassa: fuga
-      return 'flee';
-    } else if (npc.lastDamage && playerInPursuitRange) {
-      // Danneggiato E player ancora nel range esteso: rimane aggressivo
+    // 3. 🚀 PROACTIVE AGGRO: Aggressività per prossimità (Attack on Sight)
+    const detectionRange = npcConfig.ai?.detectionRange || 0;
+    if (detectionRange > 0 && closestPlayer && closestPlayer.distSq <= (detectionRange * detectionRange)) {
+      // Inizia a puntare il player che lo ha "triggerato"
+      npc.lastAttackerId = closestPlayer.id;
+      npc.lastDamage = now; // Simula un colpo per attivare la logica temporale esistente
       return 'aggressive';
-    } else {
-      // Player troppo lontano o mai danneggiato: cruise
-      return 'cruise';
     }
+
+    return 'cruise';
   }
 
   /**
    * Calcola movimento basato sul comportamento
-   * @param {Object} npc - NPC
-   * @param {Map} players - Map di players
-   * @param {number} speed - Velocità NPC
-   * @param {number} deltaTime - Delta time
-   * @param {number} attackRange - Range di attacco
-   * @param {string} behavior - Comportamento corrente
-   * @returns {{deltaX: number, deltaY: number}}
    */
-  static calculateMovement(npc, players, speed, deltaTime, attackRange, behavior) {
-    let deltaX = 0;
-    let deltaY = 0;
-
+  static calculateMovement(npc, closestPlayer, players, speed, deltaTime, attackRange, behavior) {
     switch (behavior) {
       case 'aggressive':
         return this.applyAggressiveMovement(npc, players, speed, deltaTime, attackRange);
       case 'flee':
-        return this.applyFleeMovement(npc, players, speed, deltaTime, attackRange);
+        return this.applyFleeMovement(npc, closestPlayer, speed, deltaTime, attackRange);
       case 'cruise':
         return this.applyCruiseMovement(npc, speed, deltaTime);
       default:
-        // Default: usa velocity corrente se presente
-        deltaX = npc.velocity.x * (deltaTime / 1000);
-        deltaY = npc.velocity.y * (deltaTime / 1000);
-        return { deltaX, deltaY };
+        return {
+          deltaX: npc.velocity.x * (deltaTime / 1000),
+          deltaY: npc.velocity.y * (deltaTime / 1000)
+        };
     }
   }
 
   /**
-   * Applica movimento aggressive (insegue player)
+   * Applica movimento aggressive (insegue e orbita)
    */
   static applyAggressiveMovement(npc, players, speed, deltaTime, attackRange) {
-    // PRIORITÀ 1: Ultimo attaccante
-    let targetPlayerData = null;
-    let targetPlayerPos = null;
+    const targetId = npc.lastAttackerId;
+    const targetPlayer = players.get(targetId);
 
-    if (npc.lastAttackerId) {
-      const attackerData = players.get(npc.lastAttackerId);
-      if (attackerData && attackerData.position) {
-        targetPlayerData = attackerData;
-        targetPlayerPos = { x: attackerData.position.x, y: attackerData.position.y };
-      }
-    }
-
-    // PRIORITÀ 2: Player più vicino (solo se non c'è un target per retaliation)
-    if (!targetPlayerPos) {
-      let closestDistSq = Infinity;
-      for (const [clientId, playerData] of players.entries()) {
-        if (!playerData || !playerData.position) continue;
-        const dx = playerData.position.x - npc.position.x;
-        const dy = playerData.position.y - npc.position.y;
-        const distanceSq = dx * dx + dy * dy;
-        if (distanceSq < closestDistSq) {
-          closestDistSq = distanceSq;
-          targetPlayerData = playerData;
-          targetPlayerPos = { x: playerData.position.x, y: playerData.position.y };
-        }
-      }
-    }
-
-    // Se non trovato, prova con l'ultimo attacker noto
-    if (!targetPlayerPos && npc.lastAttackerId) {
-      const attackerData = players.get(npc.lastAttackerId);
-      if (attackerData && attackerData.position) {
-        targetPlayerData = attackerData;
-        targetPlayerPos = { x: attackerData.position.x, y: attackerData.position.y };
-      }
-    }
-
-    if (targetPlayerPos && targetPlayerData) {
-      const dx = targetPlayerPos.x - npc.position.x;
-      const dy = targetPlayerPos.y - npc.position.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-
-      // LOGICA MODERNA: NPC mantiene movimento fluido per combattimento dinamico
-      const dtSec = deltaTime / 1000;
-      const OPTIMAL_DISTANCE = attackRange * 0.9; // 90% del range di attacco
-
-      let dirX, dirY, moveSpeed;
-
-      if (dist > OPTIMAL_DISTANCE) {
-        // Fuori range: avvicinati
-        dirX = dx / dist;
-        dirY = dy / dist;
-        moveSpeed = speed * dtSec;
-      } else {
-        // Nel range: movimento fluido e semplice
-        // Cambia direzione casualmente ogni tanto per movimento naturale
-        if (Math.random() < 0.02) { // 2% probabilità ogni frame di cambiare direzione
-          const angle = Math.random() * Math.PI * 2;
-          npc.velocity.x = Math.cos(angle) * speed;
-          npc.velocity.y = Math.sin(angle) * speed;
-        }
-        // Applica movimento con velocità originale
-        const deltaX = npc.velocity.x * (deltaTime / 1000);
-        const deltaY = npc.velocity.y * (deltaTime / 1000);
-
-        // IMPORTANTE: Anche nel movimento casuale, NPC guarda sempre al player
-        npc.position.rotation = Math.atan2(dy, dx);
-
-        return { deltaX, deltaY };
-      }
-
-      // NPC in combattimento: sempre faccia al player (come player con NPC)
-      npc.position.rotation = Math.atan2(dy, dx);
-
-      // Aggiorna velocity
-      npc.velocity.x = dirX * speed;
-      npc.velocity.y = dirY * speed;
-
-      return { deltaX: dirX * moveSpeed, deltaY: dirY * moveSpeed };
-    } else {
-      // Nessun player valido: comportamento cruise
+    if (!targetPlayer || !targetPlayer.position) {
       return this.applyCruiseMovement(npc, speed, deltaTime);
     }
+
+    const dx = targetPlayer.position.x - npc.position.x;
+    const dy = targetPlayer.position.y - npc.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+    const dtSec = deltaTime / 1000;
+
+    // NPC guarda sempre il target
+    npc.position.rotation = Math.atan2(dy, dx);
+
+    const OPTIMAL_DISTANCE = attackRange * 0.8;
+    let moveDirX = 0;
+    let moveDirY = 0;
+
+    if (dist > OPTIMAL_DISTANCE + 50) {
+      // Troppo lontano: avvicinati
+      moveDirX = dx / dist;
+      moveDirY = dy / dist;
+    } else if (dist < OPTIMAL_DISTANCE - 50) {
+      // Troppo vicino: allontanati (backpedal)
+      moveDirX = -dx / dist;
+      moveDirY = -dy / dist;
+    }
+
+    // 🚀 TACTICAL ORBITING (Strafing)
+    // Se siamo nel range ottimale, aggiungiamo una spinta laterale (tangente)
+    // Inizializza o inverti direzione orbita ogni tanto
+    if (!npc._orbitDir || Math.random() < 0.01) {
+      npc._orbitDir = Math.random() < 0.5 ? 1 : -1;
+    }
+
+    const tangentX = -dy / dist * npc._orbitDir;
+    const tangentY = dx / dist * npc._orbitDir;
+
+    // Mix del movimento: 70% verso/via dal player, 30% orbitale
+    // Se siamo vicini all'ottimale, l'orbitale diventa prevalente (80%)
+    const orbitWeight = (dist < OPTIMAL_DISTANCE + 100 && dist > OPTIMAL_DISTANCE - 100) ? 0.8 : 0.3;
+    const finalDirX = moveDirX * (1 - orbitWeight) + tangentX * orbitWeight;
+    const finalDirY = moveDirY * (1 - orbitWeight) + tangentY * orbitWeight;
+
+    // Normalizza e applica velocità
+    const finalLen = Math.sqrt(finalDirX * finalDirX + finalDirY * finalDirY) || 1;
+    npc.velocity.x = (finalDirX / finalLen) * speed;
+    npc.velocity.y = (finalDirY / finalLen) * speed;
+
+    return {
+      deltaX: npc.velocity.x * dtSec,
+      deltaY: npc.velocity.y * dtSec
+    };
   }
 
   /**
-   * Applica movimento flee (fuga da player)
+   * Applica movimento flee (fuga)
    */
-  static applyFleeMovement(npc, players, speed, deltaTime, attackRange) {
-    // Fuga: cerca sempre il player più vicino per decidere direzione e rotazione
-    let closestPlayerPos = null;
-    let closestDistSq = Infinity;
+  static applyFleeMovement(npc, closestPlayer, speed, deltaTime, attackRange) {
+    if (!closestPlayer) return this.applyCruiseMovement(npc, speed, deltaTime);
 
-    for (const [clientId, playerData] of players.entries()) {
-      if (!playerData.position) continue;
-      const dx = playerData.position.x - npc.position.x;
-      const dy = playerData.position.y - npc.position.y;
-      const distanceSq = dx * dx + dy * dy;
-      if (distanceSq < closestDistSq) {
-        closestDistSq = distanceSq;
-        closestPlayerPos = { x: playerData.position.x, y: playerData.position.y };
-      }
+    const dx = closestPlayer.data.position.x - npc.position.x;
+    const dy = closestPlayer.data.position.y - npc.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    // Fuga: direzione opposta al player più vicino
+    const fleeDx = -dx / dist;
+    const fleeDy = -dy / dist;
+
+    npc.velocity.x = fleeDx * speed;
+    npc.velocity.y = fleeDy * speed;
+
+    // Se il player è nel range, guarda lui per sparare mentre scappa
+    if (dist <= attackRange) {
+      npc.position.rotation = Math.atan2(dy, dx);
+    } else {
+      npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
     }
 
-    if (closestPlayerPos) {
-      const dxToPlayer = closestPlayerPos.x - npc.position.x;
-      const dyToPlayer = closestPlayerPos.y - npc.position.y;
-      const distToPlayer = Math.sqrt(dxToPlayer * dxToPlayer + dyToPlayer * dyToPlayer) || 1;
-
-      // Se velocity quasi nulla, imposta fuga opposta alla direzione player
-      if (Math.abs(npc.velocity.x) < 0.1 && Math.abs(npc.velocity.y) < 0.1) {
-        const fleeDx = -dxToPlayer;
-        const fleeDy = -dyToPlayer;
-        const fleeLen = Math.sqrt(fleeDx * fleeDx + fleeDy * fleeDy) || 1;
-        // Usa velocità normale dal config (non modificata)
-        npc.velocity.x = (fleeDx / fleeLen) * speed;
-        npc.velocity.y = (fleeDy / fleeLen) * speed;
-      }
-
-      // Se il player è nel range di attacco, lo sprite guarda il player
-      // Altrimenti guarda nella direzione di fuga (stesso sistema del player)
-      if (distToPlayer <= attackRange) {
-        npc.position.rotation = Math.atan2(dyToPlayer, dxToPlayer);
-      } else {
-        // Fuori range: guarda nella direzione di fuga (velocity)
-        if (npc.velocity.x !== 0 || npc.velocity.y !== 0) {
-          npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
-        }
-      }
-    }
-
-    const deltaX = npc.velocity.x * (deltaTime / 1000);
-    const deltaY = npc.velocity.y * (deltaTime / 1000);
-    return { deltaX, deltaY };
+    return {
+      deltaX: npc.velocity.x * (deltaTime / 1000),
+      deltaY: npc.velocity.y * (deltaTime / 1000)
+    };
   }
 
   /**
-   * Applica movimento cruise (movimento casuale)
+   * Applica movimento cruise (navigazione)
    */
   static applyCruiseMovement(npc, speed, deltaTime) {
-    // Cruise: se non hai una velocity significativa, assegna una direzione casuale
     if (Math.abs(npc.velocity.x) < 0.1 && Math.abs(npc.velocity.y) < 0.1) {
       const angle = Math.random() * Math.PI * 2;
       const cruiseSpeed = speed * 0.5;
@@ -374,47 +243,27 @@ class NpcMovementSystem {
       npc.velocity.y = Math.sin(angle) * cruiseSpeed;
     }
 
-    const deltaX = npc.velocity.x * (deltaTime / 1000);
-    const deltaY = npc.velocity.y * (deltaTime / 1000);
-    return { deltaX, deltaY };
+    return {
+      deltaX: npc.velocity.x * (deltaTime / 1000),
+      deltaY: npc.velocity.y * (deltaTime / 1000)
+    };
   }
-
 
   /**
    * Valida e applica movimento con boundary collision
-   * @param {Object} npc - NPC
-   * @param {number} newX - Nuova posizione X
-   * @param {number} newY - Nuova posizione Y
-   * @param {number} deltaX - Delta X
-   * @param {number} deltaY - Delta Y
-   * @param {number} speed - Velocità
-   * @param {number} deltaTime - Delta time
-   * @param {Object} npcManager - NpcManager per world bounds
-   * @returns {boolean} True se movimento applicato con successo
    */
   static validateAndApplyMovement(npc, newX, newY, deltaX, deltaY, speed, deltaTime, npcManager) {
-    // Validazione: assicurati che le posizioni siano finite
     if (!Number.isFinite(newX) || !Number.isFinite(newY)) {
-      ServerLoggerWrapper.warn('NPC', `NPC ${npc.id} position became NaN! old_pos: (${npc.position.x}, ${npc.position.y}) delta: (${deltaX}, ${deltaY}) vel: (${npc.velocity.x}, ${npc.velocity.y}) speed: ${speed} deltaTime: ${deltaTime}`);
-      ServerLoggerWrapper.warn('NPC', `Resetting NPC ${npc.id} to (0, 0) with config-based velocity`);
       npc.position.x = 0;
       npc.position.y = 0;
-      // Reset con velocità basata sulla configurazione (30% della velocità normale)
-      const baseSpeed = NPC_CONFIG[npc.type]?.stats?.speed || 300; // Fallback a 300 se config non disponibile
-      const resetSpeed = baseSpeed * 0.3;
-      const angle = Math.random() * Math.PI * 2;
-      npc.velocity.x = Math.cos(angle) * resetSpeed;
-      npc.velocity.y = Math.sin(angle) * resetSpeed;
-      return false; // Salta l'aggiornamento per questo NPC
+      return false;
     }
 
-    // Applica movimento e controlla confini
     const worldBounds = npcManager.getWorldBounds();
 
     if (newX >= worldBounds.WORLD_LEFT && newX <= worldBounds.WORLD_RIGHT) {
       npc.position.x = newX;
     } else {
-      // Rimbalza sui confini X
       npc.velocity.x = -npc.velocity.x;
       npc.position.x = Math.max(worldBounds.WORLD_LEFT, Math.min(worldBounds.WORLD_RIGHT, newX));
     }
@@ -422,7 +271,6 @@ class NpcMovementSystem {
     if (newY >= worldBounds.WORLD_TOP && newY <= worldBounds.WORLD_BOTTOM) {
       npc.position.y = newY;
     } else {
-      // Rimbalza sui confini Y
       npc.velocity.y = -npc.velocity.y;
       npc.position.y = Math.max(worldBounds.WORLD_TOP, Math.min(worldBounds.WORLD_BOTTOM, newY));
     }

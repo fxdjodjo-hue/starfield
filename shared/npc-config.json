@@ -96,7 +96,8 @@
     "ai": {
       "aggressionLevel": "high",
       "targetPriority": "nearest",
-      "formation": "solo"
+      "formation": "solo",
+      "detectionRange": 500
     },
     "description": "Pyramid - Nave da guerra avanzata"
   }
