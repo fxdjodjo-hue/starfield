@@ -32,7 +32,8 @@ const LARGE_PANEL_SIZE = {
 
 export interface PanelConfig {
   id: string;
-  icon: string; // Unicode icon or CSS class
+  icon: string; // Unicode icon or CSS class (fallback)
+  svgPath?: string; // Percorso per l'asset SVG
   title: string;
   position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'center-left-below2' | 'center-left-below3' | 'bottom-left' | 'bottom-right';
   size: { width: number; height: number };
@@ -45,6 +46,7 @@ const PANEL_CONFIGS_BASE = {
   stats: {
     id: 'leaderboard',
     icon: '🏆',
+    svgPath: 'assets/svg/gameUi/leaderboard-svgrepo-com.svg',
     title: 'Leaderboard',
     position: 'center-left' as const,
     size: { ...LARGE_PANEL_SIZE }
@@ -53,6 +55,7 @@ const PANEL_CONFIGS_BASE = {
   quest: {
     id: 'quest-panel',
     icon: '📜',
+    svgPath: 'assets/svg/gameUi/dart-mission-goal-success-svgrepo-com.svg',
     title: 'Missions & Quests',
     position: 'center-left-below' as const,
     size: { ...LARGE_PANEL_SIZE }
@@ -61,6 +64,7 @@ const PANEL_CONFIGS_BASE = {
   upgrade: {
     id: 'upgrade-panel',
     icon: '⏫',
+    svgPath: 'assets/svg/gameUi/upgrade-svgrepo-com.svg',
     title: 'Upgrade',
     position: 'center-left-below2' as const,
     size: { ...LARGE_PANEL_SIZE }
@@ -69,6 +73,7 @@ const PANEL_CONFIGS_BASE = {
   settings: {
     id: 'settings-panel',
     icon: '⚙️',
+    svgPath: 'assets/svg/gameUi/settings-svgrepo-com.svg',
     title: 'Settings',
     position: 'center-left-below3' as const,
     size: { ...BASE_PANEL_SIZE }

@@ -247,7 +247,6 @@ export class FloatingIcon {
     const icon = document.createElement('div');
     icon.id = `icon-${config.id}`;
     icon.className = 'ui-floating-icon';
-    icon.innerHTML = config.icon;
     icon.title = config.title;
 
     // Usa dimensioni responsive con compensazione DPR
@@ -256,6 +255,32 @@ export class FloatingIcon {
     const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE * dprCompensation);
     const borderRadius = Math.round(DISPLAY_CONSTANTS.BORDER_RADIUS_SM * dprCompensation);
     const fontSize = Math.round(20 * dprCompensation);
+
+    // Se esiste un percorso SVG, lo usiamo invece dell'emoji
+    if (config.svgPath) {
+      const svgContainer = document.createElement('div');
+      svgContainer.className = 'svg-icon-inner';
+      const size = Math.round(24 * dprCompensation);
+
+      // Usiamo mask-image per poter controllare il colore via CSS/style
+      svgContainer.style.cssText = `
+        width: ${size}px;
+        height: ${size}px;
+        background-color: currentColor;
+        mask-image: url('${config.svgPath}');
+        mask-size: contain;
+        mask-repeat: no-repeat;
+        mask-position: center;
+        -webkit-mask-image: url('${config.svgPath}');
+        -webkit-mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
+      `;
+      icon.appendChild(svgContainer);
+    } else {
+      icon.innerHTML = config.icon;
+    }
 
     icon.style.cssText = `
       position: fixed;
