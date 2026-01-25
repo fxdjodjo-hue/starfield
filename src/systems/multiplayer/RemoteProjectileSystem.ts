@@ -14,6 +14,7 @@ import { PlayerSystem } from '../player/PlayerSystem';
  * Gestisce creazione, aggiornamento e rimozione dei proiettili sparati da altri giocatori
  */
 export class RemoteProjectileSystem extends BaseSystem {
+  public static override readonly Type = 'RemoteProjectileSystem';
   // Mappa projectileId -> entity data
   private remoteProjectiles: Map<string, { entityId: number, playerId: string, type: string }> = new Map();
   // Contatori sparo per alternanza visiva (2 laser / 3 laser) - uno per ogni playerId

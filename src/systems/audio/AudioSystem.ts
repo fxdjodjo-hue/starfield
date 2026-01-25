@@ -189,16 +189,19 @@ export default class AudioSystem extends System {
 
     // Distanza massima di default (2000 unità)
     const maxDistance = options.maxDistance || 2000;
-    let finalVolume = options.volume !== undefined ? options.volume : this.config.effectsVolume;
+
+    // Volume base fornito o default per la categoria
+    // NOTA: Non usiamo CategoryVolume qui perché playSound lo riapplicherà internamente
+    const baseVolume = options.volume !== undefined ? options.volume : 1.0;
+    let distanceAttenuation = 1.0;
 
     try {
-      // Ottieni la posizione del player o del centro camera
-      const cameraSystem = this.ecs.getSystems().find(s => s.constructor.name === 'CameraSystem') as any;
+      // 🚀 FIX ROBUSTO: Usa getName() invece di constructor.name per trovare la camera (funziona dopo minificazione)
+      const cameraSystem = this.ecs.getSystems().find(s => s.getName() === 'CameraSystem') as any;
 
       if (cameraSystem) {
         const camera = cameraSystem.getCamera();
-        // 🚀 FIX: La camera usa x/y come centro del mondo direttamente.
-        // In precedenza chiamavo getCenter() che non esiste, causando il fallback al volume pieno.
+        // La camera usa x/y come centro del mondo direttamente.
         const cameraX = camera.x;
         const cameraY = camera.y;
 
@@ -214,20 +217,19 @@ export default class AudioSystem extends System {
         // Calcola attenuazione lineare: 1.0 (vicino) -> 0.0 (maxDistance)
         const attenuation = 1 - (distance / maxDistance);
 
-        // Applica curva quadratica per una caduta del suono più naturale (opzionale)
-        const smoothedAttenuation = attenuation * attenuation;
-
-        finalVolume *= smoothedAttenuation;
+        // Applica curva quadratica per una caduta del suono più naturale
+        distanceAttenuation = attenuation * attenuation;
       }
     } catch (err) {
-      // In caso di errore nel calcolo della distanza, usa il volume originale
-      // (meglio sentire il suono che avere un crash o silenzio totale)
+      // In caso di errore nel calcolo della distanza, non applichiamo attenuazione (volume pieno)
     }
+
+    const finalVolume = baseVolume * distanceAttenuation;
 
     // Se il volume è trascurabile, ignora
     if (finalVolume < 0.001) return;
 
-    // Riproduci il suono con il volume calcolato
+    // Riproduci il suono con il volume attenuato
     this.playSound(
       key,
       finalVolume,

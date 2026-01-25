@@ -33,6 +33,7 @@ import npcConfig from '../../../shared/npc-config.json';
  * Segue il principio Single Responsibility
  */
 export class CombatStateSystem extends BaseSystem {
+  public static override readonly Type = 'CombatStateSystem';
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private cameraSystem: CameraSystem | null = null;
   private playerSystem: PlayerSystem | null = null;

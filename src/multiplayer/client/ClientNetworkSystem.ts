@@ -36,6 +36,7 @@ import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, type C
  * Utilizza architettura a componenti per gestire connessioni, messaggi e giocatori remoti
  */
 export class ClientNetworkSystem extends BaseSystem {
+  public static override readonly Type = 'ClientNetworkSystem';
   // Core dependencies
   public readonly gameContext: GameContext;
   public clientId: string;

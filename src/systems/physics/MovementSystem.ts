@@ -11,6 +11,7 @@ import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'
  * Collabora con CameraSystem per mantenere la camera centrata sul player
  */
 export class MovementSystem extends BaseSystem {
+  public static override readonly Type = 'MovementSystem';
   private cameraSystem: CameraSystem;
 
   constructor(ecs: ECS, cameraSystem: CameraSystem) {

@@ -7,6 +7,8 @@ import { Camera } from '../../entities/spatial/Camera';
  * Responsabile di mantenere la camera centrata sul player e fornire accesso alla camera
  */
 export class CameraSystem extends BaseSystem {
+  public static override readonly Type = 'CameraSystem';
+
   private camera: Camera;
   private zoomAnimation: {
     active: boolean;
