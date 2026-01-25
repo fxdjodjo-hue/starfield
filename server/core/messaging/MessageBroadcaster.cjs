@@ -51,7 +51,8 @@ class MessageBroadcaster {
         maxShield: playerData.maxShield,
         // RecentHonor calcolato dal server (non lazy perché serve per il ranking)
         recentHonor: playerData.recentHonor || 0,
-        isAdministrator: isAdministrator
+        isAdministrator: isAdministrator,
+        rank: playerData.rank || 'Basic Space Pilot'
       }
     };
   }
@@ -81,14 +82,16 @@ class MessageBroadcaster {
    * @param {string} clientId - Client ID
    * @param {string} nickname - Nickname
    * @param {number} playerId - Player ID numerico
+   * @param {string} rank - Player rank name
    * @returns {Object} Player joined message
    */
-  formatPlayerJoinedMessage(clientId, nickname, playerId) {
+  formatPlayerJoinedMessage(clientId, nickname, playerId, rank) {
     return {
       type: 'player_joined',
       clientId: clientId,
       nickname: nickname,
-      playerId: playerId
+      playerId: playerId,
+      rank: rank || 'Basic Space Pilot'
     };
   }
 
@@ -171,9 +174,10 @@ class MessageBroadcaster {
    * @param {Array} quests - Quests array
    * @param {number} recentHonor - Recent honor value
    * @param {boolean} isAdministrator - Admin status
+   * @param {string} rank - Player rank name
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot') {
     return {
       type: 'player_data_response',
       playerId: playerId,
@@ -182,6 +186,7 @@ class MessageBroadcaster {
       quests: quests || [],
       recentHonor: recentHonor,
       isAdministrator: isAdministrator,
+      rank: rank || 'Basic Space Pilot',
       timestamp: Date.now()
     };
   }

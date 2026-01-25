@@ -6,6 +6,7 @@ import { Component } from '../../infrastructure/ecs/Component';
  */
 export class PlayerRole extends Component {
   private _isAdministrator: boolean = false;
+  private _currentRank: string = 'Basic Space Pilot';
 
   constructor(isAdministrator: boolean = false) {
     super();
@@ -24,5 +25,19 @@ export class PlayerRole extends Component {
    */
   setAdministrator(isAdmin: boolean): void {
     this._isAdministrator = isAdmin;
+  }
+
+  /**
+   * Ottiene il rank attuale calcolato dal server
+   */
+  get currentRank(): string {
+    return this._currentRank;
+  }
+
+  /**
+   * Imposta il rank attuale
+   */
+  setRank(rank: string): void {
+    this._currentRank = rank;
   }
 }

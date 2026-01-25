@@ -137,62 +137,13 @@ async function handleJoin(data, sanitizedData, context) {
     }
   }
 
-  // Helper per calcolare il rank (duplicato logica client RankSystem)
-  function calculatePlayerRank(experience, totalHonor, recentHonor, isAdministrator) {
-    if (isAdministrator) return 'Administrator';
-
-    // I rank militari e le loro soglie (duplicato da RankSystem.ts)
-    const MILITARY_RANKS = [
-      { name: 'Chief General', minPoints: 100000 },
-      { name: 'General', minPoints: 75000 },
-      { name: 'Basic General', minPoints: 50000 },
-      { name: 'Chief Colonel', minPoints: 35000 },
-      { name: 'Colonel', minPoints: 25000 },
-      { name: 'Basic Colonel', minPoints: 15000 },
-      { name: 'Chief Major', minPoints: 10000 },
-      { name: 'Major', minPoints: 7500 },
-      { name: 'Basic Major', minPoints: 5000 },
-      { name: 'Chief Captain', minPoints: 3500 },
-      { name: 'Captain', minPoints: 2500 },
-      { name: 'Basic Captain', minPoints: 1500 },
-      { name: 'Chief Lieutenant', minPoints: 1000 },
-      { name: 'Lieutenant', minPoints: 750 },
-      { name: 'Basic Lieutenant', minPoints: 500 },
-      { name: 'Chief Sergeant', minPoints: 350 },
-      { name: 'Sergeant', minPoints: 250 },
-      { name: 'Basic Sergeant', minPoints: 150 },
-      { name: 'Chief Space Pilot', minPoints: 100 },
-      { name: 'Space Pilot', minPoints: 50 },
-      { name: 'Basic Space Pilot', minPoints: 0 }
-    ];
-
-    // Formula Semplificata: SOLO ONORE (Richiesta utente)
-    // RankPoints = Onore
-    const rankingPoints = totalHonor;
-
-    // Trova il rank
-    for (const rank of MILITARY_RANKS) {
-      if (rankingPoints >= rank.minPoints) {
-        return rank.name;
-      }
-    }
-    return 'Recruit';
-  }
-
   // Aggiorna il clientId nel playerData per coerenza
   playerData.clientId = persistentClientId;
 
-  // Calcola il rank iniziale usando formula semplificata
-  const currentHonor = loadedData.inventory?.honor || 0;
+  // Rank caricato direttamente dal database (Hybrid System: Fisso + Percentili)
+  playerData.rank = loadedData.rank || 'Basic Space Pilot';
 
-  playerData.rank = calculatePlayerRank(
-    loadedData.inventory?.experience || 0,
-    currentHonor,
-    null, // recentHonor rimosso dalla formula
-    playerData.isAdministrator
-  );
-
-  console.log(`[SERVER_RANK_CALC] User ${data.nickname}: Exp=${loadedData.inventory?.experience}, Honor=${currentHonor}, Points=${currentHonor}, CalculatedRank=${playerData.rank}`);
+  console.log(`[SERVER_RANK_CALC] User ${data.nickname}: Honor=${loadedData.inventory?.honor}, Rank=${playerData.rank} (Calculated by Database)`);
 
   // 🚨 CRITICAL: Inizializza coordinate del player usando la persistenza del DB o spawn come fallback
   // loadedData.position contiene i dati caricati dal DB in PlayerDataManager.loadPlayerData
@@ -234,7 +185,8 @@ async function handleJoin(data, sanitizedData, context) {
   const playerJoinedMsg = messageBroadcaster.formatPlayerJoinedMessage(
     persistentClientId,
     data.nickname,
-    playerData.playerId
+    playerData.playerId,
+    playerData.rank
   );
   mapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
 
@@ -249,7 +201,7 @@ async function handleJoin(data, sanitizedData, context) {
         tick: 0,
         nickname: existingPlayerData.nickname,
         playerId: existingPlayerData.playerId,
-        rank: existingPlayerData.rank || 'Recruit',
+        rank: existingPlayerData.rank,
         health: existingPlayerData.health,
         maxHealth: existingPlayerData.maxHealth,
         shield: existingPlayerData.shield,
@@ -858,7 +810,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
               rankingPoints: 0,
               kills: 0,
               playTime: 0,
-              rankName: 'Recruit'
+              rankName: 'Basic Space Pilot'
             }));
 
             const leaderboardResponse = messageBroadcaster.formatLeaderboardResponse(
@@ -907,7 +859,8 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
 
     const entries = (leaderboardData || []).map((entry) => {
       const rankingPoints = parseFloat(entry.ranking_points) || 0;
-      const rankName = authManager.calculateRankName(rankingPoints, entry.is_administrator || false);
+      // Usa il rank già calcolato dal database (Hybrid System)
+      const rankName = entry.rank_name || 'Basic Space Pilot';
 
       return {
         rank: parseInt(entry.rank_position) || 0,
@@ -976,7 +929,8 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.upgrades,
     playerData.quests,
     recentHonor,
-    playerData.isAdministrator
+    playerData.isAdministrator,
+    playerData.rank
   );
   ws.send(JSON.stringify(responseMessage));
 }

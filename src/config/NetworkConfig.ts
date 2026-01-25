@@ -453,6 +453,7 @@ export interface WelcomeMessage {
     shield: number;
     maxShield: number;
     isAdministrator?: boolean;
+    rank?: string;
 
     // Flag per lazy loading
     inventoryLazy?: boolean;
@@ -527,6 +528,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
   };
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
   isAdministrator?: boolean; // Admin status
+  rank?: string;
   quests: any[];
   timestamp: number;
 }

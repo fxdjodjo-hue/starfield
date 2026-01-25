@@ -22,18 +22,8 @@ export class WelcomeHandler extends BaseMessageHandler {
     // Set the local client ID (WebSocket connection ID)
     const serverClientId: ClientId = message.clientId || (networkSystem.clientId as ClientId);
 
-    // 🔄 CRITICAL: Se il server ci ha inviato un clientId persistente (player_{playerId}),
-    // estrai il playerId numerico e usalo come clientId
-    let clientIdToUse = serverClientId;
-    if (serverClientId.startsWith('player_')) {
-      const extractedId = serverClientId.replace('player_', '');
-      if (!isNaN(Number(extractedId))) {
-        clientIdToUse = extractedId as ClientId; // Usa solo il numero con cast branded
-      }
-    }
-
-    networkSystem.updateClientId(clientIdToUse);
-    networkSystem.gameContext.localClientId = clientIdToUse;
+    networkSystem.updateClientId(serverClientId);
+    networkSystem.gameContext.localClientId = serverClientId;
 
     // Note: clientId in ClientNetworkSystem is readonly, server-assigned ID is stored in gameContext.localClientId
 
@@ -83,7 +73,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       const {
         position, health, maxHealth, shield, maxShield,
-        inventoryLazy, upgradesLazy, questsLazy, isAdministrator
+        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank
       } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
@@ -141,6 +131,18 @@ export class WelcomeHandler extends BaseMessageHandler {
           }
         } else {
           if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Stored pending admin status: ${isAdministrator} (player entity not ready)`);
+        }
+      }
+
+      // Applica il Rank (Server Authoritative)
+      if (rank !== undefined) {
+        if (playerEntity) {
+          const ecs = networkSystem.getECS();
+          const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
+          if (playerRole) {
+            playerRole.setRank(rank);
+            if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied rank: ${rank}`);
+          }
         }
       }
 

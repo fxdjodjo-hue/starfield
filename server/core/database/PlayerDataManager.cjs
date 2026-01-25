@@ -197,7 +197,8 @@ class PlayerDataManager {
             return loadedShield; // Dopo migrazione, questo sarà sempre un numero valido
           }
           return null;
-        })()
+        })(),
+        rank: playerDataRaw.current_rank_name || 'Basic Space Pilot'
       };
 
       // Crea snapshot iniziale dell'honor corrente (non bloccante)

@@ -34,7 +34,7 @@ class WebSocketConnectionManager {
   }
 
   // Metodi pubblici per backward compatibility (delegano ai moduli)
-  
+
   /**
    * Carica i dati del giocatore dal database
    * @param {string} userId - auth_id del giocatore
@@ -106,14 +106,6 @@ class WebSocketConnectionManager {
     return this.authManager.calculateMaxShield(shieldUpgrades);
   }
 
-  /**
-   * Calcola il rank militare basato sui ranking points
-   * @param {number} rankingPoints - Punti ranking
-   * @returns {string} Nome del rank
-   */
-  calculateRankName(rankingPoints) {
-    return this.authManager.calculateRankName(rankingPoints);
-  }
 }
 
 module.exports = WebSocketConnectionManager;
