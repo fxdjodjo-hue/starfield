@@ -2,7 +2,7 @@
  * Utility to map military ranks and special roles to Kenney rank assets
  */
 export class RankIconMapper {
-    private static readonly ASSET_BASE_PATH = '/assets/playerRanks';
+    private static readonly ASSET_BASE_PATH = 'assets/playerRanks';
 
     /**
      * Returns the asset path for a given rank name
