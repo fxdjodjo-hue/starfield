@@ -76,7 +76,7 @@ const PANEL_CONFIGS_BASE = {
     svgPath: 'assets/svg/gameUi/settings-svgrepo-com.svg',
     title: 'Settings',
     position: 'center-left-below3' as const,
-    size: { ...BASE_PANEL_SIZE }
+    size: { ...LARGE_PANEL_SIZE }
   }
 } as const;
 

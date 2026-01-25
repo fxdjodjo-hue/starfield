@@ -83,12 +83,11 @@ export class AuthUIRenderer {
     loadingSpinner.style.cssText = `
       width: 48px;
       height: 48px;
-      border: 2px solid rgba(255, 255, 255, 0.1);
+      border: 2px solid rgba(255, 255, 255, 0.05);
       border-radius: 50%;
       border-top-color: rgba(255, 255, 255, 0.8);
-      animation: spin 1s linear infinite;
-      opacity: 0;
       animation: spin 1s linear infinite, fadeIn 0.8s ease-out 0.6s both;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.05);
     `;
 
     this.loadingContainer.appendChild(loadingText);

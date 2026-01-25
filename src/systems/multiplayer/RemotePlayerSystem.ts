@@ -64,7 +64,7 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Imposta info nickname e rank per un remote player
    */
-  setRemotePlayerInfo(clientId: string, nickname: string, rank: string = 'Recruit'): void {
+  setRemotePlayerInfo(clientId: string, nickname: string, rank: string = 'Basic Space Pilot'): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);

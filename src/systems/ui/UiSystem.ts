@@ -152,7 +152,16 @@ export class UiSystem extends System {
    * Imposta il riferimento all'EconomySystem
    */
   setEconomySystem(economySystem: any): void {
-    this.hudManager.setEconomySystem(economySystem, (data) => this.hudManager.updatePlayerData(data));
+    this.hudManager.setEconomySystem(
+      economySystem,
+      (data) => this.hudManager.updatePlayerData(data),
+      (newRank) => {
+        // Aggiorna il nickname con il nuovo rank
+        const playerName = this.context?.playerNickname || 'Commander';
+        const newNickname = `${playerName}\n[${newRank}]`;
+        this.updatePlayerNicknameContent(newNickname);
+      }
+    );
   }
 
   /**

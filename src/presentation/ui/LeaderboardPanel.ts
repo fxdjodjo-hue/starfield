@@ -3,6 +3,7 @@ import type { PanelConfig } from './PanelConfig';
 import type { PanelData } from './UIManager';
 import type { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../config/NetworkConfig';
+import { RankSystem } from '../../core/domain/rewards/RankSystem';
 
 /**
  * Dati per una entry della leaderboard
@@ -16,7 +17,6 @@ export interface LeaderboardEntry {
   recentHonor: number;
   rankingPoints: number;
   playTime: number; // in secondi
-  level: number;
   rankName: string; // Rank militare (es. "Chief General")
 }
 
@@ -95,11 +95,6 @@ export class LeaderboardPanel extends BasePanel {
       display: flex;
       flex-direction: column;
       gap: 12px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 25px;
       scrollbar-width: none;
       -ms-overflow-style: none;
       user-select: none;
@@ -159,12 +154,12 @@ export class LeaderboardPanel extends BasePanel {
     const header = document.createElement('div');
     header.style.cssText = `
       text-align: center;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     `;
 
     const title = document.createElement('h2');
@@ -332,7 +327,6 @@ export class LeaderboardPanel extends BasePanel {
       { text: '#', align: 'center' },
       { text: 'Player', align: 'left' },
       { text: 'Rank', align: 'left' },
-      { text: 'Level', align: 'right' },
       { text: 'Experience', align: 'right' },
       { text: 'Honor', align: 'right' }
     ];
@@ -502,40 +496,6 @@ export class LeaderboardPanel extends BasePanel {
   /**
    * Calcola il rank militare basato sui ranking points
    */
-  private calculateRankName(rankingPoints: number): string {
-    const ranks = [
-      { name: 'Chief General', minPoints: 100000 },
-      { name: 'General', minPoints: 75000 },
-      { name: 'Basic General', minPoints: 50000 },
-      { name: 'Chief Colonel', minPoints: 35000 },
-      { name: 'Colonel', minPoints: 25000 },
-      { name: 'Basic Colonel', minPoints: 15000 },
-      { name: 'Chief Major', minPoints: 10000 },
-      { name: 'Major', minPoints: 7500 },
-      { name: 'Basic Major', minPoints: 5000 },
-      { name: 'Chief Captain', minPoints: 3500 },
-      { name: 'Captain', minPoints: 2500 },
-      { name: 'Basic Captain', minPoints: 1500 },
-      { name: 'Chief Lieutenant', minPoints: 1000 },
-      { name: 'Lieutenant', minPoints: 750 },
-      { name: 'Basic Lieutenant', minPoints: 500 },
-      { name: 'Chief Sergeant', minPoints: 350 },
-      { name: 'Sergeant', minPoints: 250 },
-      { name: 'Basic Sergeant', minPoints: 150 },
-      { name: 'Chief Space Pilot', minPoints: 100 },
-      { name: 'Space Pilot', minPoints: 50 },
-      { name: 'Basic Space Pilot', minPoints: 25 },
-      { name: 'Recruit', minPoints: 0 }
-    ];
-
-    for (const rank of ranks) {
-      if (rankingPoints >= rank.minPoints) {
-        return rank.name;
-      }
-    }
-
-    return 'Recruit';
-  }
 
   /**
    * Aggiorna i dati del pannello
@@ -615,6 +575,7 @@ export class LeaderboardPanel extends BasePanel {
         font-size: 14px;
         text-align: center;
         width: 60px;
+        color: rgba(255, 255, 255, 0.9);
       `;
 
       if (entry.rank === 1) {
@@ -636,29 +597,27 @@ export class LeaderboardPanel extends BasePanel {
       usernameCell.textContent = entry.username || `Player #${entry.playerId}`;
       usernameCell.style.cssText = `
         padding: 12px 8px;
-        font-weight: 600;
-        color: ${isCurrentPlayer ? '#00ff88' : 'rgba(255, 255, 255, 0.9)'};
+        font-size: 14px;
+        font-weight: 700;
+        color: ${isCurrentPlayer ? '#00ff88' : 'rgba(255, 255, 255, 0.95)'};
         min-width: 150px;
       `;
 
       // Rank name
       const rankNameCell = document.createElement('td');
-      rankNameCell.textContent = entry.rankName || this.calculateRankName(entry.rankingPoints);
+
+      // Ricalcola i punti totali corretti (Exp + Honor) per garantire coerenza col server
+      // Formula Semplificata: Exp + (Honor * 0.5)
+      const effectivePoints = entry.experience + (entry.honor * 0.5);
+
+      const resolvedRankName = entry.rankName || RankSystem.getRankByPoints(effectivePoints);
+      rankNameCell.textContent = resolvedRankName;
       rankNameCell.style.cssText = `
         padding: 12px 8px;
-        font-size: 11px;
-        color: rgba(255, 255, 255, 0.8);
+        font-size: 13px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.75);
         min-width: 120px;
-      `;
-
-      // Level
-      const levelCell = document.createElement('td');
-      levelCell.textContent = entry.level.toString();
-      levelCell.style.cssText = `
-        padding: 12px 8px;
-        text-align: right;
-        font-variant-numeric: tabular-nums;
-        width: 80px;
       `;
 
       // Experience
@@ -667,8 +626,10 @@ export class LeaderboardPanel extends BasePanel {
       expCell.style.cssText = `
         padding: 12px 8px;
         text-align: right;
+        font-size: 13px;
+        font-weight: 600;
         font-variant-numeric: tabular-nums;
-        color: rgba(255, 255, 255, 0.8);
+        color: rgba(255, 255, 255, 0.75);
         width: 140px;
       `;
 
@@ -678,15 +639,16 @@ export class LeaderboardPanel extends BasePanel {
       honorCell.style.cssText = `
         padding: 12px 8px;
         text-align: right;
+        font-size: 13px;
+        font-weight: 600;
         font-variant-numeric: tabular-nums;
-        color: rgba(255, 255, 255, 0.8);
+        color: rgba(255, 255, 255, 0.75);
         width: 120px;
       `;
 
       row.appendChild(rankCell);
       row.appendChild(usernameCell);
       row.appendChild(rankNameCell);
-      row.appendChild(levelCell);
       row.appendChild(expCell);
       row.appendChild(honorCell);
 

@@ -12,13 +12,13 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    const { clientId, nickname, playerId } = message;
+    const { clientId, nickname, playerId, rank } = message;
 
     // Set up remote player info if RemotePlayerSystem is available
     if (networkSystem.remotePlayerManager && nickname) {
-      // For now, use a default rank. In the future, this could come from the server
-      const defaultRank = 'Recruit';
-      networkSystem.remotePlayerManager.setPlayerInfo(clientId, nickname, defaultRank);
+      // Use rank from message or default to 'Basic Space Pilot'
+      const playerRank = rank || 'Basic Space Pilot';
+      networkSystem.remotePlayerManager.setPlayerInfo(clientId, nickname, playerRank);
     }
   }
 }

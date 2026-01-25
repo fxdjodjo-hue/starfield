@@ -20,18 +20,22 @@ export class FpsCounter {
       position: absolute;
       top: 10px;
       right: 180px; /* Positioned to the left of the minimap */
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.45);
       color: #00ff00;
-      padding: 4px 8px;
-      border-radius: 4px;
+      padding: 4px 10px;
+      border-radius: 8px;
       font-family: 'Courier New', monospace;
       font-weight: bold;
-      font-size: 14px;
+      font-size: 13px;
       pointer-events: none;
       z-index: 1000;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      backdrop-filter: blur(2px);
-      text-shadow: 1px 1px 0 #000;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px) saturate(160%);
+      -webkit-backdrop-filter: blur(10px) saturate(160%);
+      box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     `;
         this.container.textContent = 'FPS: --';
     }

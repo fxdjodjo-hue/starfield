@@ -11,10 +11,6 @@ import { PlayerRole } from '../../../entities/player/PlayerRole';
  */
 export class RankSystem extends BaseSystem {
   private playerEntity: any = null;
-  private recentHonor: number | null = null; // Media mobile honor ultimi 30 giorni (dal server)
-
-  // Moltiplicatore per RecentHonor (configurabile tra 1.5-3)
-  private readonly honorMultiplier: number = 2;
 
   // Ranghi militari completi basati su punti ranking (exp + honor)
   private static readonly MILITARY_RANKS = [
@@ -38,8 +34,7 @@ export class RankSystem extends BaseSystem {
     { name: 'Basic Sergeant', minPoints: 150 },
     { name: 'Chief Space Pilot', minPoints: 100 },
     { name: 'Space Pilot', minPoints: 50 },
-    { name: 'Basic Space Pilot', minPoints: 25 },
-    { name: 'Recruit', minPoints: 0 }
+    { name: 'Basic Space Pilot', minPoints: 0 }
   ];
 
   constructor(ecs: ECS) {
@@ -53,19 +48,10 @@ export class RankSystem extends BaseSystem {
     this.playerEntity = entity;
   }
 
-  /**
-   * Imposta RecentHonor (media mobile honor ultimi 30 giorni dal server)
-   */
-  setRecentHonor(recentHonor: number): void {
-    this.recentHonor = recentHonor;
-  }
 
   /**
    * Calcola i punti ranking totali usando formula semplificata
-   * RankingPoints = exp + (RecentHonor × multiplier)
-   * 
-   * Per ora usa honor corrente come RecentHonor.
-   * TODO: Implementare tracking storico per calcolare media mobile degli ultimi N giorni
+   * RankingPoints = Honor
    */
   calculateRankingPoints(): number {
     if (!this.playerEntity) return 0;
@@ -75,20 +61,10 @@ export class RankSystem extends BaseSystem {
 
     if (!experience || !honor) return 0;
 
-    // Formula avanzata: exp + (Honor × 0.5) + (RecentHonor × 2)
-    // - Exp: progressione permanente (base principale)
-    // - Honor × 0.5: reputazione storica (peso leggero)
-    // - RecentHonor × 2: reputazione attuale (ago della bilancia)
-    // 
-    // Usa RecentHonor dal server se disponibile, altrimenti fallback a honor corrente
-    const recentHonorValue = this.recentHonor !== null ? this.recentHonor : honor.honor;
-
-    // Formula: EXP + (Honor * 0.5) + (RecentHonor * 2)
-    const points = experience.totalExpEarned + (honor.honor * 0.5) + (recentHonorValue * this.honorMultiplier);
-
-    // Limite minimo: nessuno scende sotto la propria EXP
-    // Honor penalizza solo sopra la base
-    return Math.max(points, experience.totalExpEarned);
+    // Formula Semplificata: SOLO ONORE (Richiesta utente)
+    // RankPoints = Onore
+    const points = honor.honor;
+    return points;
   }
 
 
@@ -96,7 +72,7 @@ export class RankSystem extends BaseSystem {
    * Calcola il rank attuale basato sui punti ranking
    */
   calculateCurrentRank(): string {
-    if (!this.playerEntity) return 'Recruit';
+    if (!this.playerEntity) return 'Basic Space Pilot';
 
     const playerRole = this.ecs.getComponent(this.playerEntity, PlayerRole);
     const honor = this.ecs.getComponent(this.playerEntity, Honor);
@@ -111,16 +87,11 @@ export class RankSystem extends BaseSystem {
     }
 
     const rankingPoints = this.calculateRankingPoints();
-
-    // Trova il rank appropriato basato sui punti ranking
-    for (const rank of RankSystem.MILITARY_RANKS) {
-      if (rankingPoints >= rank.minPoints) {
-        return rank.name;
-      }
+    const rank = RankSystem.getRankByPoints(rankingPoints);
+    if (rankingPoints > 0) {
+      console.log(`[DEBUG_RANK] Points: ${rankingPoints}, Result: ${rank}`);
     }
-
-    // Default: Recruit
-    return 'Recruit';
+    return rank;
   }
 
   /**
@@ -142,6 +113,19 @@ export class RankSystem extends BaseSystem {
    */
   static getAllRanks(): Array<{ name: string, minPoints: number }> {
     return [...RankSystem.MILITARY_RANKS];
+  }
+
+  /**
+   * Ottiene il nome del rank basato sui punti
+   * Single Source of Truth per la logica dei rank
+   */
+  static getRankByPoints(points: number): string {
+    for (const rank of RankSystem.MILITARY_RANKS) {
+      if (points >= rank.minPoints) {
+        return rank.name;
+      }
+    }
+    return 'Basic Space Pilot';
   }
 
   update(deltaTime: number): void {

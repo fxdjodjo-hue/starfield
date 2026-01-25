@@ -166,8 +166,7 @@ export class PlayStateInitializer {
           }
         }
 
-        const hasInventory = this.context.playerInventory !== undefined &&
-          this.context.playerInventory.experience > 0;
+        const hasInventory = this.context.playerInventory !== undefined;
 
 
         // Aggiorna il testo di loading se AuthScreen è disponibile
@@ -566,9 +565,9 @@ export class PlayStateInitializer {
     // Messaggio di benvenuto nella chat
     setTimeout(() => {
       if (uiSystem) {
-        uiSystem.addSystemMessage('Welcome to Starfield! Use the chat to communicate.');
+        uiSystem.addSystemMessage('Welcome! Press [Space] to attack. Ship repairs are automatic out of combat. Full controls in Settings -> Controls.');
       }
-    }, 1000);
+    }, 2000);
 
     // Configura InputSystem per disabilitare input quando pannelli UI sono aperti
     this.setupInputSystemUIPanelIntegration();

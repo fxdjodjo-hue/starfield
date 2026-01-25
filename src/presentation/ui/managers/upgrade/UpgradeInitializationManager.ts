@@ -12,7 +12,7 @@ export class UpgradeInitializationManager {
     private readonly statsManager: UpgradeStatsManager,
     private readonly container: HTMLElement | null,
     private readonly isPanelVisible: () => boolean
-  ) {}
+  ) { }
 
   /**
    * Creates the upgrade panel content
@@ -28,11 +28,6 @@ export class UpgradeInitializationManager {
       flex-direction: column;
       gap: 16px;
       position: relative;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 25px;
       overflow: hidden;
     `;
     // Hide scrollbar for webkit browsers
@@ -86,12 +81,12 @@ export class UpgradeInitializationManager {
     const header = document.createElement('div');
     header.style.cssText = `
       text-align: center;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     `;
 
     const title = document.createElement('h2');
@@ -143,7 +138,7 @@ export class UpgradeInitializationManager {
   onShow(hideTooltip: () => void): void {
     // Reset all cards to normal state
     this.resetCards();
-    
+
     // Update immediately when shown
     this.statsManager.updateStats();
 

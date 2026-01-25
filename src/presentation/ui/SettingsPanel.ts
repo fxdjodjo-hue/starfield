@@ -6,7 +6,7 @@ import { GameSettings } from '../../core/settings/GameSettings';
  * SettingsPanel - Gestisce le configurazioni di gioco
  */
 export class SettingsPanel extends BasePanel {
-    private activeTab: 'graphics' | 'audio' | 'interface' = 'graphics';
+    private activeTab: 'graphics' | 'audio' | 'interface' | 'controls' = 'graphics';
 
     constructor(config: PanelConfig) {
         super(config);
@@ -25,14 +25,7 @@ export class SettingsPanel extends BasePanel {
       flex-direction: column;
       gap: 20px;
       position: relative;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 25px;
-      overflow-y: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
+      box-sizing: border-box;
     `;
 
         // Inject styles for sliders and glassmorphism components
@@ -73,6 +66,25 @@ export class SettingsPanel extends BasePanel {
         border-color: rgba(255, 255, 255, 0.3) !important;
         box-shadow: 0 0 15px rgba(255, 255, 255, 0.1);
       }
+      /* Custom Scrollbar */
+      .settings-panel-content::-webkit-scrollbar,
+      #settings-container-inner::-webkit-scrollbar {
+        width: 6px;
+      }
+      .settings-panel-content::-webkit-scrollbar-track,
+      #settings-container-inner::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+      }
+      .settings-panel-content::-webkit-scrollbar-thumb,
+      #settings-container-inner::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+      }
+      .settings-panel-content::-webkit-scrollbar-thumb:hover,
+      #settings-container-inner::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
     `;
         content.appendChild(style);
 
@@ -104,11 +116,12 @@ export class SettingsPanel extends BasePanel {
         const header = document.createElement('div');
         header.style.cssText = `
       text-align: center;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     `;
         const title = document.createElement('h2');
         title.textContent = 'Settings';
@@ -129,7 +142,7 @@ export class SettingsPanel extends BasePanel {
       margin-bottom: 10px;
     `;
 
-        ['graphics', 'audio', 'interface'].forEach(tab => {
+        ['graphics', 'audio', 'interface', 'controls'].forEach(tab => {
             const btn = document.createElement('button');
             btn.textContent = tab.charAt(0).toUpperCase() + tab.slice(1);
             const isActive = this.activeTab === tab;
@@ -167,12 +180,14 @@ export class SettingsPanel extends BasePanel {
 
         // Content container
         const container = document.createElement('div');
+        container.id = 'settings-container-inner';
         container.style.cssText = `
             flex: 1;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 16px;
+            padding-bottom: 30px;
             `;
         this.refreshContent(container);
         content.appendChild(container);
@@ -211,7 +226,65 @@ export class SettingsPanel extends BasePanel {
                 settings.setShowDamageNumbers(val);
                 document.dispatchEvent(new CustomEvent('settings:ui:damage_numbers', { detail: val }));
             });
+        } else if (this.activeTab === 'controls') {
+            this.createControlsContent(container);
         }
+    }
+
+    private createControlsContent(container: HTMLElement): void {
+        const section = (title: string) => {
+            const t = document.createElement('div');
+            t.textContent = title;
+            t.style.cssText = 'color: #00ff88; font-size: 14px; font-weight: 700; text-transform: uppercase; margin-top: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(0, 255, 136, 0.2); padding-bottom: 4px;';
+            container.appendChild(t);
+        };
+
+        const row = (key: string, action: string, tooltip?: string) => {
+            const r = document.createElement('div');
+            r.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px; margin-bottom: 4px; transition: background 0.2s;';
+
+            if (tooltip) {
+                r.title = tooltip;
+                r.style.cursor = 'help';
+                r.addEventListener('mouseenter', () => {
+                    r.style.background = 'rgba(255, 255, 255, 0.1)';
+                });
+                r.addEventListener('mouseleave', () => {
+                    r.style.background = 'rgba(255, 255, 255, 0.05)';
+                });
+            }
+
+            const k = document.createElement('span');
+            k.textContent = key;
+            k.style.cssText = 'color: #fff; background: rgba(255, 255, 255, 0.1); padding: 4px 8px; border-radius: 4px; font-family: monospace; font-weight: 700; border: 1px solid rgba(255, 255, 255, 0.2);';
+
+            const a = document.createElement('span');
+            a.textContent = action;
+            a.style.cssText = 'color: rgba(255, 255, 255, 0.8); font-size: 14px;';
+
+            if (tooltip) {
+                const hint = document.createElement('span');
+                hint.textContent = ' ⓘ';
+                hint.style.cssText = 'color: #00ff88; font-size: 10px; opacity: 0.6; margin-left: 4px;';
+                a.appendChild(hint);
+            }
+
+            r.appendChild(a);
+            r.appendChild(k);
+            container.appendChild(r);
+        };
+
+        section('Movement');
+        row('Mouse Left Click / Hold', 'Move Ship');
+        row('W / A / S / D', 'Move Ship');
+
+        section('Combat');
+        row('Space / Left Click', 'Attack Selected Target', 'Target must be selected and in range to attack.');
+        row('Automatic', 'Hull & Shield Repair', 'Repairs activate automatically when out of combat for a few seconds.');
+
+        section('Interface');
+        row('Enter', 'Open/Send Chat');
+        row('Esc / -', 'Close Panel / Hide Chat');
     }
 
     private createToggle(parent: HTMLElement, label: string, desc: string, defaultValue: boolean, onChange: (val: boolean) => void): void {

@@ -20,7 +20,7 @@ export class UIHUDManager {
   /**
    * Imposta il riferimento all'EconomySystem
    */
-  setEconomySystem(economySystem: any, updatePlayerDataCallback: (data: any) => void): void {
+  setEconomySystem(economySystem: any, updatePlayerDataCallback: (data: any) => void, onRankChange?: (newRank: string) => void): void {
     this.economySystem = economySystem;
 
     // Imposta i callback per aggiornare l'HUD quando i valori economici cambiano
@@ -36,9 +36,6 @@ export class UIHUDManager {
 
         // Aggiorna UI locale
         updatePlayerDataCallback({ inventory });
-
-        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
-        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
       });
 
       this.economySystem.setCosmosChangedCallback((newAmount: number, change: number) => {
@@ -51,9 +48,6 @@ export class UIHUDManager {
         };
 
         updatePlayerDataCallback({ inventory });
-
-        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
-        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
       });
 
       this.economySystem.setExperienceChangedCallback((newAmount: number, change: number, leveledUp: boolean) => {
@@ -66,9 +60,6 @@ export class UIHUDManager {
         };
 
         updatePlayerDataCallback({ inventory });
-
-        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
-        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
       });
 
       this.economySystem.setHonorChangedCallback((newAmount: number, change: number, newRank?: string) => {
@@ -82,8 +73,10 @@ export class UIHUDManager {
 
         updatePlayerDataCallback({ inventory });
 
-        // 🔴 SECURITY: economy_update RIMOSSO - le valute sono gestite SOLO dal server (server-authoritative)
-        // I valori vengono sincronizzati dal server tramite player_state_update e player_data_response
+        // ✅ Updates rank/nickname via callback if provided
+        if (newRank && onRankChange) {
+          onRankChange(newRank);
+        }
       });
     }
   }

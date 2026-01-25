@@ -124,8 +124,7 @@ class AuthenticationManager {
       { name: 'Basic Sergeant', minPoints: 150 },
       { name: 'Chief Space Pilot', minPoints: 100 },
       { name: 'Space Pilot', minPoints: 50 },
-      { name: 'Basic Space Pilot', minPoints: 25 },
-      { name: 'Recruit', minPoints: 0 }
+      { name: 'Basic Space Pilot', minPoints: 0 }
     ];
 
     for (const rank of ranks) {

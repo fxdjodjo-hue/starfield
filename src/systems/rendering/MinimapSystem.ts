@@ -237,20 +237,20 @@ export class MinimapSystem extends BaseSystem {
     const bgH = h + (padding * 2) + headerHeight;
 
     // Ombra del pannello per effetto profondità
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 15;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+    ctx.shadowBlur = 20;
     ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 5;
+    ctx.shadowOffsetY = 8;
 
-    // Sfondo glass principale con gradiente
+    // Sfondo glass principale con gradiente scuro
     const glassGradient = ctx.createLinearGradient(bgX, bgY, bgX, bgY + bgH);
-    glassGradient.addColorStop(0, 'rgba(255, 255, 255, 0.12)');
-    glassGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.08)');
-    glassGradient.addColorStop(1, 'rgba(255, 255, 255, 0.06)');
+    glassGradient.addColorStop(0, 'rgba(0, 0, 0, 0.5)');
+    glassGradient.addColorStop(0.5, 'rgba(0, 0, 0, 0.4)');
+    glassGradient.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
     ctx.fillStyle = glassGradient;
 
     // Arrotondamento degli angoli come gli altri pannelli (compensato)
-    this.roundedRect(ctx, bgX, bgY, bgW, bgH, Math.round(15 * c));
+    this.roundedRect(ctx, bgX, bgY, bgW, bgH, Math.round(25 * c));
     ctx.fill();
 
     // Reset ombra per il bordo
@@ -258,9 +258,15 @@ export class MinimapSystem extends BaseSystem {
     ctx.shadowBlur = 0;
 
     // Bordo glass sottile intorno al riquadro
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
     ctx.lineWidth = 1;
-    this.roundedRect(ctx, bgX, bgY, bgW, bgH, Math.round(15 * c));
+    this.roundedRect(ctx, bgX, bgY, bgW, bgH, Math.round(25 * c));
+    ctx.stroke();
+
+    // Riflesso superiore interno
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.beginPath();
+    this.roundedRect(ctx, bgX + 1, bgY + 1, bgW - 2, bgH - 2, Math.round(25 * c));
     ctx.stroke();
 
     // Sfondo della minimappa con immagine della mappa o gradiente di fallback

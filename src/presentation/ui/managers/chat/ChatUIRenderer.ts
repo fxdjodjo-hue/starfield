@@ -32,14 +32,14 @@ export class ChatUIRenderer {
       left: ${Math.round(5 * c)}px;
       width: ${Math.round(400 * c)}px;
       height: ${this.targetHeight}px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: ${Math.round(25 * c)}px;
       box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
       z-index: 1500;
       display: flex;
       flex-direction: column;
@@ -181,8 +181,8 @@ export class ChatUIRenderer {
     inputContainer.className = 'chat-input-container';
     inputContainer.style.cssText = `
       padding: ${Math.round(12 * c)}px ${Math.round(16 * c)}px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(255, 255, 255, 0.05);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(0, 0, 0, 0.2);
       display: flex;
       gap: ${Math.round(8 * c)}px;
       align-items: center;
@@ -198,8 +198,8 @@ export class ChatUIRenderer {
     inputElement.style.cssText = `
       flex: 1;
       padding: ${Math.round(8 * c)}px ${Math.round(12 * c)}px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: ${Math.round(12 * c)}px;
       color: rgba(255, 255, 255, 0.9);
       font-size: ${Math.round(14 * c)}px;
@@ -209,6 +209,7 @@ export class ChatUIRenderer {
       white-space: pre;
       letter-spacing: normal;
       word-spacing: normal;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
     `;
 
     // Focus effects per input

@@ -100,14 +100,10 @@ export class QuestPanel extends BasePanel {
       flex-direction: column;
       gap: 20px;
       position: relative;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 25px;
       overflow-y: auto;
       scrollbar-width: none;
       -ms-overflow-style: none;
+      box-sizing: border-box;
     `;
     // Hide scrollbar for webkit browsers
     const style = document.createElement('style');
@@ -161,12 +157,12 @@ export class QuestPanel extends BasePanel {
     const header = document.createElement('div');
     header.style.cssText = `
       text-align: center;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       padding: 16px;
       margin-bottom: 8px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     `;
 
     const title = document.createElement('h2');
@@ -249,8 +245,8 @@ export class QuestPanel extends BasePanel {
     const section = document.createElement('div');
     section.className = 'quest-section';
     section.style.cssText = `
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       padding: 16px;
       display: flex;

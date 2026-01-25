@@ -52,15 +52,15 @@ export class PlayerStatusDisplaySystem extends System {
       display: none;
       align-items: stretch;
       gap: ${Math.round(32 * c)}px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: ${Math.round(25 * c)}px;
       padding: ${Math.round(16 * c)}px ${Math.round(24 * c)}px;
       box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       z-index: 1000;
       pointer-events: none;
@@ -159,11 +159,11 @@ export class PlayerStatusDisplaySystem extends System {
     progressBar.style.cssText = `
       width: 100%;
       height: ${Math.round(6 * c)}px;
-      background: rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.2);
       border-radius: ${Math.round(3 * c)}px;
       overflow: hidden;
       box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.05);
     `;
 
     const progressFill = document.createElement('div');
@@ -259,66 +259,7 @@ export class PlayerStatusDisplaySystem extends System {
    * Renderizza debug info (accelerazione/velocità) sopra la nave
    */
   render(ctx: CanvasRenderingContext2D): void {
-    if (!this.playerEntity || !gameConfig.gameplay.debug.enabled) return;
-
-    // Trova camera system dinamicamente se necessario
-    const cameraSystem = this.findCameraSystem();
-    if (!cameraSystem) return;
-
-    const camera = cameraSystem.getCamera();
-    if (!camera) return;
-
-    const transform = this.ecs.getComponent(this.playerEntity, Transform);
-    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
-
-    if (transform && velocity) {
-      const canvasSize = DisplayManager.getInstance().getLogicalSize();
-      const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
-
-      // Calcola velocità corrente
-      const currentSpeed = Math.floor(Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y));
-      const maxSpeed = gameConfig.gameplay.player.maxSpeed;
-      const acceleration = gameConfig.gameplay.player.acceleration;
-      const deceleration = gameConfig.gameplay.player.deceleration;
-
-      // Determina stato
-      let state = "Idle";
-      if (currentSpeed > 5) {
-        // Se c'è input (non possiamo saperlo direttamente qui senza InputSystem, ma possiamo stimare)
-        // Per semplicità, consideriamo accelerazione se la velocità sta aumentando, ma qui vediamo solo un frame.
-        // Usiamo una logica semplice: se speed è alta direi "Moving".
-        // Meglio: mostriamo solo la velocità.
-        state = "Moving"; // Placeholder
-      }
-
-      ctx.save();
-      ctx.font = '12px monospace';
-      ctx.fillStyle = '#00ff00';
-      ctx.textAlign = 'center';
-      ctx.shadowColor = 'black';
-      ctx.shadowBlur = 4;
-
-      // Speed Info
-      ctx.fillText(`Vel: ${currentSpeed}/${maxSpeed}`, screenPos.x, screenPos.y - 60);
-
-      // Config Info
-      ctx.fillStyle = '#aaaaaa';
-      ctx.fillText(`Acc: ${acceleration} | Dec: ${deceleration}`, screenPos.x, screenPos.y - 75);
-
-      // Rotation Info
-      const rotationDeg = Math.round(transform.rotation * (180 / Math.PI));
-      ctx.fillText(`Rot: ${rotationDeg}°`, screenPos.x, screenPos.y - 45);
-
-      // Draw Deadzone (80px)
-      const zoom = camera.zoom || 1;
-      ctx.beginPath();
-      ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
-      ctx.lineWidth = 2;
-      ctx.arc(screenPos.x, screenPos.y, 80 * zoom, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.restore();
-    }
+    // Debug info rimosse come richiesto dall'utente
   }
 
   private findCameraSystem(): any {

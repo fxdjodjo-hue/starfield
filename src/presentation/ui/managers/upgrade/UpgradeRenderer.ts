@@ -15,7 +15,7 @@ export class UpgradeRenderer {
     private readonly getStatDescription: (statType: string) => string,
     private readonly onUpgradeClick: (upgradeType: 'hp' | 'shield' | 'speed' | 'damage') => void,
     private readonly onShowExplanation: (statName: string, statType: string, buttonElement: HTMLElement) => void
-  ) {}
+  ) { }
 
   /**
    * Creates a statistics section
@@ -23,11 +23,11 @@ export class UpgradeRenderer {
   createStatsSection(title: string, stats: Array<{ label: string, icon: string, value: string, color: string, upgradeKey?: string }>): HTMLElement {
     const section = document.createElement('div');
     section.style.cssText = `
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       padding: 16px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     `;
 
     const sectionTitle = document.createElement('h3');
@@ -57,9 +57,10 @@ export class UpgradeRenderer {
         align-items: center;
         gap: 8px;
         padding: 8px 12px;
-        background: rgba(255, 255, 255, 0.03);
+        background: rgba(0, 0, 0, 0.15);
         border-radius: 8px;
         border-left: 3px solid ${stat.color};
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
       `;
 
       const icon = document.createElement('span');
@@ -116,12 +117,12 @@ export class UpgradeRenderer {
   createUpgradeSection(): HTMLElement {
     const section = document.createElement('div');
     section.style.cssText = `
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       border-radius: 12px;
       padding: 16px;
       box-sizing: border-box;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
       flex: 1;
       min-height: 0;
       display: flex;
@@ -183,26 +184,27 @@ export class UpgradeRenderer {
       padding: 16px 12px;
       height: 100%;
       box-sizing: border-box;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid ${color}40;
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid ${color}30;
       border-radius: 8px;
       color: rgba(255, 255, 255, 0.9);
       cursor: pointer;
       transition: all 0.2s ease;
       position: relative;
       user-select: none;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
     `;
 
     card.addEventListener('mouseenter', () => {
-      card.style.background = `rgba(255, 255, 255, 0.08)`;
+      card.style.background = `rgba(255, 255, 255, 0.05)`;
       card.style.borderColor = color;
       card.style.transform = 'translateY(-1px)';
       card.style.boxShadow = `0 4px 12px ${color}20`;
     });
 
     card.addEventListener('mouseleave', () => {
-      card.style.background = `rgba(255, 255, 255, 0.03)`;
-      card.style.borderColor = `${color}40`;
+      card.style.background = `rgba(0, 0, 0, 0.2)`;
+      card.style.borderColor = `${color}30`;
       card.style.transform = 'translateY(0)';
       card.style.boxShadow = 'none';
     });

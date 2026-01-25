@@ -1,3 +1,5 @@
+import { RankIconMapper } from '../../../core/utils/ui/RankIconMapper';
+
 /**
  * Manages rendering of nicknames above players, NPCs, and remote players
  */
@@ -10,6 +12,9 @@ export class UINicknameManager {
   private npcNicknameLastPositions: Map<number, { x: number, y: number }> = new Map();
   private playerNicknameLastPosition: { x: number, y: number } | null = null;
   private remotePlayerNicknameLastPositions: Map<string, { x: number, y: number }> = new Map();
+
+  // Cache stato contenuto remote player per evitare redraw
+  private remotePlayerLastState: Map<string, { nickname: string, rank: string }> = new Map();
 
   /**
    * Crea l'elemento nickname del giocatore
@@ -45,9 +50,22 @@ export class UINicknameManager {
     if (this.playerNicknameElement) {
       // Formatta il nickname su due righe: nome sopra, rank sotto
       const parts = nickname.split('\n');
+      const name = parts[0] || 'Commander';
+      const rawRank = parts[1] || '[Basic Space Pilot]';
+      const rankName = rawRank.replace('[', '').replace(']', '').trim();
+      const iconPath = RankIconMapper.getRankIconPath(rankName);
+
+      if (rankName !== 'Basic Space Pilot') {
+        console.log(`[DEBUG_RANK] UI update: Name=${name}, Rank=${rankName}, Icon=${iconPath}`);
+      }
+
       this.playerNicknameElement.innerHTML = `
-        <div style="font-size: 14px; font-weight: 600;">${parts[0] || 'Commander'}</div>
-        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">${parts[1] || '[Recruit]'}</div>
+        <div style="position: relative; display: inline-flex; align-items: center;">
+          <div style="position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 10px; width: 26px; height: 16px; display: flex; align-items: center; justify-content: center;">
+            <img src="${iconPath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" />
+          </div>
+          <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.9);">${name}</div>
+        </div>
       `;
     }
   }
@@ -74,8 +92,8 @@ export class UINicknameManager {
 
     // Controlla se la posizione è cambiata significativamente
     if (this.playerNicknameLastPosition &&
-        Math.abs(this.playerNicknameLastPosition.x - roundedScreenX) < 1 &&
-        Math.abs(this.playerNicknameLastPosition.y - roundedScreenY) < 1) {
+      Math.abs(this.playerNicknameLastPosition.x - roundedScreenX) < 1 &&
+      Math.abs(this.playerNicknameLastPosition.y - roundedScreenY) < 1) {
       // Posizione praticamente invariata - evita aggiornamenti inutili
       return;
     }
@@ -250,22 +268,39 @@ export class UINicknameManager {
         border-radius: 5px;
       `;
 
-      // Formatta il nickname su due righe: nome sopra, rank sotto
-      element.innerHTML = `
-        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
-        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
-      `;
+      this.updateRemotePlayerNicknameHTML(element, nickname, rank);
 
       document.body.appendChild(element);
       this.remotePlayerNicknameElements.set(clientId, element);
+      this.remotePlayerLastState.set(clientId, { nickname, rank });
     } else {
-      // Aggiorna il contenuto se già esiste
+      // Check if content changed before updating DOM (fixes flickering) // FIX
+      const lastState = this.remotePlayerLastState.get(clientId);
+      if (lastState && lastState.nickname === nickname && lastState.rank === rank) {
+        return;
+      }
+
       const element = this.remotePlayerNicknameElements.get(clientId)!;
-      element.innerHTML = `
-        <div style="font-size: 14px; font-weight: 600;">${nickname}</div>
-        <div style="font-size: 12px; font-weight: 400; opacity: 0.8;">[${rank}]</div>
-      `;
+      this.updateRemotePlayerNicknameHTML(element, nickname, rank);
+      this.remotePlayerLastState.set(clientId, { nickname, rank });
     }
+  }
+
+  /**
+   * Helper per generare l'HTML degli elementi nickname (giocatore locale e remoti)
+   */
+  private updateRemotePlayerNicknameHTML(element: HTMLElement, nickname: string, rank: string): void {
+    const rankName = rank.replace('[', '').replace(']', '').trim();
+    const iconPath = RankIconMapper.getRankIconPath(rankName);
+
+    element.innerHTML = `
+      <div style="position: relative; display: inline-flex; align-items: center;">
+        <div style="position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 10px; width: 26px; height: 16px; display: flex; align-items: center; justify-content: center;">
+          <img src="${iconPath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" />
+        </div>
+        <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.9);">${nickname}</div>
+      </div>
+    `;
   }
 
   /**
@@ -290,7 +325,7 @@ export class UINicknameManager {
 
       // Posiziona il nickname centrato orizzontalmente sotto il remote player
       const nicknameX = Math.round(roundedScreenX - element.offsetWidth / 2);
-      const nicknameY = Math.round(roundedScreenY + 45); // Sotto il remote player
+      const nicknameY = Math.round(roundedScreenY + 60); // Sotto il remote player (Aligned with local player)
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;
@@ -310,8 +345,9 @@ export class UINicknameManager {
     if (element) {
       document.body.removeChild(element);
       this.remotePlayerNicknameElements.delete(clientId);
-      // Rimuovi anche dalla cache delle posizioni
+      // Rimuovi anche dalla cache delle posizioni e stato
       this.remotePlayerNicknameLastPositions.delete(clientId);
+      this.remotePlayerLastState.delete(clientId);
     }
   }
 
@@ -325,6 +361,7 @@ export class UINicknameManager {
       }
     }
     this.remotePlayerNicknameElements.clear();
+    this.remotePlayerLastState.clear();
   }
 
   /**

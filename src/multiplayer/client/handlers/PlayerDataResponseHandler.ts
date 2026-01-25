@@ -21,6 +21,7 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
   handle(message: PlayerDataResponseMessage, networkSystem: ClientNetworkSystem): void {
     // Aggiorna i dati del giocatore nel game context
     if (networkSystem.gameContext) {
+      console.log(`[DEBUG_RANK] PlayerDataReceived: Honor=${message.inventory?.honor}, Exp=${message.inventory?.experience}, Recent=${message.recentHonor}`);
       // Aggiorna inventory
       if (message.inventory) {
         networkSystem.gameContext.playerInventory = {

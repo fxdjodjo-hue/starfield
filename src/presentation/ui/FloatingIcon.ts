@@ -36,14 +36,14 @@ export abstract class BasePanel {
       ${this.getPositionStyles()}
       width: ${this.config.size.width}px;
       height: ${this.config.size.height}px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: ${borderRadius}px;
       box-shadow:
-        0 8px 32px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
       z-index: 2000;
       opacity: 0;
       transform: scale(0.95);
@@ -289,10 +289,10 @@ export class FloatingIcon {
       ${this.getIconPosition(config.position)}
       width: ${iconSize}px;
       height: ${iconSize}px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(148, 163, 184, 0.3);
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: ${borderRadius}px;
       display: flex;
       align-items: center;
@@ -303,8 +303,8 @@ export class FloatingIcon {
       z-index: 1500;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow:
-        0 4px 12px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 6px 16px rgba(0, 0, 0, 0.4),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
       user-select: none;
       -webkit-user-select: none;
       -moz-user-select: none;
@@ -331,12 +331,12 @@ export class FloatingIcon {
       position: fixed;
       ${this.getTooltipPosition(config.position)}
       padding: ${Math.round(6 * dprCompensation)}px ${Math.round(14 * dprCompensation)}px;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px) saturate(160%);
+      -webkit-backdrop-filter: blur(12px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: ${borderRadius}px;
-      color: rgba(255, 255, 255, 0.9);
+      color: rgba(255, 255, 255, 0.95);
       font-size: ${Math.round(12 * dprCompensation)}px;
       font-weight: 700;
       font-family: 'Segoe UI', Tahoma, sans-serif;
@@ -346,7 +346,7 @@ export class FloatingIcon {
       pointer-events: none;
       opacity: 0;
       z-index: 2500;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
       transition: opacity 0.2s ease, transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     `;
 
@@ -491,23 +491,23 @@ export class FloatingIcon {
    */
   private updateStyle(): void {
     if (this.panel.isPanelVisible()) {
-      // Stato attivo - glass con accento bianco
-      this.element.style.background = 'rgba(255, 255, 255, 0.2)';
-      this.element.style.color = 'rgba(255, 255, 255, 0.9)';
-      this.element.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-      this.element.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2)';
+      // Stato attivo - glass scuro con accento bianco
+      this.element.style.background = 'rgba(255, 255, 255, 0.25)';
+      this.element.style.color = '#ffffff';
+      this.element.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+      this.element.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.25)';
     } else if (this.isHovered) {
-      // Hover - glass più intenso
-      this.element.style.background = 'rgba(255, 255, 255, 0.15)';
-      this.element.style.color = 'rgba(255, 255, 255, 0.9)';
-      this.element.style.borderColor = 'rgba(255, 255, 255, 0.25)';
-      this.element.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.15)';
+      // Hover - glass scuro più intenso
+      this.element.style.background = 'rgba(0, 0, 0, 0.55)';
+      this.element.style.color = '#ffffff';
+      this.element.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+      this.element.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.08)';
     } else {
-      // Stato normale - glass sottile
-      this.element.style.background = 'rgba(255, 255, 255, 0.1)';
+      // Stato normale - glass scuro base
+      this.element.style.background = 'rgba(0, 0, 0, 0.4)';
       this.element.style.color = 'rgba(255, 255, 255, 0.8)';
-      this.element.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      this.element.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1)';
+      this.element.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+      this.element.style.boxShadow = '0 6px 16px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.05)';
     }
   }
 

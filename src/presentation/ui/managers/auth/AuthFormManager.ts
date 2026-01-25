@@ -45,15 +45,15 @@ export class AuthFormManager {
     const formContainer = document.createElement('div');
     formContainer.className = 'auth-form-card';
     formContainer.style.cssText = `
-      background: rgba(255, 255, 255, 0.03);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(24px) saturate(160%);
+      -webkit-backdrop-filter: blur(24px) saturate(160%);
       padding: 48px 40px;
       border-radius: 20px;
       border: 1px solid rgba(255, 255, 255, 0.08);
       box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        0 15px 50px rgba(0, 0, 0, 0.6),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
       min-width: 320px;
       max-width: 420px;
       width: 100%;
@@ -519,9 +519,9 @@ export class AuthFormManager {
     return `
       width: 100%;
       padding: 16px 20px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 12px;
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(0, 0, 0, 0.2);
       backdrop-filter: blur(10px);
       -webkit-backdrop-filter: blur(10px);
       color: #ffffff;
@@ -531,6 +531,7 @@ export class AuthFormManager {
       box-sizing: border-box;
       outline: none;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
     `;
   }
 

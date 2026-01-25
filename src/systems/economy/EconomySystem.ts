@@ -362,7 +362,8 @@ export class EconomySystem extends BaseSystem {
       // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
       if (change !== 0 && reason !== 'server_update') {
         const currentRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
-        this.onHonorChanged?.(newAmount, change, currentRank);
+        this.initializeManagers();
+        this.eventManager.getOnHonorChanged()?.(newAmount, change, currentRank);
       }
     }
   }
@@ -382,7 +383,9 @@ export class EconomySystem extends BaseSystem {
    */
   setHonor(amount: number, reason: string = 'server_update'): void {
     const honor = this.getPlayerHonor();
-    if (!honor) return;
+    if (!honor) {
+      return;
+    }
 
     const oldAmount = honor.honor;
     const targetAmount = Math.max(0, amount);
@@ -397,7 +400,14 @@ export class EconomySystem extends BaseSystem {
 
     // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
     const currentRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
-    this.onHonorChanged?.(honor.honor, change, currentRank);
+
+    // Fix: Use eventManager instead of non-existent property
+    this.initializeManagers();
+    const onHonorChanged = this.eventManager.getOnHonorChanged();
+
+    if (onHonorChanged) {
+      onHonorChanged(honor.honor, change, currentRank);
+    }
   }
 
   /**
@@ -415,7 +425,8 @@ export class EconomySystem extends BaseSystem {
 
     // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
     if (added > 0 && reason !== 'server_update') {
-      this.onSkillPointsChanged?.(newAmount, added);
+      this.initializeManagers();
+      this.eventManager.getOnSkillPointsChanged()?.(newAmount, added);
     }
 
     return added;
@@ -429,14 +440,15 @@ export class EconomySystem extends BaseSystem {
     const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
     if (!skillPoints) return;
 
-    const oldAmount = skillPoints.skillPoints;
+    const oldAmount = skillPoints.current;
     skillPoints.setPoints(Math.max(0, amount)); // Usa il metodo esistente
 
-    const change = skillPoints.skillPoints - oldAmount;
+    const change = skillPoints.current - oldAmount;
 
     // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
     if (reason !== 'server_update') {
-      this.onSkillPointsChanged?.(skillPoints.skillPoints, change);
+      this.initializeManagers();
+      this.eventManager.getOnSkillPointsChanged()?.(skillPoints.current, change);
     }
   }
 

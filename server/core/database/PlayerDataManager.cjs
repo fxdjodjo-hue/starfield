@@ -142,10 +142,18 @@ class PlayerDataManager {
               // Preserva i valori reali, anche se alcuni sono null
               hadNullValues = false; // I valori sono stati impostati, anche se alcuni sono null
               // Sostituisci solo i null con default per far funzionare il gioco
-              if (currencies.credits === null) currencies.credits = defaultInventory.credits;
-              if (currencies.cosmos === null) currencies.cosmos = defaultInventory.cosmos;
-              if (currencies.experience === null) currencies.experience = defaultInventory.experience;
-              if (currencies.honor === null) currencies.honor = defaultInventory.honor;
+              if (currencies.credits == null) currencies.credits = defaultInventory.credits;
+              if (currencies.cosmos == null) currencies.cosmos = defaultInventory.cosmos;
+              if (currencies.experience == null) currencies.experience = defaultInventory.experience;
+              if (currencies.honor == null) currencies.honor = defaultInventory.honor;
+
+              // Force Number type for all numeric values
+              currencies.credits = Number(currencies.credits);
+              currencies.cosmos = Number(currencies.cosmos);
+              currencies.experience = Number(currencies.experience);
+              currencies.honor = Number(currencies.honor);
+
+              ServerLoggerWrapper.debug('DATABASE', `Currencies processed: honor=${currencies.honor}`);
             }
 
           } else {

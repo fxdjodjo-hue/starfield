@@ -17,7 +17,7 @@ import { PlayerRole } from '../../../../entities/player/PlayerRole';
 export class PlayStateResourceManager {
   private nicknameCreated: boolean = false;
   private remotePlayerSpriteUpdated: boolean = false;
-  private lastDisplayedRank: string = 'Recruit';
+  private lastDisplayedRank: string = 'Basic Space Pilot';
 
   constructor(
     private readonly world: World,
@@ -35,16 +35,18 @@ export class PlayStateResourceManager {
    * Gets the current player rank using RankSystem
    */
   getPlayerRank(): string {
-    if (!this.gameInitSystem) return 'Recruit';
+    if (!this.gameInitSystem) return 'Basic Space Pilot';
 
     const systems = this.gameInitSystem.getSystems();
     const rankSystem = systems.rankSystem;
 
     if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
-      return rankSystem.calculateCurrentRank();
+      const rank = rankSystem.calculateCurrentRank();
+      // console.log(`[DEBUG_RANK] PlayStateResourceManager.getPlayerRank: Current rank is ${rank}`); // Added log
+      return rank;
     }
 
-    return 'Recruit';
+    return 'Basic Space Pilot';
   }
 
   /**
@@ -62,24 +64,15 @@ export class PlayStateResourceManager {
 
     const nickname = this.context.playerNickname || 'Commander';
 
-    // Ottieni RankSystem per verificare se RecentHonor è disponibile
-    let rank = 'Recruit';
+    // Ottieni RankSystem per calcolare il rank attuale (SOLO ONORE)
+    let rank = 'Basic Space Pilot';
     if (this.gameInitSystem) {
       const systems = this.gameInitSystem.getSystems();
       const rankSystem = systems.rankSystem;
 
-      // Mostra il rank solo se RecentHonor è disponibile (evita salti da Recruit a rank alto)
-      // ECCEZIONE: Se è un Administrator, mostralo subito
       if (rankSystem && typeof rankSystem.calculateCurrentRank === 'function') {
-        const playerEntity = this.getPlayerEntity();
-        const playerRole = playerEntity ? this.world.getECS().getComponent(playerEntity, PlayerRole) : null;
-        const isAdmin = playerRole instanceof PlayerRole ? playerRole.isAdministrator : false;
-
-        // Verifica se RecentHonor è stato impostato (non null)
-        const recentHonor = (rankSystem as any).recentHonor;
-        if (isAdmin || (recentHonor !== null && recentHonor !== undefined)) {
-          rank = rankSystem.calculateCurrentRank();
-        }
+        rank = rankSystem.calculateCurrentRank();
+        // console.log(`[DEBUG_RANK] Polling rank: ${rank}`);
       }
     }
 
@@ -91,11 +84,13 @@ export class PlayStateResourceManager {
       uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
       this.nicknameCreated = true;
       this.lastDisplayedRank = rank;
+      console.log(`[DEBUG_RANK] PlayStateResourceManager.updateNicknamePosition: Created nickname for ${nickname} with rank ${rank}`); // Added log
     } else {
       // Aggiorna il contenuto del nickname solo se il rank è cambiato
       if (rank !== this.lastDisplayedRank) {
         uiSystem.updatePlayerNicknameContent(`${nickname}\n[${rank}]`);
         this.lastDisplayedRank = rank;
+        console.log(`[DEBUG_RANK] PlayStateResourceManager.updateNicknamePosition: Updated nickname for ${nickname} to rank ${rank}`); // Added log
       }
     }
 

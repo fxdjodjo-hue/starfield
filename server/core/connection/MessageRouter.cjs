@@ -163,14 +163,12 @@ async function handleJoin(data, sanitizedData, context) {
       { name: 'Basic Sergeant', minPoints: 150 },
       { name: 'Chief Space Pilot', minPoints: 100 },
       { name: 'Space Pilot', minPoints: 50 },
-      { name: 'Basic Space Pilot', minPoints: 25 },
-      { name: 'Recruit', minPoints: 0 }
+      { name: 'Basic Space Pilot', minPoints: 0 }
     ];
 
-    // Formula: EXP + (Honor * 0.5) + (RecentHonor * 2)
-    // Fallback: usa honor corrente se recentHonor non disponibile
-    const recentHonorValue = recentHonor !== undefined && recentHonor !== null ? recentHonor : totalHonor;
-    const rankingPoints = experience + (totalHonor * 0.5) + (recentHonorValue * 2);
+    // Formula Semplificata: SOLO ONORE (Richiesta utente)
+    // RankPoints = Onore
+    const rankingPoints = totalHonor;
 
     // Trova il rank
     for (const rank of MILITARY_RANKS) {
@@ -184,20 +182,17 @@ async function handleJoin(data, sanitizedData, context) {
   // Aggiorna il clientId nel playerData per coerenza
   playerData.clientId = persistentClientId;
 
-  // Calcola il rank iniziale
-  // NOTA: Qui usiamo honor corrente come approssimazione di recentHonor se non disponibile
-  // Idealmente dovremmo caricare recentHonor dal DB
+  // Calcola il rank iniziale usando formula semplificata
   const currentHonor = loadedData.inventory?.honor || 0;
-  // TODO: Caricare recentHonor dal DB per calcolo preciso
-  // Per ora usiamo currentHonor come stima per recentHonor
-  const recentHonorApprox = currentHonor;
 
   playerData.rank = calculatePlayerRank(
     loadedData.inventory?.experience || 0,
     currentHonor,
-    recentHonorApprox,
+    null, // recentHonor rimosso dalla formula
     playerData.isAdministrator
   );
+
+  console.log(`[SERVER_RANK_CALC] User ${data.nickname}: Exp=${loadedData.inventory?.experience}, Honor=${currentHonor}, Points=${currentHonor}, CalculatedRank=${playerData.rank}`);
 
   // 🚨 CRITICAL: Inizializza coordinate del player usando la persistenza del DB o spawn come fallback
   // loadedData.position contiene i dati caricati dal DB in PlayerDataManager.loadPlayerData
@@ -863,7 +858,6 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
               rankingPoints: 0,
               kills: 0,
               playTime: 0,
-              level: 1,
               rankName: 'Recruit'
             }));
 
@@ -925,7 +919,6 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
         rankingPoints: rankingPoints,
         kills: parseInt(entry.kills) || 0,
         playTime: parseInt(entry.play_time) || 0,
-        level: parseInt(entry.level) || 1,
         rankName: rankName
       };
     });
