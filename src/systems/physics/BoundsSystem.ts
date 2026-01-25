@@ -58,7 +58,7 @@ export class BoundsSystem extends BaseSystem {
       const { AtlasParser } = await import('../../core/utils/AtlasParser');
       const atlasData = await AtlasParser.parseAtlas('assets/radiation/radiation.atlas');
       this.radiationFrames = await AtlasParser.extractFrames(atlasData);
-      console.log(`[BoundsSystem] Cucinati ${this.radiationFrames.length} frame di radiazione.`);
+
     } catch (error) {
       console.error('[BoundsSystem] Errore caricamento radiation assets:', error);
     } finally {
