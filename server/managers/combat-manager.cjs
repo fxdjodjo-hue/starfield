@@ -475,8 +475,9 @@ class ServerCombatManager {
       return;
     }
 
-    // 🛡️ SAFE ZONE NPC CHECK: NPC non attacca se è in una zona sicura
-    if (this.isInSafeZone(npc.position)) {
+    // 🛡️ SAFE ZONE NPC CHECK: NPC non attacca se è in una zona sicura (tranne se è una ritorsione)
+    const isRetaliationPossible = npc.lastAttackerId ? true : false;
+    if (this.isInSafeZone(npc.position) && !isRetaliationPossible) {
       return;
     }
 
@@ -490,18 +491,13 @@ class ServerCombatManager {
     if (npc.lastAttackerId) {
       const attackerData = this.mapServer.players.get(npc.lastAttackerId);
       if (attackerData && attackerData.position) {
-        // 🛡️ SAFE ZONE CHECK: Ignora l'attaccante se è entrato in una zona sicura
-        if (!this.isInSafeZone(attackerData.position)) {
-          const dx = attackerData.position.x - npc.position.x;
-          const dy = attackerData.position.y - npc.position.y;
-          const distSq = dx * dx + dy * dy;
+        // 🚀 RETALIATION logic: Permetti di continuare ad attaccare l'aggressore anche in Safe Zone
+        const dx = attackerData.position.x - npc.position.x;
+        const dy = attackerData.position.y - npc.position.y;
+        const distSq = dx * dx + dy * dy;
 
-          if (distSq <= attackRangeSq) {
-            targetPlayer = attackerData;
-          }
-        } else {
-          // Bersaglio entrato in Safe Zone - dimenticalo per ora
-          npc.lastAttackerId = null;
+        if (distSq <= attackRangeSq) {
+          targetPlayer = attackerData;
         }
       }
     }
@@ -554,7 +550,13 @@ class ServerCombatManager {
     }
 
     // 🛡️ FINAL SAFE ZONE SECURITY CHECK
-    if (this.isInSafeZone(npc.position) || this.isInSafeZone(targetPlayer.position)) {
+    // Permetti l'attacco se è una ritorsione (lastAttackerId), altrimenti blocca se in Safe Zone
+    // 🚀 RETALIATION bypassa completamente la protezione della Safe Zone (sia per NPC che per Player)
+    const lastAttackerId = npc.lastAttackerId ? String(npc.lastAttackerId) : null;
+    const targetClientId = targetPlayer.clientId ? String(targetPlayer.clientId) : null;
+    const isRetaliation = lastAttackerId === targetClientId;
+
+    if (!isRetaliation && (this.isInSafeZone(npc.position) || this.isInSafeZone(targetPlayer.position))) {
       return;
     }
 

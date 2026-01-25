@@ -147,27 +147,9 @@ export class CombatStateManager {
     }
   }
 
-  /**
-   * Sends start combat request to server
-   */
   private sendStartCombat(npcEntity: Entity): void {
-    // console.log(`[CLIENT_COMBAT_DEBUG] SENDING start_combat for NPC ${npcEntity.id} to server`);
-
-    // Invia effettivamente il messaggio
-    const networkSystem = this.getClientNetworkSystem();
-    if (networkSystem) {
-      const message = {
-        type: 'start_combat',
-        npcId: npcEntity.id,
-        playerId: networkSystem.gameContext.authId || networkSystem.getLocalClientId()
-      };
-      // console.log(`[CLIENT_COMBAT_MESSAGE] Message:`, message);
-      networkSystem.sendMessage(message);
-    }
     const clientNetworkSystem = this.getClientNetworkSystem();
-    if (!clientNetworkSystem) {
-      return;
-    }
+    if (!clientNetworkSystem) return;
 
     const npc = this.ecs.getComponent(npcEntity, Npc);
     if (!npc) {
@@ -176,7 +158,7 @@ export class CombatStateManager {
     }
 
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
-    const playerId = clientNetworkSystem.gameContext.authId;
+    const playerId = clientNetworkSystem.getLocalClientId(); // Standardize to localClientId
 
     try {
       clientNetworkSystem.sendStartCombat({
@@ -191,7 +173,7 @@ export class CombatStateManager {
   /**
    * Sends stop combat request to server
    */
-  sendStopCombat(): void {
+  public sendStopCombat(): void {
     const clientNetworkSystem = this.getClientNetworkSystem();
     if (!clientNetworkSystem) return;
 
@@ -217,7 +199,7 @@ export class CombatStateManager {
   /**
    * Ends attack logging
    */
-  endAttackLogging(): void {
+  public endAttackLogging(): void {
     const logSystem = this.getLogSystem();
     if (!logSystem || this.currentAttackTarget === null) return;
 
@@ -235,7 +217,7 @@ export class CombatStateManager {
   /**
    * Stops combat immediately
    */
-  stopCombatImmediately(deactivateAttackCallback: () => void): void {
+  public stopCombatImmediately(deactivateAttackCallback: () => void): void {
     deactivateAttackCallback();
 
     if (this.currentAttackTarget) {
@@ -250,7 +232,7 @@ export class CombatStateManager {
   /**
    * Resets combat state
    */
-  reset(): void {
+  public reset(): void {
     this.currentAttackTarget = null;
     this.attackStartedLogged = false;
     this.wasInCombat = false;

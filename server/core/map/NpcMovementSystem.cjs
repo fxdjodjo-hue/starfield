@@ -57,12 +57,13 @@ class NpcMovementSystem {
         let targetValid = false;
 
         if (targetPlayer && !targetPlayer.isDead && targetPlayer.position) {
-          // 🛡️ SAFE ZONE CHECK: Target invalido se entra in zona sicura
-          if (!this.isInSafeZone(targetPlayer.position)) {
-            const dx = targetPlayer.position.x - npc.position.x;
-            const dy = targetPlayer.position.y - npc.position.y;
-            const distSq = dx * dx + dy * dy;
-            if (distSq <= pursuitRangeSq) targetValid = true;
+          // 🚀 RETALIATION logic: Permetti di mantenere il lock sull'aggressore anche in Safe Zone
+          const dx = targetPlayer.position.x - npc.position.x;
+          const dy = targetPlayer.position.y - npc.position.y;
+          const distSq = dx * dx + dy * dy;
+
+          if (distSq <= pursuitRangeSq) {
+            targetValid = true;
           }
         }
 

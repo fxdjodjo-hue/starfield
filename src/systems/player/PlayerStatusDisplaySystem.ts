@@ -259,7 +259,7 @@ export class PlayerStatusDisplaySystem extends System {
    * Renderizza debug info (accelerazione/velocità) sopra la nave
    */
   render(ctx: CanvasRenderingContext2D): void {
-    if (!this.playerEntity || !gameConfig.debug.enabled) return;
+    if (!this.playerEntity || !gameConfig.gameplay.debug.enabled) return;
 
     // Trova camera system dinamicamente se necessario
     const cameraSystem = this.findCameraSystem();

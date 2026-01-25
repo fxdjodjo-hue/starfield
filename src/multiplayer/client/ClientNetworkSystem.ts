@@ -574,8 +574,8 @@ export class ClientNetworkSystem extends BaseSystem {
     velocity: { x: number; y: number };
     projectileType: string;
   }): void {
-    // Use authId (UUID) instead of clientId for playerId validation
-    const playerId = this.gameContext.authId || data.playerId;
+    // Use localClientId instead of authId for consistency across combat messages
+    const playerId = this.getLocalClientId();
     this.combatManager.sendProjectileFired({
       ...data,
       playerId: playerId

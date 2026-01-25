@@ -638,7 +638,7 @@ export class CombatStateSystem extends BaseSystem {
 
     // Usa l'ID server se disponibile, altrimenti l'ID entità locale
     const npcIdToSend = npc.serverId || npcEntity.id.toString();
-    const playerId = this.clientNetworkSystem.gameContext.authId;
+    const playerId = this.clientNetworkSystem.getLocalClientId();
 
     try {
       this.clientNetworkSystem.sendStartCombat({
