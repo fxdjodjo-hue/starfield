@@ -18,7 +18,7 @@ import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { Camera } from '../../entities/spatial/Camera';
 import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
-import { PLAYTEST_CONFIG } from '../../config/GameConstants';
+import { PLAYTEST_CONFIG, GAME_CONSTANTS } from '../../config/GameConstants';
 import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
@@ -619,6 +619,11 @@ export class RenderSystem extends BaseSystem {
       this.damageTextSystem.render(ctx);
     }
 
+    // Renderizza raggio di interesse (debug visivo, attivabile da GameConstants)
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_UI) {
+      this.renderInterestRadius(ctx, camera);
+    }
+
     // Render NPC beam effects (laser attacks) - TEMPORANEAMENTE DISABILITATO
     // TODO: Riabilitare dopo aver fixato il sistema di selezione NPC
 
@@ -1023,6 +1028,46 @@ export class RenderSystem extends BaseSystem {
    * Solo in modalità sviluppo (DEV)
    */
 
+
+  /**
+   * Renderizza il raggio di interesse di rete (5000 unità) intorno al player
+   */
+  private renderInterestRadius(ctx: CanvasRenderingContext2D, camera: Camera): void {
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const transform = this.ecs.getComponent(playerEntity, Transform);
+    if (!transform) return;
+
+    const { width, height } = this.displayManager.getLogicalSize();
+    const screenPos = camera.worldToScreen(transform.x, transform.y, width, height);
+
+    // Raggio in pixel (scalato dallo zoom della camera)
+    const worldRadius = GAME_CONSTANTS.NETWORK.INTEREST_RADIUS;
+    const screenRadius = worldRadius * (camera.zoom || 1);
+
+    ctx.save();
+
+    // Disegna il cerchio esterno
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)'; // Cyan semi-trasparente
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 10]); // Tratteggiato
+    ctx.beginPath();
+    ctx.arc(screenPos.x, screenPos.y, screenRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Riempimento leggero
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.05)';
+    ctx.fill();
+
+    // Etichetta testo
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.8)';
+    ctx.font = '14px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(`Network Interest Radius: ${worldRadius} units`, screenPos.x, screenPos.y - screenRadius - 10);
+
+    ctx.restore();
+  }
 
   /**
    * Renderizza il testo "ACCESS DENIED" sopra al portale con effetto fluttuante

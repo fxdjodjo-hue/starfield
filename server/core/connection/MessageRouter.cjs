@@ -230,12 +230,21 @@ async function handleJoin(data, sanitizedData, context) {
     mapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
   }
 
-  // Invia NPC esistenti
+  // Invia solo gli NPC vicini (raggio 5000) per coprire l'intera screenview
   const allNpcs = mapServer.npcManager.getAllNpcs();
-  if (allNpcs.length > 0) {
-    const initialNpcsMessage = messageBroadcaster.formatInitialNpcsMessage(allNpcs);
+  const joinNpcRadius = 5000;
+  const joinNpcRadiusSq = joinNpcRadius * joinNpcRadius;
+
+  const relevantNpcs = allNpcs.filter(npc => {
+    const dx = npc.position.x - playerData.position.x;
+    const dy = npc.position.y - playerData.position.y;
+    return (dx * dx + dy * dy) <= joinNpcRadiusSq;
+  });
+
+  if (relevantNpcs.length > 0) {
+    const initialNpcsMessage = messageBroadcaster.formatInitialNpcsMessage(relevantNpcs);
     ws.send(JSON.stringify(initialNpcsMessage));
-    ServerLoggerWrapper.debug('SERVER', `Sent ${allNpcs.length} initial NPCs to new player ${persistentClientId}`);
+    ServerLoggerWrapper.debug('SERVER', `Sent ${relevantNpcs.length}/${allNpcs.length} initial NPCs to new player ${persistentClientId}`);
   }
 
   // Welcome message

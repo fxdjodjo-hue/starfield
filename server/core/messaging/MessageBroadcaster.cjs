@@ -65,15 +65,20 @@ class MessageBroadcaster {
   formatInitialNpcsMessage(npcs) {
     return {
       type: 'initial_npcs',
-      npcs: npcs.map(npc => ({
-        id: npc.id,
-        type: npc.type,
-        position: npc.position,
-        health: { current: npc.health, max: npc.maxHealth },
-        shield: { current: npc.shield, max: npc.maxShield },
-        behavior: npc.behavior
-      })),
-      timestamp: Date.now()
+      // FORMATO COMPATTO: [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behavior_char]
+      n: npcs.map(npc => [
+        npc.id,
+        npc.type,
+        Math.round(npc.position.x),
+        Math.round(npc.position.y),
+        parseFloat(npc.position.rotation.toFixed(2)),
+        Math.round(npc.health),
+        Math.round(npc.maxHealth),
+        Math.round(npc.shield),
+        Math.round(npc.maxShield),
+        npc.behavior ? npc.behavior[0] : 'c'
+      ]),
+      t: Date.now()
     };
   }
 

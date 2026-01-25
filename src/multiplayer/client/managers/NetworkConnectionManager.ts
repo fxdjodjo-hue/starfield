@@ -24,6 +24,13 @@ export class NetworkConnectionManager {
   private lastHeartbeatAck = 0;
   private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // Bandwidth tracking
+  private bytesIn = 0;
+  private bytesOut = 0;
+  private kbpsIn = 0;
+  private kbpsOut = 0;
+  private bandwidthInterval: ReturnType<typeof setInterval> | null = null;
+
   constructor(
     serverUrl: string,
     onConnected: (socket: WebSocket) => Promise<void>,
@@ -67,10 +74,18 @@ export class NetworkConnectionManager {
         this.socket.onopen = async () => {
           await this.handleConnected(this.socket!);
           this.startHeartbeat();
+          this.startBandwidthTracking();
           resolve(this.socket!);
         };
 
         this.socket.onmessage = (event) => {
+          // Traccia byte in entrata
+          if (typeof event.data === 'string') {
+            this.bytesIn += event.data.length;
+          } else if (event.data instanceof Blob) {
+            this.bytesIn += event.data.size;
+          }
+
           this.handleMessage(event.data);
         };
 
@@ -177,6 +192,7 @@ export class NetworkConnectionManager {
    */
   send(message: string): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
+      this.bytesOut += message.length;
       this.socket.send(message);
     } else {
       console.warn('🔌 [CONNECTION] Cannot send message - socket not connected');
@@ -254,14 +270,42 @@ export class NetworkConnectionManager {
    */
   private cleanup(): void {
     this.stopHeartbeat();
+    this.stopBandwidthTracking();
     this.socket = null;
+  }
+
+  /**
+   * Avvia il tracciamento della larghezza di banda
+   */
+  private startBandwidthTracking(): void {
+    this.stopBandwidthTracking();
+
+    this.bandwidthInterval = setInterval(() => {
+      // Calcola KB/s (byte / 1024)
+      this.kbpsIn = this.bytesIn / 1024;
+      this.kbpsOut = this.bytesOut / 1024;
+
+      // Reset contatori per il prossimo secondo
+      this.bytesIn = 0;
+      this.bytesOut = 0;
+    }, 1000);
+  }
+
+  /**
+   * Ferma il tracciamento della larghezza di banda
+   */
+  private stopBandwidthTracking(): void {
+    if (this.bandwidthInterval) {
+      clearInterval(this.bandwidthInterval);
+      this.bandwidthInterval = null;
+    }
   }
 
 
   /**
    * Callback setters
    */
-  onConnected(callback: () => void): void {
+  onConnected(callback: (socket: WebSocket) => Promise<void>): void {
     this.onConnectedCallback = callback;
   }
 
@@ -288,7 +332,9 @@ export class NetworkConnectionManager {
     return {
       isConnected: this.isConnectionActive(),
       lastHeartbeatAck: this.lastHeartbeatAck,
-      readyState: this.socket?.readyState || -1
+      readyState: this.socket?.readyState || -1,
+      kbpsIn: this.kbpsIn,
+      kbpsOut: this.kbpsOut
     };
   }
 }

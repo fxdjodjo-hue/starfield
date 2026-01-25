@@ -128,8 +128,7 @@ export class BoundsSystem extends BaseSystem {
   }
 
   render(ctx: CanvasRenderingContext2D): void {
-    // 1. Renderizza le linee di confine rosse
-    this.renderBounds(ctx);
+    // 1. Il rendering dei confini (polvere stellare) è stato rimosso per un look più pulito
 
     // 2. Se fuori bounds, renderizza l'effetto radiazione overlay
     if (this.playerEntity) {
@@ -202,55 +201,6 @@ export class BoundsSystem extends BaseSystem {
       // Il danno dei bounds è sempre danno HP e permette più testi simultanei
       combatSystem.createDamageText(targetEntity, damage, false, true);
     }
-  }
-
-  /**
-   * Renderizza i confini della mappa come particelle di "Polvere Stellare"
-   */
-  private renderBounds(ctx: CanvasRenderingContext2D): void {
-    const camera = this.cameraSystem.getCamera();
-    if (!camera) return;
-
-    ctx.save();
-
-    const { width, height } = DisplayManager.getInstance().getLogicalSize();
-    const now = Date.now();
-    const flowSpeed = 0.000005;
-
-    const worldW = this.BOUNDS_RIGHT - this.BOUNDS_LEFT;
-    const worldH = this.BOUNDS_BOTTOM - this.BOUNDS_TOP;
-    const totalPerim = 2 * (worldW + worldH);
-
-    const step = 20;
-    const particleCount = Math.floor(totalPerim / step);
-    const flowOffset = (now * flowSpeed * totalPerim) % totalPerim;
-
-    ctx.fillStyle = 'white';
-
-    for (let i = 0; i < particleCount; i++) {
-      let d = (i * step + flowOffset) % totalPerim;
-      let wx, wy;
-
-      if (d < worldW) {
-        wx = this.BOUNDS_LEFT + d; wy = this.BOUNDS_TOP;
-      } else if (d < worldW + worldH) {
-        wx = this.BOUNDS_RIGHT; wy = this.BOUNDS_TOP + (d - worldW);
-      } else if (d < 2 * worldW + worldH) {
-        wx = this.BOUNDS_RIGHT - (d - (worldW + worldH)); wy = this.BOUNDS_BOTTOM;
-      } else {
-        wx = this.BOUNDS_LEFT; wy = this.BOUNDS_BOTTOM - (d - (2 * worldW + worldH));
-      }
-
-      const driftX = (Math.sin(i * 3.7 + now * 0.0003) * 20);
-      const driftY = (Math.sin(i * 5.2 + now * 0.0004) * 20);
-      const screenPos = camera.worldToScreen(wx, wy, width, height);
-      const pulse = 0.5 + Math.abs(Math.sin(now * 0.001 + i * 0.5)) * 0.2;
-
-      ctx.globalAlpha = pulse;
-      ctx.fillRect(screenPos.x + driftX, screenPos.y + driftY, 1.5, 1.5);
-    }
-
-    ctx.restore();
   }
 
 }

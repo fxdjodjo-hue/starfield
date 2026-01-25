@@ -11,6 +11,7 @@ export class RemotePlayer extends Component {
 
   public targetId: string | null = null;
   public lastVisualFireTime: number = 0;
+  public lastSeen: number = Date.now();
 
   constructor(
     clientId: string,

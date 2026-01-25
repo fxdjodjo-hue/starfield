@@ -4,6 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
+const { NPC_CONFIG } = require('../../config/constants.cjs');
 
 class NpcDamageHandler {
   constructor(mapServer, npcs, respawnSystem, rewardSystem) {
@@ -55,6 +56,13 @@ class NpcDamageHandler {
 
     // Se morto, rimuovi l'NPC e assegna ricompense
     if (npc.health <= 0) {
+      // 🚀 IMMEDIATE REMOVAL BROADCAST: Comunica subito la morte a tutti i client
+      // Questo previene l'effetto "fermo per qualche secondo" (ghost corpse)
+      const rewards = NPC_CONFIG[npc.type]?.rewards;
+      if (this.mapServer.projectileManager && this.mapServer.projectileManager.broadcaster) {
+        this.mapServer.projectileManager.broadcaster.broadcastEntityDestroyed(npc, attackerId, 'npc', rewards);
+      }
+
       this.removeNpc(npcId);
       this.rewardSystem.awardNpcKillRewards(attackerId, npc.type);
       return true; // NPC morto

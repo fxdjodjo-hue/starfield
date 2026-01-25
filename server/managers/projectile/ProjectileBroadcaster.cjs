@@ -189,28 +189,40 @@ class ProjectileBroadcaster {
 
     if (homingProjectiles.length === 0) return;
 
-    // Prepara array di aggiornamenti per tutti i proiettili
-    const projectiles = homingProjectiles.map(projectile => ({
-      id: projectile.id,
-      position: {
-        x: projectile.position.x,
-        y: projectile.position.y
-      },
-      velocity: {
-        x: projectile.velocity.x,
-        y: projectile.velocity.y
-      }
-    }));
+    // Prepara array di aggiornamenti per tutti i proiettili in FORMATO COMPATTO
+    const projectilesCompact = homingProjectiles.map(projectile => [
+      projectile.id,
+      Math.round(projectile.position.x),
+      Math.round(projectile.position.y),
+      Math.round(projectile.velocity.x),
+      Math.round(projectile.velocity.y)
+    ]);
 
     const message = {
       type: 'projectile_updates',
-      projectiles: projectiles,
-      timestamp: Date.now()
+      pr: projectilesCompact, // 'pr' invece di 'projectiles'
+      t: Date.now()
     };
 
-    // Broadcast a TUTTI i client connessi (i proiettili NPC homing devono essere visibili a tutti)
-    // Il raggio di interesse è globale per proiettili NPC che seguono player
-    this.mapServer.broadcastToMap(message);
+    // OTTIMIZZAZIONE: Non inviare a TUTTI. Invia solo a chi è vicino ai proiettili.
+    // Usiamo un raggio di 4000 (ampio per vedere i colpi arrivare)
+    const broadcastRadius = 4000;
+    const radiusSq = broadcastRadius * broadcastRadius;
+
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      if (!playerData.position || !playerData.ws || playerData.ws.readyState !== 1) continue;
+
+      // Verifica se almeno un proiettile è nel raggio di questo player
+      const hasCloseProjectile = projectilesCompact.some(proj => {
+        const dx = proj[1] - playerData.position.x; // proj[1] is x
+        const dy = proj[2] - playerData.position.y; // proj[2] is y
+        return (dx * dx + dy * dy) <= radiusSq;
+      });
+
+      if (hasCloseProjectile) {
+        playerData.ws.send(JSON.stringify(message));
+      }
+    }
   }
 }
 

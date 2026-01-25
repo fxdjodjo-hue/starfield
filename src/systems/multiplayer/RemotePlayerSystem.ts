@@ -38,7 +38,19 @@ export class RemotePlayerSystem extends BaseSystem {
 
 
   update(_deltaTime: number): void {
-    // Gestisci orientamento dei remote player verso NPC selezionati
+    const now = Date.now();
+
+    // 1. Pulizia player remoti "fantasma" (disconnessi o fuori sync)
+    // Se non riceviamo update per > 5 secondi, rimuoviamo l'entità
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
+    for (const entity of remotePlayerEntities) {
+      const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
+      if (remotePlayer && (now - remotePlayer.lastSeen > 5000)) {
+        this.ecs.removeEntity(entity);
+      }
+    }
+
+    // 2. Gestisci orientamento dei remote player verso NPC selezionati
     this.faceSelectedNpcsForRemotePlayers();
 
     // I componenti Velocity vengono gestiti dal MovementSystem
@@ -164,7 +176,14 @@ export class RemotePlayerSystem extends BaseSystem {
       return;
     }
 
+    // Aggiorna solo target e timestamp di attività
     const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
+    const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
+
+    if (remotePlayer) {
+      remotePlayer.lastSeen = Date.now();
+    }
+
     if (interpolation) {
       // Log aggiornamenti posizione ogni 5 secondi per evitare spam
 

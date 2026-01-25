@@ -24,7 +24,7 @@ export const COMBAT = {
 } as const;
 
 export const NETWORK = {
-  INTEREST_RADIUS: 1500,        // Raggio interesse broadcasting
+  INTEREST_RADIUS: 5000,        // Raggio interesse broadcasting (sincronizzato con server)
   BROADCAST_INTERVAL: 100       // Intervallo broadcast (ms)
 } as const;
 

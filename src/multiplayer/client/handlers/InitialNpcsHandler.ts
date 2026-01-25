@@ -24,7 +24,10 @@ export class InitialNpcsHandler extends BaseMessageHandler {
     remoteNpcSystem.removeAllRemoteNpcs();
 
     // Inizializza tutti gli NPC ricevuti dal server
-    remoteNpcSystem.initializeNpcsFromServer(message.npcs);
-
+    if (message.n) {
+      remoteNpcSystem.initializeNpcsFromServer(message.n);
+    } else if (message.npcs) {
+      remoteNpcSystem.initializeNpcsFromServer(message.npcs);
+    }
   }
 }

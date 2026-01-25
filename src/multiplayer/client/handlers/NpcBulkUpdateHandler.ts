@@ -18,7 +18,12 @@ export class NpcBulkUpdateHandler extends BaseMessageHandler {
       return;
     }
 
-    // Applica aggiornamenti bulk
-    remoteNpcSystem.bulkUpdateNpcs(message.npcs);
+    // Applica aggiornamenti bulk usando la nuova proprietà compattata 'n'
+    if (message.n) {
+      remoteNpcSystem.bulkUpdateNpcs(message.n);
+    } else if (message.npcs) {
+      // Fallback per compatibilità durante la transizione
+      remoteNpcSystem.bulkUpdateNpcs(message.npcs);
+    }
   }
 }

@@ -18,8 +18,8 @@ import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
  * Tutti gli NPC hanno autorità SERVER_AUTHORITATIVE
  */
 export class RemoteNpcSystem extends BaseSystem {
-  // Mappa npcId -> entity data
-  private remoteNpcs: Map<string, {entityId: number, type: string}> = new Map();
+  // Mappa npcId -> entity data con tracking tempo per cleanup ghost entities
+  private remoteNpcs: Map<string, { entityId: number, type: string, lastSeen: number }> = new Map();
 
   // Cache degli sprite NPC per tipo (più efficiente)
   private npcSprites: Map<string, Sprite> = new Map();
@@ -119,6 +119,11 @@ export class RemoteNpcSystem extends BaseSystem {
       console.warn(`[RemoteNpcSystem] Duplicate NPC creation attempt for ${npcId} (${type}) - updating existing entity ${existingNpcData.entityId} instead`);
 
       this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, shield, behavior);
+
+      // Aggiorna anche il lastSeen per prevenire rimozione ghost
+      const data = this.remoteNpcs.get(npcId);
+      if (data) data.lastSeen = Date.now();
+
       return existingNpcData.entityId;
     }
 
@@ -129,7 +134,7 @@ export class RemoteNpcSystem extends BaseSystem {
     // Ottieni lo sprite o animatedSprite per questo tipo di NPC
     const animatedSprite = this.npcAnimatedSprites.get(validType);
     const sprite = this.npcSprites.get(validType);
-    
+
     if (!animatedSprite && !sprite) {
       return -1;
     }
@@ -164,8 +169,8 @@ export class RemoteNpcSystem extends BaseSystem {
     // Authority: NPC controllati SOLO dal server
     this.ecs.addComponent(entity, Authority, new Authority('server', AuthorityLevel.SERVER_AUTHORITATIVE));
 
-    // Registra l'NPC
-    this.remoteNpcs.set(npcId, { entityId: entity.id, type });
+    // Registra l'NPC con timestamp iniziale
+    this.remoteNpcs.set(npcId, { entityId: entity.id, type, lastSeen: Date.now() });
 
 
     return entity.id;
@@ -241,40 +246,90 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Gestisce aggiornamenti bulk di NPC (ottimizzato per performance)
    */
-  bulkUpdateNpcs(updates: Array<{ id: string, position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
-    const startTime = Date.now();
-    let successCount = 0;
-    let failCount = 0;
+  bulkUpdateNpcs(updates: any[]): void {
+    if (!updates || updates.length === 0) return;
 
     for (const update of updates) {
-      const existed = this.remoteNpcs.has(update.id);
-      this.updateRemoteNpc(update.id, update.position, update.health, update.shield, update.behavior);
-      if (existed) {
-        successCount++;
+      // FORMATO COMPATTO: [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behavior_char]
+      if (Array.isArray(update)) {
+        const [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behaviorChar] = update;
+
+        let behavior = 'cruise';
+        if (behaviorChar === 'a') behavior = 'attack';
+        else if (behaviorChar === 'f') behavior = 'flee';
+        else if (behaviorChar === 'p') behavior = 'patrol';
+        else if (behaviorChar === 'g') behavior = 'guard';
+
+        if (!this.remoteNpcs.has(id)) {
+          // AUTO-SPAWN: Se l'NPC entra nel raggio e non lo abbiamo, crealo
+          const npcType = type as 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
+          this.addRemoteNpc(id, npcType, x, y, rotation, { current: hp, max: maxHp }, { current: sh, max: maxSh }, behavior);
+        } else {
+          // UPDATE: Se esiste già, aggiorna posizione e timestamp
+          const data = this.remoteNpcs.get(id);
+          if (data) data.lastSeen = Date.now();
+
+          this.updateRemoteNpc(
+            id,
+            { x, y, rotation },
+            { current: hp, max: maxHp },
+            { current: sh, max: maxSh },
+            behavior
+          );
+        }
       } else {
-        failCount++;
+        // Fallback per formato vecchio (oggetto)
+        if (!this.remoteNpcs.has(update.id)) {
+          // Vecchio formato non supporta auto-spawn facilmente (mancano dati)
+          continue;
+        }
+        const data = this.remoteNpcs.get(update.id);
+        if (data) data.lastSeen = Date.now();
+        this.updateRemoteNpc(update.id, update.position, update.health, update.shield, update.behavior);
       }
     }
-
-    // Log summary of bulk update
-    const duration = Date.now() - startTime;
   }
 
   /**
    * Inizializza NPC dal messaggio initial_npcs
    */
-  initializeNpcsFromServer(npcs: Array<{ id: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', position: { x: number, y: number, rotation: number }, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string }>): void {
+  initializeNpcsFromServer(npcs: any[]): void {
+    if (!npcs || npcs.length === 0) return;
+
     for (const npcData of npcs) {
-      this.addRemoteNpc(
-        npcData.id,
-        npcData.type,
-        npcData.position.x,
-        npcData.position.y,
-        npcData.position.rotation,
-        npcData.health,
-        npcData.shield,
-        npcData.behavior
-      );
+      if (Array.isArray(npcData)) {
+        // FORMATO COMPATTO: [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behavior_char]
+        const [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behaviorChar] = npcData;
+
+        let behavior = 'cruise';
+        if (behaviorChar === 'a') behavior = 'attack';
+        else if (behaviorChar === 'f') behavior = 'flee';
+        else if (behaviorChar === 'p') behavior = 'patrol';
+        else if (behaviorChar === 'g') behavior = 'guard';
+
+        this.addRemoteNpc(
+          id,
+          type,
+          x,
+          y,
+          rotation,
+          { current: hp, max: maxHp },
+          { current: sh, max: maxSh },
+          behavior
+        );
+      } else {
+        // Formato vecchio (fallback)
+        this.addRemoteNpc(
+          npcData.id,
+          npcData.type,
+          npcData.position.x,
+          npcData.position.y,
+          npcData.position.rotation,
+          npcData.health,
+          npcData.shield,
+          npcData.behavior
+        );
+      }
     }
   }
 
@@ -329,7 +384,17 @@ export class RemoteNpcSystem extends BaseSystem {
    * Update periodico - verifica consistenza e cleanup
    */
   update(deltaTime: number): void {
-    // Verifica periodica di consistenza (ogni 10 secondi)
+    const now = Date.now();
+
+    // 1. Pulizia "Ghost Entities": rimuovi NPC fuori raggio d'interesse (niente updates per > 3sec)
+    // Usiamo un raggio di tolleranza di 3 secondi per evitare rimozioni brusche causate da lag
+    for (const [npcId, data] of this.remoteNpcs.entries()) {
+      if (now - data.lastSeen > 3000) {
+        this.removeRemoteNpc(npcId);
+      }
+    }
+
+    // 2. Verifica periodica di consistenza (ogni 10 secondi)
     this.lastStatusLog += deltaTime;
     if (this.lastStatusLog > 10000) {
       this.checkConsistency();

@@ -1,0 +1,104 @@
+import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
+
+export class NetworkStatsDisplay {
+    private container: HTMLElement;
+    private networkSystem: ClientNetworkSystem | null = null;
+    private visible: boolean = false;
+    private animationFrameId: number | null = null;
+    private lastUpdate: number = 0;
+
+    constructor() {
+        this.container = document.createElement('div');
+        this.setupElement();
+        document.body.appendChild(this.container);
+        this.hide(); // Hidden by default
+    }
+
+    private setupElement(): void {
+        this.container.id = 'network-stats-display';
+        this.container.style.cssText = `
+      position: absolute;
+      top: 45px; /* Below FPS counter */
+      right: 180px; /* Positioned to the left of the minimap */
+      background: rgba(0, 0, 0, 0.45);
+      color: #00d4ff; /* Cyan color for network */
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-weight: bold;
+      font-size: 11px; /* Slightly smaller than FPS */
+      pointer-events: none;
+      z-index: 1000;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px) saturate(160%);
+      -webkit-backdrop-filter: blur(10px) saturate(160%);
+      box-shadow: 
+        0 4px 12px rgba(0, 0, 0, 0.3),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05);
+      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      white-space: pre; /* Keep formatting */
+    `;
+        this.container.innerHTML = 'NET IN:  0.0 KB/s<br>NET OUT: 0.0 KB/s';
+    }
+
+    public setNetworkSystem(networkSystem: ClientNetworkSystem): void {
+        this.networkSystem = networkSystem;
+    }
+
+    private loop = (timestamp: number): void => {
+        if (!this.lastUpdate) this.lastUpdate = timestamp;
+
+        // Update display every 500ms
+        if (timestamp - this.lastUpdate >= 500) {
+            this.updateDisplay();
+            this.lastUpdate = timestamp;
+        }
+
+        this.animationFrameId = requestAnimationFrame(this.loop);
+    }
+
+    private updateDisplay(): void {
+        if (!this.networkSystem) return;
+
+        const stats = this.networkSystem.getNetworkStats();
+        const inStr = stats.kbpsIn.toFixed(1).padStart(4, ' ');
+        const outStr = stats.kbpsOut.toFixed(1).padStart(4, ' ');
+
+        this.container.innerHTML = `NET IN:  ${inStr} KB/s<br>NET OUT: ${outStr} KB/s`;
+
+        // Opti: Change color if bandwidth is high? 
+        // For now, keep it cyan.
+    }
+
+    public show(): void {
+        if (this.visible) return;
+        this.visible = true;
+        this.container.style.display = 'block';
+        this.lastUpdate = 0;
+        this.animationFrameId = requestAnimationFrame(this.loop);
+    }
+
+    public hide(): void {
+        this.visible = false;
+        this.container.style.display = 'none';
+        if (this.animationFrameId !== null) {
+            cancelAnimationFrame(this.animationFrameId);
+            this.animationFrameId = null;
+        }
+    }
+
+    public setVisibility(visible: boolean): void {
+        if (visible) {
+            this.show();
+        } else {
+            this.hide();
+        }
+    }
+
+    public destroy(): void {
+        this.hide();
+        if (this.container && this.container.parentNode) {
+            this.container.parentNode.removeChild(this.container);
+        }
+    }
+}

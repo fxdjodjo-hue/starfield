@@ -15,7 +15,8 @@ export class ProjectileBulkUpdateHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    if (!message.projectiles || !Array.isArray(message.projectiles)) return;
+    const rawProjectiles = message.pr || message.projectiles;
+    if (!rawProjectiles || !Array.isArray(rawProjectiles)) return;
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) return;
@@ -23,9 +24,23 @@ export class ProjectileBulkUpdateHandler extends BaseMessageHandler {
     const ecs = networkSystem.getECS();
     if (!ecs) return;
 
-    for (const projectileUpdate of message.projectiles) {
+    for (const update of rawProjectiles) {
+      let projectileId, x, y, vx, vy;
+
+      if (Array.isArray(update)) {
+        // FORMATO COMPATTO: [id, x, y, vx, vy]
+        [projectileId, x, y, vx, vy] = update;
+      } else {
+        // Formato vecchio (fallback)
+        projectileId = update.id;
+        x = update.position?.x;
+        y = update.position?.y;
+        vx = update.velocity?.x;
+        vy = update.velocity?.y;
+      }
+
       // Usa RemoteProjectileSystem per trovare il proiettile tramite projectileId
-      const entityId = remoteProjectileSystem.getRemoteProjectileEntity(projectileUpdate.id);
+      const entityId = remoteProjectileSystem.getRemoteProjectileEntity(projectileId);
       if (!entityId) continue;
 
       const projectileEntity = ecs.getEntity(entityId);
@@ -34,33 +49,33 @@ export class ProjectileBulkUpdateHandler extends BaseMessageHandler {
       // Aggiorna posizione e velocità del proiettile
       const transform = ecs.getComponent(projectileEntity, Transform);
       const velocity = ecs.getComponent(projectileEntity, Velocity);
-      const projectile = ecs.getComponent(projectileEntity, Projectile);
-      
+      const projectileComponent = ecs.getComponent(projectileEntity, Projectile);
+
       // Verifica se è un proiettile NPC remoto con interpolazione
-      const isNpcProjectile = projectile && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
+      const isNpcProjectile = projectileComponent && typeof projectileComponent.playerId === 'string' && projectileComponent.playerId.startsWith('npc_');
       const interpolation = isNpcProjectile ? ecs.getComponent(projectileEntity, InterpolationTarget) : null;
 
-      if (interpolation && projectileUpdate.position) {
+      if (interpolation && x !== undefined && y !== undefined) {
         // Usa interpolazione per movimento fluido (elimina glitch)
-        interpolation.updateTarget(projectileUpdate.position.x, projectileUpdate.position.y, 0);
-      } else if (transform && projectileUpdate.position) {
+        interpolation.updateTarget(x, y, 0);
+      } else if (transform && x !== undefined && y !== undefined) {
         // Fallback: aggiornamento diretto per proiettili senza interpolazione
-        transform.x = projectileUpdate.position.x;
-        transform.y = projectileUpdate.position.y;
+        transform.x = x;
+        transform.y = y;
       }
 
-      if (velocity && projectileUpdate.velocity) {
-        velocity.x = projectileUpdate.velocity.x;
-        velocity.y = projectileUpdate.velocity.y;
+      if (velocity && vx !== undefined && vy !== undefined) {
+        velocity.x = vx;
+        velocity.y = vy;
       }
-      
+
       // CRITICO: Aggiorna direzione e velocità del componente Projectile per rendering corretto
-      if (projectile && projectileUpdate.velocity) {
-        const speed = Math.sqrt(projectileUpdate.velocity.x * projectileUpdate.velocity.x + projectileUpdate.velocity.y * projectileUpdate.velocity.y);
+      if (projectileComponent && vx !== undefined && vy !== undefined) {
+        const speed = Math.sqrt(vx * vx + vy * vy);
         if (speed > 0) {
-          projectile.directionX = projectileUpdate.velocity.x / speed;
-          projectile.directionY = projectileUpdate.velocity.y / speed;
-          projectile.speed = speed;
+          projectileComponent.directionX = vx / speed;
+          projectileComponent.directionY = vy / speed;
+          projectileComponent.speed = speed;
         }
       }
     }

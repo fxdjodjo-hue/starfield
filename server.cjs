@@ -64,6 +64,18 @@ const http = require('http');
 
 // Crea server HTTP con API endpoints sicuri
 const server = http.createServer(async (req, res) => {
+  // Global CORS headers
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  // Handle global OPTIONS pre-flight
+  if (req.method === 'OPTIONS') {
+    res.writeHead(200);
+    res.end();
+    return;
+  }
+
   // Health check
   if (req.url === '/health' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -73,17 +85,6 @@ const server = http.createServer(async (req, res) => {
 
   // API endpoints sicuri
   if (req.url?.startsWith('/api/')) {
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-    if (req.method === 'OPTIONS') {
-      res.writeHead(200);
-      res.end();
-      return;
-    }
-
     try {
       // Parse URL
       const url = new URL(req.url, `http://${req.headers.host}`);

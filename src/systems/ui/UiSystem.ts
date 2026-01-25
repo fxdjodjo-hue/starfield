@@ -13,6 +13,7 @@ import { UIChatManager } from './managers/UIChatManager';
 import { UINicknameManager } from './managers/UINicknameManager';
 import { UIAudioManager } from './managers/UIAudioManager';
 import { FpsCounter } from '../../presentation/ui/FpsCounter';
+import { NetworkStatsDisplay } from '../../presentation/ui/NetworkStatsDisplay';
 import { GameSettings } from '../../core/settings/GameSettings';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 
@@ -29,6 +30,7 @@ export class UiSystem extends System {
   private nicknameManager!: UINicknameManager;
   private audioManager!: UIAudioManager;
   private fpsCounter!: FpsCounter;
+  private networkStats!: NetworkStatsDisplay;
   private safeZoneElement: HTMLElement | null = null;
   private managersInitialized: boolean = false;
 
@@ -69,6 +71,9 @@ export class UiSystem extends System {
         if (clientNetworkSystem) {
           this.panelManager.setClientNetworkSystem(clientNetworkSystem);
           this.chatManager.setClientNetworkSystem(clientNetworkSystem);
+          if (this.networkStats) {
+            this.networkStats.setNetworkSystem(clientNetworkSystem);
+          }
         }
         return;
       }
@@ -92,6 +97,12 @@ export class UiSystem extends System {
 
       // Initialize FPS counter
       this.fpsCounter = new FpsCounter();
+
+      // Initialize Network Stats
+      this.networkStats = new NetworkStatsDisplay();
+      if (clientNetworkSystem) {
+        this.networkStats.setNetworkSystem(clientNetworkSystem);
+      }
 
       // Apply saved settings
       const settings = GameSettings.getInstance();
@@ -144,6 +155,9 @@ export class UiSystem extends System {
     document.addEventListener('settings:graphics:show_fps', (e: any) => {
       if (this.fpsCounter) {
         this.fpsCounter.setVisibility(e.detail);
+      }
+      if (this.networkStats) {
+        this.networkStats.setVisibility(e.detail);
       }
     });
   }
@@ -472,6 +486,9 @@ export class UiSystem extends System {
     this.audioManager.destroy();
     if (this.fpsCounter) {
       this.fpsCounter.destroy();
+    }
+    if (this.networkStats) {
+      this.networkStats.destroy();
     }
   }
 

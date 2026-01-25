@@ -85,32 +85,43 @@ class MapBroadcaster {
   static broadcastNpcUpdates(players, npcs) {
     if (npcs.length === 0) return;
 
-    const radius = SERVER_CONSTANTS.NETWORK.WORLD_RADIUS; // Raggio del mondo
+    // OTTIMIZZAZIONE: Raggio aumentato a 5000 per coprire l'intera visuale del player
+    const radius = 5000;
     const radiusSq = radius * radius;
 
-    // Per ogni giocatore connesso, invia NPC nel suo raggio di interesse ampio
+    // Per ogni giocatore connesso, invia NPC nel suo raggio di interesse
     for (const [clientId, playerData] of players.entries()) {
       if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
 
-      // Filtra NPC entro il raggio ampio
-      const relevantNpcs = npcs.filter(npc => {
+      // Filtra NPC entro il raggio
+      const relevantNpcs = [];
+      for (const npc of npcs) {
         const dx = npc.position.x - playerData.position.x;
         const dy = npc.position.y - playerData.position.y;
-        return (dx * dx + dy * dy) <= radiusSq;
-      });
+        if ((dx * dx + dy * dy) <= radiusSq) {
+          // FORMATO COMPATTO: [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behavior_char]
+          // Questo riduce di ~60% la dimensione del JSON evitando le chiavi ripetute
+          relevantNpcs.push([
+            npc.id,
+            npc.type, // Aggiunto per permettere auto-spawn sul client
+            Math.round(npc.position.x),
+            Math.round(npc.position.y),
+            parseFloat(npc.position.rotation.toFixed(2)),
+            Math.round(npc.health),
+            Math.round(npc.maxHealth),
+            Math.round(npc.shield),
+            Math.round(npc.maxShield),
+            npc.behavior ? npc.behavior[0] : 'c' // Solo l'iniziale del behavior (c=cruise, a=attack, ecc)
+          ]);
+        }
+      }
 
       if (relevantNpcs.length === 0) continue;
 
       const message = {
         type: 'npc_bulk_update',
-        npcs: relevantNpcs.map(npc => ({
-          id: npc.id,
-          position: npc.position,
-          health: { current: npc.health, max: npc.maxHealth },
-          shield: { current: npc.shield, max: npc.maxShield },
-          behavior: npc.behavior
-        })),
-        timestamp: Date.now()
+        n: relevantNpcs, // 'n' invece di 'npcs' per risparmiare byte
+        t: Date.now()    // 't' invece di 'timestamp'
       };
 
       playerData.ws.send(JSON.stringify(message));

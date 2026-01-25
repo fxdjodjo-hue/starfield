@@ -29,26 +29,23 @@ class PositionUpdateProcessor {
 
       const positionBroadcast = {
         type: 'remote_player_update',
-        clientId,
-        position: {
-          x: latestUpdate.x,
-          y: latestUpdate.y,
-          velocityX: latestUpdate.velocityX || 0,
-          velocityY: latestUpdate.velocityY || 0
-        },
-        rotation: latestUpdate.rotation,
-        tick: latestUpdate.tick,
-        nickname: latestUpdate.nickname,
-        playerId: latestUpdate.playerId,
-        rank: latestUpdate.rank,
-        // 🚀 FIX: Usa i valori LIVE dall'oggetto player, NON quelli salvati nella queue.
-        // Gli update di posizione arrivano a 20 FPS e salvano gli HP in quel momento.
-        // Se una riparazione avviene tra un frame GPS e l'altro, i valori nella queue diventano "stale" (vecchi).
-        // Usando playerData.health garantiamo di inviare sempre l'ultimo valore autorevole del server.
-        health: playerData.health,
-        maxHealth: playerData.maxHealth,
-        shield: playerData.shield,
-        maxShield: playerData.maxShield
+        // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh]
+        // Riduce drasticamente la dimensione del JSON evitando le chiavi per ogni giocatore
+        p: [
+          clientId,
+          Math.round(latestUpdate.x),
+          Math.round(latestUpdate.y),
+          Math.round(latestUpdate.velocityX || 0),
+          Math.round(latestUpdate.velocityY || 0),
+          parseFloat(latestUpdate.rotation.toFixed(2)),
+          latestUpdate.tick,
+          latestUpdate.nickname,
+          latestUpdate.rank,
+          Math.round(playerData.health),
+          Math.round(playerData.maxHealth),
+          Math.round(playerData.shield),
+          Math.round(playerData.maxShield)
+        ]
       };
 
       MapBroadcaster.broadcastToMap(players, positionBroadcast, clientId);

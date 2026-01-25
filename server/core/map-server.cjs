@@ -78,23 +78,34 @@ class MapServer {
   // Tick unificato per la mappa (20 Hz)
   tick() {
     try {
-      // 1. Movimento NPC
+      // Incrementa counter per throttling
+      this.tickCounter = (this.tickCounter || 0) + 1;
+      const isThrottledTick = this.tickCounter % 2 === 0;
+
+      // 1. Movimento NPC (Sempre a 20 Hz per precisione fisica server)
       const allNpcs = this.npcManager.getAllNpcs();
       NpcMovementSystem.updateMovements(allNpcs, this.players, this.npcManager);
 
-      // 2. Logica di combat NPC (attacchi automatici)
+      // 2. Logica di combat NPC (Sempre a 20 Hz per precisione attacchi)
       if (this.combatManager) {
         this.combatManager.updateCombat();
       }
 
-      // 3. Collisioni proiettili
+      // 3. Collisioni proiettili (Sempre a 20 Hz)
       this.projectileManager.checkCollisions();
 
-      // 3.5. Aggiornamenti posizione proiettili homing
-      this.projectileManager.broadcastHomingProjectileUpdates();
+      // OTTIMIZZAZIONE: Broadcast pesanti solo ogni 2 tick (10 Hz)
+      // Il client usa interpolazione quindi non si nota scatto
+      if (isThrottledTick) {
+        // Recupere la lista AGGIORNATA dopo collisioni e combat per evitare re-spawn di entità morte
+        const currentNpcs = this.npcManager.getAllNpcs();
 
-      // 4. Broadcast aggiornamenti NPC significativi
-      MapBroadcaster.broadcastNpcUpdates(this.players, allNpcs);
+        // 3.5. Aggiornamenti posizione proiettili homing
+        this.projectileManager.broadcastHomingProjectileUpdates();
+
+        // 4. Broadcast aggiornamenti NPC significativi
+        MapBroadcaster.broadcastNpcUpdates(this.players, currentNpcs);
+      }
 
       // 5. Processa aggiornamenti posizione giocatori
       PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);

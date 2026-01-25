@@ -807,4 +807,11 @@ export class ClientNetworkSystem extends BaseSystem {
     // Clear callbacks
     this.onPlayerIdReceived = undefined;
   }
+
+  /**
+   * Restituisce le statistiche di rete (banda IN/OUT)
+   */
+  getNetworkStats() {
+    return this.connectionManager.getStats();
+  }
 }
