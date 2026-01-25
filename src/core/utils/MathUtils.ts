@@ -115,4 +115,25 @@ export class MathUtils {
     const diff = MathUtils.angleDifference(start, end);
     return start + diff * MathUtils.clamp(factor, 0, 1);
   }
+
+  /**
+   * Muove un valore verso un target con un delta massimo
+   */
+  static moveTowards(current: number, target: number, maxDelta: number): number {
+    if (Math.abs(target - current) <= maxDelta) {
+      return target;
+    }
+    return current + Math.sign(target - current) * maxDelta;
+  }
+
+  /**
+   * Ruota un angolo verso un target con una velocità massima
+   */
+  static rotateTowardsAngle(current: number, target: number, maxDelta: number): number {
+    const diff = MathUtils.angleDifference(current, target);
+    if (Math.abs(diff) <= maxDelta) {
+      return target;
+    }
+    return current + Math.sign(diff) * maxDelta;
+  }
 }

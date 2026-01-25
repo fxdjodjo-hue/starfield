@@ -52,9 +52,9 @@
     "player": {
       "baseSpeed": 200,
       "sprintMultiplier": 1.5,
-      "acceleration": 800,
-      "deceleration": 600,
-      "rotationSpeed": 15,
+      "acceleration": 2000,
+      "deceleration": 1500,
+      "rotationSpeed": 30,
       "maxSpeed": 300,
       "minSpeed": 0,
       "speedRampTime": 0.2,

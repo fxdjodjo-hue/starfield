@@ -465,6 +465,11 @@ export class PlayerAttackManager {
       const rotationSpeed = playerDef.rotationSpeed || 5;
       const t = rotationSpeed * (deltaTime / 1000);
       playerTransform.rotation = MathUtils.lerpAngle(playerTransform.rotation, angle, t);
+
+      // Snap to target if very close
+      if (Math.abs(MathUtils.angleDifference(playerTransform.rotation, angle)) < 0.01) {
+        playerTransform.rotation = angle;
+      }
     }
 
     // Aggiorna timestamp e ultimo angolo

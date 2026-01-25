@@ -6,6 +6,7 @@ import { DisplayManager } from '../../../infrastructure/display';
 import { getPlayerDefinition } from '../../../config/PlayerConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { MathUtils } from '../../../core/utils/MathUtils';
+import gameConfig from '../../../config/gameConfig.json';
 
 /**
  * Manages player movement (mouse, keyboard, minimap)
@@ -63,11 +64,6 @@ export class PlayerMovementManager {
   }
 
   /**
-   * Ruota la nave verso il target impostato (se presente)
-   */
-
-
-  /**
    * Helper to smoothly rotate entity towards target angle
    */
   private smoothRotate(transform: Transform, targetAngle: number, deltaTime: number): void {
@@ -80,6 +76,11 @@ export class PlayerMovementManager {
     const t = rotationSpeed * (deltaTime / 1000);
 
     transform.rotation = MathUtils.lerpAngle(transform.rotation, targetAngle, t);
+
+    // Snap to target if very close to avoid asymptotic drift
+    if (Math.abs(MathUtils.angleDifference(transform.rotation, targetAngle)) < 0.05) {
+      transform.rotation = targetAngle;
+    }
   }
 
   /**
@@ -111,6 +112,45 @@ export class PlayerMovementManager {
   }
 
   /**
+   * Applies velocity change using Exponential Smoothing (Damping)
+   * This provides a "snappy but smooth" feel: swift initial response, smooth settling.
+   * Eliminates "strange arcs" (Polar) and "rubbery" feel (Linear).
+   */
+  private applyVelocityChange(velocity: Velocity, targetVx: number, targetVy: number, deltaTime: number): void {
+    const dt = deltaTime / 1000;
+
+    // Choose sharpness based on whether we are accelerating (input) or Stopping
+    // Check if we have an active target velocity (Moving) or zero (Stopping)
+    const isMoving = Math.abs(targetVx) > 0.1 || Math.abs(targetVy) > 0.1;
+
+    let sharpness = 5.0; // Default fallback
+    const maxSpeed = this.getPlayerSpeed(); // Use actual current max speed (with upgrades)
+
+    if (maxSpeed > 0) {
+      if (isMoving) {
+        // Accelerating / Turning
+        // Interpret config "Acceleration" as response speed scaling
+        sharpness = gameConfig.gameplay.player.acceleration / maxSpeed;
+        sharpness *= 1.5;
+      } else {
+        // Decelerating
+        sharpness = gameConfig.gameplay.player.deceleration / maxSpeed;
+        sharpness *= 1.5;
+      }
+    }
+
+    // Apply Damping (Frame-rate independent lerp)
+    const blend = 1.0 - Math.exp(-sharpness * dt);
+
+    velocity.x = velocity.x + (targetVx - velocity.x) * blend;
+    velocity.y = velocity.y + (targetVy - velocity.y) * blend;
+
+    // Clean zeroing to prevent micro-drift
+    if (Math.abs(velocity.x) < 1) velocity.x = 0;
+    if (Math.abs(velocity.y) < 1) velocity.y = 0;
+  }
+
+  /**
    * Moves player towards minimap target
    */
   movePlayerTowardsMinimapTarget(deltaTime: number): void {
@@ -127,11 +167,12 @@ export class PlayerMovementManager {
       this.minimapTargetX, this.minimapTargetY
     );
 
-    if (distance > 50) {
+    if (distance > 80) {
       const dirX = direction.x;
       const dirY = direction.y;
+      const speed = this.getPlayerSpeed();
 
-      velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
+      this.applyVelocityChange(velocity, dirX * speed, dirY * speed, deltaTime);
 
       // Imposta rotazione solo se non siamo in combattimento attivo
       if (!this.isAttackActivated()) {
@@ -139,7 +180,7 @@ export class PlayerMovementManager {
         this.smoothRotate(transform, angle, deltaTime);
       }
     } else {
-      velocity.stop();
+      this.stopPlayerMovement(deltaTime);
       this.minimapTargetX = null;
       this.minimapTargetY = null;
 
@@ -172,11 +213,13 @@ export class PlayerMovementManager {
       worldMouseX, worldMouseY
     );
 
-    if (distance > 10) {
+    // Keep moving if distance > 80, otherwise stop
+    if (distance > 80) {
       const dirX = direction.x;
       const dirY = direction.y;
+      const speed = this.getPlayerSpeed();
 
-      velocity.setVelocity(dirX * this.getPlayerSpeed(), dirY * this.getPlayerSpeed());
+      this.applyVelocityChange(velocity, dirX * speed, dirY * speed, deltaTime);
 
       // Imposta rotazione solo se non siamo in combattimento attivo
       if (!this.isAttackActivated()) {
@@ -184,8 +227,8 @@ export class PlayerMovementManager {
         this.smoothRotate(transform, angle, deltaTime);
       }
     } else {
-      velocity.stop();
-      this.setIsMousePressed(false);
+      this.stopPlayerMovement(deltaTime);
+      // Don't unpress mouse automatically here, as dragging might continue
     }
   }
 
@@ -215,7 +258,8 @@ export class PlayerMovementManager {
       vy /= length;
     }
 
-    velocity.setVelocity(vx * speed, vy * speed);
+    // Apply acceleration towards input direction
+    this.applyVelocityChange(velocity, vx * speed, vy * speed, deltaTime);
 
     if (vx !== 0 || vy !== 0) {
       // Imposta rotazione solo se non siamo in combattimento attivo
@@ -230,15 +274,20 @@ export class PlayerMovementManager {
   }
 
   /**
-   * Stops player movement
+   * Stops player movement (Deceleration)
    */
-  stopPlayerMovement(): void {
+  stopPlayerMovement(deltaTime: number): void {
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity) return;
 
     const velocity = this.ecs.getComponent(playerEntity, Velocity);
     if (velocity) {
-      velocity.stop();
+      // Apply deceleration towards 0,0
+      const dt = deltaTime / 1000;
+      const deceleration = gameConfig.gameplay.player.deceleration;
+
+      velocity.x = MathUtils.moveTowards(velocity.x, 0, deceleration * dt);
+      velocity.y = MathUtils.moveTowards(velocity.y, 0, deceleration * dt);
     }
   }
 

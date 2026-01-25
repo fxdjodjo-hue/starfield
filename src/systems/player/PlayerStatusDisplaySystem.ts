@@ -1,9 +1,13 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { Entity } from '../../infrastructure/ecs/Entity';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
+import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
 import { DisplayManager } from '../../infrastructure/display';
 import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
+import gameConfig from '../../config/gameConfig.json';
 
 /**
  * PlayerStatusDisplaySystem - Sistema semplice per mostrare HP e Shield del giocatore
@@ -37,7 +41,7 @@ export class PlayerStatusDisplaySystem extends System {
     }
 
     const c = this.dprCompensation;
-    
+
     this.statusElement = document.createElement('div');
     this.statusElement.id = 'player-status-display';
     this.statusElement.style.cssText = `
@@ -64,7 +68,7 @@ export class PlayerStatusDisplaySystem extends System {
 
     document.body.appendChild(this.statusElement);
     this.updateDisplay();
-    
+
     // Nascondi inizialmente - verrà mostrato quando la schermata di autenticazione viene nascosta
     this.hide();
   }
@@ -106,7 +110,7 @@ export class PlayerStatusDisplaySystem extends System {
    */
   private createStatSection(label: string, current: number, max: number, color: string): HTMLElement {
     const c = this.dprCompensation;
-    
+
     const section = document.createElement('div');
     section.style.cssText = `
       display: flex;
@@ -218,7 +222,7 @@ export class PlayerStatusDisplaySystem extends System {
 
     const rect = this.statusElement.getBoundingClientRect();
     return screenX >= rect.left && screenX <= rect.right &&
-           screenY >= rect.top && screenY <= rect.bottom;
+      screenY >= rect.top && screenY <= rect.bottom;
   }
 
   /**
@@ -249,5 +253,78 @@ export class PlayerStatusDisplaySystem extends System {
       this.statusElement.remove();
       this.statusElement = null;
     }
+  }
+
+  /**
+   * Renderizza debug info (accelerazione/velocità) sopra la nave
+   */
+  render(ctx: CanvasRenderingContext2D): void {
+    if (!this.playerEntity || !gameConfig.debug.enabled) return;
+
+    // Trova camera system dinamicamente se necessario
+    const cameraSystem = this.findCameraSystem();
+    if (!cameraSystem) return;
+
+    const camera = cameraSystem.getCamera();
+    if (!camera) return;
+
+    const transform = this.ecs.getComponent(this.playerEntity, Transform);
+    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
+
+    if (transform && velocity) {
+      const canvasSize = DisplayManager.getInstance().getLogicalSize();
+      const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
+
+      // Calcola velocità corrente
+      const currentSpeed = Math.floor(Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y));
+      const maxSpeed = gameConfig.gameplay.player.maxSpeed;
+      const acceleration = gameConfig.gameplay.player.acceleration;
+      const deceleration = gameConfig.gameplay.player.deceleration;
+
+      // Determina stato
+      let state = "Idle";
+      if (currentSpeed > 5) {
+        // Se c'è input (non possiamo saperlo direttamente qui senza InputSystem, ma possiamo stimare)
+        // Per semplicità, consideriamo accelerazione se la velocità sta aumentando, ma qui vediamo solo un frame.
+        // Usiamo una logica semplice: se speed è alta direi "Moving".
+        // Meglio: mostriamo solo la velocità.
+        state = "Moving"; // Placeholder
+      }
+
+      ctx.save();
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#00ff00';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'black';
+      ctx.shadowBlur = 4;
+
+      // Speed Info
+      ctx.fillText(`Vel: ${currentSpeed}/${maxSpeed}`, screenPos.x, screenPos.y - 60);
+
+      // Config Info
+      ctx.fillStyle = '#aaaaaa';
+      ctx.fillText(`Acc: ${acceleration} | Dec: ${deceleration}`, screenPos.x, screenPos.y - 75);
+
+      // Rotation Info
+      const rotationDeg = Math.round(transform.rotation * (180 / Math.PI));
+      ctx.fillText(`Rot: ${rotationDeg}°`, screenPos.x, screenPos.y - 45);
+
+      // Draw Deadzone (80px)
+      const zoom = camera.zoom || 1;
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.arc(screenPos.x, screenPos.y, 80 * zoom, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+  }
+
+  private findCameraSystem(): any {
+    if (this.ecs && (this.ecs as any).systems) {
+      return (this.ecs as any).systems.find((system: any) => typeof system.getCamera === 'function');
+    }
+    return null;
   }
 }

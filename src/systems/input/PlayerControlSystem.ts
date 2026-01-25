@@ -1,6 +1,7 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Camera } from '../../entities/spatial/Camera';
+import { Transform } from '../../entities/spatial/Transform';
 import { LogSystem } from '../rendering/LogSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
@@ -252,7 +253,7 @@ export class PlayerControlSystem extends BaseSystem {
     const isZoomAnimating = this.cameraSystem?.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
     if (isZoomAnimating) {
       // Ferma il movimento e il suono del motore durante l'animazione
-      this.movementManager.stopPlayerMovement();
+      this.movementManager.stopPlayerMovement(deltaTime);
       if (this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
         const promise = this.audioManager.stop().finally(() => {
           this.audioManager.setEngineSoundPromise(null);
@@ -262,9 +263,23 @@ export class PlayerControlSystem extends BaseSystem {
       return; // Non processare input di movimento durante l'animazione
     }
 
+    // Check if mouse input is effectively moving (outside deadzone)
+    let isMouseMoving = this.inputManager.getIsMousePressed();
+    if (isMouseMoving && this.camera && this.playerEntity) {
+      const x = this.inputManager.getLastMouseX();
+      const y = this.inputManager.getLastMouseY();
+      const { width, height } = DisplayManager.getInstance().getLogicalSize();
+      const worldPos = this.camera.screenToWorld(x, y, width, height);
+      const transform = this.ecs.getComponent(this.playerEntity, Transform);
+      if (transform) {
+        const dist = Math.sqrt(Math.pow(worldPos.x - transform.x, 2) + Math.pow(worldPos.y - transform.y, 2));
+        if (dist < 80) isMouseMoving = false; // 80px deadzone
+      }
+    }
+
     const isMoving = this.movementManager.hasMinimapTarget() ||
       this.inputManager.isKeyboardMoving() ||
-      this.inputManager.getIsMousePressed();
+      isMouseMoving;
 
     // Gestisci suono del motore - evita chiamate multiple rapide
     if (isMoving && !this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
@@ -287,7 +302,7 @@ export class PlayerControlSystem extends BaseSystem {
     } else if (this.inputManager.getIsMousePressed()) {
       this.movementManager.movePlayerTowardsMouse(deltaTime);
     } else {
-      this.movementManager.stopPlayerMovement();
+      this.movementManager.stopPlayerMovement(deltaTime);
     }
 
     // Ruota verso l'NPC selezionato durante combattimento attivo
@@ -348,7 +363,19 @@ export class PlayerControlSystem extends BaseSystem {
           // Let's rely on camera.screenToWorld from Mouse position
           const worldPos = this.camera.screenToWorld(x, y, width, height);
 
-          this.movementManager.movePlayerTo(worldPos.x, worldPos.y);
+          // CHECK: Ignore clicks too close to player (Self-Click Deadzone)
+          let shouldMove = true;
+          const transform = this.ecs.getComponent(this.playerEntity, Transform);
+          if (transform) {
+            const dist = Math.sqrt(Math.pow(worldPos.x - transform.x, 2) + Math.pow(worldPos.y - transform.y, 2));
+            if (dist < 80) { // 80px deadzone (approx ship radius + margin)
+              shouldMove = false;
+            }
+          }
+
+          if (shouldMove) {
+            this.movementManager.movePlayerTo(worldPos.x, worldPos.y);
+          }
         }
       }
     }
