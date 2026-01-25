@@ -70,8 +70,6 @@ export class AuthSessionManager {
       }
 
       if (session?.user) {
-        console.log('✅ [AuthSessionManager] Sessione esistente trovata per:', session.user.email);
-
         // NON autologgare più per richiesta utente
         // Impostiamo però lo stato su LOGIN perché vogliamo mostrare il form
         this.setState(AuthState.LOGIN);

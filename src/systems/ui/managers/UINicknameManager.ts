@@ -16,6 +16,22 @@ export class UINicknameManager {
   // Cache stato contenuto remote player per evitare redraw
   private remotePlayerLastState: Map<string, { nickname: string, rank: string }> = new Map();
 
+  // Stile condiviso per tutti i nickname (giocatore locale e remoti)
+  private readonly SHARED_NICKNAME_STYLE = `
+    position: fixed;
+    color: rgba(255, 255, 255, 0.95);
+    font-family: 'Inter', 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 1px 1px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    user-select: none;
+    text-align: center;
+    line-height: 1;
+    white-space: nowrap;
+    will-change: left, top;
+  `;
+
   /**
    * Crea l'elemento nickname del giocatore
    */
@@ -24,20 +40,8 @@ export class UINicknameManager {
 
     this.playerNicknameElement = document.createElement('div');
     this.playerNicknameElement.id = 'player-nickname-uisystem';
-    this.playerNicknameElement.style.cssText = `
-      position: fixed;
-      color: rgba(255, 255, 255, 0.9);
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      font-weight: 500;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-      pointer-events: none;
-      user-select: none;
-      z-index: 50;
-      text-align: center;
-      line-height: 1.4;
-      white-space: nowrap;
-      border-radius: 5px;
-    `;
+    this.playerNicknameElement.style.cssText = this.SHARED_NICKNAME_STYLE;
+    this.playerNicknameElement.style.zIndex = '50'; // Giocatore locale sempre sopra
 
     this.updatePlayerNicknameContent(nickname);
     document.body.appendChild(this.playerNicknameElement);
@@ -48,25 +52,13 @@ export class UINicknameManager {
    */
   updatePlayerNicknameContent(nickname: string): void {
     if (this.playerNicknameElement) {
-      // Formatta il nickname su due righe: nome sopra, rank sotto
+      // Formatta il nickname: separa nome e rank (se presente nel formato "Nome\n[Rank]")
       const parts = nickname.split('\n');
       const name = parts[0] || 'Commander';
       const rawRank = parts[1] || '[Basic Space Pilot]';
       const rankName = rawRank.replace('[', '').replace(']', '').trim();
-      const iconPath = RankIconMapper.getRankIconPath(rankName);
 
-      if (rankName !== 'Basic Space Pilot') {
-        console.log(`[DEBUG_RANK] UI update: Name=${name}, Rank=${rankName}, Icon=${iconPath}`);
-      }
-
-      this.playerNicknameElement.innerHTML = `
-        <div style="position: relative; display: inline-flex; align-items: center;">
-          <div style="position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 10px; width: 26px; height: 16px; display: flex; align-items: center; justify-content: center;">
-            <img src="${iconPath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" />
-          </div>
-          <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.9);">${name}</div>
-        </div>
-      `;
+      this.updateNicknameHTML(this.playerNicknameElement, name, rankName);
     }
   }
 
@@ -100,7 +92,7 @@ export class UINicknameManager {
 
     // Posiziona il nickname centrato orizzontalmente sotto la nave
     const nicknameX = Math.round(roundedScreenX - this.playerNicknameElement.offsetWidth / 2);
-    const nicknameY = Math.round(roundedScreenY + 60); // Sotto la nave (spostato più sotto)
+    const nicknameY = Math.round(roundedScreenY + 80); // Sotto la nave (Offset unificato)
 
     this.playerNicknameElement.style.left = `${nicknameX}px`;
     this.playerNicknameElement.style.top = `${nicknameY}px`;
@@ -253,22 +245,10 @@ export class UINicknameManager {
     if (!this.remotePlayerNicknameElements.has(clientId)) {
       const element = document.createElement('div');
       element.id = `remote-player-nickname-${clientId}`;
-      element.style.cssText = `
-        position: fixed;
-        color: rgba(255, 255, 255, 0.9);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-weight: 500;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-        pointer-events: none;
-        user-select: none;
-        z-index: 45;
-        text-align: center;
-        line-height: 1.4;
-        white-space: nowrap;
-        border-radius: 5px;
-      `;
+      element.style.cssText = this.SHARED_NICKNAME_STYLE;
+      element.style.zIndex = '45'; // Player remoti leggermente sotto il locale
 
-      this.updateRemotePlayerNicknameHTML(element, nickname, rank);
+      this.updateNicknameHTML(element, nickname, rank);
 
       document.body.appendChild(element);
       this.remotePlayerNicknameElements.set(clientId, element);
@@ -281,24 +261,24 @@ export class UINicknameManager {
       }
 
       const element = this.remotePlayerNicknameElements.get(clientId)!;
-      this.updateRemotePlayerNicknameHTML(element, nickname, rank);
+      this.updateNicknameHTML(element, nickname, rank);
       this.remotePlayerLastState.set(clientId, { nickname, rank });
     }
   }
 
   /**
-   * Helper per generare l'HTML degli elementi nickname (giocatore locale e remoti)
+   * Helper unico per generare l'HTML dei nickname (giocatore locale e remoti)
    */
-  private updateRemotePlayerNicknameHTML(element: HTMLElement, nickname: string, rank: string): void {
+  private updateNicknameHTML(element: HTMLElement, nickname: string, rank: string): void {
     const rankName = rank.replace('[', '').replace(']', '').trim();
     const iconPath = RankIconMapper.getRankIconPath(rankName);
 
     element.innerHTML = `
-      <div style="position: relative; display: inline-flex; align-items: center;">
-        <div style="position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 10px; width: 26px; height: 16px; display: flex; align-items: center; justify-content: center;">
-          <img src="${iconPath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));" />
+      <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
+        <div style="position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 10px; width: 28px; height: 18px; display: flex; align-items: center; justify-content: center;">
+          <img src="${iconPath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));" />
         </div>
-        <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 4px rgba(0,0,0,0.9);">${nickname}</div>
+        <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 5px rgba(0,0,0,0.9); letter-spacing: 0.5px;">${nickname}</div>
       </div>
     `;
   }
@@ -325,7 +305,7 @@ export class UINicknameManager {
 
       // Posiziona il nickname centrato orizzontalmente sotto il remote player
       const nicknameX = Math.round(roundedScreenX - element.offsetWidth / 2);
-      const nicknameY = Math.round(roundedScreenY + 60); // Sotto il remote player (Aligned with local player)
+      const nicknameY = Math.round(roundedScreenY + 80); // Sotto il remote player (Offset unificato)
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;

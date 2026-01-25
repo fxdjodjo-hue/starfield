@@ -21,7 +21,6 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
   handle(message: PlayerDataResponseMessage, networkSystem: ClientNetworkSystem): void {
     // Aggiorna i dati del giocatore nel game context
     if (networkSystem.gameContext) {
-      console.log(`[DEBUG_RANK] PlayerDataReceived: Honor=${message.inventory?.honor}, Exp=${message.inventory?.experience}, Recent=${message.recentHonor}`);
       // Aggiorna inventory
       if (message.inventory) {
         networkSystem.gameContext.playerInventory = {
@@ -87,17 +86,14 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
         // Use message.isAdministrator if available, otherwise check pending from GameContext
         if (message.isAdministrator !== undefined) {
           playerRole.setAdministrator(message.isAdministrator);
-          console.log(`[PlayerDataResponse] Applied admin status from message: ${message.isAdministrator}`);
         } else if (networkSystem.gameContext.pendingAdministrator !== null) {
           playerRole.setAdministrator(networkSystem.gameContext.pendingAdministrator);
-          console.log(`[PlayerDataResponse] Applied pending admin status: ${networkSystem.gameContext.pendingAdministrator}`);
           networkSystem.gameContext.pendingAdministrator = null; // Clear after applying
         }
 
         // Sincronizza il Rank (Fisso + Percentili dal DB)
         if (message.rank) {
           playerRole.setRank(message.rank);
-          console.log(`[PlayerDataResponse] Applied rank from server: ${message.rank}`);
         }
       }
     }

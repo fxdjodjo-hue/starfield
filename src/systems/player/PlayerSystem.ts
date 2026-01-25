@@ -11,7 +11,7 @@ import { getPlayerDefinition } from '../../config/PlayerConfig';
  */
 export class PlayerSystem extends System {
   private playerEntity: Entity | null = null;
-  private entityFactory: EntityFactory;
+  private entityFactory: GameEntityFactory;
 
   constructor(ecs: ECS) {
     super(ecs);

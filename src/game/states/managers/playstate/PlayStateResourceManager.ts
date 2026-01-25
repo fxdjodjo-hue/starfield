@@ -84,13 +84,11 @@ export class PlayStateResourceManager {
       uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
       this.nicknameCreated = true;
       this.lastDisplayedRank = rank;
-      console.log(`[DEBUG_RANK] PlayStateResourceManager.updateNicknamePosition: Created nickname for ${nickname} with rank ${rank}`); // Added log
     } else {
       // Aggiorna il contenuto del nickname solo se il rank è cambiato
       if (rank !== this.lastDisplayedRank) {
         uiSystem.updatePlayerNicknameContent(`${nickname}\n[${rank}]`);
         this.lastDisplayedRank = rank;
-        console.log(`[DEBUG_RANK] PlayStateResourceManager.updateNicknamePosition: Updated nickname for ${nickname} to rank ${rank}`); // Added log
       }
     }
 
