@@ -222,9 +222,9 @@ class ServerInputValidator {
       const age = now - timestamp;
       const futureOffset = timestamp - now;
 
-      if (age > 30000) { // 30 secondi
+      if (age > 60000) { // 60 secondi
         errors.push('Heartbeat timestamp too old');
-      } else if (futureOffset > 5000) { // 5 secondi nel futuro
+      } else if (futureOffset > 60000) { // 60 secondi nel futuro
         errors.push('Heartbeat timestamp too far in future');
       }
     }
