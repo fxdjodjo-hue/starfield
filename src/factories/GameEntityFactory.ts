@@ -45,7 +45,7 @@ export interface CombatConfig {
  */
 export interface ProgressionConfig {
   stats?: { kills?: number; deaths?: number; missionsCompleted?: number; playTime?: number };
-  upgrades?: { hpUpgrades?: number; shieldUpgrades?: number; speedUpgrades?: number; damageUpgrades?: number };
+  upgrades?: { hpUpgrades?: number; shieldUpgrades?: number; speedUpgrades?: number; damageUpgrades?: number; missileDamageUpgrades?: number };
   skillPoints?: number;
   credits?: number;
   cosmos?: number;
@@ -140,7 +140,7 @@ export class GameEntityFactory extends EntityFactory {
     // IMPORTANTE: isAdministrator deve essere sempre presente per creare il componente PlayerRole
     const progressionConfig = {
       stats: config.progression?.stats || { kills: 0, deaths: 0, missionsCompleted: 0, playTime: 0 },
-      upgrades: config.progression?.upgrades || { hpUpgrades: 0, shieldUpgrades: 0, speedUpgrades: 0, damageUpgrades: 0 },
+      upgrades: config.progression?.upgrades || { hpUpgrades: 0, shieldUpgrades: 0, speedUpgrades: 0, damageUpgrades: 0, missileDamageUpgrades: 0 },
       skillPoints: config.progression?.skillPoints ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.skillPoints),
       credits: config.progression?.credits ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.credits),
       cosmos: config.progression?.cosmos ?? (config.serverAuthoritative ? 0 : playerDef.startingResources.cosmos),

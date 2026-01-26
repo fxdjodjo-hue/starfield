@@ -43,7 +43,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       economySystem.setExperience(inventory.experience, 'server_update');
       economySystem.setHonor(inventory.honor, 'server_update');
       economySystem.setSkillPoints(inventory.skillPoints, 'server_update');
-      
+
       // Aggiorna RecentHonor in RankSystem se disponibile
       if (recentHonor !== undefined) {
         economySystem.setRecentHonor(recentHonor);
@@ -78,7 +78,13 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           const playerUpgrades = ecs?.getComponent(playerEntity, PlayerUpgrades);
 
           if (playerUpgrades) {
-            playerUpgrades.setUpgrades(upgrades.hpUpgrades, upgrades.shieldUpgrades, upgrades.speedUpgrades, upgrades.damageUpgrades);
+            playerUpgrades.setUpgrades(
+              upgrades.hpUpgrades,
+              upgrades.shieldUpgrades,
+              upgrades.speedUpgrades,
+              upgrades.damageUpgrades,
+              upgrades.missileDamageUpgrades
+            );
 
             // Resetta tutti gli upgrade in progress dato che abbiamo ricevuto una risposta dal server
             networkSystem.resetAllUpgradeProgress();

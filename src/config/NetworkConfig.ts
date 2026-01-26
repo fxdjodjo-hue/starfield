@@ -417,7 +417,11 @@ export interface PlayerStateUpdateMessage {
     skillPoints: number;
   };
   upgrades?: {
-    [key: string]: number; // Upgrade levels
+    hpUpgrades: number;
+    shieldUpgrades: number;
+    speedUpgrades: number;
+    damageUpgrades: number;
+    missileDamageUpgrades: number;
   };
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
   health?: number;
@@ -525,6 +529,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
     shieldUpgrades: number;
     speedUpgrades: number;
     damageUpgrades: number;
+    missileDamageUpgrades: number;
   };
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
   isAdministrator?: boolean; // Admin status

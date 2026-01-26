@@ -168,13 +168,14 @@ class PlayerDataManager {
           if (playerDataRaw.upgrades_data) {
             const upgrades = JSON.parse(playerDataRaw.upgrades_data);
             // DATABASE IS SOURCE OF TRUTH: Carica i valori esatti dal database
-            // Se sono null, usa default per far funzionare il gioco
-            if (upgrades.hpUpgrades === null) upgrades.hpUpgrades = defaultUpgrades.hpUpgrades;
-            if (upgrades.shieldUpgrades === null) upgrades.shieldUpgrades = defaultUpgrades.shieldUpgrades;
-            if (upgrades.speedUpgrades === null) upgrades.speedUpgrades = defaultUpgrades.speedUpgrades;
-            if (upgrades.damageUpgrades === null) upgrades.damageUpgrades = defaultUpgrades.damageUpgrades;
-            if (upgrades.missileDamageUpgrades === undefined) upgrades.missileDamageUpgrades = defaultUpgrades.missileDamageUpgrades || 0;
-            return upgrades;
+            // Mappa sia snake_case (dal DB) che camelCase (per compatibilità/nuovi record)
+            return {
+              hpUpgrades: upgrades.hpUpgrades ?? upgrades.hp_upgrades ?? defaultUpgrades.hpUpgrades,
+              shieldUpgrades: upgrades.shieldUpgrades ?? upgrades.shield_upgrades ?? defaultUpgrades.shieldUpgrades,
+              speedUpgrades: upgrades.speedUpgrades ?? upgrades.speed_upgrades ?? defaultUpgrades.speedUpgrades,
+              damageUpgrades: upgrades.damageUpgrades ?? upgrades.damage_upgrades ?? defaultUpgrades.damageUpgrades,
+              missileDamageUpgrades: upgrades.missileDamageUpgrades ?? upgrades.missile_damage_upgrades ?? defaultUpgrades.missileDamageUpgrades
+            };
           }
           // Nessun record nel database, usa default (nuovo player)
           return { ...defaultUpgrades };
@@ -278,10 +279,11 @@ class PlayerDataManager {
       };
 
       const upgradesData = playerData.upgrades ? {
-        hp_upgrades: playerData.upgrades.hpUpgrades || 0,
-        shield_upgrades: playerData.upgrades.shieldUpgrades || 0,
-        speed_upgrades: playerData.upgrades.speedUpgrades || 0,
-        damage_upgrades: playerData.upgrades.damageUpgrades || 0
+        hpUpgrades: playerData.upgrades.hpUpgrades || 0,
+        shieldUpgrades: playerData.upgrades.shieldUpgrades || 0,
+        speedUpgrades: playerData.upgrades.speedUpgrades || 0,
+        damageUpgrades: playerData.upgrades.damageUpgrades || 0,
+        missileDamageUpgrades: playerData.upgrades.missileDamageUpgrades || 0
       } : null;
 
       // DATABASE IS SOURCE OF TRUTH: Salva i valori esatti accumulati durante il gameplay
@@ -387,7 +389,8 @@ class PlayerDataManager {
         hp_upgrades: 0,
         shield_upgrades: 0,
         speed_upgrades: 0,
-        damage_upgrades: 0
+        damage_upgrades: 0,
+        missile_damage_upgrades: 0
       });
 
       // Currencies iniziali
@@ -469,15 +472,14 @@ class PlayerDataManager {
         hpUpgrades: 0,
         shieldUpgrades: 0,
         speedUpgrades: 0,
-        speedUpgrades: 0,
         damageUpgrades: 0,
         missileDamageUpgrades: 0
       },
       inventory: {
-        credits: playerConfig.startingResources.credits,
-        cosmos: playerConfig.startingResources.cosmos,
-        experience: playerConfig.startingResources.experience,
-        honor: playerConfig.startingResources.honor
+        credits: playerConfig.startingResources.credits || 10000,
+        cosmos: playerConfig.startingResources.cosmos || 5000,
+        experience: playerConfig.startingResources.experience || 0,
+        honor: playerConfig.startingResources.honor || 0
       },
       quests: []
     };

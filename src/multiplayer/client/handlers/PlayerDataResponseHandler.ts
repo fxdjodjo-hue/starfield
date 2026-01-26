@@ -111,7 +111,8 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
             message.upgrades.hpUpgrades || 0,
             message.upgrades.shieldUpgrades || 0,
             message.upgrades.speedUpgrades || 0,
-            message.upgrades.damageUpgrades || 0
+            message.upgrades.damageUpgrades || 0,
+            message.upgrades.missileDamageUpgrades || 0
           );
 
           // APPLICA GLI UPGRADE AI VALORI ATTUALI DI HP E SHIELD

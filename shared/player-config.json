@@ -12,8 +12,8 @@
     "missileCooldown": 3000
   },
   "startingResources": {
-    "credits": 1000,
-    "cosmos": 50,
+    "credits": 10000,
+    "cosmos": 5000,
     "level": 1,
     "experience": 0,
     "honor": 0,
@@ -25,24 +25,24 @@
   },
   "upgradeCosts": {
     "hp": {
-      "credits": 5000,
-      "cosmos": 10
+      "credits": 6000,
+      "cosmos": 650
     },
     "shield": {
-      "credits": 3000,
-      "cosmos": 5
+      "credits": 4000,
+      "cosmos": 2000
     },
     "speed": {
-      "credits": 8000,
-      "cosmos": 15
+      "credits": 4000,
+      "cosmos": 1350
     },
     "damage": {
-      "credits": 15000,
-      "cosmos": 25
+      "credits": 18000,
+      "cosmos": 2700
     },
     "missileDamage": {
       "credits": 12000,
-      "cosmos": 20
+      "cosmos": 1700
     }
   },
   "upgrades": {
@@ -50,7 +50,7 @@
     "maxShieldUpgrades": 100,
     "maxSpeedUpgrades": 100,
     "maxDamageUpgrades": 100,
-    "maxMissileDamageUpgrades": 50
+    "maxMissileDamageUpgrades": 100
   },
   "description": "La nave controllata dal giocatore"
 }

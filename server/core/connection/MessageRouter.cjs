@@ -433,7 +433,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
     shield: 100,
     speed: 100,
     damage: 100,
-    missileDamage: 50 // New limit
+    missileDamage: 100 // New limit coordinated with others
   };
 
   function calculateUpgradeCost(statType, currentLevel) {
@@ -448,7 +448,8 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
       const cosmos = Math.floor(baseCost.cosmos * (1 + (currentLevel - 20) * 0.1));
       return { credits, cosmos };
     } else {
-      const cosmos = Math.floor(baseCost.cosmos * 2 * (1 + (currentLevel - 40) * 0.2));
+      // Phase 3: Solo Cosmos with 12% growth rate and 3x base multiplier at lv 40
+      const cosmos = Math.floor(baseCost.cosmos * 3 * (1 + (currentLevel - 40) * 0.12));
       return { credits: 0, cosmos };
     }
   }
@@ -583,8 +584,6 @@ function handleProjectileFired(data, sanitizedData, context) {
     baseDamage,
     playerData?.upgrades
   );
-
-  // Missile damage logic removed - missiles are no longer supported
 
   // Usa clientId per identificare il giocatore nel sistema di collisione
   // data.playerId è l'authId (usato per security check)

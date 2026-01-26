@@ -366,8 +366,8 @@ class ServerInputValidator {
 
           if (!data.upgradeType || typeof data.upgradeType !== 'string') {
             skillErrors.push('Invalid or missing upgradeType');
-          } else if (!['hp', 'shield', 'speed', 'damage'].includes(data.upgradeType)) {
-            skillErrors.push('Invalid upgradeType - must be hp, shield, speed, or damage');
+          } else if (!['hp', 'shield', 'speed', 'damage', 'missileDamage'].includes(data.upgradeType)) {
+            skillErrors.push('Invalid upgradeType - must be hp, shield, speed, damage, or missileDamage');
           }
 
           return {

@@ -43,7 +43,8 @@ export class PlayerSystem extends System {
           hpUpgrades: 0,
           shieldUpgrades: 0,
           speedUpgrades: 0,
-          damageUpgrades: 0
+          damageUpgrades: 0,
+          missileDamageUpgrades: 0
         },
         skillPoints: 0,
         credits: 0,

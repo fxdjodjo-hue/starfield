@@ -4,7 +4,7 @@
 export class UpgradeTooltipManager {
   private tooltipElement: HTMLElement | null = null;
 
-  constructor(private readonly container: HTMLElement) {}
+  constructor(private readonly container: HTMLElement) { }
 
   /**
    * Gets the short description of a statistic
@@ -15,6 +15,7 @@ export class UpgradeTooltipManager {
       case 'shield': return 'Energy barrier. Recharges over time.';
       case 'speed': return 'Movement velocity. Better evasion.';
       case 'damage': return 'Laser power. Faster kills.';
+      case 'missileDamage': return 'Missile impact. Massive burst damage.';
       default: return '';
     }
   }
@@ -45,6 +46,10 @@ export class UpgradeTooltipManager {
       case 'damage':
         title = 'LASER DAMAGE';
         description = 'Increases weapon damage output. Each upgrade boosts damage dealt to enemies, allowing faster combat resolution.';
+        break;
+      case 'missileDamage':
+        title = 'MISSILE DAMAGE';
+        description = 'Increases the explosive power of your auto-firing missiles. Upgrades boost impact damage, perfect for taking down larger ships.';
         break;
     }
 
