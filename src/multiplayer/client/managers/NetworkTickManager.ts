@@ -11,7 +11,7 @@ export class NetworkTickManager {
   private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
 
   // Message buffering for high-latency scenarios
-  private positionBuffer: Array<{ position: { x: number; y: number; rotation: number }; timestamp: number }> = [];
+  private positionBuffer: Array<{ position: { x: number; y: number; rotation: number }; timestamp: number; forceUpdate?: boolean }> = [];
   private maxBufferSize = 10; // Maximum buffered position updates (increased for stability)
   private bufferFlushThreshold = 5; // Flush buffer when it reaches this size
   private bufferDropCount = 0; // Track how many updates we've dropped
@@ -55,7 +55,7 @@ export class NetworkTickManager {
   /**
    * Buffers a position update for potential batching with size limits
    */
-  bufferPositionUpdate(position: { x: number; y: number; rotation: number }): void {
+  bufferPositionUpdate(position: { x: number; y: number; rotation: number }, forceUpdate: boolean = false): void {
     const now = Date.now();
 
     // Check if buffer is at maximum capacity
@@ -73,7 +73,8 @@ export class NetworkTickManager {
     // Add to buffer
     this.positionBuffer.push({
       position,
-      timestamp: now
+      timestamp: now,
+      forceUpdate
     });
 
     // Flush buffer if it gets too large (high-frequency updates)
@@ -93,7 +94,8 @@ export class NetworkTickManager {
     // Send ALL buffered positions in sequence to prevent teleport detection
     for (const update of this.positionBuffer) {
       // Check if position OR rotation actually changed since last sent
-      const shouldSend = !this.lastSentPosition ||
+      // OR if this is a forced update (keep-alive)
+      const shouldSend = update.forceUpdate || !this.lastSentPosition ||
         Math.abs(update.position.x - this.lastSentPosition.x) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
         Math.abs(update.position.y - this.lastSentPosition.y) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
         Math.abs(update.position.rotation - this.lastSentPosition.rotation) > NETWORK_CONFIG.ROTATION_CHANGE_THRESHOLD;

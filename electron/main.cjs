@@ -35,6 +35,7 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.cjs'),
+            backgroundThrottling: false // CRITICAL: Impedisce a Electron di rallentare il loop quando in background
         },
         backgroundColor: '#000011',
         autoHideMenuBar: true,

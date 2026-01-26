@@ -349,12 +349,30 @@ export class ClientNetworkSystem extends BaseSystem {
       if (now - this.lastBufferedTime >= NETWORK_CONFIG.POSITION_SYNC_INTERVAL) {
         const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
 
-        // Invia aggiornamenti solo se la posizione è cambiata significativamente
-        // per evitare di spammare il server con aggiornamenti inutili
-        if (this.shouldSendPositionUpdate(currentPosition)) {
-          this.tickManager.bufferPositionUpdate(currentPosition);
-          this.lastSentPosition = { ...currentPosition };
+        const hasMoved = this.shouldSendPositionUpdate(currentPosition);
+        // FIX: Keep-alive mechanism
+        // Se non inviamo dati per 3 secondi, forziamo un invio per evitare che il
+        // RemotePlayerSystem degli altri client ci rimuova (timeout 5s)
+        const keepAliveNeeded = (now - this.lastSentTime > 3000);
+
+        // Invia aggiornamenti se c'è movimento O se serve keep-alive
+        if (hasMoved || keepAliveNeeded) {
+          let positionToSend = { ...currentPosition };
+
+          // se è un keep-alive, aggiungiamo un micro-jitter impercettibile
+          // per ingannare il filtro duplicati del server
+          if (keepAliveNeeded && !hasMoved) {
+            // Alterna +0.01 e -0.01
+            const jitter = (Date.now() % 2 === 0) ? 0.01 : -0.01;
+            positionToSend.x += jitter;
+            positionToSend.y += jitter;
+          }
+
+          // Passiamo keepAliveNeeded come secondo parametro (forceUpdate)
+          this.tickManager.bufferPositionUpdate(positionToSend, keepAliveNeeded);
+          this.lastSentPosition = { ...currentPosition }; // Salviamo l'originale per evitare drift
           this.lastBufferedTime = now;
+          this.lastSentTime = now;
         }
       }
     }
@@ -364,6 +382,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
   private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
   private lastBufferedTime: number = 0;
+  private lastSentTime: number = 0;
 
   private shouldSendPositionUpdate(currentPosition: { x: number; y: number; rotation: number }): boolean {
     if (!this.lastSentPosition) {
