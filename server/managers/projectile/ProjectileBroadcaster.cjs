@@ -185,7 +185,7 @@ class ProjectileBroadcaster {
    */
   broadcastHomingProjectileUpdates(projectilesMap) {
     const homingProjectiles = Array.from(projectilesMap.values())
-      .filter(proj => proj.targetId && proj.targetId !== -1 && proj.playerId.startsWith('npc_'));
+      .filter(proj => proj.targetId && proj.targetId !== -1 && !proj.isDeterministic); // Include NPC and Player missiles
 
     if (homingProjectiles.length === 0) return;
 

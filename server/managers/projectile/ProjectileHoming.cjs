@@ -15,7 +15,14 @@ class ProjectileHoming {
    * @param {Object} projectile - Proiettile da aggiornare
    * @returns {boolean} true se target trovato e homing applicato, false se target scomparso
    */
-  updateProjectileHoming(projectile) {
+  /**
+   * Aggiorna direzione di un proiettile homing verso il suo target
+   * Logica avanzata: Steering Behavior (non snap istantaneo) per movimento fluido
+   * @param {Object} projectile - Proiettile da aggiornare
+   * @param {number} deltaTime - Tempo trascorso dall'ultimo frame (secondi)
+   * @returns {boolean} true se target trovato e homing applicato, false se target scomparso
+   */
+  updateProjectileHoming(projectile, deltaTime = 0.016) {
     const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
 
     // Trova posizione corrente del target
@@ -26,38 +33,40 @@ class ProjectileHoming {
 
     const targetPosition = targetData.position;
     const targetVelocity = targetData.velocity || { x: 0, y: 0 };
-    const projectileSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
+
+    // Calcola velocità corrente del proiettile
+    const currentSpeed = Math.sqrt(projectile.velocity.x * projectile.velocity.x + projectile.velocity.y * projectile.velocity.y);
+    const useSpeed = currentSpeed > 0 ? currentSpeed : 250; // Fallback speed
 
     // Calcola direzione verso target
     let dx = targetPosition.x - projectile.position.x;
     let dy = targetPosition.y - projectile.position.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // Predizione semplice: se target si muove, predici posizione futura
-    if (distance > 10 && projectileSpeed > 50) {
-      const timeToTarget = distance / projectileSpeed;
-      const predictionTime = Math.min(timeToTarget * 0.5, 0.5); // 50% del tempo, max 0.5s
-      dx = targetPosition.x + targetVelocity.x * predictionTime - projectile.position.x;
-      dy = targetPosition.y + targetVelocity.y * predictionTime - projectile.position.y;
-    }
-
-    // Normalizza direzione
     const distanceToTarget = Math.sqrt(dx * dx + dy * dy);
-    if (distanceToTarget > 0) {
-      const directionX = dx / distanceToTarget;
-      const directionY = dy / distanceToTarget;
 
-      // Imposta velocità: direzione diretta, velocità costante
-      const speed = Math.max(50, Math.min(projectileSpeed, 2000));
-      projectile.velocity.x = directionX * speed;
-      projectile.velocity.y = directionY * speed;
+    // Calcola differenza angolo (shortest path)
+    const desiredAngle = Math.atan2(dy, dx);
+    const currentAngle = Math.atan2(projectile.velocity.y, projectile.velocity.x);
 
-      // Validazione
-      if (!Number.isFinite(projectile.velocity.x) || !Number.isFinite(projectile.velocity.y)) {
-        projectile.velocity.x = dx > 0 ? 400 : -400;
-        projectile.velocity.y = dy > 0 ? 400 : -400;
-      }
-    }
+    // Calcola differenza angolo (shortest path)
+    let angleDiff = desiredAngle - currentAngle;
+    while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+    while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+    // Turn Rate (radianti al secondo)
+    // Valore più alto = curva più stretta. 
+    // Per missili lenti (250px/s), un turn rate di 2-3 rad/s dà curve ampie ma decise.
+    const turnRate = 4.0;
+    const maxTurn = turnRate * deltaTime;
+
+    // Clampa la rotazione al massimo consentito
+    const actualTurn = Math.max(-maxTurn, Math.min(maxTurn, angleDiff));
+
+    // Nuovo angolo
+    const newAngle = currentAngle + actualTurn;
+
+    // Aggiorna velocità mantenendo magnitude
+    projectile.velocity.x = Math.cos(newAngle) * useSpeed;
+    projectile.velocity.y = Math.sin(newAngle) * useSpeed;
 
     return true;
   }
@@ -87,18 +96,18 @@ class ProjectileHoming {
         const latest = positionQueue[positionQueue.length - 1];
         const previous = positionQueue[positionQueue.length - 2];
         const timeDelta = (latest.timestamp - previous.timestamp) / 1000; // secondi
-        
+
         if (timeDelta > 0 && timeDelta < 0.5) { // Solo se il delta è ragionevole (max 500ms)
           const posDeltaX = latest.x - previous.x;
           const posDeltaY = latest.y - previous.y;
           const calculatedVelX = posDeltaX / timeDelta;
           const calculatedVelY = posDeltaY / timeDelta;
-          
+
           // Usa la velocità calcolata se è più grande (player si muove velocemente)
           // Altrimenti usa quella inviata dal client (più accurata per movimenti lenti)
           const clientSpeed = Math.sqrt(velocity.x * velocity.x + velocity.y * velocity.y);
           const calculatedSpeed = Math.sqrt(calculatedVelX * calculatedVelX + calculatedVelY * calculatedVelY);
-          
+
           if (calculatedSpeed > clientSpeed * 0.8) { // Se la velocità calcolata è almeno 80% di quella client
             velocity = { x: calculatedVelX, y: calculatedVelY };
           }

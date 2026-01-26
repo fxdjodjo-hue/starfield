@@ -45,14 +45,23 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
           message.position.y,
           { volume: 0.05, allowMultiple: true, category: 'effects' }
         );
+      } else if (message.projectileType === 'missile') {
+        // 🚀 NUOVO: Suono lancio missile (sia per local player che remoti)
+        // Usa playSoundAt per spazialità
+        audioSystem.playSoundAt(
+          'missile',
+          message.position.x,
+          message.position.y,
+          { volume: 0.4, allowMultiple: true, category: 'effects' }
+        );
       }
       // Suono laser player gestito lato client nei laser visivi per responsività immediata
     }
 
-    // ✅ OTTIMIZZAZIONE: Per il giocatore locale, ignoriamo il messaggio di ritorno dal server
+    // ✅ OTTIMIZZAZIONE: Per i laser del giocatore locale, ignoriamo il messaggio di ritorno dal server
     // perché abbiamo già creato il laser locale per responsività immediata in CombatStateSystem.
-    // Questo evita duplicazioni e il bug del "laser fermo" (static laser).
-    if (isLocalPlayer) {
+    // MA per i MISSILI (che sono auto-fire dal server), dobbiamo processarli anche per il player locale!
+    if (isLocalPlayer && message.projectileType !== 'missile') {
       // Skip self-broadcast to avoid duplication - local laser already created
       return;
     }
@@ -121,28 +130,39 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       // console.log('[DEBUG_PROJECTILE] Could not find AssetManager:', error);
     }
 
-    // console.log('[DEBUG_PROJECTILE] Creating remote projectile via ProjectileFactory, hasAssetManager:', !!assetManager);
-    const entity = ProjectileFactory.createRemoteUnified(
-      ecs,
-      message.projectileId,
-      message.playerId,
-      projectilePosition,
-      message.velocity,
-      message.damage,
-      message.projectileType,
-      message.targetId || undefined,
-      undefined, // ownerId - not used for remote projectiles
-      assetManager
-    );
-    // console.log('[DEBUG_PROJECTILE] Remote projectile created, entity ID:', entity.id);
+    // console.log('[DEBUG_PROJECTILE] Creating remote projectile via RemoteProjectileSystem');
 
-    // ✅ NOTA: Non creiamo più il beam effect qui per i laser dei giocatori remoti
-    // perché ora usiamo la Soluzione 2 (Simulazione Locale) in CombatStateSystem.
-    // Il ProjectileFactory.createRemoteUnified sopra crea già l'entità "fisica"
-    // corrispondente al proiettile del server se fosse necessario per altri scopi.
-
-    // Per i laser NPC (non simulati via CombatStateSystem), il ProjectileFactory 
-    // ha già aggiunto lo sprite necessario nel blocco create().
+    // FIX: Usa RemoteProjectileSystem per creare e TRACCIARE il proiettile
+    // Questo è fondamentale affinché possa essere rimosso successivamente da ProjectileDestroyedHandler
+    const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
+    if (remoteProjectileSystem) {
+      remoteProjectileSystem.addRemoteProjectile(
+        message.projectileId,
+        message.playerId,
+        projectilePosition,
+        message.velocity,
+        message.damage,
+        message.projectileType,
+        message.targetId || undefined,
+        isLocalPlayer,
+        assetManager
+      );
+    } else {
+      console.error('[ProjectileFiredHandler] RemoteProjectileSystem not found! Projectile will NOT be tracked.');
+      // Fallback (non tracciato, quindi non potrà essere distrutto esplicitamente)
+      ProjectileFactory.createRemoteUnified(
+        ecs,
+        message.projectileId,
+        message.playerId,
+        projectilePosition,
+        message.velocity,
+        message.damage,
+        message.projectileType,
+        message.targetId || undefined,
+        undefined,
+        assetManager
+      );
+    }
   }
 
 

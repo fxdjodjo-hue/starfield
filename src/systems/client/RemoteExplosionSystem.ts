@@ -10,7 +10,7 @@ import { AtlasParser } from '../../core/utils/AtlasParser';
  */
 export class RemoteExplosionSystem extends BaseSystem {
   private gameContext: GameContext;
-  private explosionFramesCache: HTMLImageElement[] | null = null;
+  private explosionFramesCache: Map<string, HTMLImageElement[]> = new Map();
   private audioSystem: any = null;
 
   constructor(ecs: ECS, gameContext: GameContext) {
@@ -27,10 +27,11 @@ export class RemoteExplosionSystem extends BaseSystem {
   private async preloadExplosionFrames(): Promise<void> {
     try {
       // Carica in background senza await per non bloccare l'inizializzazione
-      this.loadExplosionFrames().then(frames => {
-        this.explosionFramesCache = frames;
-      }).catch(error => {
-        console.warn('[ExplosionSystem] Failed to preload explosion frames:', error);
+      this.loadExplosionFrames('entity_death').catch(error => {
+        console.warn('[ExplosionSystem] Failed to preload entity explosion frames:', error);
+      });
+      this.loadExplosionFrames('projectile_impact').catch(error => {
+        console.warn('[ExplosionSystem] Failed to preload missile explosion frames:', error);
       });
     } catch (error) {
       console.warn('[ExplosionSystem] Error starting preload:', error);
@@ -57,7 +58,7 @@ export class RemoteExplosionSystem extends BaseSystem {
   async createRemoteExplosion(message: {
     explosionId: string;
     entityId: string;
-    entityType: 'player' | 'npc';
+    entityType: 'player' | 'npc' | 'missile' | 'projectile';
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
@@ -65,12 +66,15 @@ export class RemoteExplosionSystem extends BaseSystem {
       // Crea entità temporanea per l'esplosione
       const explosionEntity = this.ecs.createEntity();
 
-      // Usa i frame cachati o caricali (non dovrebbe mai essere necessario ora grazie al preload)
-      let explosionFrames = this.explosionFramesCache;
+      // Usa i frame cachati o caricali
+      let explosionFrames = this.explosionFramesCache.get(message.explosionType);
       if (!explosionFrames) {
-        console.warn('[ExplosionSystem] Explosion frames not preloaded, loading synchronously (may cause lag)');
-        explosionFrames = await this.loadExplosionFrames();
-        this.explosionFramesCache = explosionFrames;
+        explosionFrames = await this.loadExplosionFrames(message.explosionType);
+      }
+
+      if (!explosionFrames || explosionFrames.length === 0) {
+        console.warn(`[ExplosionSystem] No frames for explosion type: ${message.explosionType}`);
+        return;
       }
 
       // Import componenti (lazy loading per performance)
@@ -87,12 +91,14 @@ export class RemoteExplosionSystem extends BaseSystem {
 
       // Riproduci suono esplosione sincronizzato
       if (this.audioSystem) {
-        // 🚀 FIX SPAZIALE: Usa playSoundAt per attenuare le esplosioni lontane
+        const soundKey = message.explosionType === 'projectile_impact' ? 'missileHit' : 'explosion';
+        const volume = message.explosionType === 'projectile_impact' ? 0.8 : 0.4; // entity_death usa 0.1 originariamente, ma missileHit usa 0.8
+
         this.audioSystem.playSoundAt(
-          'explosion',
+          soundKey,
           message.position.x,
           message.position.y,
-          { volume: 0.1, allowMultiple: true, category: 'effects' }
+          { volume, allowMultiple: true, category: 'effects' }
         );
       }
 
@@ -105,26 +111,33 @@ export class RemoteExplosionSystem extends BaseSystem {
    * Imposta frame esplosioni precaricati
    */
   setPreloadedExplosionFrames(frames: HTMLImageElement[]): void {
-    this.explosionFramesCache = frames;
+    this.explosionFramesCache.set('entity_death', frames);
   }
 
   /**
    * Carica frame esplosione dal filesystem
    */
-  private async loadExplosionFrames(explosionType: string = 'explosion'): Promise<HTMLImageElement[]> {
-    if (this.explosionFramesCache) {
-      return this.explosionFramesCache;
+  private async loadExplosionFrames(explosionType: string = 'entity_death'): Promise<HTMLImageElement[]> {
+    const cached = this.explosionFramesCache.get(explosionType);
+    if (cached) {
+      return cached;
     }
 
     try {
-      const atlasPath = `assets/explosions/explosions_npc/explosion.atlas`;
+      let atlasPath = '';
+      if (explosionType === 'projectile_impact') {
+        atlasPath = `assets/missiles/rocketexplosion/rocketexp.atlas`;
+      } else {
+        atlasPath = `assets/explosions/explosions_npc/explosion.atlas`;
+      }
+
       const atlasData = await AtlasParser.parseAtlas(atlasPath);
       const frames = await AtlasParser.extractFrames(atlasData);
 
-      this.explosionFramesCache = frames;
+      this.explosionFramesCache.set(explosionType, frames);
       return frames;
     } catch (error) {
-      console.error('Failed to load explosion frames from atlas:', error);
+      console.error(`Failed to load explosion frames for ${explosionType}:`, error);
       return [];
     }
   }
@@ -133,7 +146,7 @@ export class RemoteExplosionSystem extends BaseSystem {
    * Cleanup risorse
    */
   destroy(): void {
-    this.explosionFramesCache = null;
+    this.explosionFramesCache.clear();
     this.audioSystem = null;
   }
 }

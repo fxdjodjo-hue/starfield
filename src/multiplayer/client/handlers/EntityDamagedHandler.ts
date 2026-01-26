@@ -81,7 +81,8 @@ export class EntityDamagedHandler extends BaseMessageHandler {
           // In futuro potremmo migliorare la logica per distinguere shield vs HP
           const isShieldDamage = false;
           const projectileType = message.projectileType;
-          combatSystem.createDamageText({ id: targetEntity.id }, message.damage, isShieldDamage, false, projectileType);
+
+          combatSystem.createDamageText(targetEntity, message.damage, isShieldDamage, false, projectileType);
         }
       }
     }

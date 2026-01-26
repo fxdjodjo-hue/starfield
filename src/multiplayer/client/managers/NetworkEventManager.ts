@@ -58,7 +58,7 @@ export class NetworkEventManager {
   async createRemoteExplosion(message: {
     explosionId: string;
     entityId: string;
-    entityType: 'player' | 'npc';
+    entityType: 'player' | 'npc' | 'missile' | 'projectile';
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
@@ -78,7 +78,7 @@ export class NetworkEventManager {
   sendExplosionCreated(data: {
     explosionId: string;
     entityId: string;
-    entityType: 'player' | 'npc';
+    entityType: 'player' | 'npc' | 'missile' | 'projectile';
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): void {
@@ -98,7 +98,7 @@ export class NetworkEventManager {
    * Getter per sistemi esterni
    */
   getAudioSystem(): any {
-    return this.audioSystem || this.gameContext?.audioSystem || null;
+    return this.audioSystem || null;
   }
 
   getUiSystem(): any {

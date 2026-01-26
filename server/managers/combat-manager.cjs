@@ -135,6 +135,7 @@ class ServerCombatManager {
       sessionId: sessionId,
       npcId: npcId,
       lastAttackTime: 0,
+      lastMissileTime: Date.now(), // NEW: Start cooldown immediately to prevent instant fire
       attackCooldown: attackCooldown,
       combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
@@ -283,25 +284,96 @@ class ServerCombatManager {
     // Combat attack logging removed for production - too verbose
     this.performPlayerAttack(playerId, playerData, npc, now);
     combat.lastAttackTime = now;
+
+    // 🚀 AUTO-FIRE MISSILES
+    // Controlla cooldown missili (indipendente dal laser)
+    const missileCooldown = PLAYER_CONFIG.stats.missileCooldown || 3000;
+    const lastMissileTime = combat.lastMissileTime || 0;
+
+    if (now - lastMissileTime >= missileCooldown) {
+      // 🚀 PREDICTIVE MISSILE LOGIC: Lancio un missile solo se il target sopravviverà abbastanza a lungo
+
+      // 1. Calcola DPS stimato dei laser (Danno / Cooldown)
+      const laserDamage = DamageCalculationSystem.calculatePlayerDamage(
+        DamageCalculationSystem.getBasePlayerDamage(),
+        playerData.upgrades
+      );
+      const laserCooldownSec = (PLAYER_CONFIG.stats.cooldown || 1500) / 1000;
+      const laserDps = laserDamage / laserCooldownSec;
+
+      // 2. Calcola tempo alla morte (TTD)
+      const targetTotalHealth = npc.health + npc.shield;
+      const timeToDeath = targetTotalHealth / laserDps;
+
+      // 3. Calcola tempo di arrivo del missile (Distanza / Velocità + Buffer)
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const missileSpeed = SERVER_CONSTANTS.PROJECTILE.MISSILE_SPEED || 300;
+      const arrivalTime = (dist / missileSpeed) + 0.5; // 0.5s buffer di sicurezza
+
+      // 4. Fuoco solo se TTD > arrivalTime
+      if (timeToDeath > arrivalTime) {
+        this.performPlayerMissileAttack(playerId, playerData, npc, now);
+        combat.lastMissileTime = now;
+      }
+    }
+  }
+
+  /**
+   * Esegue attacco missile automatico del player
+   */
+  performPlayerMissileAttack(playerId, playerData, npc, now) {
+    // Calcola danno missili: Base + Bonus Upgrades
+    // Nota: I missili scalano con missileDamageUpgrades, non weaponDamageUpgrades
+    const baseMissileDamage = PLAYER_CONFIG.stats.missileDamage || 100;
+
+    // Calcolo bonus upgrade (simile a DamageCalculationSystem ma specifico per missili)
+    // Se non abbiamo accesso diretto al componente PlayerUpgrades qui, usiamo i dati serializzati in playerData.upgrades
+    let missileMultiplier = 1.0;
+    if (playerData.upgrades && playerData.upgrades.missileDamageUpgrades) {
+      // +5% per livello, come il danno normale (da confermare se si vuole valore diverso)
+      missileMultiplier = 1.0 + (playerData.upgrades.missileDamageUpgrades * 0.05);
+    }
+
+    const damage = Math.floor(baseMissileDamage * missileMultiplier);
+
+    // Usa posizione corrente del player
+    const playerPos = playerData.position;
+
+    // Crea proiettile missile (FISICO, non deterministico)
+    // Usiamo la logica standard dei laser ma con tipo 'missile' e target specifico per homing
+    const projectileId = this.performAttack(
+      playerId,              // ownerId
+      playerPos,             // ownerPosition
+      npc.position,          // targetPosition
+      damage,                // damage
+      'missile',             // projectileType
+      npc.id                 // targetId (abilita homing nel ProjectilePhysics)
+    );
+
+    if (process.env.DEBUG_COMBAT === 'true' && projectileId) {
+      console.log(`[PLAYER ${playerId}] Fired physics missile at NPC ${npc.id}. Damage: ${damage}`);
+    }
+
+    return projectileId;
   }
 
   /**
    * Esegue attacco deterministico (MMO style) - hit garantito
    * @param {string} ownerId - ID di chi spara (npcId)
    * @param {Object} ownerPosition - Posizione di chi spara {x, y}
-   * @param {Object} targetPlayer - Player target (con clientId)
+   * @param {Object} targetPlayer - Player target (con clientId) o NPC target (con id)
    * @param {number} damage - Danno del proiettile
    * @param {number} hitTime - Timestamp quando applicare il danno
    * @param {string} projectileType - Tipo di proiettile
    * @returns {string|null} ID del proiettile creato
    */
-  performDeterministicAttack(ownerId, ownerPosition, targetPlayer, damage, hitTime, projectileType = 'scouter_laser') {
+  performDeterministicAttack(ownerId, ownerPosition, target, damage, hitTime, projectileType = 'scouter_laser') {
     // Crea proiettile homing VISUALE (non fisico)
     const projectileId = `${ownerId}_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Calcola direzione iniziale
-    const dx = targetPlayer.position.x - ownerPosition.x;
-    const dy = targetPlayer.position.y - ownerPosition.y;
+    const dx = target.position.x - ownerPosition.x;
+    const dy = target.position.y - ownerPosition.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     if (distance === 0) {
@@ -332,8 +404,9 @@ class ServerCombatManager {
         position: projectilePos,
         velocity: velocity,
         damage: damage,
+        damage: damage,
         projectileType: projectileType,
-        targetId: targetPlayer.clientId, // Target per homing visivo
+        targetId: target.clientId || target.id, // Target per homing visivo (supporta sia Player che NPC)
         hitTime: hitTime, // Quando applicare il danno (deterministico)
         isDeterministic: true, // Flag per identificare proiettili deterministici
         createdAt: Date.now(),
@@ -388,9 +461,11 @@ class ServerCombatManager {
     };
 
     // Velocità costante verso il target
+    const speed = projectileType === 'missile' ? SERVER_CONSTANTS.PROJECTILE.MISSILE_SPEED : SERVER_CONSTANTS.PROJECTILE.SPEED;
+
     const velocity = {
-      x: directionX * SERVER_CONSTANTS.PROJECTILE.SPEED,
-      y: directionY * SERVER_CONSTANTS.PROJECTILE.SPEED
+      x: directionX * speed,
+      y: directionY * speed
     };
 
     // Registra proiettile (broadcast automatico)

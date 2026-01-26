@@ -26,7 +26,8 @@ export class SpriteRenderer {
 
     // Apply transforms
     ctx.translate(transform.x, transform.y);
-    ctx.rotate(customRotation !== undefined ? customRotation : transform.rotation);
+    const rotation = (customRotation !== undefined ? customRotation : transform.rotation) + (sprite.rotationOffset || 0);
+    ctx.rotate(rotation);
     ctx.scale(transform.scaleX, transform.scaleY);
 
     // Draw sprite

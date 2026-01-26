@@ -324,7 +324,7 @@ export interface ProjectileFiredMessage {
   position: { x: number; y: number };
   velocity: { x: number; y: number };
   damage: number;
-  projectileType: 'laser' | 'npc_laser';
+  projectileType: 'laser' | 'npc_laser' | 'missile' | 'repair';
   targetId?: string | null;
 }
 
@@ -360,7 +360,7 @@ export interface EntityDamagedMessage {
   maxHealth?: number;
   maxShield?: number;
   position: { x: number; y: number };
-  projectileType?: 'laser' | 'npc_laser' | 'repair';
+  projectileType?: 'laser' | 'npc_laser' | 'missile' | 'repair';
 }
 
 /**

@@ -8,13 +8,15 @@ export class Sprite {
   public height: number;
   public offsetX: number;
   public offsetY: number;
+  public rotationOffset: number;
 
-  constructor(image: HTMLImageElement | null, width?: number, height?: number, offsetX: number = 0, offsetY: number = 0) {
+  constructor(image: HTMLImageElement | null, width?: number, height?: number, offsetX: number = 0, offsetY: number = 0, rotationOffset: number = 0) {
     this.image = image;
     this.width = width ?? (image ? image.width : 0);
     this.height = height ?? (image ? image.height : 0);
     this.offsetX = offsetX;
     this.offsetY = offsetY;
+    this.rotationOffset = rotationOffset;
   }
 
   /**
@@ -28,7 +30,7 @@ export class Sprite {
    * Create a clone of this sprite
    */
   clone(): Sprite {
-    return new Sprite(this.image, this.width, this.height, this.offsetX, this.offsetY);
+    return new Sprite(this.image, this.width, this.height, this.offsetX, this.offsetY, this.rotationOffset);
   }
 }
 

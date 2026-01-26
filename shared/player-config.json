@@ -7,7 +7,9 @@
     "rangeWidth": 1920,
     "rangeHeight": 1080,
     "cooldown": 1500,
-    "speed": 300
+    "speed": 300,
+    "missileDamage": 100,
+    "missileCooldown": 3000
   },
   "startingResources": {
     "credits": 1000,
@@ -37,13 +39,18 @@
     "damage": {
       "credits": 15000,
       "cosmos": 25
+    },
+    "missileDamage": {
+      "credits": 12000,
+      "cosmos": 20
     }
   },
   "upgrades": {
     "maxHpUpgrades": 100,
     "maxShieldUpgrades": 100,
     "maxSpeedUpgrades": 100,
-    "maxDamageUpgrades": 100
+    "maxDamageUpgrades": 100,
+    "maxMissileDamageUpgrades": 50
   },
   "description": "La nave controllata dal giocatore"
 }

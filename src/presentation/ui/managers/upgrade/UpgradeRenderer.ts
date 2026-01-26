@@ -13,7 +13,7 @@ export class UpgradeRenderer {
     private readonly calculateCost: (statType: string, currentLevel: number) => { credits: number, cosmos: number },
     private readonly getInitialStatValue: (statType: string) => string,
     private readonly getStatDescription: (statType: string) => string,
-    private readonly onUpgradeClick: (upgradeType: 'hp' | 'shield' | 'speed' | 'damage') => void,
+    private readonly onUpgradeClick: (upgradeType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage') => void,
     private readonly onShowExplanation: (statName: string, statType: string, buttonElement: HTMLElement) => void
   ) { }
 
@@ -133,7 +133,7 @@ export class UpgradeRenderer {
     const upgradeGrid = document.createElement('div');
     upgradeGrid.style.cssText = `
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(3, 1fr);
       grid-template-rows: repeat(2, 1fr);
       gap: 12px;
       flex: 1;
@@ -148,8 +148,9 @@ export class UpgradeRenderer {
     const shieldLevel = playerUpgrades ? playerUpgrades.shieldUpgrades : 0;
     const speedLevel = playerUpgrades ? playerUpgrades.speedUpgrades : 0;
     const damageLevel = playerUpgrades ? playerUpgrades.damageUpgrades : 0;
+    const missileDamageLevel = playerUpgrades ? playerUpgrades.missileDamageUpgrades : 0;
 
-    // Create the four upgrade cards
+    // Create the five upgrade cards
     const hpUpgrade = this.createUpgradeCard('Hull', '#10b981', 'hp', hpLevel);
     hpUpgrade.classList.add('upgrade-hp');
     const shieldUpgrade = this.createUpgradeCard('Shield', '#3b82f6', 'shield', shieldLevel);
@@ -158,11 +159,14 @@ export class UpgradeRenderer {
     speedUpgrade.classList.add('upgrade-speed');
     const damageUpgrade = this.createUpgradeCard('Weapons', '#ef4444', 'damage', damageLevel);
     damageUpgrade.classList.add('upgrade-damage');
+    const missileUpgrade = this.createUpgradeCard('Missiles', '#ec4899', 'missileDamage', missileDamageLevel);
+    missileUpgrade.classList.add('upgrade-missileDamage');
 
     upgradeGrid.appendChild(hpUpgrade);
     upgradeGrid.appendChild(shieldUpgrade);
     upgradeGrid.appendChild(speedUpgrade);
     upgradeGrid.appendChild(damageUpgrade);
+    upgradeGrid.appendChild(missileUpgrade);
 
     section.appendChild(upgradeGrid);
 
@@ -312,7 +316,7 @@ export class UpgradeRenderer {
 
     upgradeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.onUpgradeClick(upgradeType as 'hp' | 'shield' | 'speed' | 'damage');
+      this.onUpgradeClick(upgradeType as 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage');
     });
 
     // Toggle contenuto al click
@@ -471,7 +475,7 @@ export class UpgradeRenderer {
     // Click on upgrade button
     upgradeButton.addEventListener('click', (e) => {
       e.stopPropagation();
-      this.onUpgradeClick(upgradeType as 'hp' | 'shield' | 'speed' | 'damage');
+      this.onUpgradeClick(upgradeType as 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage');
     });
 
     upgradeButton.addEventListener('mouseenter', (e) => {

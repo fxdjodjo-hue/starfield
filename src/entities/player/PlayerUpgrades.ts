@@ -9,12 +9,14 @@ export class PlayerUpgrades extends Component {
   private _shieldUpgrades: number = 0;
   private _speedUpgrades: number = 0;
   private _damageUpgrades: number = 0;
+  private _missileDamageUpgrades: number = 0;
 
   constructor(hpUpgrades: number = 0, shieldUpgrades: number = 0, speedUpgrades: number = 0) {
     super();
     this._hpUpgrades = hpUpgrades;
     this._shieldUpgrades = shieldUpgrades;
     this._speedUpgrades = speedUpgrades;
+    this._missileDamageUpgrades = 0; // Default
   }
 
   // Getters
@@ -34,8 +36,12 @@ export class PlayerUpgrades extends Component {
     return this._damageUpgrades;
   }
 
+  get missileDamageUpgrades(): number {
+    return this._missileDamageUpgrades;
+  }
+
   get totalUpgrades(): number {
-    return this._hpUpgrades + this._shieldUpgrades + this._speedUpgrades + this._damageUpgrades;
+    return this._hpUpgrades + this._shieldUpgrades + this._speedUpgrades + this._damageUpgrades + this._missileDamageUpgrades;
   }
 
   // Methods
@@ -68,6 +74,14 @@ export class PlayerUpgrades extends Component {
    */
   upgradeDamage(): boolean {
     this._damageUpgrades++;
+    return true;
+  }
+
+  /**
+   * Acquista un upgrade Missile Damage (+5% Missile Damage)
+   */
+  upgradeMissileDamage(): boolean {
+    this._missileDamageUpgrades++;
     return true;
   }
 
@@ -116,6 +130,17 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
+   * Rollback upgrade Missile Damage (per errori)
+   */
+  rollbackMissileDamage(): boolean {
+    if (this._missileDamageUpgrades > 0) {
+      this._missileDamageUpgrades--;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.05)
    */
   getHPBonus(): number {
@@ -144,6 +169,13 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
+   * Calcola il bonus moltiplicatore per Missile Damage (1.0 + upgrades * 0.05)
+   */
+  getMissileDamageBonus(): number {
+    return 1.0 + (this._missileDamageUpgrades * 0.05);
+  }
+
+  /**
    * Resetta tutti gli upgrade (per debug o reset)
    */
   reset(): void {
@@ -151,16 +183,19 @@ export class PlayerUpgrades extends Component {
     this._shieldUpgrades = 0;
     this._speedUpgrades = 0;
     this._damageUpgrades = 0;
+    this._missileDamageUpgrades = 0;
   }
+
 
   /**
    * Imposta direttamente il numero di upgrade per ogni statistica
    */
-  setUpgrades(hp: number, shield: number, speed: number, damage: number = 0): void {
+  setUpgrades(hp: number, shield: number, speed: number, damage: number = 0, missileDamage: number = 0): void {
     this._hpUpgrades = Math.max(0, hp);
     this._shieldUpgrades = Math.max(0, shield);
     this._speedUpgrades = Math.max(0, speed);
     this._damageUpgrades = Math.max(0, damage);
+    this._missileDamageUpgrades = Math.max(0, missileDamage);
   }
 
   /**
@@ -171,7 +206,8 @@ export class PlayerUpgrades extends Component {
       hpUpgrades: this._hpUpgrades,
       shieldUpgrades: this._shieldUpgrades,
       speedUpgrades: this._speedUpgrades,
-      damageUpgrades: this._damageUpgrades
+      damageUpgrades: this._damageUpgrades,
+      missileDamageUpgrades: this._missileDamageUpgrades
     };
   }
 
@@ -184,6 +220,7 @@ export class PlayerUpgrades extends Component {
       this._shieldUpgrades = Math.max(0, data.shieldUpgrades || 0);
       this._speedUpgrades = Math.max(0, data.speedUpgrades || 0);
       this._damageUpgrades = Math.max(0, data.damageUpgrades || 0);
+      this._missileDamageUpgrades = Math.max(0, data.missileDamageUpgrades || 0);
     }
   }
 }

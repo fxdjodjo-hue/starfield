@@ -432,7 +432,8 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
     hp: 100,
     shield: 100,
     speed: 100,
-    damage: 100
+    damage: 100,
+    missileDamage: 50 // New limit
   };
 
   function calculateUpgradeCost(statType, currentLevel) {
@@ -516,6 +517,9 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
       break;
     case 'damage':
       playerData.upgrades.damageUpgrades += 1;
+      break;
+    case 'missileDamage':
+      playerData.upgrades.missileDamageUpgrades = (playerData.upgrades.missileDamageUpgrades || 0) + 1;
       break;
     default:
       playerData.inventory.credits = oldCredits;

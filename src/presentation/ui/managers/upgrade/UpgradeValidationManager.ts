@@ -44,14 +44,14 @@ export class UpgradeValidationManager {
   /**
    * Checks if an upgrade is currently in progress
    */
-  isUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage'): boolean {
+  isUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage'): boolean {
     return this.upgradeInProgress?.[statType] || false;
   }
 
   /**
    * Sets the progress state of an upgrade
    */
-  setUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage', inProgress: boolean): void {
+  setUpgradeInProgress(statType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage', inProgress: boolean): void {
     if (!this.upgradeInProgress) {
       this.upgradeInProgress = {};
     }
@@ -68,7 +68,7 @@ export class UpgradeValidationManager {
   /**
    * Rollback di un upgrade locale se la richiesta al server fallisce
    */
-  rollbackUpgrade(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
+  rollbackUpgrade(statType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage'): void {
     const playerEntity = this.playerSystem?.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -88,6 +88,9 @@ export class UpgradeValidationManager {
         break;
       case 'damage':
         playerUpgrades.rollbackDamage();
+        break;
+      case 'missileDamage':
+        playerUpgrades.rollbackMissileDamage();
         break;
     }
   }

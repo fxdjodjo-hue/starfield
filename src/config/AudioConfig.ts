@@ -28,8 +28,9 @@ export const AUDIO_ASSETS = {
     damage: 'effects/damage.wav',
     engine: 'effects/engine/enginesoundeffect.mp3',
     playerLogin: 'effects/playerlogin/bubbleSounds.mp3',
-    portal: 'effects/portal/portal.mp3',
-    portalBassdrop: 'effects/portal/bassdrop.mp3'
+    portalBassdrop: 'effects/portal/bassdrop.mp3',
+    missile: 'rocket/rocketStart.wav',
+    missileHit: 'rocket/rocketExplosion.mp3'
   },
 
   // Musica

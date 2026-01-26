@@ -13,9 +13,9 @@ export class Projectile extends Component {
   public lifetime: number; // Tempo di vita rimanente in millisecondi
   public maxLifetime: number; // Tempo di vita massimo
   public playerId?: string; // ID del giocatore/NPC che ha sparato (per rendering remoto)
-  public projectileType?: 'laser' | 'npc_laser'; // Tipo di proiettile per rendering
+  public projectileType?: 'laser' | 'npc_laser' | 'missile'; // Tipo di proiettile per rendering
 
-  constructor(damage: number, speed: number, directionX: number, directionY: number, ownerId: number | string, targetId: number | string, lifetime: number = 5000, playerId?: string, projectileType: 'laser' | 'npc_laser' = 'laser') {
+  constructor(damage: number, speed: number, directionX: number, directionY: number, ownerId: number | string, targetId: number | string, lifetime: number = 5000, playerId?: string, projectileType: 'laser' | 'npc_laser' | 'missile' = 'laser') {
     super();
     this.damage = damage;
     this.speed = speed;

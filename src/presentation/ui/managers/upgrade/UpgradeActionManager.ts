@@ -12,14 +12,14 @@ export class UpgradeActionManager {
     private readonly ecs: ECS,
     private readonly playerSystem: PlayerSystem | null,
     private readonly clientNetworkSystem: ClientNetworkSystem | null,
-    private readonly isUpgradeInProgress: (statType: 'hp' | 'shield' | 'speed' | 'damage') => boolean,
-    private readonly setUpgradeInProgress: (statType: 'hp' | 'shield' | 'speed' | 'damage', inProgress: boolean) => void
-  ) {}
+    private readonly isUpgradeInProgress: (statType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage') => boolean,
+    private readonly setUpgradeInProgress: (statType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage', inProgress: boolean) => void
+  ) { }
 
   /**
    * Acquista un upgrade per una statistica
    */
-  requestUpgrade(statType: 'hp' | 'shield' | 'speed' | 'damage'): void {
+  requestUpgrade(statType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage'): void {
     if (!this.playerSystem) {
       return;
     }

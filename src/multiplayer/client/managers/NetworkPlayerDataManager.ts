@@ -32,7 +32,7 @@ export class NetworkPlayerDataManager {
    * Requests a stat upgrade to the server (Server Authoritative)
    * Costs credits and cosmos instead of skill points
    */
-  requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage'): void {
+  requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage'): void {
     if (!this.isConnected()) {
       return;
     }

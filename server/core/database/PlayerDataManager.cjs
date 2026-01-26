@@ -173,6 +173,7 @@ class PlayerDataManager {
             if (upgrades.shieldUpgrades === null) upgrades.shieldUpgrades = defaultUpgrades.shieldUpgrades;
             if (upgrades.speedUpgrades === null) upgrades.speedUpgrades = defaultUpgrades.speedUpgrades;
             if (upgrades.damageUpgrades === null) upgrades.damageUpgrades = defaultUpgrades.damageUpgrades;
+            if (upgrades.missileDamageUpgrades === undefined) upgrades.missileDamageUpgrades = defaultUpgrades.missileDamageUpgrades || 0;
             return upgrades;
           }
           // Nessun record nel database, usa default (nuovo player)
@@ -468,7 +469,9 @@ class PlayerDataManager {
         hpUpgrades: 0,
         shieldUpgrades: 0,
         speedUpgrades: 0,
-        damageUpgrades: 0
+        speedUpgrades: 0,
+        damageUpgrades: 0,
+        missileDamageUpgrades: 0
       },
       inventory: {
         credits: playerConfig.startingResources.credits,

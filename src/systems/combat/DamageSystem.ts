@@ -20,7 +20,7 @@ export class DamageSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato da altri sistemi quando applicano danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
     if (damage <= 0) {
       return;
     }
@@ -48,8 +48,13 @@ export class DamageSystem extends BaseSystem {
       textColor = '#4444ff'; // Blu per shield
       offsetY = -30;
       offsetX = (Math.random() - 0.5) * 25; // ±12.5px
+    } else if (projectileType === 'missile') {
+      // Danni Missili in Arancione
+      textColor = '#FFA500'; // Orange
+      offsetY = -40; // Leggermente più in alto
+      offsetX = (Math.random() - 0.5) * 30; // Più dispersione per missili
     } else {
-      // Tutti i danni HP usano il rosso
+      // Tutti i danni HP usano il rosso (laser standard)
       textColor = '#ff4444';
       offsetY = -30; // Default, sarà aggiustato sotto
       offsetX = (Math.random() - 0.5) * 20; // ±10px
@@ -83,7 +88,7 @@ export class DamageSystem extends BaseSystem {
    * Decrementa il contatore dei testi di danno attivi per un'entità
    * Chiamato dal DamageTextSystem quando un testo scade
    */
-  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser'): void {
+  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
     const activeMap = this.activeLaserTexts;
     const currentCount = activeMap.get(targetEntityId) || 0;
     if (currentCount > 0) {
@@ -108,6 +113,5 @@ export class DamageSystem extends BaseSystem {
    */
   public destroy(): void {
     this.activeLaserTexts.clear();
-    this.activeMissileTexts.clear();
   }
 }

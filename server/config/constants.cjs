@@ -11,9 +11,10 @@ const SERVER_CONSTANTS = {
   PROJECTILE: {
     SPEED: 1000,     // Velocità proiettili player
     NPC_SPEED: 800, // Velocità proiettili NPC (deve essere > player speed per raggiungerlo)
-    LIFETIME: 3000,
-    HIT_RADIUS: 15,
-    SPAWN_OFFSET: 50  // Offset spawn per evitare auto-collisione (px)
+    LIFETIME: 3000, // Durata proiettili (ms)
+    HIT_RADIUS: 15, // Raggio collisione (px)
+    SPAWN_OFFSET: 50, // Offset spawn per evitare auto-collisione (px)
+    MISSILE_SPEED: 300 // Velocità missili (leggermente aumentata da 250)
   },
 
   // Missile constants removed - missiles are no longer supported

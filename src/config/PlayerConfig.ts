@@ -18,6 +18,8 @@ export interface PlayerStats {
   rangeHeight?: number; // Height of combat range rectangle
   cooldown: number;
   speed: number;
+  missileDamage?: number;
+  missileCooldown?: number;
 }
 
 export interface PlayerStartingResources {
@@ -39,6 +41,7 @@ export interface PlayerUpgrades {
   maxShieldUpgrades: number;
   maxSpeedUpgrades: number;
   maxDamageUpgrades: number;
+  maxMissileDamageUpgrades: number;
 }
 
 export interface PlayerDefinition {

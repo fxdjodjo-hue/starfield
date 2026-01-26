@@ -57,11 +57,22 @@ export class ProjectileBulkUpdateHandler extends BaseMessageHandler {
 
       if (interpolation && x !== undefined && y !== undefined) {
         // Usa interpolazione per movimento fluido (elimina glitch)
-        interpolation.updateTarget(x, y, 0);
+        let rotation = 0;
+        if (vx !== undefined && vy !== undefined && (vx !== 0 || vy !== 0)) {
+          rotation = Math.atan2(vy, vx);
+        }
+        interpolation.updateTarget(x, y, rotation);
+
+        // Update rotation for interpolation target too if supported, currently handled by visual update
       } else if (transform && x !== undefined && y !== undefined) {
         // Fallback: aggiornamento diretto per proiettili senza interpolazione
         transform.x = x;
         transform.y = y;
+
+        // 🚀 FIX: Update rotation to face velocity direction
+        if (vx !== undefined && vy !== undefined && (vx !== 0 || vy !== 0)) {
+          transform.rotation = Math.atan2(vy, vx);
+        }
       }
 
       if (velocity && vx !== undefined && vy !== undefined) {

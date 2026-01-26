@@ -589,7 +589,7 @@ export class ClientNetworkSystem extends BaseSystem {
   async createRemoteExplosion(message: {
     explosionId: string;
     entityId: string;
-    entityType: 'player' | 'npc';
+    entityType: 'player' | 'npc' | 'missile' | 'projectile';
     position: { x: number; y: number };
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
@@ -687,7 +687,7 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.hasReceivedWelcome;
   }
 
-  requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage'): void {
+  requestSkillUpgrade(upgradeType: 'hp' | 'shield' | 'speed' | 'damage' | 'missileDamage'): void {
     this.playerDataManager.requestSkillUpgrade(upgradeType);
   }
 

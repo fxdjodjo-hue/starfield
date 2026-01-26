@@ -8,6 +8,7 @@ import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { AssetManager } from '../../core/services/AssetManager';
 
 /**
  * Sistema per la gestione dei proiettili remoti in multiplayer
@@ -36,7 +37,8 @@ export class RemoteProjectileSystem extends BaseSystem {
     damage: number,
     projectileType: string = 'laser',
     targetId: string | number | null = null,
-    isLocalPlayer: boolean = false
+    isLocalPlayer: boolean = false,
+    assetManager?: AssetManager
   ): number {
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
@@ -85,6 +87,7 @@ export class RemoteProjectileSystem extends BaseSystem {
     }
 
     // Usa il nuovo metodo unificato che crea proiettili normali gestiti dal ProjectileSystem
+    // Usa il nuovo metodo unificato che crea proiettili normali gestiti dal ProjectileSystem
     const entity = ProjectileFactory.createRemoteUnified(
       this.ecs,
       projectileId,
@@ -93,7 +96,9 @@ export class RemoteProjectileSystem extends BaseSystem {
       velocity,
       damage,
       projectileType,
-      actualTargetId !== undefined ? actualTargetId : (targetId || undefined)
+      actualTargetId !== undefined ? actualTargetId : (targetId || undefined),
+      undefined,
+      assetManager
     );
 
     // Registra il proiettile nella mappa per tracking
@@ -101,18 +106,6 @@ export class RemoteProjectileSystem extends BaseSystem {
       entityId: entity.id,
       playerId: playerId,
       type: projectileType
-    });
-
-
-    LoggerWrapper.network(`Remote projectile ${projectileId} added: type=${projectileType}, player=${playerId}`, {
-      projectileId,
-      entityId: entity.id,
-      position,
-      velocity,
-      damage,
-      projectileType,
-      targetId,
-      isLocalPlayer
     });
 
     return entity.id;

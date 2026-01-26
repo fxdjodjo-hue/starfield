@@ -34,6 +34,8 @@ export class UpgradeStatsManager {
         return `${playerDef.stats.speed} u/s`;
       case 'damage':
         return `${playerDef.stats.damage}`;
+      case 'missileDamage':
+        return `${playerDef.stats.missileDamage || 100}`;
       default:
         return '0';
     }
@@ -97,6 +99,16 @@ export class UpgradeStatsManager {
         }
       }
 
+      // Update missile damage with bonus from upgrades
+      const missileDamageBonus = playerUpgrades.getMissileDamageBonus();
+      const baseMissileDamage = playerDef.stats.missileDamage || 100;
+      const calculatedMissileDamage = Math.floor(baseMissileDamage * missileDamageBonus);
+
+      const missileDamageValue = this.container.querySelector('.stat-current-missileDamage') as HTMLElement;
+      if (missileDamageValue) {
+        missileDamageValue.textContent = calculatedMissileDamage.toString();
+      }
+
       // Update displayed levels
       const hpLevel = this.container.querySelector('.stat-level-hp') as HTMLElement;
       if (hpLevel) hpLevel.textContent = `Lv.${playerUpgrades.hpUpgrades}`;
@@ -109,6 +121,9 @@ export class UpgradeStatsManager {
 
       const damageLevel = this.container.querySelector('.stat-level-damage') as HTMLElement;
       if (damageLevel) damageLevel.textContent = `Lv.${playerUpgrades.damageUpgrades}`;
+
+      const missileDamageLevel = this.container.querySelector('.stat-level-missileDamage') as HTMLElement;
+      if (missileDamageLevel) missileDamageLevel.textContent = `Lv.${playerUpgrades.missileDamageUpgrades}`;
 
       // Update upgrade button states (enabled/disabled)
       this.updateButtons(playerUpgrades, playerDef.upgrades, this.calculateCost);
@@ -157,7 +172,8 @@ export class UpgradeStatsManager {
       hp: '.upgrade-hp',
       shield: '.upgrade-shield',
       speed: '.upgrade-speed',
-      damage: '.upgrade-damage'
+      damage: '.upgrade-damage',
+      missileDamage: '.upgrade-missileDamage'
     };
 
     const uiContainer = this.container;
