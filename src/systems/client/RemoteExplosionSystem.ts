@@ -92,7 +92,7 @@ export class RemoteExplosionSystem extends BaseSystem {
       // Riproduci suono esplosione sincronizzato
       if (this.audioSystem) {
         const soundKey = message.explosionType === 'projectile_impact' ? 'missileHit' : 'explosion';
-        const volume = message.explosionType === 'projectile_impact' ? 0.8 : 0.4; // entity_death usa 0.1 originariamente, ma missileHit usa 0.8
+        const volume = message.explosionType === 'projectile_impact' ? 0.1 : 0.4; // Both missileHit and entity_death (default) now use appropriate low volumes
 
         this.audioSystem.playSoundAt(
           soundKey,

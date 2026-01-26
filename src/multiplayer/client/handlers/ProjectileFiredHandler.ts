@@ -52,7 +52,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
           'missile',
           message.position.x,
           message.position.y,
-          { volume: 0.4, allowMultiple: true, category: 'effects' }
+          { volume: 0.1, allowMultiple: true, category: 'effects' }
         );
       }
       // Suono laser player gestito lato client nei laser visivi per responsività immediata
