@@ -36,8 +36,14 @@ const SERVER_CONSTANTS = {
 
   REPAIR: {
     START_DELAY: 5000,      // 5 secondi fuori dal combattimento
-    AMOUNT: 10000,            // 10k HP/shield ogni applicazione
-    INTERVAL: 2000            // Ogni 2 secondi
+    PERCENT: 0.1,           // 10% HP/shield ogni applicazione
+    INTERVAL: 2000          // Ogni 2 secondi
+  },
+
+  NPC_REPAIR: {
+    START_DELAY: 10000,     // 10 secondi fuori dal combattimento
+    PERCENT: 0.1,           // 10% HP/shield ogni applicazione
+    INTERVAL: 2000          // Ogni 2 secondi (sincronizzato con player)
   },
 
   SAFE_ZONES: [

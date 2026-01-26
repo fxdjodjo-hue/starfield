@@ -10,14 +10,16 @@ export class RepairEffect extends Component {
   public frameTime: number;
   public frameDuration: number; // millisecondi per frame
   public targetEntityId: number; // ID dell'entità che sta riparando (player)
+  public repairType: 'hp' | 'shield'; // Tipo di riparazione per gestione visibilità
 
-  constructor(frames: HTMLImageElement[], frameDuration: number = 50, targetEntityId: number) {
+  constructor(frames: HTMLImageElement[], frameDuration: number = 50, targetEntityId: number, repairType: 'hp' | 'shield' = 'hp') {
     super();
     this.frames = frames;
     this.currentFrame = 0;
     this.frameTime = 0;
     this.frameDuration = frameDuration;
     this.targetEntityId = targetEntityId;
+    this.repairType = repairType;
   }
 
   /**

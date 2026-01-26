@@ -968,6 +968,24 @@ export class RenderSystem extends BaseSystem {
    * Render repair effect
    */
   private renderRepairEffect(ctx: CanvasRenderingContext2D, transform: Transform, repairEffect: RepairEffect, screenX: number, screenY: number): void {
+    // 🚀 FIX: Se è un effetto scudo per un PLAYER, mostra solo se HP > 50%
+    if (repairEffect.repairType === 'shield') {
+      const targetEntity = this.ecs.getEntity(repairEffect.targetEntityId);
+      if (targetEntity) {
+        // Controlla se è un player (locale o remoto)
+        const isRemotePlayer = this.ecs.hasComponent(targetEntity, RemotePlayer);
+        const playerEntity = this.playerSystem?.getPlayerEntity();
+        const isLocalPlayer = playerEntity && targetEntity.id === playerEntity.id;
+
+        if (isLocalPlayer || isRemotePlayer) {
+          const health = this.ecs.getComponent(targetEntity, Health);
+          if (health && (health.current / health.max) <= 0.5) {
+            return; // Nascondi animazione scudo se HP <= 50%
+          }
+        }
+      }
+    }
+
     const params = RepairEffectRenderer.getRenderParams(repairEffect, transform, screenX, screenY);
 
     if (params && params.image) {

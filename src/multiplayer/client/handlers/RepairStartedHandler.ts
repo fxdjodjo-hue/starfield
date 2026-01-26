@@ -113,7 +113,7 @@ export class RepairStartedHandler extends BaseMessageHandler {
     const effectTransform = new Transform(targetTransform.x, targetTransform.y, 0);
 
     // Crea RepairEffect con loop infinito (50ms per frame)
-    const repairEffect = new RepairEffect(repairFrames, 50, targetEntity.id);
+    const repairEffect = new RepairEffect(repairFrames, 50, targetEntity.id, repairType);
 
     // Aggiungi componenti
     ecs.addComponent(repairEffectEntity, Transform, effectTransform);

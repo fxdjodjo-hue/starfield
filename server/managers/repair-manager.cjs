@@ -10,6 +10,7 @@ class RepairManager {
     this.mapServer = mapServer;
     this.playerRepairStates = new Map(); // playerId -> { repairStartTime, isRepairing, lastRepairTime, lastCombatEndTime }
     this.playerCombatEndTimes = new Map(); // playerId -> timestamp quando è uscito dal combattimento
+    this.npcRepairStates = new Map(); // npcId -> { repairStartTime, isRepairing, lastRepairTime, lastDamage }
   }
 
   /**
@@ -37,7 +38,7 @@ class RepairManager {
     const timeSinceLastDamage = playerData.lastDamage ? (now - playerData.lastDamage) : Infinity;
     const timeSinceJoin = playerData.joinTime ? (now - playerData.joinTime) : Infinity;
     const REPAIR_START_DELAY = SERVER_CONSTANTS.REPAIR.START_DELAY;
-    const REPAIR_AMOUNT = SERVER_CONSTANTS.REPAIR.AMOUNT;
+    const REPAIR_PERCENT = SERVER_CONSTANTS.REPAIR.PERCENT;
     const REPAIR_INTERVAL = SERVER_CONSTANTS.REPAIR.INTERVAL;
 
     let repairState = this.playerRepairStates.get(playerId);
@@ -106,7 +107,7 @@ class RepairManager {
 
       // Applica riparazione ogni 2 secondi
       if (now - lastRepairTime >= REPAIR_INTERVAL) {
-        this.applyRepair(playerId, playerData, REPAIR_AMOUNT, now);
+        this.applyRepair(playerId, playerData, REPAIR_PERCENT, now);
         // Dopo applyRepair, ricarica lo stato perché potrebbe essere stato modificato da completeRepair
         const updatedRepairState = this.playerRepairStates.get(playerId);
         if (updatedRepairState && !updatedRepairState.completed) {
@@ -180,33 +181,27 @@ class RepairManager {
   }
 
   /**
-   * Applica riparazione incrementale (10k ogni volta) - ripara HP e shield contemporaneamente
+   * Applica riparazione incrementale basata su percentuale - ripara HP e shield contemporaneamente
    */
-  applyRepair(playerId, playerData, repairAmount, now) {
+  applyRepair(playerId, playerData, repairPercent, now) {
     let healthRepaired = 0;
     let shieldRepaired = 0;
 
-    // Calcola i danni per HP e shield
-    const healthDamage = playerData.maxHealth - playerData.health;
-    const shieldDamage = playerData.maxShield - playerData.shield;
-    const totalDamage = healthDamage + shieldDamage;
+    // Calcola riparazione basata su percentuale dei valori massimi
+    const targetHealthRepair = Math.floor(playerData.maxHealth * repairPercent);
+    const targetShieldRepair = Math.floor(playerData.maxShield * repairPercent);
 
-    if (totalDamage > 0) {
-      // Distribuisci la riparazione proporzionalmente tra HP e shield
-      const healthRepairAmount = Math.floor((healthDamage / totalDamage) * repairAmount);
-      const shieldRepairAmount = repairAmount - healthRepairAmount;
+    // Applica riparazione HP se necessari
+    if (playerData.health < playerData.maxHealth) {
+      healthRepaired = Math.min(targetHealthRepair, playerData.maxHealth - playerData.health);
+      playerData.health += healthRepaired;
+    }
 
-      // Applica riparazione HP
-      if (healthDamage > 0) {
-        healthRepaired = Math.min(healthRepairAmount, healthDamage);
-        playerData.health = Math.min(playerData.maxHealth, playerData.health + healthRepaired);
-      }
-
-      // Applica riparazione Shield
-      if (shieldDamage > 0) {
-        shieldRepaired = Math.min(shieldRepairAmount, shieldDamage);
-        playerData.shield = Math.min(playerData.maxShield, playerData.shield + shieldRepaired);
-      }
+    // Applica riparazione Shield se necessari (solo se HP > 50%)
+    const healthRatio = playerData.health / playerData.maxHealth;
+    if (playerData.shield < playerData.maxShield && healthRatio > 0.5) {
+      shieldRepaired = Math.min(targetShieldRepair, playerData.maxShield - playerData.shield);
+      playerData.shield += shieldRepaired;
     }
 
     // Broadcast aggiornamento stato player con valori riparati (se c'è stata riparazione)
@@ -307,11 +302,168 @@ class RepairManager {
   }
 
   /**
-   * Rimuove stato riparazione quando player disconnette
+   * Aggiorna logica di riparazione per tutti gli NPC
+   */
+  updateNpcRepairs(now) {
+    const allNpcs = this.mapServer.npcManager.getAllNpcs();
+    for (const npc of allNpcs) {
+      this.processNpcRepair(npc.id, npc, now);
+    }
+  }
+
+  /**
+   * Processa riparazione per un singolo NPC
+   */
+  processNpcRepair(npcId, npc, now) {
+    const timeSinceLastDamage = npc.lastDamage ? (now - npc.lastDamage) : Infinity;
+    const REPAIR_CONFIG = SERVER_CONSTANTS.NPC_REPAIR;
+
+    let repairState = this.npcRepairStates.get(npcId);
+
+    // Se ha ricevuto danno recentemente, blocca la riparazione
+    if (timeSinceLastDamage < REPAIR_CONFIG.START_DELAY) {
+      if (repairState?.isRepairing) {
+        this.stopNpcRepair(npcId);
+      }
+      return;
+    }
+
+    // Se non sta riparando e può riparare, inizia
+    if (!repairState?.isRepairing) {
+      const needsRepair = npc.health < npc.maxHealth || npc.shield < npc.maxShield;
+      if (needsRepair) {
+        this.startNpcRepair(npcId, now);
+      }
+      return;
+    }
+
+    // Sta riparando - applica riparazione incrementale ogni 2 secondi
+    if (repairState.isRepairing) {
+      const lastRepairTime = repairState.lastRepairTime || repairState.repairStartTime;
+
+      if (now - lastRepairTime >= REPAIR_CONFIG.INTERVAL) {
+        this.applyNpcRepair(npcId, npc, REPAIR_CONFIG.PERCENT, now);
+
+        // Ricarica stato e aggiorna lastRepairTime
+        const updatedState = this.npcRepairStates.get(npcId);
+        if (updatedState && !updatedState.completed) {
+          updatedState.lastRepairTime = now;
+          this.npcRepairStates.set(npcId, updatedState);
+        }
+      }
+    }
+  }
+
+  /**
+   * Inizia riparazione per un NPC
+   */
+  startNpcRepair(npcId, now) {
+    this.npcRepairStates.set(npcId, {
+      repairStartTime: now,
+      lastRepairTime: now,
+      isRepairing: true,
+      completed: false
+    });
+
+    ServerLoggerWrapper.debug('NPC_REPAIR', `NPC ${npcId} started auto-repair`);
+  }
+
+  /**
+   * Ferma riparazione per un NPC
+   */
+  stopNpcRepair(npcId) {
+    const repairState = this.npcRepairStates.get(npcId);
+    if (!repairState?.isRepairing) return;
+
+    this.npcRepairStates.set(npcId, {
+      ...repairState,
+      isRepairing: false
+    });
+
+    ServerLoggerWrapper.debug('NPC_REPAIR', `NPC ${npcId} stopped auto-repair (damaged/interrupted)`);
+  }
+
+  /**
+   * Applica riparazione incrementale a un NPC
+   */
+  applyNpcRepair(npcId, npc, repairPercent, now) {
+    let healthRepaired = 0;
+    let shieldRepaired = 0;
+
+    const targetHealthRepair = Math.floor(npc.maxHealth * repairPercent);
+    const targetShieldRepair = Math.floor(npc.maxShield * repairPercent);
+
+    if (npc.health < npc.maxHealth) {
+      healthRepaired = Math.min(targetHealthRepair, npc.maxHealth - npc.health);
+      npc.health += healthRepaired;
+    }
+
+    if (npc.shield < npc.maxShield) {
+      shieldRepaired = Math.min(targetShieldRepair, npc.maxShield - npc.shield);
+      npc.shield += shieldRepaired;
+    }
+
+    if (healthRepaired > 0 || shieldRepaired > 0) {
+      // Broadcast aggiornamento HP/shield a tutti i giocatori per sincronizzare le barre
+      const broadcastMessage = {
+        type: 'entity_damaged',
+        entityId: npc.id,
+        entityType: 'npc',
+        damage: 0,
+        attackerId: 'server',
+        newHealth: npc.health,
+        newShield: npc.shield,
+        maxHealth: npc.maxHealth,
+        maxShield: npc.maxShield,
+        position: npc.position,
+        projectileType: 'repair'
+      };
+
+      if (this.mapServer && typeof this.mapServer.broadcastToMap === 'function') {
+        this.mapServer.broadcastToMap(broadcastMessage);
+      }
+
+      ServerLoggerWrapper.debug('NPC_REPAIR', `NPC ${npcId} repaired: +${healthRepaired} HP, +${shieldRepaired} Shield`);
+    }
+
+    if (npc.health >= npc.maxHealth && npc.shield >= npc.maxShield) {
+      this.completeNpcRepair(npcId, npc, now);
+    }
+  }
+
+  /**
+   * Completa riparazione NPC
+   */
+  completeNpcRepair(npcId, npc, now) {
+    const repairState = this.npcRepairStates.get(npcId);
+    if (!repairState?.isRepairing) return;
+
+    npc.health = npc.maxHealth;
+    npc.shield = npc.maxShield;
+
+    this.npcRepairStates.set(npcId, {
+      ...repairState,
+      isRepairing: false,
+      completed: true,
+      completedAt: now
+    });
+
+    ServerLoggerWrapper.debug('NPC_REPAIR', `NPC ${npcId} repair completed`);
+  }
+
+  /**
+   * Rimuove stato riparazione quando player disconnette o NPC viene rimosso
    */
   removePlayer(playerId) {
     this.playerRepairStates.delete(playerId);
     this.playerCombatEndTimes.delete(playerId);
+  }
+
+  /**
+   * Rimuove stato riparazione NPC
+   */
+  removeNpc(npcId) {
+    this.npcRepairStates.delete(npcId);
   }
 
   /**

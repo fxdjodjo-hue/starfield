@@ -136,6 +136,11 @@ class NpcDamageHandler {
         this.mapServer.combatManager.cleanupNpcCooldown(npcId);
       }
 
+      // Pulisci lo stato di riparazione dell'NPC
+      if (this.mapServer.repairManager && typeof this.mapServer.repairManager.removeNpc === 'function') {
+        this.mapServer.repairManager.removeNpc(npcId);
+      }
+
       // Pianifica automaticamente il respawn per mantenere la popolazione
       this.respawnSystem.scheduleRespawn(npcType);
     }
