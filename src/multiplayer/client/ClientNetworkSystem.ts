@@ -305,7 +305,7 @@ export class ClientNetworkSystem extends BaseSystem {
       }
 
       // Route all other messages to appropriate handlers
-      secureLogger.log('Routing message:', { type: message.type, clientId: message.clientId });
+      // secureLogger.log('Routing message:', { type: message.type, clientId: message.clientId });
       this.messageRouter.route(message, this);
     } catch (error) {
       if (import.meta.env.DEV) {

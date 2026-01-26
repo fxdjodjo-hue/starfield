@@ -11,8 +11,6 @@ export class DisconnectionPopupManager {
     // UI Elements
     private overlay: HTMLDivElement | null = null;
     private popup: HTMLDivElement | null = null;
-    private statusText: HTMLParagraphElement | null = null;
-    private reconnectButton: HTMLButtonElement | null = null;
 
     constructor(networkSystem: ClientNetworkSystem) {
         this.networkSystem = networkSystem;
@@ -77,16 +75,7 @@ export class DisconnectionPopupManager {
       line-height: 1.5;
     `;
 
-        // 5. Status Text (for reconnection attempts)
-        this.statusText = document.createElement('p');
-        this.statusText.textContent = '';
-        this.statusText.style.cssText = `
-      color: #ffaa00;
-      margin: 0 0 20px 0;
-      font-family: monospace;
-      font-size: 14px;
-      min-height: 20px;
-    `;
+
 
         // 6. Buttons Container
         const buttonContainer = document.createElement('div');
@@ -96,25 +85,17 @@ export class DisconnectionPopupManager {
       justify-content: center;
     `;
 
-        // 7. Reconnect Button
-        this.reconnectButton = document.createElement('button');
-        this.reconnectButton.textContent = 'RECONNECT';
-        this.setButtonStyle(this.reconnectButton, '#44ff44');
-        this.reconnectButton.onclick = () => this.handleReconnect();
-
-        // 8. Main Menu Button
+        // 7. Main Menu Button
         const menuButton = document.createElement('button');
-        menuButton.textContent = 'MAIN MENU';
+        menuButton.textContent = 'RETURN TO MAIN MENU';
         this.setButtonStyle(menuButton, '#ff4444');
         menuButton.onclick = () => this.handleMainMenu();
 
         // Assemble
-        buttonContainer.appendChild(this.reconnectButton);
         buttonContainer.appendChild(menuButton);
 
         this.popup.appendChild(title);
         this.popup.appendChild(message);
-        this.popup.appendChild(this.statusText);
         this.popup.appendChild(buttonContainer);
         this.overlay.appendChild(this.popup);
         document.body.appendChild(this.overlay);
@@ -149,18 +130,14 @@ export class DisconnectionPopupManager {
     }
 
     /**
-     * Shows the disconnection popup
-     */
+   * Shows the disconnection popup
+   */
     public show(): void {
         if (this.isVisible) return;
 
         if (this.overlay) {
             this.isVisible = true;
             this.overlay.style.display = 'flex';
-
-            // Reset status
-            if (this.statusText) this.statusText.textContent = '';
-            if (this.reconnectButton) this.reconnectButton.disabled = false;
         }
     }
 
@@ -173,26 +150,6 @@ export class DisconnectionPopupManager {
         if (this.overlay) {
             this.isVisible = false;
             this.overlay.style.display = 'none';
-        }
-    }
-
-    /**
-     * Handles Reconnect click
-     */
-    private async handleReconnect(): Promise<void> {
-        if (!this.statusText || !this.reconnectButton) return;
-
-        this.statusText.textContent = 'Attempting to reconnect...';
-        this.reconnectButton.disabled = true;
-
-        try {
-            await this.networkSystem.connect();
-            // If successful, the popup will be hidden by the 'connected' event listener
-            this.statusText.textContent = 'Connected! Resuming...';
-            setTimeout(() => this.hide(), 1000);
-        } catch (error) {
-            this.statusText.textContent = 'Connection failed. Please try again.';
-            this.reconnectButton.disabled = false;
         }
     }
 

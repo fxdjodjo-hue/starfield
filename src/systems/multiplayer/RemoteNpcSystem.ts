@@ -136,6 +136,8 @@ export class RemoteNpcSystem extends BaseSystem {
     const sprite = this.npcSprites.get(validType);
 
     if (!animatedSprite && !sprite) {
+      console.error(`[RemoteNpcSystem] ❌ No sprite found for NPC type ${validType} (Normalized: ${normalizedType}, Org: ${type})`);
+      console.log('Available sprites:', Array.from(this.npcSprites.keys()));
       return -1;
     }
 
@@ -171,7 +173,6 @@ export class RemoteNpcSystem extends BaseSystem {
 
     // Registra l'NPC con timestamp iniziale
     this.remoteNpcs.set(npcId, { entityId: entity.id, type, lastSeen: Date.now() });
-
 
     return entity.id;
   }
