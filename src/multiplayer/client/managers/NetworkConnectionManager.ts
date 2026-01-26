@@ -260,8 +260,13 @@ export class NetworkConnectionManager {
 
     // Set timeout for heartbeat response
     this.heartbeatTimeout = setTimeout(() => {
-      console.warn('🔌 [CONNECTION] Heartbeat timeout - connection may be lost');
+      console.warn('🔌 [CONNECTION] Heartbeat timeout - connection lost');
       this.handleConnectionError(new Event('heartbeat_timeout'));
+      // FORCE DISCONNECT to trigger UI popup
+      // This ensures handleDisconnected is called (via socket.onclose or explicitly if needed)
+      this.disconnect();
+      // Manually trigger callback just in case socket.close() doesn't fire immediately due to state
+      this.handleDisconnected();
     }, 5000);
   }
 

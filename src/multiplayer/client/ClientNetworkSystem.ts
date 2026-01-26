@@ -26,6 +26,7 @@ import { RemotePlayerManager } from './managers/RemotePlayerManager';
 import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { NetworkTickManager } from './managers/NetworkTickManager';
 import { DeathPopupManager } from '../../presentation/ui/managers/death/DeathPopupManager';
+import { DisconnectionPopupManager } from '../../presentation/ui/managers/DisconnectionPopupManager';
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
@@ -71,6 +72,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
   private playerSystem: PlayerSystem | null = null;
   private deathPopupManager: DeathPopupManager;
+  private disconnectionPopupManager: DisconnectionPopupManager;
   // ecs is inherited from System base class and is always non-null
 
   // Player info - ora con branded type
@@ -193,6 +195,23 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Initialize death popup manager
     this.deathPopupManager = new DeathPopupManager(gameContext);
+
+    // Initialize disconnection popup manager
+    this.disconnectionPopupManager = new DisconnectionPopupManager(this);
+
+    // Setup disconnection listener
+    this.stateManager.onDisconnected(() => {
+      this.disconnectionPopupManager.show();
+    });
+
+    // Setup reconnection listener
+    this.stateManager.onConnected(() => {
+      this.disconnectionPopupManager.hide();
+    });
+
+    this.stateManager.onReconnected(() => {
+      this.disconnectionPopupManager.hide();
+    });
 
     // Register message handlers
     this.initManager.registerMessageHandlers();
@@ -827,6 +846,10 @@ export class ClientNetworkSystem extends BaseSystem {
     this.authManager.destroy();
     this.stateManager.destroy();
     this.initManager.destroy();
+
+    // Cleanup UI managers
+    if (this.deathPopupManager) this.deathPopupManager.destroy();
+    if (this.disconnectionPopupManager) this.disconnectionPopupManager.destroy();
 
     // Disconnect from server
     this.connectionManager.disconnect();

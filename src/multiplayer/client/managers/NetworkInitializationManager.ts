@@ -230,7 +230,8 @@ export class NetworkInitializationManager {
       // 🔴 CRITICAL SECURITY: Include JWT token for server-side validation
       authToken: session.access_token,
       // playerId sarà assegnato dal server nel welcome message
-      userId: this.gameContext.localClientId,
+      // 🔴 RECONNECTION FIX: Use authId (UUID) NOT localClientId (which might be numeric after welcome)
+      userId: this.gameContext.authId || this.gameContext.localClientId,
       position: currentPosition
     });
   }
