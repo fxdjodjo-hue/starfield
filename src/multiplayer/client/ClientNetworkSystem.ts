@@ -343,13 +343,19 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Solo bufferizza aggiornamenti di posizione se il client è ready
     if (this.isReady()) {
-      const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
+      const now = Date.now();
+      // SECURITY FIX: Throttle position sampling to avoid rate limit issues
+      // Instead of sampling every frame (60Hz), sample at the sync interval (20Hz)
+      if (now - this.lastBufferedTime >= NETWORK_CONFIG.POSITION_SYNC_INTERVAL) {
+        const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
 
-      // Invia aggiornamenti solo se la posizione è cambiata significativamente
-      // per evitare di spammare il server con aggiornamenti inutili
-      if (this.shouldSendPositionUpdate(currentPosition)) {
-        this.tickManager.bufferPositionUpdate(currentPosition);
-        this.lastSentPosition = { ...currentPosition };
+        // Invia aggiornamenti solo se la posizione è cambiata significativamente
+        // per evitare di spammare il server con aggiornamenti inutili
+        if (this.shouldSendPositionUpdate(currentPosition)) {
+          this.tickManager.bufferPositionUpdate(currentPosition);
+          this.lastSentPosition = { ...currentPosition };
+          this.lastBufferedTime = now;
+        }
       }
     }
 
@@ -357,6 +363,7 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
+  private lastBufferedTime: number = 0;
 
   private shouldSendPositionUpdate(currentPosition: { x: number; y: number; rotation: number }): boolean {
     if (!this.lastSentPosition) {
@@ -368,6 +375,7 @@ export class ClientNetworkSystem extends BaseSystem {
     const dr = Math.abs(currentPosition.rotation - this.lastSentPosition.rotation);
 
     // Invia solo se si è mossi di almeno 5 unità o ruotati di almeno 0.1 radianti
+    // Nota: I threshold sono definiti anche in NetworkConfig, ma usiamo valori locali qui per il campionamento
     const MOVEMENT_THRESHOLD = 5;
     const ROTATION_THRESHOLD = 0.1;
 
