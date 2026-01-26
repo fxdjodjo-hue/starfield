@@ -8,11 +8,11 @@ import PLAYER_CONFIG from '../../shared/player-config.json';
 
 export const PROJECTILE = {
   SPEED: 1000,                    // Velocità proiettili normali (px/s)
-  VISUAL_SPEED: 500,                // Velocità proiettili visivi (px/s) - ora più veloce del player per colpire in movimento
+  VISUAL_SPEED: 1000,                // Velocità proiettili visivi (px/s) - ora più veloce del player per colpire in movimento
   LIFETIME: 3000,               // Durata proiettili (ms)
   SPAWN_OFFSET: 25,             // Offset spawn dalla nave (px)
   HIT_RADIUS: 30,                // Raggio collisione (px)
-  MISSILE_SPEED: 350            // Velocità missili (px/s) - aumentata da 250
+  MISSILE_SPEED: 450            // Velocità missili (px/s) - aumentata da 250
 } as const;
 
 // Missile constants removed - missiles are no longer supported
