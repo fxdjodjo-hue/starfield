@@ -3,6 +3,7 @@ import { AuthUIRenderer } from './AuthUIRenderer';
 import { AuthSessionManager } from './AuthSessionManager';
 import { PlaytestCodeModal } from './PlaytestCodeModal';
 import { getApiBaseUrl } from '../../../../config/NetworkConfig';
+import { GameSettings } from '../../../../core/settings/GameSettings';
 
 /**
  * Manages initialization and lifecycle
@@ -96,7 +97,10 @@ export class AuthInitializationManager {
   private fadeInMusic(): void {
     if (!this.backgroundMusic) return;
 
-    const targetVolume = 0.5; // Volume finale desiderato
+    const settings = GameSettings.getInstance().audio;
+    const masterVol = settings.master / 100;
+    const musicVol = settings.music / 100;
+    const targetVolume = masterVol * musicVol * 0.5; // Mantiene il tetto dello 0.5 per il login
     this.backgroundMusic.volume = 0;
 
     this.backgroundMusic.play().then(() => {
