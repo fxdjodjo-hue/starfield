@@ -112,23 +112,8 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     }
 
 
-    // Ottieni AssetManager dal RenderSystem
-    let assetManager = null;
-    try {
-      const systems = ecs.getSystems();
-      // console.log('[DEBUG_PROJECTILE] Looking for RenderSystem among', systems.length, 'systems');
-      for (const system of systems) {
-        // console.log('[DEBUG_PROJECTILE] System:', system.constructor.name);
-        if (system.constructor.name === 'RenderSystem') {
-          // console.log('[DEBUG_PROJECTILE] Found RenderSystem, calling getAssetManager');
-          assetManager = (system as any).getAssetManager();
-          // console.log('[DEBUG_PROJECTILE] AssetManager from RenderSystem:', !!assetManager);
-          break;
-        }
-      }
-    } catch (error) {
-      // console.log('[DEBUG_PROJECTILE] Could not find AssetManager:', error);
-    }
+    // Ottieni AssetManager dal GameContext (robusto contro minificazione in produzione)
+    const assetManager = networkSystem.gameContext.assetManager;
 
     // console.log('[DEBUG_PROJECTILE] Creating remote projectile via RemoteProjectileSystem');
 
