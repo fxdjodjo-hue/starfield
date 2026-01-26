@@ -1,6 +1,12 @@
 const { app, BrowserWindow, screen } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const isDev = !app.isPackaged;
+
+// Configurazione base per gli aggiornamenti
+if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify();
+}
 
 let splashWindow = null;
 let mainWindow = null;

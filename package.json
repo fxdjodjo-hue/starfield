@@ -38,12 +38,24 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
     "dotenv": "^17.2.3",
+    "electron-updater": "^6.3.9",
     "ws": "^8.18.3",
     "zod": "^4.3.5"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fxdjodjo-hue/starfield.git"
   },
   "build": {
     "appId": "com.starfield.game",
     "productName": "Starspace",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "fxdjodjo-hue",
+        "repo": "starfield"
+      }
+    ],
     "directories": {
       "output": "dist-electron"
     },
