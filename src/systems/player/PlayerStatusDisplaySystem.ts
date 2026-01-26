@@ -7,6 +7,8 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { DisplayManager } from '../../infrastructure/display';
 import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
+import { Npc } from '../../entities/ai/Npc';
+import { GameContext } from '../../infrastructure/engine/GameContext';
 import gameConfig from '../../config/gameConfig.json';
 
 /**
@@ -16,10 +18,13 @@ import gameConfig from '../../config/gameConfig.json';
 export class PlayerStatusDisplaySystem extends System {
   private playerEntity: Entity | null = null;
   private statusElement: HTMLElement | null = null;
+  private npcDebugElement: HTMLElement | null = null;
+  private gameContext: GameContext;
   private dprCompensation: number;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, context: GameContext) {
     super(ecs);
+    this.gameContext = context;
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     this.dprCompensation = 1 / dpr;
   }
@@ -67,10 +72,46 @@ export class PlayerStatusDisplaySystem extends System {
     `;
 
     document.body.appendChild(this.statusElement);
+
+    // 🔧 DEBUG NPC COUNTER
+    this.createNpcDebugDisplay();
+
     this.updateDisplay();
 
     // Nascondi inizialmente - verrà mostrato quando la schermata di autenticazione viene nascosta
     this.hide();
+  }
+
+  /**
+   * Crea un piccolo contatore debug per gli NPC in alto a sinistra
+   */
+  private createNpcDebugDisplay(): void {
+    if (this.npcDebugElement) {
+      this.npcDebugElement.remove();
+    }
+
+    const c = this.dprCompensation;
+
+    this.npcDebugElement = document.createElement('div');
+    this.npcDebugElement.id = 'npc-debug-display';
+    this.npcDebugElement.style.cssText = `
+      position: fixed;
+      top: ${Math.round(80 * c)}px;
+      right: ${Math.round(20 * c)}px;
+      background: rgba(0, 0, 0, 0.6);
+      color: #00ff00;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: ${Math.round(14 * c)}px;
+      font-weight: bold;
+      padding: ${Math.round(8 * c)}px ${Math.round(12 * c)}px;
+      border-radius: ${Math.round(8 * c)}px;
+      border: 1px solid rgba(0, 255, 0, 0.3);
+      z-index: 1000;
+      pointer-events: none;
+      display: none;
+    `;
+    this.npcDebugElement.textContent = 'NPCs: 0';
+    document.body.appendChild(this.npcDebugElement);
   }
 
   /**
@@ -99,10 +140,27 @@ export class PlayerStatusDisplaySystem extends System {
       this.statusElement.appendChild(shieldSection);
     }
 
-    // Se non ci sono dati, mostra messaggio
     if (!health && !shield) {
       this.statusElement.textContent = 'No health/shield data';
     }
+
+    // Aggiorna contatore NPC
+    this.updateNpcCount();
+  }
+
+  /**
+   * Conta gli NPC nel mondo e aggiorna il display
+   */
+  private updateNpcCount(): void {
+    if (!this.npcDebugElement) return;
+
+    const visibleNpcCount = this.ecs.getEntitiesWithComponents(Npc).length;
+    const totalWorldNpcs = this.gameContext.totalWorldNpcs || 0;
+
+    this.npcDebugElement.innerHTML = `
+      <div>Visible NPCs: ${visibleNpcCount}</div>
+      <div style="color: #ffff00; margin-top: 4px;">World NPCs: ${totalWorldNpcs}</div>
+    `;
   }
 
   /**
@@ -205,11 +263,18 @@ export class PlayerStatusDisplaySystem extends System {
    * Aggiorna il sistema (chiamato ogni frame)
    */
   update(deltaTime: number): void {
-    if (this.playerEntity && this.statusElement) {
+    if (this.statusElement) {
       const now = Date.now();
       if (now - this.lastUpdateTime >= this.UPDATE_INTERVAL) {
         this.lastUpdateTime = now;
-        this.updateDisplay();
+
+        // Aggiorna HUD principale (solo se playerEntity esiste)
+        if (this.playerEntity) {
+          this.updateDisplay();
+        } else {
+          // Aggiorna comunque il contatore NPC se possibile
+          this.updateNpcCount();
+        }
       }
     }
   }
@@ -234,6 +299,10 @@ export class PlayerStatusDisplaySystem extends System {
       // Usa fade-in sincronizzato (mantiene translateX(-50%) per centrare)
       applyFadeIn(this.statusElement, 'translateX(-50%)');
     }
+    if (this.npcDebugElement) {
+      // 🔧 DEBUG NPC COUNTER (Disabilitato come richiesto, ma preservato)
+      // this.npcDebugElement.style.display = 'block';
+    }
   }
 
   /**
@@ -242,6 +311,9 @@ export class PlayerStatusDisplaySystem extends System {
   hide(): void {
     if (this.statusElement) {
       this.statusElement.style.display = 'none';
+    }
+    if (this.npcDebugElement) {
+      this.npcDebugElement.style.display = 'none';
     }
   }
 
@@ -252,6 +324,10 @@ export class PlayerStatusDisplaySystem extends System {
     if (this.statusElement) {
       this.statusElement.remove();
       this.statusElement = null;
+    }
+    if (this.npcDebugElement) {
+      this.npcDebugElement.remove();
+      this.npcDebugElement = null;
     }
   }
 

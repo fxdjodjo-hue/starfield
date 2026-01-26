@@ -382,8 +382,8 @@ const mapServer = new MapServer('default_map', {
   npcConfig: {
     scouterCount: 20,
     frigateCount: 10,  // Kronos
-    guardCount: 10,
-    pyramidCount: 10
+    guardCount: 20,
+    pyramidCount: 20
   }
 });
 mapServer.initialize();

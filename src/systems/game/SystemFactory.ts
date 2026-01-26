@@ -153,7 +153,7 @@ export class SystemFactory {
     const rewardSystem = new RewardSystem(ecs, playState);
     const boundsSystem = new BoundsSystem(ecs, cameraSystem);
     const questTrackingSystem = new QuestTrackingSystem(world, questManager, playState);
-    const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs);
+    const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs, context);
     const playerSystem = new PlayerSystem(ecs);
     const portalSystem = new PortalSystem(ecs, playerSystem);
     const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);

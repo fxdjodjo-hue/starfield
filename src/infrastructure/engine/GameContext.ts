@@ -98,8 +98,9 @@ export class GameContext {
   public authScreen: any = null;
 
   // 🔧 FIX: Store pending administrator status from welcome message
-  // Applied when player entity is created (may arrive before entity exists)
+  // 🔧 DEBUG NPC COUNTER
   public pendingAdministrator: boolean | null = null;
+  public totalWorldNpcs: number = 0;
 
   constructor(canvas: HTMLCanvasElement, gameContainer: HTMLElement) {
     this.canvas = canvas;

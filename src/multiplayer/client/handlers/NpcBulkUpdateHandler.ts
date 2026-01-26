@@ -25,5 +25,10 @@ export class NpcBulkUpdateHandler extends BaseMessageHandler {
       // Fallback per compatibilità durante la transizione
       remoteNpcSystem.bulkUpdateNpcs(message.npcs);
     }
+
+    // 🔧 DEBUG NPC COUNTER: Salva il totale nel mondo
+    if (message.wn !== undefined) {
+      networkSystem.gameContext.totalWorldNpcs = message.wn;
+    }
   }
 }

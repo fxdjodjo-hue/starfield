@@ -116,11 +116,13 @@ class MapBroadcaster {
         }
       }
 
-      if (relevantNpcs.length === 0) continue;
+      // 🔧 DEBUG NPC COUNTER: Invia sempre il messaggio anche se relevantNpcs è vuoto
+      // per permettere al client di conoscere il totale nel mondo (wn)
 
       const message = {
         type: 'npc_bulk_update',
         n: relevantNpcs, // 'n' invece di 'npcs' per risparmiare byte
+        wn: npcs.length, // 'wn' = world npcs count (totale in tutta la mappa)
         t: Date.now()    // 't' invece di 'timestamp'
       };
 
