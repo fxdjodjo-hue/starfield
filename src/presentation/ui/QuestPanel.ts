@@ -44,7 +44,7 @@ export interface QuestObjective {
  * Ricompensa di una quest
  */
 export interface QuestReward {
-  type: 'credits' | 'experience' | 'item' | 'title';
+  type: 'credits' | 'experience' | 'item' | 'title' | 'cosmos' | 'honor';
   amount?: number;
   itemId?: string;
   title?: string;
@@ -203,37 +203,7 @@ export class QuestPanel extends BasePanel {
 
     content.appendChild(questContainer);
 
-    // Aggiungi overlay WIP (Work in Progress)
-    const wipOverlay = document.createElement('div');
-    wipOverlay.style.cssText = `
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(2px);
-      -webkit-backdrop-filter: blur(2px);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      border-radius: 25px;
-    `;
 
-    const wipText = document.createElement('div');
-    wipText.style.cssText = `
-      color: rgba(255, 255, 255, 0.95);
-      font-size: 36px;
-      font-weight: 700;
-      text-align: center;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
-      letter-spacing: 2px;
-    `;
-    wipText.textContent = '🚧 WORK IN PROGRESS 🚧';
-
-    wipOverlay.appendChild(wipText);
-    content.appendChild(wipOverlay);
 
     return content;
   }

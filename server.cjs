@@ -300,6 +300,134 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      // POST /api/player-data/:authId/quest-progress - Aggiorna progresso quest specifica
+      if (pathParts[0] === 'api' && pathParts[1] === 'player-data' && pathParts[3] === 'quest-progress' && req.method === 'POST') {
+        const authId = pathParts[2];
+
+        if (!authId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Invalid auth ID' }));
+          return;
+        }
+
+        let body = '';
+        req.on('data', chunk => {
+          body += chunk.toString(); // Ensure string conversion
+        });
+
+        req.on('end', async () => {
+          try {
+            ServerLoggerWrapper.info('API', `Received quest-progress body length: ${body.length}`);
+
+            if (!body) {
+              throw new Error('Empty request body');
+            }
+
+            let parsedBody;
+            try {
+              parsedBody = JSON.parse(body);
+            } catch (e) {
+              throw new Error(`Invalid JSON body: ${e.message}`);
+            }
+
+            const { questId, progress } = parsedBody;
+            ServerLoggerWrapper.info('API', `Processing update for quest: ${questId}, Auth: ${authId}`);
+
+            // 1. Fetch current data first to merge
+            const { data: rawData, error: fetchError } = await supabase.rpc('get_player_data_secure', {
+              auth_id_param: authId
+            });
+
+            if (fetchError) {
+              throw new Error(`Fetch error: ${fetchError.message}`);
+            }
+
+            // Fix: Handle RPC returning array
+            const currentData = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : rawData;
+
+            if (!currentData) {
+              throw new Error('Player data not found');
+            }
+
+            // 2. Parse existing quests safely
+            let quests = {};
+            try {
+              if (currentData.quests_data) {
+                // Check if it's already an object (Supabase/Postgres automagic) or a string
+                quests = typeof currentData.quests_data === 'string'
+                  ? JSON.parse(currentData.quests_data)
+                  : currentData.quests_data;
+              }
+            } catch (e) {
+              ServerLoggerWrapper.warn('API', `Failed to parse existing quests_data: ${e.message}. Resetting.`);
+              quests = {};
+            }
+
+            // Handle array vs object format migration
+            if (Array.isArray(quests)) {
+              const questsMap = {};
+              quests.forEach(q => {
+                const id = q.id || q.quest_id;
+                if (id) questsMap[id] = q;
+              });
+              quests = questsMap;
+            }
+
+            // 3. Update specific quest
+            quests[questId] = {
+              id: questId, // Ensure ID is saved
+              ...progress
+            };
+
+            // 4. Save to quest_progress table (AUTHORITATIVE STORAGE)
+            // This is critical because get_player_data likely aggregates this table
+            const { error: tableError } = await supabase.from('quest_progress').upsert({
+              auth_id: authId,
+              quest_id: questId,
+              objectives: progress.objectives || [],
+              is_completed: progress.is_completed || false,
+              started_at: progress.started_at || new Date().toISOString(),
+              completed_at: progress.completed_at || (progress.is_completed ? new Date().toISOString() : null)
+            }, {
+              onConflict: 'auth_id,quest_id'
+            });
+
+            if (tableError) {
+              ServerLoggerWrapper.warn('API', `Table save error: ${tableError.message}`);
+              // Don't fail the request if table save fails but column save succeeds, 
+              // but logging it is important.
+            } else {
+              ServerLoggerWrapper.info('API', `Saved to quest_progress table for ${questId}`);
+            }
+
+            // 5. Update JSON column as well (Cache/Redundancy)
+            const { error: saveError } = await supabase.rpc('update_player_data_secure', {
+              auth_id_param: authId,
+              stats_data: currentData.stats_data, // Pass as is (assuming correct format from fetch)
+              upgrades_data: currentData.upgrades_data,
+              currencies_data: currentData.currencies_data,
+              quests_data: JSON.stringify(quests), // Always save as stringified JSON for consistency
+              profile_data: currentData.profile_data,
+              position_data: currentData.position_data
+            });
+
+            if (saveError) {
+              throw new Error(`Save error: ${saveError.message}`);
+            }
+
+            ServerLoggerWrapper.info('API', `Updated quest ${questId} for user ${authId}`);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ data: { success: true } }));
+
+          } catch (error) {
+            ServerLoggerWrapper.error('API', `Exception in quest-progress: ${error.message}`);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+          }
+        });
+        return;
+      }
+
       // PUT /api/player-data/:authId - Salva dati giocatore
       if (pathParts[0] === 'api' && pathParts[1] === 'player-data' && req.method === 'PUT') {
         const authId = pathParts[2];
@@ -322,7 +450,9 @@ const server = http.createServer(async (req, res) => {
               stats_data: playerData.stats ? JSON.stringify(playerData.stats) : null,
               upgrades_data: playerData.upgrades ? JSON.stringify(playerData.upgrades) : null,
               currencies_data: playerData.currencies ? JSON.stringify(playerData.currencies) : null,
-              quests_data: playerData.quests ? JSON.stringify(playerData.quests) : null
+              quests_data: playerData.quests ? JSON.stringify(playerData.quests) : null,
+              profile_data: playerData.profile ? JSON.stringify(playerData.profile) : null,
+              position_data: playerData.position ? JSON.stringify(playerData.position) : null
             });
 
             if (error) {

@@ -46,6 +46,8 @@ export class ClientNetworkSystem extends BaseSystem {
   private uiSystem: any = null;
   private economySystem: any = null;
   private rewardSystem: any = null;
+  private questTrackingSystem: any = null; // QuestSystem wiring
+  private questManager: any = null; // QuestManager reference
 
   // Modular architecture components
   private readonly connectionManager: NetworkConnectionManager;
@@ -755,9 +757,33 @@ export class ClientNetworkSystem extends BaseSystem {
     return this.rewardSystem;
   }
 
+  setQuestTrackingSystem(questTrackingSystem: any): void {
+    this.questTrackingSystem = questTrackingSystem;
+  }
+
+  getQuestTrackingSystem(): any {
+    return this.questTrackingSystem;
+  }
+
   /**
    * Configura il DeathPopupManager negli handler appropriati
    */
+  setDeathPopupManager(deathPopupManager: any): void {
+    // Implementation ...
+    const entityDestroyedHandler = (this.messageRouter as any).getHandler(MESSAGE_TYPES.ENTITY_DESTROYED);
+    if (entityDestroyedHandler && typeof entityDestroyedHandler.setDeathPopupManager === 'function') {
+      entityDestroyedHandler.setDeathPopupManager(deathPopupManager);
+    }
+  }
+
+  // Aggiunto per accesso dal PlayerDataResponseHandler
+  getQuestManager(): any {
+    return this.questManager;
+  }
+
+  setQuestManager(questManager: any): void {
+    this.questManager = questManager;
+  }
   configureDeathPopupManager(): void {
     if (this.messageRouter) {
       const handlers = (this.messageRouter as any).handlers || [];

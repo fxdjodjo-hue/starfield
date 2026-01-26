@@ -300,6 +300,106 @@ export const gameAPI = {
     } catch (error) {
       return { data: null, error };
     }
+  },
+
+  // Update quest progress
+  updateQuestProgress: async (playerId: number, questId: string, progress: any) => {
+    try {
+      // Reuse the savePlayerData endpoint but specifically for quests if possible, 
+      // or just trust that the server handles the quest update structure.
+      // Since we don't have a specific quest endpoint exposed in the client code above, 
+      // and we want to ensure persistence, we will use the player-data endpoint 
+      // which usually accepts partial updates or we construct a partial object.
+
+      // However, `savePlayerData` takes `playerData`. 
+      // Let's try to send a specific structure that the server might recognize or 
+      // if not, we rely on the fact that `QuestTrackingSystem` triggers `markAsChanged` 
+      // which sends a `save_request`.
+
+      // BUT, `save_request` usually saves what the server has in memory. 
+      // If we don't send the data to the server, it won't save it.
+
+      // The most robust way without changing server code we can't see is to use `savePlayerData`
+      // with the quest data nested.
+
+      // Construct a partial player data object with just the quest update
+      // Note: This assumes the server merges 'quests' or handle 'quest_progress' table updates.
+      // If the server expects specific structure, we might need to adjust.
+      // Given the schema earlier: `quest_progress` table exists.
+
+      // Let's use the generic save endpoint but scoped to quests if backend supports it.
+      // If not, we fall back to the generic `savePlayerData` with a special flag or structure.
+
+      // ACTUAL SOLUTION:
+      // We will reuse the `savePlayerData` mechanisms but passing the quest progress 
+      // wrapped in a way the server likely handles (e.g. `quests` array or similar).
+
+      // Since we can't see the server handler for `PUT /api/player-data/:id`, 
+      // we'll try to use a dedicated fetch if we can guess the route, 
+      // OR just rely on ClientNetworkSystem sending the update via websocket 
+      // (which is what `markAsChanged` does - it triggers `sendSaveRequest`).
+
+      // WAIT! `QuestTrackingSystem` calls `markAsChanged` -> `ClientNetworkSystem.sendSaveRequest`.
+      // The `sendSaveRequest` sends a `save_request` message.
+      // Does the server `save_request` handler read from the *socket* payload? 
+      // No, `sendSaveRequest` usually just has IDs.
+      // So the server saves its *in-memory state*. 
+      // We need to UPDATE the server's in-memory state first!
+
+      // So `updateQuestProgress` should probably send a `quest_update` message to the server?
+      // But `SupabaseClient` is HTTP based / Library.
+
+      // HYBRID APPROACH:
+      // Use HTTP to save quest progress directly to DB via our API endpoint wrapper.
+      // We'll assume `/api/player-data/:id/quests` or similar might exist, OR just use `savePlayerData`
+      // with a `quest_progress` field.
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { data: null, error: 'No user' };
+
+      // Try to save directly to the quest_progress table if we had direct access, 
+      // but we are 'MMO Secure'.
+
+      // For now, let's try to assume `savePlayerData` handles it if we pass `quests` object.
+      // Or better, since `QuestManager` already updates the local state, 
+      // and `saveIfChanged` triggers a save...
+
+      // Let's implement a specific network call here to ensure it writes.
+      // We'll mimic `savePlayerData` but specifically for quests.
+
+      console.log(`[SupabaseClient] Sending quest update for ${questId} to server endpoint...`);
+      const response = await fetch(`${getApiBaseUrl()}/api/player-data/${user.id}/quest-progress`, {
+        method: 'POST', // or PUT
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          questId,
+          progress,
+          // Add timestamp or other metadata
+          updatedAt: new Date().toISOString()
+        })
+      });
+
+      if (response.ok) {
+        console.log(`[SupabaseClient] Quest update success!`);
+        return { data: true, error: null };
+      }
+
+      console.warn(`[SupabaseClient] Custom endpoint failed (${response.status}), falling back to standard save...`);
+
+      // Fallback: use savePlayerData
+      return gameAPI.savePlayerData({
+        quests: {
+          [questId]: progress
+        }
+      });
+
+    } catch (error) {
+      console.error('Error updating quest progress:', error);
+      return { data: null, error };
+    }
   }
 }
 

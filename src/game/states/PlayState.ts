@@ -6,6 +6,7 @@ import { CameraSystem } from '../../systems/rendering/CameraSystem';
 import { InterpolationSystem } from '../../systems/physics/InterpolationSystem';
 import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { QuestSystem } from '../../systems/quest/QuestSystem';
+import { QuestTrackingSystem } from '../../systems/quest/QuestTrackingSystem';
 import { GameInitializationSystem } from '../../systems/game/GameInitializationSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 import { NETWORK_CONFIG } from '../../config/NetworkConfig';
@@ -41,6 +42,7 @@ export class PlayState extends GameState {
   private economySystem: EconomySystem | null = null;
   private questSystem: QuestSystem | null = null;
   private questManager: QuestManager | null = null;
+  private questTrackingSystem: QuestTrackingSystem | null = null;
   private cameraSystem: CameraSystem | null = null;
   private movementSystem: MovementSystem | null = null;
   private interpolationSystem: InterpolationSystem | null = null;
@@ -147,6 +149,24 @@ export class PlayState extends GameState {
       (system) => { this.audioSystem = system; }
     );
 
+    // Initialize QuestTrackingSystem
+    if (this.questManager) {
+      this.questTrackingSystem = new QuestTrackingSystem(this.world, this.questManager, this);
+
+      // Set dependencies that are available now
+      if (this.economySystem) {
+        this.questTrackingSystem.setEconomySystem(this.economySystem);
+      }
+
+      // Note: LogSystem and PlayerEntity might be set later via lifecycle or setters
+      // We'll update them in update() loops or when systems change
+
+      // 🔄 Ensure QuestManager gets the playerId if already available in context
+      if (this.context.playerDbId) {
+        this.questManager.setPlayerId(this.context.playerDbId);
+      }
+    }
+
     this.managersInitialized = true;
   }
 
@@ -176,6 +196,40 @@ export class PlayState extends GameState {
    */
   update(deltaTime: number): void {
     this.initializeManagers();
+
+    // Update QuestTrackingSystem dependencies
+    if (this.questTrackingSystem) {
+      // UiSystem might have been created late
+      if (this.uiSystem && !this.questTrackingSystem['logSystem']) {
+        // Assuming UiSystem has access to LogSystem or we can get it differently.
+        // Actually, QuestTrackingSystem expects LogSystem separately.
+        // Usually LogSystem is in ECS.
+        const logSystem = this.world.getECS().getSystems().find(s => s.constructor.name === 'LogSystem');
+        if (logSystem) {
+          this.questTrackingSystem.setLogSystem(logSystem as any);
+        }
+      }
+
+      if (this.playerEntity) {
+        this.questTrackingSystem.setPlayerEntity(this.playerEntity);
+      }
+
+      if (this.economySystem) {
+        this.questTrackingSystem.setEconomySystem(this.economySystem);
+      }
+
+      // Wire ClientNetworkSystem to QuestTrackingSystem
+      if (this.clientNetworkSystem) {
+        if (typeof (this.clientNetworkSystem as any).setQuestTrackingSystem === 'function') {
+          (this.clientNetworkSystem as any).setQuestTrackingSystem(this.questTrackingSystem);
+        }
+        // Inject QuestManager for hydration
+        if (typeof (this.clientNetworkSystem as any).setQuestManager === 'function') {
+          (this.clientNetworkSystem as any).setQuestManager(this.questManager);
+        }
+      }
+    }
+
     this.lifecycleManager.update(deltaTime);
   }
 

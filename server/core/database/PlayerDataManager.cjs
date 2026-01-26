@@ -180,7 +180,34 @@ class PlayerDataManager {
           // Nessun record nel database, usa default (nuovo player)
           return { ...defaultUpgrades };
         })(),
-        quests: playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [],
+        quests: (() => {
+          // Primary source: The RPC return value (likely from quest_progress table)
+          let loadedQuests = playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [];
+
+          // BACKUP RECOVERY STRATEGY:
+          // If primary source is empty, check if we hid quests inside upgrades_data
+          // This bypasses RLS/Permissions issues on the quest_progress table
+          if ((!loadedQuests || loadedQuests.length === 0) && playerDataRaw.upgrades_data) {
+            try {
+              const upgrades = JSON.parse(playerDataRaw.upgrades_data);
+              if (upgrades._quests_backup) {
+                ServerLoggerWrapper.database(`RECOVERY: Found quest data in upgrades backup for ${userId}`);
+                // _quests_backup is expected to be an Object Map from our server hack
+                // Convert Object Map to Array for the client
+                const questsMap = upgrades._quests_backup;
+                loadedQuests = Object.values(questsMap).map(q => ({
+                  ...q,
+                  // Ensure format compatibility
+                  id: q.id || q.quest_id
+                }));
+              }
+            } catch (e) {
+              ServerLoggerWrapper.warn('DATABASE', 'Failed to parse upgrades for quest recovery');
+            }
+          }
+
+          return loadedQuests;
+        })(),
         recentHonor: recentHonor, // Media mobile honor ultimi 30 giorni
         health: (() => {
           if (playerDataRaw.currencies_data) {

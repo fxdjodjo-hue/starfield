@@ -258,6 +258,13 @@ export class PlayStateInitializer {
       remoteProjectileSystem,
       audioSystem
     );
+
+    // Inject QuestManager for handling network responses
+    const questManager = this.getQuestManager();
+    if (questManager) {
+      clientNetworkSystem.setQuestManager(questManager);
+    }
+
     this.world.getECS().addSystem(clientNetworkSystem);
     this.setClientNetworkSystem(clientNetworkSystem);
 
@@ -348,6 +355,9 @@ export class PlayStateInitializer {
           // NOTA: initializeNetworkSystem() verrà chiamato DOPO la connessione al server
           // perché ha bisogno del messaggio "welcome" per completare
         }
+
+        // Collega QuestTrackingSystem al ClientNetworkSystem per gli eventi di rete
+
       } else {
         console.warn('[PlayStateInitializer] ClientNetworkSystem non disponibile');
       }

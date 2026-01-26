@@ -12,7 +12,7 @@ export const PROJECTILE = {
   LIFETIME: 3000,               // Durata proiettili (ms)
   SPAWN_OFFSET: 25,             // Offset spawn dalla nave (px)
   HIT_RADIUS: 30,                // Raggio collisione (px)
-  MISSILE_SPEED: 450            // Velocità missili (px/s) - aumentata da 250
+  MISSILE_SPEED: 500            // Velocità missili (px/s) - aumentata da 250
 } as const;
 
 // Missile constants removed - missiles are no longer supported

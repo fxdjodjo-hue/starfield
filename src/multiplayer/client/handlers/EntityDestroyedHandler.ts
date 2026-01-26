@@ -46,6 +46,25 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
       if (remoteNpcSystem) {
         remoteNpcSystem.removeRemoteNpc(npcId);
       }
+
+      // TRIGGER QUEST EVENT
+      const questTrackingSystem = networkSystem.getQuestTrackingSystem();
+      if (questTrackingSystem) {
+        // Use the handler's helper to get type, or fallback
+        // message.npcType is usually set by server broadcast
+        const npcType = message.npcType || 'Scouter';
+
+        // Manually construct event to avoid importing Enums which might cause circular deps or specific import issues
+        // The structure matches QuestTrackingSystem expectation
+        const event = {
+          type: 'NPC_KILLED', // QuestEventType.NPC_KILLED
+          targetId: npcType,
+          targetType: npcType.toLowerCase(),
+          amount: 1
+        };
+
+        questTrackingSystem.triggerEvent(event);
+      }
     } else if (message.entityType === 'player') {
       // Verifica se è il player locale
       const localClientId = networkSystem.getLocalClientId();

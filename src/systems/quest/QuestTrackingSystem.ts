@@ -93,21 +93,21 @@ export class QuestTrackingSystem implements QuestEventHandler {
     switch (objective.type) {
       case ObjectiveType.KILL:
         return event.type === QuestEventType.NPC_KILLED &&
-               event.targetType?.toLowerCase() === objective.targetType?.toLowerCase() &&
-               amount > 0;
+          event.targetType?.toLowerCase() === objective.targetType?.toLowerCase() &&
+          amount > 0;
 
       case ObjectiveType.COLLECT:
         return event.type === QuestEventType.ITEM_COLLECTED &&
-               event.targetId === objective.targetName &&
-               amount > 0;
+          event.targetId === objective.targetName &&
+          amount > 0;
 
       case ObjectiveType.EXPLORE:
         return event.type === QuestEventType.LOCATION_VISITED &&
-               event.targetId === objective.targetName;
+          event.targetId === objective.targetName;
 
       case ObjectiveType.INTERACT:
         return event.type === QuestEventType.INTERACTION_COMPLETED &&
-               event.targetId === objective.targetName;
+          event.targetId === objective.targetName;
 
       default:
         return false;
@@ -183,12 +183,6 @@ export class QuestTrackingSystem implements QuestEventHandler {
     // Segnala cambiamento per salvataggio event-driven
     if (this.playState && this.playState.markAsChanged) {
       this.playState.markAsChanged();
-      // Per quest completate, salva immediatamente (evento importante)
-      if (import.meta.env.DEV) {
-      }
-      this.playState.saveIfChanged().catch(error => {
-        console.error('❌ [QuestTrackingSystem] Error saving quest immediately:', error);
-      });
     }
   }
 

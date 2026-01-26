@@ -90,6 +90,10 @@ export class QuestManager {
     this.availableQuests = this.availableQuests.filter(q => q.id !== questId);
     activeQuestComponent.addQuest(quest);
 
+    // Salva il nuovo stato della quest nel database
+    this.saveQuestProgressToDatabase(quest);
+    console.log(`[QuestManager] Accepted quest ${questId}, saving to database...`);
+
     return true;
   }
 
@@ -127,6 +131,14 @@ export class QuestManager {
     // Rimetti tra le quest disponibili
     this.availableQuests.push(quest);
 
+    // Per abbandonare, salviamo lo stato come "vuoto" o lo rimuoviamo?
+    // Poiché savePlayerData usa merge, inviare un oggetto vuoto potrebbe non rimuoverlo.
+    // Tuttavia, se resettiamo il progresso, forse vogliamo salvarlo come non iniziato?
+    // Nel DB attuale, quest_progress ha una riga per quest. 
+    // AGGIORNAMENTO: Per ora salviamo il reset.
+    // TODO: Implementare deleteQuestProgress se necessario.
+    this.saveQuestProgressToDatabase(quest);
+
     return true;
   }
 
@@ -150,11 +162,14 @@ export class QuestManager {
    */
   private async saveQuestProgressToDatabase(quest: Quest): Promise<void> {
     if (!this.playerId) {
-      console.warn('[QUEST_MANAGER] Cannot save quest progress: playerId not set');
+      console.warn('[QUEST_MANAGER] Cannot save progress: Player ID not set');
+      // It's acceptable for playerId to be missing briefly during init; 
+      // the main save loop in PlayState will eventually catch up once ID is set.
       return;
     }
 
     try {
+      console.log(`[QuestManager] Saving progress for quest ${quest.id}...`);
       const progress = {
         objectives: quest.objectives,
         is_completed: quest.isCompleted,
@@ -228,20 +243,142 @@ export class QuestManager {
     for (const config of allQuestConfigs) {
       // Salta quest già disponibili o completate
       if (this.availableQuests.some(q => q.id === config.id) ||
-          this.completedQuests.some(q => q.id === config.id)) {
+        this.completedQuests.some(q => q.id === config.id)) {
         continue;
       }
 
       // Verifica se tutti i prerequisiti sono soddisfatti
       const hasPrerequisites = config.prerequisites &&
-                              config.prerequisites.length > 0 &&
-                              config.prerequisites.every(prereqId => completedIds.includes(prereqId));
+        config.prerequisites.length > 0 &&
+        config.prerequisites.every(prereqId => completedIds.includes(prereqId));
 
       if (hasPrerequisites) {
         const quest = this.createQuestFromConfig(config);
         this.availableQuests.push(quest);
       }
     }
+  }
+
+  /**
+   * Carica lo stato delle quest da un oggetto salvato (es. dal database)
+   */
+  loadState(savedQuests: any): void {
+    if (!savedQuests) return;
+
+    let questsToProcess: any[] = [];
+    if (Array.isArray(savedQuests)) {
+      questsToProcess = savedQuests;
+    } else if (typeof savedQuests === 'object') {
+      // Handle legacy/object format (Map<QuestId, QuestData>)
+      questsToProcess = Object.entries(savedQuests).map(([id, data]: [string, any]) => ({
+        id: id,
+        ...data
+      }));
+    } else {
+      return;
+    }
+
+    // Reset state
+    this.availableQuests = [];
+    this.completedQuests = [];
+
+    // Re-initialize default availability first
+    this.initializeQuests();
+
+    // Process saved quests
+    questsToProcess.forEach(savedQuest => {
+      if (savedQuest.is_completed) {
+        // Move to completed
+        const config = QuestRegistry.get(savedQuest.id || savedQuest.quest_id);
+        if (config) {
+          const quest = this.createQuestFromConfig(config);
+          // Restore objectives state if needed, but for completed quests it matters less
+          // unless we want to show history. For now mark as completed.
+          quest.isCompleted = true;
+          this.completedQuests.push(quest);
+
+          // Remove from available if it was there
+          this.availableQuests = this.availableQuests.filter(q => q.id !== quest.id);
+        }
+      } else {
+        // It's an active quest (or should be)
+        // Active quests are handled by ActiveQuest component, but QuestManager 
+        // needs to know they are not available anymore.
+        // However, QuestManager manages 'available' and 'completed'. 
+        // Active quests are usually passed in via ActiveQuest component.
+
+        // If we want QuestManager to fully restore state, we might need to know about active quests too.
+        // But typically ActiveQuest component is populated by the ECS/PlayerSystem loading logic.
+        // QuestManager just needs to know "don't offer this quest as available".
+
+        this.availableQuests = this.availableQuests.filter(q => q.id !== (savedQuest.id || savedQuest.quest_id));
+      }
+    });
+
+    // Re-evaluate availability based on completed quests
+    this.updateQuestAvailability();
+  }
+
+  /**
+   * Ripristina le quest attive salvate
+   */
+  restoreActiveQuests(savedQuests: any, activeQuestComponent: ActiveQuest): void {
+    if (!savedQuests) return;
+
+    let questsToProcess: any[] = [];
+    if (Array.isArray(savedQuests)) {
+      questsToProcess = savedQuests;
+    } else if (typeof savedQuests === 'object') {
+      // Handle legacy/object format (Map<QuestId, QuestData>)
+      questsToProcess = Object.entries(savedQuests).map(([id, data]: [string, any]) => ({
+        id: id,
+        ...data
+      }));
+    } else {
+      return;
+    }
+
+    console.log(`[QuestManager] Processing ${questsToProcess.length} quests for restoration.`);
+
+    questsToProcess.forEach(savedQuest => {
+      // Ignora quest completate (già gestite da loadState)
+      if (savedQuest.is_completed) return;
+
+      const questId = savedQuest.id || savedQuest.quest_id;
+      console.log(`[QuestManager] Attempting to restore active quest: ${questId}`, savedQuest);
+
+
+      // Controlla se la quest è già attiva
+      if (activeQuestComponent.getQuest(questId)) return;
+
+      const config = QuestRegistry.get(questId);
+      if (config) {
+        // Crea una nuova istanza della quest
+        const quest = this.createQuestFromConfig(config);
+        quest.isActive = true;
+
+        // Ripristina il progresso degli obiettivi
+        if (savedQuest.objectives && Array.isArray(savedQuest.objectives)) {
+          savedQuest.objectives.forEach((savedObj: any) => {
+            const objective = quest.objectives.find(o => o.id === savedObj.id);
+            if (objective) {
+              objective.current = savedObj.current || 0;
+            }
+          });
+        }
+
+        // Aggiungi al componente ActiveQuest
+        activeQuestComponent.addQuest(quest);
+        console.log(`[QuestManager] Restored active quest: ${questId}`);
+
+        // Assicurati che non sia tra le disponibili
+        const beforeCount = this.availableQuests.length;
+        this.availableQuests = this.availableQuests.filter(q => q.id !== questId);
+        console.log(`[QuestManager] Removed ${questId} from available. Before: ${beforeCount}, After: ${this.availableQuests.length}`);
+      } else {
+        console.warn(`[QuestManager] Failed to find config for quest: ${questId}`);
+      }
+    });
   }
 
   /**

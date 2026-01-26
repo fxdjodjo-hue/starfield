@@ -7,6 +7,7 @@ import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
+import { ActiveQuest } from '../../../entities/quest/ActiveQuest';
 import { getPlayerDefinition } from '../../../config/PlayerConfig';
 
 /**
@@ -37,6 +38,42 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       // Aggiorna quests
       if (message.quests) {
         networkSystem.gameContext.playerQuests = message.quests;
+
+        // Hydrate QuestManager
+        const questManager = networkSystem.getQuestManager();
+        if (questManager) {
+          console.log('[PlayerDataResponseHandler] Loading quest state:', message.quests);
+
+          // Ensure QuestManager has the player ID (critical for saving)
+          if (networkSystem.gameContext.playerDbId) {
+            console.log(`[PlayerDataResponseHandler] Setting QuestManager player ID: ${networkSystem.gameContext.playerDbId}`);
+            questManager.setPlayerId(networkSystem.gameContext.playerDbId);
+          } else {
+            console.warn('[PlayerDataResponseHandler] GameContext has no playerDbId! Quest saving may fail.');
+          }
+
+          questManager.loadState(message.quests);
+
+          // Ripristina le quest attive nel componente del giocatore
+          const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+          const ecs = networkSystem.getECS();
+
+          console.log('[PlayerDataResponseHandler] PlayerEntity:', playerEntity ? 'Found' : 'Not Found');
+          console.log('[PlayerDataResponseHandler] ECS:', ecs ? 'Found' : 'Not Found');
+
+          if (playerEntity && ecs) {
+            const activeQuestComponent = ecs.getComponent(playerEntity, ActiveQuest);
+            console.log('[PlayerDataResponseHandler] ActiveQuest Component:', activeQuestComponent ? 'Found' : 'Not Found');
+
+            if (activeQuestComponent) {
+              questManager.restoreActiveQuests(message.quests, activeQuestComponent);
+            } else {
+              console.warn('[PlayerDataResponseHandler] ActiveQuest component missing on player entity!');
+            }
+          }
+        } else {
+          console.warn('[PlayerDataResponseHandler] QuestManager not found!');
+        }
       }
     }
 

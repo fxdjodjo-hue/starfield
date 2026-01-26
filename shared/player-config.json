@@ -8,7 +8,7 @@
     "rangeHeight": 1080,
     "cooldown": 1500,
     "speed": 300,
-    "missileDamage": 100,
+    "missileDamage": 300,
     "missileCooldown": 3000
   },
   "startingResources": {
