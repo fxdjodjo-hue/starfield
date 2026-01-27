@@ -1,13 +1,47 @@
 import { InputValidator } from '../../core/utils/InputValidator';
 import { LoggerWrapper, LogCategory } from '../../core/data/LoggerWrapper';
+import { NETWORK_CONFIG } from '../../config/NetworkConfig';
 
 /**
- * InterpolationTarget SEMPLIFICATO - Sistema essenziale per Remote Player
+ * Snapshot of entity state at a specific server timestamp.
+ * Used for timeline-based interpolation (MMO-grade).
+ */
+export interface Snapshot {
+  x: number;
+  y: number;
+  rotation: number;
+  timestamp: number; // Ideally server timestamp, or client-side performance.now() at receive time
+}
+
+/**
+ * InterpolationTarget - MMO-Grade Snapshot Interpolation System
  *
- * Interpolazione fluida ma semplificata per ridurre complessità:
- * - Smoothing fisso invece di adattivo
- * - Senza dead reckoning avanzato
- * - Frame-rate independence base
+ * Instead of chasing a single "target" position, this component stores a buffer
+ * of recent server snapshots. The render position is then interpolated between
+ * two snapshots based on a "render time" that is slightly in the past.
+ * This makes rendering completely independent of the logic tick rate or catch-up
+ * loops, fixing the NPC acceleration bug on tab switch.
+ *
+ * How it works:
+ * 1. Server sends position updates. `updateTarget` pushes them to `snapshots[]`.
+ * 2. During `render`, `interpolate(renderTime)` is called.
+ * 3. `interpolate` finds the two snapshots surrounding `renderTime` and lerps.
+ * 4. `Transform` is updated with the lerped position.
+ *
+ * Key properties:
+ * - `renderX/Y/Rotation`: The current visual position, output of `interpolate`.
+ * - `snapshots`: The buffer of recent server states.
+ *
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║ ⚠️ CRITICAL: DO NOT REINTRODUCE THE FOLLOWING PATTERNS ⚠️                ║
+ * ║                                                                           ║
+ * ║ ❌ pos += (target - pos) * factor  (tick-based easing)                    ║
+ * ║ ❌ Interpolating in the logic loop "for convenience"                      ║
+ * ║ ❌ Extrapolating forward to "reduce lag"                                  ║
+ * ║                                                                           ║
+ * ║ If any of these patterns are reintroduced, the NPC acceleration bug       ║
+ * ║ WILL RETURN. See: npc_acceleration_post_mortem.md                         ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  */
 export class InterpolationTarget {
   // ==========================================
@@ -18,11 +52,9 @@ export class InterpolationTarget {
   renderRotation: number;
 
   // ==========================================
-  // POSIZIONE TARGET (aggiornata da pacchetti server)
+  // SNAPSHOT BUFFER (replaces targetX/Y)
   // ==========================================
-  targetX: number;
-  targetY: number;
-  targetRotation: number;
+  private snapshots: Snapshot[] = [];
 
   // ==========================================
   // VALIDAZIONE POSIZIONI
@@ -50,232 +82,222 @@ export class InterpolationTarget {
     return { x, y };
   }
 
-  // ==========================================
-  // SMOOTHING OTTIMIZZATO PER FLUIDITÀ
-  // ==========================================
-  private smoothingFactor: number = 0.1;   // Smoothing basso (10% per frame) - elimina effetto "lag" mantenendo movimento fluido
-  private angularSmoothing: number = 0.1;  // Smoothing rotazione basso (10% per frame) - rotazioni fluide e reattive senza lag visivo
-
-  // Flag per identificare se è un NPC (per smoothing diverso se necessario)
+  // Flag per identificare se è un NPC
   private isNpc: boolean = false;
 
-  // Controllo aggiornamenti per NPC (evita tremolio da aggiornamenti troppo frequenti/piccoli)
-  private lastUpdateTime: number = 0;
-  private minUpdateInterval: number = 50; // minimo 50ms tra aggiornamenti per NPC
-
-  // Tracking per stabilità NPC (riduce tremolio quando fermo)
-  private lastStableX: number = 0;
-  private lastStableY: number = 0;
-  private stabilityCounter: number = 0;
-  private readonly STABILITY_THRESHOLD = 3; // numero di aggiornamenti simili per considerare stabile
+  // Timestamp of the last snapshot in the buffer (for deduplication)
+  private lastSnapshotTimestamp: number = 0;
 
   constructor(initialX: number, initialY: number, initialRotation: number, isNpc: boolean = false) {
-    // Inizializza render = target
-    this.renderX = this.targetX = initialX;
-    this.renderY = this.targetY = initialY;
-    this.renderRotation = this.targetRotation = initialRotation;
+    this.renderX = initialX;
+    this.renderY = initialY;
+    this.renderRotation = initialRotation;
     this.isNpc = isNpc;
 
-    // Configurazione smoothing ottimizzata per ridurre vibrazioni durante combattimento
-    if (isNpc) {
-      this.smoothingFactor = 0.25;  // 25% per frame per NPC - molto più fluido per movimento cruise
-      this.angularSmoothing = 0.25; // 25% per frame per rotazioni NPC
-    } else {
-      // Player: smoothing molto ridotto per massima stabilità durante combattimento
-      this.smoothingFactor = 0.02;  // Ridotto da 0.05 a 0.02 - massima stabilità
-      this.angularSmoothing = 0.02; // Ridotto da 0.05 a 0.02 - vibrazioni minime
+    // Initialize buffer with a single snapshot at t=0
+    // This prevents empty-buffer edge cases on first render
+    this.snapshots.push({
+      x: initialX,
+      y: initialY,
+      rotation: initialRotation,
+      timestamp: performance.now()
+    });
+  }
+
+  // ==================================================================
+  // PUBLIC API: Called by network handlers (e.g., RemoteNpcSystem)
+  // ==================================================================
+
+  /**
+   * AGGIORNA TARGET DA RETE - Adds a new snapshot to the buffer.
+   * Called when a server packet arrives for remote entities.
+   * @param x The new x position from the server.
+   * @param y The new y position from the server.
+   * @param rotation The new rotation from the server.
+   * @param serverTimestamp Optional server timestamp. If not provided, uses local receive time.
+   */
+  updateTarget(x: number, y: number, rotation: number, serverTimestamp?: number): void {
+    const timestamp = serverTimestamp ?? performance.now();
+
+    // Discard out-of-order snapshots
+    if (timestamp <= this.lastSnapshotTimestamp) {
+      return;
+    }
+
+    const sanitizedPos = InterpolationTarget.sanitizePosition(x, y, this.renderX, this.renderY);
+    let sanitizedRotation = rotation;
+    const rotationValidation = InputValidator.validateNumber(rotation, 'rotation');
+    if (!rotationValidation.isValid) {
+      sanitizedRotation = this.renderRotation;
+    }
+
+    // Teleport detection: If distance is too great, snap immediately.
+    // This handles respawns, zone changes, etc.
+    if (this.snapshots.length > 0) {
+      const lastSnap = this.snapshots[this.snapshots.length - 1];
+      const dx = sanitizedPos.x - lastSnap.x;
+      const dy = sanitizedPos.y - lastSnap.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq > 200 * 200) { // Teleport threshold: 200 pixels
+        this.snapTo(sanitizedPos.x, sanitizedPos.y, sanitizedRotation);
+        return;
+      }
+    }
+
+    this.snapshots.push({
+      x: sanitizedPos.x,
+      y: sanitizedPos.y,
+      rotation: sanitizedRotation,
+      timestamp: timestamp
+    });
+    this.lastSnapshotTimestamp = timestamp;
+
+    // Clamp buffer size
+    while (this.snapshots.length > NETWORK_CONFIG.MAX_SNAPSHOT_BUFFER_SIZE) {
+      this.snapshots.shift();
     }
   }
 
   /**
-   * AGGIORNA TARGET DA RETE - Per aggiornamenti posizione da server
-   * Chiamato quando arriva un pacchetto server per remote entities
+   * Alias for updateTarget, for backward compatibility.
    */
-  updateTargetFromNetwork(x: number, y: number, rotation: number = this.targetRotation): void {
+  updateTargetFromNetwork(x: number, y: number, rotation: number = this.renderRotation): void {
     this.updateTarget(x, y, rotation);
   }
 
   /**
-   * AGGIORNA TARGET - Versione semplificata con validazione
-   * Chiamato quando arriva un pacchetto server per remote player
-   */
-  updateTarget(x: number, y: number, rotation: number): void {
-    const now = Date.now();
-
-    // Per NPC: controllo aggiornamenti troppo frequenti per evitare tremolio
-    if (this.isNpc && (now - this.lastUpdateTime) < this.minUpdateInterval) {
-      return; // Salta aggiornamento troppo frequente
-    }
-
-    // Valida e sanitizza le posizioni prima di aggiornarle
-    const sanitizedPos = InterpolationTarget.sanitizePosition(x, y, this.targetX, this.targetY);
-
-    // Per NPC: controlla se il movimento è significativo ma non troppo grande
-    if (this.isNpc) {
-      const dx = Math.abs(sanitizedPos.x - this.targetX);
-      const dy = Math.abs(sanitizedPos.y - this.targetY);
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      // Sistema di stabilità: se le coordinate sono molto simili alle precedenti, considera stabile
-      const stabilityDx = Math.abs(sanitizedPos.x - this.lastStableX);
-      const stabilityDy = Math.abs(sanitizedPos.y - this.lastStableY);
-      const stabilityDist = Math.sqrt(stabilityDx * stabilityDx + stabilityDy * stabilityDy);
-
-      if (stabilityDist < 1) {
-        // Coordinate simili alle precedenti - aumenta contatore stabilità
-        this.stabilityCounter++;
-        if (this.stabilityCounter >= this.STABILITY_THRESHOLD) {
-          // NPC stabile - usa coordinate esatte per evitare tremolio
-          sanitizedPos.x = this.lastStableX;
-          sanitizedPos.y = this.lastStableY;
-        }
-      } else {
-        // Coordinate diverse - reset contatore e aggiorna posizione stabile
-        this.stabilityCounter = 0;
-        this.lastStableX = sanitizedPos.x;
-        this.lastStableY = sanitizedPos.y;
-      }
-
-      if (dist < 2) {
-        // Movimento troppo piccolo per NPC, potrebbe causare tremolio
-        return;
-      }
-
-      if (dist > 200) {
-        // Movimento troppo grande, probabilmente teleport/reset - snap immediatamente
-        // Nota: comportamento normale per respawn NPC e movimenti veloci
-        this.renderX = this.targetX = sanitizedPos.x;
-        this.renderY = this.targetY = sanitizedPos.y;
-        this.stabilityCounter = 0; // Reset stabilità dopo teleport
-        return;
-      }
-    }
-
-    // Valida rotazione
-    let sanitizedRotation = rotation;
-    const rotationValidation = InputValidator.validateNumber(rotation, 'rotation');
-    if (!rotationValidation.isValid) {
-      LoggerWrapper.warn(LogCategory.SYSTEM, `Invalid rotation ${rotation}, keeping current ${this.targetRotation}`, {
-        rotation,
-        currentRotation: this.targetRotation
-      });
-      sanitizedRotation = this.targetRotation;
-    }
-
-    // Aggiorna i target solo se validi
-    this.targetX = sanitizedPos.x;
-    this.targetY = sanitizedPos.y;
-    this.targetRotation = sanitizedRotation;
-
-    // Aggiorna timestamp ultimo aggiornamento
-    this.lastUpdateTime = now;
-  }
-
-  /**
-   * SNAP TO - Forza la posizione immediata senza interpolazione
-   * Usato per respawn o teleport per evitare l'effetto "volo"
+   * SNAP TO - Immediately sets the render position without interpolation.
+   * Used for respawn, teleport, or initial placement. Clears the snapshot buffer.
    */
   snapTo(x: number, y: number, rotation: number): void {
-    const sanitizedPos = InterpolationTarget.sanitizePosition(x, y, this.targetX, this.targetY);
+    const sanitizedPos = InterpolationTarget.sanitizePosition(x, y, this.renderX, this.renderY);
 
-    this.renderX = this.targetX = sanitizedPos.x;
-    this.renderY = this.targetY = sanitizedPos.y;
-    this.renderRotation = this.targetRotation = rotation;
+    this.renderX = sanitizedPos.x;
+    this.renderY = sanitizedPos.y;
+    this.renderRotation = rotation;
 
-    this.lastUpdateTime = Date.now();
-    this.stabilityCounter = 0;
-    this.lastStableX = sanitizedPos.x;
-    this.lastStableY = sanitizedPos.y;
+    // Clear the buffer and add the new position as the only snapshot
+    this.snapshots = [{
+      x: sanitizedPos.x,
+      y: sanitizedPos.y,
+      rotation: rotation,
+      timestamp: performance.now()
+    }];
+    this.lastSnapshotTimestamp = this.snapshots[0].timestamp;
   }
 
+  // ==================================================================
+  // RENDER-PHASE INTERPOLATION (called from InterpolationSystem.render)
+  // ==================================================================
+
   /**
-   * UPDATE RENDER - Versione ottimizzata per ridurre scatti e tremolio
-   * Interpolazione lineare con clamping per stabilità
+   * INTERPOLATE - Calculates render position for a given render time.
+   * This is the core of the MMO-grade fix. It finds two snapshots
+   * surrounding the renderTime and linearly interpolates between them.
+   *
+   * @param renderTime The time to interpolate for, typically `performance.now() - INTERPOLATION_DELAY`.
    */
-  updateRender(deltaTime: number): void {
-    // Clamp deltaTime per evitare salti da frame drops (max 32ms - più stabile)
-    const clampedDeltaTime = Math.min(deltaTime, 32);
+  interpolate(renderTime: number): void {
+    const count = this.snapshots.length;
 
-    // Calcola smoothing adattivo basato su deltaTime per maggiore stabilità
-    const baseSmoothing = this.isNpc ? 0.25 : 0.1;
-    const adaptiveSmoothing = Math.min(baseSmoothing * (clampedDeltaTime / 16.67), this.isNpc ? 0.35 : 0.25);
+    // Edge case: No snapshots (should not happen after constructor)
+    if (count === 0) {
+      return; // Don't move
+    }
 
-    // Per NPC: se siamo già molto vicini al target, snap invece di interpolare
-    if (this.isNpc) {
-      const distSq = (this.targetX - this.renderX) ** 2 + (this.targetY - this.renderY) ** 2;
-      if (distSq < 0.25) { // Se siamo entro 0.5 pixel, snap completamente
-        this.renderX = this.targetX;
-        this.renderY = this.targetY;
+    // Edge case: Only one snapshot, snap to it
+    if (count === 1) {
+      this.renderX = this.snapshots[0].x;
+      this.renderY = this.snapshots[0].y;
+      this.renderRotation = this.snapshots[0].rotation;
+      return;
+    }
+
+    const oldest = this.snapshots[0];
+    const newest = this.snapshots[count - 1];
+
+    // Edge case: renderTime is before the oldest snapshot. Clamp to oldest.
+    if (renderTime <= oldest.timestamp) {
+      this.renderX = oldest.x;
+      this.renderY = oldest.y;
+      this.renderRotation = oldest.rotation;
+      return;
+    }
+
+    // Edge case: renderTime is after the newest snapshot. Clamp to newest (NO extrapolation).
+    if (renderTime >= newest.timestamp) {
+      this.renderX = newest.x;
+      this.renderY = newest.y;
+      this.renderRotation = newest.rotation;
+      return;
+    }
+
+    // Normal case: Find the two snapshots surrounding renderTime using binary search.
+    let low = 0;
+    let high = count - 1;
+    while (high - low > 1) {
+      const mid = Math.floor((low + high) / 2);
+      if (this.snapshots[mid].timestamp <= renderTime) {
+        low = mid;
       } else {
-        // Interpolazione con clamping per stabilità
-        const deltaX = (this.targetX - this.renderX) * adaptiveSmoothing;
-        const deltaY = (this.targetY - this.renderY) * adaptiveSmoothing;
-
-        // Limita il movimento massimo per frame per evitare salti (NPC più conservativi)
-        const maxMove = 12;
-        const moveDist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-        if (moveDist > maxMove) {
-          const scale = maxMove / moveDist;
-          this.renderX += deltaX * scale;
-          this.renderY += deltaY * scale;
-        } else {
-          this.renderX += deltaX;
-          this.renderY += deltaY;
-        }
-      }
-    } else {
-      // Interpolazione normale per player con clamping
-      const deltaX = (this.targetX - this.renderX) * adaptiveSmoothing;
-      const deltaY = (this.targetY - this.renderY) * adaptiveSmoothing;
-
-      // Limita movimento per player
-      const maxMove = 25;
-      const moveDist = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-      if (moveDist > maxMove) {
-        const scale = maxMove / moveDist;
-        this.renderX += deltaX * scale;
-        this.renderY += deltaY * scale;
-      } else {
-        this.renderX += deltaX;
-        this.renderY += deltaY;
+        high = mid;
       }
     }
 
-    // Interpolazione angolare con clamping per stabilità
-    const angleDiff = this.calculateShortestAngle(this.renderRotation, this.targetRotation);
-    if (Math.abs(angleDiff) > 0.01) { // Soglia ridotta per ridurre ulteriormente micromovimenti
-      const angularDelta = angleDiff * adaptiveSmoothing;
-      // Limita rotazione massima per frame
-      const maxAngularMove = this.isNpc ? 0.25 : 0.4; // radianti
-      const clampedAngularDelta = Math.max(-maxAngularMove, Math.min(maxAngularMove, angularDelta));
-      this.renderRotation += clampedAngularDelta;
-      this.renderRotation = this.normalizeAngle(this.renderRotation);
-    } else if (this.isNpc) {
-      // Per NPC, snap alla rotazione target se siamo molto vicini
-      this.renderRotation = this.targetRotation;
-    }
+    const prev = this.snapshots[low];
+    const next = this.snapshots[high];
 
-    // Validazione finale: assicurati che i valori renderizzati siano ancora validi
+    // Calculate interpolation factor `t`
+    const timeDelta = next.timestamp - prev.timestamp;
+    // Avoid division by zero if timestamps are identical (shouldn't happen)
+    const t = timeDelta > 0 ? (renderTime - prev.timestamp) / timeDelta : 0;
+
+    // Linear interpolation
+    this.renderX = prev.x + (next.x - prev.x) * t;
+    this.renderY = prev.y + (next.y - prev.y) * t;
+
+    // Angular interpolation (shortest path)
+    this.renderRotation = this.lerpAngle(prev.rotation, next.rotation, t);
+
+    // Validazione finale
     if (!InterpolationTarget.isValidPosition(this.renderX, this.renderY)) {
-      console.error(`[INTERPOLATION] Render position became invalid (${this.renderX}, ${this.renderY}), resetting to target`);
-      this.renderX = this.targetX;
-      this.renderY = this.targetY;
+      console.error(`[INTERPOLATION] Render position became invalid, snapping to newest.`);
+      this.renderX = newest.x;
+      this.renderY = newest.y;
     }
+  }
 
-    if (!InputValidator.validateNumber(this.renderRotation, 'renderRotation').isValid) {
-      console.error(`[INTERPOLATION] Render rotation became invalid ${this.renderRotation}, resetting to target`);
-      this.renderRotation = this.targetRotation;
-    }
+  // ==================================================================
+  // NOTE: updateRender(deltaTime) HAS BEEN REMOVED.
+  // Interpolation is now ONLY performed via interpolate(renderTime).
+  // DO NOT RE-ADD any tick-based smoothing logic here.
+  // ==================================================================
+
+
+  /**
+   * Getters for backward compatibility if any code reads targetX/Y.
+   * They now return the most recent snapshot's position.
+   */
+  get targetX(): number {
+    return this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1].x : this.renderX;
+  }
+
+  get targetY(): number {
+    return this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1].y : this.renderY;
+  }
+
+  get targetRotation(): number {
+    return this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1].rotation : this.renderRotation;
   }
 
   // ==========================================
   // UTILITIES ANGOLARI
   // ==========================================
-  private calculateShortestAngle(from: number, to: number): number {
+  private lerpAngle(from: number, to: number, t: number): number {
     let diff = to - from;
     while (diff > Math.PI) diff -= 2 * Math.PI;
     while (diff < -Math.PI) diff += 2 * Math.PI;
-    return diff;
+    return this.normalizeAngle(from + diff * t);
   }
 
   private normalizeAngle(angle: number): number {

@@ -2,63 +2,79 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
-import { InputValidator } from '../../core/utils/InputValidator';
+import { NETWORK_CONFIG } from '../../config/NetworkConfig';
 
 /**
- * Sistema di interpolazione per movimenti fluidi dei remote player
- * Gestisce l'interpolazione graduale delle posizioni per eliminare lo scatto
- * causato dagli aggiornamenti di rete sporadici
+ * InterpolationSystem - MMO-Grade Render-Phase Interpolation
+ *
+ * This system is responsible for updating the visual representation of remote
+ * entities (NPCs and other players). It has been redesigned to ONLY operate
+ * in the render phase, not the logic update phase.
+ *
+ * Why?
+ * The game loop uses a fixed timestep for logic updates. When the browser tab
+ * is throttled (backgrounded), it catches up by running many logic ticks
+ * in a single frame. If interpolation is in the logic loop, it runs N times
+ * per frame, causing "acceleration".
+ *
+ * By moving interpolation to `render()`, it only executes once per visual frame,
+ * regardless of how many logic ticks occurred.
+ *
+ * How?
+ * 1. `update()` is now a no-op.
+ * 2. `render()` calls `interpolation.interpolate(renderTime)` for each entity.
+ * 3. `renderTime` is `performance.now() - INTERPOLATION_DELAY`.
+ *
+ * ╔═══════════════════════════════════════════════════════════════════════════╗
+ * ║ ⚠️ CRITICAL: DO NOT REINTRODUCE THE FOLLOWING PATTERNS ⚠️                ║
+ * ║                                                                           ║
+ * ║ ❌ pos += (target - pos) * factor  (tick-based easing)                    ║
+ * ║ ❌ Interpolating in update() "for convenience"                            ║
+ * ║ ❌ Extrapolating forward to "reduce lag"                                  ║
+ * ║                                                                           ║
+ * ║ If any of these patterns are reintroduced, the NPC acceleration bug       ║
+ * ║ WILL RETURN. See: npc_acceleration_post_mortem.md                         ║
+ * ╚═══════════════════════════════════════════════════════════════════════════╝
  */
 export class InterpolationSystem extends BaseSystem {
-  private debugStats = {
-    activePredictions: 0,
-    lastDebugTime: 0
-  };
-
   constructor(ecs: ECS) {
     super(ecs);
   }
 
-  update(deltaTime: number): void {
-    // Debug: monitora deltaTime per identificare scatti
-    if (deltaTime > 32) { // DeltaTime > 32ms indica frame drop
-      console.warn(`[INTERPOLATION_DEBUG] Frame drop detected! deltaTime: ${deltaTime}ms`);
-    }
+  /**
+   * LOGIC UPDATE - Intentionally a no-op.
+   * All interpolation is performed in render().
+   */
+  update(_deltaTime: number): void {
+    // No-op. See render() for interpolation logic.
+    // This is the core of the MMO-grade fix: logic and render are separated.
+  }
 
-    // Trova tutti i remote player con interpolazione
+  /**
+   * RENDER - Updates visual positions of remote entities.
+   * Called once per visual frame by the ECS render loop.
+   * @param _ctx Canvas rendering context (unused by this system, but required by interface).
+   */
+  render(_ctx: CanvasRenderingContext2D): void {
+    // Calculate the target render time (in the past to allow for buffering)
+    const renderTime = performance.now() - NETWORK_CONFIG.INTERPOLATION_DELAY;
+
+    // Find all entities with interpolation targets
     const entities = this.ecs.getEntitiesWithComponents(Transform, InterpolationTarget);
-
-    this.debugStats.activePredictions = entities.length;
-
 
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
 
       if (transform && interpolation) {
-        // UPDATE RENDER con smoothing ottimizzato per ridurre scatti
-        interpolation.updateRender(deltaTime);
+        // Perform snapshot-based interpolation
+        interpolation.interpolate(renderTime);
 
-        // Log valori sospetti ogni 30 secondi per debug
-        if (Math.floor(Date.now() / 30000) % 2 === 0 && Date.now() - this.lastValueLog > 30000) {
-          const renderXValidation = InputValidator.validateNumber(interpolation.renderX, 'renderX');
-          const renderYValidation = InputValidator.validateNumber(interpolation.renderY, 'renderY');
-          if (!renderXValidation.isValid || !renderYValidation.isValid) {
-            console.error(`[INTERPOLATION] Invalid render values for entity ${entity.id}: (${interpolation.renderX}, ${interpolation.renderY})`);
-          }
-          this.lastValueLog = Date.now();
-        }
-
-        // APPLICA POSIZIONE INTERPOLATA al Transform per rendering
+        // Apply interpolated values to Transform for rendering
         transform.x = interpolation.renderX;
         transform.y = interpolation.renderY;
         transform.rotation = interpolation.renderRotation;
-
-        // NOTA: Componente rimane PERSISTENTE - mai rimosso
-        // Interpolazione continua senza interruzioni
       }
     }
   }
-
-  private lastValueLog = 0;
 }

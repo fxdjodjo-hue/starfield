@@ -117,13 +117,16 @@ export class EntityStateSystem {
       const newY = position.y ?? currentPosition.y;
       const newRotation = position.rotation ?? ComponentHelper.getRotation(ecs, entity) ?? 0;
 
-      // Aggiorna posizione base
-      ComponentHelper.updatePosition(ecs, entity, newX, newY, newRotation);
-
-      // Implementa interpolazione per movimenti fluidi (NPC e remote entities)
+      // Check if this entity has an InterpolationTarget (remote entity)
       const interpolationTarget = ecs.getComponent(entity, InterpolationTarget);
       if (interpolationTarget) {
+        // Remote entity: ONLY update InterpolationTarget, NOT Transform directly.
+        // Transform is managed exclusively by InterpolationSystem.render().
+        // This is critical to prevent the NPC acceleration bug.
         interpolationTarget.updateTarget(newX, newY, newRotation);
+      } else {
+        // Local entity (no interpolation): Update Transform directly
+        ComponentHelper.updatePosition(ecs, entity, newX, newY, newRotation);
       }
 
       LoggerWrapper.ecs(`Entity ${entity.id} position updated: (${newX.toFixed(1)}, ${newY.toFixed(1)}) rot:${newRotation.toFixed(1)}`, {

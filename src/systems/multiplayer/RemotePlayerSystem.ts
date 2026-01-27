@@ -319,6 +319,7 @@ export class RemotePlayerSystem extends BaseSystem {
 
   /**
    * Aggiorna la posizione di un giocatore remoto (usato per respawn)
+   * IMPORTANTE: Usa snapTo() per respawn, che resetta il buffer e forza la posizione.
    */
   updatePlayerPosition(clientId: string, x: number, y: number, rotation: number = 0): void {
     const entity = this.findRemotePlayerEntity(clientId);
@@ -329,15 +330,10 @@ export class RemotePlayerSystem extends BaseSystem {
 
     const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
     if (interpolation) {
-      // Forza la posizione immediatamente per il respawn
-      interpolation.updateTarget(x, y, rotation);
-      // Anche aggiorna la posizione renderizzata per un respawn istantaneo
-      const transform = this.ecs.getComponent(entity, Transform);
-      if (transform) {
-        transform.x = x;
-        transform.y = y;
-        transform.rotation = rotation;
-      }
+      // Forza la posizione immediatamente per il respawn usando snapTo()
+      // Questo resetta il buffer e imposta sia renderX/Y che il primo snapshot.
+      // NON scrivere direttamente su Transform - è gestito da InterpolationSystem.render().
+      interpolation.snapTo(x, y, rotation);
     }
   }
 

@@ -87,6 +87,14 @@ export const NETWORK_CONFIG = {
   // Player position cache
   PLAYER_POSITION_CACHE_DURATION: 100, // Cache duration in milliseconds
 
+  // Snapshot interpolation settings (MMO-grade fix for tab-switch acceleration)
+  // INTERPOLATION_DELAY: Render entities at (now - INTERPOLATION_DELAY) to smooth out jitter.
+  // Should be at least 2x the server tick rate (50ms * 2 = 100ms).
+  INTERPOLATION_DELAY: 100,
+  // MAX_SNAPSHOT_BUFFER_SIZE: Max number of snapshots to store per entity.
+  // At 20Hz server tick, 20 snapshots = ~1 second of history.
+  MAX_SNAPSHOT_BUFFER_SIZE: 20,
+
   // Fallback positions
   FALLBACK_POSITION: {
     x: 0,
