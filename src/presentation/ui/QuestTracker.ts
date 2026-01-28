@@ -231,9 +231,21 @@ export class QuestTracker {
           margin-top: ${this.isMinimized ? '0' : '8px'};
         `;
 
-        activeQuests.forEach(quest => {
+        activeQuests.forEach((quest, index) => {
             const qDiv = document.createElement('div');
             qDiv.style.marginBottom = `${Math.round(12 * c)}px`;
+
+            // Aggiungi separatore piccolissimo se non è la prima quest
+            if (index > 0) {
+                const separator = document.createElement('div');
+                separator.style.cssText = `
+                    height: 1px;
+                    background: rgba(255, 255, 255, 0.1);
+                    margin: ${Math.round(4 * c)}px 0 ${Math.round(12 * c)}px 0;
+                    width: 100%;
+                `;
+                contentDiv.appendChild(separator);
+            }
             const title = document.createElement('div');
             title.textContent = quest.title;
             title.style.cssText = `

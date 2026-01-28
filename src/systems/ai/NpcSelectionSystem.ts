@@ -5,6 +5,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
+import { PlayerControlSystem } from '../input/PlayerControlSystem';
 
 /**
  * Sistema di selezione NPC - gestisce click su NPC e selezione
@@ -79,9 +80,12 @@ export class NpcSelectionSystem extends BaseSystem {
     // Verifica se l'NPC è già selezionato PRIMA di deselezionare tutti (per evitare log duplicati)
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     const alreadySelected = selectedNpcs.length > 0 && selectedNpcs[0].id === npcEntity.id;
-    
-    // Ogni volta che si seleziona un NPC, disattiva l'attacco per dare controllo totale al giocatore
-    this.deactivateAttackOnAnySelection();
+
+    // Se clicco su un ALTRO NPC, interrompiamo il combattimento attuale
+    // Ma se clicco sullo stesso, non facciamo nulla (nessuna reazione jerking)
+    if (!alreadySelected) {
+      this.deactivateAttackOnAnySelection();
+    }
 
     // Rimuovi selezione da tutti gli NPC
     this.deselectAllNpcs();
@@ -96,9 +100,9 @@ export class NpcSelectionSystem extends BaseSystem {
    * Disattiva l'attacco ogni volta che si seleziona un NPC (massimo controllo per il giocatore)
    */
   private deactivateAttackOnAnySelection(): void {
-    const playerControlSystem = this.ecs.systems?.find((system: any) =>
-      typeof system.deactivateAttack === 'function'
-    );
+    const playerControlSystem = this.ecs.getSystems().find((system: any) =>
+      system instanceof PlayerControlSystem
+    ) as PlayerControlSystem | undefined;
 
     if (playerControlSystem) {
       playerControlSystem.deactivateAttack();

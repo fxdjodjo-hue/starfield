@@ -57,57 +57,19 @@ export class PlayerAttackManager {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     const currentlySelectedNpc = selectedNpcs.length > 0 ? selectedNpcs[0] : null;
 
-    // Se c'è un NPC selezionato, controlliamo se è in range
     if (currentlySelectedNpc) {
-      const npcTransform = this.ecs.getComponent(currentlySelectedNpc, Transform);
-
-      // 🛡️ TARGET SAFE ZONE CHECK - REMOVED: Allow attacking NPCs in safe zones
-      /* 
-      if (npcTransform && this.isInSafeZone(npcTransform.x, npcTransform.y)) {
-        const logSystem = this.getLogSystem();
-        if (logSystem) {
-          logSystem.addLogMessage('Target is in Safe Zone!', LogType.ATTACK_FAILED, 2000);
-        }
-        return;
-      }
-      */
-
       if (this.isNpcInPlayerRange(currentlySelectedNpc)) {
         this.attackActivated = true;
         this.lastInputTime = Date.now();
         this.setAttackActivated(true);
         this.forceCombatCheck();
-        return;
       } else {
-        // Se è fuori range, deselezionalo e prosegui con la ricerca del più vicino
-        this.deselectCurrentNpc();
+        this.showOutOfRangeMessage();
       }
-    }
-
-    // Se non c'era selezione o era fuori range, cerchiamo il più vicino
-    const nearestNpc = this.findNearestNpcInRange();
-    if (nearestNpc) {
-      // 🛡️ DOUBLE CHECK SAFE ZONE for nearest target - REMOVED: Allow selecting NPCs in safe zones
-      /*
-      const npcTransform = this.ecs.getComponent(nearestNpc, Transform);
-      if (npcTransform && this.isInSafeZone(npcTransform.x, npcTransform.y)) {
-        const logSystem = this.getLogSystem();
-        if (logSystem) {
-          logSystem.addLogMessage('Target is in Safe Zone!', LogType.ATTACK_FAILED, 2000);
-        }
-        return;
-      }
-      */
-
-      this.selectNpc(nearestNpc, false); // false = non disattivare attacco perché lo attiviamo subito dopo
-      this.attackActivated = true;
-      this.lastInputTime = Date.now();
-      this.setAttackActivated(true);
-      this.forceCombatCheck();
     } else {
       const logSystem = this.getLogSystem();
       if (logSystem) {
-        logSystem.addLogMessage('No target available nearby', LogType.ATTACK_FAILED, 2000);
+        logSystem.addLogMessage('Select a target first!', LogType.ATTACK_FAILED, 2000);
       }
     }
   }
@@ -387,8 +349,7 @@ export class PlayerAttackManager {
     transform.rotation = newRotation;
     if (interpolationTarget) {
       // Force immediate update without interpolation lag
-      interpolationTarget.renderRotation = newRotation;
-      interpolationTarget.targetRotation = newRotation;
+      interpolationTarget.snapTo(transform.x, transform.y, newRotation);
     }
   }
 
@@ -507,10 +468,10 @@ export class PlayerAttackManager {
   /**
    * Deseleziona l'NPC attualmente selezionato
    */
-  private deselectCurrentNpc(): void {
+  private deselectCurrentNpc(isTemporary: boolean = false): void {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     for (const npcEntity of selectedNpcs) {
-      this.deselectNpcAndReset(npcEntity, false); // Definitivo
+      this.deselectNpcAndReset(npcEntity, isTemporary);
     }
   }
 
@@ -525,7 +486,7 @@ export class PlayerAttackManager {
       this.deactivateAttackOnAnySelection();
     }
 
-    this.deselectAllNpcs();
+    this.deselectAllNpcs(true); // Usa temporaneo per evitare reset rotazione quando si cambia NPC
 
     this.ecs.addComponent(npcEntity, SelectedNpc, new SelectedNpc());
 
@@ -548,10 +509,10 @@ export class PlayerAttackManager {
   /**
    * Deselects all NPCs
    */
-  private deselectAllNpcs(): void {
+  private deselectAllNpcs(isTemporary: boolean = false): void {
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
     for (const npcEntity of selectedNpcs) {
-      this.deselectNpcAndReset(npcEntity, false); // Definitivo
+      this.deselectNpcAndReset(npcEntity, isTemporary);
     }
   }
 }
