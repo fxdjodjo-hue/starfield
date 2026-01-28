@@ -9,6 +9,7 @@ import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { AssetManager } from '../../core/services/AssetManager';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 
 /**
  * Sistema per la gestione dei proiettili remoti in multiplayer
@@ -38,7 +39,9 @@ export class RemoteProjectileSystem extends BaseSystem {
     projectileType: string = 'laser',
     targetId: string | number | null = null,
     isLocalPlayer: boolean = false,
-    assetManager?: AssetManager
+    assetManager?: AssetManager,
+    animatedSprite?: AnimatedSprite,
+    shipRotation?: number
   ): number {
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
@@ -60,6 +63,17 @@ export class RemoteProjectileSystem extends BaseSystem {
         const playerEntity = this.ecs.getPlayerEntity();
         if (playerEntity) {
           actualTargetId = playerEntity.id;
+        }
+      }
+
+      // 🚀 NUOVO: Cerca componenti owner per offset laterali
+      const npcEntities = this.ecs.getEntitiesWithComponents(Npc, Transform);
+      for (const npcEntity of npcEntities) {
+        const npc = this.ecs.getComponent(npcEntity, Npc);
+        if (npc && npc.serverId === playerId) {
+          animatedSprite = this.ecs.getComponent(npcEntity, AnimatedSprite);
+          shipRotation = this.ecs.getComponent(npcEntity, Transform)?.rotation;
+          break;
         }
       }
     } else {
@@ -84,6 +98,24 @@ export class RemoteProjectileSystem extends BaseSystem {
           }
         }
       }
+
+      // 🚀 NUOVO: Cerca componenti owner per player (locale o remoto)
+      if (!animatedSprite) {
+        const playerEntities = this.ecs.getEntitiesWithComponents(Transform);
+        for (const playerEntity of playerEntities) {
+          // Se è proiettile del local player
+          if (isLocalPlayer) {
+            const isNpc = this.ecs.hasComponent(playerEntity, Npc);
+            if (!isNpc) {
+              animatedSprite = this.ecs.getComponent(playerEntity, AnimatedSprite);
+              shipRotation = this.ecs.getComponent(playerEntity, Transform)?.rotation;
+              ownerId = playerEntity.id;
+              break;
+            }
+          }
+          // Nota: gestire remote players se necessario (ora ownerId calcolato sopra)
+        }
+      }
     }
 
     // Usa il nuovo metodo unificato che crea proiettili normali gestiti dal ProjectileSystem
@@ -97,8 +129,10 @@ export class RemoteProjectileSystem extends BaseSystem {
       damage,
       projectileType,
       actualTargetId !== undefined ? actualTargetId : (targetId || undefined),
-      undefined,
-      assetManager
+      ownerId,
+      assetManager,
+      animatedSprite,
+      shipRotation
     );
 
     // Registra il proiettile nella mappa per tracking

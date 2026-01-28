@@ -70,9 +70,11 @@ export class ProjectileFactory {
       let spawnY: number;
 
       // Calcola punto di spawn basato su nave o offset fisso
-      if (config.animatedSprite && config.shipRotation !== undefined) {
+      if ((config.animatedSprite || config.projectileType === 'missile') && (config.shipRotation !== undefined || config.projectileType === 'missile')) {
         // Determinazione offset laterale per missili (alternato)
         let lateralOffset = 0;
+        const effectiveRotation = config.shipRotation !== undefined ? config.shipRotation : Math.atan2(direction.y, direction.x);
+
         if (config.projectileType === 'missile') {
           const side = (this.missileLaunchCount++ % 2 === 0) ? 1 : -1;
           lateralOffset = GAME_CONSTANTS.PROJECTILE.MISSILE_LATERAL_OFFSET * side;
@@ -80,9 +82,26 @@ export class ProjectileFactory {
         }
 
         // Usa punto di spawn dalla nave (punta anteriore con offset laterale)
-        const spawnPoint = config.animatedSprite.getWeaponSpawnPointWorld(
-          config.startX, config.startY, config.shipRotation, 0.4, lateralOffset
-        );
+        // Se manca l'animatedSprite, usiamo un calcolo geometrico diretto
+        let spawnPoint;
+        if (config.animatedSprite) {
+          spawnPoint = config.animatedSprite.getWeaponSpawnPointWorld(
+            config.startX, config.startY, effectiveRotation, 0.4, lateralOffset
+          );
+        } else {
+          // Fallback geometrico: usa i wing offsets basati sulla rotazione effettiva
+          const cos = Math.cos(effectiveRotation);
+          const sin = Math.sin(effectiveRotation);
+          const wingSideOffset = 25 * lateralOffset; // Approssimazione wing span
+          const forwardOffset = GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
+
+          // Ruota gli offset: x' = x*cos - y*sin, y' = x*sin + y*cos
+          // Qui localX = wingSideOffset, localY = -forwardOffset (UP in sprite space)
+          spawnPoint = {
+            x: config.startX + (wingSideOffset * cos - (-forwardOffset) * sin),
+            y: config.startY + (wingSideOffset * sin + (-forwardOffset) * cos)
+          };
+        }
         spawnX = spawnPoint.x;
         spawnY = spawnPoint.y;
       } else {
@@ -113,8 +132,8 @@ export class ProjectileFactory {
         let vx = direction.x * projectileSpeed;
         let vy = direction.y * projectileSpeed;
 
-        // Per i missili locali, aggiungiamo un "calcio" laterale iniziale
-        if (!config.isRemote && config.projectileType === 'missile' && (config as any).lateralSide !== undefined) {
+        // Per i missili (locali o remoti del player), aggiungiamo un "calcio" laterale iniziale
+        if (config.projectileType === 'missile' && (config as any).lateralSide !== undefined) {
           const side = (config as any).lateralSide;
           // Ruota il vettore "calcio" (perpendicolare alla direzione)
           // Se la direzione è (dx, dy), il vettore perpendicolare destro è (-dy, dx)
@@ -144,8 +163,8 @@ export class ProjectileFactory {
         config.projectileType || 'laser'
       );
 
-      // Inizializza fase di lancio per missili locali
-      if (!config.isRemote && config.projectileType === 'missile') {
+      // Inizializza fase di lancio per missili
+      if (config.projectileType === 'missile') {
         projectile.launchTimer = GAME_CONSTANTS.PROJECTILE.MISSILE_LAUNCH_DURATION;
         const side = (config as any).lateralSide || 0;
         projectile.lateralVelocity = {
@@ -368,8 +387,10 @@ export class ProjectileFactory {
     damage: number,
     projectileType: string = 'laser',
     targetId?: string | number,
-    ownerId?: number,
-    assetManager?: AssetManager
+    ownerId?: number | string,
+    assetManager?: AssetManager,
+    animatedSprite?: AnimatedSprite,
+    shipRotation?: number
   ): Entity {
     // console.log('[DEBUG_PROJECTILE] createRemoteUnified called with assetManager:', !!assetManager);
     // Converti velocity in direction
@@ -393,7 +414,9 @@ export class ProjectileFactory {
       isRemote: true,
       velocity,
       speed,
-      projectileId
+      projectileId,
+      animatedSprite,
+      shipRotation
     };
 
     return this.create(ecs, config, assetManager);
