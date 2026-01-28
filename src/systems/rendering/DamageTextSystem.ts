@@ -7,6 +7,7 @@ import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'
 import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import type { DamageSystem } from '../combat/DamageSystem';
 import { DisplayManager } from '../../infrastructure/display';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 
 /**
  * Sistema per il rendering dei testi di danno fluttuanti
@@ -157,7 +158,7 @@ export class DamageTextSystem extends BaseSystem {
       ctx.shadowOffsetX = 2;
       ctx.shadowOffsetY = 2;
 
-      ctx.fillText(damageText.value.toString(), screenPos.x, screenPos.y);
+      ctx.fillText(NumberFormatter.format(damageText.value), screenPos.x, screenPos.y);
       ctx.restore();
     }
   }

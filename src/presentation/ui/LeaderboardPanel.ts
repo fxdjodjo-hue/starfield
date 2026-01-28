@@ -1,4 +1,5 @@
 import { BasePanel } from './FloatingIcon';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import type { PanelConfig } from './PanelConfig';
 import type { PanelData } from './UIManager';
 import type { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
@@ -610,7 +611,7 @@ export class LeaderboardPanel extends BasePanel {
       // Formula Semplificata: Exp + (Honor * 0.5)
       const effectivePoints = entry.experience + (entry.honor * 0.5);
 
-      const resolvedRankName = entry.rankName || RankSystem.getRankByPoints(effectivePoints);
+      const resolvedRankName = entry.rankName || 'Space Pilot';
       rankNameCell.textContent = resolvedRankName;
       rankNameCell.style.cssText = `
         padding: 12px 8px;
@@ -622,7 +623,7 @@ export class LeaderboardPanel extends BasePanel {
 
       // Experience
       const expCell = document.createElement('td');
-      expCell.textContent = entry.experience.toLocaleString();
+      expCell.textContent = NumberFormatter.format(entry.experience);
       expCell.style.cssText = `
         padding: 12px 8px;
         text-align: right;
@@ -635,7 +636,7 @@ export class LeaderboardPanel extends BasePanel {
 
       // Honor
       const honorCell = document.createElement('td');
-      honorCell.textContent = entry.honor.toLocaleString();
+      honorCell.textContent = NumberFormatter.format(entry.honor);
       honorCell.style.cssText = `
         padding: 12px 8px;
         text-align: right;

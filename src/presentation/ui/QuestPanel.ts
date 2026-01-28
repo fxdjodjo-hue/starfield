@@ -1,6 +1,8 @@
 import { BasePanel } from './FloatingIcon';
 import type { PanelConfig } from './PanelConfig';
 import type { PanelData } from './UIManager';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
+import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
 
 /**
  * Dati per il pannello delle quest
@@ -519,14 +521,15 @@ export class QuestPanel extends BasePanel {
           `;
 
           let text = obj.description;
+          const f = (n: number) => NumberFormatter.format(n);
           if (!text && obj.targetName) {
-            text = `${obj.type} ${obj.target} ${obj.targetName}`;
+            text = `${obj.type} ${f(obj.target)} ${obj.targetName}`;
           }
 
           if (quest.isActive || quest.isCompleted) {
-            text += ` (${obj.current}/${obj.target})`;
-          } else if (!text.includes(obj.target.toString())) {
-            text += ` (${obj.target})`;
+            text += ` (${f(obj.current)}/${f(obj.target)})`;
+          } else if (!text.includes(f(obj.target))) {
+            text += ` (${f(obj.target)})`;
           }
 
           objEl.textContent = `- ${text}`;
@@ -585,7 +588,8 @@ export class QuestPanel extends BasePanel {
             default: code = 'Reward';
           }
 
-          rewardEl.textContent = amount > 0 ? `- ${amount} ${code}` : `- ${code}`;
+          const amountText = NumberFormatter.format(reward.amount || 0);
+          rewardEl.textContent = amount > 0 ? `- ${amountText} ${code}` : `- ${code}`;
           rewardsSection.appendChild(rewardEl);
         });
 

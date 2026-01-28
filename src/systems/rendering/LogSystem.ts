@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { LogMessage, LogType } from '../../presentation/ui/LogMessage';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import { DisplayManager } from '../../infrastructure/display';
 
 /**
@@ -156,11 +157,12 @@ export class LogSystem extends BaseSystem {
    */
   logReward(credits: number, cosmos: number, experience: number, honor: number, duration: number = 4000): void {
     const rewards: string[] = [];
+    const f = (n: number) => NumberFormatter.format(n);
 
-    if (credits > 0) rewards.push(`${credits} credits`);
-    if (cosmos > 0) rewards.push(`${cosmos} cosmos`);
-    if (experience > 0) rewards.push(`${experience} XP`);
-    if (honor > 0) rewards.push(`${honor} honor`);
+    if (credits > 0) rewards.push(`${f(credits)} Credits`);
+    if (cosmos > 0) rewards.push(`${f(cosmos)} Cosmos`);
+    if (experience > 0) rewards.push(`${f(experience)} Experience`);
+    if (honor > 0) rewards.push(`${f(honor)} Honor`);
 
     // Mostra messaggio solo se ci sono ricompense
     if (rewards.length > 0) {
@@ -180,6 +182,7 @@ export class LogSystem extends BaseSystem {
    * Log specifico per progresso quest
    */
   logQuestProgress(questTitle: string, current: number, target: number): void {
-    this.addLogMessage(`Progress [${questTitle}]: ${current}/${target}`, LogType.QUEST, 3000);
+    const f = (n: number) => NumberFormatter.format(n);
+    this.addLogMessage(`Progress [${questTitle}]: ${f(current)}/${f(target)}`, LogType.QUEST, 3000);
   }
 }

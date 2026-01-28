@@ -1,5 +1,6 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
@@ -203,7 +204,8 @@ export class PlayerStatusDisplaySystem extends System {
     // Valori
     const valuesElement = document.createElement('div');
     const percent = Math.round((current / max) * 100);
-    valuesElement.textContent = `${current.toLocaleString()}/${max.toLocaleString()}`;
+    const f = (n: number) => NumberFormatter.format(n);
+    valuesElement.textContent = `${f(current)}/${f(max)}`;
     valuesElement.style.cssText = `
       font-size: ${Math.round(12 * c)}px;
       font-weight: 700;

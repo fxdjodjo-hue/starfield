@@ -1,4 +1,5 @@
 import { ECS } from '../../../../infrastructure/ecs/ECS';
+import { NumberFormatter } from '../../../../core/utils/ui/NumberFormatter';
 import { PlayerSystem } from '../../../../systems/player/PlayerSystem';
 import { Health } from '../../../../entities/combat/Health';
 import { Shield } from '../../../../entities/combat/Shield';
@@ -27,15 +28,15 @@ export class UpgradeStatsManager {
 
     switch (statType) {
       case 'hp':
-        return `${playerDef.stats.health.toLocaleString()}`;
+        return NumberFormatter.format(playerDef.stats.health);
       case 'shield':
-        return playerDef.stats.shield ? `${playerDef.stats.shield.toLocaleString()}` : '0';
+        return playerDef.stats.shield ? NumberFormatter.format(playerDef.stats.shield) : '0';
       case 'speed':
-        return `${playerDef.stats.speed} u/s`;
+        return `${NumberFormatter.format(playerDef.stats.speed)} u/s`;
       case 'damage':
-        return `${playerDef.stats.damage}`;
+        return NumberFormatter.format(playerDef.stats.damage);
       case 'missileDamage':
-        return `${playerDef.stats.missileDamage || 100}`;
+        return NumberFormatter.format(playerDef.stats.missileDamage || 100);
       default:
         return '0';
     }
@@ -67,7 +68,7 @@ export class UpgradeStatsManager {
       if (health) {
         const hpValue = this.container.querySelector('.stat-current-hp') as HTMLElement;
         if (hpValue) {
-          hpValue.textContent = `${health.max.toLocaleString()}`;
+          hpValue.textContent = NumberFormatter.format(health.max);
         }
       }
 
@@ -75,7 +76,7 @@ export class UpgradeStatsManager {
       if (shield) {
         const shieldValue = this.container.querySelector('.stat-current-shield') as HTMLElement;
         if (shieldValue) {
-          shieldValue.textContent = `${shield.max.toLocaleString()}`;
+          shieldValue.textContent = NumberFormatter.format(shield.max);
         }
       }
 
@@ -85,7 +86,7 @@ export class UpgradeStatsManager {
 
       const speedValue = this.container.querySelector('.stat-current-speed') as HTMLElement;
       if (speedValue) {
-        speedValue.textContent = `${calculatedSpeed} u/s`;
+        speedValue.textContent = `${NumberFormatter.format(calculatedSpeed)} u/s`;
       }
 
       // Calculate and update damage with bonus from upgrades (same method as applyPlayerUpgrades)
@@ -95,7 +96,7 @@ export class UpgradeStatsManager {
 
         const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
         if (damageValue) {
-          damageValue.textContent = calculatedDamage.toString();
+          damageValue.textContent = NumberFormatter.format(calculatedDamage);
         }
       }
 
@@ -106,7 +107,7 @@ export class UpgradeStatsManager {
 
       const missileDamageValue = this.container.querySelector('.stat-current-missileDamage') as HTMLElement;
       if (missileDamageValue) {
-        missileDamageValue.textContent = calculatedMissileDamage.toString();
+        missileDamageValue.textContent = NumberFormatter.format(calculatedMissileDamage);
       }
 
       // Update displayed levels
@@ -141,7 +142,7 @@ export class UpgradeStatsManager {
           const creditsValue = this.container.querySelector('.current-credits') as HTMLElement;
           if (creditsValue) {
             const creditsAmount = credits.credits || 0;
-            creditsValue.textContent = creditsAmount.toLocaleString();
+            creditsValue.textContent = NumberFormatter.format(creditsAmount);
           }
         }
 
@@ -150,7 +151,7 @@ export class UpgradeStatsManager {
           const cosmosValue = this.container.querySelector('.current-cosmos') as HTMLElement;
           if (cosmosValue) {
             const cosmosAmount = cosmos.cosmos || 0;
-            cosmosValue.textContent = cosmosAmount.toString();
+            cosmosValue.textContent = NumberFormatter.format(cosmosAmount);
           }
         }
       }
@@ -227,7 +228,7 @@ export class UpgradeStatsManager {
                 costLabel.appendChild(creditsLine);
               }
             }
-            creditsLine.textContent = `${newCost.credits.toLocaleString()} Credits`;
+            creditsLine.textContent = `${NumberFormatter.format(newCost.credits)} Credits`;
             creditsLine.style.display = 'block';
           } else if (creditsLine) {
             creditsLine.style.display = 'none';
@@ -242,7 +243,7 @@ export class UpgradeStatsManager {
               cosmosLine.style.cssText = `font-size: 11px; color: #a78bfa; font-weight: 500;`;
               costLabel.appendChild(cosmosLine);
             }
-            cosmosLine.textContent = `${newCost.cosmos.toLocaleString()} Cosmos`;
+            cosmosLine.textContent = `${NumberFormatter.format(newCost.cosmos)} Cosmos`;
             cosmosLine.style.display = 'block';
           } else if (cosmosLine) {
             cosmosLine.style.display = 'none';

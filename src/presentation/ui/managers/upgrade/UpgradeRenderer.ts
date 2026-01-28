@@ -1,6 +1,7 @@
 import { ECS } from '../../../../infrastructure/ecs/ECS';
 import { PlayerSystem } from '../../../../systems/player/PlayerSystem';
 import { PlayerUpgrades } from '../../../../entities/player/PlayerUpgrades';
+import { NumberFormatter } from '../../../../core/utils/ui/NumberFormatter';
 
 /**
  * Manages UI rendering for upgrade panel components
@@ -274,7 +275,7 @@ export class UpgradeRenderer {
     if (cost.credits > 0) {
       const creditsLine = document.createElement('div');
       creditsLine.className = 'cost-credits';
-      creditsLine.textContent = `${cost.credits.toLocaleString()} Credits`;
+      creditsLine.textContent = `${NumberFormatter.format(cost.credits)} Credits`;
       creditsLine.style.cssText = `font-size: 11px; color: #fbbf24; font-weight: 500;`;
       costLabel.appendChild(creditsLine);
     }
@@ -282,7 +283,7 @@ export class UpgradeRenderer {
     if (cost.cosmos > 0) {
       const cosmosLine = document.createElement('div');
       cosmosLine.className = 'cost-cosmos';
-      cosmosLine.textContent = `${cost.cosmos.toLocaleString()} Cosmos`;
+      cosmosLine.textContent = `${NumberFormatter.format(cost.cosmos)} Cosmos`;
       cosmosLine.style.cssText = `font-size: 11px; color: #a78bfa; font-weight: 500;`;
       costLabel.appendChild(cosmosLine);
     }

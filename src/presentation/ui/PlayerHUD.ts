@@ -1,5 +1,6 @@
 import { DisplayManager, DISPLAY_CONSTANTS } from '../../infrastructure/display';
 import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 
 /**
  * Interfaccia per i dati del Player HUD
@@ -357,10 +358,10 @@ export class PlayerHUD {
   }
 
   /**
-   * Formatta numeri - mostra sempre il numero completo senza abbreviazioni
+   * Formats numbers - uses thousands separators for better readability
    */
   private formatNumber(num: number): string {
-    return Math.floor(num).toString();
+    return NumberFormatter.format(num);
   }
 
   /**

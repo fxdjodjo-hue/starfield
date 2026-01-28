@@ -1,5 +1,6 @@
 import { DisplayManager } from '../../infrastructure/display';
 import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import type { QuestData } from './QuestPanel';
 
 export class QuestTracker {
@@ -257,8 +258,9 @@ export class QuestTracker {
                 const desc = document.createElement('span');
                 desc.textContent = obj.description;
 
+                const f = (n: number) => NumberFormatter.format(n);
                 const progress = document.createElement('span');
-                progress.textContent = `${obj.current}/${obj.target}`;
+                progress.textContent = `${f(obj.current)}/${f(obj.target)}`;
                 progress.style.color = obj.current >= obj.target ? '#4ade80' : 'rgba(255,255,255,0.6)';
 
                 objDiv.appendChild(desc);
