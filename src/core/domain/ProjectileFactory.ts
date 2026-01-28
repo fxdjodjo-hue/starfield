@@ -41,8 +41,6 @@ export interface ProjectileConfig {
 }
 
 export class ProjectileFactory {
-  private static missileLaunchCount = 0;
-
   /**
    * Crea un proiettile completo con tutti i componenti necessari
    * Unifica createProjectile, createSingleProjectile, createProjectileAt
@@ -70,38 +68,11 @@ export class ProjectileFactory {
       let spawnY: number;
 
       // Calcola punto di spawn basato su nave o offset fisso
-      if ((config.animatedSprite || config.projectileType === 'missile') && (config.shipRotation !== undefined || config.projectileType === 'missile')) {
-        // Determinazione offset laterale per missili (alternato)
-        let lateralOffset = 0;
-        const effectiveRotation = config.shipRotation !== undefined ? config.shipRotation : Math.atan2(direction.y, direction.x);
-
-        if (config.projectileType === 'missile') {
-          const side = (this.missileLaunchCount++ % 2 === 0) ? 1 : -1;
-          lateralOffset = GAME_CONSTANTS.PROJECTILE.MISSILE_LATERAL_OFFSET * side;
-          (config as any).lateralSide = side; // Pass side to config for physics kick
-        }
-
-        // Usa punto di spawn dalla nave (punta anteriore con offset laterale)
-        // Se manca l'animatedSprite, usiamo un calcolo geometrico diretto
-        let spawnPoint;
-        if (config.animatedSprite) {
-          spawnPoint = config.animatedSprite.getWeaponSpawnPointWorld(
-            config.startX, config.startY, effectiveRotation, 0.4, lateralOffset
-          );
-        } else {
-          // Fallback geometrico: usa i wing offsets basati sulla rotazione effettiva
-          const cos = Math.cos(effectiveRotation);
-          const sin = Math.sin(effectiveRotation);
-          const wingSideOffset = 25 * lateralOffset; // Approssimazione wing span
-          const forwardOffset = GAME_CONSTANTS.PROJECTILE.SPAWN_OFFSET;
-
-          // Ruota gli offset: x' = x*cos - y*sin, y' = x*sin + y*cos
-          // Qui localX = wingSideOffset, localY = -forwardOffset (UP in sprite space)
-          spawnPoint = {
-            x: config.startX + (wingSideOffset * cos - (-forwardOffset) * sin),
-            y: config.startY + (wingSideOffset * sin + (-forwardOffset) * cos)
-          };
-        }
+      if (config.animatedSprite && config.shipRotation !== undefined) {
+        // Usa punto di spawn dalla nave (punta anteriore)
+        const spawnPoint = config.animatedSprite.getWeaponSpawnPointWorld(
+          config.startX, config.startY, config.shipRotation, 0.4
+        );
         spawnX = spawnPoint.x;
         spawnY = spawnPoint.y;
       } else {
@@ -128,22 +99,11 @@ export class ProjectileFactory {
           (config.projectileType === 'missile' ? GAME_CONSTANTS.PROJECTILE.MISSILE_SPEED :
             config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED : // Laser visivi
               GAME_CONSTANTS.PROJECTILE.SPEED);
-
-        let vx = direction.x * projectileSpeed;
-        let vy = direction.y * projectileSpeed;
-
-        // Per i missili (locali o remoti del player), aggiungiamo un "calcio" laterale iniziale
-        if (config.projectileType === 'missile' && (config as any).lateralSide !== undefined) {
-          const side = (config as any).lateralSide;
-          // Ruota il vettore "calcio" (perpendicolare alla direzione)
-          // Se la direzione è (dx, dy), il vettore perpendicolare destro è (-dy, dx)
-          const kickDirX = -direction.y * side;
-          const kickDirY = direction.x * side;
-          vx += kickDirX * GAME_CONSTANTS.PROJECTILE.MISSILE_LAUNCH_KICK;
-          vy += kickDirY * GAME_CONSTANTS.PROJECTILE.MISSILE_LAUNCH_KICK;
-        }
-
-        ecs.addComponent(entity, Velocity, new Velocity(vx, vy, 0));
+        ecs.addComponent(entity, Velocity, new Velocity(
+          direction.x * projectileSpeed,
+          direction.y * projectileSpeed,
+          0
+        ));
       }
 
       // Componente Projectile
@@ -162,17 +122,6 @@ export class ProjectileFactory {
         config.playerId, // undefined per proiettili locali
         config.projectileType || 'laser'
       );
-
-      // Inizializza fase di lancio per missili
-      if (config.projectileType === 'missile') {
-        projectile.launchTimer = GAME_CONSTANTS.PROJECTILE.MISSILE_LAUNCH_DURATION;
-        const side = (config as any).lateralSide || 0;
-        projectile.lateralVelocity = {
-          x: -direction.y * side * GAME_CONSTANTS.PROJECTILE.MISSILE_LAUNCH_KICK,
-          y: direction.x * side * GAME_CONSTANTS.PROJECTILE.MISSILE_LAUNCH_KICK
-        };
-      }
-
       ecs.addComponent(entity, Projectile, projectile);
 
       // Componente stato visivo - garantisce controllo esplicito su visibilità e layer
@@ -387,10 +336,8 @@ export class ProjectileFactory {
     damage: number,
     projectileType: string = 'laser',
     targetId?: string | number,
-    ownerId?: number | string,
-    assetManager?: AssetManager,
-    animatedSprite?: AnimatedSprite,
-    shipRotation?: number
+    ownerId?: number,
+    assetManager?: AssetManager
   ): Entity {
     // console.log('[DEBUG_PROJECTILE] createRemoteUnified called with assetManager:', !!assetManager);
     // Converti velocity in direction
@@ -414,9 +361,7 @@ export class ProjectileFactory {
       isRemote: true,
       velocity,
       speed,
-      projectileId,
-      animatedSprite,
-      shipRotation
+      projectileId
     };
 
     return this.create(ecs, config, assetManager);
