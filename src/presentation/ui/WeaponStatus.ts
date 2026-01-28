@@ -47,7 +47,8 @@ export class WeaponStatus {
           <rect class="square-bg" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
           <rect id="laser-progress" class="square-progress" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
         </svg>
-        <div class="weapon-label">L</div>
+        <img src="assets/weapon_status/laser_icon.png" class="weapon-icon" id="laser-icon" alt="Laser">
+        <div class="weapon-label" id="laser-timer"></div>
       </div>
       <div class="cooldown-square-container" id="missile-indicator">
         <div class="weapon-tooltip">MISSILES</div>
@@ -55,7 +56,8 @@ export class WeaponStatus {
           <rect class="square-bg" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
           <rect id="missile-progress" class="square-progress" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
         </svg>
-        <div class="weapon-label">M</div>
+        <img src="assets/weapon_status/missile_icon.png" class="weapon-icon" id="missile-icon" alt="Missiles">
+        <div class="weapon-label" id="missile-timer"></div>
       </div>
     `;
 
@@ -147,21 +149,35 @@ export class WeaponStatus {
         transition: stroke-dasharray 0.08s linear, stroke 0.3s ease;
       }
 
+      .weapon-icon {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0.8;
+        transition: all 0.3s ease;
+        z-index: 0;
+      }
+
       .weapon-label {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         font-size: ${Math.round(14 * c)}px;
         font-weight: 700;
-        color: rgba(255, 255, 255, 0.75);
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        z-index: 1;
+        color: rgba(255, 255, 255, 0.95);
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.8);
+        z-index: 2;
         transition: all 0.3s ease;
         text-align: center;
         width: 100%;
-        margin-top: 1px;
+        pointer-events: none;
       }
       
+      .cooldown-active .weapon-icon {
+        opacity: 0.2;
+        filter: grayscale(1) scale(0.9);
+      }
+
       .cooldown-active .weapon-label {
-        color: rgba(255, 255, 255, 0.95);
         font-size: ${Math.round(16 * c)}px;
       }
     `;
@@ -199,15 +215,14 @@ export class WeaponStatus {
   public update(laserProgress: number, missileProgress: number, laserRemaining: number = 0, missileRemaining: number = 0): void {
     const laserPath = this.container.querySelector('#laser-progress') as SVGPathElement;
     const missilePath = this.container.querySelector('#missile-progress') as SVGPathElement;
-    const laserLabel = this.container.querySelector('#laser-indicator .weapon-label') as HTMLElement;
-    const missileLabel = this.container.querySelector('#missile-indicator .weapon-label') as HTMLElement;
+    const laserLabel = this.container.querySelector('#laser-timer') as HTMLElement;
+    const missileLabel = this.container.querySelector('#missile-timer') as HTMLElement;
     const laserCont = this.container.querySelector('#laser-indicator') as HTMLElement;
     const missileCont = this.container.querySelector('#missile-indicator') as HTMLElement;
 
     if (laserPath) {
       const percentage = Math.min(100, Math.max(0, laserProgress * 100));
       laserPath.setAttribute('stroke-dasharray', `${percentage}, 100`);
-      // Monochromatic: 0.8 opacity when ready, 0.4 when charging
       laserPath.style.stroke = percentage >= 100 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.4)';
 
       if (laserLabel) {
@@ -215,7 +230,7 @@ export class WeaponStatus {
           laserLabel.textContent = (laserRemaining / 1000).toFixed(1);
           laserCont.classList.add('cooldown-active');
         } else {
-          laserLabel.textContent = 'L';
+          laserLabel.textContent = '';
           laserCont.classList.remove('cooldown-active');
         }
       }
@@ -224,7 +239,6 @@ export class WeaponStatus {
     if (missilePath) {
       const percentage = Math.min(100, Math.max(0, missileProgress * 100));
       missilePath.setAttribute('stroke-dasharray', `${percentage}, 100`);
-      // Monochromatic: same logic as laser
       missilePath.style.stroke = percentage >= 100 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.4)';
 
       if (missileLabel) {
@@ -232,7 +246,7 @@ export class WeaponStatus {
           missileLabel.textContent = (missileRemaining / 1000).toFixed(1);
           missileCont.classList.add('cooldown-active');
         } else {
-          missileLabel.textContent = 'M';
+          missileLabel.textContent = '';
           missileCont.classList.remove('cooldown-active');
         }
       }
