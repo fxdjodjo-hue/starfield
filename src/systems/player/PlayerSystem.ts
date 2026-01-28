@@ -4,6 +4,11 @@ import { Entity } from '../../infrastructure/ecs/Entity';
 import { Sprite } from '../../entities/Sprite';
 import { GameEntityFactory } from '../../factories/GameEntityFactory';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
+import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
+import { Inventory } from '../../entities/player/Inventory';
 
 /**
  * Sistema dedicato alla gestione dell'entità giocatore
@@ -78,6 +83,47 @@ export class PlayerSystem extends System {
     if (this.playerEntity) {
       this.ecs.removeEntity(this.playerEntity);
       this.playerEntity = null;
+    }
+  }
+
+  /**
+   * Ricalcola e aggiorna i componenti fisici (Health, Shield, Damage) 
+   * basandosi sugli upgrade e gli item equipaggiati.
+   */
+  refreshPlayerStats(): void {
+    if (!this.playerEntity) return;
+
+    const playerDef = getPlayerDefinition();
+    const upgrades = this.ecs.getComponent(this.playerEntity, PlayerUpgrades);
+    const inventory = this.ecs.getComponent(this.playerEntity, Inventory);
+    const health = this.ecs.getComponent(this.playerEntity, Health);
+    const shield = this.ecs.getComponent(this.playerEntity, Shield);
+    const damage = this.ecs.getComponent(this.playerEntity, Damage);
+
+    if (upgrades) {
+      if (health) {
+        const oldMax = health.max;
+        const newMax = Math.floor(playerDef.stats.health * upgrades.getHPBonus(inventory));
+        if (oldMax !== newMax) {
+          const ratio = health.current / oldMax;
+          health.max = newMax;
+          health.current = Math.floor(newMax * ratio);
+        }
+      }
+
+      if (shield && playerDef.stats.shield) {
+        const oldMax = shield.max;
+        const newMax = Math.floor(playerDef.stats.shield * upgrades.getShieldBonus(inventory));
+        if (oldMax !== newMax) {
+          const ratio = shield.max > 0 ? shield.current / shield.max : 1;
+          shield.max = newMax;
+          shield.current = Math.floor(newMax * ratio);
+        }
+      }
+
+      if (damage) {
+        damage.damage = Math.floor(playerDef.stats.damage * upgrades.getDamageBonus(inventory));
+      }
     }
   }
 

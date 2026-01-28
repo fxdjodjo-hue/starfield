@@ -50,11 +50,32 @@ class NpcRewardSystem {
       }
     }
 
+    // 🚀 Authoritative Item Drops (30% probability)
+    let droppedItem = null;
+    if (Math.random() < 0.3) {
+      const itemIds = ['hull_titanium', 'shield_aegis', 'laser_pulse', 'engine_fusion', 'missile_stingray'];
+      const randomItemId = itemIds[Math.floor(Math.random() * itemIds.length)];
+
+      const instanceId = Math.random().toString(36).substring(2, 9);
+      droppedItem = {
+        id: randomItemId,
+        instanceId,
+        acquiredAt: Date.now(),
+        slot: null // Not equipped initially
+      };
+
+      if (!playerData.items) playerData.items = [];
+      playerData.items.push(droppedItem);
+
+      ServerLoggerWrapper.info('REWARDS', `Player ${playerId} dropped item: ${randomItemId} (${instanceId})`);
+    }
+
     ServerLoggerWrapper.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor`);
 
     // Invia notifica delle ricompense al client
     const finalRewards = {
-      ...rewards
+      ...rewards,
+      item: droppedItem
     };
 
     // Invia notifica delle ricompense al client

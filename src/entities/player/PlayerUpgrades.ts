@@ -1,4 +1,6 @@
 import { Component } from '../../infrastructure/ecs/Component';
+import { Inventory } from './Inventory';
+import { ItemSlot, getItem } from '../../config/ItemConfig';
 
 /**
  * Componente PlayerUpgrades - gestisce gli upgrade delle statistiche del giocatore
@@ -141,38 +143,78 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.05)
+   * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.05 + item bonus)
    */
-  getHPBonus(): number {
-    return 1.0 + (this._hpUpgrades * 0.05);
+  getHPBonus(inventory?: Inventory): number {
+    let bonus = 1.0 + (this._hpUpgrades * 0.05);
+    if (inventory) {
+      const equippedItemId = inventory.getEquippedItemId(ItemSlot.HULL);
+      if (equippedItemId) {
+        const item = getItem(equippedItemId);
+        if (item?.stats.hpBonus) bonus += item.stats.hpBonus;
+      }
+    }
+    return bonus;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Shield (1.0 + upgrades * 0.05)
+   * Calcola il bonus moltiplicatore per Shield (1.0 + upgrades * 0.05 + item bonus)
    */
-  getShieldBonus(): number {
-    return 1.0 + (this._shieldUpgrades * 0.05);
+  getShieldBonus(inventory?: Inventory): number {
+    let bonus = 1.0 + (this._shieldUpgrades * 0.05);
+    if (inventory) {
+      const equippedItemId = inventory.getEquippedItemId(ItemSlot.SHIELD);
+      if (equippedItemId) {
+        const item = getItem(equippedItemId);
+        if (item?.stats.shieldBonus) bonus += item.stats.shieldBonus;
+      }
+    }
+    return bonus;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Speed (1.0 + upgrades * 0.005)
+   * Calcola il bonus moltiplicatore per Speed (1.0 + upgrades * 0.005 + item bonus)
    */
-  getSpeedBonus(): number {
-    return 1.0 + (this._speedUpgrades * 0.005);
+  getSpeedBonus(inventory?: Inventory): number {
+    let bonus = 1.0 + (this._speedUpgrades * 0.005);
+    if (inventory) {
+      const equippedItemId = inventory.getEquippedItemId(ItemSlot.ENGINE);
+      if (equippedItemId) {
+        const item = getItem(equippedItemId);
+        if (item?.stats.speedBonus) bonus += item.stats.speedBonus;
+      }
+    }
+    return bonus;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Weapon Damage (1.0 + upgrades * 0.05)
+   * Calcola il bonus moltiplicatore per Weapon Damage (1.0 + upgrades * 0.05 + item bonus)
    */
-  getDamageBonus(): number {
-    return 1.0 + (this._damageUpgrades * 0.05);
+  getDamageBonus(inventory?: Inventory): number {
+    let bonus = 1.0 + (this._damageUpgrades * 0.05);
+    if (inventory) {
+      const equippedItemId = inventory.getEquippedItemId(ItemSlot.LASER);
+      if (equippedItemId) {
+        const item = getItem(equippedItemId);
+        if (item?.stats.damageBonus) bonus += item.stats.damageBonus;
+      }
+    }
+    return bonus;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Missile Damage (1.0 + upgrades * 0.05)
+   * Calcola il bonus moltiplicatore per Missile Damage (1.0 + upgrades * 0.05 + item bonus)
    */
-  getMissileDamageBonus(): number {
-    return 1.0 + (this._missileDamageUpgrades * 0.05);
+  getMissileDamageBonus(inventory?: Inventory): number {
+    let bonus = 1.0 + (this._missileDamageUpgrades * 0.05);
+    if (inventory) {
+      const equippedItemId = inventory.getEquippedItemId(ItemSlot.MISSILE);
+      if (equippedItemId) {
+        const item = getItem(equippedItemId);
+        if (item?.stats.missileBonus) bonus += item.stats.missileBonus;
+      }
+    }
+    return bonus;
   }
 
   /**

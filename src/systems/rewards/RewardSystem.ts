@@ -12,6 +12,8 @@ import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
 import { QuestEventType } from '../../config/QuestConfig';
 import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
+import { Inventory } from '../../entities/player/Inventory';
+import { ITEM_REGISTRY } from '../../config/ItemConfig';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { Component } from '../../infrastructure/ecs/Component';
 
@@ -141,6 +143,12 @@ export class RewardSystem extends BaseSystem {
       console.warn(`⚠️ [MISSION] QuestTrackingSystem has no playerEntity yet - skipping mission update for ${npcType}`);
     }
 
+    // Drop di Item (30% di probabilità per test)
+    if (this.playerEntity && Math.random() < 0.3) {
+      console.log(`[RewardSystem] Dropping item for NPC (Server Reward): ${npcType}`);
+      this.assignItemReward(npcType);
+    }
+
     // Nota: Il respawn degli NPC è gestito lato server
   }
 
@@ -184,6 +192,12 @@ export class RewardSystem extends BaseSystem {
       }
     }
 
+    // Drop di Item (30% di probabilità per test)
+    if (this.playerEntity && Math.random() < 0.3) {
+      console.log(`[RewardSystem] Dropping item for NPC: ${npc.npcType}`);
+      this.assignItemReward(npc.npcType);
+    }
+
     // Segnala cambiamento per salvataggio event-driven
     if (this.playState && this.playState.markAsChanged) {
       this.playState.markAsChanged();
@@ -223,5 +237,29 @@ export class RewardSystem extends BaseSystem {
 
     // Marca l'NPC come processato per le ricompense (verrà rimosso dall'ExplosionSystem)
     this.ecs.addComponent(npcEntity, RewardProcessed, new RewardProcessed());
+  }
+
+  /**
+   * Assegna un item casuale al giocatore (tra i 5 base)
+   */
+  private assignItemReward(npcType: string): void {
+    if (!this.playerEntity) return;
+
+    let inventory = this.ecs.getComponent(this.playerEntity, Inventory);
+    if (!inventory) {
+      inventory = new Inventory();
+      this.ecs.addComponent(this.playerEntity, Inventory, inventory);
+    }
+
+    // Scegli un item casuale dal registro
+    const itemIds = Object.keys(ITEM_REGISTRY);
+    const randomItemId = itemIds[Math.floor(Math.random() * itemIds.length)];
+    const item = ITEM_REGISTRY[randomItemId];
+
+    inventory.addItem(randomItemId);
+
+    if (this.logSystem) {
+      this.logSystem.addLogMessage(`DROPPED: ${item.name}!`, LogType.GIFT, 4000);
+    }
   }
 }

@@ -234,7 +234,21 @@ class PlayerDataManager {
           }
           return null;
         })(),
-        rank: playerDataRaw.current_rank_name || 'Basic Space Pilot'
+        rank: playerDataRaw.current_rank_name || 'Basic Space Pilot',
+        items: (() => {
+          try {
+            const rawItems = playerDataRaw.items_data ? JSON.parse(playerDataRaw.items_data) : [];
+            return rawItems.map(item => ({
+              id: item.id,
+              instanceId: item.instanceId,
+              acquiredAt: typeof item.acquiredAt === 'string' ? new Date(item.acquiredAt).getTime() : item.acquiredAt,
+              slot: item.slot || null
+            }));
+          } catch (e) {
+            ServerLoggerWrapper.error('DATABASE', `Error parsing items_data for user ${userId}: ${e.message}`);
+            return [];
+          }
+        })()
       };
 
       // Crea snapshot iniziale dell'honor corrente (non bloccante)
@@ -394,6 +408,30 @@ class PlayerDataManager {
 
           if (questResult.error) {
             ServerLoggerWrapper.database(`Error saving quest progress: ${questResult.error.message}`);
+          }
+        }
+      }
+
+      // Salva inventory items separatamente
+      if (playerData.items && Array.isArray(playerData.items)) {
+        ServerLoggerWrapper.database(`Saving inventory items for auth_id: ${playerId} (${playerData.items.length} items)`);
+
+        // 1. Rimuovi items non più presenti (per gestire vendite/eliminazioni se implementate)
+        // Per ora facciamo solo upsert di quelli esistenti
+
+        for (const item of playerData.items) {
+          const itemResult = await supabase.from('player_inventory').upsert({
+            auth_id: playerId,
+            instance_id: item.instanceId,
+            item_id: item.id,
+            slot: item.slot || null,
+            acquired_at: new Date(item.acquiredAt).toISOString()
+          }, {
+            onConflict: 'auth_id,instance_id'
+          });
+
+          if (itemResult.error) {
+            ServerLoggerWrapper.database(`Error saving inventory item ${item.instanceId}: ${itemResult.error.message}`);
           }
         }
       }

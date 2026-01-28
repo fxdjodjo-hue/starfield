@@ -1,0 +1,64 @@
+{
+    "ITEM_REGISTRY": {
+        "hull_titanium": {
+            "id": "hull_titanium",
+            "name": "Titanium Plating",
+            "description": "Provides superior hull integrity using aerospace-grade titanium.",
+            "type": "EQUIPMENT",
+            "slot": "HULL",
+            "icon": "🛡️",
+            "rarity": "COMMON",
+            "stats": {
+                "hpBonus": 0.2
+            }
+        },
+        "shield_aegis": {
+            "id": "shield_aegis",
+            "name": "Aegis Shield Generator",
+            "description": "A high-output generator that stabilizes shield harmonics.",
+            "type": "EQUIPMENT",
+            "slot": "SHIELD",
+            "icon": "🔋",
+            "rarity": "COMMON",
+            "stats": {
+                "shieldBonus": 0.25
+            }
+        },
+        "laser_pulse": {
+            "id": "laser_pulse",
+            "name": "Pulse Laser MK1",
+            "description": "Standard military-grade laser with increased focusing lens.",
+            "type": "EQUIPMENT",
+            "slot": "LASER",
+            "icon": "🔫",
+            "rarity": "COMMON",
+            "stats": {
+                "damageBonus": 0.15
+            }
+        },
+        "engine_fusion": {
+            "id": "engine_fusion",
+            "name": "Fusion Thruster",
+            "description": "Enhanced propulsion system using core fusion bypass.",
+            "type": "EQUIPMENT",
+            "slot": "ENGINE",
+            "icon": "🚀",
+            "rarity": "COMMON",
+            "stats": {
+                "speedBonus": 0.1
+            }
+        },
+        "missile_stingray": {
+            "id": "missile_stingray",
+            "name": "Stingray Launcher",
+            "description": "Advanced targeting computer for increased missile payload efficiency.",
+            "type": "EQUIPMENT",
+            "slot": "MISSILE",
+            "icon": "🚀",
+            "rarity": "COMMON",
+            "stats": {
+                "missileBonus": 0.2
+            }
+        }
+    }
+}

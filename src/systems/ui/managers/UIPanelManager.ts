@@ -142,6 +142,12 @@ export class UIPanelManager {
     if (leaderboardPanel && typeof (leaderboardPanel as any).setClientNetworkSystem === 'function') {
       (leaderboardPanel as any).setClientNetworkSystem(clientNetworkSystem);
     }
+
+    // Aggiorna inventory panel se esiste
+    const inventoryPanel = this.uiManager.getPanel('inventory-panel');
+    if (inventoryPanel && typeof (inventoryPanel as any).setClientNetworkSystem === 'function') {
+      (inventoryPanel as any).setClientNetworkSystem(clientNetworkSystem);
+    }
   }
 
   /**

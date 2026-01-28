@@ -7,7 +7,9 @@ import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
+import { Inventory } from '../../entities/player/Inventory';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
+import { ITEM_REGISTRY, ItemSlot, getItem } from '../../config/ItemConfig';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 
 /**
@@ -23,6 +25,7 @@ export class InventoryPanel extends BasePanel {
   private currentFrame: number = -1;
   private animationRequestId: number | null = null;
   private lastTimestamp: number = 0;
+  private networkSystem: any = null;
 
   constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
     super(config);
@@ -178,6 +181,8 @@ export class InventoryPanel extends BasePanel {
       min-height: 0;
       overflow: hidden;
       margin-top: 10px;
+      width: 100%;
+      box-sizing: border-box;
     `;
 
     // --- COLUMN 1: SHIP STATUS (Stats) ---
@@ -333,6 +338,8 @@ export class InventoryPanel extends BasePanel {
         backdrop-filter: blur(10px);
         z-index: 2;
       `;
+      slot.className = 'equipment-slot';
+      slot.setAttribute('data-slot', (position as any).dataSlot || label.toUpperCase());
       slot.innerHTML = `
         <div style="font-size: 24px; opacity: 0.2;">+</div>
         <div style="font-size: 8px; font-weight: 800; color: rgba(255, 255, 255, 0.4); margin-top: 4px; text-align: center; text-transform: uppercase;">${label}</div>
@@ -352,11 +359,11 @@ export class InventoryPanel extends BasePanel {
       return slot;
     };
 
-    shipContainer.appendChild(createEquipmentSlot('Hull', { top: '0', left: '160px' }));
-    shipContainer.appendChild(createEquipmentSlot('Shield', { top: '160px', left: '0' }));
-    shipContainer.appendChild(createEquipmentSlot('Laser', { top: '160px', right: '0' }));
-    shipContainer.appendChild(createEquipmentSlot('Engine', { bottom: '0', left: '60px' }));
-    shipContainer.appendChild(createEquipmentSlot('Missile', { bottom: '0', right: '60px' }));
+    shipContainer.appendChild(createEquipmentSlot('Hull', { top: '0', left: '160px', dataSlot: ItemSlot.HULL } as any));
+    shipContainer.appendChild(createEquipmentSlot('Shield', { top: '160px', left: '0', dataSlot: ItemSlot.SHIELD } as any));
+    shipContainer.appendChild(createEquipmentSlot('Laser', { top: '160px', right: '0', dataSlot: ItemSlot.LASER } as any));
+    shipContainer.appendChild(createEquipmentSlot('Engine', { bottom: '0', left: '60px', dataSlot: ItemSlot.ENGINE } as any));
+    shipContainer.appendChild(createEquipmentSlot('Missile', { bottom: '0', right: '60px', dataSlot: ItemSlot.MISSILE } as any));
 
     visualColumn.appendChild(shipContainer);
 
@@ -373,6 +380,7 @@ export class InventoryPanel extends BasePanel {
       padding: 24px 0 24px 24px;
       box-sizing: border-box;
       min-height: 0;
+      overflow: hidden;
     `;
 
     const cargoHeader = document.createElement('h3');
@@ -390,13 +398,16 @@ export class InventoryPanel extends BasePanel {
     const cargoGrid = document.createElement('div');
     cargoGrid.className = 'inventory-grid';
     cargoGrid.style.cssText = `
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       overflow-y: auto;
+      overflow-x: hidden;
       padding-right: 12px;
       flex: 1;
       min-height: 0;
+      width: 100%;
+      box-sizing: border-box;
     `;
 
     for (let i = 0; i < 30; i++) {
@@ -447,6 +458,7 @@ export class InventoryPanel extends BasePanel {
     const shield = this.ecs.getComponent(playerEntity, Shield);
     const damage = this.ecs.getComponent(playerEntity, Damage);
     const upgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
+    const inventory = this.ecs.getComponent(playerEntity, Inventory);
     const playerDef = getPlayerDefinition();
 
     if (this.statsElements.hp) {
@@ -466,31 +478,36 @@ export class InventoryPanel extends BasePanel {
 
     if (this.statsElements.damage) {
       this.statsElements.damage.textContent = NumberFormatter.format(damage ? damage.damage : playerDef.stats.damage);
-      const bonus = upgrades ? upgrades.getDamageBonus() : 1;
+      const bonus = upgrades ? upgrades.getDamageBonus(inventory) : 1;
       const bar = (this.statsElements as any).damage_bar;
       if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
     }
 
     if (this.statsElements.missile) {
-      const bonus = upgrades ? upgrades.getMissileDamageBonus() : 1;
+      const bonus = upgrades ? upgrades.getMissileDamageBonus(inventory) : 1;
       this.statsElements.missile.textContent = NumberFormatter.format(Math.floor((playerDef.stats.missileDamage || 100) * bonus));
       const bar = (this.statsElements as any).missile_bar;
       if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
     }
 
     if (this.statsElements.speed) {
-      const bonus = upgrades ? upgrades.getSpeedBonus() : 1;
+      const bonus = upgrades ? upgrades.getSpeedBonus(inventory) : 1;
       this.statsElements.speed.textContent = `${Math.floor(playerDef.stats.speed * bonus)} u/s`;
       const bar = (this.statsElements as any).speed_bar;
       if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+    }
+
+    // Update equipment slots and cargo grid
+    if (inventory) {
+      this.renderInventory(inventory);
     }
 
     // Calculate overall power (average of raw values)
     const hpVal = health ? health.max : playerDef.stats.health;
     const shieldVal = shield ? shield.max : (playerDef.stats.shield || 0);
     const damageVal = damage ? damage.damage : playerDef.stats.damage;
-    const missileVal = (playerDef.stats.missileDamage || 100) * (upgrades ? upgrades.getMissileDamageBonus() : 1);
-    const speedVal = playerDef.stats.speed * (upgrades ? upgrades.getSpeedBonus() : 1);
+    const missileVal = (playerDef.stats.missileDamage || 100) * (upgrades ? upgrades.getMissileDamageBonus(inventory) : 1);
+    const speedVal = playerDef.stats.speed * (upgrades ? upgrades.getSpeedBonus(inventory) : 1);
 
     // Media dei valori numerici
     const overallPowerValue = (hpVal + shieldVal + damageVal + missileVal + speedVal) / 5;
@@ -498,6 +515,139 @@ export class InventoryPanel extends BasePanel {
     if (this.statsElements.total) {
       this.statsElements.total.textContent = Math.round(overallPowerValue).toString();
     }
+  }
+
+  /**
+   * Renderizza l'inventario e gli slot equipaggiamento
+   */
+  private renderInventory(inventory: Inventory): void {
+    const cargoGrid = this.container.querySelector('.inventory-grid');
+    if (!cargoGrid) return;
+
+    // Svuota e ripopola la griglia cargo (solo per item non equipaggiati)
+    cargoGrid.innerHTML = '';
+
+    // Mostra gli item nell'inventario
+    inventory.items.forEach(itemInfo => {
+      const itemDef = ITEM_REGISTRY[itemInfo.id];
+      if (!itemDef) return;
+
+      // Verifica se questo item è già equipaggiato
+      const isEquipped = Object.values(inventory.equipped).includes(itemInfo.instanceId);
+
+      const slot = document.createElement('div');
+      slot.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 12px 16px;
+        background: ${isEquipped ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.3)'};
+        border: 1px solid ${isEquipped ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)'};
+        border-radius: 2px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        flex-shrink: 0;
+      `;
+
+      slot.innerHTML = `
+        <div style="font-size: 28px; width: 40px; text-align: center;">${itemDef.icon}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="color: #ffffff; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px;">${itemDef.name}</div>
+          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.slot} MODULE</div>
+        </div>
+      `;
+
+      slot.title = `${itemDef.name}\n${itemDef.description}\n(Click to ${isEquipped ? 'Unequip' : 'Equip'})`;
+
+      if (isEquipped) {
+        const equippedMarker = document.createElement('div');
+        equippedMarker.style.cssText = `
+          position: absolute; top: 2px; right: 2px;
+          width: 6px; height: 6px; background: #00ff00; border-radius: 50%;
+        `;
+        slot.appendChild(equippedMarker);
+      }
+
+      slot.onclick = (e) => {
+        e.stopPropagation();
+        if (isEquipped) {
+          inventory.unequipSlot(itemDef.slot);
+          // Sync with server
+          if (this.networkSystem && typeof this.networkSystem.sendEquipItemRequest === 'function') {
+            this.networkSystem.sendEquipItemRequest(null, itemDef.slot);
+          }
+        } else {
+          inventory.equipItem(itemInfo.instanceId, itemDef.slot);
+          // Sync with server
+          if (this.networkSystem && typeof this.networkSystem.sendEquipItemRequest === 'function') {
+            this.networkSystem.sendEquipItemRequest(itemInfo.instanceId, itemDef.slot);
+          }
+        }
+
+        if (this.playerSystem) {
+          this.playerSystem.refreshPlayerStats();
+        }
+        this.update();
+      };
+
+      cargoGrid.appendChild(slot);
+    });
+
+    // RiemPi con slot vuoti se necessario
+    const emptySlots = Math.max(0, 8 - inventory.items.length);
+    for (let i = 0; i < emptySlots; i++) {
+      const slot = document.createElement('div');
+      slot.style.cssText = `
+        height: 50px;
+        background: rgba(255, 255, 255, 0.01);
+        border: 1px dashed rgba(255, 255, 255, 0.03);
+        border-radius: 2px;
+        flex-shrink: 0;
+      `;
+      cargoGrid.appendChild(slot);
+    }
+
+    // Aggiorna gli slot visuali della nave (quelli intorno alla nave)
+    this.updateVisualSlots(inventory);
+  }
+
+  /**
+   * Aggiorna gli slot di equipaggiamento visuali
+   */
+  private updateVisualSlots(inventory: Inventory): void {
+    const slots = [
+      { slot: ItemSlot.HULL, label: 'Hull' },
+      { slot: ItemSlot.SHIELD, label: 'Shield' },
+      { slot: ItemSlot.LASER, label: 'Laser' },
+      { slot: ItemSlot.ENGINE, label: 'Engine' },
+      { slot: ItemSlot.MISSILE, label: 'Missile' }
+    ];
+
+    slots.forEach(s => {
+      const slotElement = Array.from(this.container.querySelectorAll('.equipment-slot'))
+        .find(el => (el as HTMLElement).getAttribute('data-slot') === s.slot) as HTMLElement;
+
+      if (slotElement) {
+        const equippedId = inventory.getEquippedItemId(s.slot);
+        if (equippedId) {
+          const item = ITEM_REGISTRY[equippedId];
+          slotElement.innerHTML = `
+            <div style="font-size: 24px;">${item.icon}</div>
+            <div style="font-size: 8px; font-weight: 800; color: #ffffff; margin-top: 4px; text-align: center; text-transform: uppercase;">${item.name}</div>
+          `;
+          slotElement.style.background = 'rgba(255, 255, 255, 0.15)';
+          slotElement.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+        } else {
+          slotElement.innerHTML = `
+            <div style="font-size: 24px; opacity: 0.2;">+</div>
+            <div style="font-size: 8px; font-weight: 800; color: rgba(255, 255, 255, 0.4); margin-top: 4px; text-align: center; text-transform: uppercase;">${s.label}</div>
+          `;
+          slotElement.style.background = 'rgba(255, 255, 255, 0.03)';
+          slotElement.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        }
+      }
+    });
   }
 
   /**
@@ -552,6 +702,10 @@ export class InventoryPanel extends BasePanel {
   public setPlayerSystem(playerSystem: PlayerSystem): void {
     this.playerSystem = playerSystem;
     if (this.isVisible) this.update();
+  }
+
+  public setClientNetworkSystem(networkSystem: any): void {
+    this.networkSystem = networkSystem;
   }
 
   protected onShow(): void {

@@ -11,7 +11,8 @@ export enum LogType {
   NPC_KILLED = 'npc_killed',
   REWARD = 'reward',
   MISSION = 'mission',
-  INFO = 'info'
+  INFO = 'info',
+  GIFT = 'gift'
 }
 
 /**
@@ -68,6 +69,8 @@ export class LogMessage extends Component {
         return '#ffffff'; // Bianco per messaggi positivi/standard
       case LogType.MISSION:
         return '#ffff00'; // Giallo per missioni
+      case LogType.GIFT:
+        return '#00ff00'; // Verde per regali/loot
       case LogType.INFO:
       default:
         return '#ffffff'; // Bianco per tutti gli altri messaggi

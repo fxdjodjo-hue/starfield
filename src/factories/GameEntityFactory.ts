@@ -12,6 +12,7 @@ import { PlayerRole } from '../entities/player/PlayerRole';
 import { ActiveQuest } from '../entities/quest/ActiveQuest';
 import { Transform } from '../entities/spatial/Transform';
 import { Sprite } from '../entities/Sprite';
+import { Inventory } from '../entities/player/Inventory';
 
 // Config imports
 import { getPlayerDefinition } from '../config/PlayerConfig';
@@ -155,6 +156,9 @@ export class GameEntityFactory extends EntityFactory {
 
     // Quest system
     this.ecs.addComponent(entity, ActiveQuest, new ActiveQuest());
+
+    // Inventory system
+    this.ecs.addComponent(entity, Inventory, new Inventory());
 
     return entity;
   }

@@ -435,6 +435,10 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends a save request to the server
    * Public method for PlayState.markAsChanged()
    */
+  /**
+   * Sends a save request to the server
+   * Public method for PlayState.markAsChanged()
+   */
   sendSaveRequest(playerId: string): void {
     if (!this.connectionManager.isConnectionActive()) {
       return;
@@ -443,6 +447,22 @@ export class ClientNetworkSystem extends BaseSystem {
       type: 'save_request',
       clientId: this.clientId,
       playerId: playerId,
+      timestamp: Date.now()
+    });
+  }
+
+  /**
+   * Sends an equip item request to the server
+   */
+  sendEquipItemRequest(instanceId: string | null, slot: string): void {
+    if (!this.connectionManager.isConnectionActive()) {
+      return;
+    }
+    this.sendMessage({
+      type: 'equip_item',
+      clientId: this.clientId,
+      instanceId: instanceId,
+      slot: slot,
       timestamp: Date.now()
     });
   }

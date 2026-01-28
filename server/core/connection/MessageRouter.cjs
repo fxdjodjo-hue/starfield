@@ -19,6 +19,7 @@ async function handleJoin(data, sanitizedData, context) {
   let loadedData;
   try {
     loadedData = await playerDataManager.loadPlayerData(data.userId);
+    ServerLoggerWrapper.debug('CONNECTION', `Loaded data for ${data.userId}: ${loadedData.items ? loadedData.items.length : 0} items`);
 
     // Verifica che playerId sia valido dopo il caricamento
     if (!loadedData || !loadedData.playerId || loadedData.playerId === 0) {
@@ -103,7 +104,8 @@ async function handleJoin(data, sanitizedData, context) {
     joinTime: Date.now(), // Timestamp quando ha fatto join
     isFullyLoaded: false, // 🚫 Blocca auto-repair finché non è true
     inventory: loadedData.inventory,
-    quests: loadedData.quests || []
+    quests: loadedData.quests || [],
+    items: loadedData.items || []
   };
 
   // Verifica che inventory sia presente
@@ -942,7 +944,8 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.quests,
     recentHonor,
     playerData.isAdministrator,
-    playerData.rank
+    playerData.rank,
+    playerData.items
   );
   ws.send(JSON.stringify(responseMessage));
 }
@@ -1087,6 +1090,64 @@ async function handleSaveRequest(data, sanitizedData, context) {
 }
 
 /**
+ * Handler per messaggio 'equip_item'
+ */
+async function handleEquipItem(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
+
+  // Fallback a mapServer se playerData non è nel context
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  // Security check
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    logger.error('SECURITY', `🚫 BLOCKED: Equip item request with invalid clientId from ${data.clientId}`);
+    return;
+  }
+
+  const { instanceId, slot } = data;
+
+  if (!playerData.items) {
+    playerData.items = [];
+  }
+
+  // Trova l'oggetto nell'inventario
+  const item = playerData.items.find(i => i.instanceId === instanceId);
+  if (!item && instanceId !== null) {
+    logger.warn('INVENTORY', `Player ${data.clientId} tried to equip non-existing item ${instanceId}`);
+    return;
+  }
+
+  // Se instanceId è null, stiamo disequipaggiando lo slot
+  if (instanceId === null) {
+    // Rimuovi questo slot da tutti gli oggetti equipaggiati
+    playerData.items.forEach(i => {
+      if (i.slot === slot) i.slot = null;
+    });
+    logger.info('INVENTORY', `Player ${data.clientId} unequipped slot ${slot}`);
+  } else {
+    // Rimuovi vecchi equipaggiamenti nello stesso slot
+    playerData.items.forEach(i => {
+      if (i.slot === slot) i.slot = null;
+    });
+    // Equipaggia il nuovo oggetto
+    item.slot = slot;
+    logger.info('INVENTORY', `Player ${data.clientId} equipped ${item.id} (${instanceId}) in slot ${slot}`);
+  }
+
+  // Invia aggiornamento stato al client (opzionale, dato che il client ha già cambiato localmente)
+  // Ma utile per conferma
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    inventory: { ...playerData.inventory },
+    upgrades: { ...playerData.upgrades },
+    items: playerData.items,
+    source: 'equip_change'
+  }));
+}
+
+/**
  * Handler per messaggio 'global_monitor_request'
  */
 function handleGlobalMonitorRequest(data, sanitizedData, context) {
@@ -1148,6 +1209,7 @@ const handlers = {
   request_player_data: handleRequestPlayerData,
   chat_message: handleChatMessage,
   save_request: handleSaveRequest,
+  equip_item: handleEquipItem,
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest
 };

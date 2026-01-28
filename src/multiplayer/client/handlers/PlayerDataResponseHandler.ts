@@ -7,6 +7,7 @@ import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
 import { ActiveQuest } from '../../../entities/quest/ActiveQuest';
+import { Inventory } from '../../../entities/player/Inventory';
 import { getPlayerDefinition } from '../../../config/PlayerConfig';
 
 /**
@@ -153,6 +154,23 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
             shieldComponent.max = newMaxShield;
             shieldComponent.current = Math.floor(newMaxShield * currentShieldPercent);
           }
+        }
+      }
+    }
+
+    // SINCRONIZZA L'INVENTARIO ITEMS (Server Authoritative)
+    if (networkSystem.getPlayerSystem() && (message as any).items) {
+      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+      if (playerEntity && networkSystem.getECS()) {
+        const ecs = networkSystem.getECS();
+        const inventoryComponent = ecs?.getComponent(playerEntity, Inventory);
+
+        if (inventoryComponent) {
+          inventoryComponent.sync((message as any).items);
+          console.log('[PlayerDataResponseHandler] Inventory synced with', (message as any).items.length, 'items');
+
+          // Refresh stats to apply item bonuses
+          networkSystem.getPlayerSystem()?.refreshPlayerStats();
         }
       }
     }
