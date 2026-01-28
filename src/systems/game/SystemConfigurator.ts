@@ -26,7 +26,7 @@ export class SystemConfigurator {
       cameraSystem, explosionSystem, repairEffectSystem, projectileSystem, movementSystem,
       parallaxSystem, renderSystem, boundsSystem, minimapSystem,
       damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
-      rewardSystem, questSystem, uiSystem, playerStatusDisplaySystem,
+      rewardSystem, questSystem, questDiscoverySystem, uiSystem, playerStatusDisplaySystem,
       playerSystem, portalSystem, remoteNpcSystem, remoteProjectileSystem, asteroidSystem
     } = systems;
 
@@ -61,6 +61,7 @@ export class SystemConfigurator {
     ecs.addSystem(rankSystem);
     ecs.addSystem(rewardSystem);
     ecs.addSystem(questSystem);
+    ecs.addSystem(questDiscoverySystem);
     ecs.addSystem(portalSystem);
     ecs.addSystem(remoteNpcSystem);
     ecs.addSystem(remoteProjectileSystem);

@@ -64,19 +64,23 @@ export class Quest {
   }
 
   /**
-   * Aggiorna un obiettivo specifico
+   * Aggiorna un obiettivo specifico e restituisce quanto della quantità fornita è stata consumata.
    */
-  updateObjective(objectiveId: string, amount: number = 1): boolean {
+  updateObjective(objectiveId: string, amount: number = 1): { completed: boolean, consumed: number } {
     const objective = this.objectives.find(obj => obj.id === objectiveId);
-    if (!objective || this.isCompleted) return false;
+    if (!objective || this.isCompleted) return { completed: false, consumed: 0 };
 
-    objective.current = Math.min(objective.current + amount, objective.target);
+    const needed = objective.target - objective.current;
+    if (needed <= 0) return { completed: false, consumed: 0 };
 
-    if (this.checkCompletion()) {
+    const consumed = Math.min(amount, needed);
+    objective.current += consumed;
+
+    const isQuestCompleted = this.checkCompletion();
+    if (isQuestCompleted) {
       this.isCompleted = true;
-      return true; // Quest completata
     }
 
-    return false;
+    return { completed: isQuestCompleted, consumed };
   }
 }

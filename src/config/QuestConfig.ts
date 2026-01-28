@@ -55,7 +55,7 @@ export interface QuestConfig {
   id: string;
   title: string;
   description: string;
-  type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement'; // categoria della quest
+  type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement' | 'exploration'; // categoria della quest
   objectives: QuestObjectiveConfig[];
   rewards: QuestRewardConfig[];
   prerequisites?: string[]; // ID di altre quest necessarie

@@ -150,18 +150,21 @@ export class QuestManager {
   }
 
   /**
-   * Aggiorna il progresso di una quest (per obiettivi di tipo kill)
+   * Aggiorna il progresso di una quest (per obiettivi di tipo kill, collect, ecc.)
+   * Restituisce se la quest è stata completata e quanto della quantità fornita è stata consumata.
    */
-  updateQuestProgress(questId: string, objectiveId: string, activeQuestComponent: ActiveQuest): boolean {
+  updateQuestProgress(questId: string, objectiveId: string, activeQuestComponent: ActiveQuest, amount: number = 1): { completed: boolean, consumed: number } {
     const quest = activeQuestComponent.getQuest(questId);
-    if (!quest) return false;
+    if (!quest) return { completed: false, consumed: 0 };
 
-    const questCompleted = quest.updateObjective(objectiveId);
+    const result = quest.updateObjective(objectiveId, amount);
 
     // Salva il progresso nel database
-    this.saveQuestProgressToDatabase(quest);
+    if (result.consumed > 0) {
+      this.saveQuestProgressToDatabase(quest);
+    }
 
-    return questCompleted;
+    return result;
   }
 
   /**

@@ -59,34 +59,48 @@ export class QuestTrackingSystem implements QuestEventHandler {
   }
 
   /**
-   * Gestisce un evento di quest in modo modulare
-   * Questo è il metodo principale per il tracking scalabile
+   * Gestisce un evento di quest in modo modulare con consumo sequenziale dell'ammontare.
+   * Questo assicura che un singolo evento non conti per più missioni contemporaneamente
+   * a meno che non ci sia una quantità residua.
    */
   handleEvent(event: QuestEvent, activeQuestComponent: ActiveQuest): void {
+    let remainingAmount = event.amount || 1;
 
     // Trova tutte le quest attive che potrebbero essere interessate da questo evento
-    activeQuestComponent.quests.forEach(quest => {
+    // Usiamo un ciclo for tradizionale per poter interrompere quando l'ammontare è esaurito
+    const activeQuests = activeQuestComponent.getActiveQuests();
+
+    for (const quest of activeQuests) {
+      if (remainingAmount <= 0) break;
+
       const questConfig = QuestRegistry.get(quest.id);
-      if (!questConfig) {
-        return;
-      }
+      if (!questConfig) continue;
 
       // Controlla ogni obiettivo della quest
-      quest.objectives.forEach(objective => {
+      for (const objective of quest.objectives) {
+        if (remainingAmount <= 0) break;
+
         if (this.shouldUpdateObjective(objective, event)) {
-          const questCompleted = this.questManager.updateQuestProgress(quest.id, objective.id, activeQuestComponent);
+          const result = this.questManager.updateQuestProgress(
+            quest.id,
+            objective.id,
+            activeQuestComponent,
+            remainingAmount
+          );
+
+          remainingAmount -= result.consumed;
 
           // Notify UI that quest data has changed
-          if (typeof document !== 'undefined') {
+          if (typeof document !== 'undefined' && result.consumed > 0) {
             document.dispatchEvent(new CustomEvent('requestQuestDataUpdate'));
           }
 
-          if (questCompleted) {
+          if (result.completed) {
             this.handleQuestCompletion(quest, activeQuestComponent);
           }
         }
-      });
-    });
+      }
+    }
   }
 
   /**

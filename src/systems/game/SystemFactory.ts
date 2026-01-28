@@ -32,6 +32,7 @@ import { RankSystem } from '../../core/domain/rewards/RankSystem';
 import { RewardSystem } from '../rewards/RewardSystem';
 import { BoundsSystem } from '../physics/BoundsSystem';
 import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
+import { QuestDiscoverySystem } from '../quest/QuestDiscoverySystem';
 import { PlayerStatusDisplaySystem } from '../player/PlayerStatusDisplaySystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import AudioSystem from '../audio/AudioSystem';
@@ -82,6 +83,7 @@ export interface CreatedSystems {
   rewardSystem: RewardSystem;
   boundsSystem: BoundsSystem;
   questTrackingSystem: QuestTrackingSystem;
+  questDiscoverySystem: QuestDiscoverySystem;
   questSystem: QuestSystem;
   uiSystem: UiSystem | null;
   playerStatusDisplaySystem: PlayerStatusDisplaySystem;
@@ -153,6 +155,7 @@ export class SystemFactory {
     const rewardSystem = new RewardSystem(ecs, playState);
     const boundsSystem = new BoundsSystem(ecs, cameraSystem);
     const questTrackingSystem = new QuestTrackingSystem(world, questManager, playState);
+    const questDiscoverySystem = new QuestDiscoverySystem(ecs, questTrackingSystem);
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs, context);
     const playerSystem = new PlayerSystem(ecs);
     const portalSystem = new PortalSystem(ecs, playerSystem);
@@ -273,6 +276,7 @@ export class SystemFactory {
       rewardSystem,
       boundsSystem,
       questTrackingSystem,
+      questDiscoverySystem,
       questSystem,
       uiSystem,
       playerStatusDisplaySystem,
