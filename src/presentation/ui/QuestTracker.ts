@@ -267,13 +267,30 @@ export class QuestTracker {
            margin-top: 2px;
          `;
 
+                let descText = obj.description;
+
+                // Clean up redundancy (e.g. "Investigate: Anomaly Omega" -> "Investigate")
+                if (descText && quest.title && descText.includes(quest.title)) {
+                    descText = descText.replace(`: ${quest.title}`, '').replace(quest.title, '').trim();
+                    if (descText.endsWith(':')) descText = descText.slice(0, -1).trim();
+                }
+
                 const desc = document.createElement('span');
-                desc.textContent = obj.description;
+                desc.textContent = descText || (obj.x !== undefined ? 'Investigate' : 'Objective');
 
                 const f = (n: number) => NumberFormatter.format(n);
                 const progress = document.createElement('span');
-                progress.textContent = `${f(obj.current)}/${f(obj.target)}`;
-                progress.style.color = obj.current >= obj.target ? '#4ade80' : 'rgba(255,255,255,0.6)';
+
+                // If coordinates are present, show them instead of 0/1
+                if (obj.x !== undefined && obj.y !== undefined) {
+                    progress.textContent = `[${f(obj.x)}, ${f(obj.y)}]`;
+                } else {
+                    progress.textContent = `${f(obj.current)}/${f(obj.target)}`;
+                }
+
+                // Color logic: green if completed, otherwise secondary white
+                const isCompleted = obj.current >= obj.target;
+                progress.style.color = isCompleted ? '#4ade80' : 'rgba(255,255,255,0.6)';
 
                 objDiv.appendChild(desc);
                 objDiv.appendChild(progress);

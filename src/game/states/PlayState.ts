@@ -69,6 +69,13 @@ export class PlayState extends GameState {
     }
   }
 
+  /**
+   * Verifica se la sessione è in modalità multiplayer
+   */
+  isMultiplayer(): boolean {
+    return this.clientNetworkSystem !== null;
+  }
+
   constructor(context: GameContext) {
     super();
     this.context = context;

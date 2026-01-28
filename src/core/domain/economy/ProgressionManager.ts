@@ -9,7 +9,7 @@ export class ProgressionManager {
     private readonly ecs: ECS,
     private readonly getPlayerEntity: () => any,
     private readonly onExperienceChanged?: (newAmount: number, change: number, leveledUp: boolean) => void
-  ) {}
+  ) { }
 
   /**
    * Gets player Experience component

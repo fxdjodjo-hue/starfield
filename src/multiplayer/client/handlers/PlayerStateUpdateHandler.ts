@@ -142,15 +142,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         }, rewardsEarned.npcType);
       }
 
-      const logSystem = networkSystem.getLogSystem();
-      if (logSystem) {
-        logSystem.logReward(
-          rewardsEarned.credits,
-          rewardsEarned.cosmos || 0,
-          rewardsEarned.experience,
-          rewardsEarned.honor
-        );
-      }
     }
 
     // 🔄 AGGIORNA L'HUD IN TEMPO REALE DOPO TUTTI GLI AGGIORNAMENTI

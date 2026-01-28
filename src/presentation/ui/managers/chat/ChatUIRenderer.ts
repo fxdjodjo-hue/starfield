@@ -66,39 +66,31 @@ export class ChatUIRenderer {
       cursor: pointer;
     `;
 
-    // Container sinistro con titolo
     const titleContainer = document.createElement('div');
-    titleContainer.style.cssText = `display: flex; align-items: center; gap: ${Math.round(8 * c)}px;`;
-
-    const icon = document.createElement('div');
-    icon.className = 'chat-title-icon';
-    const iconSize = Math.round(18 * c);
-    icon.style.cssText = `
-      width: ${iconSize}px;
-      height: ${iconSize}px;
-      background-color: rgba(255, 255, 255, 0.9);
-      mask-image: url('assets/svg/chat/chat-round-dots-svgrepo-com.svg');
-      mask-size: contain;
-      mask-repeat: no-repeat;
-      mask-position: center;
-      -webkit-mask-image: url('assets/svg/chat/chat-round-dots-svgrepo-com.svg');
-      -webkit-mask-size: contain;
-      -webkit-mask-repeat: no-repeat;
-      -webkit-mask-position: center;
-      filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.3));
-    `;
+    titleContainer.style.cssText = `display: flex; flex-direction: column;`;
 
     const title = document.createElement('span');
-    title.textContent = 'Chat';
+    title.textContent = 'CHAT';
     title.style.cssText = `
       color: rgba(255, 255, 255, 0.9);
-      font-size: ${Math.round(14 * c)}px;
-      font-weight: 700;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      font-size: ${Math.round(18 * c)}px;
+      font-weight: 800;
+      letter-spacing: ${Math.round(2 * c)}px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
     `;
 
-    titleContainer.appendChild(icon);
+    const subtitle = document.createElement('span');
+    subtitle.textContent = 'COMMUNICATION LINK';
+    subtitle.style.cssText = `
+      color: rgba(255, 255, 255, 0.6);
+      font-size: ${Math.round(10 * c)}px;
+      font-weight: 600;
+      letter-spacing: ${Math.round(1 * c)}px;
+      text-transform: uppercase;
+    `;
+
     titleContainer.appendChild(title);
+    titleContainer.appendChild(subtitle);
 
     // Pulsante toggle
     const toggleButton = document.createElement('button');

@@ -3,6 +3,7 @@ import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { QuestManager } from '../../core/domain/quest/QuestManager';
 import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import {
   type QuestEvent,
   QuestEventType,
@@ -13,13 +14,13 @@ import {
 } from '../../config/QuestConfig';
 
 /**
- * QuestTrackingSystem - Sistema modulare per tracciare eventi di gioco e aggiornare quest
+ * QuestTrackingSystem - Sistema modulare per tracciare eventi di gioco e aggiornare missioni
  *
  * Caratteristiche principali:
  * - Event-driven architecture per massima scalabilità
  * - Supporto per molteplici tipi di eventi (kill, collect, explore, interact)
  * - Configurazione esterna tramite QuestRegistry
- * - Facile estensione per nuovi tipi di quest
+ * - Facile estensione per nuovi tipi di missione
  * - Single source of truth per la logica di tracking
  */
 export class QuestTrackingSystem implements QuestEventHandler {
@@ -52,21 +53,28 @@ export class QuestTrackingSystem implements QuestEventHandler {
   }
 
   /**
-   * Imposta il riferimento all'entità player
+   * Verifica se l'entità player è impostata
+   */
+  hasPlayer(): boolean {
+    return this.playerEntity !== null;
+  }
+
+  /**
+   * Imposta il riferimento l'entità player
    */
   setPlayerEntity(playerEntity: any): void {
     this.playerEntity = playerEntity;
   }
 
   /**
-   * Gestisce un evento di quest in modo modulare con consumo sequenziale dell'ammontare.
+   * Gestisce un evento di missione in modo modulare con consumo sequenziale dell'ammontare.
    * Questo assicura che un singolo evento non conti per più missioni contemporaneamente
    * a meno che non ci sia una quantità residua.
    */
   handleEvent(event: QuestEvent, activeQuestComponent: ActiveQuest): void {
     let remainingAmount = event.amount || 1;
 
-    // Trova tutte le quest attive che potrebbero essere interessate da questo evento
+    // Trova tutte le missioni attive che potrebbero essere interessate da questo evento
     // Usiamo un ciclo for tradizionale per poter interrompere quando l'ammontare è esaurito
     const activeQuests = activeQuestComponent.getActiveQuests();
 
@@ -76,7 +84,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
       const questConfig = QuestRegistry.get(quest.id);
       if (!questConfig) continue;
 
-      // Controlla ogni obiettivo della quest
+      // Controlla ogni obiettivo della missione
       for (const objective of quest.objectives) {
         if (remainingAmount <= 0) break;
 
@@ -90,7 +98,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
 
           remainingAmount -= result.consumed;
 
-          // Notify UI that quest data has changed
+          // Notifica la UI che i dati delle missioni sono cambiati
           if (typeof document !== 'undefined' && result.consumed > 0) {
             document.dispatchEvent(new CustomEvent('requestQuestDataUpdate'));
           }
@@ -135,25 +143,46 @@ export class QuestTrackingSystem implements QuestEventHandler {
   }
 
   /**
-   * Gestisce il completamento di una quest
+   * Gestisce il completamento di una missione
    */
   private handleQuestCompletion(quest: any, activeQuestComponent: ActiveQuest): void {
-    // Mostra messaggio di completamento quest nel log
-    if (this.logSystem) {
-      this.logSystem.addLogMessage(`Quest "${quest.title}" completed!`, LogType.QUEST, 5000);
+    // Completa la missione e ottieni le ricompense
+    const rewards = this.questManager.completeQuest(quest.id, activeQuestComponent);
+
+    // Calcola la stringa delle ricompense per il log unificato
+    let rewardString = '';
+    if (rewards && rewards.length > 0) {
+      const rewardLines: string[] = [];
+      const totalCredits = rewards.filter(r => r.type === RewardType.CREDITS).reduce((sum, r) => sum + (r.amount || 0), 0);
+      const totalCosmos = rewards.filter(r => r.type === RewardType.COSMOS).reduce((sum, r) => sum + (r.amount || 0), 0);
+      const totalExperience = rewards.filter(r => r.type === RewardType.EXPERIENCE).reduce((sum, r) => sum + (r.amount || 0), 0);
+      const totalHonor = rewards.filter(r => r.type === RewardType.HONOR).reduce((sum, r) => sum + (r.amount || 0), 0);
+
+      const f = (n: number) => NumberFormatter.format(n);
+      if (totalCredits > 0) rewardLines.push(`${f(totalCredits)} Credits`);
+      if (totalCosmos > 0) rewardLines.push(`${f(totalCosmos)} Cosmos`);
+      if (totalExperience > 0) rewardLines.push(`${f(totalExperience)} Experience`);
+      if (totalHonor > 0) rewardLines.push(`${f(totalHonor)} Honor`);
+
+      if (rewardLines.length > 0) {
+        rewardString = `Rewards: ${rewardLines.join(', ')}`;
+      }
     }
 
-    // Completa la quest e ottieni le ricompense
-    const rewards = this.questManager.completeQuest(quest.id, activeQuestComponent);
+    // Mostra messaggio di completamento missione unificato nel log
+    if (this.logSystem) {
+      this.logSystem.logMissionCompletion(quest.title, rewardString);
+    }
+
     if (rewards) {
-      this.applyQuestRewards(rewards);
+      this.applyQuestRewards(rewards, false); // Pass false to avoid second reward log
     }
   }
 
   /**
-   * Applica le ricompense della quest completata
+   * Applica le ricompense della missione completata
    */
-  private applyQuestRewards(rewards: any[]): void {
+  private applyQuestRewards(rewards: any[], showLog: boolean = true): void {
     if (!this.economySystem) {
       console.warn('EconomySystem not set in QuestTrackingSystem');
       return;
@@ -165,29 +194,27 @@ export class QuestTrackingSystem implements QuestEventHandler {
     let totalHonor = 0;
 
     rewards.forEach(reward => {
+      const amount = reward.amount || 0;
       switch (reward.type) {
         case RewardType.CREDITS:
-          totalCredits += reward.amount;
-          this.economySystem.addCredits(reward.amount, 'quest reward');
+          totalCredits += amount;
+          this.economySystem.addCredits(amount, 'mission reward');
           break;
 
         case RewardType.COSMOS:
-          totalCosmos += reward.amount;
-          this.economySystem.addCosmos(reward.amount, 'quest reward');
+          totalCosmos += amount;
+          this.economySystem.addCosmos(amount, 'mission reward');
           break;
 
         case RewardType.EXPERIENCE:
-          totalExperience += reward.amount;
-          // TODO: Integrare con il sistema esperienza quando disponibile
+          totalExperience += amount;
           break;
 
         case RewardType.HONOR:
-          totalHonor += reward.amount;
-          // TODO: Integrare con il sistema onore quando disponibile
+          totalHonor += amount;
           break;
 
         case RewardType.ITEM:
-          // TODO: Implementare sistema inventario per ricompense item
           break;
 
         default:
@@ -195,8 +222,8 @@ export class QuestTrackingSystem implements QuestEventHandler {
       }
     });
 
-    // Mostra le ricompense nel log del sistema
-    if (this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
+    // Mostra le ricompense nel log se richiesto (e se non già mostrate nel log unificato)
+    if (showLog && this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
       this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000);
     }
 
@@ -207,7 +234,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
   }
 
   /**
-   * Innesca un evento di quest manualmente (per test o eventi speciali)
+   * Innesca un evento di missione manualmente (per test o eventi speciali)
    * Metodo pubblico per triggerare eventi programmaticamente
    */
   triggerEvent(event: QuestEvent): void {
@@ -238,7 +265,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
   }
 
   /**
-   * Valida che una quest sia ancora valida (non scaduta, prerequisiti soddisfatti, ecc.)
+   * Valida che una missione sia ancora valida (non scaduta, prerequisiti soddisfatti, ecc.)
    */
   validateQuest(questId: string, playerLevel: number, completedQuestIds: string[]): boolean {
     const config = QuestRegistry.get(questId);
@@ -259,7 +286,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
   }
 
   /**
-   * Ottiene suggerimenti per quest disponibili per il giocatore
+   * Ottiene suggerimenti per missioni disponibili per il giocatore
    */
   getQuestSuggestions(playerLevel: number, completedQuestIds: string[]): string[] {
     const availableQuests = QuestRegistry.getAvailableForLevel(playerLevel)

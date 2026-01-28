@@ -26,6 +26,13 @@ export class SettingsPanel extends BasePanel {
       gap: 20px;
       position: relative;
       box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 25px;
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     `;
 
         // Inject styles for sliders and glassmorphism components
@@ -88,51 +95,72 @@ export class SettingsPanel extends BasePanel {
     `;
         content.appendChild(style);
 
-        // Close button
-        const closeButton = document.createElement('button');
-        closeButton.textContent = 'X';
-        closeButton.style.cssText = `
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: rgba(239, 68, 68, 0.9);
-      border: 1px solid rgba(239, 68, 68, 0.5);
-      color: white;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      padding: 6px 10px;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      transition: all 0.2s ease;
-    `;
-        closeButton.addEventListener('click', () => this.hide());
-        content.appendChild(closeButton);
+        // Header Section (Title + Subtitle + Close)
+        const headerSection = document.createElement('div');
+        headerSection.style.cssText = `
+           display: flex;
+           justify-content: space-between;
+           align-items: flex-start;
+           margin-bottom: 8px;
+        `;
 
-        // Header
-        const header = document.createElement('div');
-        header.style.cssText = `
-      text-align: center;
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 8px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    `;
+        const titleGroup = document.createElement('div');
         const title = document.createElement('h2');
-        title.textContent = 'Settings';
+        title.textContent = 'SETTINGS';
         title.style.cssText = `
-      margin: 0;
-      color: rgba(255, 255, 255, 0.95);
-      font-size: 22px;
-      font-weight: 700;
-    `;
-        header.appendChild(title);
-        content.appendChild(header);
+           margin: 0;
+           color: #ffffff;
+           font-size: 24px;
+           font-weight: 800;
+           letter-spacing: 3px;
+           text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+        `;
+
+        const subtitle = document.createElement('p');
+        subtitle.textContent = 'GAME CONFIGURATION';
+        subtitle.style.cssText = `
+            margin: 4px 0 0 0;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        `;
+
+        titleGroup.appendChild(title);
+        titleGroup.appendChild(subtitle);
+
+        // Unified Close Button
+        const closeButton = document.createElement('button');
+        closeButton.textContent = '×';
+        closeButton.style.cssText = `
+            background: rgba(255, 255, 255, 0.05);
+            border: none;
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 24px;
+            line-height: 1;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        `;
+        closeButton.addEventListener('mouseenter', () => {
+            closeButton.style.background = 'rgba(239, 68, 68, 0.2)';
+            closeButton.style.color = '#ef4444';
+        });
+        closeButton.addEventListener('mouseleave', () => {
+            closeButton.style.background = 'rgba(255, 255, 255, 0.05)';
+            closeButton.style.color = 'rgba(255, 255, 255, 0.6)';
+        });
+        closeButton.addEventListener('click', () => this.hide());
+
+        headerSection.appendChild(titleGroup);
+        headerSection.appendChild(closeButton);
+        content.appendChild(headerSection);
 
         // Navigation Tabs
         const nav = document.createElement('div');
@@ -235,7 +263,7 @@ export class SettingsPanel extends BasePanel {
         const section = (title: string) => {
             const t = document.createElement('div');
             t.textContent = title;
-            t.style.cssText = 'color: #00ff88; font-size: 14px; font-weight: 700; text-transform: uppercase; margin-top: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(0, 255, 136, 0.2); padding-bottom: 4px;';
+            t.style.cssText = 'color: rgba(255, 255, 255, 0.9); font-size: 14px; font-weight: 700; text-transform: uppercase; margin-top: 8px; margin-bottom: 4px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 4px;';
             container.appendChild(t);
         };
 

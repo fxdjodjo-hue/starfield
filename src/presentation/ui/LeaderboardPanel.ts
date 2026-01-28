@@ -34,13 +34,48 @@ export interface LeaderboardData {
  * LeaderboardPanel - Pannello che mostra la classifica globale dei giocatori
  * Implementa l'interfaccia BasePanel per l'integrazione nel sistema UI
  */
+// Palette colori standardizzata - Allineata con ChatUIRenderer e QuestPanel
+const THEME = {
+  colors: {
+    background: {
+      panel: 'rgba(0, 0, 0, 0.45)', // Match ChatUI
+      header: 'rgba(255, 255, 255, 0.05)',
+      rowHover: 'rgba(255, 255, 255, 0.05)',
+      rowCurrent: 'rgba(255, 255, 255, 0.1)', // More neutral current row
+      buttonDefault: 'rgba(255, 255, 255, 0.05)',
+      buttonActive: 'rgba(255, 255, 255, 0.15)',
+    },
+    border: {
+      light: 'rgba(255, 255, 255, 0.08)',
+      focus: 'rgba(255, 255, 255, 0.25)',
+      separator: 'rgba(255, 255, 255, 0.08)'
+    },
+    text: {
+      primary: 'rgba(255, 255, 255, 0.9)', // Match ChatUI
+      secondary: 'rgba(255, 255, 255, 0.6)',
+      accent: '#ffffff', // Removed neon green for consistency
+      danger: '#ef4444'
+    }
+  },
+  layout: {
+    padding: '24px',
+    borderRadius: '25px', // Match ChatUI rounded corners
+    rowHeight: '48px',
+    headerHeight: '40px',
+    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
+  }
+};
+
+/**
+ * LeaderboardPanel - Pannello che mostra la classifica globale dei giocatori
+ * Implementa l'interfaccia BasePanel per l'integrazione nel sistema UI
+ */
 export class LeaderboardPanel extends BasePanel {
   private leaderboardData: LeaderboardData = {
     entries: [],
     sortBy: 'ranking_points'
   };
   private refreshButton: HTMLElement | null = null;
-  private sortButtons: Map<string, HTMLElement> = new Map();
   private loadingIndicator: HTMLElement | null = null;
   private loadingSpinner: HTMLElement | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
@@ -48,302 +83,186 @@ export class LeaderboardPanel extends BasePanel {
   constructor(config: PanelConfig, clientNetworkSystem?: ClientNetworkSystem | null) {
     super(config);
     this.clientNetworkSystem = clientNetworkSystem || null;
-    // Ensure sortButtons is initialized before createPanelContent is called
-    if (!this.sortButtons) {
-      this.sortButtons = new Map();
-    }
   }
 
-  /**
-   * Imposta il riferimento al ClientNetworkSystem
-   */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
     this.clientNetworkSystem = clientNetworkSystem;
-
-    // Ascolta gli eventi di riconnessione per richiedere automaticamente la leaderboard
     clientNetworkSystem.onReconnected(() => {
       if (this.isVisible && this.leaderboardData.entries.length === 0) {
-        // console.log('[LeaderboardPanel] Connection restored, requesting leaderboard');
         this.requestLeaderboard();
       }
     });
 
-    // Se il pannello è già visibile e non abbiamo ancora richiesto la leaderboard,
-    // richiedila automaticamente ora che abbiamo il ClientNetworkSystem
     if (this.isVisible && this.leaderboardData.entries.length === 0) {
       this.requestLeaderboard();
     }
   }
 
-  /**
-   * Crea il contenuto del pannello leaderboard
-   */
   protected createPanelContent(): HTMLElement {
-    // Ensure sortButtons is initialized
-    if (!this.sortButtons) {
-      this.sortButtons = new Map();
-    }
-
     const content = document.createElement('div');
     content.className = 'leaderboard-content';
     content.style.cssText = `
       position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      padding: 24px;
+      inset: 0;
+      padding: ${THEME.layout.padding};
       display: flex;
       flex-direction: column;
-      gap: 12px;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
+      gap: 16px;
+      background: ${THEME.colors.background.panel};
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border: 1px solid ${THEME.colors.border.light};
+      border-radius: ${THEME.layout.borderRadius};
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
       box-sizing: border-box;
+      user-select: none;
+      font-family: ${THEME.layout.fontFamily};
     `;
 
-    // Hide scrollbar
+    // Hide scrollbar style & Animation
     const style = document.createElement('style');
-    style.textContent = `.leaderboard-content::-webkit-scrollbar { display: none; }`;
+    style.textContent = `
+      .leaderboard-content::-webkit-scrollbar { display: none; }
+      .leaderboard-table-container::-webkit-scrollbar { width: 6px; }
+      .leaderboard-table-container::-webkit-scrollbar-track { background: transparent; }
+      .leaderboard-table-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+      .leaderboard-table-container::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+      
+      @keyframes leaderboard-spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
     content.appendChild(style);
 
-    // Pulsante di chiusura
-    const closeButton = document.createElement('button');
-    closeButton.textContent = 'X';
-    closeButton.style.cssText = `
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: rgba(239, 68, 68, 0.9);
-      border: 1px solid rgba(239, 68, 68, 0.5);
-      color: white;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      padding: 6px 10px;
-      border-radius: 8px;
-      width: 32px;
-      height: 32px;
+    // Header Section (Title + Subtitle + Close)
+    const headerSection = document.createElement('div');
+    headerSection.style.cssText = `
       display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 100;
-      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
-      transition: all 0.2s ease;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding-bottom: 16px; 
+      border-bottom: 1px solid ${THEME.colors.border.light};
     `;
 
-    closeButton.addEventListener('mouseenter', () => {
-      closeButton.style.background = 'rgba(239, 68, 68, 1)';
-      closeButton.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
-    });
-
-    closeButton.addEventListener('mouseleave', () => {
-      closeButton.style.background = 'rgba(239, 68, 68, 0.9)';
-      closeButton.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
-    });
-
-    closeButton.addEventListener('click', () => {
-      this.hide();
-    });
-
-    content.appendChild(closeButton);
-
-    // Header
-    const header = document.createElement('div');
-    header.style.cssText = `
-      text-align: center;
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 8px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    `;
-
+    const titleGroup = document.createElement('div');
     const title = document.createElement('h2');
     title.textContent = 'LEADERBOARD';
     title.style.cssText = `
       margin: 0;
-      color: rgba(255, 255, 255, 0.95);
-      font-size: 22px;
-      font-weight: 700;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      letter-spacing: 2px;
+      color: ${THEME.colors.text.primary};
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
     `;
 
     const subtitle = document.createElement('p');
-    subtitle.textContent = 'Top players ranked by performance';
+    subtitle.textContent = 'ELITE PILOT RANKINGS';
     subtitle.style.cssText = `
       margin: 4px 0 0 0;
-      color: rgba(255, 255, 255, 0.7);
-      font-size: 12px;
-      font-weight: 400;
+      color: ${THEME.colors.text.secondary};
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
     `;
 
-    header.appendChild(title);
-    header.appendChild(subtitle);
-    content.appendChild(header);
+    titleGroup.appendChild(title);
+    titleGroup.appendChild(subtitle);
 
-    // Sort buttons container
-    const sortContainer = document.createElement('div');
-    sortContainer.style.cssText = `
+    const closeButton = this.createCloseButton();
+    headerSection.appendChild(titleGroup);
+    headerSection.appendChild(closeButton);
+    content.appendChild(headerSection);
+
+    // Controls Bar (Refresh only)
+    const controlsBar = document.createElement('div');
+    controlsBar.style.cssText = `
       display: flex;
-      gap: 8px;
-      margin-bottom: 8px;
-      flex-wrap: wrap;
+      justify-content: flex-end;
+      padding-bottom: 12px;
     `;
 
-    const sortOptions = [
-      { id: 'ranking_points', label: 'Ranking' },
-      { id: 'honor', label: 'Honor' },
-      { id: 'experience', label: 'Experience' }
-    ];
-
-    sortOptions.forEach(option => {
-      const button = document.createElement('button');
-      button.textContent = option.label;
-      button.dataset.sortBy = option.id;
-      button.style.cssText = `
-        padding: 8px 16px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
-        color: rgba(255, 255, 255, 0.8);
-        font-size: 12px;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      `;
-
-      button.addEventListener('mouseenter', () => {
-        button.style.background = 'rgba(255, 255, 255, 0.15)';
-        button.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-      });
-
-      button.addEventListener('mouseleave', () => {
-        if (this.leaderboardData.sortBy !== option.id) {
-          button.style.background = 'rgba(255, 255, 255, 0.1)';
-          button.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-        }
-      });
-
-      button.addEventListener('click', () => {
-        this.setSortBy(option.id as any);
-      });
-
-      this.sortButtons.set(option.id, button);
-      sortContainer.appendChild(button);
-    });
-
-    content.appendChild(sortContainer);
-
-    // Refresh button
     this.refreshButton = document.createElement('button');
-    this.refreshButton.textContent = '🔄 Refresh';
+    this.refreshButton.innerHTML = 'REFRESH';
     this.refreshButton.style.cssText = `
-      padding: 8px 16px;
-      background: rgba(0, 255, 136, 0.2);
-      border: 1px solid rgba(0, 255, 136, 0.3);
-      border-radius: 8px;
-      color: #00ff88;
-      font-size: 12px;
+      padding: 6px 14px;
+      background: ${THEME.colors.background.buttonDefault};
+      border: 1px solid ${THEME.colors.border.light};
+      border-radius: 6px;
+      color: ${THEME.colors.text.secondary};
+      font-size: 11px;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
-      align-self: flex-start;
+      letter-spacing: 0.5px;
     `;
 
     this.refreshButton.addEventListener('mouseenter', () => {
-      if (this.refreshButton) {
-        this.refreshButton.style.background = 'rgba(0, 255, 136, 0.3)';
-        this.refreshButton.style.borderColor = 'rgba(0, 255, 136, 0.5)';
-      }
+      this.refreshButton!.style.background = THEME.colors.background.buttonActive;
+      this.refreshButton!.style.color = THEME.colors.text.primary;
+      this.refreshButton!.style.borderColor = 'rgba(255, 255, 255, 0.2)';
     });
-
     this.refreshButton.addEventListener('mouseleave', () => {
-      if (this.refreshButton) {
-        this.refreshButton.style.background = 'rgba(0, 255, 136, 0.2)';
-        this.refreshButton.style.borderColor = 'rgba(0, 255, 136, 0.3)';
-      }
+      this.refreshButton!.style.background = THEME.colors.background.buttonDefault;
+      this.refreshButton!.style.color = THEME.colors.text.secondary;
+      this.refreshButton!.style.borderColor = THEME.colors.border.light;
     });
 
-    this.refreshButton.addEventListener('click', () => {
-      this.requestLeaderboard();
-    });
+    this.refreshButton.addEventListener('click', () => this.requestLeaderboard());
 
-    content.appendChild(this.refreshButton);
+    controlsBar.appendChild(this.refreshButton);
+    content.appendChild(controlsBar);
 
-    // Loading indicator
-    this.loadingIndicator = document.createElement('div');
-    this.loadingIndicator.id = 'leaderboard-loading';
-    this.loadingIndicator.textContent = 'Loading leaderboard...';
-    this.loadingIndicator.style.cssText = `
-      text-align: center;
-      color: rgba(255, 255, 255, 0.6);
-      font-size: 14px;
-      padding: 20px;
-      display: none;
-    `;
-    content.appendChild(this.loadingIndicator);
-
-    // Leaderboard table container
+    // Table Container
     const tableContainer = document.createElement('div');
-    tableContainer.id = 'leaderboard-table-container';
+    tableContainer.className = 'leaderboard-table-container';
     tableContainer.style.cssText = `
       flex: 1;
       overflow-y: auto;
-      overflow-x: hidden;
-      scrollbar-width: thin;
-      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-      min-height: 0; /* Permette al flex item di shrinkare correttamente */
-      padding-bottom: 20px; /* Spazio extra per vedere l'ultimo elemento */
+      border-radius: 8px;
     `;
 
-    // Table
     const table = document.createElement('table');
-    table.id = 'leaderboard-table';
     table.style.cssText = `
       width: 100%;
       border-collapse: collapse;
-      color: rgba(255, 255, 255, 0.9);
+      color: ${THEME.colors.text.primary};
     `;
 
-    // Table header
+    // Sticky Header
     const thead = document.createElement('thead');
     thead.style.cssText = `
       position: sticky;
       top: 0;
-      background: rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(10px);
+      background: rgba(0,0,0,0.2); // Scurisci leggermente header per leggibilità su blur
       z-index: 10;
+      backdrop-filter: blur(5px);
     `;
 
     const headerRow = document.createElement('tr');
-    const headers = [
-      { text: '#', align: 'center' },
-      { text: 'Player', align: 'left' },
-      { text: 'Rank', align: 'left' },
-      { text: 'Experience', align: 'right' },
-      { text: 'Honor', align: 'right' }
+    const columns = [
+      { text: '#', align: 'center', width: '10%' },
+      { text: 'PILOT', align: 'left', width: '40%' },
+      { text: 'RANK', align: 'center', width: '15%' },
+      { text: 'EXP', align: 'right', width: '17%' },
+      { text: 'HONOR', align: 'right', width: '18%' }
     ];
 
-    headers.forEach(header => {
+    columns.forEach(col => {
       const th = document.createElement('th');
-      th.textContent = header.text;
+      th.textContent = col.text;
       th.style.cssText = `
-        padding: 12px 8px;
-        text-align: ${header.align};
-        font-size: 11px;
-        font-weight: 700;
-        text-transform: uppercase;
+        padding: 16px 8px;
+        text-align: ${col.align};
+        font-size: 10px;
+        font-weight: 800;
         letter-spacing: 1px;
-        color: rgba(255, 255, 255, 0.8);
-        border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        color: ${THEME.colors.text.secondary};
+        border-bottom: 1px solid ${THEME.colors.border.separator};
+        width: ${col.width};
+        box-sizing: border-box;
       `;
       headerRow.appendChild(th);
     });
@@ -351,142 +270,92 @@ export class LeaderboardPanel extends BasePanel {
     thead.appendChild(headerRow);
     table.appendChild(thead);
 
-    // Table body
     const tbody = document.createElement('tbody');
     tbody.id = 'leaderboard-tbody';
     table.appendChild(tbody);
-
     tableContainer.appendChild(table);
     content.appendChild(tableContainer);
 
-    // Aggiungi loading spinner centrato
-    this.loadingSpinner = document.createElement('div');
-    this.loadingSpinner.id = 'leaderboard-loading-spinner';
-    this.loadingSpinner.style.cssText = `
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      display: none;
-      z-index: 1000;
-      background: rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      padding: 20px;
-      border-radius: 15px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    `;
-
-    const spinnerCircle = document.createElement('div');
-    spinnerCircle.style.cssText = `
-      width: 40px;
-      height: 40px;
-      border: 4px solid rgba(255, 255, 255, 0.1);
-      border-left: 4px solid rgba(0, 255, 136, 0.8);
-      border-radius: 50%;
-      animation: leaderboard-spin 1s linear infinite;
-      margin: 0 auto;
-    `;
-
-    const spinnerText = document.createElement('div');
-    spinnerText.textContent = 'Loading leaderboard...';
-    spinnerText.style.cssText = `
-      color: rgba(255, 255, 255, 0.95);
-      font-size: 14px;
-      font-weight: 600;
-      text-align: center;
-      margin-top: 12px;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-      letter-spacing: 0.5px;
-    `;
-
-    this.loadingSpinner.appendChild(spinnerCircle);
-    this.loadingSpinner.appendChild(spinnerText);
+    // Loading Spinner
+    this.loadingSpinner = this.createLoadingSpinner();
     content.appendChild(this.loadingSpinner);
-
-    // Aggiungi CSS animation per lo spinner
-    const spinnerStyle = document.createElement('style');
-    spinnerStyle.textContent = `
-      @keyframes leaderboard-spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    `;
-    content.appendChild(spinnerStyle);
 
     return content;
   }
 
-  /**
-   * Imposta il tipo di ordinamento
-   */
-  setSortBy(sortBy: 'ranking_points' | 'honor' | 'experience'): void {
-    this.leaderboardData.sortBy = sortBy;
-
-    // Aggiorna stili dei pulsanti
-    this.sortButtons.forEach((button, id) => {
-      if (id === sortBy) {
-        button.style.background = 'rgba(0, 255, 136, 0.3)';
-        button.style.borderColor = 'rgba(0, 255, 136, 0.5)';
-        button.style.color = '#00ff88';
-      } else {
-        button.style.background = 'rgba(255, 255, 255, 0.1)';
-        button.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-        button.style.color = 'rgba(255, 255, 255, 0.8)';
-      }
+  private createCloseButton(): HTMLElement {
+    const button = document.createElement('button');
+    button.textContent = '×';
+    button.style.cssText = `
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      color: ${THEME.colors.text.secondary};
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    `;
+    button.addEventListener('mouseenter', () => {
+      button.style.background = 'rgba(239, 68, 68, 0.2)';
+      button.style.color = THEME.colors.text.danger;
     });
-
-    // Richiedi nuova leaderboard con ordinamento
-    this.requestLeaderboard();
+    button.addEventListener('mouseleave', () => {
+      button.style.background = 'rgba(255, 255, 255, 0.05)';
+      button.style.color = THEME.colors.text.secondary;
+    });
+    button.addEventListener('click', () => this.hide());
+    return button;
   }
 
-  /**
-   * Richiede la leaderboard dal server con retry se necessario
-   */
+  private createLoadingSpinner(): HTMLElement {
+    const spinner = document.createElement('div');
+    spinner.id = 'leaderboard-loading-spinner';
+    spinner.style.cssText = `
+      position: absolute;
+      inset: 0;
+      display: none;
+      z-index: 50;
+      background: rgba(0,0,0,0.6); // Denser background for better visibility
+      backdrop-filter: blur(4px);
+      align-items: center;
+      justify-content: center;
+    `;
+    // Use white spinner for the new neutral theme
+    spinner.innerHTML = `
+      <div style="border: 3px solid rgba(255,255,255,0.1); border-top-color: #ffffff; border-radius: 50%; width: 48px; height: 48px; animation: leaderboard-spin 1s linear infinite;"></div>
+    `;
+    return spinner;
+  }
+
+
   private requestLeaderboardWithRetry(retryCount: number = 0): void {
     if (this.clientNetworkSystem) {
-      // console.log(`[LeaderboardPanel] ClientNetworkSystem available, requesting leaderboard (attempt ${retryCount + 1})`);
       this.requestLeaderboard();
     } else if (retryCount < 5) {
-      // Lo spinner è già stato mostrato in onShow()
-      // Riprova con intervallo crescente se il ClientNetworkSystem non è ancora disponibile
-      const delay = Math.min(100 * Math.pow(2, retryCount), 1000); // 100ms, 200ms, 400ms, 800ms, 1000ms
-      setTimeout(() => {
-        this.requestLeaderboardWithRetry(retryCount + 1);
-      }, delay);
-    } else {
-      // Nascondi spinner se fallisce
-      if (this.loadingSpinner) {
-        this.loadingSpinner.style.display = 'none';
-      }
+      setTimeout(() => this.requestLeaderboardWithRetry(retryCount + 1), Math.min(100 * Math.pow(2, retryCount), 1000));
+    } else if (this.loadingSpinner) {
+      // Failed to get network system, hide spinner or show error
+      this.loadingSpinner.style.display = 'none';
+      console.warn('Leaderboard: Failed to connect to network system for request');
     }
   }
 
-  /**
-   * Richiede la leaderboard dal server
-   */
   requestLeaderboard(): void {
-    if (!this.clientNetworkSystem) {
-      console.warn('[LeaderboardPanel] ClientNetworkSystem not available');
-      return;
-    }
-
-    if (!this.clientNetworkSystem.isConnected()) {
-      // console.log('[LeaderboardPanel] Not connected to server, skipping leaderboard request');
-      return;
-    }
-
-
-    // Il loading spinner è già stato mostrato in requestLeaderboardWithRetry
-
-    // Nascondi eventuali dati precedenti
+    if (!this.clientNetworkSystem?.isConnected()) return;
     const tbody = this.container.querySelector('#leaderboard-tbody');
-    if (tbody) {
-      tbody.innerHTML = '';
+    if (tbody) tbody.innerHTML = '';
+
+    // Show spinner
+    if (this.loadingSpinner) {
+      this.loadingSpinner.style.display = 'flex';
     }
 
-    // Invia richiesta al server
     this.clientNetworkSystem.sendMessage({
       type: MESSAGE_TYPES.REQUEST_LEADERBOARD,
       sortBy: this.leaderboardData.sortBy,
@@ -494,197 +363,128 @@ export class LeaderboardPanel extends BasePanel {
     });
   }
 
-  /**
-   * Calcola il rank militare basato sui ranking points
-   */
-
-  /**
-   * Aggiorna i dati del pannello
-   */
   update(data: PanelData): void {
     const leaderboardData = data as LeaderboardData;
-
-    if (!leaderboardData) {
-      console.warn('[LeaderboardPanel] No leaderboard data provided');
-      return;
-    }
-
-    if (!leaderboardData.entries) {
-      console.warn('[LeaderboardPanel] No entries array in leaderboard data');
-      leaderboardData.entries = [];
-    }
-
+    if (!leaderboardData) return;
     this.leaderboardData = leaderboardData;
+    if (!this.leaderboardData.entries) this.leaderboardData.entries = [];
     this.updateDisplay();
   }
 
-  /**
-   * Aggiorna la visualizzazione della leaderboard
-   */
   private updateDisplay(): void {
-    // Nascondi loading spinner quando i dati arrivano
-    if (this.loadingSpinner) {
-      this.loadingSpinner.style.display = 'none';
-    }
-
+    if (this.loadingSpinner) this.loadingSpinner.style.display = 'none';
     const tbody = this.container.querySelector('#leaderboard-tbody');
     if (!tbody) return;
-
     tbody.innerHTML = '';
 
     if (this.leaderboardData.entries.length === 0) {
-      const emptyRow = document.createElement('tr');
-      emptyRow.innerHTML = `
-        <td colspan="6" style="text-align: center; padding: 40px; color: rgba(255, 255, 255, 0.5);">
-          No players found
-        </td>
-      `;
-      tbody.appendChild(emptyRow);
+      tbody.innerHTML = `<tr><td colspan="5" style="padding: 40px; text-align: center; color: ${THEME.colors.text.secondary}">No active pilots found</td></tr>`;
       return;
     }
 
-    // Crea righe per ogni entry
     this.leaderboardData.entries.forEach((entry, index) => {
       const row = document.createElement('tr');
       const isCurrentPlayer = this.leaderboardData.playerRank === entry.rank;
 
       row.style.cssText = `
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        transition: background 0.2s ease;
-        ${isCurrentPlayer ? 'background: rgba(0, 255, 136, 0.1);' : ''}
+        border-bottom: 1px solid ${THEME.colors.border.separator};
+        background: ${isCurrentPlayer ? THEME.colors.background.rowCurrent : 'transparent'};
+        transition: background 0.15s ease;
       `;
 
-      row.addEventListener('mouseenter', () => {
-        if (!isCurrentPlayer) {
-          row.style.background = 'rgba(255, 255, 255, 0.05)';
-        }
-      });
+      if (!isCurrentPlayer) {
+        row.addEventListener('mouseenter', () => row.style.background = THEME.colors.background.rowHover);
+        row.addEventListener('mouseleave', () => row.style.background = 'transparent');
+      }
 
-      row.addEventListener('mouseleave', () => {
-        if (!isCurrentPlayer) {
-          row.style.background = 'transparent';
-        } else {
-          row.style.background = 'rgba(0, 255, 136, 0.1)';
-        }
-      });
-
-      // Rank position con medaglie per top 3
+      // 1. Rank #
       const rankCell = document.createElement('td');
-      rankCell.style.cssText = `
-        padding: 12px 8px;
-        font-weight: 700;
-        font-size: 14px;
-        text-align: center;
-        width: 60px;
-        color: rgba(255, 255, 255, 0.9);
-      `;
+      rankCell.style.cssText = `padding: 12px 8px; text-align: center; font-weight: 700; width: 10%; box-sizing: border-box;`;
 
-      if (entry.rank === 1) {
-        rankCell.textContent = '🥇';
-        rankCell.style.fontSize = '18px';
-      } else if (entry.rank === 2) {
-        rankCell.textContent = '🥈';
-        rankCell.style.fontSize = '18px';
-      } else if (entry.rank === 3) {
-        rankCell.textContent = '🥉';
+      if (entry.rank <= 3) {
+        rankCell.innerHTML = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : '🥉';
         rankCell.style.fontSize = '18px';
       } else {
         rankCell.textContent = `#${entry.rank}`;
-        rankCell.style.color = 'rgba(255, 255, 255, 0.7)';
+        rankCell.style.color = THEME.colors.text.secondary;
+        rankCell.style.fontSize = '13px';
       }
 
-      // Username
+      // 2. Player Name
       const usernameCell = document.createElement('td');
-      usernameCell.textContent = entry.username || `Player #${entry.playerId}`;
+      usernameCell.textContent = entry.username || `Unknown Pilot`;
       usernameCell.style.cssText = `
         padding: 12px 8px;
-        font-size: 14px;
+        text-align: left;
         font-weight: 700;
-        color: ${isCurrentPlayer ? '#00ff88' : 'rgba(255, 255, 255, 0.95)'};
-        min-width: 150px;
-      `;
-
-      // Rank name
-      const rankNameCell = document.createElement('td');
-
-      // Ricalcola i punti totali corretti (Exp + Honor) per garantire coerenza col server
-      // Formula Semplificata: Exp + (Honor * 0.5)
-      const effectivePoints = entry.experience + (entry.honor * 0.5);
-
-      const resolvedRankName = entry.rankName || 'Space Pilot';
-      rankNameCell.textContent = resolvedRankName;
-      rankNameCell.style.cssText = `
-        padding: 12px 8px;
         font-size: 13px;
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.75);
-        min-width: 120px;
+        color: ${isCurrentPlayer ? '#ffffff' : THEME.colors.text.primary}; /* Keep white even for current user, maybe just bold/bg differs */
+        width: 40%;
+        box-sizing: border-box;
       `;
 
-      // Experience
+      // 3. Rank Icon (CRITICAL FIX PRESERVED)
+      const rankIconCell = document.createElement('td');
+      const resolvedRankName = entry.rankName || 'Space Pilot';
+      const isChiefGeneral = resolvedRankName.toLowerCase().includes('chief general');
+
+      // The container uses inline-flex for perfect centering in the cell
+      const iconContainer = document.createElement('div');
+      iconContainer.style.cssText = `
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 24px;
+      `;
+
+      const rankIcon = document.createElement('img');
+      rankIcon.src = this.getRankIconPath(resolvedRankName);
+      rankIcon.title = resolvedRankName;
+      // Precise styles from user feedback iteration
+      rankIcon.style.cssText = `
+        max-height: 18px;
+        max-width: 38px;
+        width: auto;
+        height: auto;
+        display: block;
+        object-fit: contain;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+        ${isChiefGeneral ? 'margin-left: 10px;' : ''}
+      `;
+
+      iconContainer.appendChild(rankIcon);
+      rankIconCell.appendChild(iconContainer);
+      rankIconCell.style.cssText = `padding: 8px 0; text-align: center; width: 15%; box-sizing: border-box;`;
+
+      // 4. Exp
       const expCell = document.createElement('td');
       expCell.textContent = NumberFormatter.format(entry.experience);
-      expCell.style.cssText = `
-        padding: 12px 8px;
-        text-align: right;
-        font-size: 13px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: rgba(255, 255, 255, 0.75);
-        width: 140px;
-      `;
+      expCell.style.cssText = `padding: 12px 8px; text-align: right; font-family: monospace; font-size: 12px; color: ${THEME.colors.text.secondary}; width: 17%; box-sizing: border-box;`;
 
-      // Honor
+      // 5. Honor
       const honorCell = document.createElement('td');
       honorCell.textContent = NumberFormatter.format(entry.honor);
-      honorCell.style.cssText = `
-        padding: 12px 8px;
-        text-align: right;
-        font-size: 13px;
-        font-weight: 600;
-        font-variant-numeric: tabular-nums;
-        color: rgba(255, 255, 255, 0.75);
-        width: 120px;
-      `;
+      honorCell.style.cssText = `padding: 12px 8px; text-align: right; font-family: monospace; font-size: 12px; color: ${THEME.colors.text.secondary}; width: 18%; box-sizing: border-box;`;
 
       row.appendChild(rankCell);
       row.appendChild(usernameCell);
-      row.appendChild(rankNameCell);
+      row.appendChild(rankIconCell);
       row.appendChild(expCell);
       row.appendChild(honorCell);
-
       tbody.appendChild(row);
     });
   }
 
-  /**
-   * Callback quando il pannello viene mostrato
-   */
   protected onShow(): void {
-    // Assicurati che lo spinner sia stato creato
-    if (!this.loadingSpinner) {
-      this.loadingSpinner = this.container?.querySelector('#leaderboard-loading-spinner') as HTMLElement;
-      if (!this.loadingSpinner) {
-        // Prova a cercare in tutto il documento
-        this.loadingSpinner = document.querySelector('#leaderboard-loading-spinner') as HTMLElement;
-      }
-    }
-
-    // Mostra immediatamente lo spinner quando il pannello si apre
-    if (this.loadingSpinner) {
-      this.loadingSpinner.style.display = 'block';
-    }
-
-    // Ritarda leggermente per assicurarsi che tutto sia inizializzato
-    setTimeout(() => {
-      this.requestLeaderboardWithRetry();
-    }, 50);
+    if (this.loadingSpinner) this.loadingSpinner.style.display = 'flex';
+    setTimeout(() => this.requestLeaderboardWithRetry(), 50);
   }
 
-  /**
-   * Callback quando il pannello viene nascosto
-   */
-  protected onHide(): void {
-    // Cleanup se necessario
+  private getRankIconPath(rankName: string): string {
+    const fileName = rankName.toLowerCase().replace(/\s+/g, '') + '.png';
+    return `assets/playerRanks/${fileName}`;
   }
+
+  protected onHide(): void { }
 }

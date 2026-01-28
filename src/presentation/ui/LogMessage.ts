@@ -10,7 +10,7 @@ export enum LogType {
   ATTACK_FAILED = 'attack_failed',
   NPC_KILLED = 'npc_killed',
   REWARD = 'reward',
-  QUEST = 'quest',
+  MISSION = 'mission',
   INFO = 'info'
 }
 
@@ -66,8 +66,8 @@ export class LogMessage extends Component {
       case LogType.ATTACK_START:
       case LogType.REWARD:
         return '#ffffff'; // Bianco per messaggi positivi/standard
-      case LogType.QUEST:
-        return '#ffff00'; // Giallo per messaggi delle quest
+      case LogType.MISSION:
+        return '#ffff00'; // Giallo per missioni
       case LogType.INFO:
       default:
         return '#ffffff'; // Bianco per tutti gli altri messaggi

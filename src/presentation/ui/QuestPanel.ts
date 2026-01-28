@@ -5,7 +5,7 @@ import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
 
 /**
- * Dati per il pannello delle quest
+ * Dati per il pannello delle missioni
  */
 export interface QuestData {
   activeQuests: Quest[];
@@ -14,7 +14,7 @@ export interface QuestData {
 }
 
 /**
- * Interfaccia per una singola quest
+ * Interfaccia per una singola missione
  */
 export interface Quest {
   id: string;
@@ -30,7 +30,7 @@ export interface Quest {
 }
 
 /**
- * Obiettivo di una quest
+ * Obiettivo di una missione
  */
 export interface QuestObjective {
   id: string;
@@ -46,7 +46,7 @@ export interface QuestObjective {
 }
 
 /**
- * Ricompensa di una quest
+ * Ricompensa di una missione
  */
 export interface QuestReward {
   type: 'credits' | 'experience' | 'item' | 'title' | 'cosmos' | 'honor';
@@ -56,7 +56,7 @@ export interface QuestReward {
 }
 
 /**
- * QuestPanel - Pannello che mostra quest attive, completate e disponibili
+ * QuestPanel - Pannello che mostra missioni attive, completate e disponibili
  * Implementa l'interfaccia BasePanel per l'integrazione nel sistema UI
  */
 export class QuestPanel extends BasePanel {
@@ -98,7 +98,7 @@ export class QuestPanel extends BasePanel {
   private currentTab: 'active' | 'completed' | 'available' = 'active';
 
   /**
-   * Crea il contenuto del pannello delle quest
+   * Crea il contenuto del pannello delle missioni
    */
   protected createPanelContent(): HTMLElement {
     const content = document.createElement('div');
@@ -112,79 +112,83 @@ export class QuestPanel extends BasePanel {
       position: relative;
       overflow-y: hidden;
       box-sizing: border-box;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(20px) saturate(160%);
+      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      border-radius: 25px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     `;
 
-    // Pulsante di chiusura "X" nell'angolo superiore destro
-    const closeButton = document.createElement('button');
-    closeButton.textContent = 'X';
-    closeButton.style.cssText = `
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+    // Header Section (Title + Subtitle + Close)
+    const headerSection = document.createElement('div');
+    headerSection.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 20px;
+    `;
+
+    const titleGroup = document.createElement('div');
+    const title = document.createElement('h2');
+    title.textContent = 'MISSIONS';
+    title.style.cssText = `
+      margin: 0;
+      color: #ffffff;
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    `;
+
+    const subtitle = document.createElement('p');
+    subtitle.textContent = 'OBJECTIVES & REWARDS';
+    subtitle.style.cssText = `
+      margin: 4px 0 0 0;
       color: rgba(255, 255, 255, 0.6);
-      font-size: 16px;
+      font-size: 11px;
       font-weight: 600;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    `;
+
+    titleGroup.appendChild(title);
+    titleGroup.appendChild(subtitle);
+
+    // Unified Close Button
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '×';
+    closeButton.style.cssText = `
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 24px;
+      line-height: 1;
       cursor: pointer;
-      padding: 6px 10px;
-      border-radius: 8px;
       width: 32px;
       height: 32px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 100;
       transition: all 0.2s ease;
-      backdrop-filter: blur(4px);
     `;
-
     closeButton.addEventListener('mouseenter', () => {
-      closeButton.style.background = 'rgba(239, 68, 68, 0.8)';
-      closeButton.style.color = 'white';
-      closeButton.style.borderColor = 'rgba(239, 68, 68, 1)';
-      closeButton.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.4)';
+      closeButton.style.background = 'rgba(239, 68, 68, 0.2)';
+      closeButton.style.color = '#ef4444';
     });
-
     closeButton.addEventListener('mouseleave', () => {
       closeButton.style.background = 'rgba(255, 255, 255, 0.05)';
       closeButton.style.color = 'rgba(255, 255, 255, 0.6)';
-      closeButton.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-      closeButton.style.boxShadow = 'none';
     });
-
     closeButton.addEventListener('click', () => {
       this.hide();
     });
 
-    content.appendChild(closeButton);
-
-    // Header con titolo
-    const header = document.createElement('div');
-    header.style.cssText = `
-      text-align: center;
-      background: rgba(0, 0, 0, 0.2);
-      border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 12px;
-      padding: 16px;
-      margin-bottom: 8px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    `;
-
-    const title = document.createElement('h2');
-    // Unify terminology to "Missions" as requested
-    title.textContent = 'Missions';
-    title.style.cssText = `
-      margin: 0;
-      color: #ffffff;
-      font-size: 22px;
-      font-weight: 700;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-      letter-spacing: 0.5px;
-    `;
-
-    header.appendChild(title);
-    content.appendChild(header);
+    headerSection.appendChild(titleGroup);
+    headerSection.appendChild(closeButton);
+    content.appendChild(headerSection);
 
     // Tab Navigation
     const tabContainer = document.createElement('div');
@@ -227,43 +231,40 @@ export class QuestPanel extends BasePanel {
       flex-direction: column;
       gap: 16px;
       overflow-y: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
     `;
 
-    // Hide scrollbar style
+    // Custom Scrollbar Style
     const style = document.createElement('style');
     style.textContent = `
       .quest-container::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
       }
       .quest-container::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.2);
-        border-radius: 4px;
+        background: transparent;
       }
       .quest-container::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
       }
       .quest-container::-webkit-scrollbar-thumb:hover {
-        background: rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.2);
       }
     `;
     content.appendChild(style);
 
 
-    // Sezione quest attive
-    const activeSection = this.createQuestSection('Active Quests', 'active-quests', [], 'active');
+    // Sezione missioni attive
+    const activeSection = this.createQuestSection('Active Missions', 'active-quests', [], 'active');
     activeSection.id = 'section-active';
     activeSection.style.display = 'flex'; // Default visible
 
-    // Sezione quest completate
-    const completedSection = this.createQuestSection('✅ Completed Quests', 'completed-quests', [], 'completed');
+    // Sezione missioni completate
+    const completedSection = this.createQuestSection('Completed Missions', 'completed-quests', [], 'completed');
     completedSection.id = 'section-completed';
     completedSection.style.display = 'none';
 
-    // Sezione quest disponibili
-    const availableSection = this.createQuestSection('📋 Available Quests', 'available-quests', [], 'available');
+    // Sezione missioni disponibili
+    const availableSection = this.createQuestSection('Available Missions', 'available-quests', [], 'available');
     availableSection.id = 'section-available';
     availableSection.style.display = 'none';
 
@@ -337,7 +338,7 @@ export class QuestPanel extends BasePanel {
 
 
   /**
-   * Crea una sezione per un tipo di quest
+   * Crea una sezione per un tipo di missione
    */
   private createQuestSection(title: string, containerId: string, quests: Quest[], sectionType: 'active' | 'completed' | 'available' = 'active'): HTMLElement {
     const section = document.createElement('div');
@@ -378,7 +379,7 @@ export class QuestPanel extends BasePanel {
     // Aggiungi quest placeholder se la lista è vuota
     if (quests.length === 0) {
       const emptyMessage = document.createElement('div');
-      emptyMessage.textContent = 'No quests in this category';
+      emptyMessage.textContent = 'No missions in this category';
       emptyMessage.style.cssText = `
         color: rgba(255, 255, 255, 0.6);
         font-style: italic;
@@ -397,14 +398,17 @@ export class QuestPanel extends BasePanel {
   /**
    * Crea una card per una singola quest
    */
-  private createQuestCard(quest: Quest, sectionType: 'active' | 'completed' | 'available' = 'active'): HTMLElement {
+  private createMissionCard(quest: Quest, sectionType: 'active' | 'completed' | 'available' = 'active'): HTMLElement {
     const card = document.createElement('div');
     card.className = 'quest-card';
     card.style.cssText = `
+      position: relative; /* For absolute positioning of button */
       background: rgba(10, 10, 10, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       padding: 12px;
+      /* Ensure at least enough padding-bottom for the button not to overlap if text is full width */
+      padding-bottom: 12px; 
       display: flex;
       flex-direction: column;
       gap: 8px;
@@ -487,12 +491,10 @@ export class QuestPanel extends BasePanel {
       detailsContainer.style.cssText = `
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 8px;
         margin-top: 8px;
-        background: rgba(0, 0, 0, 0.25);
-        padding: 10px;
-        border-radius: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.03);
+        /* create homogeous look by removing nested background/borders */
+        padding: 0;
       `;
 
       // 1. Objectives Section
@@ -526,13 +528,26 @@ export class QuestPanel extends BasePanel {
             text = `${obj.type} ${f(obj.target)} ${obj.targetName}`;
           }
 
-          if (quest.isActive || quest.isCompleted) {
-            text += ` (${f(obj.current)}/${f(obj.target)})`;
-          } else if (!text.includes(f(obj.target))) {
-            text += ` (${f(obj.target)})`;
+          // Clean up redundancy if title is in description (e.g. "Investigate: MissionTitle" -> "Investigate")
+          if (text && quest.title && text.includes(quest.title)) {
+            text = text.replace(`: ${quest.title}`, '').replace(quest.title, '').trim();
+            if (text.endsWith(':')) text = text.slice(0, -1).trim();
           }
 
-          objEl.textContent = `- ${text}`;
+          // Show coordinates if present, otherwise show progress count
+          if (obj.x !== undefined && obj.y !== undefined) {
+            const action = text || 'Investigate';
+            text = `${action} at [${f(obj.x)}, ${f(obj.y)}]`;
+          } else {
+            // Standard progress count only if no coordinates
+            if (quest.isActive || quest.isCompleted) {
+              text += ` (${f(obj.current)}/${f(obj.target)})`;
+            } else if (!text.includes(f(obj.target))) {
+              text += ` (${f(obj.target)})`;
+            }
+          }
+
+          objEl.textContent = `• ${text}`;
           objectivesSection.appendChild(objEl);
         });
 
@@ -589,7 +604,7 @@ export class QuestPanel extends BasePanel {
           }
 
           const amountText = NumberFormatter.format(reward.amount || 0);
-          rewardEl.textContent = amount > 0 ? `- ${amountText} ${code}` : `- ${code}`;
+          rewardEl.textContent = amount > 0 ? `• ${amountText} ${code}` : `• ${code}`;
           rewardsSection.appendChild(rewardEl);
         });
 
@@ -648,41 +663,20 @@ export class QuestPanel extends BasePanel {
     }
     */
 
-    // Progress bar se non completata
-    if (!quest.isCompleted && quest.progress > 0) {
-      const progressContainer = document.createElement('div');
-      progressContainer.style.cssText = `
-        width: 100%;
-        height: 4px;
-        background: rgba(148, 163, 184, 0.2);
-        border-radius: 2px;
-        overflow: hidden;
-      `;
-
-      const progressBar = document.createElement('div');
-      progressBar.style.cssText = `
-        width: ${quest.progress}%;
-        height: 100%;
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4));
-        border-radius: 2px;
-        transition: width 0.5s ease;
-      `;
-
-      progressContainer.appendChild(progressBar);
-      card.appendChild(progressContainer);
-    }
 
     // Aggiungi pulsanti di azione basati sul tipo di sezione
     if (sectionType === 'active') {
       const actionContainer = document.createElement('div');
       actionContainer.style.cssText = `
+        position: absolute;
+        bottom: 12px;
+        right: 12px;
         display: flex;
         justify-content: flex-end;
-        margin-top: 8px;
       `;
 
       const abandonButton = document.createElement('button');
-      abandonButton.textContent = 'Abandon Quest';
+      abandonButton.textContent = 'Abandon Mission';
       abandonButton.style.cssText = `
         background: rgba(255, 255, 255, 0.05);
         color: rgba(255, 255, 255, 0.7);
@@ -719,13 +713,15 @@ export class QuestPanel extends BasePanel {
     } else if (sectionType === 'available') {
       const actionContainer = document.createElement('div');
       actionContainer.style.cssText = `
+        position: absolute;
+        bottom: 12px;
+        right: 12px;
         display: flex;
         justify-content: flex-end;
-        margin-top: 8px;
       `;
 
       const acceptButton = document.createElement('button');
-      acceptButton.textContent = 'Accept Quest';
+      acceptButton.textContent = 'Accept Mission';
       acceptButton.style.cssText = `
         background: rgba(255, 255, 255, 0.1);
         color: white;
@@ -817,17 +813,17 @@ export class QuestPanel extends BasePanel {
   }
 
   /**
-   * Aggiorna la visualizzazione delle quest
+   * Aggiorna la visualizzazione delle missioni
    */
   private updateDisplay(): void {
-    // Aggiorna quest attive
-    this.updateQuestList('active-quests', this.questData.activeQuests);
+    // Aggiorna missioni attive
+    this.updateMissionList('active-quests', this.questData.activeQuests);
 
-    // Aggiorna quest completate
-    this.updateQuestList('completed-quests', this.questData.completedQuests);
+    // Aggiorna missioni completate
+    this.updateMissionList('completed-quests', this.questData.completedQuests);
 
-    // Aggiorna quest disponibili
-    this.updateQuestList('available-quests', this.questData.availableQuests);
+    // Aggiorna missioni disponibili
+    this.updateMissionList('available-quests', this.questData.availableQuests);
   }
 
   /**
@@ -841,9 +837,9 @@ export class QuestPanel extends BasePanel {
   }
 
   /**
-   * Aggiorna una lista specifica di quest
+   * Aggiorna una lista specifica di missioni
    */
-  private updateQuestList(containerId: string, quests: Quest[]): void {
+  private updateMissionList(containerId: string, quests: Quest[]): void {
     const container = this.container.querySelector(`#${containerId}`) as HTMLElement;
     if (!container) return;
 
@@ -855,7 +851,7 @@ export class QuestPanel extends BasePanel {
 
     if (quests.length === 0) {
       const emptyMessage = document.createElement('div');
-      emptyMessage.textContent = 'No quests in this category';
+      emptyMessage.textContent = 'No missions in this category';
       emptyMessage.style.cssText = `
         color: rgba(255, 255, 255, 0.6);
         font-style: italic;
@@ -865,9 +861,9 @@ export class QuestPanel extends BasePanel {
       `;
       container.appendChild(emptyMessage);
     } else {
-      // Aggiungi ogni quest come card
+      // Aggiungi ogni missione come card
       quests.forEach(quest => {
-        const questCard = this.createQuestCard(quest, sectionType);
+        const questCard = this.createMissionCard(quest, sectionType);
         container.appendChild(questCard);
       });
     }
@@ -880,29 +876,29 @@ export class QuestPanel extends BasePanel {
     // Reset to active tab
     this.switchTab('active');
 
-    // Richiedi un aggiornamento dei dati delle quest
+    // Richiedi un aggiornamento dei dati delle missioni
     this.requestQuestDataUpdate();
 
-    // Accetta automaticamente la quest disponibile quando si apre il pannello
+    // Accetta automaticamente le missioni disponibili quando si apre il pannello
     this.autoAcceptAvailableQuests();
   }
 
   /**
-   * Richiede un aggiornamento dei dati delle quest
+   * Richiede un aggiornamento dei dati delle missioni
    */
   private requestQuestDataUpdate(): void {
-    // Trigger custom event per richiedere l'aggiornamento dei dati delle quest
+    // Trigger custom event per richiedere l'aggiornamento dei dati delle missioni
     const event = new CustomEvent('requestQuestDataUpdate');
     document.dispatchEvent(event);
   }
 
   /**
-   * Accetta automaticamente le quest disponibili
+   * Accetta automaticamente le missioni disponibili
    */
   private autoAcceptAvailableQuests(): void {
     // Nota: Questa logica dovrebbe essere gestita dal PlayState o da un sistema centrale
     // Per ora, questa è solo una struttura placeholder
-    // La logica reale sarà implementata quando il pannello avrà accesso al QuestManager
+    // La logica reale sarà implementata quando il pannello avrà accesso al MissionManager
   }
 
   /**
@@ -913,7 +909,7 @@ export class QuestPanel extends BasePanel {
   }
 
   /**
-   * Gestisce l'accettazione di una quest
+   * Gestisce l'accettazione di una missione
    */
   private onQuestAccept(questId: string): void {
     // Trigger custom event per notificare il PlayState

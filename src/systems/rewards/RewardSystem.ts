@@ -18,7 +18,7 @@ import { Component } from '../../infrastructure/ecs/Component';
 /**
  * Componente per marcare NPC già processati per le ricompense
  */
-class RewardProcessed extends Component {}
+class RewardProcessed extends Component { }
 
 /**
  * Sistema Reward - gestisce l'assegnazione di ricompense quando gli NPC vengono sconfitti
@@ -33,7 +33,7 @@ export class RewardSystem extends BaseSystem {
 
   constructor(ecs: ECS, playState?: PlayState) {
     super(ecs);
-    this.playState = playState;
+    this.playState = playState || null;
   }
 
   /**
@@ -71,7 +71,7 @@ export class RewardSystem extends BaseSystem {
     // In modalità multiplayer, gli NPC sono gestiti dal server
     // e le ricompense vengono assegnate tramite assignRewardsFromServer
     // Non processare NPC morti localmente per evitare duplicazioni
-    if (this.playState?.clientNetworkSystem) {
+    if (this.playState && this.playState.isMultiplayer()) {
       // Modalità multiplayer: skip processamento NPC locali
       return;
     }
@@ -98,7 +98,7 @@ export class RewardSystem extends BaseSystem {
    * - Logging
    * - Salvataggio stato
    */
-  assignRewardsFromServer(rewards: { credits: number; experience: number; honor: number }, npcType: string): void {
+  assignRewardsFromServer(rewards: { credits: number; cosmos: number; experience: number; honor: number }, npcType: string): void {
     if (!this.economySystem) {
       console.warn('[RewardSystem] EconomySystem not available for server rewards');
       return;
@@ -117,8 +117,19 @@ export class RewardSystem extends BaseSystem {
     // Le ricompense economiche vengono gestite direttamente dal server e sincronizzate
     // tramite EconomySystem.setCredits/setCosmos/setExperience/setHonor in PlayerStateUpdateHandler
 
-    // Notifica il sistema quest per aggiornare il progresso
-    if (this.questTrackingSystem && this.questTrackingSystem.playerEntity) {
+    // Log unificato dell'NPC sconfitto con ricompense
+    if (this.logSystem) {
+      this.logSystem.logNpcDefeatWithRewards(
+        npcType,
+        rewards.credits,
+        rewards.cosmos,
+        rewards.experience,
+        rewards.honor
+      );
+    }
+
+    // Notifica il sistema missioni per aggiornare il progresso
+    if (this.questTrackingSystem && this.questTrackingSystem.hasPlayer()) {
       const event = {
         type: QuestEventType.NPC_KILLED,
         targetId: npcType,
@@ -126,18 +137,8 @@ export class RewardSystem extends BaseSystem {
         amount: 1
       };
       this.questTrackingSystem.triggerEvent(event);
-    } else if (this.questTrackingSystem && !this.questTrackingSystem.playerEntity) {
-      console.warn(`⚠️ [QUEST] QuestTrackingSystem has no playerEntity yet - skipping quest update for ${npcType}`);
-    }
-
-    // Segnala cambiamento per salvataggio event-driven
-    if (this.playState && this.playState.markAsChanged) {
-      this.playState.markAsChanged();
-    }
-
-    // Log semplice dell'NPC sconfitto (ricompense gestite separatamente)
-    if (this.logSystem) {
-      this.logSystem.logNpcKilled(npcType);
+    } else if (this.questTrackingSystem && !this.questTrackingSystem.hasPlayer()) {
+      console.warn(`⚠️ [MISSION] QuestTrackingSystem has no playerEntity yet - skipping mission update for ${npcType}`);
     }
 
     // Nota: Il respawn degli NPC è gestito lato server
@@ -165,20 +166,22 @@ export class RewardSystem extends BaseSystem {
     }
 
     // Assegna ricompense economiche
-    if (npcDef.rewards.credits > 0) {
-      this.economySystem.addCredits(npcDef.rewards.credits, `defeated ${npc.npcType}`);
-    }
+    if (this.economySystem) {
+      if (npcDef.rewards.credits > 0) {
+        this.economySystem.addCredits(npcDef.rewards.credits, `defeated ${npc.npcType}`);
+      }
 
-    if (npcDef.rewards.cosmos > 0) {
-      this.economySystem.addCosmos(npcDef.rewards.cosmos, `defeated ${npc.npcType}`);
-    }
+      if (npcDef.rewards.cosmos > 0) {
+        this.economySystem.addCosmos(npcDef.rewards.cosmos, `defeated ${npc.npcType}`);
+      }
 
-    if (npcDef.rewards.experience > 0) {
-      this.economySystem.addExperience(npcDef.rewards.experience, `defeated ${npc.npcType}`);
-    }
+      if (npcDef.rewards.experience > 0) {
+        this.economySystem.addExperience(npcDef.rewards.experience, `defeated ${npc.npcType}`);
+      }
 
-    if (npcDef.rewards.honor > 0) {
-      this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
+      if (npcDef.rewards.honor > 0) {
+        this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
+      }
     }
 
     // Segnala cambiamento per salvataggio event-driven
@@ -191,13 +194,19 @@ export class RewardSystem extends BaseSystem {
     // Nota: se playState non è disponibile, il salvataggio non avviene automaticamente
     // ma il gioco continua normalmente
 
-    // Log semplice dell'NPC sconfitto (ricompense gestite separatamente)
+    // Log unificato dell'NPC sconfitto con ricompense
     if (this.logSystem) {
-      this.logSystem.logNpcKilled(npc.npcType);
+      this.logSystem.logNpcDefeatWithRewards(
+        npc.npcType,
+        npcDef.rewards.credits,
+        npcDef.rewards.cosmos,
+        npcDef.rewards.experience,
+        npcDef.rewards.honor
+      );
     }
 
-    // Notifica il sistema quest per aggiornare il progresso tramite eventi
-    if (this.questTrackingSystem && this.questTrackingSystem.playerEntity) {
+    // Notifica il sistema missioni per aggiornare il progresso tramite eventi
+    if (this.questTrackingSystem && this.questTrackingSystem.hasPlayer()) {
       const event = {
         type: QuestEventType.NPC_KILLED,
         targetId: npc.npcType,
@@ -206,8 +215,8 @@ export class RewardSystem extends BaseSystem {
       };
 
       this.questTrackingSystem.triggerEvent(event);
-    } else if (this.questTrackingSystem && !this.questTrackingSystem.playerEntity) {
-      console.warn(`⚠️ [QUEST] QuestTrackingSystem has no playerEntity yet - skipping quest update for ${npc.npcType}`);
+    } else if (this.questTrackingSystem && !this.questTrackingSystem.hasPlayer()) {
+      console.warn(`⚠️ [MISSION] QuestTrackingSystem has no playerEntity yet - skipping mission update for ${npc.npcType}`);
     }
 
     // Nota: Il respawn degli NPC è ora gestito lato server

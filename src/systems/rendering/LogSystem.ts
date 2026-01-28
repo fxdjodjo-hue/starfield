@@ -10,7 +10,7 @@ import { DisplayManager } from '../../infrastructure/display';
  * Mostra informazioni importanti del gameplay con animazioni e styling
  */
 export class LogSystem extends BaseSystem {
-  private maxMessages: number = 5; // Numero massimo di messaggi visibili contemporaneamente
+  private maxMessages: number = 3; // Numero massimo di messaggi visibili contemporaneamente
   private messageSpacing: number = 8; // Spazio tra i messaggi
   private topMargin: number = 50; // Margine dall'alto dello schermo
 
@@ -58,7 +58,7 @@ export class LogSystem extends BaseSystem {
     visibleMessages.forEach((message) => {
       const lineCount = message!.text.split('\n').length;
       this.renderLogMessage(ctx, message!, currentY);
-      const messageHeight = lineCount * 20 + this.messageSpacing; // 20px per riga + spacing
+      const messageHeight = lineCount * 22 + this.messageSpacing; // Ridotto a 22px
       currentY += messageHeight;
     });
   }
@@ -76,25 +76,29 @@ export class LogSystem extends BaseSystem {
     ctx.save();
     ctx.globalAlpha = alpha;
 
-    // Imposta stile del testo semplice
-    ctx.fillStyle = message.getTextColor();
-    ctx.font = '16px Arial';
+    // Imposta stile del testo premium (Look PALANTIR: 200 weight, 4px spacing)
+    ctx.font = '200 15px \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
+    ctx.letterSpacing = '4px'; // Ridotto per risparmiare spazio (da 6.8px)
 
     // Aggiungi leggera ombra per leggibilità
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 2;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 4;
     ctx.shadowOffsetX = 1;
     ctx.shadowOffsetY = 1;
 
     // Splitta il messaggio su nuove righe e renderizza ogni riga
     const lines = message.text.split('\n');
-    const lineHeight = 20; // Altezza di ogni riga
+    const lineHeight = 22; // Altezza di ogni riga ridotta (da 25px)
 
     lines.forEach((line, lineIndex) => {
-      const y = startY + (lineIndex * lineHeight);
-      ctx.fillText(line, canvasWidth / 2, y);
+      const lineY = startY + (lineIndex * lineHeight);
+
+      // La prima riga usa il colore del tipo, le altre sono bianche (per rewards/info)
+      ctx.fillStyle = lineIndex === 0 ? message.getTextColor() : '#ffffff';
+
+      ctx.fillText(line, canvasWidth / 2, lineY);
     });
 
     // Ripristina contesto
@@ -153,6 +157,24 @@ export class LogSystem extends BaseSystem {
   }
 
   /**
+   * Log unificato per NPC sconfitto con ricompense
+   */
+  logNpcDefeatWithRewards(npcName: string, credits: number, cosmos: number, experience: number, honor: number, duration: number = 4000): void {
+    const rewards: string[] = [];
+    const f = (n: number) => NumberFormatter.format(n);
+
+    if (credits > 0) rewards.push(`${f(credits)} Credits`);
+    if (cosmos > 0) rewards.push(`${f(cosmos)} Cosmos`);
+    if (experience > 0) rewards.push(`${f(experience)} Experience`);
+    if (honor > 0) rewards.push(`${f(honor)} Honor`);
+
+    const title = `${npcName.toUpperCase()} DEFEATED!`;
+    const text = rewards.length > 0 ? `${title}\nRewards: ${rewards.join(', ')}` : title;
+
+    this.addLogMessage(text, LogType.NPC_KILLED, duration);
+  }
+
+  /**
    * Log specifico per ricompense
    */
   logReward(credits: number, cosmos: number, experience: number, honor: number, duration: number = 4000): void {
@@ -172,17 +194,25 @@ export class LogSystem extends BaseSystem {
   }
 
   /**
-   * Log specifico per messaggi relativi alle quest
+   * Log specifico per messaggi relativi alle missioni
    */
-  logQuest(text: string, duration: number = 5000): void {
-    this.addLogMessage(text, LogType.QUEST, duration);
+  logMission(text: string, duration: number = 5000): void {
+    this.addLogMessage(text, LogType.MISSION, duration);
   }
 
   /**
-   * Log specifico per progresso quest
+   * Log specifico per progresso missione
    */
-  logQuestProgress(questTitle: string, current: number, target: number): void {
+  logMissionProgress(missionTitle: string, current: number, target: number): void {
     const f = (n: number) => NumberFormatter.format(n);
-    this.addLogMessage(`Progress [${questTitle}]: ${f(current)}/${f(target)}`, LogType.QUEST, 3000);
+    this.addLogMessage(`Progress [${missionTitle}]: ${f(current)}/${f(target)}`, LogType.MISSION, 3000);
+  }
+
+  /**
+   * Log specifico per completamento missione (Titolo + Ricompense)
+   */
+  logMissionCompletion(title: string, rewards: string, duration: number = 6000): void {
+    const text = rewards ? `MISSION COMPLETED: ${title}\n${rewards}` : `MISSION COMPLETED: ${title}`;
+    this.addLogMessage(text, LogType.MISSION, duration);
   }
 }
