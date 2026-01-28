@@ -4,6 +4,7 @@ import type { PlayerStateUpdateMessage } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
+import { Inventory } from '../../../entities/player/Inventory';
 import { DamageText } from '../../../entities/combat/DamageText';
 
 /**
@@ -129,6 +130,21 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     // Ottieni riferimento all'UiSystem per aggiornamenti successivi
     const uiSystem = networkSystem.getUiSystem();
 
+    // SINCRONIZZA L'INVENTARIO ECS (se presente nel messaggio)
+    const items = (message as any).items;
+    if (items && networkSystem.getPlayerSystem()) {
+      const ecs = networkSystem.getECS();
+      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+      if (ecs && playerEntity) {
+        const inventoryComponent = ecs.getComponent(playerEntity, Inventory) as Inventory | undefined;
+        if (inventoryComponent) {
+          inventoryComponent.sync(items);
+          // Ricalcola le stats locali per sicurezza (anche se il server ha mandato i valori finali)
+          networkSystem.getPlayerSystem()?.refreshPlayerStats();
+        }
+      }
+    }
+
     // Mostra notifica delle ricompense guadagnate (se presente)
     if (rewardsEarned) {
       // Chiama il RewardSystem per assegnare le ricompense e aggiornare le quest
@@ -141,27 +157,27 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           honor: rewardsEarned.honor
         }, rewardsEarned.npcType);
       }
-
     }
 
-    // 🔄 AGGIORNA L'HUD IN TEMPO REALE DOPO TUTTI GLI AGGIORNAMENTI
-    // Questo è importante per aggiornare le barre HP/shield quando arrivano messaggi di riparazione
+    // 🔄 AGGIORNA LE UI IN TEMPO REALE DOPO TUTTI GLI AGGIORNAMENTI
+    // Importante per riflettere immediatamente i cambiamenti di HP/Shield max dopo equipaggiamento
     if (uiSystem) {
-      // Aggiorna anche il pannello Upgrade per riflettere i valori reali (solo se ci sono upgrades)
-      if (upgrades) {
-        const upgradePanel = uiSystem.getUpgradePanel();
-        if (upgradePanel) {
-          // Assicurati che abbia il riferimento al PlayerSystem
-          const playerSystem = networkSystem.getPlayerSystem();
-          if (playerSystem) {
-            upgradePanel.setPlayerSystem(playerSystem);
-          }
-          upgradePanel.updatePlayerStats();
-        }
+      const uiManager = uiSystem.getUIManager();
+
+      // 1. Aggiorna l'HUD classico
+      uiSystem.showPlayerInfo();
+
+      // 2. Aggiorna il pannello Pilot Status (UpgradePanel) se esiste
+      const upgradePanel = uiSystem.getUpgradePanel();
+      if (upgradePanel) {
+        upgradePanel.updatePlayerStats();
       }
 
-      // Aggiorna l'HUD in tempo reale (sempre, anche per messaggi di riparazione)
-      uiSystem.showPlayerInfo();
+      // 3. Aggiorna il pannello Ship Systems (InventoryPanel) se esiste
+      const inventoryPanel = uiManager.getPanel('inventory-panel');
+      if (inventoryPanel && typeof (inventoryPanel as any).update === 'function') {
+        (inventoryPanel as any).update();
+      }
     }
 
     // Forza aggiornamento immediato di PlayerStatusDisplaySystem per messaggi di riparazione

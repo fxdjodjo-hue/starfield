@@ -7,6 +7,7 @@ import { Damage } from '../../../../entities/combat/Damage';
 import { PlayerUpgrades } from '../../../../entities/player/PlayerUpgrades';
 import { Credits } from '../../../../entities/currency/Credits';
 import { Cosmos } from '../../../../entities/currency/Cosmos';
+import { Inventory } from '../../../../entities/player/Inventory';
 import { getPlayerDefinition } from '../../../../config/PlayerConfig';
 
 /**
@@ -57,6 +58,7 @@ export class UpgradeStatsManager {
     const health = this.ecs.getComponent(playerEntity, Health);
     const shield = this.ecs.getComponent(playerEntity, Shield);
     const damage = this.ecs.getComponent(playerEntity, Damage);
+    const inventory = this.ecs.getComponent(playerEntity, Inventory) as Inventory | undefined;
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
 
     // Ottieni configurazione giocatore per limiti massimi
@@ -89,9 +91,9 @@ export class UpgradeStatsManager {
         speedValue.textContent = `${NumberFormatter.format(calculatedSpeed)} u/s`;
       }
 
-      // Calculate and update damage with bonus from upgrades (same method as applyPlayerUpgrades)
+      // Calculate and update damage with bonus from upgrades and items
       if (damage && playerDef.stats.damage) {
-        const damageBonus = playerUpgrades.getDamageBonus();
+        const damageBonus = playerUpgrades.getDamageBonus(inventory);
         const calculatedDamage = Math.floor(playerDef.stats.damage * damageBonus);
 
         const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
@@ -100,8 +102,8 @@ export class UpgradeStatsManager {
         }
       }
 
-      // Update missile damage with bonus from upgrades
-      const missileDamageBonus = playerUpgrades.getMissileDamageBonus();
+      // Update missile damage with bonus from upgrades and items
+      const missileDamageBonus = playerUpgrades.getMissileDamageBonus(inventory);
       const baseMissileDamage = playerDef.stats.missileDamage || 100;
       const calculatedMissileDamage = Math.floor(baseMissileDamage * missileDamageBonus);
 

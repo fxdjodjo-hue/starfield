@@ -66,28 +66,58 @@ class AuthenticationManager {
   }
 
   /**
-   * Calcola maxHealth basato sugli upgrade HP
-   * Formula: baseValue * (1.0 + hpUpgrades * 0.01)
+   * Calcola maxHealth basato sugli upgrade HP e oggetti equipaggiati
    * 
    * @param {number} hpUpgrades - Numero di upgrade HP
+   * @param {Array} items - Oggetti nell'inventario
    * @returns {number} Max health calcolato
    */
-  calculateMaxHealth(hpUpgrades) {
+  calculateMaxHealth(hpUpgrades, items = []) {
     const baseHealth = playerConfig.stats.health;
-    const bonus = 1.0 + (hpUpgrades * 0.05);
+    let bonus = 1.0 + (hpUpgrades * 0.05);
+
+    // Aggiungi bonus dagli item equipaggiati
+    if (items && Array.isArray(items)) {
+      const itemConfig = require('../../../shared/item-config.json');
+      const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
+
+      const equippedHullItem = items.find(i => i.slot === 'HULL');
+      if (equippedHullItem) {
+        const itemDef = ITEM_REGISTRY[equippedHullItem.id];
+        if (itemDef?.stats?.hpBonus) {
+          bonus += itemDef.stats.hpBonus;
+        }
+      }
+    }
+
     return Math.floor(baseHealth * bonus);
   }
 
   /**
-   * Calcola maxShield basato sugli upgrade Shield
-   * Formula: baseValue * (1.0 + shieldUpgrades * 0.01)
+   * Calcola maxShield basato sugli upgrade Shield e oggetti equipaggiati
    * 
    * @param {number} shieldUpgrades - Numero di upgrade Shield
+   * @param {Array} items - Oggetti nell'inventario
    * @returns {number} Max shield calcolato
    */
-  calculateMaxShield(shieldUpgrades) {
+  calculateMaxShield(shieldUpgrades, items = []) {
     const baseShield = playerConfig.stats.shield;
-    const bonus = 1.0 + (shieldUpgrades * 0.05);
+    let bonus = 1.0 + (shieldUpgrades * 0.05);
+
+    // Aggiungi bonus dagli item equipaggiati
+    if (items && Array.isArray(items)) {
+      const itemConfig = require('../../../shared/item-config.json');
+      const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
+
+      const equippedShieldItem = items.find(i => i.slot === 'SHIELD');
+      if (equippedShieldItem) {
+        const itemDef = ITEM_REGISTRY[equippedShieldItem.id];
+        if (itemDef?.stats?.shieldBonus) {
+          bonus += itemDef.stats.shieldBonus;
+        }
+      }
+    }
+
     return Math.floor(baseShield * bonus);
   }
 

@@ -27,6 +27,7 @@ export class InventoryPanel extends BasePanel {
   private lastTimestamp: number = 0;
   private networkSystem: any = null;
   private activePopup: HTMLElement | null = null;
+  private lastInventoryHash: string = '';
 
   constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
     super(config);
@@ -320,44 +321,54 @@ export class InventoryPanel extends BasePanel {
 
     // Equipment Slots
     const createEquipmentSlot = (label: string, position: { top?: string, bottom?: string, left?: string, right?: string }) => {
-      const slot = document.createElement('div');
-      const posStyle = Object.entries(position).map(([k, v]) => `${k}:${v}`).join(';');
-      slot.style.cssText = `
+      const wrapper = document.createElement('div');
+      const posStyle = Object.entries(position).map(([k, v]) => {
+        if (k === 'dataSlot') return ''; // Metadata non CSS
+        return `${k}:${v}`;
+      }).join(';');
+
+      wrapper.style.cssText = `
         position: absolute;
         ${posStyle};
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        z-index: 2;
+      `;
+
+      const slot = document.createElement('div');
+      slot.style.cssText = `
         width: 80px;
         height: 80px;
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 2px;
         display: flex;
-        flex-direction: column;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        transition: all 0.3s ease;
         backdrop-filter: blur(10px);
-        z-index: 2;
       `;
       slot.className = 'equipment-slot';
       slot.setAttribute('data-slot', (position as any).dataSlot || label.toUpperCase());
-      slot.innerHTML = `
-        <div style="font-size: 24px; opacity: 0.2;">+</div>
-        <div style="font-size: 8px; font-weight: 800; color: rgba(255, 255, 255, 0.4); margin-top: 4px; text-align: center; text-transform: uppercase;">${label}</div>
+      slot.innerHTML = `<div style="font-size: 20px; opacity: 0.1;">+</div>`;
+
+      const labelEl = document.createElement('div');
+      labelEl.style.cssText = `
+        font-size: 9px;
+        font-weight: 800;
+        color: rgba(255, 255, 255, 0.4);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        text-align: center;
       `;
+      labelEl.textContent = label;
 
-      slot.addEventListener('mouseenter', () => {
-        slot.style.background = 'rgba(255, 255, 255, 0.1)';
-        slot.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-        slot.style.transform = 'scale(1.1)';
-      });
-      slot.addEventListener('mouseleave', () => {
-        slot.style.background = 'rgba(255, 255, 255, 0.03)';
-        slot.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-        slot.style.transform = 'scale(1)';
-      });
+      wrapper.appendChild(slot);
+      wrapper.appendChild(labelEl);
 
-      return slot;
+      return wrapper;
     };
 
     shipContainer.appendChild(createEquipmentSlot('Hull', { top: '0', left: '160px', dataSlot: ItemSlot.HULL } as any));
@@ -447,6 +458,19 @@ export class InventoryPanel extends BasePanel {
   }
 
   /**
+   * Helper per renderizzare icone (supporta sia emoji che path immagini)
+   */
+  private renderIcon(icon: string, size: string = '24px', filter: string = ''): string {
+    if (icon.includes('/') || icon.includes('.')) {
+      // È un'immagine
+      return `<img src="${icon}" style="width: ${size}; height: ${size}; object-fit: contain; ${filter ? `filter: ${filter};` : ''}">`;
+    } else {
+      // È un'emoji
+      return `<div style="font-size: ${size}; line-height: 1;">${icon}</div>`;
+    }
+  }
+
+  /**
    * Aggiorna i dati del pannello
    */
   update(): void {
@@ -525,16 +549,26 @@ export class InventoryPanel extends BasePanel {
     const cargoGrid = this.container.querySelector('.inventory-grid');
     if (!cargoGrid) return;
 
+    // 🚀 OPTIMIZATION: Check if inventory actually changed before destroying DOM
+    const currentHash = JSON.stringify(inventory.items.map(i => ({ id: i.id, instanceId: i.instanceId }))) +
+      JSON.stringify(inventory.equipped);
+    if (this.lastInventoryHash === currentHash) {
+      // Still update visual slots (they are cheaper and might need updates even if items are same)
+      this.updateVisualSlots(inventory);
+      return;
+    }
+    this.lastInventoryHash = currentHash;
+
     // Svuota e ripopola la griglia cargo (solo per item non equipaggiati)
     cargoGrid.innerHTML = '';
 
-    // Mostra gli item nell'inventario
-    inventory.items.forEach(itemInfo => {
+    // Mostra gli item nell'inventario (FILTRATI: solo quelli non equipaggiati)
+    const equippedInstanceIds = new Set(Object.values(inventory.equipped));
+    const unequippedItems = inventory.items.filter(itemInfo => !equippedInstanceIds.has(itemInfo.instanceId));
+
+    unequippedItems.forEach(itemInfo => {
       const itemDef = ITEM_REGISTRY[itemInfo.id];
       if (!itemDef) return;
-
-      // Verifica se questo item è già equipaggiato
-      const isEquipped = Object.values(inventory.equipped).includes(itemInfo.instanceId);
 
       const slot = document.createElement('div');
       slot.style.cssText = `
@@ -542,8 +576,8 @@ export class InventoryPanel extends BasePanel {
         align-items: center;
         gap: 15px;
         padding: 12px 16px;
-        background: ${isEquipped ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.3)'};
-        border: 1px solid ${isEquipped ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.05)'};
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
         border-radius: 2px;
         cursor: pointer;
         transition: all 0.2s ease;
@@ -552,34 +586,25 @@ export class InventoryPanel extends BasePanel {
       `;
 
       slot.innerHTML = `
-        <div style="font-size: 28px; width: 40px; text-align: center;">${itemDef.icon}</div>
+        <div style="width: 48px; display: flex; justify-content: center;">${this.renderIcon(itemDef.icon, '36px')}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="color: #ffffff; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px;">${itemDef.name}</div>
           <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.slot} MODULE</div>
         </div>
       `;
 
-      slot.title = `${itemDef.name}\n${itemDef.description}\n(Click to ${isEquipped ? 'Unequip' : 'Equip'})`;
-
-      if (isEquipped) {
-        const equippedMarker = document.createElement('div');
-        equippedMarker.style.cssText = `
-          position: absolute; top: 2px; right: 2px;
-          width: 6px; height: 6px; background: #00ff00; border-radius: 50%;
-        `;
-        slot.appendChild(equippedMarker);
-      }
+      slot.title = `${itemDef.name}\n${itemDef.description}\n(Click to Equip)`;
 
       slot.onclick = (e) => {
         e.stopPropagation();
-        this.showItemDetails(itemDef, itemInfo.instanceId, isEquipped, inventory);
+        this.showItemDetails(itemDef, itemInfo.instanceId, false, inventory);
       };
 
       cargoGrid.appendChild(slot);
     });
 
-    // RiemPi con slot vuoti se necessario
-    const emptySlots = Math.max(0, 8 - inventory.items.length);
+    // Riempi con slot vuoti se necessario (basato su unepuippedItems)
+    const emptySlots = Math.max(0, 8 - unequippedItems.length);
     for (let i = 0; i < emptySlots; i++) {
       const slot = document.createElement('div');
       slot.style.cssText = `
@@ -614,21 +639,26 @@ export class InventoryPanel extends BasePanel {
 
       if (slotElement) {
         const equippedId = inventory.getEquippedItemId(s.slot);
+        const instanceId = Object.entries(inventory.equipped).find(([slot, id]) => slot === s.slot)?.[1] || '';
+
         if (equippedId) {
           const item = ITEM_REGISTRY[equippedId];
-          slotElement.innerHTML = `
-            <div style="font-size: 24px;">${item.icon}</div>
-            <div style="font-size: 8px; font-weight: 800; color: #ffffff; margin-top: 4px; text-align: center; text-transform: uppercase;">${item.name}</div>
-          `;
+          const isImage = item.icon.includes('/') || item.icon.includes('.');
+
+          slotElement.innerHTML = isImage ? this.renderIcon(item.icon, '72px') : '';
           slotElement.style.background = 'rgba(255, 255, 255, 0.15)';
           slotElement.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+
+          // Add details click
+          slotElement.onclick = (e) => {
+            e.stopPropagation();
+            this.showItemDetails(item, instanceId, true, inventory);
+          };
         } else {
-          slotElement.innerHTML = `
-            <div style="font-size: 24px; opacity: 0.2;">+</div>
-            <div style="font-size: 8px; font-weight: 800; color: rgba(255, 255, 255, 0.4); margin-top: 4px; text-align: center; text-transform: uppercase;">${s.label}</div>
-          `;
+          slotElement.innerHTML = `<div style="font-size: 20px; opacity: 0.1;">+</div>`;
           slotElement.style.background = 'rgba(255, 255, 255, 0.03)';
           slotElement.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+          slotElement.onclick = null;
         }
       }
     });
@@ -694,6 +724,7 @@ export class InventoryPanel extends BasePanel {
 
   protected onShow(): void {
     this.recoverElements();
+    this.lastInventoryHash = ''; // Force fresh render on first show
     this.update();
     setTimeout(() => {
       if (this.isVisible) this.startShipAnimation();
@@ -761,7 +792,7 @@ export class InventoryPanel extends BasePanel {
     `;
 
     header.innerHTML = `
-      <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${rarityColor}88);">${item.icon}</div>
+      ${this.renderIcon(item.icon, '32px', `drop-shadow(0 0 10px ${rarityColor}88)`)}
       <div>
         <div style="color: ${rarityColor}; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">${item.name}</div>
         <div style="color: rgba(255, 255, 255, 0.4); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${item.rarity} ${item.slot} MODULE</div>

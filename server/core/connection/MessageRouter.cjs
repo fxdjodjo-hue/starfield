@@ -58,9 +58,9 @@ async function handleJoin(data, sanitizedData, context) {
     return null;
   }
 
-  // Calcola max health/shield basati sugli upgrade
-  const maxHealth = authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades);
-  const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades);
+  // Calcola max health/shield basati sugli upgrade e item equipaggiati
+  const maxHealth = authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades, loadedData.items);
+  const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades, loadedData.items);
 
   // 🟢 MMO-CORRECT: Usa SEMPRE i valori salvati (NULL = errore critico, mai fallback)
   // Se il player esiste, HP deve arrivare dal DB. Se manca → errore, non fallback silenzioso
@@ -509,11 +509,11 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   switch (data.upgradeType) {
     case 'hp':
       playerData.upgrades.hpUpgrades += 1;
-      playerData.maxHealth = authManager.calculateMaxHealth(playerData.upgrades.hpUpgrades);
+      playerData.maxHealth = authManager.calculateMaxHealth(playerData.upgrades.hpUpgrades, playerData.items);
       break;
     case 'shield':
       playerData.upgrades.shieldUpgrades += 1;
-      playerData.maxShield = authManager.calculateMaxShield(playerData.upgrades.shieldUpgrades);
+      playerData.maxShield = authManager.calculateMaxShield(playerData.upgrades.shieldUpgrades, playerData.items);
       break;
     case 'speed':
       playerData.upgrades.speedUpgrades += 1;
@@ -529,6 +529,10 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
       playerData.inventory.cosmos = oldCosmos;
       return;
   }
+
+  // Ensure health and shield are within current limits after upgrade
+  playerData.health = Math.min(playerData.health, playerData.maxHealth);
+  playerData.shield = Math.min(playerData.shield, playerData.maxShield);
 
   const recentHonor = await playerDataManager.getRecentHonorAverage(playerData.userId, 30);
 
@@ -584,7 +588,8 @@ function handleProjectileFired(data, sanitizedData, context) {
   const baseDamage = DamageCalculationSystem.getBasePlayerDamage();
   let calculatedDamage = DamageCalculationSystem.calculatePlayerDamage(
     baseDamage,
-    playerData?.upgrades
+    playerData?.upgrades,
+    playerData?.items || []
   );
 
   // Usa clientId per identificare il giocatore nel sistema di collisione
@@ -1137,6 +1142,14 @@ async function handleEquipItem(data, sanitizedData, context) {
     logger.info('INVENTORY', `Current items state: ${JSON.stringify(playerData.items.map(i => ({ id: i.id, slot: i.slot })))}`);
   }
 
+  // 🔄 RECALCULATE MAX STATS: Ensure server-side max values include item bonuses
+  playerData.maxHealth = authManager.calculateMaxHealth(playerData.upgrades.hpUpgrades, playerData.items);
+  playerData.maxShield = authManager.calculateMaxShield(playerData.upgrades.shieldUpgrades, playerData.items);
+
+  // 🔒 STAT CAPPING: Ensure current stats don't exceed new max (e.g., when un-equipping hull/shield)
+  playerData.health = Math.min(playerData.health, playerData.maxHealth);
+  playerData.shield = Math.min(playerData.shield, playerData.maxShield);
+
   // SAVE IMMEDIATELY: Ensure persistence on every equipment change
   try {
     // Non attendiamo il salvataggio per non bloccare la risposta al client, ma logghiamo eventuali errori
@@ -1147,12 +1160,16 @@ async function handleEquipItem(data, sanitizedData, context) {
     logger.error('DATABASE', `Error triggering save for equipment change: ${e.message}`);
   }
 
-  // Invia aggiornamento stato al client
+  // Invia aggiornamento stato al client (incluso nuove maxHealth/maxShield)
   ws.send(JSON.stringify({
     type: 'player_state_update',
     inventory: { ...playerData.inventory },
     upgrades: { ...playerData.upgrades },
     items: playerData.items,
+    health: playerData.health,
+    maxHealth: playerData.maxHealth,
+    shield: playerData.shield,
+    maxShield: playerData.maxShield,
     source: 'equip_change'
   }));
 }

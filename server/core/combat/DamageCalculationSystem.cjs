@@ -13,22 +13,35 @@ const playerConfig = require('../../../shared/player-config.json');
 
 class DamageCalculationSystem {
   /**
-   * Calcola il danno del player basato su base damage e upgrade
+   * Calcola il danno del player basato su base damage, upgrade e item
    * 
    * @param {number} baseDamage - Danno base (default: da config)
    * @param {Object} upgrades - Oggetto con upgrade del player (opzionale)
-   * @param {number} upgrades.damageUpgrades - Numero di upgrade danno
+   * @param {Array} items - Oggetti nell'inventario (opzionale)
    * @returns {number} Danno calcolato
    */
-  static calculatePlayerDamage(baseDamage = playerConfig.stats.damage, upgrades = null) {
-    if (!upgrades || !upgrades.damageUpgrades) {
-      return baseDamage;
+  static calculatePlayerDamage(baseDamage = playerConfig.stats.damage, upgrades = null, items = []) {
+    let bonus = 1.0;
+
+    if (upgrades && upgrades.damageUpgrades) {
+      bonus += (upgrades.damageUpgrades * 0.05);
     }
 
-    // Formula: damageBonus = 1.0 + (damageUpgrades * 0.05)
-    // Ogni upgrade aumenta il danno del 5%
-    const damageBonus = 1.0 + (upgrades.damageUpgrades * 0.05);
-    return Math.floor(baseDamage * damageBonus);
+    // Aggiungi bonus dagli item equipaggiati
+    if (items && Array.isArray(items)) {
+      const itemConfig = require('../../../shared/item-config.json');
+      const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
+
+      const equippedLaserItem = items.find(i => i.slot === 'LASER');
+      if (equippedLaserItem) {
+        const itemDef = ITEM_REGISTRY[equippedLaserItem.id];
+        if (itemDef?.stats?.damageBonus) {
+          bonus += itemDef.stats.damageBonus;
+        }
+      }
+    }
+
+    return Math.floor(baseDamage * bonus);
   }
 
   /**

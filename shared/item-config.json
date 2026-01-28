@@ -6,7 +6,7 @@
             "description": "Provides superior hull integrity using aerospace-grade titanium.",
             "type": "EQUIPMENT",
             "slot": "HULL",
-            "icon": "🛡️",
+            "icon": "assets/items/hull/titanium_plating.jpg",
             "rarity": "COMMON",
             "stats": {
                 "hpBonus": 0.2
@@ -18,7 +18,7 @@
             "description": "A high-output generator that stabilizes shield harmonics.",
             "type": "EQUIPMENT",
             "slot": "SHIELD",
-            "icon": "🔋",
+            "icon": "assets/items/shield/aegis_shield.jpg",
             "rarity": "COMMON",
             "stats": {
                 "shieldBonus": 0.25
@@ -30,7 +30,7 @@
             "description": "Standard military-grade laser with increased focusing lens.",
             "type": "EQUIPMENT",
             "slot": "LASER",
-            "icon": "🔫",
+            "icon": "assets/items/laser/pulse_laser.jpg",
             "rarity": "COMMON",
             "stats": {
                 "damageBonus": 0.15
@@ -42,7 +42,7 @@
             "description": "Enhanced propulsion system using core fusion bypass.",
             "type": "EQUIPMENT",
             "slot": "ENGINE",
-            "icon": "🚀",
+            "icon": "assets/items/engine/fusion_thruster.jpg",
             "rarity": "COMMON",
             "stats": {
                 "speedBonus": 0.1
@@ -54,7 +54,7 @@
             "description": "Advanced targeting computer for increased missile payload efficiency.",
             "type": "EQUIPMENT",
             "slot": "MISSILE",
-            "icon": "🚀",
+            "icon": "assets/items/missile/stingray_missile.jpg",
             "rarity": "COMMON",
             "stats": {
                 "missileBonus": 0.2
