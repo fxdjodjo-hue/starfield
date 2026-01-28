@@ -1,0 +1,415 @@
+import { BasePanel } from './FloatingIcon';
+import type { PanelConfig } from './PanelConfig';
+import type { PanelData } from './UIManager';
+import { ECS } from '../../infrastructure/ecs/ECS';
+import { PlayerSystem } from '../../systems/player/PlayerSystem';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import { Damage } from '../../entities/combat/Damage';
+import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
+import { getPlayerDefinition } from '../../config/PlayerConfig';
+import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
+
+/**
+ * InventoryPanel - Pannello per la gestione dell'inventario e dell'equipaggiamento
+ * Layout a tre colonne: Stats, Ship Visualization, Cargo
+ */
+export class InventoryPanel extends BasePanel {
+  private ecs!: ECS;
+  private playerSystem: PlayerSystem | null = null;
+  private statsElements!: { [key: string]: HTMLElement };
+
+  constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
+    // Nota: super() chiama createPanelContent(), che inizializza statsElements.
+    // In TS, gli inizializzatori di proprietà (come statsElements = {}) girano DOPO super(),
+    // rischiando di sovrascrivere i dati appena impostati. Per questo usiamo ! e inizializziamo nel metodo.
+    super(config);
+    this.ecs = ecs;
+    this.playerSystem = playerSystem || null;
+  }
+
+  /**
+   * Crea il contenuto del pannello dell'inventario
+   */
+  protected createPanelContent(): HTMLElement {
+    const content = document.createElement('div');
+    content.className = 'inventory-panel-content';
+    content.style.cssText = `
+      padding: 30px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: rgba(0, 0, 0, 0.2);
+    `;
+
+    // Header Section
+    const headerSection = document.createElement('div');
+    headerSection.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 10px;
+    `;
+
+    const titleGroup = document.createElement('div');
+    const title = document.createElement('h2');
+    title.textContent = 'SHIP SYSTEMS';
+    title.style.cssText = `
+      margin: 0;
+      color: #ffffff;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    `;
+
+    const subtitle = document.createElement('p');
+    subtitle.textContent = 'FLEET MANAGEMENT & CARGO';
+    subtitle.style.cssText = `
+      margin: 4px 0 0 0;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    `;
+
+    titleGroup.appendChild(title);
+    titleGroup.appendChild(subtitle);
+
+    const closeButton = document.createElement('button');
+    closeButton.textContent = '×';
+    closeButton.style.cssText = `
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 24px;
+      cursor: pointer;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+    `;
+    closeButton.addEventListener('mouseenter', () => {
+      closeButton.style.background = 'rgba(239, 68, 68, 0.2)';
+      closeButton.style.color = '#ef4444';
+      closeButton.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+    });
+    closeButton.addEventListener('mouseleave', () => {
+      closeButton.style.background = 'rgba(255, 255, 255, 0.05)';
+      closeButton.style.color = 'rgba(255, 255, 255, 0.6)';
+      closeButton.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+    });
+    closeButton.addEventListener('click', () => this.hide());
+
+    headerSection.appendChild(titleGroup);
+    headerSection.appendChild(closeButton);
+    content.appendChild(headerSection);
+
+    // Three Column Layout
+    const mainLayout = document.createElement('div');
+    mainLayout.style.cssText = `
+      display: grid;
+      grid-template-columns: 320px 1fr 320px;
+      gap: 30px;
+      flex: 1;
+      overflow: hidden;
+      margin-top: 10px;
+    `;
+
+    // --- COLUMN 1: SHIP STATUS (Stats) ---
+    const statsColumn = document.createElement('div');
+    statsColumn.className = 'inventory-column stats-column';
+    statsColumn.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 24px;
+    `;
+
+    const statsHeader = document.createElement('h3');
+    statsHeader.textContent = 'TELEMETRY DATA';
+    statsHeader.style.cssText = `
+      margin: 0;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 2px;
+    `;
+    statsColumn.appendChild(statsHeader);
+
+    const statsList = document.createElement('div');
+    statsList.style.cssText = `display: flex; flex-direction: column; gap: 15px;`;
+
+    // Ensure statsElements is initialized (super() calls this before constructor assignments)
+    this.statsElements = {};
+
+    const createStatRow = (label: string, id: string, icon: string) => {
+      const row = document.createElement('div');
+      row.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      `;
+      row.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="color: rgba(255, 255, 255, 0.5); font-size: 11px; font-weight: 700; letter-spacing: 1px;">${icon} ${label}</span>
+          <span class="stat-value-${id}" style="color: #ffffff; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums;">--</span>
+        </div>
+        <div style="height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 2px; overflow: hidden;">
+          <div class="stat-bar-${id}" style="height: 100%; width: 0%; background: #ffffff; opacity: 0.6; transition: width 0.5s ease;"></div>
+        </div>
+      `;
+      this.statsElements[id] = row.querySelector(`.stat-value-${id}`) as HTMLElement;
+      (this.statsElements as any)[`${id}_bar`] = row.querySelector(`.stat-bar-${id}`) as HTMLElement;
+      return row;
+    };
+
+    statsList.appendChild(createStatRow('HULL INTEGRITY', 'hp', '🛡️'));
+    statsList.appendChild(createStatRow('SHIELD OUTPUT', 'shield', '⚡'));
+    statsList.appendChild(createStatRow('WEAPON POWER', 'damage', '💥'));
+    statsList.appendChild(createStatRow('MISSILE PAYLOAD', 'missile', '🚀'));
+    statsList.appendChild(createStatRow('ENGINE THRUST', 'speed', '💨'));
+
+    statsColumn.appendChild(statsList);
+
+    // --- COLUMN 2: SHIP VISUALIZATION & SLOTS ---
+    const visualColumn = document.createElement('div');
+    visualColumn.className = 'inventory-column visual-column';
+    visualColumn.style.cssText = `
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    // Ship Container and Image
+    const shipContainer = document.createElement('div');
+    shipContainer.style.cssText = `
+      position: relative;
+      width: 400px;
+      height: 400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    const shipImage = document.createElement('img');
+    shipImage.src = 'assets/ships/ship106/ship106.png';
+    shipImage.style.cssText = `
+      width: 280px;
+      height: 280px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.15));
+      animation: shipRotation 20s linear infinite;
+    `;
+    shipContainer.appendChild(shipImage);
+
+    // Equipment Slots positioned around the ship
+    const createEquipmentSlot = (label: string, position: { top?: string, bottom?: string, left?: string, right?: string }) => {
+      const slot = document.createElement('div');
+      slot.className = 'equipment-slot';
+      const posStyle = Object.entries(position).map(([k, v]) => `${k}:${v}`).join(';');
+      slot.style.cssText = `
+        position: absolute;
+        ${posStyle};
+        width: 80px;
+        height: 80px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(10px);
+        z-index: 2;
+      `;
+      slot.innerHTML = `
+        <div style="font-size: 24px; opacity: 0.2;">+</div>
+        <div style="font-size: 8px; font-weight: 800; color: rgba(255, 255, 255, 0.4); margin-top: 4px; text-align: center; text-transform: uppercase;">${label}</div>
+      `;
+
+      slot.addEventListener('mouseenter', () => {
+        slot.style.background = 'rgba(255, 255, 255, 0.1)';
+        slot.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+        slot.style.transform = 'scale(1.1)';
+      });
+      slot.addEventListener('mouseleave', () => {
+        slot.style.background = 'rgba(255, 255, 255, 0.03)';
+        slot.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+        slot.style.transform = 'scale(1)';
+      });
+
+      return slot;
+    };
+
+    // Position slots around ship
+    shipContainer.appendChild(createEquipmentSlot('Primary', { top: '0', left: '160px' }));
+    shipContainer.appendChild(createEquipmentSlot('Secondary', { bottom: '0', left: '160px' }));
+    shipContainer.appendChild(createEquipmentSlot('Shields', { top: '160px', left: '0' }));
+    shipContainer.appendChild(createEquipmentSlot('Engines', { top: '160px', right: '0' }));
+
+    visualColumn.appendChild(shipContainer);
+
+    // --- COLUMN 3: CARGO HOLD (Grid) ---
+    const cargoColumn = document.createElement('div');
+    cargoColumn.className = 'inventory-column cargo-column';
+    cargoColumn.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 24px;
+    `;
+
+    const cargoHeader = document.createElement('h3');
+    cargoHeader.textContent = 'CARGO STORAGE';
+    cargoHeader.style.cssText = `
+      margin: 0;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 2px;
+    `;
+    cargoColumn.appendChild(cargoHeader);
+
+    const cargoGrid = document.createElement('div');
+    cargoGrid.className = 'inventory-grid';
+    cargoGrid.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      overflow-y: auto;
+      padding-right: 8px;
+      flex: 1;
+    `;
+
+    for (let i = 0; i < 21; i++) {
+      const slot = document.createElement('div');
+      slot.style.cssText = `
+          aspect-ratio: 1/1;
+          background: rgba(0, 0, 0, 0.3);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 12px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        `;
+      slot.addEventListener('mouseenter', () => {
+        slot.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        slot.style.background = 'rgba(255, 255, 255, 0.05)';
+      });
+      slot.addEventListener('mouseleave', () => {
+        slot.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+        slot.style.background = 'rgba(0, 0, 0, 0.3)';
+      });
+      cargoGrid.appendChild(slot);
+    }
+    cargoColumn.appendChild(cargoGrid);
+
+    mainLayout.appendChild(statsColumn);
+    mainLayout.appendChild(visualColumn);
+    mainLayout.appendChild(cargoColumn);
+    content.appendChild(mainLayout);
+
+    // Animation Keyframes
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+      @keyframes shipRotation {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      .inventory-grid::-webkit-scrollbar {
+        width: 4px;
+      }
+      .inventory-grid::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .inventory-grid::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+      }
+    `;
+    document.head.appendChild(styleSheet);
+
+    return content;
+  }
+
+  /**
+   * Aggiorna i dati del pannello
+   */
+  update(data?: PanelData): void {
+    if (!this.playerSystem) return;
+
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const health = this.ecs.getComponent(playerEntity, Health);
+    const shield = this.ecs.getComponent(playerEntity, Shield);
+    const damage = this.ecs.getComponent(playerEntity, Damage);
+    const upgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
+    const playerDef = getPlayerDefinition();
+
+    if (this.statsElements.hp) {
+      this.statsElements.hp.textContent = NumberFormatter.format(health ? health.max : playerDef.stats.health);
+      const percent = health ? (health.current / health.max) * 100 : 100;
+      (this.statsElements as any).hp_bar.style.width = `${percent}%`;
+    }
+
+    if (this.statsElements.shield) {
+      const maxShield = shield ? shield.max : (playerDef.stats.shield || 0);
+      this.statsElements.shield.textContent = NumberFormatter.format(maxShield);
+      const percent = shield && shield.max > 0 ? (shield.current / shield.max) * 100 : 100;
+      (this.statsElements as any).shield_bar.style.width = `${percent}%`;
+    }
+
+    if (this.statsElements.damage) {
+      const currentDamage = damage ? damage.damage : playerDef.stats.damage;
+      this.statsElements.damage.textContent = NumberFormatter.format(currentDamage);
+      const bonus = upgrades ? upgrades.getDamageBonus() : 1;
+      (this.statsElements as any).damage_bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+    }
+
+    if (this.statsElements.missile) {
+      const missileDmg = playerDef.stats.missileDamage || 100;
+      const bonus = upgrades ? upgrades.getMissileDamageBonus() : 1;
+      this.statsElements.missile.textContent = NumberFormatter.format(Math.floor(missileDmg * bonus));
+      (this.statsElements as any).missile_bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+    }
+
+    if (this.statsElements.speed) {
+      const baseSpeed = playerDef.stats.speed;
+      const bonus = upgrades ? upgrades.getSpeedBonus() : 1;
+      this.statsElements.speed.textContent = `${Math.floor(baseSpeed * bonus)} u/s`;
+      (this.statsElements as any).speed_bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+    }
+  }
+
+  /**
+   * Sincronizza i dati quando viene mostrato
+   */
+  protected onShow(): void {
+    this.update();
+  }
+}

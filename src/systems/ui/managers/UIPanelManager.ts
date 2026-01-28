@@ -3,6 +3,7 @@ import { LeaderboardPanel } from '../../../presentation/ui/LeaderboardPanel';
 import { QuestPanel } from '../../../presentation/ui/QuestPanel';
 import { UpgradePanel } from '../../../presentation/ui/UpgradePanel';
 import { SettingsPanel } from '../../../presentation/ui/SettingsPanel';
+import { InventoryPanel } from '../../../presentation/ui/InventoryPanel';
 import { getPanelConfig } from '../../../presentation/ui/PanelConfig';
 import type { QuestSystem } from '../../quest/QuestSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
@@ -56,6 +57,11 @@ export class UIPanelManager {
     const settingsConfig = getPanelConfig('settings');
     const settingsPanel = new SettingsPanel(settingsConfig);
     this.uiManager.registerPanel(settingsPanel);
+
+    // Crea e registra il pannello inventario
+    const inventoryConfig = getPanelConfig('inventory');
+    const inventoryPanel = new InventoryPanel(inventoryConfig, this.ecs, this.playerSystem || undefined);
+    this.uiManager.registerPanel(inventoryPanel);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);

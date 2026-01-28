@@ -35,7 +35,7 @@ export interface PanelConfig {
   icon: string; // Unicode icon or CSS class (fallback)
   svgPath?: string; // Percorso per l'asset SVG
   title: string;
-  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'center-left-below2' | 'center-left-below3' | 'bottom-left' | 'bottom-right';
+  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'center-left-below2' | 'center-left-below3' | 'center-left-below4' | 'bottom-left' | 'bottom-right';
   size: { width: number; height: number };
 }
 
@@ -76,6 +76,13 @@ const PANEL_CONFIGS_BASE = {
     svgPath: 'assets/svg/gameUi/settings-svgrepo-com.svg',
     title: 'Settings',
     position: 'center-left-below3' as const,
+    size: { ...LARGE_PANEL_SIZE }
+  },
+  inventory: {
+    id: 'inventory-panel',
+    icon: '📦',
+    title: 'Inventory',
+    position: 'center-left-below4' as const,
     size: { ...LARGE_PANEL_SIZE }
   }
 } as const;
@@ -161,6 +168,7 @@ export const ICON_POSITIONS = {
   'center-left-below': 'center-left-below',
   'center-left-below2': 'center-left-below2',
   'center-left-below3': 'center-left-below3',
+  'center-left-below4': 'center-left-below4',
   'top-left': 'top-left',
   'top-right': 'top-right',
   'bottom-left': 'bottom-left',

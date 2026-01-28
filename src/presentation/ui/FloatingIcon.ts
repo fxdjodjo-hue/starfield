@@ -405,6 +405,8 @@ export class FloatingIcon {
         return '53%';
       case 'center-left-below3':
         return '59%';
+      case 'center-left-below4':
+        return '65%';
       default:
         return '50%';
     }
@@ -425,6 +427,7 @@ export class FloatingIcon {
       case 'center-left-below': return `top: 47%; left: ${margin}px; transform: translateY(-50%);`;
       case 'center-left-below2': return `top: 53%; left: ${margin}px; transform: translateY(-50%);`;
       case 'center-left-below3': return `top: 59%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below4': return `top: 65%; left: ${margin}px; transform: translateY(-50%);`;
       case 'bottom-left': return `bottom: ${margin}px; left: ${margin}px;`;
       case 'bottom-right': return `bottom: ${margin}px; right: ${margin}px;`;
       default: return `top: 50%; left: ${margin}px; transform: translateY(-50%);`; // Default al centro sinistro
