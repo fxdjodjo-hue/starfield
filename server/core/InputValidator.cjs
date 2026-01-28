@@ -458,6 +458,31 @@ class ServerInputValidator {
             }
           };
 
+        case 'equip_item':
+          // Valida richiesta equipaggiamento oggetto
+          const equipErrors = [];
+
+          // instanceId può essere string (equip) o null (unequip)
+          if (data.instanceId !== null && typeof data.instanceId !== 'string') {
+            equipErrors.push('Invalid instanceId (must be string or null)');
+          } else if (typeof data.instanceId === 'string' && data.instanceId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            equipErrors.push('Instance ID too long');
+          }
+
+          // slot deve essere una stringa (es. 'HULL', 'SHIELD') o un numero (legacy)
+          if (typeof data.slot !== 'string' && typeof data.slot !== 'number') {
+            equipErrors.push('Invalid slot (must be a string)');
+          }
+
+          return {
+            isValid: equipErrors.length === 0,
+            errors: equipErrors,
+            sanitizedData: {
+              instanceId: data.instanceId,
+              slot: data.slot
+            }
+          };
+
         default:
           // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
           return {

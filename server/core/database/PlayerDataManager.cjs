@@ -420,6 +420,9 @@ class PlayerDataManager {
         // Per ora facciamo solo upsert di quelli esistenti
 
         for (const item of playerData.items) {
+          if (item.slot) {
+            ServerLoggerWrapper.database(`Saving item ${item.id} (${item.instanceId}) in slot ${item.slot}`);
+          }
           const itemResult = await supabase.from('player_inventory').upsert({
             auth_id: playerId,
             instance_id: item.instanceId,

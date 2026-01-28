@@ -61,6 +61,9 @@ export class UIPanelManager {
     // Crea e registra il pannello inventario
     const inventoryConfig = getPanelConfig('inventory');
     const inventoryPanel = new InventoryPanel(inventoryConfig, this.ecs, this.playerSystem || undefined);
+    if (this.clientNetworkSystem) {
+      inventoryPanel.setClientNetworkSystem(this.clientNetworkSystem);
+    }
     this.uiManager.registerPanel(inventoryPanel);
 
     // Collega il pannello quest al sistema quest

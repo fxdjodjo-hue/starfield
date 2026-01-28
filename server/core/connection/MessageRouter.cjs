@@ -1093,7 +1093,7 @@ async function handleSaveRequest(data, sanitizedData, context) {
  * Handler per messaggio 'equip_item'
  */
 async function handleEquipItem(data, sanitizedData, context) {
-  const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
+  const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
 
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
@@ -1134,10 +1134,20 @@ async function handleEquipItem(data, sanitizedData, context) {
     // Equipaggia il nuovo oggetto
     item.slot = slot;
     logger.info('INVENTORY', `Player ${data.clientId} equipped ${item.id} (${instanceId}) in slot ${slot}`);
+    logger.info('INVENTORY', `Current items state: ${JSON.stringify(playerData.items.map(i => ({ id: i.id, slot: i.slot })))}`);
   }
 
-  // Invia aggiornamento stato al client (opzionale, dato che il client ha già cambiato localmente)
-  // Ma utile per conferma
+  // SAVE IMMEDIATELY: Ensure persistence on every equipment change
+  try {
+    // Non attendiamo il salvataggio per non bloccare la risposta al client, ma logghiamo eventuali errori
+    playerDataManager.savePlayerData(playerData).catch(err => {
+      logger.error('DATABASE', `Failed to save equipment change for ${playerData.userId}: ${err.message}`);
+    });
+  } catch (e) {
+    logger.error('DATABASE', `Error triggering save for equipment change: ${e.message}`);
+  }
+
+  // Invia aggiornamento stato al client
   ws.send(JSON.stringify({
     type: 'player_state_update',
     inventory: { ...playerData.inventory },

@@ -26,6 +26,7 @@ export class InventoryPanel extends BasePanel {
   private animationRequestId: number | null = null;
   private lastTimestamp: number = 0;
   private networkSystem: any = null;
+  private activePopup: HTMLElement | null = null;
 
   constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
     super(config);
@@ -571,24 +572,7 @@ export class InventoryPanel extends BasePanel {
 
       slot.onclick = (e) => {
         e.stopPropagation();
-        if (isEquipped) {
-          inventory.unequipSlot(itemDef.slot);
-          // Sync with server
-          if (this.networkSystem && typeof this.networkSystem.sendEquipItemRequest === 'function') {
-            this.networkSystem.sendEquipItemRequest(null, itemDef.slot);
-          }
-        } else {
-          inventory.equipItem(itemInfo.instanceId, itemDef.slot);
-          // Sync with server
-          if (this.networkSystem && typeof this.networkSystem.sendEquipItemRequest === 'function') {
-            this.networkSystem.sendEquipItemRequest(itemInfo.instanceId, itemDef.slot);
-          }
-        }
-
-        if (this.playerSystem) {
-          this.playerSystem.refreshPlayerStats();
-        }
-        this.update();
+        this.showItemDetails(itemDef, itemInfo.instanceId, isEquipped, inventory);
       };
 
       cargoGrid.appendChild(slot);
@@ -718,5 +702,212 @@ export class InventoryPanel extends BasePanel {
 
   protected onHide(): void {
     this.stopShipAnimation();
+    if (this.activePopup) {
+      this.activePopup.remove();
+      this.activePopup = null;
+    }
+  }
+
+  private showItemDetails(item: any, instanceId: string, isEquipped: boolean, inventory: Inventory): void {
+    if (this.activePopup) {
+      this.activePopup.remove();
+    }
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    `;
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+      width: 380px;
+      background: rgba(20, 20, 25, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      padding: 0;
+      overflow: hidden;
+      transform: scale(0.9);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    `;
+
+    // Rarity Color
+    let rarityColor = '#ffffff';
+    if (item.rarity === 'UNCOMMON') rarityColor = '#22c55e';
+    if (item.rarity === 'RARE') rarityColor = '#3b82f6';
+    if (item.rarity === 'LEGENDARY') rarityColor = '#eab308';
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+      padding: 20px;
+      background: linear-gradient(to right, ${rarityColor}22, transparent);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    `;
+
+    header.innerHTML = `
+      <div style="font-size: 32px; filter: drop-shadow(0 0 10px ${rarityColor}88);">${item.icon}</div>
+      <div>
+        <div style="color: ${rarityColor}; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">${item.name}</div>
+        <div style="color: rgba(255, 255, 255, 0.4); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${item.rarity} ${item.slot} MODULE</div>
+      </div>
+    `;
+
+    // Body
+    const body = document.createElement('div');
+    body.style.cssText = `padding: 24px; display: flex; flex-direction: column; gap: 20px;`;
+
+    // Description
+    const desc = document.createElement('div');
+    desc.style.cssText = `color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5; font-style: italic;`;
+    desc.textContent = item.description;
+
+    // Stats Grid
+    const statsGrid = document.createElement('div');
+    statsGrid.style.cssText = `display: grid; grid-template-columns: 1fr 1fr; gap: 10px;`;
+
+    const createStat = (label: string, value: string, isBonus: boolean = true) => {
+      return `
+        <div style="background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 2px;">
+          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 700; text-transform: uppercase;">${label}</div>
+          <div style="color: ${isBonus ? '#22c55e' : '#ffffff'}; font-size: 14px; font-weight: 700; margin-top: 4px;">${value}</div>
+        </div>
+      `;
+    };
+
+    let statsHtml = '';
+    if (item.stats) {
+      if (item.stats.hpBonus) statsHtml += createStat('Hull Integrity', `+${item.stats.hpBonus * 100}%`);
+      if (item.stats.shieldBonus) statsHtml += createStat('Shield Capacity', `+${item.stats.shieldBonus * 100}%`);
+      if (item.stats.damageBonus) statsHtml += createStat('Laser Damage', `+${item.stats.damageBonus * 100}%`);
+      if (item.stats.missileBonus) statsHtml += createStat('Missile Damage', `+${item.stats.missileBonus * 100}%`);
+      if (item.stats.speedBonus) statsHtml += createStat('Engine Thrust', `+${item.stats.speedBonus * 100}%`);
+    }
+    statsGrid.innerHTML = statsHtml;
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.style.cssText = `display: flex; gap: 10px; margin-top: 10px;`;
+
+    const actionBtn = document.createElement('button');
+    const isEquipAction = !isEquipped;
+
+    actionBtn.style.cssText = `
+      flex: 1;
+      padding: 14px;
+      background: ${isEquipAction ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'};
+      border: 1px solid ${isEquipAction ? 'rgba(34, 197, 94, 0.4)' : 'rgba(239, 68, 68, 0.4)'};
+      color: ${isEquipAction ? '#4ade80' : '#f87171'};
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 2px;
+    `;
+    actionBtn.textContent = isEquipAction ? 'EQUIP MODULE' : 'UNEQUIP MODULE';
+
+    actionBtn.onmouseenter = () => {
+      actionBtn.style.background = isEquipAction ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)';
+    };
+    actionBtn.onmouseleave = () => {
+      actionBtn.style.background = isEquipAction ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)';
+    };
+
+    actionBtn.onclick = () => {
+      if (isEquipped) {
+        inventory.unequipSlot(item.slot);
+        if (this.networkSystem?.sendEquipItemRequest) {
+          this.networkSystem.sendEquipItemRequest(null, item.slot);
+        }
+      } else {
+        inventory.equipItem(instanceId, item.slot);
+        if (this.networkSystem?.sendEquipItemRequest) {
+          this.networkSystem.sendEquipItemRequest(instanceId, item.slot);
+        }
+      }
+
+      if (this.playerSystem) {
+        this.playerSystem.refreshPlayerStats();
+      }
+
+      // Chiudi popup e aggiorna
+      popup.style.opacity = '0';
+      setTimeout(() => popup.remove(), 200);
+      this.activePopup = null;
+      this.update();
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.style.cssText = `
+      padding: 14px 24px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 2px;
+    `;
+    cancelBtn.textContent = 'CANCEL';
+    cancelBtn.onclick = () => {
+      popup.style.opacity = '0';
+      setTimeout(() => popup.remove(), 200);
+      this.activePopup = null;
+    };
+    cancelBtn.onmouseenter = () => {
+      cancelBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+      cancelBtn.style.color = '#ffffff';
+    };
+    cancelBtn.onmouseleave = () => {
+      cancelBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+      cancelBtn.style.color = 'rgba(255, 255, 255, 0.6)';
+    };
+
+    actions.appendChild(actionBtn);
+    actions.appendChild(cancelBtn);
+
+    body.appendChild(desc);
+    body.appendChild(statsGrid);
+    body.appendChild(actions);
+
+    card.appendChild(header);
+    card.appendChild(body);
+    popup.appendChild(card);
+
+    // Click outside to close
+    popup.onclick = (e) => {
+      if (e.target === popup) {
+        cancelBtn.click();
+      }
+    };
+
+    this.container.appendChild(popup);
+    this.activePopup = popup;
+
+    // Animation in
+    requestAnimationFrame(() => {
+      popup.style.opacity = '1';
+      card.style.transform = 'scale(1)';
+    });
   }
 }

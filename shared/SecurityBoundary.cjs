@@ -222,7 +222,9 @@ class BoundaryEnforcement {
       'player_respawn_request',
       'global_monitor_request',
       'skill_upgrade_request',
-      'request_leaderboard'
+      'equp_item',
+      'request_leaderboard',
+      'equip_item'
     ];
 
     // Controlli specifici per tipo di messaggio
@@ -246,6 +248,10 @@ class BoundaryEnforcement {
 
       case 'save_request':
         // Il client può richiedere un salvataggio immediato
+        return { allowed: true };
+
+      case 'equip_item':
+        // Il client può richiedere di equipaggiare item
         return { allowed: true };
 
       case 'join':
