@@ -398,15 +398,15 @@ export class FloatingIcon {
         const { height } = DisplayManager.getInstance().getLogicalSize();
         return `${height - margin - iconSize / 2}px`;
       case 'center-left':
-        return '41%';
+        return '38%';
       case 'center-left-below':
-        return '47%';
+        return '44%';
       case 'center-left-below2':
-        return '53%';
+        return '50%';
       case 'center-left-below3':
-        return '59%';
+        return '56%';
       case 'center-left-below4':
-        return '65%';
+        return '62%';
       default:
         return '50%';
     }
@@ -423,11 +423,11 @@ export class FloatingIcon {
     switch (position) {
       case 'top-left': return `top: ${margin}px; left: ${margin}px;`;
       case 'top-right': return `top: ${margin}px; right: ${margin}px;`;
-      case 'center-left': return `top: 41%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below': return `top: 47%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below2': return `top: 53%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below3': return `top: 59%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below4': return `top: 65%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left': return `top: 38%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below': return `top: 44%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below2': return `top: 50%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below3': return `top: 56%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left-below4': return `top: 62%; left: ${margin}px; transform: translateY(-50%);`;
       case 'bottom-left': return `bottom: ${margin}px; left: ${margin}px;`;
       case 'bottom-right': return `bottom: ${margin}px; right: ${margin}px;`;
       default: return `top: 50%; left: ${margin}px; transform: translateY(-50%);`; // Default al centro sinistro

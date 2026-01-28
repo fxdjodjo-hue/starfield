@@ -79,18 +79,7 @@ export class ChatUIRenderer {
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
     `;
 
-    const subtitle = document.createElement('span');
-    subtitle.textContent = 'COMMUNICATION LINK';
-    subtitle.style.cssText = `
-      color: rgba(255, 255, 255, 0.6);
-      font-size: ${Math.round(10 * c)}px;
-      font-weight: 600;
-      letter-spacing: ${Math.round(1 * c)}px;
-      text-transform: uppercase;
-    `;
-
     titleContainer.appendChild(title);
-    titleContainer.appendChild(subtitle);
 
     // Pulsante toggle
     const toggleButton = document.createElement('button');

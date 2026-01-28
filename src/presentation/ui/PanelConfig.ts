@@ -81,7 +81,8 @@ const PANEL_CONFIGS_BASE = {
   inventory: {
     id: 'inventory-panel',
     icon: '📦',
-    title: 'Inventory',
+    svgPath: 'assets/svg/gameUi/spaceship-svgrepo-com.svg',
+    title: 'Ship',
     position: 'center-left-below4' as const,
     size: { ...LARGE_PANEL_SIZE }
   }
