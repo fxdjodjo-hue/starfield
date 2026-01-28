@@ -64,6 +64,37 @@ export class ProjectileSystem extends BaseSystem {
 
     // Projectile processing - silent in production
 
+    // 0. Handle Missile Launch Phase
+    if (projectile.projectileType === 'missile' && projectile.launchTimer !== undefined && projectile.launchTimer > 0) {
+      projectile.launchTimer -= deltaTime;
+
+      if (projectile.lateralVelocity) {
+        // Apply lateral drift
+        transform.x += projectile.lateralVelocity.x * deltaTimeSeconds;
+        transform.y += projectile.lateralVelocity.y * deltaTimeSeconds;
+
+        // Slightly damp lateral velocity
+        projectile.lateralVelocity.x *= 0.98;
+        projectile.lateralVelocity.y *= 0.98;
+      }
+
+      // Keep moving forward
+      transform.x += projectile.directionX * projectile.speed * deltaTimeSeconds;
+      transform.y += projectile.directionY * projectile.speed * deltaTimeSeconds;
+
+      // Reduce lifetime even during launch
+      projectile.lifetime -= deltaTime;
+
+      // Check collisions even during launch (dangerous launch!)
+      this.checkCollisions(projectileEntity, transform, projectile);
+
+      if (projectile.lifetime <= 0) {
+        this.ecs.removeEntity(projectileEntity);
+        return true;
+      }
+
+      return false; // Skip rest of processing during launch
+    }
     // 1. Controllo cleanup uniforme - rimuovi se necessario
     if (this.shouldRemoveProjectile(projectileEntity, projectile)) {
       return true;

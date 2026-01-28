@@ -127,7 +127,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
     this.initializeManagers();
     this.damageManager.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
   }
@@ -135,7 +135,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Decrementa il contatore dei testi di danno attivi per un'entità
    */
-  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser'): void {
+  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
     this.initializeManagers();
     this.damageManager.decrementDamageTextCount(targetEntityId, projectileType);
   }
@@ -163,7 +163,7 @@ export class CombatSystem extends BaseSystem {
    */
   public stopCombatImmediately(): void {
     this.initializeManagers();
-    
+
     // Disattiva anche l'attacco nel PlayerControlSystem PRIMA di tutto
     const playerControlSystem = this.ecs.getSystems().find((system) =>
       system instanceof PlayerControlSystem

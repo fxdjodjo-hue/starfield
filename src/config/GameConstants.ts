@@ -14,7 +14,10 @@ export const PROJECTILE = {
   HIT_RADIUS: 30,                // Raggio collisione (px)
   PLAYER_LASER_WIDTH: 60,         // Larghezza laser player (px)
   PLAYER_LASER_HEIGHT: 20,        // Altezza laser player (px)
-  MISSILE_SPEED: 500            // Velocità missili (px/s) - aumentata da 250
+  MISSILE_SPEED: 500,           // Velocità missili (px/s)
+  MISSILE_LATERAL_OFFSET: 0.35,  // Offset laterale missili (moltiplicatore frameWidth)
+  MISSILE_LAUNCH_DURATION: 450,  // Durata fase di lancio (ms)
+  MISSILE_LAUNCH_KICK: 180       // Forza del "calcio" laterale iniziale (px/s)
 } as const;
 
 // Missile constants removed - missiles are no longer supported
