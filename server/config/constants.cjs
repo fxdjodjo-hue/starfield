@@ -57,7 +57,7 @@ const SERVER_CONSTANTS = {
 };
 
 // Configurazione NPC caricata da file condiviso (single source of truth)
-// Aggiungi skillPoints: 0 a ogni NPC (non assegnano mai SkillPoints)
+// Le ricompense (Credits, Cosmos, XP, Honor) vengono prese direttamente dai file di configurazione
 const npcConfigData = require('../../shared/npc-config.json');
 const NPC_CONFIG = {};
 
@@ -65,8 +65,7 @@ for (const [npcType, npcData] of Object.entries(npcConfigData)) {
   NPC_CONFIG[npcType] = {
     ...npcData,
     rewards: {
-      ...npcData.rewards,
-      skillPoints: 0 // NPC non assegnano mai SkillPoints
+      ...npcData.rewards
     }
   };
 }

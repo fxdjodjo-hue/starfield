@@ -46,7 +46,6 @@ export class PlayerSystem extends System {
           damageUpgrades: 0,
           missileDamageUpgrades: 0
         },
-        skillPoints: 0,
         credits: 0,
         cosmos: 0,
         experience: 0,

@@ -31,10 +31,9 @@ export class UIHUDManager {
       this.economySystem.setCreditsChangedCallback((newAmount: number, change: number) => {
         const inventory = {
           credits: newAmount,
-          cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
-          experience: this.economySystem?.getPlayerExperience()?.totalExpEarned || 0,
-          honor: this.economySystem?.getPlayerHonor()?.honor || 0,
-          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+          cosmos: this.economySystem?.getCosmos?.() || 0,
+          experience: this.economySystem?.getExperience?.() || 0,
+          honor: this.economySystem?.getHonor?.() || 0
         };
 
         // Aggiorna UI locale
@@ -43,11 +42,10 @@ export class UIHUDManager {
 
       this.economySystem.setCosmosChangedCallback((newAmount: number, change: number) => {
         const inventory = {
-          credits: this.economySystem?.getPlayerCredits()?.credits || 0,
+          credits: this.economySystem?.getCredits?.() || 0,
           cosmos: newAmount,
-          experience: this.economySystem?.getPlayerExperience()?.totalExpEarned || 0,
-          honor: this.economySystem?.getPlayerHonor()?.honor || 0,
-          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+          experience: this.economySystem?.getExperience?.() || 0,
+          honor: this.economySystem?.getHonor?.() || 0
         };
 
         updatePlayerDataCallback({ inventory });
@@ -55,11 +53,10 @@ export class UIHUDManager {
 
       this.economySystem.setExperienceChangedCallback((newAmount: number, change: number, leveledUp: boolean) => {
         const inventory = {
-          credits: this.economySystem?.getPlayerCredits()?.credits || 0,
-          cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
+          credits: this.economySystem?.getCredits?.() || 0,
+          cosmos: this.economySystem?.getCosmos?.() || 0,
           experience: newAmount,
-          honor: this.economySystem?.getPlayerHonor()?.honor || 0,
-          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+          honor: this.economySystem?.getHonor?.() || 0
         };
 
         updatePlayerDataCallback({ inventory });
@@ -67,11 +64,10 @@ export class UIHUDManager {
 
       this.economySystem.setHonorChangedCallback((newAmount: number, change: number, newRank?: string) => {
         const inventory = {
-          credits: this.economySystem?.getPlayerCredits()?.credits || 0,
-          cosmos: this.economySystem?.getPlayerCosmos()?.cosmos || 0,
-          experience: this.economySystem?.getPlayerExperience()?.totalExpEarned || 0,
-          honor: newAmount,
-          skillPoints: this.economySystem?.getPlayerSkillPoints?.() || 0
+          credits: this.economySystem?.getCredits?.() || 0,
+          cosmos: this.economySystem?.getCosmos?.() || 0,
+          experience: this.economySystem?.getExperience?.() || 0,
+          honor: newAmount
         };
 
         updatePlayerDataCallback({ inventory });
@@ -217,8 +213,7 @@ export class UIHUDManager {
           credits: data.inventory.credits || 0,
           cosmos: data.inventory.cosmos || 0,
           experience: data.inventory.experience || 0,
-          honor: data.inventory.honor || 0,
-          skillPoints: data.inventory.skillPoints || this.context.playerInventory.skillPoints || 0
+          honor: data.inventory.honor || 0
         };
       }
     }

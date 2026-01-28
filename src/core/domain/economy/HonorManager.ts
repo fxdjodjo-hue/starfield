@@ -1,6 +1,5 @@
 import { ECS } from '../../../infrastructure/ecs/ECS';
 import { Honor } from '../../../entities/currency/Honor';
-import { SkillPoints } from '../../../entities/currency/SkillPoints';
 import { PlayerRole } from '../../../entities/player/PlayerRole';
 
 /**
@@ -11,9 +10,8 @@ export class HonorManager {
     private readonly ecs: ECS,
     private readonly getPlayerEntity: () => any,
     private readonly getRankSystem: () => any,
-    private readonly onHonorChanged?: (newAmount: number, change: number, newRank?: string) => void,
-    private readonly onSkillPointsChanged?: (newAmount: number, change: number) => void
-  ) {}
+    private readonly onHonorChanged?: (newAmount: number, change: number, newRank?: string) => void
+  ) { }
 
   /**
    * Gets player Honor component
@@ -24,14 +22,6 @@ export class HonorManager {
     return this.ecs.getComponent(playerEntity, Honor) || null;
   }
 
-  /**
-   * Gets player Skill Points component
-   */
-  getPlayerSkillPoints(): SkillPoints | null {
-    const playerEntity = this.getPlayerEntity();
-    if (!playerEntity) return null;
-    return this.ecs.getComponent(playerEntity, SkillPoints) || null;
-  }
 
   // ===== HONOR METHODS =====
 
@@ -116,7 +106,7 @@ export class HonorManager {
     const rankSystem = this.getRankSystem();
     if (rankSystem && typeof rankSystem.setRecentHonor === 'function') {
       rankSystem.setRecentHonor(recentHonor);
-      
+
       // Ricalcola il rank e notifica il cambio (se necessario)
       const newRank = rankSystem?.calculateCurrentRank() || 'Recruit';
       if (this.onHonorChanged) {
@@ -127,45 +117,4 @@ export class HonorManager {
     }
   }
 
-  // ===== SKILL POINTS METHODS =====
-
-  /**
-   * Aggiunge SkillPoints al giocatore (per gestione futura - specializzazioni, abilità)
-   * Attualmente non utilizzato nel leveling automatico
-   */
-  addSkillPoints(amount: number, reason: string = 'unknown'): number {
-    const skillPoints = this.getPlayerSkillPoints();
-    if (!skillPoints) return 0;
-
-    const oldAmount = skillPoints.current;
-    skillPoints.addPoints(amount);
-    const newAmount = skillPoints.current;
-    const added = newAmount - oldAmount;
-
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (added > 0 && reason !== 'server_update') {
-      this.onSkillPointsChanged?.(newAmount, added);
-    }
-
-    return added;
-  }
-
-  /**
-   * IMPOSTA direttamente i SkillPoints del giocatore (Server Authoritative)
-   * Per gestione futura - specializzazioni e abilità avanzate
-   */
-  setSkillPoints(amount: number, reason: string = 'server_update'): void {
-    const skillPoints = this.getPlayerSkillPoints();
-    if (!skillPoints) return;
-
-    const oldAmount = skillPoints.skillPoints;
-    skillPoints.setPoints(Math.max(0, amount)); // Usa il metodo esistente
-
-    const change = skillPoints.skillPoints - oldAmount;
-
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (reason !== 'server_update') {
-      this.onSkillPointsChanged?.(skillPoints.skillPoints, change);
-    }
-  }
 }

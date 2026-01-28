@@ -111,8 +111,6 @@ export type Database = {
           cosmos: number
           experience: number
           honor: number
-          skill_points_current: number
-          skill_points_total: number
           created_at: string
           updated_at: string
         }
@@ -122,8 +120,6 @@ export type Database = {
           cosmos?: number
           experience?: number
           honor?: number
-          skill_points_current?: number
-          skill_points_total?: number
           created_at?: string
           updated_at?: string
         }
@@ -133,8 +129,6 @@ export type Database = {
           cosmos?: number
           experience?: number
           honor?: number
-          skill_points_current?: number
-          skill_points_total?: number
           created_at?: string
           updated_at?: string
         }

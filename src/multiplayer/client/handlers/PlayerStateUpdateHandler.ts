@@ -4,7 +4,6 @@ import type { PlayerStateUpdateMessage } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
-import { SkillPoints } from '../../../entities/currency/SkillPoints';
 import { DamageText } from '../../../entities/combat/DamageText';
 
 /**
@@ -29,7 +28,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         cosmos: inventory.cosmos,
         experience: inventory.experience,
         honor: inventory.honor,
-        skillPoints: inventory.skillPoints,
         recentHonor: recentHonor // Includi RecentHonor se disponibile
       };
     }
@@ -42,7 +40,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       economySystem.setCosmos(inventory.cosmos, 'server_update');
       economySystem.setExperience(inventory.experience, 'server_update');
       economySystem.setHonor(inventory.honor, 'server_update');
-      economySystem.setSkillPoints(inventory.skillPoints, 'server_update');
 
       // Aggiorna RecentHonor in RankSystem se disponibile
       if (recentHonor !== undefined) {
@@ -50,22 +47,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       }
     }
 
-    // AGGIORNA IL COMPONENTE ECS SKILLPOINTS (dopo EconomySystem per coerenza)
-    // Nota: inventory può essere undefined per messaggi di riparazione
-    if (inventory) {
-      const playerSystem = networkSystem.getPlayerSystem();
-      const ecs = networkSystem.getECS();
-      if (playerSystem && ecs) {
-        const playerEntity = playerSystem.getPlayerEntity();
-        if (playerEntity) {
-          const skillPointsComponent = ecs.getComponent(playerEntity, SkillPoints);
-          if (skillPointsComponent) {
-            // Imposta direttamente i punti abilità ricevuti dal server
-            skillPointsComponent.setPoints(inventory.skillPoints);
-          }
-        }
-      }
-    }
 
     // SINCRONIZZA GLI UPGRADE DEL PLAYER (Server Authoritative)
     if (upgrades) {
@@ -167,8 +148,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           rewardsEarned.credits,
           rewardsEarned.cosmos || 0,
           rewardsEarned.experience,
-          rewardsEarned.honor,
-          rewardsEarned.skillPoints || 0
+          rewardsEarned.honor
         );
       }
     }

@@ -54,14 +54,12 @@ export class GameContext {
     cosmos: number;
     experience: number;
     honor: number;
-    skillPoints: number;
     recentHonor?: number; // Media mobile honor ultimi 30 giorni
   } = {
       credits: 0,
       cosmos: 0,
       experience: 0,
-      honor: 0,
-      skillPoints: 0
+      honor: 0
     };
 
   public playerUpgrades: {

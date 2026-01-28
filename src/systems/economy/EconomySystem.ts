@@ -4,7 +4,6 @@ import { Credits } from '../../entities/currency/Credits';
 import { Cosmos } from '../../entities/currency/Cosmos';
 import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
-import { SkillPoints } from '../../entities/currency/SkillPoints';
 import { PlayerRole } from '../../entities/player/PlayerRole';
 
 // Modular architecture managers
@@ -23,27 +22,26 @@ export class EconomySystem extends BaseSystem {
   private playerEntity: any = null;
   private rankSystem: any = null;
 
-  // Modular architecture managers (lazy initialization)
+  // Managers
   private currencyManager!: CurrencyManager;
   private progressionManager!: ProgressionManager;
   private honorManager!: HonorManager;
-  private eventManager!: EconomyEventManager;
   private statusManager!: EconomyStatusManager;
+  private eventManager: EconomyEventManager;
   private uiDisplayManager!: EconomyUIDisplayManager;
+
   private managersInitialized: boolean = false;
 
   constructor(ecs: ECS) {
     super(ecs);
+    this.eventManager = new EconomyEventManager();
   }
 
   /**
-   * Initializes managers with dependency injection
+   * Inizializza i manager interni (lazy initialization)
    */
   private initializeManagers(): void {
     if (this.managersInitialized) return;
-
-    // Initialize event manager first (independent)
-    this.eventManager = new EconomyEventManager();
 
     // Initialize currency manager
     this.currencyManager = new CurrencyManager(
@@ -65,8 +63,7 @@ export class EconomySystem extends BaseSystem {
       this.ecs,
       () => this.playerEntity,
       () => this.rankSystem,
-      (newAmount, change, newRank) => this.eventManager.getOnHonorChanged()?.(newAmount, change, newRank),
-      (newAmount, change) => this.eventManager.getOnSkillPointsChanged()?.(newAmount, change)
+      (newAmount, change, newRank) => this.eventManager.getOnHonorChanged()?.(newAmount, change, newRank)
     );
 
     // Initialize status manager (depends on other managers)
@@ -151,8 +148,7 @@ export class EconomySystem extends BaseSystem {
       this.ecs,
       () => this.playerEntity,
       () => this.rankSystem,
-      (newAmount, change, newRank) => this.eventManager.getOnHonorChanged()?.(newAmount, change, newRank),
-      (newAmount, change) => this.eventManager.getOnSkillPointsChanged()?.(newAmount, change)
+      (newAmount, change, newRank) => this.eventManager.getOnHonorChanged()?.(newAmount, change, newRank)
     );
     // Update status manager with new honor manager
     this.statusManager = new EconomyStatusManager(
@@ -163,87 +159,28 @@ export class EconomySystem extends BaseSystem {
     );
   }
 
+
   /**
-   * I valori economici sono ora integrati nell'HUD del giocatore
-   * @deprecated UI displays are now handled by PlayerHUD
+   * AGGIORNA lo stato dell'economia (chiamato dall'ECS)
    */
-  createEconomyDisplays(): void {
+  update(deltaTime: number): void {
+    if (!this.playerEntity) return;
     this.initializeManagers();
-    // Delegated to EconomyUIDisplayManager (deprecated)
+
+    // Aggiorna logicamente i componenti (solo se necessario)
   }
 
   /**
-   * Rimuove tutti gli elementi UI economici
-   * @deprecated UI displays are now handled by PlayerHUD
+   * RESTITUISCE i crediti attuali del giocatore
    */
-  removeEconomyDisplays(): void {
+  getCredits(): number {
     this.initializeManagers();
-    // Delegated to EconomyUIDisplayManager (deprecated)
+    const credits = this.currencyManager.getPlayerCredits();
+    return credits ? credits.credits : 0;
   }
 
   /**
-   * I valori economici sono ora nell'HUD del giocatore
-   * @deprecated UI displays are now handled by PlayerHUD
-   */
-  showEconomyDisplays(): void {
-    this.initializeManagers();
-    // Delegated to EconomyUIDisplayManager (deprecated)
-  }
-
-  /**
-   * Nasconde tutti gli elementi UI economici
-   * @deprecated UI displays are now handled by PlayerHUD
-   */
-  hideEconomyDisplays(): void {
-    this.initializeManagers();
-    // Delegated to EconomyUIDisplayManager (deprecated)
-  }
-
-  /**
-   * Aggiorna tutti gli elementi UI economici
-   * @deprecated UI displays are now handled by PlayerHUD
-   */
-  updateEconomyDisplays(): void {
-    this.initializeManagers();
-    // Delegated to EconomyUIDisplayManager (deprecated)
-  }
-
-  // ========== REMOVED UI METHODS - Now in EconomyUIDisplayManager (deprecated) ==========
-  // All private UI display methods have been removed (deprecated, no longer used):
-  // - createCreditsDisplay(), createCosmosDisplay(), createExperienceDisplay(), createHonorDisplay()
-  // - removeCreditsDisplay(), removeCosmosDisplay(), removeExperienceDisplay(), removeHonorDisplay()
-  // - showCreditsDisplay(), showCosmosDisplay(), showExperienceDisplay(), showHonorDisplay()
-  // - hideCreditsDisplay(), hideCosmosDisplay(), hideExperienceDisplay(), hideHonorDisplay()
-  // - updateCreditsDisplay(), updateCosmosDisplay(), updateExperienceDisplay(), updateHonorDisplay()
-  // These methods are deprecated - UI displays are now handled by PlayerHUD
-
-  /**
-   * Ottiene i componenti economici del giocatore
-   */
-  getPlayerCredits(): Credits | null {
-    this.initializeManagers();
-    return this.currencyManager.getPlayerCredits();
-  }
-
-  getPlayerCosmos(): Cosmos | null {
-    this.initializeManagers();
-    return this.currencyManager.getPlayerCosmos();
-  }
-
-  getPlayerExperience(): Experience | null {
-    this.initializeManagers();
-    return this.progressionManager.getPlayerExperience();
-  }
-
-  getPlayerHonor(): Honor | null {
-    this.initializeManagers();
-    return this.honorManager.getPlayerHonor();
-  }
-
-  // ===== GESTIONE CREDITS =====
-
-  /**
-   * Aggiunge Credits al giocatore
+   * AGGIUNGE crediti al giocatore
    */
   addCredits(amount: number, reason: string = 'unknown'): number {
     this.initializeManagers();
@@ -251,33 +188,24 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Rimuove Credits dal giocatore
-   */
-  removeCredits(amount: number, reason: string = 'unknown'): number {
-    this.initializeManagers();
-    return this.currencyManager.removeCredits(amount, reason);
-  }
-
-  /**
-   * Controlla se il giocatore può permettersi un acquisto in Credits
-   */
-  canAffordCredits(cost: number): boolean {
-    this.initializeManagers();
-    return this.currencyManager.canAffordCredits(cost);
-  }
-
-  /**
-   * IMPOSTA direttamente i Credits del giocatore (Server Authoritative)
+   * IMPOSTA direttamente i crediti del giocatore
    */
   setCredits(amount: number, reason: string = 'server_update'): void {
     this.initializeManagers();
     this.currencyManager.setCredits(amount, reason);
   }
 
-  // ===== GESTIONE COSMOS =====
+  /**
+   * RESTITUISCE i Cosmos attuali del giocatore
+   */
+  getCosmos(): number {
+    this.initializeManagers();
+    const cosmos = this.currencyManager.getPlayerCosmos();
+    return cosmos ? cosmos.cosmos : 0;
+  }
 
   /**
-   * Aggiunge Cosmos al giocatore
+   * AGGIUNGE Cosmos al giocatore
    */
   addCosmos(amount: number, reason: string = 'unknown'): number {
     this.initializeManagers();
@@ -285,205 +213,96 @@ export class EconomySystem extends BaseSystem {
   }
 
   /**
-   * Rimuove Cosmos dal giocatore
-   */
-  removeCosmos(amount: number, reason: string = 'unknown'): number {
-    this.initializeManagers();
-    return this.currencyManager.removeCosmos(amount, reason);
-  }
-
-  /**
-   * Controlla se il giocatore può permettersi un acquisto in Cosmos
-   */
-  canAffordCosmos(cost: number): boolean {
-    this.initializeManagers();
-    return this.currencyManager.canAffordCosmos(cost);
-  }
-
-  /**
-   * IMPOSTA direttamente i Cosmos del giocatore (Server Authoritative)
+   * IMPOSTA direttamente i Cosmos del giocatore
    */
   setCosmos(amount: number, reason: string = 'server_update'): void {
     this.initializeManagers();
     this.currencyManager.setCosmos(amount, reason);
   }
 
-  // ===== GESTIONE EXPERIENCE =====
-
   /**
-   * Aggiunge Experience Points al giocatore
+   * RESTITUISCE l'esperienza attuale del giocatore
    */
-  addExperience(amount: number, reason: string = 'unknown'): boolean {
+  getExperience(): number {
     this.initializeManagers();
-    return this.progressionManager.addExperience(amount, reason);
+    const experience = this.progressionManager.getPlayerExperience();
+    return experience ? experience.totalExpEarned : 0;
   }
 
   /**
-   * Ottiene il livello attuale del giocatore
+   * AGGIUNGE esperienza al giocatore
    */
-  getPlayerLevel(): number {
+  addExperience(amount: number, reason: string = 'unknown'): void {
     this.initializeManagers();
-    return this.progressionManager.getPlayerLevel();
+    this.progressionManager.addExperience(amount, reason);
   }
 
   /**
-   * IMPOSTA direttamente l'Experience del giocatore (Server Authoritative)
+   * IMPOSTA direttamente l'esperienza del giocatore
    */
-  setExperience(totalExp: number, reason: string = 'server_update'): void {
+  setExperience(amount: number, reason: string = 'server_update'): void {
     this.initializeManagers();
-    this.progressionManager.setExperience(totalExp, reason);
+    this.progressionManager.setExperience(amount, reason);
   }
 
-  // ===== GESTIONE HONOR =====
-
-
   /**
-   * Imposta lo status di Administrator
+   * RESTITUISCE l'onore attuale del giocatore
    */
-  setPlayerAdministrator(isAdmin: boolean): void {
-    if (!this.playerEntity) return;
-    const playerRole = this.ecs.getComponent(this.playerEntity, PlayerRole);
-    if (playerRole) {
-      playerRole.setAdministrator(isAdmin);
-    }
+  getHonor(): number {
+    this.initializeManagers();
+    const honor = this.honorManager.getPlayerHonor();
+    return honor ? honor.honor : 0;
   }
 
   /**
-   * Aggiunge punti onore (per ricompense NPC)
+   * AGGIUNGE onore al giocatore
    */
-  addHonor(amount: number, reason: string = 'unknown'): void {
-    const honor = this.getPlayerHonor();
-    if (honor) {
-      const oldAmount = honor.honor;
-      honor.addHonor(amount);
-      const newAmount = honor.honor;
-      const change = newAmount - oldAmount;
-
-      // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-      if (change !== 0 && reason !== 'server_update') {
-        const currentRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
-        this.initializeManagers();
-        this.eventManager.getOnHonorChanged()?.(newAmount, change, currentRank);
-      }
-    }
+  addHonor(amount: number, reason: string = 'unknown'): number {
+    this.initializeManagers();
+    this.honorManager.addHonor(amount, reason);
+    return 0; // addHonor is void in HonorManager
   }
 
   /**
-   * Aggiunge punti onore locali (per achievements)
-   */
-  addLocalHonor(amount: number, reason: string = 'achievement'): void {
-    const honor = this.getPlayerHonor();
-    if (honor) {
-      honor.addHonor(amount);
-    }
-  }
-
-  /**
-   * IMPOSTA direttamente l'Honor del giocatore (Server Authoritative)
+   * IMPOSTA direttamente l'onore del giocatore
    */
   setHonor(amount: number, reason: string = 'server_update'): void {
-    const honor = this.getPlayerHonor();
-    if (!honor) {
-      return;
-    }
-
-    const oldAmount = honor.honor;
-    const targetAmount = Math.max(0, amount);
-
-    if (targetAmount > oldAmount) {
-      honor.addHonor(targetAmount - oldAmount);
-    } else if (targetAmount < oldAmount) {
-      honor.removeHonor(oldAmount - targetAmount);
-    }
-
-    const change = honor.honor - oldAmount;
-
-    // ✅ Chiama sempre il callback per aggiornare l'UI, anche per aggiornamenti dal server
-    const currentRank = this.rankSystem?.calculateCurrentRank() || 'Recruit';
-
-    // Fix: Use eventManager instead of non-existent property
     this.initializeManagers();
-    const onHonorChanged = this.eventManager.getOnHonorChanged();
-
-    if (onHonorChanged) {
-      onHonorChanged(honor.honor, change, currentRank);
-    }
+    this.honorManager.setHonor(amount, reason);
   }
 
-  /**
-   * Aggiunge SkillPoints al giocatore (per gestione futura - specializzazioni, abilità)
-   * Attualmente non utilizzato nel leveling automatico
-   */
-  addSkillPoints(amount: number, reason: string = 'unknown'): number {
-    const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
-    if (!skillPoints) return 0;
-
-    const oldAmount = skillPoints.current;
-    skillPoints.addPoints(amount);
-    const newAmount = skillPoints.current;
-    const added = newAmount - oldAmount;
-
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (added > 0 && reason !== 'server_update') {
-      this.initializeManagers();
-      this.eventManager.getOnSkillPointsChanged()?.(newAmount, added);
-    }
-
-    return added;
-  }
-
-  /**
-   * IMPOSTA direttamente i SkillPoints del giocatore (Server Authoritative)
-   * Per gestione futura - specializzazioni e abilità avanzate
-   */
-  setSkillPoints(amount: number, reason: string = 'server_update'): void {
-    const skillPoints = this.ecs.getComponent(this.playerEntity, SkillPoints);
-    if (!skillPoints) return;
-
-    const oldAmount = skillPoints.current;
-    skillPoints.setPoints(Math.max(0, amount)); // Usa il metodo esistente
-
-    const change = skillPoints.current - oldAmount;
-
-    // ✅ FIX: Non chiamare callback se il cambiamento viene dal server per evitare loop infinito
-    if (reason !== 'server_update') {
-      this.initializeManagers();
-      this.eventManager.getOnSkillPointsChanged()?.(skillPoints.current, change);
-    }
-  }
 
   /**
    * Rimuove punti onore locali (per penalità)
    */
-  removeLocalHonor(amount: number, reason: string = 'penalty'): void {
-    const honor = this.getPlayerHonor();
-    if (honor) {
-      honor.removeHonor(amount);
-    }
+  removeHonor(amount: number, reason: string = 'penalty'): void {
+    this.initializeManagers();
+    this.honorManager.removeLocalHonor(amount, reason);
   }
-
-  // ===== METODI GENERALI =====
-
-
 
   /**
-   * Ottiene lo stato economico completo del giocatore
+   * Controlla se il giocatore è un amministratore
    */
-  getPlayerEconomyStatus(): {
-    credits: number;
-    cosmos: number;
-    level: number;
-    experience: number;
-    expForNextLevel: number;
-    honor: number;
-    honorRank: string;
-  } | null {
+  isAdministrator(): boolean {
     this.initializeManagers();
-    return this.statusManager.getPlayerEconomyStatus();
+    const playerEntity = this.playerEntity;
+    if (!playerEntity) return false;
+    const playerRole = this.ecs.getComponent(playerEntity, PlayerRole);
+    return playerRole ? playerRole.isAdministrator : false;
   }
 
-  update(deltaTime: number): void {
-    // Il sistema currency non ha aggiornamenti automatici
-    // Tutto è gestito tramite chiamate esplicite
+  /**
+   * Imposta lo status di amministratore
+   */
+  setAdministrator(value: boolean): void {
+    this.initializeManagers();
+    const playerEntity = this.playerEntity;
+    if (!playerEntity) return;
+    let playerRole = this.ecs.getComponent(playerEntity, PlayerRole);
+    if (!playerRole) {
+      playerRole = new PlayerRole();
+      this.ecs.addComponent(playerEntity, PlayerRole, playerRole);
+    }
+    playerRole.setAdministrator(value);
   }
 }

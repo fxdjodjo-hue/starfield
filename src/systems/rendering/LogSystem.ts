@@ -133,7 +133,7 @@ export class LogSystem extends BaseSystem {
    * Log specifico per fine attacco
    */
   logAttackEnd(targetName: string): void {
-    this.addLogMessage(`Target out of range: ${targetName}`, LogType.ATTACK_END, 2000);
+    this.addLogMessage(`Attack ended against ${targetName}`, LogType.ATTACK_END, 2000);
   }
 
   /**
@@ -154,14 +154,13 @@ export class LogSystem extends BaseSystem {
   /**
    * Log specifico per ricompense
    */
-  logReward(credits: number, cosmos: number, experience: number, honor: number, skillPoints: number = 0, duration: number = 4000): void {
+  logReward(credits: number, cosmos: number, experience: number, honor: number, duration: number = 4000): void {
     const rewards: string[] = [];
 
     if (credits > 0) rewards.push(`${credits} credits`);
     if (cosmos > 0) rewards.push(`${cosmos} cosmos`);
     if (experience > 0) rewards.push(`${experience} XP`);
     if (honor > 0) rewards.push(`${honor} honor`);
-    if (skillPoints > 0) rewards.push(`${skillPoints} SP`);
 
     // Mostra messaggio solo se ci sono ricompense
     if (rewards.length > 0) {

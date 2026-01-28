@@ -16,8 +16,7 @@
     "cosmos": 5000,
     "level": 1,
     "experience": 0,
-    "honor": 0,
-    "skillPoints": 0
+    "honor": 0
   },
   "spriteSize": {
     "width": 112,

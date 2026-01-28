@@ -28,7 +28,6 @@ export interface PlayerStartingResources {
   level: number;
   experience: number;
   honor: number;
-  skillPoints: number;
 }
 
 export interface PlayerSpriteSize {

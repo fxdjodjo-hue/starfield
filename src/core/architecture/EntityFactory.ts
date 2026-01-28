@@ -15,7 +15,6 @@ import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { PlayerStats } from '../../entities/player/PlayerStats';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
-import { SkillPoints } from '../../entities/currency/SkillPoints';
 import { Credits } from '../../entities/currency/Credits';
 import { Cosmos } from '../../entities/currency/Cosmos';
 import { Experience } from '../../entities/currency/Experience';
@@ -42,7 +41,6 @@ export interface CombatEntityConfig {
 export interface ProgressionEntityConfig {
   stats?: { kills?: number; deaths?: number; missionsCompleted?: number; playTime?: number };
   upgrades?: { hpUpgrades?: number; shieldUpgrades?: number; speedUpgrades?: number; damageUpgrades?: number };
-  skillPoints?: number;
   credits?: number;
   cosmos?: number;
   experience?: number;
@@ -79,13 +77,12 @@ export class EntityFactory {
       }
 
       // Aggiungi componenti di progresso
-      if (config.stats || config.upgrades || config.skillPoints !== undefined ||
+      if (config.stats || config.upgrades ||
         config.credits !== undefined || config.cosmos !== undefined ||
         config.experience !== undefined || config.honor !== undefined) {
         this.addProgressionComponents(entity, {
           stats: config.stats,
           upgrades: config.upgrades,
-          skillPoints: config.skillPoints,
           credits: config.credits,
           cosmos: config.cosmos,
           experience: config.experience,
@@ -102,7 +99,7 @@ export class EntityFactory {
         entityId: entity.id,
         hasSpatial: !!config.position,
         hasCombat: !!(config.health || config.shield || config.damage),
-        hasProgression: !!(config.stats || config.upgrades || config.skillPoints !== undefined)
+        hasProgression: !!(config.stats || config.upgrades)
       });
 
       return entity;
@@ -288,19 +285,6 @@ export class EntityFactory {
         this.ecs.addComponent(entity, PlayerUpgrades, upgrades);
       }
 
-      // SkillPoints component
-      if (config.skillPoints !== undefined) {
-        const skillPointsValidation = InputValidator.validateStat(config.skillPoints, 'skillPoints', 10000);
-        if (!skillPointsValidation.isValid) {
-          LoggerWrapper.warn(LogCategory.ECS, `Invalid skillPoints for entity ${entity.id}`, {
-            entityId: entity.id,
-            skillPoints: config.skillPoints,
-            error: skillPointsValidation.error
-          });
-        } else {
-          this.ecs.addComponent(entity, SkillPoints, new SkillPoints(config.skillPoints));
-        }
-      }
 
       // Economic resources
       if (config.credits !== undefined) {
@@ -335,7 +319,6 @@ export class EntityFactory {
         entityId: entity.id,
         hasStats: !!config.stats,
         hasUpgrades: !!config.upgrades,
-        hasSkillPoints: config.skillPoints !== undefined,
         resourceCount: [config.credits, config.cosmos, config.experience, config.honor].filter(r => r !== undefined).length
       });
     } catch (error) {

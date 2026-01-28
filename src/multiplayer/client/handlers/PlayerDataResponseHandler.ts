@@ -2,7 +2,6 @@ import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { PlayerDataResponseMessage } from '../../../config/NetworkConfig';
-import { SkillPoints } from '../../../entities/currency/SkillPoints';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { Health } from '../../../entities/combat/Health';
@@ -84,7 +83,6 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       economySystem.setCredits(message.inventory.credits, 'server_update');
       economySystem.setCosmos(message.inventory.cosmos, 'server_update');
       economySystem.setHonor(message.inventory.honor, 'server_update');
-      economySystem.setSkillPoints(message.inventory.skillPoints, 'server_update');
 
       // Aggiorna RecentHonor in RankSystem se disponibile
       if (message.recentHonor !== undefined) {
@@ -100,18 +98,6 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
 
     // ✅ L'ECONOMY SYSTEM TRIGGERA AUTOMATICAMENTE onExperienceChanged -> UiSystem.updatePlayerData
 
-    // INIZIALIZZA IL COMPONENTE ECS SKILLPOINTS (necessario per UpgradePanel)
-    if (networkSystem.getPlayerSystem() && message.inventory) {
-      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
-      const ecs = networkSystem.getECS();
-      if (playerEntity && ecs) {
-        const skillPointsComponent = ecs.getComponent(playerEntity, SkillPoints);
-        if (skillPointsComponent) {
-          // Inizializza i punti abilità ricevuti dal server
-          skillPointsComponent.setPoints(message.inventory.skillPoints || 0);
-        }
-      }
-    }
 
     // SINCRONIZZA IL RUOLO DEL PLAYER (Server Authoritative)
     // 🔧 FIX: Also check pendingAdministrator from GameContext (from welcome message)

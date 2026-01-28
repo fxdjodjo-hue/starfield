@@ -96,6 +96,7 @@ export interface WelcomeMessage extends NetworkMessage {
 export interface ErrorMessage extends NetworkMessage {
   type: 'error';
   message: string;
+  code?: string;
 }
 
 export interface RewardsEarnedMessage extends NetworkMessage {

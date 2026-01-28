@@ -6,7 +6,6 @@ export class EconomyEventManager {
   private onCosmosChanged?: (newAmount: number, change: number) => void;
   private onExperienceChanged?: (newAmount: number, change: number, leveledUp: boolean) => void;
   private onHonorChanged?: (newAmount: number, change: number, newRank?: string) => void;
-  private onSkillPointsChanged?: (newAmount: number, change: number) => void;
 
   /**
    * Sets callback for Credits changes
@@ -64,10 +63,4 @@ export class EconomyEventManager {
     return this.onHonorChanged;
   }
 
-  /**
-   * Gets callback for Skill Points changes
-   */
-  getOnSkillPointsChanged(): ((newAmount: number, change: number) => void) | undefined {
-    return this.onSkillPointsChanged;
-  }
 }

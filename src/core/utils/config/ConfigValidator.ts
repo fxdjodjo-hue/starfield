@@ -54,8 +54,7 @@ const PlayerStartingResourcesSchema = z.object({
   cosmos: z.number().min(0, 'Cosmos cannot be negative'),
   level: z.number().min(1, 'Level must be at least 1'),
   experience: z.number().min(0, 'Experience cannot be negative'),
-  honor: z.number().min(0, 'Honor cannot be negative'),
-  skillPoints: z.number().min(0, 'Skill points cannot be negative')
+  honor: z.number().min(0, 'Honor cannot be negative')
 });
 
 const PlayerSpriteSizeSchema = z.object({

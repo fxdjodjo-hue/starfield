@@ -422,7 +422,6 @@ export interface PlayerStateUpdateMessage {
     cosmos: number;
     experience: number;
     honor: number;
-    skillPoints: number;
   };
   upgrades?: {
     hpUpgrades: number;
@@ -444,7 +443,6 @@ export interface PlayerStateUpdateMessage {
     cosmos: number;
     experience: number;
     honor: number;
-    skillPoints: number;
     npcType: string;
   };
 }
@@ -530,7 +528,6 @@ export interface PlayerDataResponseMessage extends BaseMessage {
     cosmos: number;
     experience: number;
     honor: number;
-    skillPoints: number;
   };
   upgrades: {
     hpUpgrades: number;
@@ -572,7 +569,6 @@ export interface EconomyUpdateMessage extends BaseMessage {
     cosmos: number;
     experience: number;
     honor: number;
-    skillPoints: number;
   };
 }
 

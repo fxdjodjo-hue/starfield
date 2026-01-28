@@ -1,6 +1,6 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
-import type { ErrorMessage } from '../types/MessageTypes';
+import type { ErrorMessage } from '../types/NetworkTypes';
 import { ChatManager } from '../../../systems/ui/ChatManager';
 
 /**
@@ -14,7 +14,7 @@ export class ErrorMessageHandler extends BaseMessageHandler {
   handle(message: ErrorMessage, networkSystem: ClientNetworkSystem): void {
 
     // Se è un errore di upgrade, mostra popup elegante
-    if (message.code === 'INSUFFICIENT_RESOURCES' || message.code === 'INSUFFICIENT_SKILL_POINTS' || message.code === 'MAX_UPGRADES_REACHED') {
+    if (message.code === 'INSUFFICIENT_RESOURCES' || message.code === 'MAX_UPGRADES_REACHED') {
       const uiSystem = networkSystem.getUiSystem();
       if (uiSystem) {
         const upgradePanel = uiSystem.getUpgradePanel();

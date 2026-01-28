@@ -53,8 +53,6 @@ class DatabaseHelper {
         cosmos: Number(inventory.cosmos ?? 0),
         experience: Number(inventory.experience ?? 0),
         honor: Number(inventory.honor ?? 0),
-        skill_points: Number(inventory.skillPoints ?? 0),
-        skill_points_total: Number(inventory.skillPointsTotal ?? inventory.skillPoints ?? 0),
         // Salva sempre HP/shield correnti per persistenza MMO
         current_health: this.prepareHealthValue(inventory.health),
         current_shield: this.prepareShieldValue(inventory.shield)
@@ -166,9 +164,7 @@ class DatabaseHelper {
       credits: 1000,
       cosmos: 0,
       experience: 0,
-      honor: 0,
-      skillPoints: 0,
-      skillPointsTotal: 0
+      honor: 0
     };
   }
 
@@ -203,9 +199,9 @@ class DatabaseHelper {
 
     // Se TUTTI i valori principali sono null, significa record nuovo
     const allMainValuesNull = currenciesData.credits === null &&
-                             currenciesData.cosmos === null &&
-                             currenciesData.experience === null &&
-                             currenciesData.honor === null;
+      currenciesData.cosmos === null &&
+      currenciesData.experience === null &&
+      currenciesData.honor === null;
 
     if (allMainValuesNull) {
       // Record popolato per la prima volta
@@ -221,8 +217,6 @@ class DatabaseHelper {
       cosmos: currenciesData.cosmos ?? this.getDefaultInventory().cosmos,
       experience: currenciesData.experience ?? this.getDefaultInventory().experience,
       honor: currenciesData.honor ?? this.getDefaultInventory().honor,
-      skillPoints: currenciesData.skill_points ?? this.getDefaultInventory().skillPoints,
-      skillPointsTotal: currenciesData.skill_points_total ?? currenciesData.skill_points ?? this.getDefaultInventory().skillPointsTotal,
       _hadNullInDb: hadNullInDb
     };
   }

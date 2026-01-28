@@ -237,7 +237,7 @@ const server = http.createServer(async (req, res) => {
           const lazyData = Array.isArray(data) && data.length > 0 ? data[0] : data;
 
           const response = {
-            inventory: lazyData.currencies_data ? JSON.parse(lazyData.currencies_data) : { credits: 1000, cosmos: 100, experience: 0, honor: 0, skill_points_current: 0, skill_points_total: 0 },
+            inventory: lazyData.currencies_data ? JSON.parse(lazyData.currencies_data) : { credits: 1000, cosmos: 100, experience: 0, honor: 0 },
             upgrades: lazyData.upgrades_data ? JSON.parse(lazyData.upgrades_data) : { hpUpgrades: 0, shieldUpgrades: 0, speedUpgrades: 0, damageUpgrades: 0 },
             quests: lazyData.quests_data ? JSON.parse(lazyData.quests_data) : []
           };

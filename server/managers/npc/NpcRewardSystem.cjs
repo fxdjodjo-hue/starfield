@@ -38,7 +38,6 @@ class NpcRewardSystem {
     const oldHonor = Number(playerData.inventory.honor || 0);
     const newHonor = oldHonor + (rewards.honor || 0);
     playerData.inventory.honor = newHonor;
-    // SkillPoints completamente rimossi dagli NPC - mai assegnati
 
     // Salva snapshot honor se è cambiato (non bloccante)
     if (rewards.honor && rewards.honor !== 0) {
@@ -53,10 +52,9 @@ class NpcRewardSystem {
 
     ServerLoggerWrapper.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor`);
 
-    // Crea oggetto rewards (SkillPoints completamente rimossi)
+    // Invia notifica delle ricompense al client
     const finalRewards = {
-      ...rewards,
-      skillPoints: 0 // Sempre 0, SkillPoints non assegnati dagli NPC
+      ...rewards
     };
 
     // Invia notifica delle ricompense al client
@@ -76,7 +74,7 @@ class NpcRewardSystem {
     // Usa RecentHonor cached se disponibile, altrimenti usa honor corrente
     // RecentHonor verrà aggiornato in background per il prossimo messaggio
     const recentHonor = playerData.recentHonor !== undefined ? playerData.recentHonor : playerData.inventory.honor || 0;
-    
+
     // Aggiorna RecentHonor in background per il prossimo messaggio (non blocca)
     const websocketManager = this.mapServer.websocketManager;
     if (websocketManager && typeof websocketManager.getRecentHonorAverage === 'function') {
