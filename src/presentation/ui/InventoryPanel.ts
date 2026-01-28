@@ -18,20 +18,54 @@ export class InventoryPanel extends BasePanel {
   private ecs!: ECS;
   private playerSystem: PlayerSystem | null = null;
   private statsElements!: { [key: string]: HTMLElement };
+  private shipVisual!: HTMLElement;
+  private animationTime: number = 0;
+  private currentFrame: number = -1;
+  private animationRequestId: number | null = null;
+  private lastTimestamp: number = 0;
 
   constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
-    // Nota: super() chiama createPanelContent(), che inizializza statsElements.
-    // In TS, gli inizializzatori di proprietà (come statsElements = {}) girano DOPO super(),
-    // rischiando di sovrascrivere i dati appena impostati. Per questo usiamo ! e inizializziamo nel metodo.
     super(config);
     this.ecs = ecs;
     this.playerSystem = playerSystem || null;
+
+    // Inizializzazione esplicita stati post-super
+    this.animationTime = 0;
+    this.currentFrame = -1;
+    this.animationRequestId = null;
+    this.lastTimestamp = 0;
+
+    // Recupero forzato riferimenti se persi durante la costruzione
+    this.recoverElements();
+  }
+
+  /**
+   * Recupera i riferimenti agli elementi DOM se non sono correttamente assegnati
+   */
+  private recoverElements(): void {
+    if (!this.shipVisual) {
+      this.shipVisual = this.container.querySelector('#inventory-ship-visual') as HTMLElement;
+    }
+
+    // Recupera anche stats se necessario (anche se solitamente rimangono)
+    if (!this.statsElements || Object.keys(this.statsElements).length === 0) {
+      this.statsElements = {};
+      const stats = ['hp', 'shield', 'damage', 'missile', 'speed'];
+      stats.forEach(id => {
+        const val = this.container.querySelector(`.stat-value-${id}`) as HTMLElement;
+        const bar = this.container.querySelector(`.stat-bar-${id}`) as HTMLElement;
+        if (val) this.statsElements[id] = val;
+        if (bar) (this.statsElements as any)[`${id}_bar`] = bar;
+      });
+    }
   }
 
   /**
    * Crea il contenuto del pannello dell'inventario
    */
   protected createPanelContent(): HTMLElement {
+    this.statsElements = {};
+
     const content = document.createElement('div');
     content.className = 'inventory-panel-content';
     content.style.cssText = `
@@ -151,9 +185,6 @@ export class InventoryPanel extends BasePanel {
     const statsList = document.createElement('div');
     statsList.style.cssText = `display: flex; flex-direction: column; gap: 15px;`;
 
-    // Ensure statsElements is initialized (super() calls this before constructor assignments)
-    this.statsElements = {};
-
     const createStatRow = (label: string, id: string, icon: string) => {
       const row = document.createElement('div');
       row.style.cssText = `
@@ -208,21 +239,27 @@ export class InventoryPanel extends BasePanel {
       justify-content: center;
     `;
 
-    const shipImage = document.createElement('img');
-    shipImage.src = 'assets/ships/ship106/ship106.png';
-    shipImage.style.cssText = `
-      width: 280px;
-      height: 280px;
-      object-fit: contain;
-      filter: drop-shadow(0 0 30px rgba(255, 255, 255, 0.15));
-      animation: shipRotation 20s linear infinite;
+    const shipDisplay = document.createElement('div');
+    shipDisplay.id = 'inventory-ship-visual';
+    shipDisplay.style.cssText = `
+      width: 189px;
+      height: 189px;
+      position: relative;
+      overflow: hidden;
+      transform: scale(0.95);
+      filter: drop-shadow(0 0 50px rgba(0, 255, 255, 0.4));
+      background-image: url('assets/ships/ship106/ship106.png');
+      background-size: 1914px 1532px;
+      background-position: -2px -2px;
+      background-repeat: no-repeat;
+      image-rendering: pixelated;
     `;
-    shipContainer.appendChild(shipImage);
+    this.shipVisual = shipDisplay;
+    shipContainer.appendChild(shipDisplay);
 
-    // Equipment Slots positioned around the ship
+    // Equipment Slots
     const createEquipmentSlot = (label: string, position: { top?: string, bottom?: string, left?: string, right?: string }) => {
       const slot = document.createElement('div');
-      slot.className = 'equipment-slot';
       const posStyle = Object.entries(position).map(([k, v]) => `${k}:${v}`).join(';');
       slot.style.cssText = `
         position: absolute;
@@ -260,7 +297,6 @@ export class InventoryPanel extends BasePanel {
       return slot;
     };
 
-    // Position slots around ship
     shipContainer.appendChild(createEquipmentSlot('Primary', { top: '0', left: '160px' }));
     shipContainer.appendChild(createEquipmentSlot('Secondary', { bottom: '0', left: '160px' }));
     shipContainer.appendChild(createEquipmentSlot('Shields', { top: '160px', left: '0' }));
@@ -316,14 +352,6 @@ export class InventoryPanel extends BasePanel {
           cursor: pointer;
           transition: all 0.2s ease;
         `;
-      slot.addEventListener('mouseenter', () => {
-        slot.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-        slot.style.background = 'rgba(255, 255, 255, 0.05)';
-      });
-      slot.addEventListener('mouseleave', () => {
-        slot.style.borderColor = 'rgba(255, 255, 255, 0.05)';
-        slot.style.background = 'rgba(0, 0, 0, 0.3)';
-      });
       cargoGrid.appendChild(slot);
     }
     cargoColumn.appendChild(cargoGrid);
@@ -333,36 +361,16 @@ export class InventoryPanel extends BasePanel {
     mainLayout.appendChild(cargoColumn);
     content.appendChild(mainLayout);
 
-    // Animation Keyframes
-    const styleSheet = document.createElement('style');
-    styleSheet.textContent = `
-      @keyframes shipRotation {
-        from { transform: rotate(0deg); }
-        to { transform: rotate(360deg); }
-      }
-      .inventory-grid::-webkit-scrollbar {
-        width: 4px;
-      }
-      .inventory-grid::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      .inventory-grid::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 2px;
-      }
-    `;
-    document.head.appendChild(styleSheet);
-
     return content;
   }
 
   /**
    * Aggiorna i dati del pannello
    */
-  update(data?: PanelData): void {
-    if (!this.playerSystem) return;
+  update(): void {
+    if (!this.playerSystem || !this.statsElements) return;
 
-    const playerEntity = this.playerSystem.getPlayerEntity();
+    let playerEntity = this.playerSystem.getPlayerEntity() || this.ecs.getPlayerEntity();
     if (!playerEntity) return;
 
     const health = this.ecs.getComponent(playerEntity, Health);
@@ -374,42 +382,103 @@ export class InventoryPanel extends BasePanel {
     if (this.statsElements.hp) {
       this.statsElements.hp.textContent = NumberFormatter.format(health ? health.max : playerDef.stats.health);
       const percent = health ? (health.current / health.max) * 100 : 100;
-      (this.statsElements as any).hp_bar.style.width = `${percent}%`;
+      const bar = (this.statsElements as any).hp_bar;
+      if (bar) bar.style.width = `${percent}%`;
     }
 
     if (this.statsElements.shield) {
       const maxShield = shield ? shield.max : (playerDef.stats.shield || 0);
       this.statsElements.shield.textContent = NumberFormatter.format(maxShield);
       const percent = shield && shield.max > 0 ? (shield.current / shield.max) * 100 : 100;
-      (this.statsElements as any).shield_bar.style.width = `${percent}%`;
+      const bar = (this.statsElements as any).shield_bar;
+      if (bar) bar.style.width = `${percent}%`;
     }
 
     if (this.statsElements.damage) {
-      const currentDamage = damage ? damage.damage : playerDef.stats.damage;
-      this.statsElements.damage.textContent = NumberFormatter.format(currentDamage);
+      this.statsElements.damage.textContent = NumberFormatter.format(damage ? damage.damage : playerDef.stats.damage);
       const bonus = upgrades ? upgrades.getDamageBonus() : 1;
-      (this.statsElements as any).damage_bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+      const bar = (this.statsElements as any).damage_bar;
+      if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
     }
 
     if (this.statsElements.missile) {
-      const missileDmg = playerDef.stats.missileDamage || 100;
       const bonus = upgrades ? upgrades.getMissileDamageBonus() : 1;
-      this.statsElements.missile.textContent = NumberFormatter.format(Math.floor(missileDmg * bonus));
-      (this.statsElements as any).missile_bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+      this.statsElements.missile.textContent = NumberFormatter.format(Math.floor((playerDef.stats.missileDamage || 100) * bonus));
+      const bar = (this.statsElements as any).missile_bar;
+      if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
     }
 
     if (this.statsElements.speed) {
-      const baseSpeed = playerDef.stats.speed;
       const bonus = upgrades ? upgrades.getSpeedBonus() : 1;
-      this.statsElements.speed.textContent = `${Math.floor(baseSpeed * bonus)} u/s`;
-      (this.statsElements as any).speed_bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+      this.statsElements.speed.textContent = `${Math.floor(playerDef.stats.speed * bonus)} u/s`;
+      const bar = (this.statsElements as any).speed_bar;
+      if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
     }
   }
 
   /**
-   * Sincronizza i dati quando viene mostrato
+   * Avvia l'animazione della nave tramite setInterval (più affidabile per sprite-loop UI)
    */
+  private startShipAnimation(): void {
+    this.stopShipAnimation();
+    this.recoverElements();
+
+    this.currentFrame = -1;
+
+    this.animationRequestId = setInterval(() => {
+      // Recupero forzato se null (safety check estremo)
+      if (!this.shipVisual) this.recoverElements();
+
+      if (!this.shipVisual || !document.body.contains(this.shipVisual)) {
+        return;
+      }
+
+      if (!this.isVisible) return;
+
+      // Senso orario: decrementiamo il frame
+      if (this.currentFrame <= 0) {
+        this.currentFrame = 71;
+      } else {
+        this.currentFrame--;
+      }
+
+      const row = Math.floor(this.currentFrame / 10);
+      const col = this.currentFrame % 10;
+      const spacing = 191;
+
+      const posX = -(col * spacing + 2);
+      const posY = -(row * spacing + 2);
+
+      this.shipVisual.style.backgroundPosition = `${posX}px ${posY}px`;
+
+      // Aggiorna dati ogni 10 step
+      if (this.currentFrame % 10 === 0) {
+        try { this.update(); } catch (e) { }
+      }
+    }, 50) as any;
+  }
+
+  private stopShipAnimation(): void {
+    if (this.animationRequestId) {
+      clearInterval(this.animationRequestId as any);
+      this.animationRequestId = null;
+    }
+  }
+
+  public setPlayerSystem(playerSystem: PlayerSystem): void {
+    this.playerSystem = playerSystem;
+    if (this.isVisible) this.update();
+  }
+
   protected onShow(): void {
+    this.recoverElements();
     this.update();
+    setTimeout(() => {
+      if (this.isVisible) this.startShipAnimation();
+    }, 150);
+  }
+
+  protected onHide(): void {
+    this.stopShipAnimation();
   }
 }

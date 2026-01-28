@@ -104,8 +104,6 @@ export class UIPanelManager {
     if (upgradePanel && typeof (upgradePanel as any).updateECS === 'function') {
       (upgradePanel as any).updateECS(deltaTime);
     }
-
-    // Altri pannelli possono essere aggiunti qui se necessario
   }
 
   /**
@@ -119,6 +117,12 @@ export class UIPanelManager {
       if (this.clientNetworkSystem) {
         this.upgradePanel.setClientNetworkSystem(this.clientNetworkSystem);
       }
+    }
+
+    // Aggiorna anche il pannello inventario
+    const inventoryPanel = this.uiManager.getPanel('inventory-panel');
+    if (inventoryPanel && typeof (inventoryPanel as any).setPlayerSystem === 'function') {
+      (inventoryPanel as any).setPlayerSystem(playerSystem);
     }
   }
 
