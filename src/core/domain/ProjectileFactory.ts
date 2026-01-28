@@ -173,8 +173,8 @@ export class ProjectileFactory {
         // Missili molto più grandi per visibilità (era 48x12 laser)
         // 🚀 FIX: Dimensions set to 12x54 as requested (thin missile)
         // With 90 deg rotation offset, it moves forward correctly
-        const width = config.projectileType === 'missile' ? 12 : 48;
-        const height = config.projectileType === 'missile' ? 54 : 12;
+        const width = config.projectileType === 'missile' ? 12 : (config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_WIDTH : 48);
+        const height = config.projectileType === 'missile' ? 54 : (config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_HEIGHT : 12);
         const rotationOffset = config.projectileType === 'missile' ? Math.PI / 2 : 0;
 
         const sprite = new Sprite(image, width, height, 0, 0, rotationOffset);

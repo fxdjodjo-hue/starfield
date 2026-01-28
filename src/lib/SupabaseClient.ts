@@ -400,6 +400,32 @@ export const gameAPI = {
       console.error('Error updating quest progress:', error);
       return { data: null, error };
     }
+  },
+
+  // Delete quest progress (abandonment)
+  deleteQuestProgress: async (playerId: number, questId: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return { data: null, error: 'No user' };
+
+      console.log(`[SupabaseClient] Sending quest delete for ${questId} to server endpoint...`);
+      const response = await fetch(`${getApiBaseUrl()}/api/player-data/${user.id}/quest-progress?questId=${questId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        }
+      });
+
+      if (response.ok) {
+        console.log(`[SupabaseClient] Quest delete success!`);
+        return { data: true, error: null };
+      }
+
+      return { data: null, error: `Delete failed: ${response.status}` };
+    } catch (error) {
+      console.error('Error deleting quest progress:', error);
+      return { data: null, error };
+    }
   }
 }
 

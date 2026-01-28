@@ -169,4 +169,18 @@ export class LogSystem extends BaseSystem {
       this.addLogMessage(rewardText, LogType.REWARD, duration);
     }
   }
+
+  /**
+   * Log specifico per messaggi relativi alle quest
+   */
+  logQuest(text: string, duration: number = 5000): void {
+    this.addLogMessage(text, LogType.QUEST, duration);
+  }
+
+  /**
+   * Log specifico per progresso quest
+   */
+  logQuestProgress(questTitle: string, current: number, target: number): void {
+    this.addLogMessage(`Progress [${questTitle}]: ${current}/${target}`, LogType.QUEST, 3000);
+  }
 }

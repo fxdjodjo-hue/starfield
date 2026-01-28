@@ -66,7 +66,7 @@ const http = require('http');
 const server = http.createServer(async (req, res) => {
   // Global CORS headers
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   // Handle global OPTIONS pre-flight
@@ -312,119 +312,166 @@ const server = http.createServer(async (req, res) => {
 
         let body = '';
         req.on('data', chunk => {
-          body += chunk.toString(); // Ensure string conversion
+          body += chunk.toString();
         });
 
         req.on('end', async () => {
           try {
-            ServerLoggerWrapper.info('API', `Received quest-progress body length: ${body.length}`);
+            if (!body) throw new Error('Empty request body');
+            const { questId, progress } = JSON.parse(body);
 
-            if (!body) {
-              throw new Error('Empty request body');
-            }
-
-            let parsedBody;
-            try {
-              parsedBody = JSON.parse(body);
-            } catch (e) {
-              throw new Error(`Invalid JSON body: ${e.message}`);
-            }
-
-            const { questId, progress } = parsedBody;
-            ServerLoggerWrapper.info('API', `Processing update for quest: ${questId}, Auth: ${authId}`);
-
-            // 1. Fetch current data first to merge
+            // 1. Fetch current data
             const { data: rawData, error: fetchError } = await supabase.rpc('get_player_data_secure', {
               auth_id_param: authId
             });
 
-            if (fetchError) {
-              throw new Error(`Fetch error: ${fetchError.message}`);
-            }
-
-            // Fix: Handle RPC returning array
+            if (fetchError) throw fetchError;
             const currentData = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : rawData;
 
-            if (!currentData) {
-              throw new Error('Player data not found');
-            }
-
-            // 2. Parse existing quests safely
+            // 2. Parse existing quests
             let quests = {};
-            try {
-              if (currentData.quests_data) {
-                // Check if it's already an object (Supabase/Postgres automagic) or a string
-                quests = typeof currentData.quests_data === 'string'
-                  ? JSON.parse(currentData.quests_data)
-                  : currentData.quests_data;
-              }
-            } catch (e) {
-              ServerLoggerWrapper.warn('API', `Failed to parse existing quests_data: ${e.message}. Resetting.`);
-              quests = {};
+            if (currentData && currentData.quests_data) {
+              quests = typeof currentData.quests_data === 'string'
+                ? JSON.parse(currentData.quests_data)
+                : currentData.quests_data;
             }
 
-            // Handle array vs object format migration
+            // Migration handling
             if (Array.isArray(quests)) {
               const questsMap = {};
-              quests.forEach(q => {
-                const id = q.id || q.quest_id;
-                if (id) questsMap[id] = q;
-              });
+              quests.forEach(q => { if (q.id || q.quest_id) questsMap[q.id || q.quest_id] = q; });
               quests = questsMap;
             }
 
             // 3. Update specific quest
-            quests[questId] = {
-              id: questId, // Ensure ID is saved
-              ...progress
-            };
+            quests[questId] = { id: questId, ...progress };
 
-            // 4. Save to quest_progress table (AUTHORITATIVE STORAGE)
-            // This is critical because get_player_data likely aggregates this table
-            const { error: tableError } = await supabase.from('quest_progress').upsert({
+            // 4. Authoritative table save
+            await supabase.from('quest_progress').upsert({
               auth_id: authId,
               quest_id: questId,
               objectives: progress.objectives || [],
               is_completed: progress.is_completed || false,
               started_at: progress.started_at || new Date().toISOString(),
               completed_at: progress.completed_at || (progress.is_completed ? new Date().toISOString() : null)
-            }, {
-              onConflict: 'auth_id,quest_id'
-            });
+            }, { onConflict: 'auth_id,quest_id' });
 
-            if (tableError) {
-              ServerLoggerWrapper.warn('API', `Table save error: ${tableError.message}`);
-              // Don't fail the request if table save fails but column save succeeds, 
-              // but logging it is important.
-            } else {
-              ServerLoggerWrapper.info('API', `Saved to quest_progress table for ${questId}`);
-            }
-
-            // 5. Update JSON column as well (Cache/Redundancy)
-            const { error: saveError } = await supabase.rpc('update_player_data_secure', {
+            // 5. Update JSON column
+            await supabase.rpc('update_player_data_secure', {
               auth_id_param: authId,
-              stats_data: currentData.stats_data, // Pass as is (assuming correct format from fetch)
+              stats_data: currentData.stats_data,
               upgrades_data: currentData.upgrades_data,
               currencies_data: currentData.currencies_data,
-              quests_data: JSON.stringify(quests), // Always save as stringified JSON for consistency
+              quests_data: JSON.stringify(quests),
               profile_data: currentData.profile_data,
               position_data: currentData.position_data
             });
 
-            if (saveError) {
-              throw new Error(`Save error: ${saveError.message}`);
+            // 6. Sincronizzazione Memoria Game Server (se il player è online)
+            if (typeof mapServer !== 'undefined' && mapServer.players) {
+              const playerInMemory = Array.from(mapServer.players.values()).find(p => p.userId === authId);
+              if (playerInMemory) {
+                if (!playerInMemory.quests) playerInMemory.quests = [];
+                // Se è un array
+                if (Array.isArray(playerInMemory.quests)) {
+                  const idx = playerInMemory.quests.findIndex(q => (q.id || q.quest_id) === questId);
+                  const questObj = { id: questId, quest_id: questId, ...progress };
+                  if (idx >= 0) {
+                    playerInMemory.quests[idx] = questObj;
+                  } else {
+                    playerInMemory.quests.push(questObj);
+                  }
+                }
+                ServerLoggerWrapper.info('API', `Quest memory synchronized (POST) for user ${authId}`);
+              }
             }
 
-            ServerLoggerWrapper.info('API', `Updated quest ${questId} for user ${authId}`);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ data: { success: true } }));
-
           } catch (error) {
-            ServerLoggerWrapper.error('API', `Exception in quest-progress: ${error.message}`);
+            ServerLoggerWrapper.error('API', `Exception in POST quest-progress: ${error.message}`);
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ error: error.message }));
           }
         });
+        return;
+      }
+
+      // DELETE /api/player-data/:authId/quest-progress - Rimuovi progresso quest (abbandono)
+      if (pathParts[0] === 'api' && pathParts[1] === 'player-data' && pathParts[3] === 'quest-progress' && req.method === 'DELETE') {
+        const authId = pathParts[2];
+        const questId = url.searchParams.get('questId');
+
+        if (!authId || !questId) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Missing authId or questId' }));
+          return;
+        }
+
+        try {
+          ServerLoggerWrapper.info('API', `Deleting quest ${questId} for user ${authId}`);
+
+          // 1. Rimuovi dalla tabella quest_progress
+          const { error: deleteError } = await supabase
+            .from('quest_progress')
+            .delete()
+            .match({ auth_id: authId, quest_id: questId });
+
+          if (deleteError) {
+            throw new Error(`Table delete error: ${deleteError.message}`);
+          }
+
+          // 2. Aggiorna il JSON cache in players table
+          const { data: rawData, error: fetchError } = await supabase.rpc('get_player_data_secure', {
+            auth_id_param: authId
+          });
+
+          if (fetchError) throw fetchError;
+          const currentData = Array.isArray(rawData) && rawData.length > 0 ? rawData[0] : rawData;
+
+          if (currentData && currentData.quests_data) {
+            let quests = typeof currentData.quests_data === 'string'
+              ? JSON.parse(currentData.quests_data)
+              : currentData.quests_data;
+
+            // Handle array vs object
+            if (Array.isArray(quests)) {
+              quests = quests.filter(q => (q.id || q.quest_id) !== questId);
+            } else {
+              delete quests[questId];
+            }
+
+            // Salva JSON aggiornato
+            await supabase.rpc('update_player_data_secure', {
+              auth_id_param: authId,
+              stats_data: currentData.stats_data,
+              upgrades_data: currentData.upgrades_data,
+              currencies_data: currentData.currencies_data,
+              quests_data: JSON.stringify(quests),
+              profile_data: currentData.profile_data,
+              position_data: currentData.position_data
+            });
+
+            // 3. Sincronizzazione Memoria Game Server (se il player è online)
+            if (typeof mapServer !== 'undefined' && mapServer.players) {
+              const playerInMemory = Array.from(mapServer.players.values()).find(p => p.userId === authId);
+              if (playerInMemory && playerInMemory.quests) {
+                if (Array.isArray(playerInMemory.quests)) {
+                  playerInMemory.quests = playerInMemory.quests.filter(q => (q.id || q.quest_id) !== questId);
+                }
+                ServerLoggerWrapper.info('API', `Quest memory synchronized (DELETE) for user ${authId}`);
+              }
+            }
+          }
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: { success: true } }));
+
+        } catch (error) {
+          ServerLoggerWrapper.error('API', `Exception in delete quest-progress: ${error.message}`);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message }));
+        }
         return;
       }
 

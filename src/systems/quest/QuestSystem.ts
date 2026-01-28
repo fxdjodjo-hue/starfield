@@ -12,6 +12,7 @@ import { gameAPI } from '../../lib/SupabaseClient';
 export class QuestSystem extends System {
   private questManager: QuestManager;
   private questPanel: QuestPanel | null = null;
+  private initialUpdateDone: boolean = false;
 
   constructor(ecs: ECS, questManager: QuestManager) {
     super(ecs);
@@ -90,21 +91,21 @@ export class QuestSystem extends System {
    * Notifica al pannello quest di aggiornarsi
    */
   private notifyQuestPanelUpdate(): void {
-    if (this.questPanel) {
-      // Trova l'entità player
-      const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
-      if (entities.length > 0) {
-        const playerEntity = entities[0];
-        const activeQuest = this.ecs.getComponent(playerEntity, ActiveQuest);
-        if (activeQuest) {
-          const questData = this.questManager.getQuestData(activeQuest);
+    // Rimosso check su questPanel per permettere update anche al tracker HUD
+    // if (this.questPanel) {
+    const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
+    if (entities.length > 0) {
+      const playerEntity = entities[0];
+      const activeQuest = this.ecs.getComponent(playerEntity, ActiveQuest);
+      if (activeQuest) {
+        const questData = this.questManager.getQuestData(activeQuest);
 
-          // Trigger update event per il pannello
-          const event = new CustomEvent('questDataUpdate', { detail: questData });
-          document.dispatchEvent(event);
-        }
+        // Trigger update event per il pannello e HUD
+        const event = new CustomEvent('questDataUpdate', { detail: questData });
+        document.dispatchEvent(event);
       }
     }
+    // }
   }
 
   /**
@@ -128,8 +129,14 @@ export class QuestSystem extends System {
   }
 
   update(deltaTime: number): void {
-    // Il QuestSystem non gestisce aggiornamenti di progresso delle quest
-    // Quello è responsabilità del QuestTrackingSystem che risponde agli eventi di gioco
-    // Questo sistema gestisce solo l'interfaccia utente e accettazione/rifiuto quest
+    // Check for initial data load execution
+    if (!this.initialUpdateDone) {
+      const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
+      if (entities.length > 0) {
+        // Player loaded and quests ready - triggering initial UI update
+        this.notifyQuestPanelUpdate();
+        this.initialUpdateDone = true;
+      }
+    }
   }
 }

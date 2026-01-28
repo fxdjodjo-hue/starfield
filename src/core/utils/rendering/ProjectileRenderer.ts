@@ -3,6 +3,7 @@ import { AssetManager } from '../../../core/services/AssetManager';
 import { Projectile } from '../../../entities/combat/Projectile';
 import { PlayerSystem } from '../../../systems/player/PlayerSystem';
 import { Npc } from '../../../entities/ai/Npc';
+import { GAME_CONSTANTS } from '../../../config/GameConstants';
 
 /**
  * Rendering parameters for projectiles
@@ -73,13 +74,13 @@ export class ProjectileRenderer {
 
       if (playerLaserImage && playerLaserImage.complete && playerLaserImage.naturalWidth > 0 && playerLaserImage.naturalHeight > 0) {
         // Image-based projectile
-        const imageSize = 48; // Dimensione sprite laser player
+        const imageSize = GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_WIDTH; // Dimensione sprite laser player (60x20)
 
 
         return {
           color: '#ff0000', // Red (fallback)
-          length: 15,
-          lineWidth: 3,
+          length: GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_WIDTH,
+          lineWidth: 5,
           hasImage: true,
           imageSize,
           image: playerLaserImage

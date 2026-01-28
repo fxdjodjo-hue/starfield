@@ -1,6 +1,7 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { PlayerHUD } from '../../presentation/ui/PlayerHUD';
+import { QuestTracker } from '../../presentation/ui/QuestTracker';
 import { QuestSystem } from '../quest/QuestSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
@@ -14,14 +15,12 @@ import { UINicknameManager } from './managers/UINicknameManager';
 import { UIAudioManager } from './managers/UIAudioManager';
 import { FpsCounter } from '../../presentation/ui/FpsCounter';
 import { NetworkStatsDisplay } from '../../presentation/ui/NetworkStatsDisplay';
+import { NotificationPopup } from '../../presentation/ui/NotificationPopup';
 import { GameSettings } from '../../core/settings/GameSettings';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 
-/**
- * Sistema di orchestrazione per la gestione dell'interfaccia utente
- * Coordina UIManager, HUD e pannelli UI
- * Uses modular architecture with separate managers for different responsibilities
- */
+// ... existing imports ...
+
 export class UiSystem extends System {
   // Modular architecture managers
   private panelManager!: UIPanelManager;
@@ -31,6 +30,7 @@ export class UiSystem extends System {
   private audioManager!: UIAudioManager;
   private fpsCounter!: FpsCounter;
   private networkStats!: NetworkStatsDisplay;
+  private notificationPopup!: NotificationPopup;
   private safeZoneElement: HTMLElement | null = null;
   private managersInitialized: boolean = false;
 
@@ -80,7 +80,8 @@ export class UiSystem extends System {
 
       // Initialize HUD manager first (needs PlayerHUD)
       const playerHUD = new PlayerHUD();
-      this.hudManager = new UIHUDManager(playerHUD);
+      const questTracker = new QuestTracker();
+      this.hudManager = new UIHUDManager(playerHUD, questTracker);
       this.hudManager.setContext(this.context);
 
       // Initialize panel manager
@@ -100,9 +101,14 @@ export class UiSystem extends System {
 
       // Initialize Network Stats
       this.networkStats = new NetworkStatsDisplay();
+      // Initialize Network Stats
+      this.networkStats = new NetworkStatsDisplay();
       if (clientNetworkSystem) {
         this.networkStats.setNetworkSystem(clientNetworkSystem);
       }
+
+      // Initialize Notification Popup
+      this.notificationPopup = new NotificationPopup();
 
       // Apply saved settings
       const settings = GameSettings.getInstance();
@@ -145,8 +151,6 @@ export class UiSystem extends System {
   }
 
   private setupSettingsListeners(): void {
-
-
     document.addEventListener('settings:ui:chat', (e: any) => {
       // Usa il nuovo metodo setChatVisibility per nascondere/mostrare tutto
       this.chatManager.setChatVisibility(e.detail);
@@ -158,6 +162,23 @@ export class UiSystem extends System {
       }
       if (this.networkStats) {
         this.networkStats.setVisibility(e.detail);
+      }
+    });
+
+    // Ascolta messaggi di sistema globali da qualsiasi componente
+    document.addEventListener('ui:system-message', (e: any) => {
+      if (e.detail && typeof e.detail.content === 'string') {
+        // Usa il popup invece della chat per messaggi di sistema critici
+        if (this.notificationPopup) {
+          this.notificationPopup.show(e.detail.content);
+        } else {
+          // Fallback se popup non pronto
+          this.addSystemMessage(e.detail.content);
+        }
+      } else if (typeof e.detail === 'string') {
+        if (this.notificationPopup) {
+          this.notificationPopup.show(e.detail);
+        }
       }
     });
   }

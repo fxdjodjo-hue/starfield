@@ -81,6 +81,18 @@ export class QuestManager {
     const quest = this.availableQuests.find(q => q.id === questId);
     if (!quest) return false;
 
+    // Limit max active quests to 3
+    if (activeQuestComponent.getActiveQuests().length >= 3) {
+      console.warn(`[QuestManager] Cannot accept quest ${questId}: Max active quests limit reached (3).`);
+      // Notify player via UI
+      if (typeof document !== 'undefined') {
+        document.dispatchEvent(new CustomEvent('ui:system-message', {
+          detail: { content: "⚠️ Max allowed active missions (3) reached!" }
+        }));
+      }
+      return false;
+    }
+
     // Verifica i prerequisiti prima di accettare
     if (!this.canAcceptQuest(questId)) {
       return false;
@@ -131,13 +143,8 @@ export class QuestManager {
     // Rimetti tra le quest disponibili
     this.availableQuests.push(quest);
 
-    // Per abbandonare, salviamo lo stato come "vuoto" o lo rimuoviamo?
-    // Poiché savePlayerData usa merge, inviare un oggetto vuoto potrebbe non rimuoverlo.
-    // Tuttavia, se resettiamo il progresso, forse vogliamo salvarlo come non iniziato?
-    // Nel DB attuale, quest_progress ha una riga per quest. 
-    // AGGIORNAMENTO: Per ora salviamo il reset.
-    // TODO: Implementare deleteQuestProgress se necessario.
-    this.saveQuestProgressToDatabase(quest);
+    // Per abbandonare, rimuoviamo completamente il record dal database
+    this.deleteQuestProgressFromDatabase(quest.id);
 
     return true;
   }
@@ -187,6 +194,23 @@ export class QuestManager {
   }
 
   /**
+   * Rimuove il progresso della quest dal database (abbandono)
+   */
+  private async deleteQuestProgressFromDatabase(questId: string): Promise<void> {
+    if (!this.playerId) return;
+
+    try {
+      console.log(`[QuestManager] Deleting progress for abandoned quest ${questId}...`);
+      const result = await gameAPI.deleteQuestProgress(this.playerId, questId);
+      if (result.error) {
+        console.error('[QUEST_MANAGER] Failed to delete quest progress:', result.error);
+      }
+    } catch (error) {
+      console.error('[QUEST_MANAGER] Error deleting quest progress:', error);
+    }
+  }
+
+  /**
    * Ottiene i dati per l'UI del pannello quest
    */
   getQuestData(activeQuestComponent: ActiveQuest): QuestData {
@@ -203,10 +227,18 @@ export class QuestManager {
       isActive: quest.isActive
     });
 
+    // Ordina le quest disponibili in base all'ordine del Registro
+    const registryOrder = QuestRegistry.getAll().map(q => q.id);
+    const sortedAvailable = [...this.availableQuests].sort((a, b) => {
+      const indexA = registryOrder.indexOf(a.id);
+      const indexB = registryOrder.indexOf(b.id);
+      return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
+    });
+
     return {
       activeQuests: activeQuestComponent.getActiveQuests().map(convertQuestToInterface),
       completedQuests: this.completedQuests.map(convertQuestToInterface),
-      availableQuests: this.availableQuests.map(convertQuestToInterface)
+      availableQuests: sortedAvailable.map(convertQuestToInterface)
     };
   }
 

@@ -55,7 +55,7 @@ export class ProjectileDestroyedHandler extends BaseMessageHandler {
           // Fallback global sound if position not found (shouldn't happen much)
           const audioSystem = networkSystem.getAudioSystem();
           if (audioSystem) {
-            audioSystem.playSound('missileHit', 0.8);
+            audioSystem.playSound('missileHit', 0.2);
           }
         }
       }

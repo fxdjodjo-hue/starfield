@@ -116,9 +116,9 @@ export class QuestPanel extends BasePanel {
       position: absolute;
       top: 16px;
       right: 16px;
-      background: rgba(239, 68, 68, 0.9);
-      border: 1px solid rgba(239, 68, 68, 0.5);
-      color: white;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
       font-size: 16px;
       font-weight: 600;
       cursor: pointer;
@@ -130,20 +130,22 @@ export class QuestPanel extends BasePanel {
       align-items: center;
       justify-content: center;
       z-index: 100;
-      box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
       transition: all 0.2s ease;
+      backdrop-filter: blur(4px);
     `;
 
     closeButton.addEventListener('mouseenter', () => {
-      closeButton.style.background = 'rgba(239, 68, 68, 1)';
-      closeButton.style.borderColor = 'rgba(239, 68, 68, 0.8)';
-      closeButton.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.4)';
+      closeButton.style.background = 'rgba(239, 68, 68, 0.8)';
+      closeButton.style.color = 'white';
+      closeButton.style.borderColor = 'rgba(239, 68, 68, 1)';
+      closeButton.style.boxShadow = '0 0 12px rgba(239, 68, 68, 0.4)';
     });
 
     closeButton.addEventListener('mouseleave', () => {
-      closeButton.style.background = 'rgba(239, 68, 68, 0.9)';
-      closeButton.style.borderColor = 'rgba(239, 68, 68, 0.5)';
-      closeButton.style.boxShadow = '0 2px 8px rgba(239, 68, 68, 0.3)';
+      closeButton.style.background = 'rgba(255, 255, 255, 0.05)';
+      closeButton.style.color = 'rgba(255, 255, 255, 0.6)';
+      closeButton.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+      closeButton.style.boxShadow = 'none';
     });
 
     closeButton.addEventListener('click', () => {
@@ -165,17 +167,15 @@ export class QuestPanel extends BasePanel {
     `;
 
     const title = document.createElement('h2');
-    title.textContent = 'Missions & Quests';
+    // Unify terminology to "Missions" as requested
+    title.textContent = 'Missions';
     title.style.cssText = `
       margin: 0;
-      color: rgba(255, 255, 255, 0.95);
+      color: #ffffff;
       font-size: 22px;
       font-weight: 700;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-      background: rgba(255, 255, 255, 0.08);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+      letter-spacing: 0.5px;
     `;
 
     header.appendChild(title);
@@ -228,7 +228,22 @@ export class QuestPanel extends BasePanel {
 
     // Hide scrollbar style
     const style = document.createElement('style');
-    style.textContent = `.quest-container::-webkit-scrollbar { display: none; }`;
+    style.textContent = `
+      .quest-container::-webkit-scrollbar {
+        width: 8px;
+      }
+      .quest-container::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 4px;
+      }
+      .quest-container::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+      }
+      .quest-container::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+      }
+    `;
     content.appendChild(style);
 
 
@@ -259,14 +274,18 @@ export class QuestPanel extends BasePanel {
   private styleTabButton(btn: HTMLButtonElement, isActive: boolean) {
     btn.style.cssText = `
         padding: 8px 16px;
-        background: ${isActive ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.05)'};
+        background: ${isActive ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.05)'};
         color: ${isActive ? 'white' : 'rgba(255, 255, 255, 0.6)'};
-        border: 1px solid ${isActive ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.1)'};
+        border: 1px solid ${isActive ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.1)'};
         border-radius: 6px;
         cursor: pointer;
         font-weight: 600;
         transition: all 0.2s ease;
         flex: 1;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 13px;
+        backdrop-filter: blur(4px);
       `;
 
     // Hover effect handling manually since we use inline styles
@@ -274,10 +293,12 @@ export class QuestPanel extends BasePanel {
       btn.onmouseenter = () => {
         btn.style.background = 'rgba(255, 255, 255, 0.1)';
         btn.style.color = 'white';
+        btn.style.borderColor = 'rgba(255, 255, 255, 0.2)';
       };
       btn.onmouseleave = () => {
         btn.style.background = 'rgba(255, 255, 255, 0.05)';
         btn.style.color = 'rgba(255, 255, 255, 0.6)';
+        btn.style.borderColor = 'rgba(255, 255, 255, 0.1)';
       };
     } else {
       btn.onmouseenter = null;
@@ -347,10 +368,6 @@ export class QuestPanel extends BasePanel {
       display: flex;
       flex-direction: column;
       gap: 8px;
-      max-height: 200px;
-      overflow-y: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
     `;
 
     // Aggiungi quest placeholder se la lista è vuota
@@ -379,7 +396,7 @@ export class QuestPanel extends BasePanel {
     const card = document.createElement('div');
     card.className = 'quest-card';
     card.style.cssText = `
-      background: rgba(51, 65, 85, 0.8);
+      background: rgba(10, 10, 10, 0.6);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 8px;
       padding: 12px;
@@ -391,13 +408,15 @@ export class QuestPanel extends BasePanel {
     `;
 
     card.addEventListener('mouseenter', () => {
-      card.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.2)';
+      card.style.boxShadow = '0 4px 16px rgba(0, 0, 0, 0.4)';
+      card.style.background = 'rgba(30, 30, 30, 0.7)';
       card.style.borderColor = this.getQuestColor(quest.type);
     });
 
     card.addEventListener('mouseleave', () => {
-      card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-      card.style.borderColor = 'rgba(148, 163, 184, 0.2)';
+      card.style.boxShadow = 'none';
+      card.style.background = 'rgba(10, 10, 10, 0.6)';
+      card.style.borderColor = 'rgba(255, 255, 255, 0.1)';
     });
 
     // Header della quest
@@ -405,36 +424,222 @@ export class QuestPanel extends BasePanel {
     questHeader.style.cssText = `
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start; /* Align top in case of wrapping */
+      gap: 12px;
     `;
 
     const questTitle = document.createElement('span');
     questTitle.textContent = quest.title;
     questTitle.style.cssText = `
-      color: rgba(255, 255, 255, 0.95);
+      color: white;
       font-size: 14px;
       font-weight: 600;
+      flex: 1;
     `;
-
-    const questStatus = document.createElement('span');
-    questStatus.textContent = quest.isCompleted ? '✅' : `${quest.progress}%`;
-    questStatus.style.cssText = `
-      color: ${quest.isCompleted ? '#10b981' : this.getQuestColor(quest.type)};
-      font-size: 12px;
-      font-weight: 600;
-    `;
-
     questHeader.appendChild(questTitle);
-    questHeader.appendChild(questStatus);
+
+    // Rewards/Status Container (Top Right)
+    const statusContainer = document.createElement('div');
+    statusContainer.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    `;
+
+    // Se completata mostriamo checkmark, altrimenti mostriamo le ricompense
+    if (quest.isCompleted) {
+      const completedIcon = document.createElement('span');
+      completedIcon.textContent = 'COMPLETE';
+      completedIcon.style.cssText = `
+         color: white;
+         font-size: 11px;
+         font-weight: 700;
+         letter-spacing: 0.5px;
+         background: rgba(255, 255, 255, 0.1);
+         padding: 2px 6px;
+         border-radius: 4px;
+       `;
+      statusContainer.appendChild(completedIcon);
+    }
+
+    questHeader.appendChild(statusContainer);
+    card.appendChild(questHeader);
 
     // Descrizione
     const questDescription = document.createElement('div');
     questDescription.textContent = quest.description;
     questDescription.style.cssText = `
-      color: rgba(255, 255, 255, 0.8);
+      color: rgba(255, 255, 255, 0.7);
       font-size: 12px;
       line-height: 1.4;
+      margin-top: 4px;
     `;
+    card.appendChild(questDescription);
+
+    // Unified Details Container (Objectives & Rewards)
+    if ((quest.objectives && quest.objectives.length > 0) || (quest.rewards && quest.rewards.length > 0)) {
+      const detailsContainer = document.createElement('div');
+      detailsContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 8px;
+        background: rgba(0, 0, 0, 0.25);
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      `;
+
+      // 1. Objectives Section
+      if (quest.objectives && quest.objectives.length > 0) {
+        const objectivesSection = document.createElement('div');
+        objectivesSection.style.cssText = `display: flex; flex-direction: column; gap: 4px;`;
+
+        const objectivesTitle = document.createElement('div');
+        objectivesTitle.textContent = 'Objectives:';
+        objectivesTitle.style.cssText = `
+          color: rgba(255, 255, 255, 0.4);
+          font-size: 10px;
+          text-transform: uppercase;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+        `;
+        objectivesSection.appendChild(objectivesTitle);
+
+        quest.objectives.forEach(obj => {
+          const objEl = document.createElement('div');
+          objEl.style.cssText = `
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 11px;
+            line-height: 1.4;
+          `;
+
+          let text = obj.description;
+          if (!text && obj.targetName) {
+            text = `${obj.type} ${obj.target} ${obj.targetName}`;
+          }
+
+          if (quest.isActive || quest.isCompleted) {
+            text += ` (${obj.current}/${obj.target})`;
+          } else if (!text.includes(obj.target.toString())) {
+            text += ` (${obj.target})`;
+          }
+
+          objEl.textContent = `- ${text}`;
+          objectivesSection.appendChild(objEl);
+        });
+
+        detailsContainer.appendChild(objectivesSection);
+      }
+
+      // 2. Divider if both exist
+      if (quest.objectives?.length > 0 && quest.rewards?.length > 0) {
+        const divider = document.createElement('div');
+        divider.style.cssText = `
+            height: 1px;
+            background: rgba(255, 255, 255, 0.05);
+            margin: 2px 0;
+          `;
+        detailsContainer.appendChild(divider);
+      }
+
+      // 3. Rewards Section
+      if (quest.rewards && quest.rewards.length > 0) {
+        const rewardsSection = document.createElement('div');
+        rewardsSection.style.cssText = `display: flex; flex-direction: column; gap: 4px;`;
+
+        const rewardsTitle = document.createElement('div');
+        rewardsTitle.textContent = 'Rewards:';
+        rewardsTitle.style.cssText = `
+          color: rgba(255, 255, 255, 0.4);
+          font-size: 10px;
+          text-transform: uppercase;
+          font-weight: 700;
+          letter-spacing: 0.5px;
+          margin-bottom: 2px;
+        `;
+        rewardsSection.appendChild(rewardsTitle);
+
+        quest.rewards.forEach(reward => {
+          const rewardEl = document.createElement('div');
+          rewardEl.style.cssText = `
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 11px;
+            font-weight: 600;
+          `;
+
+          let code = '';
+          const amount = reward.amount || 0;
+
+          switch (reward.type) {
+            case 'credits': code = 'Credits'; break;
+            case 'experience': code = 'Experience'; break;
+            case 'cosmos': code = 'Cosmos'; break;
+            case 'honor': code = 'Honor'; break;
+            case 'item': code = 'Item'; break;
+            case 'title': code = 'Title'; break;
+            default: code = 'Reward';
+          }
+
+          rewardEl.textContent = amount > 0 ? `- ${amount} ${code}` : `- ${code}`;
+          rewardsSection.appendChild(rewardEl);
+        });
+
+        detailsContainer.appendChild(rewardsSection);
+      }
+
+      card.appendChild(detailsContainer);
+    }
+
+    // (Rimosso vecchio blocco rewards display che era qui)
+    // Old Rewards Display block (commented out as per instruction)
+    /*
+    if (quest.rewards && quest.rewards.length > 0) {
+      const rewardsContainer = document.createElement('div');
+      rewardsContainer.style.cssText = `
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 4px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        padding-top: 8px;
+      `;
+
+      quest.rewards.forEach(reward => {
+        const rewardEl = document.createElement('div');
+        rewardEl.style.cssText = `
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(255, 255, 255, 0.05);
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 11px;
+          color: rgba(255, 255, 255, 0.7);
+        `;
+
+        let icon = '';
+        let label = '';
+        const amount = reward.amount || 0;
+
+        switch (reward.type) {
+          case 'credits': icon = '💳'; label = `${amount} CR`; break;
+          case 'experience': icon = '⭐'; label = `${amount} XP`; break;
+          case 'cosmos': icon = '🌌'; label = `${amount} CO`; break;
+          case 'honor': icon = '🎖️'; label = `${amount} H`; break;
+          case 'item': icon = '📦'; label = 'Item'; break; // Could resolve item name if possible
+          case 'title': icon = '👑'; label = `Title: ${reward.title}`; break;
+          default: icon = '🎁'; label = 'Reward';
+        }
+
+        rewardEl.innerHTML = `<span style="opacity:0.8">${icon}</span> <span>${label}</span>`;
+        rewardsContainer.appendChild(rewardEl);
+      });
+
+      card.appendChild(rewardsContainer);
+    }
+    */
 
     // Progress bar se non completata
     if (!quest.isCompleted && quest.progress > 0) {
@@ -451,7 +656,7 @@ export class QuestPanel extends BasePanel {
       progressBar.style.cssText = `
         width: ${quest.progress}%;
         height: 100%;
-        background: linear-gradient(90deg, ${this.getQuestColor(quest.type)}, ${this.adjustColorBrightness(this.getQuestColor(quest.type), 30)});
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.4));
         border-radius: 2px;
         transition: width 0.5s ease;
       `;
@@ -459,9 +664,6 @@ export class QuestPanel extends BasePanel {
       progressContainer.appendChild(progressBar);
       card.appendChild(progressContainer);
     }
-
-    card.appendChild(questHeader);
-    card.appendChild(questDescription);
 
     // Aggiungi pulsanti di azione basati sul tipo di sezione
     if (sectionType === 'active') {
@@ -475,25 +677,29 @@ export class QuestPanel extends BasePanel {
       const abandonButton = document.createElement('button');
       abandonButton.textContent = 'Abandon Quest';
       abandonButton.style.cssText = `
-        background: linear-gradient(135deg, #ef4444, #dc2626);
-        color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 6px;
-        font-size: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 11px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
-        position: relative;
-        z-index: 10;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
       `;
 
       abandonButton.addEventListener('mouseenter', () => {
-        abandonButton.style.background = 'linear-gradient(135deg, #dc2626, #b91c1c)';
+        abandonButton.style.background = 'rgba(239, 68, 68, 0.2)'; // Subtle Red tint on hover
+        abandonButton.style.color = '#fff';
+        abandonButton.style.borderColor = 'rgba(239, 68, 68, 0.4)';
       });
 
       abandonButton.addEventListener('mouseleave', () => {
-        abandonButton.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
+        abandonButton.style.background = 'rgba(255, 255, 255, 0.05)';
+        abandonButton.style.color = 'rgba(255, 255, 255, 0.7)';
+        abandonButton.style.borderColor = 'rgba(255, 255, 255, 0.1)';
       });
 
       abandonButton.addEventListener('click', (e) => {
@@ -514,25 +720,29 @@ export class QuestPanel extends BasePanel {
       const acceptButton = document.createElement('button');
       acceptButton.textContent = 'Accept Quest';
       acceptButton.style.cssText = `
-        background: linear-gradient(135deg, #10b981, #059669);
+        background: rgba(255, 255, 255, 0.1);
         color: white;
-        border: none;
-        padding: 8px 16px;
-        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 6px 16px;
+        border-radius: 4px;
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
-        position: relative;
-        z-index: 10;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
       `;
 
       acceptButton.addEventListener('mouseenter', () => {
-        acceptButton.style.background = 'linear-gradient(135deg, #059669, #047857)';
+        acceptButton.style.background = 'rgba(255, 255, 255, 0.2)';
+        acceptButton.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+        acceptButton.style.boxShadow = '0 0 10px rgba(255, 255, 255, 0.1)';
       });
 
       acceptButton.addEventListener('mouseleave', () => {
-        acceptButton.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+        acceptButton.style.background = 'rgba(255, 255, 255, 0.1)';
+        acceptButton.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        acceptButton.style.boxShadow = 'none';
       });
 
       acceptButton.addEventListener('click', (e) => {
@@ -551,14 +761,9 @@ export class QuestPanel extends BasePanel {
    * Ottiene il colore associato al tipo di quest
    */
   private getQuestColor(type: string): string {
-    const colors: { [key: string]: string } = {
-      'kill': '#ef4444',      // Rosso
-      'survival': '#10b981',  // Verde
-      'progression': '#3b82f6', // Blu
-      'collection': '#f59e0b',  // Arancione
-      'achievement': '#8b5cf6'  // Viola
-    };
-    return colors[type] || '#6b7280'; // Grigio di default
+    // Neutral/White theme per richiesta utente
+    // Returning white/off-white for all types to match UI
+    return 'rgba(255, 255, 255, 0.9)';
   }
 
   /**

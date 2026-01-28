@@ -950,7 +950,11 @@ export class CombatStateSystem extends BaseSystem {
       const visualEntity = ProjectileFactory.create(ecs, config);
 
       // Aggiungi componenti (stessi del player locale)
-      const laserSprite = new Sprite(laserImage, laserImage.width, laserImage.height);
+      const laserSprite = new Sprite(
+        laserImage,
+        GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_WIDTH,
+        GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_HEIGHT
+      );
       ecs.addComponent(visualEntity, Sprite, laserSprite);
 
       const visualState = new ProjectileVisualState();

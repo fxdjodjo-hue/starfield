@@ -182,31 +182,38 @@ class PlayerDataManager {
         })(),
         quests: (() => {
           // Primary source: The RPC return value (likely from quest_progress table)
-          let loadedQuests = playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [];
+          let rawLoadedQuests = playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [];
 
           // BACKUP RECOVERY STRATEGY:
-          // If primary source is empty, check if we hid quests inside upgrades_data
-          // This bypasses RLS/Permissions issues on the quest_progress table
-          if ((!loadedQuests || loadedQuests.length === 0) && playerDataRaw.upgrades_data) {
+          if ((!rawLoadedQuests || rawLoadedQuests.length === 0) && playerDataRaw.upgrades_data) {
             try {
               const upgrades = JSON.parse(playerDataRaw.upgrades_data);
               if (upgrades._quests_backup) {
                 ServerLoggerWrapper.database(`RECOVERY: Found quest data in upgrades backup for ${userId}`);
-                // _quests_backup is expected to be an Object Map from our server hack
-                // Convert Object Map to Array for the client
                 const questsMap = upgrades._quests_backup;
-                loadedQuests = Object.values(questsMap).map(q => ({
-                  ...q,
-                  // Ensure format compatibility
-                  id: q.id || q.quest_id
-                }));
+                rawLoadedQuests = Object.values(questsMap);
               }
             } catch (e) {
               ServerLoggerWrapper.warn('DATABASE', 'Failed to parse upgrades for quest recovery');
             }
           }
 
-          return loadedQuests;
+          // Standardize
+          // Standardizziamo i nomi delle proprietà e assicuriamoci che l'ID sia presente.
+          // Non filtriamo in base al progresso qui, perché una quest appena accettata (0 progresso) deve essere caricata.
+          // La rimozione definitiva avviene tramite DELETE o non includendo la missione qui.
+          const processedQuests = rawLoadedQuests.map(q => {
+            const id = q.id || q.quest_id;
+            const isCompleted = q.is_completed === true || q.completed === true;
+            return {
+              ...q,
+              id: id,
+              quest_id: id,
+              is_completed: isCompleted
+            };
+          });
+
+          return processedQuests;
         })(),
         recentHonor: recentHonor, // Media mobile honor ultimi 30 giorni
         health: (() => {
@@ -355,6 +362,7 @@ class PlayerDataManager {
           stats_data: statsData,
           upgrades_data: upgradesData,
           currencies_data: currenciesData,
+          quests_data: playerData.quests ? JSON.stringify(playerData.quests) : null,
           profile_data: profileData,
           position_data: {
             x: playerData.position?.x || 200,
@@ -377,9 +385,9 @@ class PlayerDataManager {
         for (const quest of playerData.quests) {
           const questResult = await supabase.from('quest_progress').upsert({
             auth_id: playerId,
-            quest_id: quest.quest_id,
+            quest_id: quest.quest_id || quest.id,
             objectives: quest.objectives || [],
-            completed: quest.completed || false
+            is_completed: quest.is_completed || quest.completed || false
           }, {
             onConflict: 'auth_id,quest_id'
           });
