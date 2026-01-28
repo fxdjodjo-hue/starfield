@@ -28,28 +28,32 @@ export class WeaponStatus {
 
     container.style.cssText = `
       position: fixed;
-      bottom: ${Math.round(120 * c)}px;
+      bottom: ${Math.round(130 * c)}px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
-      gap: ${Math.round(15 * c)}px;
-      pointer-events: none;
+      justify-content: center;
+      align-items: center;
+      gap: ${Math.round(12 * c)}px;
+      pointer-events: auto; /* Enable hover */
       z-index: 1000;
       display: none; /* Hidden by default */
     `;
 
     container.innerHTML = `
-      <div class="cooldown-circle-container" id="laser-indicator">
+      <div class="cooldown-square-container" id="laser-indicator">
+        <div class="weapon-tooltip">LASER</div>
         <svg class="cooldown-svg" viewBox="0 0 36 36">
-          <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-          <path id="laser-progress" class="circle-progress" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+          <rect class="square-bg" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
+          <rect id="laser-progress" class="square-progress" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
         </svg>
         <div class="weapon-label">L</div>
       </div>
-      <div class="cooldown-circle-container" id="missile-indicator">
+      <div class="cooldown-square-container" id="missile-indicator">
+        <div class="weapon-tooltip">MISSILES</div>
         <svg class="cooldown-svg" viewBox="0 0 36 36">
-          <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-          <path id="missile-progress" class="circle-progress" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+          <rect class="square-bg" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
+          <rect id="missile-progress" class="square-progress" x="3" y="3" width="30" height="30" rx="3" pathLength="100" />
         </svg>
         <div class="weapon-label">M</div>
       </div>
@@ -71,18 +75,53 @@ export class WeaponStatus {
     style.id = id;
 
     style.textContent = `
-      .cooldown-circle-container {
+      .cooldown-square-container {
         position: relative;
-        width: ${Math.round(50 * c)}px;
-        height: ${Math.round(50 * c)}px;
-        background: rgba(0, 20, 30, 0.6);
-        border-radius: 50%;
+        width: ${Math.round(52 * c)}px;
+        height: ${Math.round(52 * c)}px;
+        background: rgba(0, 0, 0, 0.45);
+        border-radius: ${Math.round(6 * c)}px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border: 1px solid rgba(0, 255, 255, 0.2);
-        box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
-        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        backdrop-filter: blur(20px) saturate(160%);
+        -webkit-backdrop-filter: blur(20px) saturate(160%);
+        transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: auto;
+        cursor: crosshair;
+      }
+
+      .cooldown-square-container:hover {
+        border-color: rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .weapon-tooltip {
+        position: absolute;
+        bottom: 110%;
+        left: 50%;
+        transform: translateX(-50%) translateY(5px);
+        background: rgba(0, 0, 0, 0.6);
+        color: rgba(255, 255, 255, 0.9);
+        padding: ${Math.round(4 * c)}px ${Math.round(8 * c)}px;
+        border-radius: ${Math.round(4 * c)}px;
+        font-family: 'Segoe UI', sans-serif;
+        font-size: ${Math.round(10 * c)}px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: all 0.25s ease;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+      }
+
+      .cooldown-square-container:hover .weapon-tooltip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
       }
 
       .cooldown-svg {
@@ -94,42 +133,35 @@ export class WeaponStatus {
         transform: rotate(-90deg);
       }
 
-      .circle-bg {
+      .square-bg {
         fill: none;
-        stroke: rgba(0, 255, 255, 0.1);
-        stroke-width: 2;
+        stroke: rgba(255, 255, 255, 0.04);
+        stroke-width: 1.2;
       }
 
-      .circle-progress {
+      .square-progress {
         fill: none;
-        stroke: rgba(0, 255, 255, 0.8);
-        stroke-width: 2.5;
+        stroke: rgba(255, 255, 255, 0.8);
+        stroke-width: 1.8;
         stroke-linecap: round;
-        transition: stroke-dasharray 0.05s linear, stroke 0.3s ease;
-      }
-
-      #missile-indicator .circle-progress {
-        stroke: rgba(255, 100, 0, 0.8);
-      }
-
-      #missile-indicator .circle-bg {
-        stroke: rgba(255, 100, 0, 0.1);
+        transition: stroke-dasharray 0.08s linear, stroke 0.3s ease;
       }
 
       .weapon-label {
-        font-family: 'Segoe UI', Roboto, sans-serif;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         font-size: ${Math.round(14 * c)}px;
-        font-weight: 800;
-        color: white;
-        text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        font-weight: 700;
+        color: rgba(255, 255, 255, 0.75);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         z-index: 1;
-        transition: color 0.3s ease, transform 0.2s ease;
+        transition: all 0.3s ease;
         text-align: center;
         width: 100%;
+        margin-top: 1px;
       }
       
       .cooldown-active .weapon-label {
-        color: #ffcc00;
+        color: rgba(255, 255, 255, 0.95);
         font-size: ${Math.round(16 * c)}px;
       }
     `;
@@ -143,7 +175,8 @@ export class WeaponStatus {
   public show(): void {
     this.container.style.display = 'flex';
     if (!this.isVisible) {
-      applyFadeIn(this.container);
+      // 🚀 FIX ALLINEAMENTO: Passiamo 'translateX(-50%)' per evitare che l'animazione sovrascriva il centramento
+      applyFadeIn(this.container, 'translateX(-50%)');
       this.isVisible = true;
     }
   }
@@ -174,7 +207,8 @@ export class WeaponStatus {
     if (laserPath) {
       const percentage = Math.min(100, Math.max(0, laserProgress * 100));
       laserPath.setAttribute('stroke-dasharray', `${percentage}, 100`);
-      laserPath.style.stroke = percentage >= 100 ? 'rgba(0, 255, 255, 0.9)' : 'rgba(0, 255, 255, 0.5)';
+      // Monochromatic: 0.8 opacity when ready, 0.4 when charging
+      laserPath.style.stroke = percentage >= 100 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.4)';
 
       if (laserLabel) {
         if (laserRemaining > 100) {
@@ -190,7 +224,8 @@ export class WeaponStatus {
     if (missilePath) {
       const percentage = Math.min(100, Math.max(0, missileProgress * 100));
       missilePath.setAttribute('stroke-dasharray', `${percentage}, 100`);
-      missilePath.style.stroke = percentage >= 100 ? 'rgba(255, 150, 0, 0.9)' : 'rgba(255, 100, 0, 0.5)';
+      // Monochromatic: same logic as laser
+      missilePath.style.stroke = percentage >= 100 ? 'rgba(255, 255, 255, 0.8)' : 'rgba(255, 255, 255, 0.4)';
 
       if (missileLabel) {
         if (missileRemaining > 100) {

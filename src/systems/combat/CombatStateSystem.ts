@@ -646,6 +646,17 @@ export class CombatStateSystem extends BaseSystem {
         npcId: npcIdToSend,
         playerId: playerId
       });
+
+      // ⏱️ SINCRONIZZAZIONE INITIAL DELAY:
+      // Il server imposta lastMissileTime = now all'inizio del combat per prevenire lo spam dei missili.
+      // Sincronizziamo localmente per mostrare subito il countdown nella UI.
+      const playerEntity = this.playerSystem?.getPlayerEntity();
+      if (playerEntity) {
+        const damage = this.ecs.getComponent(playerEntity, Damage);
+        if (damage) {
+          damage.lastMissileTime = Date.now();
+        }
+      }
     } catch (error) {
       console.error(`❌ [CLIENT] Failed to send START_COMBAT request:`, error);
     }
