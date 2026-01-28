@@ -103,7 +103,7 @@ export class AnimatedSprite {
     const hasValidDimensions = img.naturalWidth > 0 && img.naturalHeight > 0;
 
     // Additional check: verify image source is set (not empty string)
-    const hasSource = img.src && img.src.length > 0;
+    const hasSource = !!img.src && img.src.length > 0;
 
     return isComplete && hasValidDimensions && hasSource;
   }

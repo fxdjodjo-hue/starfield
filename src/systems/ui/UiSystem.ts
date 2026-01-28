@@ -251,6 +251,16 @@ export class UiSystem extends System {
   }
 
   /**
+   * Mostra il tracker delle quest
+   */
+  showQuestTracker(): void {
+    const questTracker = this.hudManager.getQuestTracker();
+    if (questTracker && typeof questTracker.show === 'function') {
+      questTracker.show();
+    }
+  }
+
+  /**
    * Mostra la chat
    */
   showChat(): void {

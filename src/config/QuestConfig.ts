@@ -37,6 +37,9 @@ export interface QuestObjectiveConfig {
   target: number;
   targetName?: string; // nome dell'NPC/item/location da colpire/raccogliere/visitate
   targetType?: string; // tipo specifico (es. "scouter", "frigate", ecc.)
+  x?: number;          // coordinata X per obiettivi EXPLORE
+  y?: number;          // coordinata Y per obiettivi EXPLORE
+  radius?: number;     // raggio di attivazione (default 500)
 }
 
 /**
@@ -122,7 +125,8 @@ export const QuestEventType = {
   NPC_KILLED: 'npc_killed',
   ITEM_COLLECTED: 'item_collected',
   LOCATION_VISITED: 'location_visited',
-  INTERACTION_COMPLETED: 'interaction_completed'
+  INTERACTION_COMPLETED: 'interaction_completed',
+  COORDINATE_REACHED: 'coordinate_reached'
 } as const;
 
 export type QuestEventType = typeof QuestEventType[keyof typeof QuestEventType];
@@ -154,7 +158,10 @@ export class QuestObjectiveFactory {
       target: config.target,
       current: 0,
       targetName: config.targetName,
-      targetType: config.targetType
+      targetType: config.targetType,
+      x: config.x,
+      y: config.y,
+      radius: config.radius
     };
   }
 }

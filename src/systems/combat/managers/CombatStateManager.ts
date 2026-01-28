@@ -131,7 +131,6 @@ export class CombatStateManager {
       if (this.currentAttackTarget !== selectedNpc.id) {
         // console.log(`[CLIENT_COMBAT_START] Starting combat with NPC ${selectedNpc.id}`);
         this.sendStartCombat(selectedNpc);
-        this.startAttackLogging(selectedNpc);
         this.currentAttackTarget = selectedNpc.id;
         this.attackStartedLogged = true;
       }
@@ -140,7 +139,6 @@ export class CombatStateManager {
       // Se l'attacco è stato disattivato O l'NPC non è più in range (anche se attackActivated è true)
       // console.log(`[CLIENT_COMBAT_STOP] Stopping combat - state changed`);
       this.sendStopCombat();
-      this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
       this.wasInCombat = false;
@@ -222,7 +220,6 @@ export class CombatStateManager {
 
     if (this.currentAttackTarget) {
       this.sendStopCombat();
-      this.endAttackLogging();
       this.currentAttackTarget = null;
       this.attackStartedLogged = false;
       this.wasInCombat = false;

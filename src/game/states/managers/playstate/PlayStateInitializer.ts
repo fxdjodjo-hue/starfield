@@ -111,6 +111,11 @@ export class PlayStateInitializer {
         if (typeof uiSystem.showPanelIcons === 'function') {
           uiSystem.showPanelIcons();
         }
+
+        // Mostra il Quest Tracker sincronizzato
+        if (typeof uiSystem.showQuestTracker === 'function') {
+          uiSystem.showQuestTracker();
+        }
       }
     };
 

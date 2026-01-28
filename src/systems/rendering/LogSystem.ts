@@ -123,17 +123,17 @@ export class LogSystem extends BaseSystem {
   }
 
   /**
-   * Log specifico per inizio attacco
+   * Log specifico per inizio attacco (disabilitato su richiesta utente)
    */
   logAttackStart(targetName: string): void {
-    this.addLogMessage(`Attack started against ${targetName}`, LogType.ATTACK_START, 2000);
+    // Hidden by default
   }
 
   /**
-   * Log specifico per fine attacco
+   * Log specifico per fine attacco (disabilitato su richiesta utente)
    */
   logAttackEnd(targetName: string): void {
-    this.addLogMessage(`Attack ended against ${targetName}`, LogType.ATTACK_END, 2000);
+    // Hidden by default
   }
 
   /**

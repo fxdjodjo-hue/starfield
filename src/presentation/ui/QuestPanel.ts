@@ -38,6 +38,9 @@ export interface QuestObjective {
   type: string;
   targetName?: string;
   targetType?: string;
+  x?: number;
+  y?: number;
+  radius?: number;
 }
 
 /**
