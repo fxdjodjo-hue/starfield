@@ -5,9 +5,9 @@ import {
   QuestRegistry,
   QuestObjectiveFactory,
   QuestRewardFactory,
-  initializeDefaultQuests,
   type QuestConfig
 } from '../../../config/QuestConfig';
+import { initializeDefaultQuests } from '../../../config/quests';
 import { gameAPI } from '../../../lib/SupabaseClient';
 
 /**

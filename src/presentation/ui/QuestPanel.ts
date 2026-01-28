@@ -90,6 +90,11 @@ export class QuestPanel extends BasePanel {
   /**
    * Crea il contenuto del pannello delle quest
    */
+  private currentTab: 'active' | 'completed' | 'available' = 'active';
+
+  /**
+   * Crea il contenuto del pannello delle quest
+   */
   protected createPanelContent(): HTMLElement {
     const content = document.createElement('div');
     content.className = 'quest-panel-content';
@@ -100,15 +105,9 @@ export class QuestPanel extends BasePanel {
       flex-direction: column;
       gap: 20px;
       position: relative;
-      overflow-y: auto;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
+      overflow-y: hidden;
       box-sizing: border-box;
     `;
-    // Hide scrollbar for webkit browsers
-    const style = document.createElement('style');
-    style.textContent = `.quest-panel-content::-webkit-scrollbar { display: none; }`;
-    content.appendChild(style);
 
     // Pulsante di chiusura "X" nell'angolo superiore destro
     const closeButton = document.createElement('button');
@@ -182,6 +181,38 @@ export class QuestPanel extends BasePanel {
     header.appendChild(title);
     content.appendChild(header);
 
+    // Tab Navigation
+    const tabContainer = document.createElement('div');
+    tabContainer.style.cssText = `
+      display: flex;
+      gap: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    `;
+
+    const tabs: { id: 'active' | 'completed' | 'available', label: string }[] = [
+      { id: 'active', label: 'Active' },
+      { id: 'available', label: 'Available' },
+      { id: 'completed', label: 'Completed' }
+    ];
+
+    tabs.forEach(tab => {
+      const btn = document.createElement('button');
+      btn.textContent = tab.label;
+      btn.id = `tab-btn-${tab.id}`;
+      btn.className = 'quest-tab-btn'; // Useful for future styling if needed
+      this.styleTabButton(btn, tab.id === this.currentTab);
+
+      btn.addEventListener('click', () => {
+        this.switchTab(tab.id);
+      });
+
+      tabContainer.appendChild(btn);
+    });
+
+    content.appendChild(tabContainer);
+
     // Container principale per le quest
     const questContainer = document.createElement('div');
     questContainer.className = 'quest-container';
@@ -190,23 +221,94 @@ export class QuestPanel extends BasePanel {
       display: flex;
       flex-direction: column;
       gap: 16px;
+      overflow-y: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
     `;
 
-    // Sezione quest attive (inizialmente vuote, verranno popolate da update())
+    // Hide scrollbar style
+    const style = document.createElement('style');
+    style.textContent = `.quest-container::-webkit-scrollbar { display: none; }`;
+    content.appendChild(style);
+
+
+    // Sezione quest attive
     const activeSection = this.createQuestSection('Active Quests', 'active-quests', [], 'active');
+    activeSection.id = 'section-active';
+    activeSection.style.display = 'flex'; // Default visible
+
+    // Sezione quest completate
     const completedSection = this.createQuestSection('✅ Completed Quests', 'completed-quests', [], 'completed');
+    completedSection.id = 'section-completed';
+    completedSection.style.display = 'none';
+
+    // Sezione quest disponibili
     const availableSection = this.createQuestSection('📋 Available Quests', 'available-quests', [], 'available');
+    availableSection.id = 'section-available';
+    availableSection.style.display = 'none';
 
     questContainer.appendChild(activeSection);
-    questContainer.appendChild(completedSection);
     questContainer.appendChild(availableSection);
+    questContainer.appendChild(completedSection);
 
     content.appendChild(questContainer);
 
-
-
     return content;
   }
+
+  private styleTabButton(btn: HTMLButtonElement, isActive: boolean) {
+    btn.style.cssText = `
+        padding: 8px 16px;
+        background: ${isActive ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.05)'};
+        color: ${isActive ? 'white' : 'rgba(255, 255, 255, 0.6)'};
+        border: 1px solid ${isActive ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255, 255, 255, 0.1)'};
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        flex: 1;
+      `;
+
+    // Hover effect handling manually since we use inline styles
+    if (!isActive) {
+      btn.onmouseenter = () => {
+        btn.style.background = 'rgba(255, 255, 255, 0.1)';
+        btn.style.color = 'white';
+      };
+      btn.onmouseleave = () => {
+        btn.style.background = 'rgba(255, 255, 255, 0.05)';
+        btn.style.color = 'rgba(255, 255, 255, 0.6)';
+      };
+    } else {
+      btn.onmouseenter = null;
+      btn.onmouseleave = null;
+    }
+  }
+
+  private switchTab(tabId: 'active' | 'completed' | 'available') {
+    this.currentTab = tabId;
+
+    // Update buttons
+    ['active', 'completed', 'available'].forEach(id => {
+      const btn = this.container.querySelector(`#tab-btn-${id}`) as HTMLButtonElement;
+      if (btn) {
+        this.styleTabButton(btn, id === tabId);
+      }
+    });
+
+    // Show/Hide sections
+    const activeSection = this.container.querySelector('#section-active') as HTMLElement;
+    const completedSection = this.container.querySelector('#section-completed') as HTMLElement;
+    const availableSection = this.container.querySelector('#section-available') as HTMLElement;
+
+    if (activeSection) activeSection.style.display = tabId === 'active' ? 'flex' : 'none';
+    if (completedSection) completedSection.style.display = tabId === 'completed' ? 'flex' : 'none';
+    if (availableSection) availableSection.style.display = tabId === 'available' ? 'flex' : 'none';
+  }
+
+
+
+
 
   /**
    * Crea una sezione per un tipo di quest
@@ -563,6 +665,9 @@ export class QuestPanel extends BasePanel {
    * Callback chiamato quando il pannello viene mostrato
    */
   protected onShow(): void {
+    // Reset to active tab
+    this.switchTab('active');
+
     // Richiedi un aggiornamento dei dati delle quest
     this.requestQuestDataUpdate();
 
