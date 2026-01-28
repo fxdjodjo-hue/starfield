@@ -7,7 +7,7 @@ export class Quest {
   public id: string;
   public title: string;
   public description: string;
-  public type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement';
+  public type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement' | 'exploration';
   public objectives: QuestObjective[];
   public rewards: QuestReward[];
   public isActive: boolean;
@@ -17,7 +17,7 @@ export class Quest {
     id: string,
     title: string,
     description: string,
-    type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement',
+    type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement' | 'exploration',
     objectives: QuestObjective[],
     rewards: QuestReward[],
     isActive: boolean = false,

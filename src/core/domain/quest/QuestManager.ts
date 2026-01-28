@@ -104,7 +104,6 @@ export class QuestManager {
 
     // Salva il nuovo stato della quest nel database
     this.saveQuestProgressToDatabase(quest);
-    console.log(`[QuestManager] Accepted quest ${questId}, saving to database...`);
 
     return true;
   }
@@ -179,7 +178,6 @@ export class QuestManager {
     }
 
     try {
-      console.log(`[QuestManager] Saving progress for quest ${quest.id}...`);
       const progress = {
         objectives: quest.objectives,
         is_completed: quest.isCompleted,
@@ -203,7 +201,6 @@ export class QuestManager {
     if (!this.playerId) return;
 
     try {
-      console.log(`[QuestManager] Deleting progress for abandoned quest ${questId}...`);
       const result = await gameAPI.deleteQuestProgress(this.playerId, questId);
       if (result.error) {
         console.error('[QUEST_MANAGER] Failed to delete quest progress:', result.error);
@@ -373,14 +370,12 @@ export class QuestManager {
       return;
     }
 
-    console.log(`[QuestManager] Processing ${questsToProcess.length} quests for restoration.`);
 
     questsToProcess.forEach(savedQuest => {
       // Ignora quest completate (già gestite da loadState)
       if (savedQuest.is_completed) return;
 
       const questId = savedQuest.id || savedQuest.quest_id;
-      console.log(`[QuestManager] Attempting to restore active quest: ${questId}`, savedQuest);
 
 
       // Controlla se la quest è già attiva
@@ -404,12 +399,9 @@ export class QuestManager {
 
         // Aggiungi al componente ActiveQuest
         activeQuestComponent.addQuest(quest);
-        console.log(`[QuestManager] Restored active quest: ${questId}`);
-
         // Assicurati che non sia tra le disponibili
         const beforeCount = this.availableQuests.length;
         this.availableQuests = this.availableQuests.filter(q => q.id !== questId);
-        console.log(`[QuestManager] Removed ${questId} from available. Before: ${beforeCount}, After: ${this.availableQuests.length}`);
       } else {
         console.warn(`[QuestManager] Failed to find config for quest: ${questId}`);
       }

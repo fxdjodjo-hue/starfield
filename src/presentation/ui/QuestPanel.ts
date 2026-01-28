@@ -18,7 +18,7 @@ export interface Quest {
   id: string;
   title: string;
   description: string;
-  type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement';
+  type: 'kill' | 'survival' | 'progression' | 'collection' | 'achievement' | 'exploration';
   objectives: QuestObjective[];
   rewards: QuestReward[];
   progress: number; // 0-100

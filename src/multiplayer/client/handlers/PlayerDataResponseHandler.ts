@@ -41,11 +41,9 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
         // Hydrate QuestManager
         const questManager = networkSystem.getQuestManager();
         if (questManager) {
-          console.log('[PlayerDataResponseHandler] Loading quest state:', message.quests);
 
           // Ensure QuestManager has the player ID (critical for saving)
           if (networkSystem.gameContext.playerDbId) {
-            console.log(`[PlayerDataResponseHandler] Setting QuestManager player ID: ${networkSystem.gameContext.playerDbId}`);
             questManager.setPlayerId(networkSystem.gameContext.playerDbId);
           } else {
             console.warn('[PlayerDataResponseHandler] GameContext has no playerDbId! Quest saving may fail.');
@@ -57,12 +55,9 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
           const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
           const ecs = networkSystem.getECS();
 
-          console.log('[PlayerDataResponseHandler] PlayerEntity:', playerEntity ? 'Found' : 'Not Found');
-          console.log('[PlayerDataResponseHandler] ECS:', ecs ? 'Found' : 'Not Found');
 
           if (playerEntity && ecs) {
             const activeQuestComponent = ecs.getComponent(playerEntity, ActiveQuest);
-            console.log('[PlayerDataResponseHandler] ActiveQuest Component:', activeQuestComponent ? 'Found' : 'Not Found');
 
             if (activeQuestComponent) {
               questManager.restoreActiveQuests(message.quests, activeQuestComponent);
