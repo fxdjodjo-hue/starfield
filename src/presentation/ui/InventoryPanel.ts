@@ -50,7 +50,7 @@ export class InventoryPanel extends BasePanel {
     // Recupera anche stats se necessario (anche se solitamente rimangono)
     if (!this.statsElements || Object.keys(this.statsElements).length === 0) {
       this.statsElements = {};
-      const stats = ['hp', 'shield', 'damage', 'missile', 'speed'];
+      const stats = ['hp', 'shield', 'damage', 'missile', 'speed', 'total'];
       stats.forEach(id => {
         const val = this.container.querySelector(`.stat-value-${id}`) as HTMLElement;
         const bar = this.container.querySelector(`.stat-bar-${id}`) as HTMLElement;
@@ -147,6 +147,26 @@ export class InventoryPanel extends BasePanel {
     headerSection.appendChild(closeButton);
     content.appendChild(headerSection);
 
+    // Custom Scrollbar Style
+    const style = document.createElement('style');
+    style.textContent = `
+      .inventory-grid::-webkit-scrollbar {
+        width: 6px;
+      }
+      .inventory-grid::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .inventory-grid::-webkit-scrollbar-thumb {
+        background: transparent;
+        border-radius: 3px;
+      }
+      .inventory-grid:hover::-webkit-scrollbar-thumb,
+      .inventory-grid.is-scrolling::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+      }
+    `;
+    content.appendChild(style);
+
     // Three Column Layout
     const mainLayout = document.createElement('div');
     mainLayout.style.cssText = `
@@ -154,6 +174,8 @@ export class InventoryPanel extends BasePanel {
       grid-template-columns: 320px 1fr 320px;
       gap: 30px;
       flex: 1;
+      height: calc(100% - 100px);
+      min-height: 0;
       overflow: hidden;
       margin-top: 10px;
     `;
@@ -167,8 +189,10 @@ export class InventoryPanel extends BasePanel {
       gap: 20px;
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 20px;
+      border-radius: 2px;
       padding: 24px;
+      box-sizing: border-box;
+      min-height: 0;
     `;
 
     const statsHeader = document.createElement('h3');
@@ -179,7 +203,9 @@ export class InventoryPanel extends BasePanel {
       font-size: 13px;
       font-weight: 800;
       letter-spacing: 2px;
+      line-height: 1;
     `;
+
     statsColumn.appendChild(statsHeader);
 
     const statsList = document.createElement('div');
@@ -193,7 +219,7 @@ export class InventoryPanel extends BasePanel {
         gap: 6px;
         padding: 12px;
         background: rgba(0, 0, 0, 0.2);
-        border-radius: 12px;
+        border-radius: 2px;
         border: 1px solid rgba(255, 255, 255, 0.03);
       `;
       row.innerHTML = `
@@ -210,11 +236,11 @@ export class InventoryPanel extends BasePanel {
       return row;
     };
 
-    statsList.appendChild(createStatRow('HULL INTEGRITY', 'hp', '🛡️'));
-    statsList.appendChild(createStatRow('SHIELD OUTPUT', 'shield', '⚡'));
-    statsList.appendChild(createStatRow('WEAPON POWER', 'damage', '💥'));
-    statsList.appendChild(createStatRow('MISSILE PAYLOAD', 'missile', '🚀'));
-    statsList.appendChild(createStatRow('ENGINE THRUST', 'speed', '💨'));
+    statsList.appendChild(createStatRow('HULL INTEGRITY', 'hp', ''));
+    statsList.appendChild(createStatRow('SHIELD INTEGRITY', 'shield', ''));
+    statsList.appendChild(createStatRow('LASER POWER', 'damage', ''));
+    statsList.appendChild(createStatRow('MISSILE POWER', 'missile', ''));
+    statsList.appendChild(createStatRow('ENGINE THRUST', 'speed', ''));
 
     statsColumn.appendChild(statsList);
 
@@ -224,9 +250,38 @@ export class InventoryPanel extends BasePanel {
     visualColumn.style.cssText = `
       position: relative;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: flex-start;
+      gap: 20px;
+      padding: 0;
+      box-sizing: border-box;
+      min-height: 0;
     `;
+
+    // Overall Power focal point - moved header INSIDE to align top edge with side columns
+    const powerBox = document.createElement('div');
+    powerBox.style.cssText = `
+      width: 100%;
+      max-width: 420px;
+      padding: 24px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+      box-sizing: border-box;
+      backdrop-filter: blur(5px);
+    `;
+    powerBox.innerHTML = `
+      <div style="color: rgba(255, 255, 255, 0.4); font-size: 13px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin: 0; line-height: 1; align-self: center;">Combat Power</div>
+      <div class="stat-value-total" style="color: #ffffff; font-size: 32px; font-weight: 900; text-shadow: 0 0 20px rgba(255, 255, 255, 0.2); line-height: 1;">--</div>
+    `;
+    this.statsElements['total'] = powerBox.querySelector('.stat-value-total') as HTMLElement;
+
+    visualColumn.appendChild(powerBox);
 
     // Ship Container and Image
     const shipContainer = document.createElement('div');
@@ -247,7 +302,7 @@ export class InventoryPanel extends BasePanel {
       position: relative;
       overflow: hidden;
       transform: scale(0.95);
-      filter: drop-shadow(0 0 50px rgba(0, 255, 255, 0.4));
+      filter: drop-shadow(0 0 50px rgba(255, 255, 255, 0.15));
       background-image: url('assets/ships/ship106/ship106.png');
       background-size: 1914px 1532px;
       background-position: -2px -2px;
@@ -267,8 +322,8 @@ export class InventoryPanel extends BasePanel {
         width: 80px;
         height: 80px;
         background: rgba(255, 255, 255, 0.03);
-        border: 2px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -297,10 +352,11 @@ export class InventoryPanel extends BasePanel {
       return slot;
     };
 
-    shipContainer.appendChild(createEquipmentSlot('Primary', { top: '0', left: '160px' }));
-    shipContainer.appendChild(createEquipmentSlot('Secondary', { bottom: '0', left: '160px' }));
-    shipContainer.appendChild(createEquipmentSlot('Shields', { top: '160px', left: '0' }));
-    shipContainer.appendChild(createEquipmentSlot('Engines', { top: '160px', right: '0' }));
+    shipContainer.appendChild(createEquipmentSlot('Hull', { top: '0', left: '160px' }));
+    shipContainer.appendChild(createEquipmentSlot('Shield', { top: '160px', left: '0' }));
+    shipContainer.appendChild(createEquipmentSlot('Laser', { top: '160px', right: '0' }));
+    shipContainer.appendChild(createEquipmentSlot('Engine', { bottom: '0', left: '60px' }));
+    shipContainer.appendChild(createEquipmentSlot('Missile', { bottom: '0', right: '60px' }));
 
     visualColumn.appendChild(shipContainer);
 
@@ -313,18 +369,21 @@ export class InventoryPanel extends BasePanel {
       gap: 20px;
       background: rgba(255, 255, 255, 0.02);
       border: 1px solid rgba(255, 255, 255, 0.05);
-      border-radius: 20px;
-      padding: 24px;
+      border-radius: 2px;
+      padding: 24px 0 24px 24px;
+      box-sizing: border-box;
+      min-height: 0;
     `;
 
     const cargoHeader = document.createElement('h3');
-    cargoHeader.textContent = 'CARGO STORAGE';
+    cargoHeader.textContent = 'INVENTORY';
     cargoHeader.style.cssText = `
-      margin: 0;
+      margin: 0 24px 0 0;
       color: rgba(255, 255, 255, 0.4);
       font-size: 13px;
       font-weight: 800;
       letter-spacing: 2px;
+      line-height: 1;
     `;
     cargoColumn.appendChild(cargoHeader);
 
@@ -335,17 +394,18 @@ export class InventoryPanel extends BasePanel {
       grid-template-columns: repeat(3, 1fr);
       gap: 12px;
       overflow-y: auto;
-      padding-right: 8px;
+      padding-right: 12px;
       flex: 1;
+      min-height: 0;
     `;
 
-    for (let i = 0; i < 21; i++) {
+    for (let i = 0; i < 30; i++) {
       const slot = document.createElement('div');
       slot.style.cssText = `
           aspect-ratio: 1/1;
           background: rgba(0, 0, 0, 0.3);
           border: 1px solid rgba(255, 255, 255, 0.05);
-          border-radius: 12px;
+          border-radius: 2px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -354,6 +414,16 @@ export class InventoryPanel extends BasePanel {
         `;
       cargoGrid.appendChild(slot);
     }
+
+    let scrollTimeout: any;
+    cargoGrid.addEventListener('scroll', () => {
+      cargoGrid.classList.add('is-scrolling');
+      if (scrollTimeout) clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(() => {
+        cargoGrid.classList.remove('is-scrolling');
+      }, 1000);
+    });
+
     cargoColumn.appendChild(cargoGrid);
 
     mainLayout.appendChild(statsColumn);
@@ -413,6 +483,20 @@ export class InventoryPanel extends BasePanel {
       this.statsElements.speed.textContent = `${Math.floor(playerDef.stats.speed * bonus)} u/s`;
       const bar = (this.statsElements as any).speed_bar;
       if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
+    }
+
+    // Calculate overall power (average of raw values)
+    const hpVal = health ? health.max : playerDef.stats.health;
+    const shieldVal = shield ? shield.max : (playerDef.stats.shield || 0);
+    const damageVal = damage ? damage.damage : playerDef.stats.damage;
+    const missileVal = (playerDef.stats.missileDamage || 100) * (upgrades ? upgrades.getMissileDamageBonus() : 1);
+    const speedVal = playerDef.stats.speed * (upgrades ? upgrades.getSpeedBonus() : 1);
+
+    // Media dei valori numerici
+    const overallPowerValue = (hpVal + shieldVal + damageVal + missileVal + speedVal) / 5;
+
+    if (this.statsElements.total) {
+      this.statsElements.total.textContent = Math.round(overallPowerValue).toString();
     }
   }
 
