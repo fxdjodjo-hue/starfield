@@ -1,5 +1,6 @@
 import { PlayerHUD } from '../../../presentation/ui/PlayerHUD';
 import { QuestTracker } from '../../../presentation/ui/QuestTracker';
+import { WeaponStatus } from '../../../presentation/ui/WeaponStatus';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 
 /**
@@ -10,14 +11,16 @@ import type { PlayerSystem } from '../../player/PlayerSystem';
 export class UIHUDManager {
   private playerHUD: PlayerHUD;
   private questTracker: QuestTracker;
+  private weaponStatus: WeaponStatus;
   private playerId: number | null = null;
   private economyData: any = null;
   private economySystem: any = null;
   private context: any = null;
 
-  constructor(playerHUD: PlayerHUD, questTracker: QuestTracker) {
+  constructor(playerHUD: PlayerHUD, questTracker: QuestTracker, weaponStatus: WeaponStatus) {
     this.playerHUD = playerHUD;
     this.questTracker = questTracker;
+    this.weaponStatus = weaponStatus;
   }
 
   /**
@@ -174,17 +177,10 @@ export class UIHUDManager {
 
     // Aggiorna sempre l'HUD con i dati disponibili
     this.playerHUD.updateData(hudData);
+    // Mostra anche gli indicatori delle armi se necessario
+    this.weaponStatus.show();
     // NON mostrare automaticamente - viene mostrato da hideLoadingScreen() quando la schermata di autenticazione è nascosta
     // this.playerHUD.show();
-
-    // Ensure active quest tracker is visible if we are showing player info
-    // But similarly, maybe we wait for explicit show? 
-    // The instructions say "when showing player info", but showPlayerInfo is often called just to update data.
-    // However, PlayerHUD handles its own visibility state. QuestTracker should too.
-    // Let's assume if we are updating data, and we are in-game, we might want to check visibility.
-    // Actually, QuestTracker listens to events independently.
-    // But we might want to ensure it's in the DOM.
-
 
     // Mostra anche la chat (ora che tutto è pronto)
     if (showChatCallback) {
@@ -241,6 +237,7 @@ export class UIHUDManager {
   hidePlayerInfo(): void {
     this.playerHUD.hide();
     this.questTracker.hide();
+    this.weaponStatus.hide();
   }
 
   /**
@@ -266,6 +263,13 @@ export class UIHUDManager {
     } else {
       this.showExpandedHud();
     }
+  }
+
+  /**
+   * Aggiorna il progresso dei cooldown delle armi (0.0 a 1.0)
+   */
+  updateWeaponCooldowns(laserProgress: number, missileProgress: number, laserRemaining: number = 0, missileRemaining: number = 0): void {
+    this.weaponStatus.update(laserProgress, missileProgress, laserRemaining, missileRemaining);
   }
 
 

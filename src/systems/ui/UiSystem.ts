@@ -1,7 +1,10 @@
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { PlayerHUD } from '../../presentation/ui/PlayerHUD';
+import { WeaponStatus } from '../../presentation/ui/WeaponStatus';
+import { Minimap } from '../../presentation/ui/Minimap';
 import { QuestTracker } from '../../presentation/ui/QuestTracker';
+import { Damage } from '../../entities/combat/Damage';
 import { QuestSystem } from '../quest/QuestSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
@@ -25,6 +28,7 @@ export class UiSystem extends System {
   // Modular architecture managers
   private panelManager!: UIPanelManager;
   private hudManager!: UIHUDManager;
+  private weaponStatus!: WeaponStatus;
   private chatManager!: UIChatManager;
   private nicknameManager!: UINicknameManager;
   private audioManager!: UIAudioManager;
@@ -41,12 +45,14 @@ export class UiSystem extends System {
   private hudToggleListener: ((event: KeyboardEvent) => void) | null = null;
 
   private questSystem: QuestSystem;
+  private playerSystem: PlayerSystem | null = null;
 
   constructor(ecs: ECS, questSystem: QuestSystem, context?: any, playerSystem?: PlayerSystem) {
     super(ecs);
     this.ecs = ecs;
     this.context = context;
     this.questSystem = questSystem;
+    this.playerSystem = playerSystem || null;
 
     // Initialize managers
     this.initializeManagers(ecs, questSystem, playerSystem || null, null);
@@ -81,8 +87,8 @@ export class UiSystem extends System {
       // Initialize HUD manager first (needs PlayerHUD)
       const playerHUD = new PlayerHUD();
       const questTracker = new QuestTracker();
-      this.hudManager = new UIHUDManager(playerHUD, questTracker);
-      this.hudManager.setContext(this.context);
+      this.weaponStatus = new WeaponStatus();
+      this.hudManager = new UIHUDManager(playerHUD, questTracker, this.weaponStatus);
 
       // Initialize panel manager
       this.panelManager = new UIPanelManager(ecs, questSystem, playerSystem, clientNetworkSystem);
@@ -218,6 +224,7 @@ export class UiSystem extends System {
    * Imposta il riferimento al PlayerSystem
    */
   setPlayerSystem(playerSystem: PlayerSystem): void {
+    this.playerSystem = playerSystem;
     this.initializeManagers(this.ecs, this.questSystem, playerSystem, null);
     this.panelManager.setPlayerSystem(playerSystem);
     this.chatManager.setPlayerSystem(playerSystem);
@@ -440,6 +447,10 @@ export class UiSystem extends System {
     return this.hudManager.getPlayerHUD();
   }
 
+  getWeaponStatus(): WeaponStatus {
+    return this.weaponStatus;
+  }
+
   // ===== GESTIONE NICKNAME NPC =====
   ensureNpcNicknameElement(entityId: number, npcType: string, behavior: string): void {
     this.nicknameManager.ensureNpcNicknameElement(entityId, npcType, behavior);
@@ -479,7 +490,27 @@ export class UiSystem extends System {
 
   update(deltaTime: number): void {
     this.panelManager.updateRealtimePanels(deltaTime);
-    // fpsCounter now updates itself using requestAnimationFrame
+
+    // Aggiorna progress cooldown armi nell'HUD
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    if (playerEntity) {
+      const damage = this.ecs.getComponent(playerEntity, Damage) as Damage;
+      if (damage) {
+        const now = Date.now();
+
+        // Laser progress (0.0 to 1.0)
+        const laserElapsed = now - (damage.lastAttackTime || 0);
+        const laserProgress = damage.attackCooldown > 0 ? Math.min(1, laserElapsed / damage.attackCooldown) : 1;
+        const laserRemaining = damage.getCooldownRemaining(now);
+
+        // Missile progress (0.0 to 1.0)
+        const missileElapsed = now - (damage.lastMissileTime || 0);
+        const missileProgress = damage.missileCooldown > 0 ? Math.min(1, missileElapsed / damage.missileCooldown) : 1;
+        const missileRemaining = damage.getMissileCooldownRemaining(now);
+
+        this.hudManager.updateWeaponCooldowns(laserProgress, missileProgress, laserRemaining, missileRemaining);
+      }
+    }
   }
   public getUpgradePanel(): UpgradePanel | null {
     return this.panelManager.getUpgradePanel();
@@ -520,6 +551,9 @@ export class UiSystem extends System {
     }
     if (this.networkStats) {
       this.networkStats.destroy();
+    }
+    if (this.weaponStatus) {
+      this.weaponStatus.destroy();
     }
   }
 

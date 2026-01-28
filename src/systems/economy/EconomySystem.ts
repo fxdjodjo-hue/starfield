@@ -305,4 +305,12 @@ export class EconomySystem extends BaseSystem {
     }
     playerRole.setAdministrator(value);
   }
+
+  /**
+   * RESTITUISCE lo stato economico completo per l'HUD
+   */
+  getPlayerEconomyStatus(): any {
+    this.initializeManagers();
+    return this.statusManager.getPlayerEconomyStatus();
+  }
 }

@@ -111,7 +111,8 @@ export class DamageTextSystem extends BaseSystem {
       let worldX: number;
       let worldY: number;
 
-      const targetEntity = this.ecs.getEntity(damageText.targetEntityId);
+      const targetEntity = damageText.targetEntityId !== -1 ? this.ecs.getEntity(damageText.targetEntityId) : null;
+
       if (targetEntity) {
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
         if (!targetTransform) continue;
@@ -133,16 +134,17 @@ export class DamageTextSystem extends BaseSystem {
           }
         }
 
+        // Salva l'ultima posizione dell'entità (come anchor)
+        damageText.lastWorldX = renderX;
+        damageText.lastWorldY = renderY;
+
         worldX = renderX + damageText.initialOffsetX;
         worldY = renderY + damageText.currentOffsetY;
-
-        // Salva l'ultima posizione valida
-        damageText.lastWorldX = worldX;
-        damageText.lastWorldY = worldY;
       } else {
-        // Usa l'ultima posizione conosciuta se entità non esiste più
-        worldX = damageText.lastWorldX;
-        worldY = damageText.lastWorldY;
+        // Usa l'ultima posizione conosciuta come anchor se l'entità non esiste più
+        // Questo permette al testo di continuare ad animarsi nella posizione corretta
+        worldX = damageText.lastWorldX + damageText.initialOffsetX;
+        worldY = damageText.lastWorldY + damageText.currentOffsetY;
       }
 
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);

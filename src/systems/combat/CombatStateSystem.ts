@@ -755,9 +755,9 @@ export class CombatStateSystem extends BaseSystem {
   /**
    * Crea un testo di danno per un'entità
    */
-  public createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
+  public createDamageText(targetEntity: Entity | null, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser' | 'missile', initialX?: number, initialY?: number): void {
     if (this.damageSystem) {
-      this.damageSystem.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
+      this.damageSystem.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType, initialX, initialY);
     }
   }
 

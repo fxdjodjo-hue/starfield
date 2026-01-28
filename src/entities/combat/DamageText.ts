@@ -17,7 +17,7 @@ export class DamageText extends Component {
   public lastWorldX: number;
   public lastWorldY: number;
 
-  constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 1000, projectileType?: 'laser' | 'npc_laser' | 'missile') {
+  constructor(value: number, targetEntityId: number, offsetX: number = 0, offsetY: number = -30, color: string = '#ffffff', lifetime: number = 1000, projectileType?: 'laser' | 'npc_laser' | 'missile', initialWorldX: number = 0, initialWorldY: number = 0) {
     super();
 
     // Validazione input
@@ -27,7 +27,7 @@ export class DamageText extends Component {
     }
 
     const entityIdValidation = InputValidator.validateNumber(targetEntityId, 'targetEntityId');
-    if (!entityIdValidation.isValid || targetEntityId < 0) {
+    if (!entityIdValidation.isValid || (targetEntityId < 0 && targetEntityId !== -1)) {
       throw new Error(`Invalid target entity ID: ${targetEntityId}`);
     }
 
@@ -45,8 +45,8 @@ export class DamageText extends Component {
     this.maxLifetime = lifetime;
     this.color = color || '#ffffff';
     this.projectileType = projectileType;
-    this.lastWorldX = 0;
-    this.lastWorldY = 0;
+    this.lastWorldX = initialWorldX;
+    this.lastWorldY = initialWorldY;
   }
 
   getAlpha(): number {

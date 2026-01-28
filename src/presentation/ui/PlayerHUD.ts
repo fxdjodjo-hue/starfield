@@ -104,6 +104,8 @@ export class PlayerHUD {
           <div class="stat-value">0</div>
         </div>
       </div>
+
+      </div>
     `;
 
     this.attachGlassStyles();
@@ -232,14 +234,7 @@ export class PlayerHUD {
       }
 
 
-      /* Elementi statistica orizzontali */
-      .stat-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: ${Math.round(3 * c)}px;
-        min-width: ${minWidth90}px;
-        text-align: center;
+        }
       }
 
 

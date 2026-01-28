@@ -4,6 +4,7 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { ProjectileFiredMessage } from '../../../config/NetworkConfig';
 import { ProjectileFactory } from '../../../core/domain/ProjectileFactory';
 import { CombatStateSystem } from '../../../systems/combat/CombatStateSystem';
+import { Damage } from '../../../entities/combat/Damage';
 
 /**
  * Gestisce il messaggio projectile_fired quando un giocatore spara
@@ -64,6 +65,24 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     if (isLocalPlayer && message.projectileType !== 'missile') {
       // Skip self-broadcast to avoid duplication - local laser already created
       return;
+    }
+
+    // 🔧 COOLDOWN UI: Per i missili del player locale, aggiorna il cooldown quando SPARA
+    // (non quando colpisce, per evitare delay dovuto al tempo di volo)
+    if (isLocalPlayer && message.projectileType === 'missile') {
+      const playerSystem = networkSystem.getPlayerSystem();
+      if (playerSystem) {
+        const playerEntity = playerSystem.getPlayerEntity();
+        if (playerEntity) {
+          const ecs = networkSystem.getECS();
+          if (ecs) {
+            const playerDamage = ecs.getComponent(playerEntity, Damage);
+            if (playerDamage) {
+              playerDamage.lastMissileTime = Date.now();
+            }
+          }
+        }
+      }
     }
 
     // ✅ OTTIMIZZAZIONE: Per i laser dei giocatori (locali o remoti), usiamo la simulazione locale

@@ -4,6 +4,7 @@ import { Entity } from '../../infrastructure/ecs/Entity';
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { DamageText } from '../../entities/combat/DamageText';
+import { Transform } from '../../entities/spatial/Transform';
 
 /**
  * Sistema dedicato alla gestione dei danni e degli effetti visivi
@@ -20,12 +21,24 @@ export class DamageSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato da altri sistemi quando applicano danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
+  createDamageText(targetEntity: Entity | null, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser' | 'missile', initialX?: number, initialY?: number): void {
     if (damage <= 0) {
       return;
     }
 
-    const targetEntityId = targetEntity.id;
+    // Se l'entità è nulla ma abbiamo le coordinate, usiamo quelle
+    // Altrimenti cerchiamo di ottenere le coordinate dal transform dell'entità
+    let worldX = initialX || 0;
+    let worldY = initialY || 0;
+    let targetEntityId = targetEntity ? targetEntity.id : -1;
+
+    if (targetEntity && (!initialX || !initialY)) {
+      const transform = this.ecs.getComponent(targetEntity, Transform) as Transform;
+      if (transform) {
+        worldX = transform.x;
+        worldY = transform.y;
+      }
+    }
 
     // Usa contatore per testi di danno attivi
     const activeMap = this.activeLaserTexts;
@@ -61,13 +74,13 @@ export class DamageSystem extends BaseSystem {
     }
 
     // Se abbiamo appena applicato danno shield, il prossimo danno HP va più in basso
-    if (!isShieldDamage && this.hasRecentShieldDamage(targetEntity)) {
+    if (targetEntity && !isShieldDamage && this.hasRecentShieldDamage(targetEntity)) {
       offsetY = -15; // HP più in basso quando c'è stato danno shield
     }
 
     // Crea il testo di danno
     const damageTextEntity = this.ecs.createEntity();
-    const damageText = new DamageText(damage, targetEntityId, offsetX, offsetY, textColor, 1000, projectileType);
+    const damageText = new DamageText(damage, targetEntityId, offsetX, offsetY, textColor, 1000, projectileType, worldX, worldY);
     this.ecs.addComponent(damageTextEntity, DamageText, damageText);
 
     // Aggiorna il contatore appropriato

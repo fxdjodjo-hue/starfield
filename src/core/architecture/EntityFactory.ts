@@ -35,7 +35,7 @@ export interface BaseEntityConfig {
 export interface CombatEntityConfig {
   health?: { current: number; max: number } | number;
   shield?: { current: number; max: number } | number;
-  damage?: { value: number; range?: number; cooldown?: number } | number;
+  damage?: { value: number; range?: number; cooldown?: number; missileCooldown?: number } | number;
 }
 
 export interface ProgressionEntityConfig {
@@ -224,6 +224,7 @@ export class EntityFactory {
         const damageValue = typeof config.damage === 'number' ? config.damage : config.damage.value;
         const range = typeof config.damage === 'object' ? config.damage.range : undefined;
         const cooldown = typeof config.damage === 'object' ? config.damage.cooldown : undefined;
+        const missileCooldown = typeof config.damage === 'object' ? config.damage.missileCooldown : undefined;
 
         const damageValidation = InputValidator.validateStat(damageValue, 'damage', 10000);
         if (!damageValidation.isValid) {
@@ -233,7 +234,8 @@ export class EntityFactory {
         this.ecs.addComponent(entity, Damage, new Damage(
           damageValue,
           range || 0,
-          cooldown || 1000
+          cooldown || 1000,
+          missileCooldown || 3000
         ));
       }
 

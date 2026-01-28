@@ -132,7 +132,12 @@ export class GameEntityFactory extends EntityFactory {
     this.addCombatComponents(entity, config.combat || {
       health: { current: playerDef.stats.health, max: playerDef.stats.health },
       shield: { current: playerDef.stats.shield || 0, max: playerDef.stats.shield || 0 },
-      damage: { value: playerDef.stats.damage, range: playerDef.stats.range, cooldown: playerDef.stats.cooldown }
+      damage: {
+        value: playerDef.stats.damage,
+        range: playerDef.stats.range,
+        cooldown: playerDef.stats.cooldown,
+        missileCooldown: playerDef.stats.missileCooldown
+      }
     });
 
     // Componenti di progresso (inizializzati con valori che verranno sovrascritti dal server se serverAuthoritative)
@@ -177,7 +182,11 @@ export class GameEntityFactory extends EntityFactory {
     const combatConfig = config.combat || {
       health: { current: npcDef.stats.health, max: npcDef.stats.health },
       shield: { current: npcDef.stats.shield, max: npcDef.stats.shield },
-      damage: { value: npcDef.stats.damage, range: npcDef.stats.range, cooldown: npcDef.stats.cooldown }
+      damage: {
+        value: npcDef.stats.damage,
+        range: npcDef.stats.range,
+        cooldown: npcDef.stats.cooldown
+      }
     };
     this.addCombatComponents(entity, combatConfig);
 

@@ -8,17 +8,21 @@ export class Damage extends Component {
   public damage: number;
   public attackRange: number;
   public attackCooldown: number;
-  private lastAttackTime: number = 0;
+  public missileCooldown: number; // mms tra colpi di missile
+  public lastAttackTime: number = 0;
+  public lastMissileTime: number = 0;
 
   constructor(
     damage: number,
     attackRange: number,
-    attackCooldown: number // millisecondi tra attacchi
+    attackCooldown: number, // millisecondi tra attacchi laser
+    missileCooldown: number = 3000 // millisecondi tra attacchi missili
   ) {
     super();
     this.damage = damage;
     this.attackRange = attackRange;
     this.attackCooldown = attackCooldown;
+    this.missileCooldown = missileCooldown;
   }
 
   /**
@@ -44,6 +48,14 @@ export class Damage extends Component {
   }
 
   /**
+   * Ottiene il tempo rimanente per il missile prima del prossimo lancio
+   */
+  getMissileCooldownRemaining(currentTime: number): number {
+    const timeSinceLastMissile = currentTime - this.lastMissileTime;
+    return Math.max(0, this.missileCooldown - timeSinceLastMissile);
+  }
+
+  /**
    * Verifica se un'entità è nel range di attacco
    */
   isInRange(attackerX: number, attackerY: number, targetX: number, targetY: number): boolean {
@@ -56,9 +68,12 @@ export class Damage extends Component {
   /**
    * Imposta nuovi valori di danno
    */
-  setDamageStats(damage: number, attackRange: number, attackCooldown: number): void {
+  setDamageStats(damage: number, attackRange: number, attackCooldown: number, missileCooldown?: number): void {
     this.damage = damage;
     this.attackRange = attackRange;
     this.attackCooldown = attackCooldown;
+    if (missileCooldown !== undefined) {
+      this.missileCooldown = missileCooldown;
+    }
   }
 }

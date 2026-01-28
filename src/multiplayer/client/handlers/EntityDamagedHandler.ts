@@ -4,6 +4,7 @@ import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import type { EntityDamagedMessage } from '../../../config/NetworkConfig';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
+import { Damage } from '../../../entities/combat/Damage';
 import { RemotePlayer } from '../../../entities/player/RemotePlayer';
 
 /**
@@ -20,6 +21,29 @@ export class EntityDamagedHandler extends BaseMessageHandler {
     if (!ecs) {
       console.error('[EntityDamagedHandler] ECS not available!');
       return;
+    }
+
+    // 🔧 NUOVA LOGICA: Aggiorna il cooldown del laser quando il player locale infligge danno
+    // Questo sincronizza l'UI con il cooldown del danno server-authoritative (1500ms)
+    // NOTA: I missili sono gestiti in ProjectileFiredHandler (al momento dello sparo)
+    const localAuthId = networkSystem.gameContext.authId;
+    const localClientId = networkSystem.getLocalClientId();
+    const isLocalPlayerAttacker =
+      message.attackerId === String(localAuthId) ||
+      message.attackerId === String(localClientId);
+
+    if (isLocalPlayerAttacker && message.projectileType === 'laser') {
+      // Trova l'entità del player locale e aggiorna lastAttackTime
+      const playerSystem = networkSystem.getPlayerSystem();
+      if (playerSystem) {
+        const playerEntity = playerSystem.getPlayerEntity();
+        if (playerEntity) {
+          const playerDamage = ecs.getComponent(playerEntity, Damage);
+          if (playerDamage) {
+            playerDamage.performAttack(Date.now());
+          }
+        }
+      }
     }
 
     // Trova il CombatSystem per creare i damage text
@@ -73,17 +97,15 @@ export class EntityDamagedHandler extends BaseMessageHandler {
         }
       }
 
-      // Crea damage text se abbiamo trovato l'entità target
-      if (targetEntity) {
-        // Crea damage text per il danno ricevuto dal server
-        if (message.damage > 0) {
-          // Per ora mostriamo tutto come danno HP (bianco/rosso)
-          // In futuro potremmo migliorare la logica per distinguere shield vs HP
-          const isShieldDamage = false;
-          const projectileType = message.projectileType;
+      // Crea damage text per il danno ricevuto dal server
+      if (message.damage > 0) {
+        // Per ora mostriamo tutto come danno HP (bianco/rosso)
+        // In futuro potremmo migliorare la logica per distinguere shield vs HP
+        const isShieldDamage = false;
+        const projectileType = message.projectileType;
 
-          combatSystem.createDamageText(targetEntity, message.damage, isShieldDamage, false, projectileType);
-        }
+        // Passa anche la posizione dal server per garantire che il testo appaia anche se l'entità è stata distrutta (es: oneshot)
+        combatSystem.createDamageText(targetEntity, message.damage, isShieldDamage, false, projectileType, message.position.x, message.position.y);
       }
     }
 
