@@ -17,9 +17,9 @@ export class FpsCounter {
     private setupElement(): void {
         this.container.id = 'fps-counter';
         this.container.style.cssText = `
-      position: absolute;
-      top: 5px;
-      left: 5px;
+      position: fixed;
+      top: 15px;
+      right: 15px;
       color: #00ff00;
       font-family: 'Courier New', monospace;
       font-weight: bold;

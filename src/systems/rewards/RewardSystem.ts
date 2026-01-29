@@ -149,7 +149,16 @@ export class RewardSystem extends BaseSystem {
         const item = ITEM_REGISTRY[itemData.id];
         if (item) {
           if (this.logSystem) {
-            this.logSystem.addLogMessage(`DROPPED: ${item.name}! [${item.rarity}]`, LogType.GIFT, 4000);
+            // Determina il LogType basato sulla rarità
+            let logType = LogType.GIFT;
+            const rarity = (item.rarity || 'COMMON').toUpperCase();
+
+            if (rarity === 'COMMON') logType = LogType.RARITY_COMMON;
+            else if (rarity === 'UNCOMMON') logType = LogType.RARITY_UNCOMMON;
+            else if (rarity === 'RARE') logType = LogType.RARITY_RARE;
+            else if (rarity === 'EPIC') logType = LogType.RARITY_EPIC;
+
+            this.logSystem.addLogMessage(`DROPPED: ${item.name}! [${rarity}]`, logType, 5000);
           }
           console.log(`[RewardSystem] Item dropped from server: ${itemData.id} (${itemData.instanceId})`);
         }
@@ -266,7 +275,16 @@ export class RewardSystem extends BaseSystem {
     inventory.addItem(randomItemId);
 
     if (this.logSystem) {
-      this.logSystem.addLogMessage(`DROPPED: ${item.name}!`, LogType.GIFT, 4000);
+      // Determina il LogType basato sulla rarità
+      let logType = LogType.GIFT;
+      const rarity = (item.rarity || 'COMMON').toUpperCase();
+
+      if (rarity === 'COMMON') logType = LogType.RARITY_COMMON;
+      else if (rarity === 'UNCOMMON') logType = LogType.RARITY_UNCOMMON;
+      else if (rarity === 'RARE') logType = LogType.RARITY_RARE;
+      else if (rarity === 'EPIC') logType = LogType.RARITY_EPIC;
+
+      this.logSystem.addLogMessage(`DROPPED: ${item.name}! [${rarity}]`, logType, 5000);
     }
   }
 }

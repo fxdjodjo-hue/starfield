@@ -153,7 +153,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           credits: rewardsEarned.credits,
           cosmos: rewardsEarned.cosmos || 0,
           experience: rewardsEarned.experience,
-          honor: rewardsEarned.honor
+          honor: rewardsEarned.honor,
+          droppedItems: rewardsEarned.droppedItems // Passa gli item droppati al sistema di log
         }, rewardsEarned.npcType);
       }
     }

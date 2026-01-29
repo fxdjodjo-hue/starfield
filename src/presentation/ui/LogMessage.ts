@@ -12,7 +12,11 @@ export enum LogType {
   REWARD = 'reward',
   MISSION = 'mission',
   INFO = 'info',
-  GIFT = 'gift'
+  GIFT = 'gift',
+  RARITY_COMMON = 'rarity_common',
+  RARITY_UNCOMMON = 'rarity_uncommon',
+  RARITY_RARE = 'rarity_rare',
+  RARITY_EPIC = 'rarity_epic'
 }
 
 /**
@@ -70,7 +74,14 @@ export class LogMessage extends Component {
       case LogType.MISSION:
         return '#ffff00'; // Giallo per missioni
       case LogType.GIFT:
-        return '#00ff00'; // Verde per regali/loot
+      case LogType.RARITY_COMMON:
+        return '#ffffff'; // Bianco per comune
+      case LogType.RARITY_UNCOMMON:
+        return '#1eff00'; // Verde per non comune
+      case LogType.RARITY_RARE:
+        return '#0070dd'; // Blu per raro
+      case LogType.RARITY_EPIC:
+        return '#a335ee'; // Viola per epico
       case LogType.INFO:
       default:
         return '#ffffff'; // Bianco per tutti gli altri messaggi

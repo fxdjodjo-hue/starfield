@@ -108,7 +108,7 @@ export class InventoryPanel extends BasePanel {
     `;
 
     const subtitle = document.createElement('p');
-    subtitle.textContent = 'FLEET MANAGEMENT & CARGO';
+    subtitle.textContent = 'MODULES MANAGEMENT';
     subtitle.style.cssText = `
       margin: 4px 0 0 0;
       color: rgba(255, 255, 255, 0.5);

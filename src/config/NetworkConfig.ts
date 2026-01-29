@@ -444,6 +444,7 @@ export interface PlayerStateUpdateMessage {
     experience: number;
     honor: number;
     npcType: string;
+    droppedItems?: any[];
   };
   items?: any[];
 }

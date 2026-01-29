@@ -43,7 +43,7 @@ export class PlayerHUD {
 
     // Dimensioni compensate per DPR
     const c = this.dprCompensation;
-    const margin = Math.round(20 * c);
+    const margin = Math.round(15 * c); // Moved more into the corner (from 20)
     // Arrotondamento degli angoli come gli altri pannelli (compensato)
     // The following lines appear to be a mix of canvas drawing code and variable declarations.
     // Assuming the intent was to ensure borderRadius is 25px scaled, which is already present.
@@ -52,10 +52,10 @@ export class PlayerHUD {
     // I will only apply the part that makes sense in this context, which is ensuring borderRadius is set.
     // Since 'const borderRadius = Math.round(25 * c);' already exists, I will ensure it's there.
     // The instruction's provided snippet seems to have extraneous code.
-    const gap = Math.round(15 * c);
-    const borderRadius = Math.round(25 * c);
-    const paddingV = Math.round(12 * c);
-    const paddingH = Math.round(20 * c);
+    const gap = Math.round(30 * c); // Increased from 15
+    const borderRadius = Math.round(30 * c); // More rounded
+    const paddingV = Math.round(15 * c); // Increased from 12
+    const paddingH = Math.round(40 * c); // Increased from 30 (more width)
 
     container.style.cssText = `
       position: fixed;
@@ -132,9 +132,9 @@ export class PlayerHUD {
     const labelFontSize = Math.round(9 * c);
     const valueFontSize = Math.round(12 * c);
     const gap4 = Math.round(4 * c);
-    const gap24 = Math.round(24 * c);
-    const marginLeft8 = Math.round(8 * c);
-    const minWidth90 = Math.round(90 * c);
+    const gap24 = Math.round(50 * c); // Increased from 40 (more width)
+    const marginLeft8 = Math.round(20 * c); // Increased from 15
+    const minWidth90 = Math.round(120 * c); // Increased from 110
 
     style.textContent = `
       /* Container principale con effetto glassmorphism */

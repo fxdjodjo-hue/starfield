@@ -49,6 +49,7 @@ export class WeaponStatus {
         </svg>
         <img src="assets/weapon_status/laser_icon.png" class="weapon-icon" id="laser-icon" alt="Laser">
         <div class="weapon-label" id="laser-timer"></div>
+        <div class="weapon-shortcut">SPACEBAR</div>
       </div>
       <div class="cooldown-square-container" id="missile-indicator">
         <div class="weapon-tooltip">MISSILES</div>
@@ -58,6 +59,7 @@ export class WeaponStatus {
         </svg>
         <img src="assets/weapon_status/missile_icon.png" class="weapon-icon" id="missile-icon" alt="Missiles">
         <div class="weapon-label" id="missile-timer"></div>
+        <div class="weapon-shortcut">AUTO</div>
       </div>
     `;
 
@@ -92,7 +94,7 @@ export class WeaponStatus {
         -webkit-backdrop-filter: blur(20px) saturate(160%);
         transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         pointer-events: auto;
-        cursor: crosshair;
+        cursor: default;
       }
 
       .cooldown-square-container:hover {
@@ -179,6 +181,21 @@ export class WeaponStatus {
 
       .cooldown-active .weapon-label {
         font-size: ${Math.round(16 * c)}px;
+      }
+
+      .weapon-shortcut {
+        position: absolute;
+        top: 105%;
+        left: 50%;
+        transform: translateX(-50%);
+        color: rgba(255, 255, 255, 0.3);
+        font-size: ${Math.round(8 * c)}px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        pointer-events: none;
+        white-space: nowrap;
+        text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
       }
     `;
 
