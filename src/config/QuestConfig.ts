@@ -67,16 +67,32 @@ export interface QuestConfig {
   timeLimit?: number; // in minuti, 0 = nessuna scadenza
 }
 
+import questsData from '../../shared/quests.json';
+
 /**
  * Registry globale delle configurazioni quest
  */
 export class QuestRegistry {
   private static quests = new Map<string, QuestConfig>();
+  private static initialized = false;
+
+  private static ensureInitialized(): void {
+    if (this.initialized) return;
+
+    // Carica i dati dal JSON
+    for (const [id, config] of Object.entries(questsData)) {
+      this.quests.set(id, config as QuestConfig);
+    }
+
+    this.initialized = true;
+    console.log(`[QuestRegistry] Loaded ${this.quests.size} quests from JSON`);
+  }
 
   /**
-   * Registra una nuova configurazione quest
+   * Registra una nuova configurazione quest (mantenuto per compatibilità, ma non raccomandato)
    */
   static register(config: QuestConfig): void {
+    this.ensureInitialized();
     this.quests.set(config.id, config);
   }
 
@@ -84,6 +100,7 @@ export class QuestRegistry {
    * Ottiene una configurazione quest per ID
    */
   static get(id: string): QuestConfig | undefined {
+    this.ensureInitialized();
     return this.quests.get(id);
   }
 
@@ -91,6 +108,7 @@ export class QuestRegistry {
    * Ottiene tutte le configurazioni quest
    */
   static getAll(): QuestConfig[] {
+    this.ensureInitialized();
     return Array.from(this.quests.values());
   }
 

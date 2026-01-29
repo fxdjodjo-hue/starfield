@@ -180,7 +180,9 @@ export class QuestTrackingSystem implements QuestEventHandler {
   }
 
   /**
-   * Applica le ricompense della missione completata
+   * Applica le ricompense della missione completata.
+   * NOTA: In multiplayer, i premi economici (Credits, Cosmos, XP, Honor) 
+   * sono ora gestiti in modo autoritario dal server.
    */
   private applyQuestRewards(rewards: any[], showLog: boolean = true): void {
     if (!this.economySystem) {
@@ -198,16 +200,20 @@ export class QuestTrackingSystem implements QuestEventHandler {
       switch (reward.type) {
         case RewardType.CREDITS:
           totalCredits += amount;
-          this.economySystem.addCredits(amount, 'mission reward');
+          // IMMO-AUTHORITATIVE: Non aggiungere più localmente, il server invierà un player_state_update
+          // this.economySystem.addCredits(amount, 'mission reward');
           break;
 
         case RewardType.COSMOS:
           totalCosmos += amount;
-          this.economySystem.addCosmos(amount, 'mission reward');
+          // IMMO-AUTHORITATIVE: Non aggiungere più localmente
+          // this.economySystem.addCosmos(amount, 'mission reward');
           break;
 
         case RewardType.EXPERIENCE:
           totalExperience += amount;
+          // XP e Honor sono tipicamente gestiti dal server, ma l'EconomySystem locale
+          // può aggiornarsi tramite l'update di stato.
           break;
 
         case RewardType.HONOR:
@@ -215,6 +221,7 @@ export class QuestTrackingSystem implements QuestEventHandler {
           break;
 
         case RewardType.ITEM:
+          // TODO: Implementare item rewards se necessario (già gestite dal server per i drop NPC)
           break;
 
         default:
@@ -222,14 +229,9 @@ export class QuestTrackingSystem implements QuestEventHandler {
       }
     });
 
-    // Mostra le ricompense nel log se richiesto (e se non già mostrate nel log unificato)
+    // Mostra le ricompense nel log se richiesto (anche se non ancora applicate localmente)
     if (showLog && this.logSystem && (totalCredits > 0 || totalCosmos > 0 || totalExperience > 0 || totalHonor > 0)) {
       this.logSystem.logReward(totalCredits, totalCosmos, totalExperience, totalHonor, 4000);
-    }
-
-    // Segnala cambiamento per salvataggio event-driven
-    if (this.playState && this.playState.markAsChanged) {
-      this.playState.markAsChanged();
     }
   }
 

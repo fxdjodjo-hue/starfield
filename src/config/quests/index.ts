@@ -1,14 +1,6 @@
-import { registerKillQuests } from './killQuests';
-import { registerCollectionQuests } from './collectionQuests';
-import { registerExplorationQuests } from './explorationQuests';
-import { registerAchievementQuests } from './achievementQuests';
-
 /**
- * Initializes all default quests by calling specific registration functions.
+ * Legacy initialization - No longer needed as Quests are loaded from quests.json
  */
 export function initializeDefaultQuests(): void {
-    registerKillQuests();
-    registerCollectionQuests();
-    registerExplorationQuests();
-    registerAchievementQuests();
+    // Registered via JSON automatically in QuestRegistry
 }

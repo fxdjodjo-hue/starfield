@@ -1,0 +1,2292 @@
+{
+  "kill_scouter_1": {
+    "id": "kill_scouter_1",
+    "title": "Scouter Hunt",
+    "description": "Scouters represent a threat. Kill 1 to prove your worth.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_scouter_obj",
+        "type": "kill",
+        "description": "Kill 1 Scouter",
+        "target": 1,
+        "targetType": "scouter"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "cosmos",
+        "amount": 100
+      }
+    ],
+    "levelRequirement": 1,
+    "repeatable": false
+  },
+  "kill_scouter_2": {
+    "id": "kill_scouter_2",
+    "title": "Scouter Hunter",
+    "description": "You have proven your worth. Now kill 5 to become a true hunter.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_scouter_obj",
+        "type": "kill",
+        "description": "Kill 5 Scouters",
+        "target": 5,
+        "targetType": "scouter"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 500
+      },
+      {
+        "type": "cosmos",
+        "amount": 200
+      },
+      {
+        "type": "experience",
+        "amount": 100
+      }
+    ],
+    "levelRequirement": 2,
+    "prerequisites": [
+      "kill_scouter_1"
+    ],
+    "repeatable": false
+  },
+  "kill_guard_1": {
+    "id": "kill_guard_1",
+    "title": "Broken Patrol",
+    "description": "A Guard patrol is roaming nearby. Take them out.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_guard_1_obj",
+        "type": "kill",
+        "description": "Kill 3 Guards",
+        "target": 3,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 400
+      },
+      {
+        "type": "experience",
+        "amount": 150
+      }
+    ],
+    "levelRequirement": 2,
+    "repeatable": false
+  },
+  "kill_scouter_3": {
+    "id": "kill_scouter_3",
+    "title": "Eyes in the Sky",
+    "description": "Too many Scouters are watching your movements.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_scouter_3_obj",
+        "type": "kill",
+        "description": "Kill 8 Scouters",
+        "target": 8,
+        "targetType": "scouter"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "cosmos",
+        "amount": 250
+      },
+      {
+        "type": "experience",
+        "amount": 200
+      }
+    ],
+    "levelRequirement": 3,
+    "prerequisites": [
+      "kill_scouter_2"
+    ],
+    "repeatable": false
+  },
+  "kill_pyramid_1": {
+    "id": "kill_pyramid_1",
+    "title": "Strange Geometry",
+    "description": "Pyramid units have appeared unexpectedly.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_pyramid_1_obj",
+        "type": "kill",
+        "description": "Kill 2 Pyramid Units",
+        "target": 2,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 700
+      },
+      {
+        "type": "cosmos",
+        "amount": 400
+      },
+      {
+        "type": "experience",
+        "amount": 300
+      }
+    ],
+    "levelRequirement": 4,
+    "repeatable": false
+  },
+  "kill_guard_2": {
+    "id": "kill_guard_2",
+    "title": "Heavy Resistance",
+    "description": "Guards are reinforcing their positions.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_guard_2_obj",
+        "type": "kill",
+        "description": "Kill 7 Guards",
+        "target": 7,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 900
+      },
+      {
+        "type": "experience",
+        "amount": 400
+      }
+    ],
+    "levelRequirement": 5,
+    "prerequisites": [
+      "kill_guard_1"
+    ],
+    "repeatable": false
+  },
+  "kill_scouter_4": {
+    "id": "kill_scouter_4",
+    "title": "Signal Interference",
+    "description": "Scouter signals are overwhelming the area.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_scouter_4_obj",
+        "type": "kill",
+        "description": "Kill 15 Scouters",
+        "target": 15,
+        "targetType": "scouter"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 1200
+      },
+      {
+        "type": "cosmos",
+        "amount": 500
+      },
+      {
+        "type": "experience",
+        "amount": 600
+      }
+    ],
+    "levelRequirement": 6,
+    "repeatable": false
+  },
+  "kill_pyramid_2": {
+    "id": "kill_pyramid_2",
+    "title": "Impossible Angles",
+    "description": "The Pyramid presence is growing.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_pyramid_2_obj",
+        "type": "kill",
+        "description": "Kill 6 Pyramid Units",
+        "target": 6,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 1800
+      },
+      {
+        "type": "cosmos",
+        "amount": 800
+      },
+      {
+        "type": "experience",
+        "amount": 900
+      }
+    ],
+    "levelRequirement": 8,
+    "prerequisites": [
+      "kill_pyramid_1"
+    ],
+    "repeatable": false
+  },
+  "kill_kronos_1": {
+    "id": "kill_kronos_1",
+    "title": "Echo of Kronos",
+    "description": "A fragment of Kronos power has manifested.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_kronos_1_obj",
+        "type": "kill",
+        "description": "Kill 1 Kronos Entity",
+        "target": 1,
+        "targetType": "kronos"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "cosmos",
+        "amount": 2000
+      },
+      {
+        "type": "experience",
+        "amount": 1500
+      },
+      {
+        "type": "honor",
+        "amount": 1
+      }
+    ],
+    "levelRequirement": 12,
+    "repeatable": false
+  },
+  "kill_guard_3": {
+    "id": "kill_guard_3",
+    "title": "Last Line",
+    "description": "The Guards are making a final stand.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_guard_3_obj",
+        "type": "kill",
+        "description": "Kill 15 Guards",
+        "target": 15,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 2200
+      },
+      {
+        "type": "experience",
+        "amount": 1200
+      }
+    ],
+    "levelRequirement": 14,
+    "repeatable": false
+  },
+  "kill_scouter_5": {
+    "id": "kill_scouter_5",
+    "title": "Light Show",
+    "description": "Scouters are swarming. Take down a large group to clear the path.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_scouter_5_obj",
+        "type": "kill",
+        "description": "Kill 20 Scouters",
+        "target": 20,
+        "targetType": "scouter"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 2500
+      },
+      {
+        "type": "cosmos",
+        "amount": 1000
+      },
+      {
+        "type": "experience",
+        "amount": 1200
+      }
+    ],
+    "levelRequirement": 18,
+    "repeatable": false
+  },
+  "kill_scouter_6": {
+    "id": "kill_scouter_6",
+    "title": "Deep Space Sweeper",
+    "description": "The outermost rim is infested. Clean them up.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_scouter_6_obj",
+        "type": "kill",
+        "description": "Kill 40 Scouters",
+        "target": 40,
+        "targetType": "scouter"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 5000
+      },
+      {
+        "type": "cosmos",
+        "amount": 2000
+      },
+      {
+        "type": "experience",
+        "amount": 3000
+      }
+    ],
+    "levelRequirement": 25,
+    "repeatable": true
+  },
+  "kill_guard_4": {
+    "id": "kill_guard_4",
+    "title": "Fortress Breaker",
+    "description": "Guard formations are shielding sensitive areas.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_guard_4_obj",
+        "type": "kill",
+        "description": "Kill 10 Guards",
+        "target": 10,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 3000
+      },
+      {
+        "type": "experience",
+        "amount": 2000
+      }
+    ],
+    "levelRequirement": 20,
+    "repeatable": false
+  },
+  "kill_guard_5": {
+    "id": "kill_guard_5",
+    "title": "Iron Phalanx",
+    "description": "Elite Guard units have taken over the sector.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_guard_5_obj",
+        "type": "kill",
+        "description": "Kill 25 Guards",
+        "target": 25,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 8000
+      },
+      {
+        "type": "experience",
+        "amount": 6000
+      },
+      {
+        "type": "honor",
+        "amount": 10
+      }
+    ],
+    "levelRequirement": 35,
+    "repeatable": true
+  },
+  "kill_pyramid_3": {
+    "id": "kill_pyramid_3",
+    "title": "Fractal Annihilation",
+    "description": "Pyramids are multiplying at an alarming rate.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_pyramid_3_obj",
+        "type": "kill",
+        "description": "Kill 12 Pyramids",
+        "target": 12,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 5000
+      },
+      {
+        "type": "cosmos",
+        "amount": 1500
+      },
+      {
+        "type": "experience",
+        "amount": 4000
+      }
+    ],
+    "levelRequirement": 22,
+    "prerequisites": [
+      "kill_pyramid_2"
+    ],
+    "repeatable": false
+  },
+  "kill_pyramid_4": {
+    "id": "kill_pyramid_4",
+    "title": "Geometry of War",
+    "description": "Master the combat against the advanced Pyramid formations.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_pyramid_4_obj",
+        "type": "kill",
+        "description": "Kill 30 Pyramids",
+        "target": 30,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 15000
+      },
+      {
+        "type": "cosmos",
+        "amount": 5000
+      },
+      {
+        "type": "experience",
+        "amount": 12000
+      },
+      {
+        "type": "honor",
+        "amount": 25
+      }
+    ],
+    "levelRequirement": 45,
+    "repeatable": true
+  },
+  "kill_kronos_2": {
+    "id": "kill_kronos_2",
+    "title": "Wrath of the Giant",
+    "description": "Another Kronos Warship has entered the fray.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_kronos_2_obj",
+        "type": "kill",
+        "description": "Kill 1 Kronos Warship",
+        "target": 1,
+        "targetType": "kronos"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 10000
+      },
+      {
+        "type": "cosmos",
+        "amount": 5000
+      },
+      {
+        "type": "experience",
+        "amount": 10000
+      },
+      {
+        "type": "honor",
+        "amount": 50
+      }
+    ],
+    "levelRequirement": 20,
+    "prerequisites": [
+      "kill_kronos_1"
+    ],
+    "repeatable": false
+  },
+  "kill_kronos_3": {
+    "id": "kill_kronos_3",
+    "title": "Fleet Admiral Slayer",
+    "description": "Take down the command Kronos units.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_kronos_3_obj",
+        "type": "kill",
+        "description": "Kill 5 Kronos Warships",
+        "target": 5,
+        "targetType": "kronos"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 50000
+      },
+      {
+        "type": "cosmos",
+        "amount": 20000
+      },
+      {
+        "type": "experience",
+        "amount": 50000
+      },
+      {
+        "type": "honor",
+        "amount": 200
+      }
+    ],
+    "levelRequirement": 40,
+    "repeatable": true
+  },
+  "kill_operation_1": {
+    "id": "kill_operation_1",
+    "title": "Sector Sweep",
+    "description": "Wipe out a mixed force of hostiles.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "op1_obj1",
+        "type": "kill",
+        "description": "Kill Scouters",
+        "target": 10,
+        "targetType": "scouter"
+      },
+      {
+        "id": "op1_obj2",
+        "type": "kill",
+        "description": "Kill Guards",
+        "target": 5,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 5000
+      },
+      {
+        "type": "experience",
+        "amount": 3000
+      }
+    ],
+    "levelRequirement": 15
+  },
+  "kill_operation_2": {
+    "id": "kill_operation_2",
+    "title": "The Great Purge",
+    "description": "A massive cleansing effort is required.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "op2_obj1",
+        "type": "kill",
+        "description": "Kill Scouters",
+        "target": 50,
+        "targetType": "scouter"
+      },
+      {
+        "id": "op2_obj2",
+        "type": "kill",
+        "description": "Kill Guards",
+        "target": 30,
+        "targetType": "guard"
+      },
+      {
+        "id": "op2_obj3",
+        "type": "kill",
+        "description": "Kill Pyramids",
+        "target": 15,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 25000
+      },
+      {
+        "type": "cosmos",
+        "amount": 10000
+      },
+      {
+        "type": "experience",
+        "amount": 20000
+      },
+      {
+        "type": "honor",
+        "amount": 100
+      }
+    ],
+    "levelRequirement": 30
+  },
+  "kill_omega": {
+    "id": "kill_omega",
+    "title": "The Omega Protocol",
+    "description": "Execute the final combat protocol.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "omega_obj1",
+        "type": "kill",
+        "description": "Kill Scouters",
+        "target": 100,
+        "targetType": "scouter"
+      },
+      {
+        "id": "omega_obj2",
+        "type": "kill",
+        "description": "Kill Guards",
+        "target": 50,
+        "targetType": "guard"
+      },
+      {
+        "id": "omega_obj3",
+        "type": "kill",
+        "description": "Kill Pyramids",
+        "target": 25,
+        "targetType": "pyramid"
+      },
+      {
+        "id": "omega_obj4",
+        "type": "kill",
+        "description": "Kill Kronos",
+        "target": 10,
+        "targetType": "kronos"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 100000
+      },
+      {
+        "type": "cosmos",
+        "amount": 50000
+      },
+      {
+        "type": "experience",
+        "amount": 100000
+      },
+      {
+        "type": "honor",
+        "amount": 1000
+      }
+    ],
+    "levelRequirement": 50
+  },
+  "kill_bounty_1": {
+    "id": "kill_bounty_1",
+    "title": "Rogue Vanguard",
+    "description": "A rogue ship is terrorizing the sector. End their reign.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_1_obj",
+        "type": "kill",
+        "description": "Kill 2 Pyramids",
+        "target": 2,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 1000
+      },
+      {
+        "type": "experience",
+        "amount": 500
+      }
+    ],
+    "levelRequirement": 11
+  },
+  "kill_bounty_2": {
+    "id": "kill_bounty_2",
+    "title": "Lone Wolf Protocol",
+    "description": "Internal sensors caught a spy attempt. Trace and eliminate.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_2_obj",
+        "type": "kill",
+        "description": "Kill 4 Guards",
+        "target": 4,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 2000
+      },
+      {
+        "type": "experience",
+        "amount": 1000
+      }
+    ],
+    "levelRequirement": 12
+  },
+  "kill_bounty_3": {
+    "id": "kill_bounty_3",
+    "title": "Orbital Assassin",
+    "description": "A high-profile target has been spotted near the station.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_3_obj",
+        "type": "kill",
+        "description": "Kill 6 Pyramids",
+        "target": 6,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 3000
+      },
+      {
+        "type": "experience",
+        "amount": 1500
+      }
+    ],
+    "levelRequirement": 13
+  },
+  "kill_bounty_4": {
+    "id": "kill_bounty_4",
+    "title": "Singularity Saboteur",
+    "description": "Sabotage units are planting mines. Stop them now.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_4_obj",
+        "type": "kill",
+        "description": "Kill 8 Guards",
+        "target": 8,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 4000
+      },
+      {
+        "type": "experience",
+        "amount": 2000
+      }
+    ],
+    "levelRequirement": 14
+  },
+  "kill_bounty_5": {
+    "id": "kill_bounty_5",
+    "title": "The Last Fugitive",
+    "description": "One of the most wanted pilots has been cornered.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_5_obj",
+        "type": "kill",
+        "description": "Kill 10 Pyramids",
+        "target": 10,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 5000
+      },
+      {
+        "type": "experience",
+        "amount": 2500
+      }
+    ],
+    "levelRequirement": 15
+  },
+  "kill_bounty_6": {
+    "id": "kill_bounty_6",
+    "title": "Galactic Outlaw",
+    "description": "A dangerous outlaw is disrupting trade routes.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_6_obj",
+        "type": "kill",
+        "description": "Kill 12 Guards",
+        "target": 12,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 6000
+      },
+      {
+        "type": "experience",
+        "amount": 3000
+      }
+    ],
+    "levelRequirement": 16
+  },
+  "kill_bounty_7": {
+    "id": "kill_bounty_7",
+    "title": "Void Drifter Hunt",
+    "description": "A silent drifter is mapping our defenses. Intercept them.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_7_obj",
+        "type": "kill",
+        "description": "Kill 14 Pyramids",
+        "target": 14,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 7000
+      },
+      {
+        "type": "experience",
+        "amount": 3500
+      }
+    ],
+    "levelRequirement": 17
+  },
+  "kill_bounty_8": {
+    "id": "kill_bounty_8",
+    "title": "Nebula Ghost",
+    "description": "Strange signals suggest a cloaked threat in the nebula.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_8_obj",
+        "type": "kill",
+        "description": "Kill 16 Guards",
+        "target": 16,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 8000
+      },
+      {
+        "type": "experience",
+        "amount": 4000
+      }
+    ],
+    "levelRequirement": 18
+  },
+  "kill_bounty_9": {
+    "id": "kill_bounty_9",
+    "title": "Star-Seeker Elimination",
+    "description": "This target has escaped us once. Don't let it happen again.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_9_obj",
+        "type": "kill",
+        "description": "Kill 18 Pyramids",
+        "target": 18,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 9000
+      },
+      {
+        "type": "experience",
+        "amount": 4500
+      }
+    ],
+    "levelRequirement": 19
+  },
+  "kill_bounty_10": {
+    "id": "kill_bounty_10",
+    "title": "Cosmic Renegade",
+    "description": "A renegade faction is building a base. Strike first.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_10_obj",
+        "type": "kill",
+        "description": "Kill 20 Guards",
+        "target": 20,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 10000
+      },
+      {
+        "type": "experience",
+        "amount": 5000
+      }
+    ],
+    "levelRequirement": 20
+  },
+  "kill_bounty_11": {
+    "id": "kill_bounty_11",
+    "title": "Gravity Defier",
+    "description": "Physics-defying units are causing gravity wells. Neutralize.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_11_obj",
+        "type": "kill",
+        "description": "Kill 22 Pyramids",
+        "target": 22,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 11000
+      },
+      {
+        "type": "experience",
+        "amount": 5500
+      }
+    ],
+    "levelRequirement": 21
+  },
+  "kill_bounty_12": {
+    "id": "kill_bounty_12",
+    "title": "Solar Marauder",
+    "description": "A solar-powered marauder is leaching energy from the sun.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_12_obj",
+        "type": "kill",
+        "description": "Kill 24 Guards",
+        "target": 24,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 12000
+      },
+      {
+        "type": "experience",
+        "amount": 6000
+      }
+    ],
+    "levelRequirement": 22
+  },
+  "kill_bounty_13": {
+    "id": "kill_bounty_13",
+    "title": "Black Hole Shadow",
+    "description": "Something is lurking in the shadow of the black hole.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_13_obj",
+        "type": "kill",
+        "description": "Kill 26 Pyramids",
+        "target": 26,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 13000
+      },
+      {
+        "type": "experience",
+        "amount": 6500
+      }
+    ],
+    "levelRequirement": 23
+  },
+  "kill_bounty_14": {
+    "id": "kill_bounty_14",
+    "title": "Radiant Hunter",
+    "description": "A radiant vessel is blinding our sensors. Take it down.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_14_obj",
+        "type": "kill",
+        "description": "Kill 28 Guards",
+        "target": 28,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 14000
+      },
+      {
+        "type": "experience",
+        "amount": 7000
+      }
+    ],
+    "levelRequirement": 24
+  },
+  "kill_bounty_15": {
+    "id": "kill_bounty_15",
+    "title": "Pulse Stalker",
+    "description": "Pulse weapons have been detected on this hostile unit.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_15_obj",
+        "type": "kill",
+        "description": "Kill 30 Pyramids",
+        "target": 30,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 15000
+      },
+      {
+        "type": "experience",
+        "amount": 7500
+      }
+    ],
+    "levelRequirement": 25
+  },
+  "kill_bounty_16": {
+    "id": "kill_bounty_16",
+    "title": "Zenith Raider",
+    "description": "A raider from the Zenith system has entered our space.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_16_obj",
+        "type": "kill",
+        "description": "Kill 32 Guards",
+        "target": 32,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 16000
+      },
+      {
+        "type": "experience",
+        "amount": 8000
+      }
+    ],
+    "levelRequirement": 26
+  },
+  "kill_bounty_17": {
+    "id": "kill_bounty_17",
+    "title": "Horizon Breaker",
+    "description": "A horizon-class ship is attempting to breach the perimeter.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_17_obj",
+        "type": "kill",
+        "description": "Kill 34 Pyramids",
+        "target": 34,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 17000
+      },
+      {
+        "type": "experience",
+        "amount": 8500
+      }
+    ],
+    "levelRequirement": 27
+  },
+  "kill_bounty_18": {
+    "id": "kill_bounty_18",
+    "title": "Titan Fall",
+    "description": "A titan-class threat has been confirmed. Engage at will.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_18_obj",
+        "type": "kill",
+        "description": "Kill 36 Guards",
+        "target": 36,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 18000
+      },
+      {
+        "type": "experience",
+        "amount": 9000
+      }
+    ],
+    "levelRequirement": 28
+  },
+  "kill_bounty_19": {
+    "id": "kill_bounty_19",
+    "title": "Eclipse Enforcer",
+    "description": "The eclipse moon is hiding a dangerous secret.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_19_obj",
+        "type": "kill",
+        "description": "Kill 38 Pyramids",
+        "target": 38,
+        "targetType": "pyramid"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 19000
+      },
+      {
+        "type": "experience",
+        "amount": 9500
+      }
+    ],
+    "levelRequirement": 29
+  },
+  "kill_bounty_20": {
+    "id": "kill_bounty_20",
+    "title": "Final Frontier Bounty",
+    "description": "The final bounty on the list. Prove your legend.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "kill_bounty_20_obj",
+        "type": "kill",
+        "description": "Kill 40 Guards",
+        "target": 40,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 20000
+      },
+      {
+        "type": "experience",
+        "amount": 10000
+      }
+    ],
+    "levelRequirement": 30
+  },
+  "kill_skirmish_1": {
+    "id": "kill_skirmish_1",
+    "title": "Border Friction",
+    "description": "Hostiles are testing our borders. Show them the cost.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_1_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 11,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_1_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 6,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 2000
+      },
+      {
+        "type": "experience",
+        "amount": 1000
+      }
+    ],
+    "levelRequirement": 7
+  },
+  "kill_skirmish_2": {
+    "id": "kill_skirmish_2",
+    "title": "Tactical Entrenchment",
+    "description": "The enemy is digging in. Break their fortifications.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_2_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 12,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_2_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 7,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 4000
+      },
+      {
+        "type": "experience",
+        "amount": 2000
+      }
+    ],
+    "levelRequirement": 9
+  },
+  "kill_skirmish_3": {
+    "id": "kill_skirmish_3",
+    "title": "Rapid Response",
+    "description": "Immediate support requested in a high-intensity combat zone.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_3_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 13,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_3_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 8,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 6000
+      },
+      {
+        "type": "experience",
+        "amount": 3000
+      }
+    ],
+    "levelRequirement": 11
+  },
+  "kill_skirmish_4": {
+    "id": "kill_skirmish_4",
+    "title": "Asteroid Ambush",
+    "description": "A trap has been set in the asteroid belt. Fight your way out.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_4_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 14,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_4_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 9,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 8000
+      },
+      {
+        "type": "experience",
+        "amount": 4000
+      }
+    ],
+    "levelRequirement": 13
+  },
+  "kill_skirmish_5": {
+    "id": "kill_skirmish_5",
+    "title": "Strategic Suppression",
+    "description": "Suppress the enemy fire and reclaim the sector.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_5_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 15,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_5_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 10,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 10000
+      },
+      {
+        "type": "experience",
+        "amount": 5000
+      }
+    ],
+    "levelRequirement": 15
+  },
+  "kill_skirmish_6": {
+    "id": "kill_skirmish_6",
+    "title": "Forward Momentum",
+    "description": "Push forward and break the enemy's spirit.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_6_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 16,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_6_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 11,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 12000
+      },
+      {
+        "type": "experience",
+        "amount": 6000
+      }
+    ],
+    "levelRequirement": 17
+  },
+  "kill_skirmish_7": {
+    "id": "kill_skirmish_7",
+    "title": "Defensive Wall",
+    "description": "The station is under threat. Stand your ground.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_7_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 17,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_7_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 12,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 14000
+      },
+      {
+        "type": "experience",
+        "amount": 7000
+      }
+    ],
+    "levelRequirement": 19
+  },
+  "kill_skirmish_8": {
+    "id": "kill_skirmish_8",
+    "title": "Counter-Strike Operation",
+    "description": "They hit us first. Now it's our turn to strike back.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_8_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 18,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_8_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 13,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 16000
+      },
+      {
+        "type": "experience",
+        "amount": 8000
+      }
+    ],
+    "levelRequirement": 21
+  },
+  "kill_skirmish_9": {
+    "id": "kill_skirmish_9",
+    "title": "Sector Clearance",
+    "description": "This sector needs to be completely clear of hostiles.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_9_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 19,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_9_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 14,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 18000
+      },
+      {
+        "type": "experience",
+        "amount": 9000
+      }
+    ],
+    "levelRequirement": 23
+  },
+  "kill_skirmish_10": {
+    "id": "kill_skirmish_10",
+    "title": "High-Stakes Engagement",
+    "description": "A high-stakes battle is unfolding. Your presence is required.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_10_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 20,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_10_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 15,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 20000
+      },
+      {
+        "type": "experience",
+        "amount": 10000
+      }
+    ],
+    "levelRequirement": 25
+  },
+  "kill_skirmish_11": {
+    "id": "kill_skirmish_11",
+    "title": "Iron Resolve",
+    "description": "Show them your resolve. Don't back down for a second.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_11_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 21,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_11_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 16,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 22000
+      },
+      {
+        "type": "experience",
+        "amount": 11000
+      }
+    ],
+    "levelRequirement": 27
+  },
+  "kill_skirmish_12": {
+    "id": "kill_skirmish_12",
+    "title": "Point Blank Clash",
+    "description": "A close-quarters engagement in the inner rim.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_12_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 22,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_12_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 17,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 24000
+      },
+      {
+        "type": "experience",
+        "amount": 12000
+      }
+    ],
+    "levelRequirement": 29
+  },
+  "kill_skirmish_13": {
+    "id": "kill_skirmish_13",
+    "title": "Sudden Impact",
+    "description": "A sudden impact detected. Investigate and neutralize.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_13_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 23,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_13_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 18,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 26000
+      },
+      {
+        "type": "experience",
+        "amount": 13000
+      }
+    ],
+    "levelRequirement": 31
+  },
+  "kill_skirmish_14": {
+    "id": "kill_skirmish_14",
+    "title": "Vanguard Push",
+    "description": "Lead the vanguard into the heart of the enemy swarm.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_14_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 24,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_14_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 19,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 28000
+      },
+      {
+        "type": "experience",
+        "amount": 14000
+      }
+    ],
+    "levelRequirement": 33
+  },
+  "kill_skirmish_15": {
+    "id": "kill_skirmish_15",
+    "title": "Total Domination",
+    "description": "Establish total domination over the designated quadrant.",
+    "type": "kill",
+    "objectives": [
+      {
+        "id": "skirmish_15_obj1",
+        "type": "kill",
+        "description": "Eliminate Scouters",
+        "target": 25,
+        "targetType": "scouter"
+      },
+      {
+        "id": "skirmish_15_obj2",
+        "type": "kill",
+        "description": "Neutralize Guards",
+        "target": 20,
+        "targetType": "guard"
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 30000
+      },
+      {
+        "type": "experience",
+        "amount": 15000
+      }
+    ],
+    "levelRequirement": 35
+  },
+  "explore_station": {
+    "id": "explore_station",
+    "title": "The Central Hub",
+    "description": "Navigate to the main Space Station at (0, 0) to register your arrival.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "explore_station_obj",
+        "type": "explore",
+        "description": "Visit the Space Station (Coord 0, 0)",
+        "target": 1,
+        "targetName": "Space Station",
+        "x": 0,
+        "y": 0,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 200
+      },
+      {
+        "type": "experience",
+        "amount": 50
+      }
+    ],
+    "levelRequirement": 1
+  },
+  "explore_mining": {
+    "id": "explore_mining",
+    "title": "Mining Sector",
+    "description": "The Mining Sector is located at (9000, 4500). Go there and check its status.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "explore_mining_obj",
+        "type": "explore",
+        "description": "Visit the Mining Sector (Coord 9000, 4500)",
+        "target": 1,
+        "targetName": "Mining Sector",
+        "x": 9000,
+        "y": 4500,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 500
+      },
+      {
+        "type": "cosmos",
+        "amount": 100
+      }
+    ],
+    "levelRequirement": 3,
+    "prerequisites": [
+      "explore_station"
+    ]
+  },
+  "explore_nebula": {
+    "id": "explore_nebula",
+    "title": "Nebula Outpost",
+    "description": "An outpost is located at (3000, 5500) within the Purple Nebula.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "explore_nebula_obj",
+        "type": "explore",
+        "description": "Visit the Nebula Outpost (Coord 3000, 5500)",
+        "target": 1,
+        "targetName": "Nebula Outpost",
+        "x": 3000,
+        "y": 5500,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "cosmos",
+        "amount": 300
+      },
+      {
+        "type": "experience",
+        "amount": 200
+      }
+    ],
+    "levelRequirement": 5,
+    "prerequisites": [
+      "explore_mining"
+    ]
+  },
+  "explore_frontier": {
+    "id": "explore_frontier",
+    "title": "Frontier Outpost",
+    "description": "Explore the Frontier Outpost at (-10000, 3000) in the western quadrant.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "explore_frontier_obj",
+        "type": "explore",
+        "description": "Visit the Frontier Outpost (Coord -10000, 3000)",
+        "target": 1,
+        "targetName": "Frontier Outpost",
+        "x": -10000,
+        "y": 3000,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 1000
+      },
+      {
+        "type": "honor",
+        "amount": 5
+      }
+    ],
+    "levelRequirement": 8
+  },
+  "explore_blackhole": {
+    "id": "explore_blackhole",
+    "title": "Event Horizon",
+    "description": "Scientific sensors report strange readings from the Event Horizon at (-4000, -6000).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "explore_blackhole_obj",
+        "type": "explore",
+        "description": "Navigate to the Event Horizon (Coord -4000, -6000)",
+        "target": 1,
+        "targetName": "Event Horizon",
+        "x": -4000,
+        "y": -6000,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 2500
+      },
+      {
+        "type": "cosmos",
+        "amount": 1000
+      },
+      {
+        "type": "honor",
+        "amount": 10
+      }
+    ],
+    "levelRequirement": 12,
+    "prerequisites": [
+      "explore_frontier"
+    ]
+  },
+  "explore_inner_comms_relay": {
+    "id": "explore_inner_comms_relay",
+    "title": "Comms Relay",
+    "description": "A communications relay is drifting at (500, -800).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_inner_comms_relay",
+        "type": "explore",
+        "description": "Locate Comms Relay",
+        "target": 1,
+        "targetName": "Comms Relay",
+        "x": 500,
+        "y": -800,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 300
+      },
+      {
+        "type": "experience",
+        "amount": 100
+      }
+    ],
+    "levelRequirement": 2
+  },
+  "explore_inner_cargo_wreck": {
+    "id": "explore_inner_cargo_wreck",
+    "title": "Wreckage",
+    "description": "A derelict ship has been spotted at (-1200, 400).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_inner_cargo_wreck",
+        "type": "explore",
+        "description": "Locate Wreckage",
+        "target": 1,
+        "targetName": "Wreckage",
+        "x": -1200,
+        "y": 400,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 400
+      },
+      {
+        "type": "experience",
+        "amount": 150
+      }
+    ],
+    "levelRequirement": 4
+  },
+  "explore_inner_asteroid_base": {
+    "id": "explore_inner_asteroid_base",
+    "title": "Asteroid Field",
+    "description": "A suspicious asteroid at (800, 1500) might hold supplies.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_inner_asteroid_base",
+        "type": "explore",
+        "description": "Locate Asteroid Field",
+        "target": 1,
+        "targetName": "Asteroid Field",
+        "x": 800,
+        "y": 1500,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 500
+      },
+      {
+        "type": "experience",
+        "amount": 200
+      }
+    ],
+    "levelRequirement": 6
+  },
+  "explore_inner_signal_buoy": {
+    "id": "explore_inner_signal_buoy",
+    "title": "Signal Buoy",
+    "description": "A navigational buoy is offline at (-500, -2000).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_inner_signal_buoy",
+        "type": "explore",
+        "description": "Locate Signal Buoy",
+        "target": 1,
+        "targetName": "Signal Buoy",
+        "x": -500,
+        "y": -2000,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 600
+      },
+      {
+        "type": "experience",
+        "amount": 250
+      }
+    ],
+    "levelRequirement": 7
+  },
+  "explore_inner_ancient_pod": {
+    "id": "explore_inner_ancient_pod",
+    "title": "Escape Pod",
+    "description": "An unidentified pod is floating at (2200, -100).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_inner_ancient_pod",
+        "type": "explore",
+        "description": "Locate Escape Pod",
+        "target": 1,
+        "targetName": "Escape Pod",
+        "x": 2200,
+        "y": -100,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 700
+      },
+      {
+        "type": "experience",
+        "amount": 300
+      }
+    ],
+    "levelRequirement": 9
+  },
+  "explore_mid_ice_fortress": {
+    "id": "explore_mid_ice_fortress",
+    "title": "Fortress",
+    "description": "A large structure detected at (5400, 3200).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_mid_ice_fortress",
+        "type": "explore",
+        "description": "Visit Fortress",
+        "target": 1,
+        "targetName": "Fortress",
+        "x": 5400,
+        "y": 3200,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 2000
+      },
+      {
+        "type": "cosmos",
+        "amount": 500
+      },
+      {
+        "type": "experience",
+        "amount": 1500
+      }
+    ],
+    "levelRequirement": 15
+  },
+  "explore_mid_energy_cloud": {
+    "id": "explore_mid_energy_cloud",
+    "title": "Energy Anomaly",
+    "description": "Strong energy readings at (-4500, -1200).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_mid_energy_cloud",
+        "type": "explore",
+        "description": "Visit Energy Anomaly",
+        "target": 1,
+        "targetName": "Energy Anomaly",
+        "x": -4500,
+        "y": -1200,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 2500
+      },
+      {
+        "type": "cosmos",
+        "amount": 700
+      },
+      {
+        "type": "experience",
+        "amount": 2000
+      }
+    ],
+    "levelRequirement": 18
+  },
+  "explore_mid_derelict_frigate": {
+    "id": "explore_mid_derelict_frigate",
+    "title": "Derelict Ship",
+    "description": "A decommissioned ship is located at (6000, -2500).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_mid_derelict_frigate",
+        "type": "explore",
+        "description": "Visit Derelict Ship",
+        "target": 1,
+        "targetName": "Derelict Ship",
+        "x": 6000,
+        "y": -2500,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 3000
+      },
+      {
+        "type": "cosmos",
+        "amount": 900
+      },
+      {
+        "type": "experience",
+        "amount": 2500
+      }
+    ],
+    "levelRequirement": 20
+  },
+  "explore_mid_mining_outpost": {
+    "id": "explore_mid_mining_outpost",
+    "title": "Outpost",
+    "description": "A mining facility at (-3000, 5000).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_mid_mining_outpost",
+        "type": "explore",
+        "description": "Visit Outpost",
+        "target": 1,
+        "targetName": "Outpost",
+        "x": -3000,
+        "y": 5000,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 3500
+      },
+      {
+        "type": "cosmos",
+        "amount": 1100
+      },
+      {
+        "type": "experience",
+        "amount": 3000
+      }
+    ],
+    "levelRequirement": 22
+  },
+  "explore_mid_nebula_shrine": {
+    "id": "explore_mid_nebula_shrine",
+    "title": "Shrine",
+    "description": "A mysterious object hidden in the fog at (4000, -4500).",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_mid_nebula_shrine",
+        "type": "explore",
+        "description": "Visit Shrine",
+        "target": 1,
+        "targetName": "Shrine",
+        "x": 4000,
+        "y": -4500,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 4000
+      },
+      {
+        "type": "cosmos",
+        "amount": 1300
+      },
+      {
+        "type": "experience",
+        "amount": 3500
+      }
+    ],
+    "levelRequirement": 25
+  },
+  "explore_anomaly_singularity_alpha": {
+    "id": "explore_anomaly_singularity_alpha",
+    "title": "Anomaly Alpha",
+    "description": "An energy spike detected at (-10000, 6000). Investigate immediately.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_anomaly_singularity_alpha",
+        "type": "explore",
+        "description": "Investigate: Anomaly Alpha",
+        "target": 1,
+        "targetName": "Anomaly Alpha",
+        "x": -10000,
+        "y": 6000,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 100000
+      },
+      {
+        "type": "cosmos",
+        "amount": 50000
+      },
+      {
+        "type": "experience",
+        "amount": 200000
+      },
+      {
+        "type": "honor",
+        "amount": 500
+      }
+    ],
+    "levelRequirement": 45
+  },
+  "explore_anomaly_singularity_beta": {
+    "id": "explore_anomaly_singularity_beta",
+    "title": "Anomaly Beta",
+    "description": "An energy spike detected at (10000, -6000). Investigate immediately.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_anomaly_singularity_beta",
+        "type": "explore",
+        "description": "Investigate: Anomaly Beta",
+        "target": 1,
+        "targetName": "Anomaly Beta",
+        "x": 10000,
+        "y": -6000,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 100000
+      },
+      {
+        "type": "cosmos",
+        "amount": 50000
+      },
+      {
+        "type": "experience",
+        "amount": 200000
+      },
+      {
+        "type": "honor",
+        "amount": 500
+      }
+    ],
+    "levelRequirement": 48
+  },
+  "explore_anomaly_singularity_omega": {
+    "id": "explore_anomaly_singularity_omega",
+    "title": "Anomaly Omega",
+    "description": "An energy spike detected at (-10000, -6000). Investigate immediately.",
+    "type": "exploration",
+    "objectives": [
+      {
+        "id": "obj_anomaly_singularity_omega",
+        "type": "explore",
+        "description": "Investigate: Anomaly Omega",
+        "target": 1,
+        "targetName": "Anomaly Omega",
+        "x": -10000,
+        "y": -6000,
+        "radius": 500
+      }
+    ],
+    "rewards": [
+      {
+        "type": "credits",
+        "amount": 100000
+      },
+      {
+        "type": "cosmos",
+        "amount": 50000
+      },
+      {
+        "type": "experience",
+        "amount": 200000
+      },
+      {
+        "type": "honor",
+        "amount": 500
+      }
+    ],
+    "levelRequirement": 50
+  }
+}

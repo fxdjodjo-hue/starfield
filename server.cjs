@@ -343,7 +343,13 @@ const server = http.createServer(async (req, res) => {
               quests = questsMap;
             }
 
-            // 3. Update specific quest
+            // NEW: Fetch Quest Config for rewards
+            const QUESTS_CONFIG = require(`./shared/quests.json`);
+
+            // 3. Update specific quest and check for completion reward
+            const wasCompletedBefore = quests[questId]?.is_completed || false;
+            const isNewlyCompleted = progress.is_completed && !wasCompletedBefore;
+
             quests[questId] = { id: questId, ...progress };
 
             // 4. Authoritative table save
@@ -356,7 +362,34 @@ const server = http.createServer(async (req, res) => {
               completed_at: progress.completed_at || (progress.is_completed ? new Date().toISOString() : null)
             }, { onConflict: 'auth_id,quest_id' });
 
-            // 5. Update JSON column
+            // 5. Award rewards if newly completed
+            let currenciesUpdated = false;
+            if (isNewlyCompleted) {
+              const questConfig = QUESTS_CONFIG[questId];
+              if (questConfig && questConfig.rewards) {
+                ServerLoggerWrapper.info('REWARDS', `Quest ${questId} completed! Awarding rewards to ${authId}`);
+
+                // Initialize currencies if missing
+                if (!currentData.currencies_data) {
+                  currentData.currencies_data = { credits: 0, cosmos: 0, experience: 0, honor: 0 };
+                }
+
+                // Apply each reward
+                questConfig.rewards.forEach(reward => {
+                  const type = reward.type.toLowerCase();
+                  const amount = Number(reward.amount || 0);
+
+                  if (type === 'credits') currentData.currencies_data.credits = (Number(currentData.currencies_data.credits) || 0) + amount;
+                  else if (type === 'cosmos') currentData.currencies_data.cosmos = (Number(currentData.currencies_data.cosmos) || 0) + amount;
+                  else if (type === 'experience') currentData.currencies_data.experience = (Number(currentData.currencies_data.experience) || 0) + amount;
+                  else if (type === 'honor') currentData.currencies_data.honor = (Number(currentData.currencies_data.honor) || 0) + amount;
+                });
+
+                currenciesUpdated = true;
+              }
+            }
+
+            // 6. Update JSON columns
             await supabase.rpc('update_player_data_secure', {
               auth_id_param: authId,
               stats_data: currentData.stats_data,
@@ -367,22 +400,37 @@ const server = http.createServer(async (req, res) => {
               position_data: currentData.position_data
             });
 
-            // 6. Sincronizzazione Memoria Game Server (se il player è online)
+            // 7. Sincronizzazione Memoria Game Server (se il player è online)
             if (typeof mapServer !== 'undefined' && mapServer.players) {
               const playerInMemory = Array.from(mapServer.players.values()).find(p => p.userId === authId);
               if (playerInMemory) {
+                // Sync quests
                 if (!playerInMemory.quests) playerInMemory.quests = [];
-                // Se è un array
                 if (Array.isArray(playerInMemory.quests)) {
                   const idx = playerInMemory.quests.findIndex(q => (q.id || q.quest_id) === questId);
                   const questObj = { id: questId, quest_id: questId, ...progress };
-                  if (idx >= 0) {
-                    playerInMemory.quests[idx] = questObj;
-                  } else {
-                    playerInMemory.quests.push(questObj);
+                  if (idx >= 0) playerInMemory.quests[idx] = questObj;
+                  else playerInMemory.quests.push(questObj);
+                }
+
+                // Sync currencies if updated
+                if (currenciesUpdated) {
+                  playerInMemory.inventory = {
+                    ...playerInMemory.inventory,
+                    ...currentData.currencies_data
+                  };
+
+                  // Notify client about state update
+                  if (playerInMemory.ws && playerInMemory.ws.readyState === WebSocket.OPEN) {
+                    playerInMemory.ws.send(JSON.stringify({
+                      type: 'player_state_update',
+                      inventory: playerInMemory.inventory,
+                      source: `quest_complete_${questId}`
+                    }));
                   }
                 }
-                ServerLoggerWrapper.info('API', `Quest memory synchronized (POST) for user ${authId}`);
+
+                ServerLoggerWrapper.info('API', `Quest memory and rewards synchronized for user ${authId}`);
               }
             }
 
