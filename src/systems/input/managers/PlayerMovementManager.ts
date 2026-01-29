@@ -5,6 +5,7 @@ import { Velocity } from '../../../entities/spatial/Velocity';
 import { DisplayManager } from '../../../infrastructure/display';
 import { getPlayerDefinition } from '../../../config/PlayerConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
+import { Inventory } from '../../../entities/player/Inventory';
 import { MathUtils } from '../../../core/utils/MathUtils';
 import gameConfig from '../../../config/gameConfig.json';
 
@@ -302,7 +303,8 @@ export class PlayerMovementManager {
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
 
     if (playerUpgrades) {
-      const speedBonus = playerUpgrades.getSpeedBonus();
+      const inventory = this.ecs.getComponent(playerEntity, Inventory) as Inventory | undefined;
+      const speedBonus = playerUpgrades.getSpeedBonus(inventory);
       return Math.floor(playerDef.stats.speed * speedBonus);
     }
 

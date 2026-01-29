@@ -21,11 +21,13 @@ class DamageCalculationSystem {
    * @returns {number} Danno calcolato
    */
   static calculatePlayerDamage(baseDamage = playerConfig.stats.damage, upgrades = null, items = []) {
-    let bonus = 1.0;
+    let upgradeMultiplier = 1.0;
 
     if (upgrades && upgrades.damageUpgrades) {
-      bonus += (upgrades.damageUpgrades * 0.05);
+      upgradeMultiplier += (upgrades.damageUpgrades * 0.05);
     }
+
+    let itemMultiplier = 1.0;
 
     // Aggiungi bonus dagli item equipaggiati
     if (items && Array.isArray(items)) {
@@ -36,12 +38,12 @@ class DamageCalculationSystem {
       if (equippedLaserItem) {
         const itemDef = ITEM_REGISTRY[equippedLaserItem.id];
         if (itemDef?.stats?.damageBonus) {
-          bonus += itemDef.stats.damageBonus;
+          itemMultiplier += itemDef.stats.damageBonus;
         }
       }
     }
 
-    return Math.floor(baseDamage * bonus);
+    return Math.floor(baseDamage * upgradeMultiplier * itemMultiplier);
   }
 
   /**

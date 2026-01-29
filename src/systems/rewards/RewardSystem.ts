@@ -100,7 +100,7 @@ export class RewardSystem extends BaseSystem {
    * - Logging
    * - Salvataggio stato
    */
-  assignRewardsFromServer(rewards: { credits: number; cosmos: number; experience: number; honor: number }, npcType: string): void {
+  assignRewardsFromServer(rewards: { credits: number; cosmos: number; experience: number; honor: number; droppedItems?: any[] }, npcType: string): void {
     if (!this.economySystem) {
       console.warn('[RewardSystem] EconomySystem not available for server rewards');
       return;
@@ -143,10 +143,17 @@ export class RewardSystem extends BaseSystem {
       console.warn(`⚠️ [MISSION] QuestTrackingSystem has no playerEntity yet - skipping mission update for ${npcType}`);
     }
 
-    // Drop di Item (30% di probabilità per test)
-    if (this.playerEntity && Math.random() < 0.3) {
-      console.log(`[RewardSystem] Dropping item for NPC (Server Reward): ${npcType}`);
-      this.assignItemReward(npcType);
+    // 🚀 Gestione Item Drops ricevuti dal server
+    if (this.playerEntity && rewards.droppedItems && Array.isArray(rewards.droppedItems)) {
+      for (const itemData of rewards.droppedItems) {
+        const item = ITEM_REGISTRY[itemData.id];
+        if (item) {
+          if (this.logSystem) {
+            this.logSystem.addLogMessage(`DROPPED: ${item.name}! [${item.rarity}]`, LogType.GIFT, 4000);
+          }
+          console.log(`[RewardSystem] Item dropped from server: ${itemData.id} (${itemData.instanceId})`);
+        }
+      }
     }
 
     // Nota: Il respawn degli NPC è gestito lato server

@@ -571,25 +571,26 @@ export class InventoryPanel extends BasePanel {
       if (!itemDef) return;
 
       const slot = document.createElement('div');
-      slot.style.cssText = `
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        padding: 12px 16px;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.05);
-        border-radius: 2px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        position: relative;
-        flex-shrink: 0;
-      `;
+      // Rarity style
+      let rarityColor = 'rgba(255, 255, 255, 0.05)';
+      let textColor = '#ffffff';
+      if (itemDef.rarity === 'UNCOMMON') rarityColor = 'rgba(34, 197, 94, 0.1)';
+      if (itemDef.rarity === 'RARE') rarityColor = 'rgba(59, 130, 246, 0.1)';
+      if (itemDef.rarity === 'EPIC') rarityColor = 'rgba(168, 85, 247, 0.1)';
+
+      let rarityBorder = 'rgba(255, 255, 255, 0.05)';
+      if (itemDef.rarity === 'UNCOMMON') rarityBorder = 'rgba(34, 197, 94, 0.3)';
+      if (itemDef.rarity === 'RARE') rarityBorder = 'rgba(59, 130, 246, 0.3)';
+      if (itemDef.rarity === 'EPIC') rarityBorder = 'rgba(168, 85, 247, 0.3)';
+
+      slot.style.background = (itemDef.rarity === 'COMMON') ? 'rgba(0, 0, 0, 0.3)' : rarityColor;
+      slot.style.borderColor = rarityBorder;
 
       slot.innerHTML = `
-        <div style="width: 48px; display: flex; justify-content: center;">${this.renderIcon(itemDef.icon, '36px')}</div>
+        <div style="width: 48px; display: flex; justify-content: center;">${this.renderIcon(itemDef.icon, '36px', itemDef.rarity !== 'COMMON' ? `drop-shadow(0 0 5px ${rarityBorder})` : '')}</div>
         <div style="flex: 1; min-width: 0;">
-          <div style="color: #ffffff; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px;">${itemDef.name}</div>
-          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.slot} MODULE</div>
+          <div style="color: ${itemDef.rarity !== 'COMMON' ? rarityBorder.replace('0.3', '1.0') : '#ffffff'}; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px;">${itemDef.name}</div>
+          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.rarity} ${itemDef.slot}</div>
         </div>
       `;
 
@@ -645,9 +646,17 @@ export class InventoryPanel extends BasePanel {
           const item = ITEM_REGISTRY[equippedId];
           const isImage = item.icon.includes('/') || item.icon.includes('.');
 
-          slotElement.innerHTML = isImage ? this.renderIcon(item.icon, '72px') : '';
-          slotElement.style.background = 'rgba(255, 255, 255, 0.15)';
-          slotElement.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          // Rarity style for slot
+          let rarityColor = 'rgba(255, 255, 255, 0.15)';
+          let borderColor = 'rgba(255, 255, 255, 0.4)';
+          if (item.rarity === 'UNCOMMON') { rarityColor = 'rgba(34, 197, 94, 0.15)'; borderColor = 'rgba(34, 197, 94, 0.6)'; }
+          if (item.rarity === 'RARE') { rarityColor = 'rgba(59, 130, 246, 0.15)'; borderColor = 'rgba(59, 130, 246, 0.6)'; }
+          if (item.rarity === 'EPIC') { rarityColor = 'rgba(168, 85, 247, 0.15)'; borderColor = 'rgba(168, 85, 247, 0.6)'; }
+
+          slotElement.innerHTML = isImage ? this.renderIcon(item.icon, '72px', item.rarity !== 'COMMON' ? `drop-shadow(0 0 15px ${borderColor})` : '') : '';
+          slotElement.style.background = rarityColor;
+          slotElement.style.borderColor = borderColor;
+          slotElement.style.boxShadow = item.rarity !== 'COMMON' ? `inset 0 0 20px ${borderColor}33` : 'none';
 
           // Add details click
           slotElement.onclick = (e) => {
@@ -776,9 +785,9 @@ export class InventoryPanel extends BasePanel {
 
     // Rarity Color
     let rarityColor = '#ffffff';
-    if (item.rarity === 'UNCOMMON') rarityColor = '#22c55e';
-    if (item.rarity === 'RARE') rarityColor = '#3b82f6';
-    if (item.rarity === 'LEGENDARY') rarityColor = '#eab308';
+    if (item.rarity === 'UNCOMMON') rarityColor = '#22c55e'; // Green
+    if (item.rarity === 'RARE') rarityColor = '#3b82f6'; // Blue
+    if (item.rarity === 'EPIC') rarityColor = '#a855f7'; // Purple
 
     // Header
     const header = document.createElement('div');

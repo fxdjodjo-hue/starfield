@@ -143,78 +143,93 @@ export class PlayerUpgrades extends Component {
   }
 
   /**
-   * Calcola il bonus moltiplicatore per HP (1.0 + upgrades * 0.05 + item bonus)
+   * Calcola il bonus moltiplicatore per HP ((1.0 + upgrades * 0.05) * itemMultiplier)
    */
   getHPBonus(inventory?: Inventory): number {
-    let bonus = 1.0 + (this._hpUpgrades * 0.05);
+    const upgradeBonus = this._hpUpgrades * 0.05;
+    let itemMultiplier = 1.0;
     if (inventory) {
       const equippedItemId = inventory.getEquippedItemId(ItemSlot.HULL);
       if (equippedItemId) {
         const item = getItem(equippedItemId);
-        if (item?.stats.hpBonus) bonus += item.stats.hpBonus;
+        if (item?.stats?.hpBonus) {
+          itemMultiplier += item.stats.hpBonus;
+        }
       }
     }
-    return bonus;
+    return (1.0 + upgradeBonus) * itemMultiplier;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Shield (1.0 + upgrades * 0.05 + item bonus)
+   * Calcola il bonus moltiplicatore per Shield ((1.0 + upgrades * 0.05) * itemMultiplier)
    */
   getShieldBonus(inventory?: Inventory): number {
-    let bonus = 1.0 + (this._shieldUpgrades * 0.05);
+    const upgradeBonus = this._shieldUpgrades * 0.05;
+    let itemMultiplier = 1.0;
     if (inventory) {
       const equippedItemId = inventory.getEquippedItemId(ItemSlot.SHIELD);
       if (equippedItemId) {
         const item = getItem(equippedItemId);
-        if (item?.stats.shieldBonus) bonus += item.stats.shieldBonus;
+        if (item?.stats?.shieldBonus) {
+          itemMultiplier += item.stats.shieldBonus;
+        }
       }
     }
-    return bonus;
+    return (1.0 + upgradeBonus) * itemMultiplier;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Speed (1.0 + upgrades * 0.005 + item bonus)
+   * Calcola il bonus moltiplicatore per Speed ((1.0 + upgrades * 0.005) * itemMultiplier)
    */
   getSpeedBonus(inventory?: Inventory): number {
-    let bonus = 1.0 + (this._speedUpgrades * 0.005);
+    const upgradeBonus = this._speedUpgrades * 0.005;
+    let itemMultiplier = 1.0;
     if (inventory) {
       const equippedItemId = inventory.getEquippedItemId(ItemSlot.ENGINE);
       if (equippedItemId) {
         const item = getItem(equippedItemId);
-        if (item?.stats.speedBonus) bonus += item.stats.speedBonus;
+        if (item?.stats?.speedBonus) {
+          itemMultiplier += item.stats.speedBonus;
+        }
       }
     }
-    return bonus;
+    return (1.0 + upgradeBonus) * itemMultiplier;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Weapon Damage (1.0 + upgrades * 0.05 + item bonus)
+   * Calcola il bonus moltiplicatore per Weapon Damage ((1.0 + upgrades * 0.05) * itemMultiplier)
    */
   getDamageBonus(inventory?: Inventory): number {
-    let bonus = 1.0 + (this._damageUpgrades * 0.05);
+    const upgradeBonus = this._damageUpgrades * 0.05;
+    let itemMultiplier = 1.0;
     if (inventory) {
       const equippedItemId = inventory.getEquippedItemId(ItemSlot.LASER);
       if (equippedItemId) {
         const item = getItem(equippedItemId);
-        if (item?.stats.damageBonus) bonus += item.stats.damageBonus;
+        if (item?.stats?.damageBonus) {
+          itemMultiplier += item.stats.damageBonus;
+        }
       }
     }
-    return bonus;
+    return (1.0 + upgradeBonus) * itemMultiplier;
   }
 
   /**
-   * Calcola il bonus moltiplicatore per Missile Damage (1.0 + upgrades * 0.05 + item bonus)
+   * Calcola il bonus moltiplicatore per Missile Damage ((1.0 + upgrades * 0.05) * itemMultiplier)
    */
   getMissileDamageBonus(inventory?: Inventory): number {
-    let bonus = 1.0 + (this._missileDamageUpgrades * 0.05);
+    const upgradeBonus = this._missileDamageUpgrades * 0.05;
+    let itemMultiplier = 1.0;
     if (inventory) {
       const equippedItemId = inventory.getEquippedItemId(ItemSlot.MISSILE);
       if (equippedItemId) {
         const item = getItem(equippedItemId);
-        if (item?.stats.missileBonus) bonus += item.stats.missileBonus;
+        if (item?.stats?.missileBonus) {
+          itemMultiplier += item.stats.missileBonus;
+        }
       }
     }
-    return bonus;
+    return (1.0 + upgradeBonus) * itemMultiplier;
   }
 
   /**

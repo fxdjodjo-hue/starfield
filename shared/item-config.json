@@ -3,62 +3,262 @@
         "hull_titanium": {
             "id": "hull_titanium",
             "name": "Titanium Plating",
-            "description": "Provides superior hull integrity using aerospace-grade titanium.",
+            "description": "Standard aerospace-grade titanium hull protection.",
             "type": "EQUIPMENT",
             "slot": "HULL",
             "icon": "assets/items/hull/titanium_plating.jpg",
             "rarity": "COMMON",
             "stats": {
                 "hpBonus": 0.2
-            }
+            },
+            "dropChance": 0.05
+        },
+        "hull_titanium_uncommon": {
+            "id": "hull_titanium_uncommon",
+            "name": "Titanium Plating",
+            "description": "Reinforced titanium alloys for better integrity.",
+            "type": "EQUIPMENT",
+            "slot": "HULL",
+            "icon": "assets/items/hull/titanium_plating.jpg",
+            "rarity": "UNCOMMON",
+            "stats": {
+                "hpBonus": 0.35
+            },
+            "dropChance": 0.02
+        },
+        "hull_titanium_rare": {
+            "id": "hull_titanium_rare",
+            "name": "Titanium Plating",
+            "description": "Industrial-grade forged titanium for superior protection.",
+            "type": "EQUIPMENT",
+            "slot": "HULL",
+            "icon": "assets/items/hull/titanium_plating.jpg",
+            "rarity": "RARE",
+            "stats": {
+                "hpBonus": 0.55
+            },
+            "dropChance": 0.005
+        },
+        "hull_titanium_epic": {
+            "id": "hull_titanium_epic",
+            "name": "Titanium Plating",
+            "description": "Nanoscale-reinforced titanium for experimental hulls.",
+            "type": "EQUIPMENT",
+            "slot": "HULL",
+            "icon": "assets/items/hull/titanium_plating.jpg",
+            "rarity": "EPIC",
+            "stats": {
+                "hpBonus": 0.85
+            },
+            "dropChance": 0.001
         },
         "shield_aegis": {
             "id": "shield_aegis",
             "name": "Aegis Shield Generator",
-            "description": "A high-output generator that stabilizes shield harmonics.",
+            "description": "Standard output stabilizing shield generator.",
             "type": "EQUIPMENT",
             "slot": "SHIELD",
             "icon": "assets/items/shield/aegis_shield.jpg",
             "rarity": "COMMON",
             "stats": {
                 "shieldBonus": 0.25
-            }
+            },
+            "dropChance": 0.05
+        },
+        "shield_aegis_uncommon": {
+            "id": "shield_aegis_uncommon",
+            "name": "Aegis Shield",
+            "description": "Optimized harmonics for better shield stability.",
+            "type": "EQUIPMENT",
+            "slot": "SHIELD",
+            "icon": "assets/items/shield/aegis_shield.jpg",
+            "rarity": "UNCOMMON",
+            "stats": {
+                "shieldBonus": 0.45
+            },
+            "dropChance": 0.02
+        },
+        "shield_aegis_rare": {
+            "id": "shield_aegis_rare",
+            "name": "Aegis Shield",
+            "description": "High-output core with phase-shifted harmonics.",
+            "type": "EQUIPMENT",
+            "slot": "SHIELD",
+            "icon": "assets/items/shield/aegis_shield.jpg",
+            "rarity": "RARE",
+            "stats": {
+                "shieldBonus": 0.75
+            },
+            "dropChance": 0.005
+        },
+        "shield_aegis_epic": {
+            "id": "shield_aegis_epic",
+            "name": "Aegis Shield",
+            "description": "Experimental antimatter flux stabilization technology.",
+            "type": "EQUIPMENT",
+            "slot": "SHIELD",
+            "icon": "assets/items/shield/aegis_shield.jpg",
+            "rarity": "EPIC",
+            "stats": {
+                "shieldBonus": 1.15
+            },
+            "dropChance": 0.001
         },
         "laser_pulse": {
             "id": "laser_pulse",
             "name": "Pulse Laser MK1",
-            "description": "Standard military-grade laser with increased focusing lens.",
+            "description": "Standard military-grade focusing lens.",
             "type": "EQUIPMENT",
             "slot": "LASER",
             "icon": "assets/items/laser/pulse_laser.jpg",
             "rarity": "COMMON",
             "stats": {
                 "damageBonus": 0.15
-            }
+            },
+            "dropChance": 0.05
+        },
+        "laser_pulse_uncommon": {
+            "id": "laser_pulse_uncommon",
+            "name": "Pulse Laser",
+            "description": "Refined focusing crystals for higher output.",
+            "type": "EQUIPMENT",
+            "slot": "LASER",
+            "icon": "assets/items/laser/pulse_laser.jpg",
+            "rarity": "UNCOMMON",
+            "stats": {
+                "damageBonus": 0.3
+            },
+            "dropChance": 0.02
+        },
+        "laser_pulse_rare": {
+            "id": "laser_pulse_rare",
+            "name": "Pulse Laser",
+            "description": "Quad-crystal array for focused destructive power.",
+            "type": "EQUIPMENT",
+            "slot": "LASER",
+            "icon": "assets/items/laser/pulse_laser.jpg",
+            "rarity": "RARE",
+            "stats": {
+                "damageBonus": 0.55
+            },
+            "dropChance": 0.005
+        },
+        "laser_pulse_epic": {
+            "id": "laser_pulse_epic",
+            "name": "Pulse Laser",
+            "description": "Singularity-tuned beam focusing technology.",
+            "type": "EQUIPMENT",
+            "slot": "LASER",
+            "icon": "assets/items/laser/pulse_laser.jpg",
+            "rarity": "EPIC",
+            "stats": {
+                "damageBonus": 0.95
+            },
+            "dropChance": 0.001
         },
         "engine_fusion": {
             "id": "engine_fusion",
             "name": "Fusion Thruster",
-            "description": "Enhanced propulsion system using core fusion bypass.",
+            "description": "Standard core fusion bypass propulsion.",
             "type": "EQUIPMENT",
             "slot": "ENGINE",
             "icon": "assets/items/engine/fusion_thruster.jpg",
             "rarity": "COMMON",
             "stats": {
                 "speedBonus": 0.1
-            }
+            },
+            "dropChance": 0.05
+        },
+        "engine_fusion_uncommon": {
+            "id": "engine_fusion_uncommon",
+            "name": "Fusion Thruster",
+            "description": "Dual-core fusion bypass for higher thrust.",
+            "type": "EQUIPMENT",
+            "slot": "ENGINE",
+            "icon": "assets/items/engine/fusion_thruster.jpg",
+            "rarity": "UNCOMMON",
+            "stats": {
+                "speedBonus": 0.2
+            },
+            "dropChance": 0.02
+        },
+        "engine_fusion_rare": {
+            "id": "engine_fusion_rare",
+            "name": "Fusion Thruster",
+            "description": "Hyper-efficient plasma acceleration modules.",
+            "type": "EQUIPMENT",
+            "slot": "ENGINE",
+            "icon": "assets/items/engine/fusion_thruster.jpg",
+            "rarity": "RARE",
+            "stats": {
+                "speedBonus": 0.35
+            },
+            "dropChance": 0.005
+        },
+        "engine_fusion_epic": {
+            "id": "engine_fusion_epic",
+            "name": "Fusion Thruster",
+            "description": "Sub-warp field distortion thruster technology.",
+            "type": "EQUIPMENT",
+            "slot": "ENGINE",
+            "icon": "assets/items/engine/fusion_thruster.jpg",
+            "rarity": "EPIC",
+            "stats": {
+                "speedBonus": 0.55
+            },
+            "dropChance": 0.001
         },
         "missile_stingray": {
             "id": "missile_stingray",
             "name": "Stingray Launcher",
-            "description": "Advanced targeting computer for increased missile payload efficiency.",
+            "description": "Standard targeting computer for payload efficiency.",
             "type": "EQUIPMENT",
             "slot": "MISSILE",
             "icon": "assets/items/missile/stingray_missile.jpg",
             "rarity": "COMMON",
             "stats": {
                 "missileBonus": 0.2
-            }
+            },
+            "dropChance": 0.05
+        },
+        "missile_stingray_uncommon": {
+            "id": "missile_stingray_uncommon",
+            "name": "Stingray Launcher",
+            "description": "Improved targeting sensor arrays.",
+            "type": "EQUIPMENT",
+            "slot": "MISSILE",
+            "icon": "assets/items/missile/stingray_missile.jpg",
+            "rarity": "UNCOMMON",
+            "stats": {
+                "missileBonus": 0.4
+            },
+            "dropChance": 0.02
+        },
+        "missile_stingray_rare": {
+            "id": "missile_stingray_rare",
+            "name": "Stingray Launcher",
+            "description": "Quantum-locked guidance for maximum payload impact.",
+            "type": "EQUIPMENT",
+            "slot": "MISSILE",
+            "icon": "assets/items/missile/stingray_missile.jpg",
+            "rarity": "RARE",
+            "stats": {
+                "missileBonus": 0.7
+            },
+            "dropChance": 0.005
+        },
+        "missile_stingray_epic": {
+            "id": "missile_stingray_epic",
+            "name": "Stingray Launcher",
+            "description": "Interdimensional phasing payload delivery system.",
+            "type": "EQUIPMENT",
+            "slot": "MISSILE",
+            "icon": "assets/items/missile/stingray_missile.jpg",
+            "rarity": "EPIC",
+            "stats": {
+                "missileBonus": 1.2
+            },
+            "dropChance": 0.001
         }
     }
 }

@@ -17,6 +17,18 @@
       "experience": 400,
       "honor": 2
     },
+    "possibleDrops": [
+      "hull_titanium",
+      "shield_aegis",
+      "laser_pulse",
+      "engine_fusion",
+      "missile_stingray",
+      "hull_titanium_uncommon",
+      "shield_aegis_uncommon",
+      "laser_pulse_uncommon",
+      "engine_fusion_uncommon",
+      "missile_stingray_uncommon"
+    ],
     "ai": {
       "aggressionLevel": "low",
       "targetPriority": "nearest",
@@ -43,6 +55,18 @@
       "experience": 80000,
       "honor": 4000
     },
+    "possibleDrops": [
+      "hull_titanium_rare",
+      "shield_aegis_rare",
+      "laser_pulse_rare",
+      "engine_fusion_rare",
+      "missile_stingray_rare",
+      "hull_titanium_epic",
+      "shield_aegis_epic",
+      "laser_pulse_epic",
+      "engine_fusion_epic",
+      "missile_stingray_epic"
+    ],
     "ai": {
       "aggressionLevel": "medium",
       "targetPriority": "weakest",
@@ -68,6 +92,21 @@
       "experience": 3000,
       "honor": 2
     },
+    "possibleDrops": [
+      "hull_titanium",
+      "shield_aegis",
+      "laser_pulse",
+      "engine_fusion",
+      "missile_stingray",
+      "hull_titanium_uncommon",
+      "shield_aegis_uncommon",
+      "laser_pulse_uncommon",
+      "engine_fusion_uncommon",
+      "missile_stingray_uncommon",
+      "hull_titanium_rare",
+      "shield_aegis_rare",
+      "laser_pulse_rare"
+    ],
     "ai": {
       "aggressionLevel": "low",
       "targetPriority": "nearest",
@@ -93,6 +132,19 @@
       "experience": 10000,
       "honor": 600
     },
+    "possibleDrops": [
+      "hull_titanium_uncommon",
+      "shield_aegis_uncommon",
+      "laser_pulse_uncommon",
+      "engine_fusion_uncommon",
+      "missile_stingray_uncommon",
+      "hull_titanium_rare",
+      "shield_aegis_rare",
+      "laser_pulse_rare",
+      "engine_fusion_rare",
+      "missile_stingray_rare",
+      "hull_titanium_epic"
+    ],
     "ai": {
       "aggressionLevel": "high",
       "targetPriority": "nearest",

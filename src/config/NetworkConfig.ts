@@ -445,6 +445,7 @@ export interface PlayerStateUpdateMessage {
     honor: number;
     npcType: string;
   };
+  items?: any[];
 }
 
 /**
@@ -540,6 +541,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
   isAdministrator?: boolean; // Admin status
   rank?: string;
   quests: any[];
+  items: any[];
   timestamp: number;
 }
 

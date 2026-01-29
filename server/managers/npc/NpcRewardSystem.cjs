@@ -50,24 +50,45 @@ class NpcRewardSystem {
       }
     }
 
-    // 🚀 Authoritative Item Drops (30% probability)
-    let droppedItem = null;
-    if (Math.random() < 0.3) {
-      const itemIds = ['hull_titanium', 'shield_aegis', 'laser_pulse', 'engine_fusion', 'missile_stingray'];
-      const randomItemId = itemIds[Math.floor(Math.random() * itemIds.length)];
+    // 🚀 Item-Based Drops (Autoritativo)
+    const droppedItems = [];
+    const npcPossibleDrops = NPC_CONFIG[npcType]?.possibleDrops || [];
 
-      const instanceId = Math.random().toString(36).substring(2, 9);
-      droppedItem = {
-        id: randomItemId,
-        instanceId,
-        acquiredAt: Date.now(),
-        slot: null // Not equipped initially
-      };
+    if (npcPossibleDrops.length > 0) {
+      const itemConfig = require('../../../shared/item-config.json');
+      const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
 
-      if (!playerData.items) playerData.items = [];
-      playerData.items.push(droppedItem);
+      for (const itemId of npcPossibleDrops) {
+        const itemDef = ITEM_REGISTRY[itemId];
+        if (!itemDef) continue;
 
-      ServerLoggerWrapper.info('REWARDS', `Player ${playerId} dropped item: ${randomItemId} (${instanceId})`);
+        // Probabilità basata solo sull'item
+        const dropChance = itemDef.dropChance || 0;
+
+        if (Math.random() < dropChance) {
+          const instanceId = Math.random().toString(36).substring(2, 9);
+          const newItem = {
+            id: itemId,
+            instanceId,
+            acquiredAt: Date.now(),
+            slot: null
+          };
+
+          if (!playerData.items) playerData.items = [];
+          playerData.items.push(newItem);
+          droppedItems.push(newItem);
+
+          ServerLoggerWrapper.info('REWARDS', `Player ${playerId} dropped ${itemDef.rarity} item: ${itemId} (${instanceId}) [Rate: ${dropChance.toFixed(4)}]`);
+        }
+      }
+    }
+
+    // Persist changes immediately to prevent data loss (items, currencies)
+    const websocketManager = this.mapServer.websocketManager;
+    if (websocketManager && typeof websocketManager.savePlayerData === 'function') {
+      websocketManager.savePlayerData(playerData).catch(err => {
+        ServerLoggerWrapper.error('REWARDS', `Immediate save failed for ${playerId}: ${err.message}`);
+      });
     }
 
     ServerLoggerWrapper.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor`);
@@ -75,7 +96,7 @@ class NpcRewardSystem {
     // Invia notifica delle ricompense al client
     const finalRewards = {
       ...rewards,
-      item: droppedItem
+      droppedItems: droppedItems
     };
 
     // Invia notifica delle ricompense al client
@@ -110,6 +131,7 @@ class NpcRewardSystem {
       type: 'player_state_update',
       inventory: { ...playerData.inventory },
       upgrades: { ...playerData.upgrades },
+      items: playerData.items || [],
       recentHonor: recentHonor,
       source: `killed_${npcType}`,
       rewardsEarned: {

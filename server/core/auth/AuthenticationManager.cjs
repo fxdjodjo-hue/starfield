@@ -74,7 +74,8 @@ class AuthenticationManager {
    */
   calculateMaxHealth(hpUpgrades, items = []) {
     const baseHealth = playerConfig.stats.health;
-    let bonus = 1.0 + (hpUpgrades * 0.05);
+    const upgradeBonus = hpUpgrades * 0.05;
+    let itemMultiplier = 1.0;
 
     // Aggiungi bonus dagli item equipaggiati
     if (items && Array.isArray(items)) {
@@ -85,12 +86,12 @@ class AuthenticationManager {
       if (equippedHullItem) {
         const itemDef = ITEM_REGISTRY[equippedHullItem.id];
         if (itemDef?.stats?.hpBonus) {
-          bonus += itemDef.stats.hpBonus;
+          itemMultiplier += itemDef.stats.hpBonus;
         }
       }
     }
 
-    return Math.floor(baseHealth * bonus);
+    return Math.floor(baseHealth * (1.0 + upgradeBonus) * itemMultiplier);
   }
 
   /**
@@ -102,7 +103,8 @@ class AuthenticationManager {
    */
   calculateMaxShield(shieldUpgrades, items = []) {
     const baseShield = playerConfig.stats.shield;
-    let bonus = 1.0 + (shieldUpgrades * 0.05);
+    const upgradeBonus = shieldUpgrades * 0.05;
+    let itemMultiplier = 1.0;
 
     // Aggiungi bonus dagli item equipaggiati
     if (items && Array.isArray(items)) {
@@ -113,12 +115,12 @@ class AuthenticationManager {
       if (equippedShieldItem) {
         const itemDef = ITEM_REGISTRY[equippedShieldItem.id];
         if (itemDef?.stats?.shieldBonus) {
-          bonus += itemDef.stats.shieldBonus;
+          itemMultiplier += itemDef.stats.shieldBonus;
         }
       }
     }
 
-    return Math.floor(baseShield * bonus);
+    return Math.floor(baseShield * (1.0 + upgradeBonus) * itemMultiplier);
   }
 
 }

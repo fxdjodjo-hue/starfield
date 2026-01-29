@@ -18,7 +18,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items } = message;
 
     // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
     // Nota: inventory può essere undefined per messaggi di riparazione che aggiornano solo HP/shield
@@ -131,7 +131,6 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     const uiSystem = networkSystem.getUiSystem();
 
     // SINCRONIZZA L'INVENTARIO ECS (se presente nel messaggio)
-    const items = (message as any).items;
     if (items && networkSystem.getPlayerSystem()) {
       const ecs = networkSystem.getECS();
       const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();

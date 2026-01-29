@@ -327,14 +327,27 @@ class ServerCombatManager {
     const baseMissileDamage = PLAYER_CONFIG.stats.missileDamage || 100;
 
     // Calcolo bonus upgrade (simile a DamageCalculationSystem ma specifico per missili)
-    // Se non abbiamo accesso diretto al componente PlayerUpgrades qui, usiamo i dati serializzati in playerData.upgrades
-    let missileMultiplier = 1.0;
+    let upgradeMultiplier = 1.0;
     if (playerData.upgrades && playerData.upgrades.missileDamageUpgrades) {
-      // +5% per livello, come il danno normale (da confermare se si vuole valore diverso)
-      missileMultiplier = 1.0 + (playerData.upgrades.missileDamageUpgrades * 0.05);
+      upgradeMultiplier += (playerData.upgrades.missileDamageUpgrades * 0.05);
     }
 
-    const damage = Math.floor(baseMissileDamage * missileMultiplier);
+    let itemMultiplier = 1.0;
+    // 🚀 FIX: Aggiungi bonus dagli item equipaggiati per i missili
+    if (playerData.items && Array.isArray(playerData.items)) {
+      const itemConfig = require('../../shared/item-config.json');
+      const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
+
+      const equippedMissileItem = playerData.items.find(i => i.slot === 'MISSILE');
+      if (equippedMissileItem) {
+        const itemDef = ITEM_REGISTRY[equippedMissileItem.id];
+        if (itemDef?.stats?.missileBonus) {
+          itemMultiplier += itemDef.stats.missileBonus;
+        }
+      }
+    }
+
+    const damage = Math.floor(baseMissileDamage * upgradeMultiplier * itemMultiplier);
 
     // Usa posizione corrente del player
     const playerPos = playerData.position;
@@ -506,7 +519,8 @@ class ServerCombatManager {
     const baseDamage = DamageCalculationSystem.getBasePlayerDamage();
     const calculatedDamage = DamageCalculationSystem.calculatePlayerDamage(
       baseDamage,
-      playerData.upgrades
+      playerData.upgrades,
+      playerData.items
     );
 
     // Usa la funzione comune per creare il proiettile

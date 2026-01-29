@@ -82,8 +82,8 @@ export class UpgradeStatsManager {
         }
       }
 
-      // Update speed with bonus from upgrades
-      const speedBonus = playerUpgrades.getSpeedBonus();
+      // Update speed with bonus from upgrades and items
+      const speedBonus = playerUpgrades.getSpeedBonus(inventory);
       const calculatedSpeed = Math.floor(playerDef.stats.speed * speedBonus);
 
       const speedValue = this.container.querySelector('.stat-current-speed') as HTMLElement;

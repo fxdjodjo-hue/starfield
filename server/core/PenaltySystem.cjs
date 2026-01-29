@@ -21,8 +21,8 @@ class PenaltySystem {
     ServerLoggerWrapper.info('PENALTY_SYSTEM', `Applied death penalty for ${clientId} (none currently)`);
 
     // Futuro: potrebbe sottrarre esperienza, crediti, ecc.
-    // playerData.inventory.experience -= penaltyAmount;
     // playerData.inventory.credits -= penaltyAmount;
+    // playerData.inventory.honor -= penaltyAmount;
   }
 }
 

@@ -33,8 +33,9 @@ export interface Item {
     type: ItemType;
     slot: ItemSlot;
     icon: string;        // Path all'icona o emoji fallback
-    rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'LEGENDARY';
+    rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC';
     stats: ItemStats;
+    dropChance?: number; // Probabilità di drop (0-1)
 }
 
 import itemConfig from '../../shared/item-config.json';
