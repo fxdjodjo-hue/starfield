@@ -8,7 +8,7 @@ export class Cosmos extends Component {
   private _cosmos: number;
   private _maxCosmos: number;
 
-  constructor(initialCosmos: number = 0, maxCosmos: number = 99999) {
+  constructor(initialCosmos: number = 0, maxCosmos: number = 999999999) {
     super();
     this._cosmos = Math.max(0, initialCosmos); // Non permettere valori negativi
     this._maxCosmos = maxCosmos;

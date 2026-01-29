@@ -8,7 +8,7 @@ export class Credits extends Component {
   private _credits: number;
   private _maxCredits: number;
 
-  constructor(initialCredits: number = 0, maxCredits: number = 999999) {
+  constructor(initialCredits: number = 0, maxCredits: number = 999999999) {
     super();
     this._credits = Math.max(0, initialCredits); // Non permettere valori negativi
     this._maxCredits = maxCredits;
