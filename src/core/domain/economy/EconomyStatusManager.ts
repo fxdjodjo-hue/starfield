@@ -11,7 +11,7 @@ export class EconomyStatusManager {
     private readonly progressionManager: ProgressionManager,
     private readonly honorManager: HonorManager,
     private readonly getRankSystem: () => any
-  ) {}
+  ) { }
 
   /**
    * Ottiene lo stato economico completo del giocatore
@@ -36,7 +36,7 @@ export class EconomyStatusManager {
       credits: credits.credits,
       cosmos: cosmos.cosmos,
       level: experience.level,
-      experience: experience.exp,
+      experience: experience.totalExpEarned,
       expForNextLevel: experience.expForCurrentLevel,
       honor: honor.honor,
       honorRank: this.getRankSystem()?.calculateCurrentRank() || 'Recruit'

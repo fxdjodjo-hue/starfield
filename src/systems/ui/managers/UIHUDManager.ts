@@ -140,7 +140,7 @@ export class UIHUDManager {
         playerId: this.context.playerId || this.playerId || 0,
         credits: this.context.playerInventory.credits || 0,
         cosmos: this.context.playerInventory.cosmos || 0,
-        experience: experience,
+        experience: experience, // experience is already the total experience from context
         expForNextLevel: expForNextLevel - (levelRequirements[level - 1] || 0),
         honor: this.context.playerInventory.honor || 0
       };
