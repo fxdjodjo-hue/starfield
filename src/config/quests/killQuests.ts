@@ -443,14 +443,46 @@ export function registerKillQuests() {
         levelRequirement: 50
     });
 
-    // Add many more automatically using a loop for various levels
+    // --- Bounty Quests (Unique Titles) ---
+    const bountyTitles = [
+        "Rogue Vanguard", "Lone Wolf Protocol", "Orbital Assassin", "Singularity Saboteur", "The Last Fugitive",
+        "Galactic Outlaw", "Void Drifter Hunt", "Nebula Ghost", "Star-Seeker Elimination", "Cosmic Renegade",
+        "Gravity Defier", "Solar Marauder", "Black Hole Shadow", "Radiant Hunter", "Pulse Stalker",
+        "Zenith Raider", "Horizon Breaker", "Titan Fall", "Eclipse Enforcer", "Final Frontier Bounty"
+    ];
+
+    const bountyDescs = [
+        "A rogue ship is terrorizing the sector. End their reign.",
+        "Internal sensors caught a spy attempt. Trace and eliminate.",
+        "A high-profile target has been spotted near the station.",
+        "Sabotage units are planting mines. Stop them now.",
+        "One of the most wanted pilots has been cornered.",
+        "A dangerous outlaw is disrupting trade routes.",
+        "A silent drifter is mapping our defenses. Intercept them.",
+        "Strange signals suggest a cloaked threat in the nebula.",
+        "This target has escaped us once. Don't let it happen again.",
+        "A renegade faction is building a base. Strike first.",
+        "Physics-defying units are causing gravity wells. Neutralize.",
+        "A solar-powered marauder is leaching energy from the sun.",
+        "Something is lurking in the shadow of the black hole.",
+        "A radiant vessel is blinding our sensors. Take it down.",
+        "Pulse weapons have been detected on this hostile unit.",
+        "A raider from the Zenith system has entered our space.",
+        "A horizon-class ship is attempting to breach the perimeter.",
+        "A titan-class threat has been confirmed. Engage at will.",
+        "The eclipse moon is hiding a dangerous secret.",
+        "The final bounty on the list. Prove your legend."
+    ];
+
     for (let i = 1; i <= 20; i++) {
         const difficulty = i * 2;
         const targetType = i % 2 === 0 ? 'Guard' : 'Pyramid';
+        const index = i - 1;
+
         QuestRegistry.register({
             id: `kill_bounty_${i}`,
-            title: `Bounty Target`,
-            description: `A high-priority target has been marked for elimination.`,
+            title: bountyTitles[index] || `Bounty Target ${i}`,
+            description: bountyDescs[index] || `A high-priority target has been marked for elimination.`,
             type: 'kill',
             objectives: [{
                 id: `kill_bounty_${i}_obj`,
@@ -467,11 +499,37 @@ export function registerKillQuests() {
         });
     }
 
+    // --- Skirmish Quests (Unique Titles) ---
+    const skirmishTitles = [
+        "Border Friction", "Tactical Entrenchment", "Rapid Response", "Asteroid Ambush", "Strategic Suppression",
+        "Forward Momentum", "Defensive Wall", "Counter-Strike Operation", "Sector Clearance", "High-Stakes Engagement",
+        "Iron Resolve", "Point Blank Clash", "Sudden Impact", "Vanguard Push", "Total Domination"
+    ];
+
+    const skirmishDescs = [
+        "Hostiles are testing our borders. Show them the cost.",
+        "The enemy is digging in. Break their fortifications.",
+        "Immediate support requested in a high-intensity combat zone.",
+        "A trap has been set in the asteroid belt. Fight your way out.",
+        "Suppress the enemy fire and reclaim the sector.",
+        "Push forward and break the enemy's spirit.",
+        "The station is under threat. Stand your ground.",
+        "They hit us first. Now it's our turn to strike back.",
+        "This sector needs to be completely clear of hostiles.",
+        "A high-stakes battle is unfolding. Your presence is required.",
+        "Show them your resolve. Don't back down for a second.",
+        "A close-quarters engagement in the inner rim.",
+        "A sudden impact detected. Investigate and neutralize.",
+        "Lead the vanguard into the heart of the enemy swarm.",
+        "Establish total domination over the designated quadrant."
+    ];
+
     for (let i = 1; i <= 15; i++) {
+        const index = i - 1;
         QuestRegistry.register({
             id: `kill_skirmish_${i}`,
-            title: `Skirmish Operation`,
-            description: `Engage enemy forces in the designated sector.`,
+            title: skirmishTitles[index] || `Skirmish Operation ${i}`,
+            description: skirmishDescs[index] || `Engage enemy forces in the designated sector.`,
             type: 'kill',
             objectives: [
                 { id: `skirmish_${i}_obj1`, type: ObjectiveType.KILL, description: 'Eliminate Scouters', target: 10 + i, targetType: 'scouter' },
