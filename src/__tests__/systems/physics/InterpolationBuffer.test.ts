@@ -15,7 +15,7 @@ describe('InterpolationTarget (Snapshot Buffer)', () => {
     beforeEach(() => {
         // Mock performance.now for deterministic tests
         vi.spyOn(performance, 'now').mockReturnValue(1000);
-        target = new InterpolationTarget(0, 0, 0, true);
+        target = new InterpolationTarget(0, 0, 0);
     });
 
     it('should initialize with a single snapshot', () => {
@@ -125,6 +125,30 @@ describe('InterpolationTarget (Snapshot Buffer)', () => {
             // Should be halfway between (0,0) at t=1000 and (100,100) at t=1500
             expect(target.renderX).toBe(50);
             expect(target.renderY).toBe(50);
+        });
+    });
+
+    describe('Hermite Interpolation', () => {
+        it('should follow a curved path with velocity', () => {
+            // t=1000: (0,0) v=(100,0) -> Moving right fast
+            vi.spyOn(performance, 'now').mockReturnValue(1000);
+            target.updateTarget(0, 0, 0, 1000, 100, 0);
+
+            // t=1100: (100,100) v=(0,100) -> Arriving moving up fast
+            vi.spyOn(performance, 'now').mockReturnValue(1100);
+            target.updateTarget(100, 100, 0, 1100, 0, 100);
+
+            // Interpolate at t=1050 (mid)
+            // Linear would be (50, 50).
+            // Hermite should overshoot/curve.
+            target.interpolate(1050);
+
+            // With v0=(100,0) and v1=(0,100), the curve should bulge out.
+            // Exact math check or just "not 50,50"
+            expect(target.renderX).not.toBe(50);
+            expect(target.renderY).not.toBe(50);
+            // Expect x to be > 50 (started moving right fast)
+            expect(target.renderX).toBeGreaterThan(50);
         });
     });
 

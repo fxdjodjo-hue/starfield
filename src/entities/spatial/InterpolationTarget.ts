@@ -10,18 +10,19 @@ export interface Snapshot {
   y: number;
   rotation: number;
   timestamp: number; // Local monotonic timestamp (performance.now() based)
-  tick?: number;     // Original server tick (if available)
-  vx?: number;       // Velocity X for better extrapolation
-  vy?: number;       // Velocity Y for better extrapolation
+  serverTime: number; // Absolute Server Time (ms) - derived from tick or raw timestamp
+  vx: number;       // Velocity X for Hermite spline
+  vy: number;       // Velocity Y for Hermite spline
 }
 
 /**
- * InterpolationTarget - MMO-Grade Snapshot Interpolation System
+ * InterpolationTarget - MMO-Grade Snapshot Interpolation System (Pro)
  * 
- * Migrated to Tick-Based Synchronization (2026):
- * - Server sends discrete ticks (1, 2, 3...)
- * - Client maps Tick -> Local Monotonic Time via stable offset
- * - Interpolation happens on Local Monotonic Time
+ * Features:
+ * - Smoothed Offset (alpha 0.05) vs Hard Reset
+ * - Hermite Cubic Spline Interpolation (uses velocity)
+ * - Soft Overrun Decay (no freeze on lag)
+ * - Jitter & Gap Detection
  */
 export class InterpolationTarget {
   // ==========================================
@@ -41,84 +42,86 @@ export class InterpolationTarget {
   // CONFIGURAZIONE TIMELINE
   // ==========================================
   private readonly TICK_MS = 50; // Server base tick (20Hz)
-  private readonly MAX_EXTRAPOLATION_MS = 150; // Esteso per gestire piccoli overrun
+  private readonly CLAMP_TIMESTAMP_GAP = 1000; // 1 second gap causes hard reset
+  private readonly OFFSET_SMOOTHING_ALPHA = 0.05;
+  private readonly MAX_GAP_THRESHOLD = 150; // 3 * 50ms (Linear fallback)
 
   private tickOffset: number | null = null;
   private lastSnapshotTimestamp: number = 0;
-  private isNpc: boolean = false;
 
-  constructor(initialX: number, initialY: number, initialRotation: number, isNpc: boolean = false) {
+  // Debug Metrics
+  private _isExtrapolating: boolean = false;
+  private _jitterBufferMs: number = 0;
+  private _currentJitter: number = 0;
+
+  constructor(initialX: number, initialY: number, initialRotation: number) {
     this.renderX = initialX;
     this.renderY = initialY;
     this.renderRotation = initialRotation;
-    this.isNpc = isNpc;
 
-    // Snapshot iniziale per evitare rotazioni improvvise al spawn
+    // Snapshot iniziale
     const now = performance.now();
     this.snapshots.push({
       x: initialX,
       y: initialY,
       rotation: initialRotation,
       timestamp: now,
-      tick: 0
+      serverTime: 0,
+      vx: 0,
+      vy: 0
     });
     this.lastSnapshotTimestamp = now;
   }
 
   /**
-   * AGGIORNA TARGET DA RETE
-   * Gestisce sia timestamp (legacy) che TICK (nuovo sistema).
-   * Se serverTimestamp è piccolo (< 1,000,000), lo tratta come TICK.
+   * UPDATE: Riceve dati dal server.
+   * IMPORTANTE: 'serverTime' (ms) deve essere passato esplicitamente.
+   * Se il sistema usa tick, il chiamante deve convertire tick * 50ms prima di chiamare.
    */
-  updateTarget(x: number, y: number, rotation: number, serverTimestamp?: number, velocityX?: number, velocityY?: number): void {
+  updateTarget(
+    x: number,
+    y: number,
+    rotation: number,
+    serverTime: number,
+    vx: number = 0,
+    vy: number = 0
+  ): void {
     const now = performance.now();
-    let snapshotTick: number;
 
-    // 1. DETERMINE TICK & OFFSET
-    // --------------------------
-    if (serverTimestamp !== undefined && serverTimestamp < 1000000) {
-      // È UN TICK (es. 1045)
-      snapshotTick = serverTimestamp;
+    // 1. DETERMINE OFFSET
+    // ----------------------------------------------------
+    const currentOffset = now - serverTime;
 
-      const estimatedServerTime = snapshotTick * this.TICK_MS;
-      const currentOffset = now - estimatedServerTime;
-
-      if (this.tickOffset === null) {
-        // Primo pacchetto: calcola offset secco
-        this.tickOffset = currentOffset;
-      } else if (Math.abs(currentOffset - this.tickOffset) > 1000) {
-        // Hard Reset se drift > 1 secondo (es. tab switch prolungato)
-        this.tickOffset = currentOffset;
-      }
-      // NOTA: Non facciamo LERP sull'offset per evitare jitter dovuto al network.
-      // L'offset rimane fisso finché non c'è una de-sincronizzazione grave.
-
-    } else if (serverTimestamp !== undefined) {
-      // È UN TIMESTAMP (legacy, es. 1738150000000)
-      if (this.tickOffset === null) {
-        this.tickOffset = now - serverTimestamp;
-      }
-      // Convertiamo timestamp in tick fittizi per coerenza interna
-      snapshotTick = Math.floor(serverTimestamp / this.TICK_MS);
+    if (this.tickOffset === null) {
+      this.tickOffset = currentOffset;
     } else {
-      // Nessun dato, usiamo tempo locale convertito in tick
-      snapshotTick = Math.floor(now / this.TICK_MS);
+      const delta = currentOffset - this.tickOffset;
+
+      // Calcolo Jitter istantaneo per debug
+      this._currentJitter = Math.abs(delta);
+
+      if (Math.abs(delta) > this.CLAMP_TIMESTAMP_GAP) {
+        // Hard Reset se drift > 1 secondo
+        this.tickOffset = currentOffset;
+      } else {
+        // Smooth drift correction
+        this.tickOffset += delta * this.OFFSET_SMOOTHING_ALPHA;
+      }
     }
 
     // 2. PREPARE DATA
-    // ---------------
+    // ----------------------------------------------------
     const sanitizedPos = InterpolationTarget.sanitizePosition(x, y, this.renderX, this.renderY);
     let sanitizedRotation = rotation;
     if (!InputValidator.validateNumber(rotation, 'rotation').isValid) {
       sanitizedRotation = this.renderRotation;
     }
 
-    // Calcola il timestamp locale in cui questo snapshot "dovrebbe" essere renderizzato
-    // ServerTick * 50ms + Offset
-    const localTimestamp = (snapshotTick * this.TICK_MS) + (this.tickOffset || 0);
+    // Local Monotonic Time per questo snapshot
+    const localTimestamp = serverTime + this.tickOffset;
 
-    // 3. TELEPORT DETECTION
-    // ---------------------
+    // 3. TELEPORT DETECTION (Anti-Teleport)
+    // ----------------------------------------------------
     if (this.snapshots.length > 0) {
       const lastSnap = this.snapshots[this.snapshots.length - 1];
       const dx = sanitizedPos.x - lastSnap.x;
@@ -126,7 +129,7 @@ export class InterpolationTarget {
       const distSq = dx * dx + dy * dy;
       const timeDiff = Math.abs(localTimestamp - lastSnap.timestamp);
 
-      // Se spostamento > 500px in < 100ms -> Teleport
+      // Se spostamento > 500px in < 100ms -> Teleport immediato
       if (distSq > 500 * 500 && timeDiff < 100) {
         this.snapTo(sanitizedPos.x, sanitizedPos.y, sanitizedRotation);
         return;
@@ -134,65 +137,68 @@ export class InterpolationTarget {
     }
 
     // 4. ADD SNAPSHOT
-    // ---------------
+    // ----------------------------------------------------
     const newSnapshot: Snapshot = {
       x: sanitizedPos.x,
       y: sanitizedPos.y,
       rotation: sanitizedRotation,
       timestamp: localTimestamp,
-      tick: snapshotTick,
-      vx: velocityX,
-      vy: velocityY
+      serverTime: serverTime,
+      vx: vx,
+      vy: vy
     };
 
-    // Inserimento ordinato (handle out-of-order packets)
-    if (this.snapshots.length === 0 || localTimestamp >= this.snapshots[this.snapshots.length - 1].timestamp) {
+    // Insert sorted (handle out-of-order)
+    this.insertSnapshot(newSnapshot);
+
+    this.lastSnapshotTimestamp = Math.max(this.lastSnapshotTimestamp, localTimestamp);
+  }
+
+  // Helper per inserimento ordinato
+  private insertSnapshot(newSnapshot: Snapshot): void {
+    // Caso comune: pacchetto più recente
+    if (this.snapshots.length === 0 || newSnapshot.timestamp >= this.snapshots[this.snapshots.length - 1].timestamp) {
       this.snapshots.push(newSnapshot);
     } else {
-      // Caso raro: pacchetto arrivato in disordine
-      // Cerchiamo dove inserirlo
+      // Caso raro: pacchetto arrivato in ritardo (out-of-order)
       let insertIndex = this.snapshots.length;
       for (let i = this.snapshots.length - 1; i >= 0; i--) {
-        if (this.snapshots[i].timestamp < localTimestamp) {
+        if (this.snapshots[i].timestamp < newSnapshot.timestamp) {
           insertIndex = i + 1;
           break;
         }
         if (i === 0) insertIndex = 0;
       }
-      // Inseriamo solo se non è un duplicato esatto
-      const prevSnap = this.snapshots[insertIndex - 1];
-      const nextSnap = this.snapshots[insertIndex];
-      const isDuplicate = (prevSnap && prevSnap.timestamp === localTimestamp) || (nextSnap && nextSnap.timestamp === localTimestamp);
+
+      // Evita duplicati esatti di timestamp
+      const prev = this.snapshots[insertIndex - 1];
+      const next = this.snapshots[insertIndex];
+      const isDuplicate = (prev && Math.abs(prev.timestamp - newSnapshot.timestamp) < 0.01) ||
+        (next && Math.abs(next.timestamp - newSnapshot.timestamp) < 0.01);
 
       if (!isDuplicate) {
         this.snapshots.splice(insertIndex, 0, newSnapshot);
       }
     }
 
-    this.lastSnapshotTimestamp = Math.max(this.lastSnapshotTimestamp, localTimestamp);
-
-    // Mantieni buffer pulito
+    // Trim buffer
     while (this.snapshots.length > this.MAX_SNAPSHOT_BUFFER_SIZE) {
       this.snapshots.shift();
     }
   }
 
+  /**
+   * INTERPOLATE: Calcola la posizione attuale basata sul renderTime.
+   */
   interpolate(renderTime: number): void {
     const count = this.snapshots.length;
     if (count === 0) return;
 
-    if (count === 1) {
-      this.renderX = this.snapshots[0].x;
-      this.renderY = this.snapshots[0].y;
-      this.renderRotation = this.snapshots[0].rotation;
-      return;
-    }
+    // Reset flags
+    this._isExtrapolating = false;
 
+    // 1. BUFFER UNDERRUN (Too far in past) -> Snap to oldest
     const oldest = this.snapshots[0];
-    const newest = this.snapshots[count - 1];
-    const secondNewest = this.snapshots[count - 2];
-
-    // BUFFER UNDERRUN - renderTime è prima del buffer (troppo indietro)
     if (renderTime < oldest.timestamp) {
       this.renderX = oldest.x;
       this.renderY = oldest.y;
@@ -200,43 +206,38 @@ export class InterpolationTarget {
       return;
     }
 
-    // BUFFER OVERRUN - renderTime è dopo il buffer (pacchetto in ritardo)
+    // 2. BUFFER OVERRUN (Future/Lag) -> Soft Extrapolation
+    const newest = this.snapshots[count - 1];
     if (renderTime > newest.timestamp) {
-      const overTimeMs = renderTime - newest.timestamp;
+      this._isExtrapolating = true;
+      const dt = (renderTime - newest.timestamp) / 1000; // Seconds
 
-      // Extrapolazione breve: continua il movimento per un po'
-      if (overTimeMs < this.MAX_EXTRAPOLATION_MS) {
-        const overTimeSec = overTimeMs / 1000;
+      // Limita extrapolation time a ~1.25 frame o un cutoff ragionevole (es. 200ms)
+      if (dt < 0.2) {
+        // Soft Decay: Rallenta invece di continuare all'infinito o freezare
+        // vx *= exp(-k * dt) simula attrito
+        const decay = Math.exp(-5 * dt);
 
-        // Preferisci velocity esplicita se disponibile
-        if (newest.vx !== undefined && newest.vy !== undefined) {
-          this.renderX = newest.x + newest.vx * overTimeSec;
-          this.renderY = newest.y + newest.vy * overTimeSec;
-          this.renderRotation = newest.rotation;
-          return;
-        }
+        const vx = newest.vx * decay;
+        const vy = newest.vy * decay;
 
-        // Fallback: calcola velocità da position delta
-        if (secondNewest) {
-          const timeDelta = newest.timestamp - secondNewest.timestamp;
-          if (timeDelta > 0) {
-            const t = Math.min(overTimeMs / timeDelta, 2.0);
-            this.renderX = newest.x + (newest.x - secondNewest.x) * t;
-            this.renderY = newest.y + (newest.y - secondNewest.y) * t;
-            this.renderRotation = this.lerpAngle(secondNewest.rotation, newest.rotation, 1 + t);
-            return;
-          }
-        }
+        this.renderX = newest.x + vx * dt;
+        this.renderY = newest.y + vy * dt;
+        this.renderRotation = newest.rotation; // Rotation extrapolation is risky, keep static
+      } else {
+        // Se lagga troppo (>200ms), ferma lì (freeze è meglio di overshoot enorme)
+        this.renderX = newest.x;
+        this.renderY = newest.y;
+        this.renderRotation = newest.rotation;
       }
-
-      // OVERRUN LUNGO: Il player probabilmente si è fermato.
-      // Non aggiorniamo posizione -> Freeze visivo sull'ultimo frame valido
       return;
     }
 
-    // CASO NORMALE - Binary Search per trovare i due snapshot
+    // 3. INTERPOLATION (Normal) -> Find Pair
     let low = 0;
     let high = count - 1;
+
+    // Binary search per trovare l'intervallo [prev, next]
     while (high - low > 1) {
       const mid = (low + high) >> 1;
       if (this.snapshots[mid].timestamp <= renderTime) low = mid;
@@ -245,22 +246,64 @@ export class InterpolationTarget {
 
     const prev = this.snapshots[low];
     const next = this.snapshots[high];
+
     const timeDelta = next.timestamp - prev.timestamp;
 
-    // Protezione da divisione per zero
-    if (timeDelta <= 0) {
+    // Safety check div by zero
+    if (timeDelta <= 0.0001) {
       this.renderX = next.x;
       this.renderY = next.y;
       this.renderRotation = next.rotation;
       return;
     }
 
-    const t = (renderTime - prev.timestamp) / timeDelta;
+    // Normalized Time (0..1)
+    let t = (renderTime - prev.timestamp) / timeDelta;
+    // Clamp robusto
+    t = Math.max(0, Math.min(1, t));
 
-    // Assegnazione diretta (Linear Interpolation)
-    this.renderX = prev.x + (next.x - prev.x) * t;
-    this.renderY = prev.y + (next.y - prev.y) * t;
-    this.renderRotation = this.lerpAngle(prev.rotation, next.rotation, t);
+    // GAP DETECTION -> Fallback to Linear if gap is huge (packet loss)
+    if (timeDelta > this.MAX_GAP_THRESHOLD) {
+      // Linear fallback
+      this.renderX = prev.x + (next.x - prev.x) * t;
+      this.renderY = prev.y + (next.y - prev.y) * t;
+      this.renderRotation = this.lerpAngle(prev.rotation, next.rotation, t);
+    } else {
+      // HERMITE CUBIC SPLINE (MMO-Pro)
+      // Richiede vx, vy dai pacchetti
+      const dt = timeDelta / 1000;
+
+      const tt = t * t;
+      const ttt = tt * t;
+
+      // Basis functions
+      const h00 = 2 * ttt - 3 * tt + 1;
+      const h10 = ttt - 2 * tt + t;
+      const h01 = -2 * ttt + 3 * tt;
+      const h11 = ttt - tt;
+
+      const v0x = prev.vx;
+      const v0y = prev.vy;
+      const v1x = next.vx;
+      const v1y = next.vy;
+
+      // x(t)
+      this.renderX =
+        h00 * prev.x +
+        h10 * v0x * dt +
+        h01 * next.x +
+        h11 * v1x * dt;
+
+      // y(t)
+      this.renderY =
+        h00 * prev.y +
+        h10 * v0y * dt +
+        h01 * next.y +
+        h11 * v1y * dt;
+
+      // Rotation interpolata linearmente (Slerp 2D)
+      this.renderRotation = this.lerpAngle(prev.rotation, next.rotation, t);
+    }
   }
 
   snapTo(x: number, y: number, rotation: number): void {
@@ -269,25 +312,37 @@ export class InterpolationTarget {
     this.renderY = sanitized.y;
     this.renderRotation = rotation;
 
-    // Reset buffer
+    // Reset buffer completamente
     const now = performance.now();
     this.snapshots = [{
       x: sanitized.x,
       y: sanitized.y,
       rotation,
       timestamp: now,
-      tick: 0 // Reset tick state
+      serverTime: 0, // Reset time state
+      vx: 0,
+      vy: 0
     }];
     this.lastSnapshotTimestamp = now;
+    // Non resettiamo l'offset qui perché snapTo può essere gameplay (teleport skill)
+    // Se fosse un reset di rete, l'offset si aggiusterebbe da solo col tempo.
   }
 
   // ==========================================
-  // GETTERS & UTILS
+  // VIEW METHODS (Debugging)
   // ==========================================
+  get bufferSize(): number { return this.snapshots.length; }
+  get currentOffset(): number { return this.tickOffset || 0; }
+  get jitterMs(): number { return this._currentJitter; }
+  get isExtrapolating(): boolean { return this._isExtrapolating; }
 
   get targetX(): number { return this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1].x : this.renderX; }
   get targetY(): number { return this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1].y : this.renderY; }
   get targetRotation(): number { return this.snapshots.length > 0 ? this.snapshots[this.snapshots.length - 1].rotation : this.renderRotation; }
+
+  // ==========================================
+  // HELPERS
+  // ==========================================
 
   private static isValidPosition(x: number, y: number): boolean {
     return Number.isFinite(x) && Number.isFinite(y) && Math.abs(x) < 50000 && Math.abs(y) < 50000;

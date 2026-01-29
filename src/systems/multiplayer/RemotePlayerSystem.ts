@@ -199,8 +199,12 @@ export class RemotePlayerSystem extends BaseSystem {
 
     if (interpolation) {
       // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
-      // Passa anche velocità per extrapolazione più precisa
-      interpolation.updateTarget(x, y, rotation, serverTimestamp, velocityX, velocityY);
+      // CONVERT TICK to SERVER TIME (MMO-Standard: tick * 50ms)
+      // InterpolationTarget ora accetta solo serverTime (ms) assoluto.
+      const serverTime = (serverTimestamp || 0) * 50;
+
+      // Passa anche velocità per extrapolazione più precisa (Hermite)
+      interpolation.updateTarget(x, y, rotation, serverTime, velocityX, velocityY);
     } else {
       console.warn(`[REMOTE_PLAYER] No interpolation component found for ${clientId} entity ${entity.id}`);
     }

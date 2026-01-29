@@ -1,4 +1,5 @@
 import { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
+import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 
 export class NetworkStatsDisplay {
     private container: HTMLElement;
@@ -64,10 +65,26 @@ export class NetworkStatsDisplay {
         const inStr = stats.kbpsIn.toFixed(1).padStart(4, ' ');
         const outStr = stats.kbpsOut.toFixed(1).padStart(4, ' ');
 
-        this.container.innerHTML = `NET IN:  ${inStr} KB/s<br>NET OUT: ${outStr} KB/s`;
+        let interpStats = '<br>-- NO REMOTE ENTITIES --';
 
-        // Opti: Change color if bandwidth is high? 
-        // For now, keep it cyan.
+        const ecs = this.networkSystem.getECS();
+        if (ecs) {
+            // Find a sample interpolation target (first one found)
+            const entities = ecs.getEntitiesWithComponents(InterpolationTarget);
+            if (entities.length > 0) {
+                const target = ecs.getComponent(entities[0], InterpolationTarget);
+                if (target) {
+                    const buf = target.bufferSize;
+                    const off = Math.round(target.currentOffset);
+                    const jit = Math.round(target.jitterMs);
+                    const mode = target.isExtrapolating ? '<span style="color:#ffaa00">EXTRAP</span>' : '<span style="color:#00ff00">INTERP</span>';
+
+                    interpStats = `<br>BUF: ${buf} | OFF: ${off}ms<br>JIT: ${jit}ms | ${mode}`;
+                }
+            }
+        }
+
+        this.container.innerHTML = `NET IN:  ${inStr} KB/s<br>NET OUT: ${outStr} KB/s${interpStats}`;
     }
 
     public show(): void {

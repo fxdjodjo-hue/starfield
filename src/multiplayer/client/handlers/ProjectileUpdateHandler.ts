@@ -2,6 +2,7 @@ import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { InterpolationTarget } from '../../../entities/spatial/InterpolationTarget';
+import { Projectile } from '../../../entities/combat/Projectile';
 
 /**
  * Gestisce gli aggiornamenti di posizione dei proiettili - UNIFICATO
@@ -22,12 +23,18 @@ export class ProjectileUpdateHandler extends BaseMessageHandler {
     const entities = ecs.getEntitiesWithComponents(InterpolationTarget);
     for (const entity of entities) {
       // Controlla se questo è il proiettile giusto (usando il campo id del componente Projectile)
-      const projectile = ecs.getComponent(entity, require('../../../entities/combat/Projectile').Projectile);
+      const projectile = ecs.getComponent(entity, Projectile);
       if (projectile && (projectile as any).id === message.projectileId) {
         // Trovato! Aggiorna l'interpolazione
         const interpolation = ecs.getComponent(entity, InterpolationTarget);
         if (interpolation) {
-          interpolation.updateTargetFromNetwork(message.position.x, message.position.y);
+          // Derive serverTime (MMO-Standard: tick * 50ms or direct timestamp)
+          const serverTime = message.tick ? message.tick * 50 : (message.timestamp || Date.now());
+          const rotation = message.rotation || 0;
+          const vx = message.position.velocityX || 0;
+          const vy = message.position.velocityY || 0;
+
+          interpolation.updateTarget(message.position.x, message.position.y, rotation, serverTime, vx, vy);
         }
         break;
       }
