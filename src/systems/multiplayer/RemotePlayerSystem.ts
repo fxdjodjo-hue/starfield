@@ -131,27 +131,36 @@ export class RemotePlayerSystem extends BaseSystem {
     }
 
     // Usa EntityFactory per creare il remote player
-    const entity = this.entityFactory.createRemotePlayer({
-      clientId,
-      position: {
-        x,
-        y,
-        rotation
-      },
-      animatedSprite: this.sharedAnimatedSprite,
-      combat: {
-        health: {
-          current: health !== undefined ? health : 100,
-          max: maxHealth !== undefined ? maxHealth : 100
+    let entity;
+    try {
+      entity = this.entityFactory.createRemotePlayer({
+        clientId,
+        position: {
+          x,
+          y,
+          rotation
         },
-        shield: {
-          current: shield !== undefined ? shield : 50,
-          max: maxShield !== undefined ? maxShield : 50
+        animatedSprite: this.sharedAnimatedSprite,
+        combat: {
+          health: {
+            current: health !== undefined ? health : 100,
+            max: maxHealth !== undefined ? maxHealth : 100
+          },
+          shield: {
+            current: shield !== undefined ? shield : 50,
+            max: maxShield !== undefined ? maxShield : 50
+          },
+          damage: { value: 50, range: 30, cooldown: 100 } // Valori base per giocatori remoti
         },
-        damage: { value: 50, range: 30, cooldown: 100 } // Valori base per giocatori remoti
-      },
-      interpolation: true // Abilita interpolazione per movimento fluido
-    });
+        interpolation: true // Abilita interpolazione per movimento fluido
+      });
+    } catch (error) {
+      console.error(`[REMOTE_PLAYER] Failed to create remote player ${clientId}: ${(error as Error).message}`);
+      // Se l'entità è stata creata parzialmente dalla factory prima dell'errore, rimuovila
+      // Nota: findRemotePlayerEntity cerca il componente RemotePlayer, che non è ancora stato aggiunto.
+      // Dobbiamo quindi essere sicuri di non lasciare l'ultima entità creata nell'ECS se è orfana.
+      return -1;
+    }
 
     return entity.id;
   }

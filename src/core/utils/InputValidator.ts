@@ -81,7 +81,7 @@ export class InputValidator {
   /**
    * Valida damage/health/shield (positivi, finiti)
    */
-  static validateStat(value: any, fieldName: string, maxValue: number = 100000): ValidationResult {
+  static validateStat(value: any, fieldName: string, maxValue: number = 1000000): ValidationResult {
     const numberValidation = this.validateNumber(value, fieldName);
     if (!numberValidation.isValid) return numberValidation;
 

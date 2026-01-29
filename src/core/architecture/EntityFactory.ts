@@ -194,8 +194,8 @@ export class EntityFactory {
         const healthValue = typeof config.health === 'number' ? config.health : config.health.current;
         const healthMax = typeof config.health === 'number' ? config.health : config.health.max;
 
-        const healthValidation = InputValidator.validateStat(healthValue, 'health', 100000);
-        const maxHealthValidation = InputValidator.validateStat(healthMax, 'maxHealth', 100000);
+        const healthValidation = InputValidator.validateStat(healthValue, 'health', 1000000);
+        const maxHealthValidation = InputValidator.validateStat(healthMax, 'maxHealth', 1000000);
 
         if (!healthValidation.isValid || !maxHealthValidation.isValid) {
           throw new Error(`Invalid health config: ${healthValidation.error || maxHealthValidation.error}`);
@@ -209,8 +209,8 @@ export class EntityFactory {
         const shieldValue = typeof config.shield === 'number' ? config.shield : config.shield.current;
         const shieldMax = typeof config.shield === 'number' ? config.shield : config.shield.max;
 
-        const shieldValidation = InputValidator.validateStat(shieldValue, 'shield', 100000);
-        const maxShieldValidation = InputValidator.validateStat(shieldMax, 'maxShield', 100000);
+        const shieldValidation = InputValidator.validateStat(shieldValue, 'shield', 1000000);
+        const maxShieldValidation = InputValidator.validateStat(shieldMax, 'maxShield', 1000000);
 
         if (!shieldValidation.isValid || !maxShieldValidation.isValid) {
           throw new Error(`Invalid shield config: ${shieldValidation.error || maxShieldValidation.error}`);

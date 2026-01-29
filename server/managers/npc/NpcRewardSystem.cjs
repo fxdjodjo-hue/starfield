@@ -58,7 +58,10 @@ class NpcRewardSystem {
       const itemConfig = require('../../../shared/item-config.json');
       const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
 
-      for (const itemId of npcPossibleDrops) {
+      // Shuffle candidates to give each item a fair chance despite the "one item limit"
+      const shuffledDrops = [...npcPossibleDrops].sort(() => Math.random() - 0.5);
+
+      for (const itemId of shuffledDrops) {
         const itemDef = ITEM_REGISTRY[itemId];
         if (!itemDef) continue;
 
@@ -79,6 +82,9 @@ class NpcRewardSystem {
           droppedItems.push(newItem);
 
           ServerLoggerWrapper.info('REWARDS', `Player ${playerId} dropped ${itemDef.rarity} item: ${itemId} (${instanceId}) [Rate: ${dropChance.toFixed(4)}]`);
+
+          // 🛑 LIMIT: Max one item per NPC
+          break;
         }
       }
     }
