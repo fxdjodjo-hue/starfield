@@ -11,8 +11,9 @@ class PositionUpdateProcessor {
    * Processa tutti gli aggiornamenti posizione in coda e li broadcasta
    * @param {Map} positionUpdateQueue - Map di clientId -> Array di aggiornamenti
    * @param {Map} players - Map di clientId -> playerData (per broadcasting)
+   * @param {number} serverTick - Authoritative server tick from FixedLoop
    */
-  static processUpdates(positionUpdateQueue, players) {
+  static processUpdates(positionUpdateQueue, players, serverTick) {
     for (const [clientId, updates] of positionUpdateQueue) {
       if (updates.length === 0) continue;
 
@@ -33,19 +34,23 @@ class PositionUpdateProcessor {
         // Riduce drasticamente la dimensione del JSON evitando le chiavi per ogni giocatore
         p: [
           clientId,
-          Math.round(latestUpdate.x),
-          Math.round(latestUpdate.y),
-          Math.round(latestUpdate.velocityX || 0),
-          Math.round(latestUpdate.velocityY || 0),
+          Math.round(latestUpdate.x * 10) / 10, // 1 decimal precision for smoother interpolation
+          Math.round(latestUpdate.y * 10) / 10,
+          Math.round((latestUpdate.velocityX || 0) * 10) / 10, // Preserve velocity precision
+          Math.round((latestUpdate.velocityY || 0) * 10) / 10,
           parseFloat(latestUpdate.rotation.toFixed(2)),
-          latestUpdate.tick,
+          // PROTOCOL UPGRADE: Use authoritative server tick counter driven by FixedLoop
+          // This ensures the tick perfectly matches the simulation step (MONOTONIC TIME)
+          serverTick,
+          // latestUpdate.tick, // Legacy: client-sent tick (not trusted/synced)
           latestUpdate.nickname,
           latestUpdate.rank,
           Math.round(playerData.health),
           Math.round(playerData.maxHealth),
           Math.round(playerData.shield),
           Math.round(playerData.maxShield)
-        ]
+        ],
+        t: Date.now() // 't' per coerenza con npc_bulk_update
       };
 
       MapBroadcaster.broadcastToMap(players, positionBroadcast, clientId);

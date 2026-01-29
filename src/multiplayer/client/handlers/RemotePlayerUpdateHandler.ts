@@ -15,7 +15,7 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    let clientId, position, rotation, nickname, rank, health, maxHealth, shield, maxShield;
+    let clientId, position, rotation, tick, nickname, rank, health, maxHealth, shield, maxShield;
 
     if (message.p && Array.isArray(message.p)) {
       // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh]
@@ -23,7 +23,12 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
       clientId = p[0];
       position = { x: p[1], y: p[2], velocityX: p[3], velocityY: p[4] };
       rotation = p[5];
-      // tick = p[6] (non usato direttamente qui)
+
+      // PROTOCOL UPGRADE: Use authoritative server tick (p[6])
+      tick = p[6];
+      // Fallback if not available (legacy)
+      if (typeof tick !== 'number') tick = message.t;
+
       nickname = p[7];
       rank = p[8];
       health = p[9];
@@ -33,6 +38,7 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
     } else {
       // Formato vecchio (fallback)
       ({ clientId, position, rotation, nickname, rank, health, maxHealth, shield, maxShield } = message);
+      tick = message.t; // Fallback to message.t for old format too
     }
 
     if (!clientId) return;
@@ -52,12 +58,13 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
         clientId,
         position,
         rotation,
-        nickname,
-        rank,
         health,
         maxHealth,
         shield,
-        maxShield
+        maxShield,
+        nickname,
+        rank,
+        tick
       );
     } else {
       console.warn('[RemotePlayerUpdateHandler] No RemotePlayerManager available');

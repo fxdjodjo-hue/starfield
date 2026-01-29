@@ -89,10 +89,10 @@ export const NETWORK_CONFIG = {
 
   // Snapshot interpolation settings (MMO-grade fix for tab-switch acceleration)
   // INTERPOLATION_DELAY: Render entities at (now - INTERPOLATION_DELAY) to smooth out jitter.
-  // Should be at least 2x the server tick rate (50ms * 2 = 100ms).
-  INTERPOLATION_DELAY: 100,
+  // With 10Hz server updates (100ms), 150ms provides 1.5 updates of buffer.
+  INTERPOLATION_DELAY: 150,
   // MAX_SNAPSHOT_BUFFER_SIZE: Max number of snapshots to store per entity.
-  // At 20Hz server tick, 20 snapshots = ~1 second of history.
+  // At 10Hz server tick, 20 snapshots = ~2 seconds of history.
   MAX_SNAPSHOT_BUFFER_SIZE: 20,
 
   // Fallback positions

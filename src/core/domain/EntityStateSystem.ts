@@ -51,14 +51,15 @@ export class EntityStateSystem {
     ecs: ECS,
     entity: Entity,
     update: EntityStateUpdate,
-    source: string = 'server'
+    source: string = 'server',
+    serverTimestamp?: number // Nuovo parametro
   ): boolean {
     try {
       let hasChanges = false;
 
       // Aggiorna posizione con interpolazione se disponibile
       if (update.position) {
-        hasChanges = this.updatePosition(ecs, entity, update.position, source) || hasChanges;
+        hasChanges = this.updatePosition(ecs, entity, update.position, source, serverTimestamp) || hasChanges;
       }
 
       // Aggiorna salute
@@ -107,7 +108,8 @@ export class EntityStateSystem {
     ecs: ECS,
     entity: Entity,
     position: PositionUpdate,
-    source: string
+    source: string,
+    serverTimestamp?: number
   ): boolean {
     try {
       const currentPosition = ComponentHelper.getPosition(ecs, entity);
@@ -123,7 +125,7 @@ export class EntityStateSystem {
         // Remote entity: ONLY update InterpolationTarget, NOT Transform directly.
         // Transform is managed exclusively by InterpolationSystem.render().
         // This is critical to prevent the NPC acceleration bug.
-        interpolationTarget.updateTarget(newX, newY, newRotation);
+        interpolationTarget.updateTarget(newX, newY, newRotation, serverTimestamp);
       } else {
         // Local entity (no interpolation): Update Transform directly
         ComponentHelper.updatePosition(ecs, entity, newX, newY, newRotation);

@@ -591,12 +591,15 @@ server.listen(parseInt(PORT), '0.0.0.0', () => {
   ServerLoggerWrapper.info('SERVER', `Server started on port ${PORT} with WebSocket and health check endpoints`);
 });
 
-const PROCESS_INTERVAL = 50; // Processa aggiornamenti ogni 50ms
+const FixedLoop = require('./server/core/infrastructure/FixedLoop.cjs');
 
-// Tick unificato MapServer (20 Hz - ogni 50ms)
-setInterval(() => {
+// Tick unificato MapServer con FixedLoop (20 Hz)
+// Questo sostituisce setInterval con un timer preciso basato su accumulator
+const serverLoop = new FixedLoop(20, () => {
   mapServer.tick();
-}, 50);
+});
+
+serverLoop.start();
 
 // Il messaggio di avvio è già nel callback di server.listen()
 

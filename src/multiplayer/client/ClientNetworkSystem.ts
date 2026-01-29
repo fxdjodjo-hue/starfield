@@ -372,9 +372,9 @@ export class ClientNetworkSystem extends BaseSystem {
 
         const hasMoved = this.shouldSendPositionUpdate(currentPosition);
         // FIX: Keep-alive mechanism
-        // Se non inviamo dati per 3 secondi, forziamo un invio per evitare che il
-        // RemotePlayerSystem degli altri client ci rimuova (timeout 5s)
-        const keepAliveNeeded = (now - this.lastSentTime > 3000);
+        // Invia aggiornamenti ogni 500ms anche senza movimento per garantire
+        // interpolazione fluida sui client degli altri giocatori
+        const keepAliveNeeded = (now - this.lastSentTime > 500);
 
         // Invia aggiornamenti se c'è movimento O se serve keep-alive
         if (hasMoved || keepAliveNeeded) {

@@ -105,10 +105,10 @@ class MapServer {
 
         // 4. Broadcast aggiornamenti NPC significativi
         MapBroadcaster.broadcastNpcUpdates(this.players, currentNpcs);
-      }
 
-      // 5. Processa aggiornamenti posizione giocatori
-      PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);
+        // 5. Processa aggiornamenti posizione giocatori (10Hz per coerenza con NPC)
+        PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
+      }
 
       // 6. Processa riparazioni
       if (this.repairManager) {

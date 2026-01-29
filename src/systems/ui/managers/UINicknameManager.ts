@@ -78,21 +78,19 @@ export class UINicknameManager {
     // Converte coordinate mondo in coordinate schermo
     const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
 
-    // Arrotonda le coordinate per evitare tremolio da valori decimali
-    const roundedScreenX = Math.round(screenPos.x);
-    const roundedScreenY = Math.round(screenPos.y);
+    // FIX TREMOLIO: Usa coordinate decimali
+    // Il rounding aggressivo causava desync visivo (sprite fluido, testo a scatti)
 
-    // Controlla se la posizione è cambiata significativamente
+    // Controlla se la posizione è cambiata significativamente (> 0.05px)
     if (this.playerNicknameLastPosition &&
-      Math.abs(this.playerNicknameLastPosition.x - roundedScreenX) < 1 &&
-      Math.abs(this.playerNicknameLastPosition.y - roundedScreenY) < 1) {
-      // Posizione praticamente invariata - evita aggiornamenti inutili
+      Math.abs(this.playerNicknameLastPosition.x - screenPos.x) < 0.05 &&
+      Math.abs(this.playerNicknameLastPosition.y - screenPos.y) < 0.05) {
       return;
     }
 
     // Posiziona il nickname centrato orizzontalmente sotto la nave
-    const nicknameX = Math.round(roundedScreenX - this.playerNicknameElement.offsetWidth / 2);
-    const nicknameY = Math.round(roundedScreenY + 80); // Sotto la nave (Offset unificato)
+    const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
+    const nicknameY = screenPos.y + 80; // Sotto la nave (Offset unificato)
 
     this.playerNicknameElement.style.left = `${nicknameX}px`;
     this.playerNicknameElement.style.top = `${nicknameY}px`;
@@ -100,7 +98,7 @@ export class UINicknameManager {
     this.playerNicknameElement.style.display = 'block';
 
     // Memorizza la posizione per il prossimo confronto
-    this.playerNicknameLastPosition = { x: roundedScreenX, y: roundedScreenY };
+    this.playerNicknameLastPosition = { x: screenPos.x, y: screenPos.y };
 
     // Mostra con fade quando l'animazione è completata
     if (this.playerNicknameElement.style.opacity === '0') {
@@ -176,14 +174,11 @@ export class UINicknameManager {
       // Forza la visibilità e ricalcola dimensioni
       element.style.display = 'block';
 
-      // Arrotonda le coordinate per evitare tremolio da valori decimali
-      const roundedScreenX = Math.round(screenX);
-      const roundedScreenY = Math.round(screenY);
+      // FIX TREMOLIO: Usa coordinate decimali
 
-      // Controlla se la posizione è cambiata significativamente (almeno 1 pixel)
+      // Controlla se la posizione è cambiata significativamente (almeno 0.05 pixel)
       const lastPos = this.npcNicknameLastPositions.get(entityId);
-      if (lastPos && Math.abs(lastPos.x - roundedScreenX) < 1 && Math.abs(lastPos.y - roundedScreenY) < 1) {
-        // Posizione praticamente invariata - evita aggiornamenti inutili che causano tremolio
+      if (lastPos && Math.abs(lastPos.x - screenX) < 0.05 && Math.abs(lastPos.y - screenY) < 0.05) {
         return;
       }
 
@@ -191,8 +186,8 @@ export class UINicknameManager {
       const elementWidth = element.offsetWidth || 0;
 
       // Posiziona il nickname centrato orizzontalmente sotto l'NPC
-      const nicknameX = Math.round(roundedScreenX - elementWidth / 2);
-      const nicknameY = Math.round(roundedScreenY + 45); // Sotto l'NPC
+      const nicknameX = screenX - elementWidth / 2;
+      const nicknameY = screenY + 45; // Sotto l'NPC
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;
@@ -200,7 +195,7 @@ export class UINicknameManager {
       element.style.display = 'block';
 
       // Memorizza la posizione per il prossimo confronto
-      this.npcNicknameLastPositions.set(entityId, { x: roundedScreenX, y: roundedScreenY });
+      this.npcNicknameLastPositions.set(entityId, { x: screenX, y: screenY });
     }
   }
 
@@ -292,20 +287,18 @@ export class UINicknameManager {
       // Forza la visibilità e ricalcola dimensioni
       element.style.display = 'block';
 
-      // Arrotonda le coordinate per evitare tremolio da valori decimali
-      const roundedScreenX = Math.round(screenX);
-      const roundedScreenY = Math.round(screenY);
+      // FIX TREMOLIO: Usa coordinate decimali per seguire lo sprite interpolato
+      // Il rounding aggressivo causava desync visivo (sprite fluido, testo a scatti)
 
       // Controlla se la posizione è cambiata significativamente
       const lastPos = this.remotePlayerNicknameLastPositions.get(clientId);
-      if (lastPos && Math.abs(lastPos.x - roundedScreenX) < 1 && Math.abs(lastPos.y - roundedScreenY) < 1) {
-        // Posizione praticamente invariata - evita aggiornamenti inutili
+      if (lastPos && Math.abs(lastPos.x - screenX) < 0.05 && Math.abs(lastPos.y - screenY) < 0.05) {
         return;
       }
 
       // Posiziona il nickname centrato orizzontalmente sotto il remote player
-      const nicknameX = Math.round(roundedScreenX - element.offsetWidth / 2);
-      const nicknameY = Math.round(roundedScreenY + 80); // Sotto il remote player (Offset unificato)
+      const nicknameX = screenX - element.offsetWidth / 2;
+      const nicknameY = screenY + 80; // Sotto il remote player (Offset unificato)
 
       element.style.left = `${nicknameX}px`;
       element.style.top = `${nicknameY}px`;
@@ -313,7 +306,7 @@ export class UINicknameManager {
       element.style.display = 'block';
 
       // Memorizza la posizione per il prossimo confronto
-      this.remotePlayerNicknameLastPositions.set(clientId, { x: roundedScreenX, y: roundedScreenY });
+      this.remotePlayerNicknameLastPositions.set(clientId, { x: screenX, y: screenY });
     }
   }
 

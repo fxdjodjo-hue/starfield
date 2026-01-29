@@ -110,15 +110,15 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Crea un nuovo NPC remoto
    */
-  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise'): number {
+  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise', timestamp?: number): number {
     // Verifica se l'NPC esiste già
-    if (this.remoteNpcs.has(npcId)) {
+    if (this.remoteNpcs && this.remoteNpcs.has(npcId)) {
       // NPC già esistente - aggiorna invece di creare duplicato
       // Log per debug duplicati
       const existingNpcData = this.remoteNpcs.get(npcId)!;
       console.warn(`[RemoteNpcSystem] Duplicate NPC creation attempt for ${npcId} (${type}) - updating existing entity ${existingNpcData.entityId} instead`);
 
-      this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, shield, behavior);
+      this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, shield, behavior, timestamp);
 
       // Aggiorna anche il lastSeen per prevenire rimozione ghost
       const data = this.remoteNpcs.get(npcId);
@@ -151,6 +151,12 @@ export class RemoteNpcSystem extends BaseSystem {
     this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, transformScale, transformScale));
     this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation, true));
 
+    // Inizializza interpolazione con timestamp se presente
+    const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
+    if (interpolation && timestamp) {
+      interpolation.updateTarget(x, y, rotation, timestamp);
+    }
+
     // Componenti visivi - priorità ad AnimatedSprite se disponibile
     if (animatedSprite) {
       this.ecs.addComponent(entity, AnimatedSprite, animatedSprite);
@@ -180,7 +186,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Aggiorna un NPC remoto esistente
    */
-  updateRemoteNpc(npcId: string, position?: { x: number, y: number, rotation: number }, health?: { current: number, max: number }, shield?: { current: number, max: number }, behavior?: string): void {
+  updateRemoteNpc(npcId: string, position?: { x: number, y: number, rotation: number }, health?: { current: number, max: number }, shield?: { current: number, max: number }, behavior?: string, timestamp?: number): void {
     const npcData = this.remoteNpcs.get(npcId);
     if (!npcData) {
       // NPC distrutto/respawnato - silenziosamente ignora (normale durante il gameplay)
@@ -223,7 +229,7 @@ export class RemoteNpcSystem extends BaseSystem {
     }
 
     // Usa EntityStateSystem per aggiornare lo stato
-    EntityStateSystem.updateEntityState(this.ecs, entity, update);
+    EntityStateSystem.updateEntityState(this.ecs, entity, update, 'server', timestamp);
   }
 
   /**
@@ -247,7 +253,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Gestisce aggiornamenti bulk di NPC (ottimizzato per performance)
    */
-  bulkUpdateNpcs(updates: any[]): void {
+  bulkUpdateNpcs(updates: any[], timestamp?: number): void {
     if (!updates || updates.length === 0) return;
 
     for (const update of updates) {
@@ -264,7 +270,7 @@ export class RemoteNpcSystem extends BaseSystem {
         if (!this.remoteNpcs.has(id)) {
           // AUTO-SPAWN: Se l'NPC entra nel raggio e non lo abbiamo, crealo
           const npcType = type as 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
-          this.addRemoteNpc(id, npcType, x, y, rotation, { current: hp, max: maxHp }, { current: sh, max: maxSh }, behavior);
+          this.addRemoteNpc(id, npcType, x, y, rotation, { current: hp, max: maxHp }, { current: sh, max: maxSh }, behavior, timestamp);
         } else {
           // UPDATE: Se esiste già, aggiorna posizione e timestamp
           const data = this.remoteNpcs.get(id);
@@ -275,7 +281,8 @@ export class RemoteNpcSystem extends BaseSystem {
             { x, y, rotation },
             { current: hp, max: maxHp },
             { current: sh, max: maxSh },
-            behavior
+            behavior,
+            timestamp
           );
         }
       } else {

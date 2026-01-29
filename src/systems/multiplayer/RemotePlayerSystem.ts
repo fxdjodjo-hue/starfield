@@ -114,13 +114,14 @@ export class RemotePlayerSystem extends BaseSystem {
     health?: number,
     maxHealth?: number,
     shield?: number,
-    maxShield?: number
+    maxShield?: number,
+    serverTimestamp?: number
   ): number {
     // Verifica se il giocatore remoto esiste già
     const existingEntity = this.findRemotePlayerEntity(clientId);
     if (existingEntity) {
       // Aggiorna posizione del giocatore esistente
-      this.updateRemotePlayer(clientId, x, y, rotation);
+      this.updateRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield, serverTimestamp);
 
       // Update stats if provided
       if (health !== undefined || shield !== undefined) {
@@ -176,7 +177,10 @@ export class RemotePlayerSystem extends BaseSystem {
     health?: number,
     maxHealth?: number,
     shield?: number,
-    maxShield?: number
+    maxShield?: number,
+    serverTimestamp?: number,
+    velocityX?: number,
+    velocityY?: number
   ): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (!entity) {
@@ -194,11 +198,9 @@ export class RemotePlayerSystem extends BaseSystem {
     }
 
     if (interpolation) {
-      // Log aggiornamenti posizione ogni 5 secondi per evitare spam
-
       // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
-      // Eliminazione completa degli scatti attraverso interpolazione continua
-      interpolation.updateTarget(x, y, rotation);
+      // Passa anche velocità per extrapolazione più precisa
+      interpolation.updateTarget(x, y, rotation, serverTimestamp, velocityX, velocityY);
     } else {
       console.warn(`[REMOTE_PLAYER] No interpolation component found for ${clientId} entity ${entity.id}`);
     }

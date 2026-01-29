@@ -17,57 +17,60 @@ export class RemotePlayerManager {
     this.ecs = ecs;
     this.remotePlayerSystem = remotePlayerSystem;
   }
-
   /**
    * Handles remote player update
    * Creates new remote player if doesn't exist, otherwise updates existing one
    */
   handleUpdate(
     clientId: string,
-    position: any,
-    rotation: number,
-    nickname?: string,
-    rank?: string,
+    position: { x: number; y: number; velocityX?: number; velocityY?: number },
+    rotation: number = 0,
     health?: number,
     maxHealth?: number,
     shield?: number,
-    maxShield?: number
+    maxShield?: number,
+    nickname?: string,
+    rank?: string,
+    serverTick?: number
   ): void {
     if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
       // Create new remote player
-      this.createRemotePlayer(clientId, position.x, position.y, rotation || 0, health, maxHealth, shield, maxShield);
+      this.remotePlayerSystem.addRemotePlayer(
+        clientId,
+        position.x,
+        position.y,
+        rotation,
+        health,
+        maxHealth,
+        shield,
+        maxShield,
+        serverTick
+      );
       // Set info if provided
       if (nickname) {
         this.setPlayerInfo(clientId, nickname, rank || 'Recruit');
       }
     } else {
-      // Update existing remote player position
-      this.updateRemotePlayer(clientId, position.x, position.y, rotation || 0, health, maxHealth, shield, maxShield);
-
-      // Update stats if provided (legacy call, kept for robustness)
-      if (health !== undefined || shield !== undefined) {
-        this.remotePlayerSystem.updatePlayerStats(clientId, health || 0, maxHealth, shield || 0, maxShield);
-      }
-
-      // Update info if provided
-      if (nickname) {
-        this.setPlayerInfo(clientId, nickname, rank || 'Recruit');
-      }
+      // Update existing remote player with velocity for better extrapolation
+      this.remotePlayerSystem.updateRemotePlayer(
+        clientId,
+        position.x,
+        position.y,
+        rotation,
+        health,
+        maxHealth,
+        shield,
+        maxShield,
+        serverTick,
+        position.velocityX,
+        position.velocityY
+      );
     }
-  }
 
-  /**
-   * Creates a new remote player entity
-   */
-  private createRemotePlayer(clientId: string, x: number, y: number, rotation: number, health?: number, maxHealth?: number, shield?: number, maxShield?: number): void {
-    this.remotePlayerSystem.addRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield);
-  }
-
-  /**
-   * Updates an existing remote player position
-   */
-  private updateRemotePlayer(clientId: string, x: number, y: number, rotation: number, health?: number, maxHealth?: number, shield?: number, maxShield?: number): void {
-    this.remotePlayerSystem.updateRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield);
+    // Update stats if provided (legacy call, kept for robustness)
+    if (health !== undefined || shield !== undefined) {
+      this.remotePlayerSystem.updatePlayerStats(clientId, health || 0, maxHealth, shield || 0, maxShield);
+    }
   }
 
   /**
@@ -95,8 +98,6 @@ export class RemotePlayerManager {
    * Gets the number of remote players
    */
   getRemotePlayerCount(): number {
-    // This would need to be implemented in RemotePlayerSystem
-    // For now, return 0
-    return 0;
+    return this.remotePlayerSystem.getRemotePlayerCount();
   }
 }

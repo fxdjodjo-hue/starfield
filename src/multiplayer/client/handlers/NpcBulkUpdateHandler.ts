@@ -19,11 +19,13 @@ export class NpcBulkUpdateHandler extends BaseMessageHandler {
     }
 
     // Applica aggiornamenti bulk usando la nuova proprietà compattata 'n'
+    const timestamp = message.t; // 't' è il campo timestamp aggiunto dal MapBroadcaster server-side
+
     if (message.n) {
-      remoteNpcSystem.bulkUpdateNpcs(message.n);
+      remoteNpcSystem.bulkUpdateNpcs(message.n, timestamp);
     } else if (message.npcs) {
       // Fallback per compatibilità durante la transizione
-      remoteNpcSystem.bulkUpdateNpcs(message.npcs);
+      remoteNpcSystem.bulkUpdateNpcs(message.npcs, timestamp);
     }
 
     // 🔧 DEBUG NPC COUNTER: Salva il totale nel mondo
