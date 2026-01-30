@@ -94,21 +94,17 @@ class MapServer {
       // 3. Collisioni proiettili (Sempre a 20 Hz)
       this.projectileManager.checkCollisions();
 
-      // OTTIMIZZAZIONE: Broadcast pesanti solo ogni 2 tick (10 Hz)
-      // Il client usa interpolazione quindi non si nota scatto
-      if (isThrottledTick) {
-        // Recupere la lista AGGIORNATA dopo collisioni e combat per evitare re-spawn di entità morte
-        const currentNpcs = this.npcManager.getAllNpcs();
+      // 3.5. Aggiornamenti posizione proiettili homing
+      this.projectileManager.broadcastHomingProjectileUpdates();
 
-        // 3.5. Aggiornamenti posizione proiettili homing
-        this.projectileManager.broadcastHomingProjectileUpdates();
+      // Recupere la lista AGGIORNATA dopo collisioni e combat
+      const currentNpcs = this.npcManager.getAllNpcs();
 
-        // 4. Broadcast aggiornamenti NPC significativi
-        MapBroadcaster.broadcastNpcUpdates(this.players, currentNpcs);
+      // 4. Broadcast aggiornamenti NPC significativi
+      MapBroadcaster.broadcastNpcUpdates(this.players, currentNpcs);
 
-        // 5. Processa aggiornamenti posizione giocatori (10Hz per coerenza con NPC)
-        PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
-      }
+      // 5. Processa aggiornamenti posizione giocatori (20Hz per massima fluidità)
+      PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
 
       // 6. Processa riparazioni
       if (this.repairManager) {
