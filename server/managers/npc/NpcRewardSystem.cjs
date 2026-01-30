@@ -58,17 +58,37 @@ class NpcRewardSystem {
       const itemConfig = require('../../../shared/item-config.json');
       const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
 
-      // Shuffle candidates to give each item a fair chance despite the "one item limit"
-      const shuffledDrops = [...npcPossibleDrops].sort(() => Math.random() - 0.5);
-
-      for (const itemId of shuffledDrops) {
+      // 🎲 SINGLE ROLL SYSTEM (Fair & Weighted)
+      // Calculate probability segments for all potential drops
+      const candidates = [];
+      for (const itemId of npcPossibleDrops) {
         const itemDef = ITEM_REGISTRY[itemId];
-        if (!itemDef) continue;
+        if (itemDef && itemDef.dropChance > 0) {
+          candidates.push({
+            id: itemId,
+            chance: itemDef.dropChance,
+            def: itemDef
+          });
+        }
+      }
 
-        // Probabilità basata solo sull'item
-        const dropChance = itemDef.dropChance || 0;
+      // Shuffle candidates to ensure fairness if total probability > 100% (rare edge case)
+      // preventing the same items from always being "cut off" at the end of the 0-1 range
+      candidates.sort(() => Math.random() - 0.5);
 
-        if (Math.random() < dropChance) {
+      // Single Roll (0.0 to 1.0)
+      const roll = Math.random();
+      let cumulative = 0;
+
+      for (const candidate of candidates) {
+        // Define the winning window for this item
+        // [cumulative, cumulative + chance)
+        if (roll >= cumulative && roll < cumulative + candidate.chance) {
+          // WINNER!
+          const itemDef = candidate.def;
+          const dropChance = candidate.chance;
+          const itemId = candidate.id;
+
           const instanceId = Math.random().toString(36).substring(2, 9);
           const newItem = {
             id: itemId,
@@ -83,9 +103,12 @@ class NpcRewardSystem {
 
           ServerLoggerWrapper.info('REWARDS', `Player ${playerId} dropped ${itemDef.rarity} item: ${itemId} (${instanceId}) [Rate: ${dropChance.toFixed(4)}]`);
 
-          // 🛑 LIMIT: Max one item per NPC
+          // Only one drop per roll (implicit by loop break)
           break;
         }
+
+        // Move window forward
+        cumulative += candidate.chance;
       }
     }
 

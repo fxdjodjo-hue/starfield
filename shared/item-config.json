@@ -11,7 +11,7 @@
             "stats": {
                 "hpBonus": 0.2
             },
-            "dropChance": 0.05
+            "dropChance": 0.04
         },
         "hull_titanium_uncommon": {
             "id": "hull_titanium_uncommon",
@@ -24,7 +24,7 @@
             "stats": {
                 "hpBonus": 0.35
             },
-            "dropChance": 0.02
+            "dropChance": 0.01
         },
         "hull_titanium_rare": {
             "id": "hull_titanium_rare",
@@ -37,7 +37,7 @@
             "stats": {
                 "hpBonus": 0.55
             },
-            "dropChance": 0.005
+            "dropChance": 0.0025
         },
         "hull_titanium_epic": {
             "id": "hull_titanium_epic",
@@ -50,7 +50,7 @@
             "stats": {
                 "hpBonus": 0.85
             },
-            "dropChance": 0.001
+            "dropChance": 0.0005
         },
         "shield_aegis": {
             "id": "shield_aegis",
@@ -63,7 +63,7 @@
             "stats": {
                 "shieldBonus": 0.25
             },
-            "dropChance": 0.05
+            "dropChance": 0.04
         },
         "shield_aegis_uncommon": {
             "id": "shield_aegis_uncommon",
@@ -76,7 +76,7 @@
             "stats": {
                 "shieldBonus": 0.45
             },
-            "dropChance": 0.02
+            "dropChance": 0.01
         },
         "shield_aegis_rare": {
             "id": "shield_aegis_rare",
@@ -89,7 +89,7 @@
             "stats": {
                 "shieldBonus": 0.75
             },
-            "dropChance": 0.005
+            "dropChance": 0.0025
         },
         "shield_aegis_epic": {
             "id": "shield_aegis_epic",
@@ -102,7 +102,7 @@
             "stats": {
                 "shieldBonus": 1.15
             },
-            "dropChance": 0.001
+            "dropChance": 0.0005
         },
         "laser_pulse": {
             "id": "laser_pulse",
@@ -115,7 +115,7 @@
             "stats": {
                 "damageBonus": 0.15
             },
-            "dropChance": 0.05
+            "dropChance": 0.04
         },
         "laser_pulse_uncommon": {
             "id": "laser_pulse_uncommon",
@@ -128,7 +128,7 @@
             "stats": {
                 "damageBonus": 0.3
             },
-            "dropChance": 0.02
+            "dropChance": 0.01
         },
         "laser_pulse_rare": {
             "id": "laser_pulse_rare",
@@ -141,7 +141,7 @@
             "stats": {
                 "damageBonus": 0.55
             },
-            "dropChance": 0.005
+            "dropChance": 0.0025
         },
         "laser_pulse_epic": {
             "id": "laser_pulse_epic",
@@ -154,7 +154,7 @@
             "stats": {
                 "damageBonus": 0.95
             },
-            "dropChance": 0.001
+            "dropChance": 0.0005
         },
         "engine_fusion": {
             "id": "engine_fusion",
@@ -167,7 +167,7 @@
             "stats": {
                 "speedBonus": 0.1
             },
-            "dropChance": 0.05
+            "dropChance": 0.04
         },
         "engine_fusion_uncommon": {
             "id": "engine_fusion_uncommon",
@@ -180,7 +180,7 @@
             "stats": {
                 "speedBonus": 0.2
             },
-            "dropChance": 0.02
+            "dropChance": 0.01
         },
         "engine_fusion_rare": {
             "id": "engine_fusion_rare",
@@ -193,7 +193,7 @@
             "stats": {
                 "speedBonus": 0.35
             },
-            "dropChance": 0.005
+            "dropChance": 0.0025
         },
         "engine_fusion_epic": {
             "id": "engine_fusion_epic",
@@ -206,7 +206,7 @@
             "stats": {
                 "speedBonus": 0.55
             },
-            "dropChance": 0.001
+            "dropChance": 0.0005
         },
         "missile_stingray": {
             "id": "missile_stingray",
@@ -219,7 +219,7 @@
             "stats": {
                 "missileBonus": 0.2
             },
-            "dropChance": 0.05
+            "dropChance": 0.04
         },
         "missile_stingray_uncommon": {
             "id": "missile_stingray_uncommon",
@@ -232,7 +232,7 @@
             "stats": {
                 "missileBonus": 0.4
             },
-            "dropChance": 0.02
+            "dropChance": 0.01
         },
         "missile_stingray_rare": {
             "id": "missile_stingray_rare",
@@ -245,7 +245,7 @@
             "stats": {
                 "missileBonus": 0.7
             },
-            "dropChance": 0.005
+            "dropChance": 0.0025
         },
         "missile_stingray_epic": {
             "id": "missile_stingray_epic",
@@ -258,7 +258,7 @@
             "stats": {
                 "missileBonus": 1.2
             },
-            "dropChance": 0.001
+            "dropChance": 0.0005
         }
     }
 }

@@ -1,26 +1,20 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
-import { Health } from '../../entities/combat/Health';
 import { EconomySystem } from '../economy/EconomySystem';
 import { PlayState } from '../../game/states/PlayState';
-import { Explosion } from '../../entities/combat/Explosion';
-import { Npc } from '../../entities/ai/Npc';
 import { PlayerStats } from '../../entities/player/PlayerStats';
-import { getNpcDefinition } from '../../config/NpcConfig';
 import { LogSystem } from '../rendering/LogSystem';
 import { LogType } from '../../presentation/ui/LogMessage';
 import { QuestEventType } from '../../config/QuestConfig';
 import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
-import { Inventory } from '../../entities/player/Inventory';
 import { ITEM_REGISTRY } from '../../config/ItemConfig';
-import { ActiveQuest } from '../../entities/quest/ActiveQuest';
 import { Component } from '../../infrastructure/ecs/Component';
 
 /**
  * Componente per marcare NPC già processati per le ricompense
  */
-class RewardProcessed extends Component { }
+
 
 /**
  * Sistema Reward - gestisce l'assegnazione di ricompense quando gli NPC vengono sconfitti
@@ -68,27 +62,9 @@ export class RewardSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    if (!this.economySystem) return;
-
-    // In modalità multiplayer, gli NPC sono gestiti dal server
-    // e le ricompense vengono assegnate tramite assignRewardsFromServer
-    // Non processare NPC morti localmente per evitare duplicazioni
-    if (this.playState && this.playState.isMultiplayer()) {
-      // Modalità multiplayer: skip processamento NPC locali
-      return;
-    }
-
-    // Modalità single-player: processa NPC morti localmente
-    const deadNpcs = this.ecs.getEntitiesWithComponents(Npc, Health).filter((entity: any) => {
-      const health = this.ecs.getComponent(entity, Health);
-      const alreadyProcessed = this.ecs.hasComponent(entity, RewardProcessed);
-      return health && health.isDead() && !alreadyProcessed;
-    });
-
-    // Assegna ricompense per ogni NPC morto
-    for (const npcEntity of deadNpcs) {
-      this.assignNpcRewards(npcEntity);
-    }
+    // MMO ARCHITECTURE: Rewards are exclusively handled by the server
+    // via assignRewardsFromServer(). Local entity processing is disabled
+    // to strictly enforce server authority and correct drop rates.
   }
 
   /**
@@ -164,127 +140,7 @@ export class RewardSystem extends BaseSystem {
         }
       }
     }
-
-    // Nota: Il respawn degli NPC è gestito lato server
   }
 
-  /**
-   * Assegna le ricompense per aver ucciso un NPC
-   */
-  private assignNpcRewards(npcEntity: Entity): void {
-    const npc = this.ecs.getComponent(npcEntity, Npc);
-    if (!npc) return;
 
-    const npcDef = getNpcDefinition(npc.npcType);
-    if (!npcDef) {
-      return;
-    }
-
-
-    // Incrementa contatore kills del player
-    if (this.playerEntity) {
-      const playerStats = this.ecs.getComponent(this.playerEntity, PlayerStats);
-      if (playerStats) {
-        playerStats.addKill();
-      }
-    }
-
-    // Assegna ricompense economiche
-    if (this.economySystem) {
-      if (npcDef.rewards.credits > 0) {
-        this.economySystem.addCredits(npcDef.rewards.credits, `defeated ${npc.npcType}`);
-      }
-
-      if (npcDef.rewards.cosmos > 0) {
-        this.economySystem.addCosmos(npcDef.rewards.cosmos, `defeated ${npc.npcType}`);
-      }
-
-      if (npcDef.rewards.experience > 0) {
-        this.economySystem.addExperience(npcDef.rewards.experience, `defeated ${npc.npcType}`);
-      }
-
-      if (npcDef.rewards.honor > 0) {
-        this.economySystem.addHonor(npcDef.rewards.honor, `defeated ${npc.npcType}`);
-      }
-    }
-
-    // Drop di Item (30% di probabilità per test)
-    if (this.playerEntity && Math.random() < 0.3) {
-      console.log(`[RewardSystem] Dropping item for NPC: ${npc.npcType}`);
-      this.assignItemReward(npc.npcType);
-    }
-
-    // Segnala cambiamento per salvataggio event-driven
-    if (this.playState && this.playState.markAsChanged) {
-      this.playState.markAsChanged();
-      // Logging ridotto per performance
-      if (import.meta.env.DEV) {
-      }
-    }
-    // Nota: se playState non è disponibile, il salvataggio non avviene automaticamente
-    // ma il gioco continua normalmente
-
-    // Log unificato dell'NPC sconfitto con ricompense
-    if (this.logSystem) {
-      this.logSystem.logNpcDefeatWithRewards(
-        npc.npcType,
-        npcDef.rewards.credits,
-        npcDef.rewards.cosmos,
-        npcDef.rewards.experience,
-        npcDef.rewards.honor
-      );
-    }
-
-    // Notifica il sistema missioni per aggiornare il progresso tramite eventi
-    if (this.questTrackingSystem && this.questTrackingSystem.hasPlayer()) {
-      const event = {
-        type: QuestEventType.NPC_KILLED,
-        targetId: npc.npcType,
-        targetType: npc.npcType.toLowerCase(),
-        amount: 1
-      };
-
-      this.questTrackingSystem.triggerEvent(event);
-    } else if (this.questTrackingSystem && !this.questTrackingSystem.hasPlayer()) {
-      console.warn(`⚠️ [MISSION] QuestTrackingSystem has no playerEntity yet - skipping mission update for ${npc.npcType}`);
-    }
-
-    // Nota: Il respawn degli NPC è ora gestito lato server
-
-    // Marca l'NPC come processato per le ricompense (verrà rimosso dall'ExplosionSystem)
-    this.ecs.addComponent(npcEntity, RewardProcessed, new RewardProcessed());
-  }
-
-  /**
-   * Assegna un item casuale al giocatore (tra i 5 base)
-   */
-  private assignItemReward(npcType: string): void {
-    if (!this.playerEntity) return;
-
-    let inventory = this.ecs.getComponent(this.playerEntity, Inventory);
-    if (!inventory) {
-      inventory = new Inventory();
-      this.ecs.addComponent(this.playerEntity, Inventory, inventory);
-    }
-
-    // Scegli un item casuale dal registro
-    const itemIds = Object.keys(ITEM_REGISTRY);
-    const randomItemId = itemIds[Math.floor(Math.random() * itemIds.length)];
-    const item = ITEM_REGISTRY[randomItemId];
-
-    inventory.addItem(randomItemId);
-
-    if (this.logSystem) {
-      // Determina il LogType basato sulla rarità
-      let logType = LogType.GIFT;
-      const rarity = (item.rarity || 'COMMON').toUpperCase();
-
-      if (rarity === 'COMMON') logType = LogType.RARITY_COMMON;
-      else if (rarity === 'UNCOMMON') logType = LogType.RARITY_UNCOMMON;
-      else if (rarity === 'RARE') logType = LogType.RARITY_RARE;
-      else if (rarity === 'EPIC') logType = LogType.RARITY_EPIC;
-
-      this.logSystem.addLogMessage(`DROPPED: ${item.name}! [${rarity}]`, logType, 5000);
-    }
-  }
 }
