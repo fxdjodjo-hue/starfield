@@ -43,7 +43,8 @@ export class InterpolationTarget {
   // ==========================================
   private readonly TICK_MS = 50; // Server base tick (20Hz)
   private readonly CLAMP_TIMESTAMP_GAP = 1000; // 1 second gap causes hard reset
-  private readonly OFFSET_SMOOTHING_ALPHA = 0.05;
+  // FIX: Reduced alpha from 0.05 to 0.005 to "lock" the offset and ignore minor jitter
+  private readonly OFFSET_SMOOTHING_ALPHA = 0.005;
   private readonly MAX_GAP_THRESHOLD = 150; // 3 * 50ms (Linear fallback)
 
   private tickOffset: number | null = null;
@@ -103,8 +104,8 @@ export class InterpolationTarget {
       if (Math.abs(delta) > this.CLAMP_TIMESTAMP_GAP) {
         // Hard Reset se drift > 1 secondo
         this.tickOffset = currentOffset;
-      } else {
-        // Smooth drift correction
+      } else if (Math.abs(delta) > 5) { // Deadzone: ignore jitter < 5ms
+        // Smooth drift correction solo se il drift è significativo
         this.tickOffset += delta * this.OFFSET_SMOOTHING_ALPHA;
       }
     }
