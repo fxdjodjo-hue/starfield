@@ -9,19 +9,25 @@ const ServerProjectileManager = require('../managers/projectile-manager.cjs');
 const NpcMovementSystem = require('./map/NpcMovementSystem.cjs');
 const MapBroadcaster = require('./map/MapBroadcaster.cjs');
 const PositionUpdateProcessor = require('./map/PositionUpdateProcessor.cjs');
+const RepairManager = require('../managers/repair-manager.cjs');
+const HazardManager = require('../managers/hazard-manager.cjs');
 const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
 
 class MapServer {
   constructor(mapId, config = {}) {
     this.mapId = mapId;
+    this.mapName = config.name || mapId;
 
     // Dimensioni mappa (configurabili per mappe diverse)
-    this.WORLD_WIDTH = config.WORLD_WIDTH || 21000;
-    this.WORLD_HEIGHT = config.WORLD_HEIGHT || 13100;
+    this.WORLD_WIDTH = config.width || config.WORLD_WIDTH || 21000;
+    this.WORLD_HEIGHT = config.height || config.WORLD_HEIGHT || 13100;
 
     // Managers specifici della mappa
     this.npcManager = new ServerNpcManager(this);
     this.projectileManager = new ServerProjectileManager(this);
+    this.combatManager = new ServerCombatManager(this);
+    this.repairManager = new RepairManager(this);
+    this.hazardManager = new HazardManager(this);
 
     // Players connessi a questa mappa
     this.players = new Map();
@@ -60,6 +66,7 @@ class MapServer {
 
   // Gestione giocatori
   addPlayer(clientId, playerData) {
+    playerData.currentMapId = this.mapId;
     this.players.set(clientId, playerData);
   }
 

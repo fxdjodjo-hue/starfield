@@ -224,7 +224,8 @@ class BoundaryEnforcement {
       'skill_upgrade_request',
       'equp_item',
       'request_leaderboard',
-      'equip_item'
+      'equip_item',
+      'portal_use'
     ];
 
     // Controlli specifici per tipo di messaggio

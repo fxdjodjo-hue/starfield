@@ -24,9 +24,9 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey);
  *   - Logica di routing messaggi (tutti i if data.type === ...)
  */
 class WebSocketConnectionManager {
-  constructor(wss, mapServer, messageCount) {
+  constructor(wss, mapManager, messageCount) {
     this.wss = wss;
-    this.mapServer = mapServer;
+    this.mapManager = mapManager;
     this.messageCount = messageCount;
     this.inputValidator = new ServerInputValidator();
 
@@ -99,10 +99,10 @@ class WebSocketConnectionManager {
     }
 
     this.wss.on('connection', (ws) => {
-      // PLAYTEST: Limite massimo 15 giocatori connessi
-      const MAX_PLAYERS = 15;
-      if (this.mapServer.players.size >= MAX_PLAYERS) {
-        ServerLoggerWrapper.warn('SERVER', `🚫 Connection rejected: Server full (${this.mapServer.players.size}/${MAX_PLAYERS} players)`);
+      // PLAYTEST: Limite massimo distibuted across maps
+      const defaultMap = this.mapManager.getMap('default_map');
+      if (defaultMap && defaultMap.players.size >= 15) {
+        ServerLoggerWrapper.warn('SERVER', `🚫 Connection rejected: Default map full (${defaultMap.players.size}/15 players)`);
         ws.send(JSON.stringify({
           type: 'error',
           message: 'Server pieno (playtest) - Riprova più tardi',
@@ -164,10 +164,14 @@ class WebSocketConnectionManager {
           const sanitizedData = contentValidation.sanitizedData;
 
           // Route messaggio al handler appropriato
+          const playerMapInfo = this.mapManager.findPlayerMap(data.clientId);
+          const currentMapServer = playerMapInfo ? playerMapInfo.mapInstance : this.mapManager.getMap('default_map');
+
           const context = {
             ws,
             playerData,
-            mapServer: this.mapServer,
+            mapServer: currentMapServer,
+            mapManager: this.mapManager,
             playerDataManager: this.playerDataManager,
             authManager: this.authManager,
             messageBroadcaster: this.messageBroadcaster,
@@ -188,7 +192,7 @@ class WebSocketConnectionManager {
             }
           } else {
             // Aggiorna playerData nel context prima di route (per messaggi dopo join)
-            context.playerData = playerData || this.mapServer.players.get(data.clientId);
+            context.playerData = playerData || (currentMapServer ? currentMapServer.players.get(data.clientId) : null);
 
             // Route tutti gli altri messaggi
             await routeMessage({
@@ -249,26 +253,31 @@ class WebSocketConnectionManager {
             ServerLoggerWrapper.error('DATABASE', `Failed to save player data on disconnect: ${saveError.message}`);
           }
 
-          // Broadcast player left usando MessageBroadcaster
-          try {
-            const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(playerData.clientId);
-            this.mapServer.broadcastToMap(playerLeftMsg);
-          } catch (broadcastError) {
-            ServerLoggerWrapper.error('WEBSOCKET', `Failed to broadcast player left: ${broadcastError.message}`);
-          }
-
           // CLEANUP: Rimuovi SEMPRE il giocatore dalla mappa, anche se il salvataggio fallisce
-          this.mapServer.removePlayer(playerData.clientId);
+          const playerMapInfo = this.mapManager.findPlayerMap(playerData.clientId);
+          if (playerMapInfo) {
+            const mapServer = playerMapInfo.mapInstance;
 
-          // Rimuovi anche dalla queue degli aggiornamenti posizione
-          this.mapServer.positionUpdateQueue.delete(playerData.clientId);
+            // Broadcast player left
+            try {
+              const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(playerData.clientId);
+              mapServer.broadcastToMap(playerLeftMsg);
+            } catch (broadcastError) {
+              ServerLoggerWrapper.error('WEBSOCKET', `Failed to broadcast player left: ${broadcastError.message}`);
+            }
 
-          // Rimuovi stato riparazione
-          if (this.mapServer.repairManager) {
-            this.mapServer.repairManager.removePlayer(playerData.clientId);
+            mapServer.removePlayer(playerData.clientId);
+
+            // Rimuovi anche dalla queue degli aggiornamenti posizione
+            mapServer.positionUpdateQueue.delete(playerData.clientId);
+
+            // Rimuovi stato riparazione
+            if (mapServer.repairManager) {
+              mapServer.repairManager.removePlayer(playerData.clientId);
+            }
+
+            ServerLoggerWrapper.debug('SERVER', `Remaining players in ${playerMapInfo.mapId}: ${mapServer.players.size}`);
           }
-
-          ServerLoggerWrapper.debug('SERVER', `Remaining players: ${this.mapServer.players.size}`);
         } else {
           ServerLoggerWrapper.warn('PLAYER', 'Unknown client disconnected');
         }

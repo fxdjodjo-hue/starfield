@@ -188,6 +188,16 @@ export class SystemConfigurator {
       portalSystem.setInputSystem(inputSystem);
     }
 
+    // Collega ClientNetworkSystem al PortalSystem
+    if (portalSystem && typeof portalSystem.setClientNetworkSystem === 'function' && clientNetworkSystem) {
+      portalSystem.setClientNetworkSystem(clientNetworkSystem);
+    }
+
+    // Collega assets al ClientNetworkSystem per gestione cambi mappa
+    if (clientNetworkSystem && typeof clientNetworkSystem.setAssets === 'function') {
+      clientNetworkSystem.setAssets(systems.assets);
+    }
+
     // Configura gestione tasti
     inputSystem.setKeyPressCallback((key: string) => {
       // Gestisci tasto E per portali
@@ -237,6 +247,14 @@ export class SystemConfigurator {
     // Imposta il ClientNetworkSystem anche nel MinimapSystem per il rendering dei giocatori remoti
     if (systems.minimapSystem && typeof systems.minimapSystem.setClientNetworkSystem === 'function') {
       systems.minimapSystem.setClientNetworkSystem(clientNetworkSystem);
+      if (clientNetworkSystem && typeof clientNetworkSystem.setMinimapSystem === 'function') {
+        clientNetworkSystem.setMinimapSystem(systems.minimapSystem);
+      }
+    }
+
+    // Imposta il ClientNetworkSystem nel PortalSystem
+    if (systems.portalSystem && typeof systems.portalSystem.setClientNetworkSystem === 'function') {
+      systems.portalSystem.setClientNetworkSystem(clientNetworkSystem);
     }
 
     // Configura le impostazioni specifiche del ClientNetworkSystem

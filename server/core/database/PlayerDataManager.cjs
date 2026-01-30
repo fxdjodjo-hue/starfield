@@ -112,6 +112,7 @@ class PlayerDataManager {
           y: playerDataRaw.last_y !== null ? playerDataRaw.last_y : 200,
           rotation: playerDataRaw.last_rotation !== null ? playerDataRaw.last_rotation : 0
         },
+        currentMapId: playerDataRaw.last_map_id || 'default_map',
         inventory: (() => {
           const defaultInventory = this.getDefaultPlayerData().inventory;
           let currencies;
@@ -381,7 +382,8 @@ class PlayerDataManager {
           position_data: {
             x: playerData.position?.x || 200,
             y: playerData.position?.y || 200,
-            rotation: playerData.position?.rotation || 0
+            rotation: playerData.position?.rotation || 0,
+            map_id: playerData.currentMapId || 'default_map'
           }
         }
       );

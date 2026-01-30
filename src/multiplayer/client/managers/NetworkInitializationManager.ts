@@ -40,6 +40,7 @@ import { RepairStoppedHandler } from '../handlers/RepairStoppedHandler';
 import { RepairCompleteHandler } from '../handlers/RepairCompleteHandler';
 import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHandler';
 import { GlobalMonitorHandler } from '../handlers/GlobalMonitorHandler';
+import { MapChangeHandler } from '../handlers/MapChangeHandler';
 
 /**
  * Interface for JWT authentication validation
@@ -128,7 +129,8 @@ export class NetworkInitializationManager {
         new RepairStartedHandler(),
         new RepairStoppedHandler(),
         new RepairCompleteHandler(),
-        new GlobalMonitorHandler()
+        new GlobalMonitorHandler(),
+        new MapChangeHandler()
       );
       this.baseHandlersRegistered = true;
     }

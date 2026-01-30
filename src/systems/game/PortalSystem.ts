@@ -13,6 +13,7 @@ export class PortalSystem extends BaseSystem {
   private playerSystem: PlayerSystem;
   private audioSystem: any = null;
   private inputSystem: any = null;
+  private clientNetworkSystem: any = null;
   private portalSoundInstances: Map<number, HTMLAudioElement> = new Map(); // entityId -> portal audio instance
   private portalBassdropInstances: Map<number, HTMLAudioElement> = new Map(); // entityId -> bassdrop audio instance
   private portalFadeOutAnimations: Map<number, number> = new Map(); // entityId -> animationFrameId
@@ -34,6 +35,10 @@ export class PortalSystem extends BaseSystem {
 
   setInputSystem(inputSystem: any): void {
     this.inputSystem = inputSystem;
+  }
+
+  setClientNetworkSystem(clientNetworkSystem: any): void {
+    this.clientNetworkSystem = clientNetworkSystem;
   }
 
   update(deltaTime: number): void {
@@ -283,6 +288,15 @@ export class PortalSystem extends BaseSystem {
       if (portal) {
         portal.activate();
         this.lastEKeyPress = now;
+
+        // Invia messaggio al server per usare il portale
+        if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
+          this.clientNetworkSystem.sendMessage({
+            type: 'portal_use',
+            portalId: nearestPortal.id,
+            timestamp: now
+          });
+        }
       }
     }
   }

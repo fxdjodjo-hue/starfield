@@ -25,6 +25,8 @@ export class MinimapSystem extends BaseSystem {
   private clientNetworkSystem: any = null;
   private fadeStartTime: number | null = null;
   private fadeDuration: number = 600; // millisecondi, sincronizzato con altri elementi UI
+  private currentMapId: string;
+  private currentMapName: string = '';
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -38,28 +40,53 @@ export class MinimapSystem extends BaseSystem {
       CONFIG.WORLD_HEIGHT
     );
 
+    this.currentMapId = CONFIG.CURRENT_MAP;
+    this.currentMapName = this.currentMapId === 'default_map' ? 'Palantir' : this.currentMapId;
+
     // Carica l'immagine di sfondo della mappa
-    this.loadMapBackground(CONFIG.CURRENT_MAP);
+    this.loadMapBackground(this.currentMapId);
 
     // Usa DisplayManager per gestire il resize in modo centralizzato
     DisplayManager.getInstance().onResize(() => this.handleResize());
     this.handleResize(); // Imposta posizione iniziale
   }
 
-  /**
-   * Imposta il riferimento al ClientNetworkSystem per il rendering dei giocatori remoti
-   */
   public setClientNetworkSystem(clientNetworkSystem: any): void {
     this.clientNetworkSystem = clientNetworkSystem;
+  }
+
+  /**
+   * Aggiorna i dati della mappa (chiamato durante il cambio mappa)
+   */
+  public updateMapData(mapId: string, width: number, height: number, mapName?: string): void {
+    this.currentMapId = mapId;
+    if (mapName) {
+      this.currentMapName = mapName;
+    } else {
+      this.currentMapName = mapId === 'default_map' ? 'Palantir' : mapId;
+    }
+    this.minimap.updateWorldDimensions(width, height);
+    this.loadMapBackground(mapId);
+    console.log(`[MinimapSystem] Updated map data for: ${mapId} (${width}x${height})`);
   }
 
   /**
    * Carica l'immagine di sfondo della mappa
    */
   private loadMapBackground(mapName: string = 'sol_system'): void {
+    // Mappatura tra mapId del server e cartella degli asset
+    // Il server usa 'default_map' ma gli assets sono in 'palantir'
+    const mapIdToFolder: Record<string, string> = {
+      'default_map': 'palantir',
+      'palantir': 'palantir',
+      'palantir_2': 'palantir_2'
+    };
+
+    const assetFolder = mapIdToFolder[mapName] || 'palantir';
+
     // Usa percorsi assoluti dal root per maggiore robustezza
-    const primaryPath = `assets/maps/${mapName}/bg1forse.jpg`;
-    const fallbackPath = `assets/maps/${mapName}/bg.jpg`;
+    const primaryPath = `assets/maps/${assetFolder}/bg1forse.jpg`;
+    const fallbackPath = `assets/maps/${assetFolder}/bg.jpg`;
 
     this.mapBackgroundImage = new Image();
 
@@ -68,11 +95,11 @@ export class MinimapSystem extends BaseSystem {
       // Se era già il fallback, allora non c'è altro da provare
       if (this.mapBackgroundImage && this.mapBackgroundImage.src.endsWith('bg.jpg')) {
         this.mapBackgroundImage = null;
-        console.warn(`[MinimapSystem] Failed to load background image for map: ${mapName}`);
+        console.warn(`[MinimapSystem] Failed to load background image for map: ${mapName} (folder: ${assetFolder})`);
         return;
       }
 
-      console.log(`[MinimapSystem] Trying fallback background for map: ${mapName}`);
+      console.log(`[MinimapSystem] Trying fallback background for map: ${mapName} (folder: ${assetFolder})`);
       this.mapBackgroundImage = new Image();
       this.mapBackgroundImage.src = fallbackPath;
       this.mapBackgroundImage.onerror = () => {
@@ -711,7 +738,7 @@ export class MinimapSystem extends BaseSystem {
    */
   private renderMapName(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number): void {
     // Formatta il nome della mappa (tutto maiuscolo)
-    const mapName = CONFIG.CURRENT_MAP.toUpperCase();
+    const mapName = this.currentMapName.toUpperCase();
 
     // Compensazione DPR
     const c = this.minimap.getDprCompensation();

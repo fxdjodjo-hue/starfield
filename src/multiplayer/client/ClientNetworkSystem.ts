@@ -46,6 +46,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private uiSystem: any = null;
   private economySystem: any = null;
   private rewardSystem: any = null;
+  private minimapSystem: any = null;
   private questTrackingSystem: any = null; // QuestSystem wiring
   private questManager: any = null; // QuestManager reference
 
@@ -75,6 +76,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private playerSystem: PlayerSystem | null = null;
   private deathPopupManager: DeathPopupManager;
   private disconnectionPopupManager: DisconnectionPopupManager;
+  private assets: any = null;
   // ecs is inherited from System base class and is always non-null
 
   // Player info - ora con branded type
@@ -234,6 +236,14 @@ export class ClientNetworkSystem extends BaseSystem {
 
   getPlayerSystem(): PlayerSystem | null {
     return this.playerSystem;
+  }
+
+  setAssets(assets: any): void {
+    this.assets = assets;
+  }
+
+  getAssets(): any {
+    return this.assets;
   }
 
   /**
@@ -764,6 +774,14 @@ export class ClientNetworkSystem extends BaseSystem {
 
   setRewardSystem(rewardSystem: any): void {
     this.rewardSystem = rewardSystem;
+  }
+
+  setMinimapSystem(minimapSystem: any): void {
+    this.minimapSystem = minimapSystem;
+  }
+
+  getMinimapSystem(): any {
+    return this.minimapSystem;
   }
 
   getRewardSystem(): any {

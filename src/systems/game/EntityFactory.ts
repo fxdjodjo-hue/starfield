@@ -58,25 +58,66 @@ export class EntityFactory {
     }
     ecs.addComponent(playerEntity, AnimatedSprite, assets.playerSprite);
 
-    // Crea portale a X=9000, Y=0
-    EntityFactory.createTeleport(ecs, 9000, 0, assets.teleportAnimatedSprite);
-
-    // Crea space station a X=0, Y=0
-    EntityFactory.createSpaceStation(ecs, 0, 0, assets.spaceStationSprite);
-
-    // Crea background della mappa come entità parallax
+    // Crea il background della mappa come entità parallax
     await EntityFactory.createMapBackground(ecs, context);
 
-    // Crea asteroidi dalla configurazione
-    EntityFactory.createAsteroidsFromConfig(ecs, assets.asteroidSprite);
+    // Crea le entità specifiche della mappa (Portali, Stazioni, Asteroidi)
+    EntityFactory.createMapEntities(ecs, assets, context.currentMapId);
 
     return playerEntity;
+  }
+
+  /**
+   * Crea le entità specifiche di una mappa
+   */
+  static createMapEntities(ecs: ECS, assets: any, mapId: string): void {
+    console.log(`[EntityFactory] Creating map entities for: ${mapId}`);
+    if (mapId === 'palantir' || mapId === 'default_map') {
+      // Crea portale a X=9000, Y=0 (per Map 2)
+      EntityFactory.createTeleport(ecs, 9000, 0, assets.teleportAnimatedSprite);
+
+      // Crea space station a X=0, Y=0
+      EntityFactory.createSpaceStation(ecs, 0, 0, assets.spaceStationSprite);
+    } else if (mapId === 'palantir_2') {
+      // Crea portale a X=-9000, Y=0 (per tornare a Map 1)
+      EntityFactory.createTeleport(ecs, -9000, 0, assets.teleportAnimatedSprite);
+
+      // Magari una stazione diversa o nessuna
+    } else {
+      console.warn(`[EntityFactory] No specific entities for mapId: ${mapId}`);
+    }
+
+    // Crea asteroidi dalla configurazione (possono essere diversi per mappa in futuro)
+    EntityFactory.createAsteroidsFromConfig(ecs, assets.asteroidSprite);
+  }
+
+  /**
+   * Rimuove tutte le entità statiche della mappa per prepararsi a un cambio mappa o ricaricamento
+   */
+  static cleanupMapEntities(ecs: ECS): void {
+    console.log('[EntityFactory] Cleaning up map entities...');
+
+    const entitiesToRemove = [
+      ...ecs.getEntitiesWithComponents(ParallaxLayer),
+      ...ecs.getEntitiesWithComponents(Portal),
+      ...ecs.getEntitiesWithComponents(SpaceStation),
+      ...ecs.getEntitiesWithComponents(Asteroid)
+    ];
+
+    entitiesToRemove.forEach(entity => {
+      // Nota: getEntitiesWithComponents ritorna entità che hanno ALMENO uno dei componenti
+      // ecs.removeEntity è idempotente se l'entità è già stata rimossa
+      ecs.removeEntity(entity);
+    });
+
+    console.log(`[EntityFactory] Removed ${entitiesToRemove.length} map entities.`);
   }
 
   /**
    * Crea un'entità portale statica
    */
   static createTeleport(ecs: ECS, x: number, y: number, animatedSprite: AnimatedSprite): void {
+    console.log(`[EntityFactory] Creating teleport at: ${x}, ${y}`);
     const entity = ecs.createEntity();
 
     // Componenti spaziali - scala aumentata per renderlo più visibile (2.5x)
@@ -166,16 +207,34 @@ export class EntityFactory {
    */
   static async createMapBackground(ecs: ECS, context: GameContext): Promise<void> {
     try {
+      // Mappatura tra mapId del server e cartella degli asset
+      // Il server usa 'default_map' ma gli asset sono in 'palantir'
+      const mapIdToFolder: Record<string, string> = {
+        'default_map': 'palantir',
+        'palantir': 'palantir',
+        'palantir_2': 'palantir_2'
+      };
+
+      const assetFolder = mapIdToFolder[context.currentMapId] || 'palantir';
+      console.log(`[EntityFactory] Loading background for mapId: ${context.currentMapId}, folder: ${assetFolder}`);
+
       // Prova prima bg1forse.jpg se esiste (potrebbe essere più grande), altrimenti bg.jpg
-      let mapPath = `assets/maps/${CONFIG.CURRENT_MAP}/bg1forse.jpg`;
+      let mapPath = `assets/maps/${assetFolder}/bg1forse.jpg`;
       let backgroundSprite: Sprite | null = null;
 
       try {
         backgroundSprite = await context.assetManager.createSprite(mapPath);
       } catch (e) {
-        // Fallback a bg.jpg
-        mapPath = `assets/maps/${CONFIG.CURRENT_MAP}/bg.jpg`;
-        backgroundSprite = await context.assetManager.createSprite(mapPath);
+        // Fallback a bg.jpg nella stessa cartella
+        mapPath = `assets/maps/${assetFolder}/bg.jpg`;
+        try {
+          backgroundSprite = await context.assetManager.createSprite(mapPath);
+        } catch (e2) {
+          // ULTIMATE FALLBACK: Usa il background di default (palantir)
+          console.warn(`[EntityFactory] Assets for ${assetFolder} not found, falling back to palantir`);
+          mapPath = `assets/maps/palantir/bg.jpg`;
+          backgroundSprite = await context.assetManager.createSprite(mapPath);
+        }
       }
 
       if (!backgroundSprite) {

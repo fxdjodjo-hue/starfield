@@ -8,12 +8,13 @@ const WebSocket = require('ws');
 const messageBroadcaster = require('../messaging/MessageBroadcaster.cjs');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
 const playerConfig = require('../../../shared/player-config.json');
+const { MAP_CONFIGS } = require('../../config/MapConfigs.cjs');
 
 /**
  * Handler per messaggio 'join'
  */
 async function handleJoin(data, sanitizedData, context) {
-  const { ws, mapServer, playerDataManager, authManager, messageBroadcaster } = context;
+  const { ws, mapServer, mapManager, playerDataManager, authManager, messageBroadcaster } = context;
 
   // Carica i dati del giocatore dal database
   let loadedData;
@@ -56,6 +57,18 @@ async function handleJoin(data, sanitizedData, context) {
     }));
     ws.close(1008, 'Failed to load player data');
     return null;
+  }
+
+  // Seleziona la mappa corretta basata sulla persistenza
+  let effectiveMapServer = mapServer;
+  console.log(`[MapPersistence DEBUG] loadedData.currentMapId: '${loadedData.currentMapId}', mapManager: ${!!mapManager}`);
+  if (loadedData.currentMapId && mapManager) {
+    const savedMap = mapManager.getMap(loadedData.currentMapId);
+    console.log(`[MapPersistence DEBUG] mapManager.getMap('${loadedData.currentMapId}') returned: ${savedMap ? savedMap.mapId : 'null'}`);
+    if (savedMap) {
+      effectiveMapServer = savedMap;
+      ServerLoggerWrapper.info('CONNECTION', `[MapPersistence] User ${data.nickname} joining saved map: ${loadedData.currentMapId}`);
+    }
   }
 
   // Calcola max health/shield basati sugli upgrade e item equipaggiati
@@ -126,21 +139,24 @@ async function handleJoin(data, sanitizedData, context) {
 
   // 🚨 CRITICAL: Prima di aggiungere il nuovo giocatore, rimuovi eventuali vecchi giocatori
   // con lo stesso playerId ma clientId diverso (riconnessioni)
-  for (const [existingClientId, existingPlayerData] of mapServer.players.entries()) {
+  for (const [existingClientId, existingPlayerData] of effectiveMapServer.players.entries()) {
     if (existingPlayerData.playerId === playerData.playerId && existingClientId !== persistentClientId) {
       ServerLoggerWrapper.security(`🧹 CLEANUP: Removing old instance of player ${playerData.playerId} with clientId ${existingClientId} (reconnection)`);
 
       // Broadcast player left per il vecchio giocatore
       const playerLeftMsg = messageBroadcaster.formatPlayerLeftMessage(existingClientId);
-      mapServer.broadcastToMap(playerLeftMsg);
+      effectiveMapServer.broadcastToMap(playerLeftMsg);
 
       // Rimuovi dalla mappa
-      mapServer.removePlayer(existingClientId);
+      effectiveMapServer.removePlayer(existingClientId);
     }
   }
 
   // Aggiorna il clientId nel playerData per coerenza
   playerData.clientId = persistentClientId;
+
+  // Persistenza mappa
+  playerData.currentMapId = effectiveMapServer.mapId;
 
   // Rank caricato direttamente dal database (Hybrid System: Fisso + Percentili)
   playerData.rank = loadedData.rank || 'Basic Space Pilot';
@@ -167,7 +183,7 @@ async function handleJoin(data, sanitizedData, context) {
     velocityY: playerData.velocityY
   };
 
-  mapServer.addPlayer(persistentClientId, playerData);
+  effectiveMapServer.addPlayer(persistentClientId, playerData);
 
   ServerLoggerWrapper.info('PLAYER', `Player joined: ${data.nickname} (${playerData.playerId}) - Rank: ${playerData.rank}`);
 
@@ -190,10 +206,10 @@ async function handleJoin(data, sanitizedData, context) {
     playerData.playerId,
     playerData.rank
   );
-  mapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
+  effectiveMapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
 
   // Invia posizioni dei giocatori esistenti
-  mapServer.players.forEach((existingPlayerData, existingClientId) => {
+  effectiveMapServer.players.forEach((existingPlayerData, existingClientId) => {
     if (existingClientId !== persistentClientId && existingPlayerData.position) {
       const existingPlayerBroadcast = {
         type: 'remote_player_update',
@@ -229,11 +245,11 @@ async function handleJoin(data, sanitizedData, context) {
       shield: playerData.shield,
       maxShield: playerData.maxShield
     };
-    mapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
+    effectiveMapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
   }
 
   // Invia solo gli NPC vicini (raggio 5000) per coprire l'intera screenview
-  const allNpcs = mapServer.npcManager.getAllNpcs();
+  const allNpcs = effectiveMapServer.npcManager.getAllNpcs();
   const joinNpcRadius = 5000;
   const joinNpcRadiusSq = joinNpcRadius * joinNpcRadius;
 
@@ -246,7 +262,7 @@ async function handleJoin(data, sanitizedData, context) {
   if (relevantNpcs.length > 0) {
     const initialNpcsMessage = messageBroadcaster.formatInitialNpcsMessage(relevantNpcs);
     ws.send(JSON.stringify(initialNpcsMessage));
-    ServerLoggerWrapper.debug('SERVER', `Sent ${relevantNpcs.length}/${allNpcs.length} initial NPCs to new player ${persistentClientId}`);
+    ServerLoggerWrapper.debug('SERVER', `Sent ${relevantNpcs.length}/${allNpcs.length} initial NPCs to new player ${persistentClientId} in ${effectiveMapServer.mapId}`);
   }
 
   // Welcome message
@@ -255,7 +271,8 @@ async function handleJoin(data, sanitizedData, context) {
     data.nickname,
     (hp) => authManager.calculateMaxHealth(hp),
     (shield) => authManager.calculateMaxShield(shield),
-    playerData.isAdministrator
+    playerData.isAdministrator,
+    effectiveMapServer.mapId
   );
 
   try {
@@ -349,6 +366,9 @@ function handlePositionUpdate(data, sanitizedData, context) {
       velocityX: sanitizedData.velocityX || 0,
       velocityY: sanitizedData.velocityY || 0
     };
+    // Sync top-level coordinates for safety/legacy compatibility
+    playerData.x = sanitizedData.x;
+    playerData.y = sanitizedData.y;
     // Aggiorna timestamp per calcolo movimento successivo
     playerData.lastMovementTime = now;
   }
@@ -1223,8 +1243,49 @@ function handleGlobalMonitorRequest(data, sanitizedData, context) {
 }
 
 /**
- * Mappa handler per tipo di messaggio
+ * Handler per messaggio 'portal_use'
  */
+async function handlePortalUse(data, sanitizedData, context) {
+  const { ws, mapServer, mapManager, playerData } = context;
+
+  if (!playerData || !mapServer) return;
+
+  const mapConfig = MAP_CONFIGS[mapServer.mapId];
+  if (!mapConfig || !mapConfig.portals) return;
+
+  // Trova il portale nel messaggio o il più vicino
+  const portals = mapConfig.portals;
+  let targetPortal = null;
+
+  // Ottieni posizione attuale del giocatore (usa .position se disponibile)
+  const px = playerData.position?.x ?? playerData.x ?? 0;
+  const py = playerData.position?.y ?? playerData.y ?? 0;
+
+  if (data.portalId) {
+    // Confronta convertendo entrambi in stringa per sicurezza (ID numerico ECS vs ID stringa Config)
+    targetPortal = portals.find(p => String(p.id) === String(data.portalId));
+  }
+
+  // Se non trovato per ID, cerca per prossimità (molto più affidabile)
+  if (!targetPortal) {
+    for (const portal of portals) {
+      const dx = portal.x - px;
+      const dy = portal.y - py;
+      const distSq = dx * dx + dy * dy;
+      if (distSq < 1500 * 1500) { // Range aumentato a 1500px per massima tolleranza
+        targetPortal = portal;
+        break;
+      }
+    }
+  }
+
+  if (targetPortal) {
+    ServerLoggerWrapper.info('MAP', `Player ${playerData.clientId} using portal ${targetPortal.id} -> ${targetPortal.targetMap}`);
+    mapManager.migratePlayer(playerData.clientId, mapServer.mapId, targetPortal.targetMap, targetPortal.targetPosition);
+  } else {
+    ServerLoggerWrapper.warn('MAP', `Player ${playerData.clientId} attempted to use portal but none found nearby.`);
+  }
+}
 const handlers = {
   join: handleJoin,
   position_update: handlePositionUpdate,
@@ -1240,7 +1301,8 @@ const handlers = {
   save_request: handleSaveRequest,
   equip_item: handleEquipItem,
   player_respawn_request: handlePlayerRespawnRequest,
-  global_monitor_request: handleGlobalMonitorRequest
+  global_monitor_request: handleGlobalMonitorRequest,
+  portal_use: handlePortalUse
 };
 
 /**
@@ -1322,7 +1384,7 @@ function validatePlayerContext(type, data, context) {
   }
 
   // 🚫 SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
-  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade', 'chat_message'];
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade', 'chat_message', 'portal_use'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
     logger.warn('SECURITY', `🚫 BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
     return { valid: false, reason: 'PLAYER_DEAD' };

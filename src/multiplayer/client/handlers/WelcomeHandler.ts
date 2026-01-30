@@ -7,6 +7,7 @@ import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
 import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { PLAYTEST_CONFIG } from '../../../config/GameConstants';
+import { EntityFactory } from '../../../systems/game/EntityFactory';
 
 /**
  * Handles welcome messages from the server
@@ -18,7 +19,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     super(MESSAGE_TYPES.WELCOME);
   }
 
-  handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): void {
+  async handle(message: WelcomeMessage, networkSystem: ClientNetworkSystem): Promise<void> {
     // Set the local client ID (WebSocket connection ID)
     const serverClientId: ClientId = message.clientId || (networkSystem.clientId as ClientId);
 
@@ -150,6 +151,57 @@ export class WelcomeHandler extends BaseMessageHandler {
       if (inventoryLazy || upgradesLazy || questsLazy) {
         const playerUuid = message.playerId || networkSystem.gameContext.authId;
         networkSystem.requestPlayerData(playerUuid);
+      }
+
+      // 🌍 MAP INITIALIZATION: Inizializza background ed entità della mappa
+      const mapId = message.mapId || 'default_map';
+      const ecs = networkSystem.getECS();
+      if (ecs) {
+        // Se non siamo sulla 'default_map', ricarica background ed entità specifiche
+        // (Altrimenti sono già caricate dal setup iniziale del gioco)
+        console.log(`[WELCOME] Initializing map entities for: ${mapId}`);
+        networkSystem.gameContext.currentMapId = mapId;
+
+        // 🧼 CLEANUP: Rimuovi le entità caricate di default per evitare duplicati
+        EntityFactory.cleanupMapEntities(ecs);
+
+        // Carica background della mappa
+        EntityFactory.createMapBackground(ecs, networkSystem.gameContext);
+
+        // Crea entità specifiche della mappa (Portali, Stazioni, ecc.)
+        let assets = networkSystem.getAssets();
+
+        // 🔄 FALLBACK: Se gli assets non sono ancora registrati nel networkSystem,
+        // creali on-demand usando l'assetManager
+        if (!assets) {
+          console.log('[WELCOME] Assets not in networkSystem, loading on-demand...');
+          const assetManager = networkSystem.gameContext.assetManager;
+          if (assetManager) {
+            try {
+              const teleportAnimatedSprite = await assetManager.createAnimatedSprite('assets/teleport/teleport', 1.0);
+              const spaceStationSprite = await assetManager.createSprite('assets/spacestation/spacestation.png');
+              const asteroidSprite = await assetManager.createSprite('assets/asteroid/asteroid.png');
+
+              assets = {
+                teleportAnimatedSprite,
+                spaceStationSprite,
+                asteroidSprite
+              };
+
+              // Registra gli assets nel networkSystem per uso futuro
+              networkSystem.setAssets(assets);
+              console.log('[WELCOME] On-demand assets loaded and registered.');
+            } catch (e) {
+              console.error('[WELCOME] Failed to load on-demand assets:', e);
+            }
+          }
+        }
+
+        if (assets) {
+          EntityFactory.createMapEntities(ecs, assets, mapId);
+        } else {
+          console.error('[WELCOME] Cannot create map entities - assets unavailable!');
+        }
       }
     }
   }

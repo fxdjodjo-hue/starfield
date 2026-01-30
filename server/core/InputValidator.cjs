@@ -483,6 +483,26 @@ class ServerInputValidator {
             }
           };
 
+        case 'portal_use':
+          // Valida richiesta utilizzo portale
+          const portalErrors = [];
+
+          if (data.portalId !== undefined && data.portalId !== null) {
+            if (typeof data.portalId !== 'string' && typeof data.portalId !== 'number') {
+              portalErrors.push('Invalid portalId (must be a string or number)');
+            } else if (typeof data.portalId === 'string' && data.portalId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+              portalErrors.push('Portal ID too long');
+            }
+          }
+
+          return {
+            isValid: portalErrors.length === 0,
+            errors: portalErrors,
+            sanitizedData: {
+              portalId: data.portalId
+            }
+          };
+
         default:
           // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
           return {

@@ -86,6 +86,7 @@ export class GameContext {
 
   // Stato stanza
   public currentRoom: GameRoom | null = null;
+  public currentMapId: string = 'palantir'; // Mappa corrente
 
   // Timing e sincronizzazione
   public serverTick: number = 0;

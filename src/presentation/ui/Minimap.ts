@@ -29,7 +29,7 @@ export class Minimap {
   // Stato interattivo
   public visible: boolean;
   public enabled: boolean;
-  
+
   // DPR compensation
   private dprCompensation: number;
 
@@ -44,15 +44,15 @@ export class Minimap {
     // Calcola compensazione DPR
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     this.dprCompensation = 1 / dpr;
-    
+
     // Dimensioni compensate per DPR
     const compensatedWidth = Math.round(width * this.dprCompensation);
     const compensatedHeight = Math.round(height * this.dprCompensation);
-    
+
     // Posizione in basso a destra per default usando DisplayManager
     const { width: viewportWidth, height: viewportHeight } = DisplayManager.getInstance().getLogicalSize();
     const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN * this.dprCompensation);
-    
+
     this.x = x || viewportWidth - compensatedWidth - margin;
     this.y = y || viewportHeight - compensatedHeight - margin;
     this.width = compensatedWidth;
@@ -127,7 +127,7 @@ export class Minimap {
    */
   isPointInside(screenX: number, screenY: number): boolean {
     return screenX >= this.x && screenX <= this.x + this.width &&
-           screenY >= this.y && screenY <= this.y + this.height;
+      screenY >= this.y && screenY <= this.y + this.height;
   }
 
   /**
@@ -139,7 +139,20 @@ export class Minimap {
     this.x = canvasWidth - this.width - margin;
     this.y = canvasHeight - this.height - margin;
   }
-  
+
+  /**
+   * Aggiorna dimensioni del mondo
+   */
+  updateWorldDimensions(worldWidth: number, worldHeight: number): void {
+    this.worldWidth = worldWidth;
+    this.worldHeight = worldHeight;
+
+    // Ricalcola la scala per adattare il nuovo mondo
+    const scaleX = this.width / worldWidth;
+    const scaleY = this.height / worldHeight;
+    this.scale = Math.min(scaleX, scaleY);
+  }
+
   /**
    * Restituisce il fattore di compensazione DPR
    */

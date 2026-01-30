@@ -30,7 +30,9 @@ const HazardManager = require('./server/managers/hazard-manager.cjs');
 
 // Core
 const MapServer = require('./server/core/map-server.cjs');
+const MapManager = require('./server/core/MapManager.cjs');
 const WebSocketConnectionManager = require('./server/core/websocket-manager.cjs');
+const FixedLoop = require('./server/core/infrastructure/FixedLoop.cjs');
 
 
 // Crea server HTTP per healthcheck e WebSocket sulla stessa porta
@@ -591,53 +593,28 @@ server.listen(parseInt(PORT), '0.0.0.0', () => {
   ServerLoggerWrapper.info('SERVER', `Server started on port ${PORT} with WebSocket and health check endpoints`);
 });
 
-const FixedLoop = require('./server/core/infrastructure/FixedLoop.cjs');
+// ...
 
-// Tick unificato MapServer con FixedLoop (20 Hz)
-// Questo sostituisce setInterval con un timer preciso basato su accumulator
+// Initialize MapManager (which initializes all MapServers)
+MapManager.initializeMaps();
+
+// Tick unificato MapManager con FixedLoop (20 Hz)
 const serverLoop = new FixedLoop(20, () => {
-  mapServer.tick();
+  MapManager.tick();
 });
 
 serverLoop.start();
 
-// Il messaggio di avvio è già nel callback di server.listen()
-
-
-
-// Istanza della mappa principale con configurazione NPC
-const mapServer = new MapServer('default_map', {
-  npcConfig: {
-    scouterCount: 20,
-    frigateCount: 10,  // Kronos
-    guardCount: 20,
-    pyramidCount: 20
-  }
-});
-mapServer.initialize();
-
-// Aggiungi combat manager alla mappa
-mapServer.combatManager = new ServerCombatManager(mapServer);
-
-// Aggiungi repair manager alla mappa
-mapServer.repairManager = new RepairManager(mapServer);
-
-// Aggiungi hazard manager alla mappa
-mapServer.hazardManager = new HazardManager(mapServer);
-
-ServerLoggerWrapper.info('SERVER', 'Map system initialized with combat, repair and hazard managers');
-
-/**
- * Processa la queue degli aggiornamenti posizione per ridurre race conditions
- */
-
-
-
-
 // Inizializza WebSocket Connection Manager
-const wsManager = new WebSocketConnectionManager(wss, mapServer, messageCount);
-// Collega websocketManager a mapServer per accesso dai managers
-mapServer.websocketManager = wsManager;
+// Passiamo MapManager invece di mapServer
+const wsManager = new WebSocketConnectionManager(wss, MapManager, messageCount);
+
+// Default map for initial join sync (backward compatibility for managers that expect a mapServer)
+const defaultMap = MapManager.getMap('default_map');
+if (defaultMap) {
+  // Inizializza i manager per ogni mappa (se non inizializzati internamente)
+  // Nota: Sarebbe meglio se MapServer li inizializzasse internamente, verifichiamo MapServer.cjs
+}
 
 // Gestisce chiusura server
 process.on('SIGINT', () => {

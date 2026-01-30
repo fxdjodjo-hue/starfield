@@ -176,7 +176,11 @@ export const MESSAGE_TYPES = {
 
   // Leaderboard messages
   REQUEST_LEADERBOARD: 'request_leaderboard',
-  LEADERBOARD_RESPONSE: 'leaderboard_response'
+  LEADERBOARD_RESPONSE: 'leaderboard_response',
+
+  // Map messages
+  PORTAL_USE: 'portal_use',
+  MAP_CHANGE: 'map_change'
 } as const;
 
 /**
@@ -457,6 +461,7 @@ export interface WelcomeMessage {
   clientId: ClientId;
   playerId: PlayerUuid; // Player ID (UUID dell'utente) - nome JSON invariato per compatibilità server
   playerDbId?: PlayerDbId; // Player ID numerico per database - nome JSON invariato
+  mapId?: string; // ID della mappa su cui si trova il player
   initialState?: {
     // Dati essenziali (sempre inclusi)
     position: { x: number; y: number; rotation: number };

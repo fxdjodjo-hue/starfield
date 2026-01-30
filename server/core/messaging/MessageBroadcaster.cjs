@@ -26,12 +26,13 @@ class MessageBroadcaster {
    * @param {boolean} isAdministrator - Status di amministratore
    * @returns {Object} Welcome message object
    */
-  formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false) {
+  formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false, mapId = 'default_map') {
     return {
       type: 'welcome',
       clientId: playerData.clientId,
       playerId: playerData.userId, // UUID dell'utente (auth_id)
       playerDbId: playerData.playerId, // Player ID numerico per display/HUD
+      mapId: mapId, // Aggiunto per permettere al client di inizializzare la mappa corretta
       message: `Welcome ${nickname}! Connected to server.`,
       initialState: {
         // Solo dati critici per iniziare il gioco

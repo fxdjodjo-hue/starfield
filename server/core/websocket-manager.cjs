@@ -15,12 +15,16 @@ const AuthenticationManager = require('./auth/AuthenticationManager.cjs');
  * Mantiene la stessa API pubblica per backward compatibility
  */
 class WebSocketConnectionManager {
-  constructor(wss, mapServer, messageCount) {
+  constructor(wss, mapManager, messageCount) {
+    this.mapManager = mapManager;
+    // For backward compatibility with managers that expect a single mapServer
+    const defaultMap = mapManager.getMap('default_map');
+
     // Crea istanze dei moduli refactorizzati
-    this.playerDataManager = new PlayerDataManager(mapServer);
+    this.playerDataManager = new PlayerDataManager(defaultMap || mapManager);
     this.authManager = new AuthenticationManager();
-    this.messageBroadcaster = new MessageBroadcaster(mapServer);
-    this.connectionManager = new WebSocketConnectionManagerCore(wss, mapServer, messageCount);
+    this.messageBroadcaster = new MessageBroadcaster(defaultMap || mapManager);
+    this.connectionManager = new WebSocketConnectionManagerCore(wss, mapManager, messageCount);
 
     // Inietta dipendenze nel connection manager
     this.connectionManager.setPlayerDataManager(this.playerDataManager);
