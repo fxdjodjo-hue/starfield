@@ -216,8 +216,9 @@ export class InterpolationTarget {
       // Limita extrapolation time a ~1.25 frame o un cutoff ragionevole (es. 200ms)
       if (dt < 0.2) {
         // Soft Decay: Rallenta invece di continuare all'infinito o freezare
-        // vx *= exp(-k * dt) simula attrito
-        const decay = Math.exp(-5 * dt);
+        // vx *= exp(-k * dt) simula attrito. 
+        // FIX: Reduced friction from 5 to 1.5 to prevent "braking" stutter during short lags
+        const decay = Math.exp(-1.5 * dt);
 
         const vx = newest.vx * decay;
         const vy = newest.vy * decay;
