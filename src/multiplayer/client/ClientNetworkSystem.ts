@@ -378,20 +378,13 @@ export class ClientNetworkSystem extends BaseSystem {
 
         // Invia aggiornamenti se c'è movimento O se serve keep-alive
         if (hasMoved || keepAliveNeeded) {
-          let positionToSend = { ...currentPosition };
-
-          // se è un keep-alive, aggiungiamo un micro-jitter impercettibile
-          // per ingannare il filtro duplicati del server
-          if (keepAliveNeeded && !hasMoved) {
-            // Alterna +0.01 e -0.01
-            const jitter = (Date.now() % 2 === 0) ? 0.01 : -0.01;
-            positionToSend.x += jitter;
-            positionToSend.y += jitter;
-          }
+          // FIX: Removed artificial jitter that was causing remote player vibration.
+          // Keep-alive packets now send actual position - server should handle duplicates gracefully.
+          const positionToSend = { ...currentPosition };
 
           // Passiamo keepAliveNeeded come secondo parametro (forceUpdate)
           this.tickManager.bufferPositionUpdate(positionToSend, keepAliveNeeded);
-          this.lastSentPosition = { ...currentPosition }; // Salviamo l'originale per evitare drift
+          this.lastSentPosition = { ...currentPosition };
           this.lastBufferedTime = now;
           this.lastSentTime = now;
         }
@@ -414,10 +407,10 @@ export class ClientNetworkSystem extends BaseSystem {
     const dy = Math.abs(currentPosition.y - this.lastSentPosition.y);
     const dr = Math.abs(currentPosition.rotation - this.lastSentPosition.rotation);
 
-    // Invia solo se si è mossi di almeno 5 unità o ruotati di almeno 0.1 radianti
-    // Nota: I threshold sono definiti anche in NetworkConfig, ma usiamo valori locali qui per il campionamento
-    const MOVEMENT_THRESHOLD = 5;
-    const ROTATION_THRESHOLD = 0.1;
+    // Invia solo se si è mossi di almeno 1 unità o ruotati di almeno 0.05 radianti
+    // Reduced threshold for smoother remote player movement
+    const MOVEMENT_THRESHOLD = 1;
+    const ROTATION_THRESHOLD = 0.05;
 
     return dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD || dr > ROTATION_THRESHOLD;
   }

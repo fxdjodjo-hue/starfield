@@ -166,9 +166,10 @@ export class UiSystem extends System {
       if (this.fpsCounter) {
         this.fpsCounter.setVisibility(e.detail);
       }
-      if (this.networkStats) {
-        this.networkStats.setVisibility(e.detail);
-      }
+      // Network stats decoupled from FPS counter - kept hidden for production
+      // if (this.networkStats) {
+      //   this.networkStats.setVisibility(e.detail);
+      // }
     });
 
     // Ascolta messaggi di sistema globali da qualsiasi componente

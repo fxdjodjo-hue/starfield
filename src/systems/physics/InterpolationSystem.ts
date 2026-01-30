@@ -56,8 +56,9 @@ export class InterpolationSystem extends BaseSystem {
    * @param _ctx Canvas rendering context (unused by this system, but required by interface).
    */
   render(_ctx: CanvasRenderingContext2D): void {
-    // Calculate the target render time (in the past to allow for buffering)
-    const renderTime = performance.now() - NETWORK_CONFIG.INTERPOLATION_DELAY;
+    // FIX: The delay is now embedded in the tickOffset calculation in InterpolationTarget.
+    // We pass Date.now() directly; the tickOffset will convert it to the correct render time.
+    const renderTime = Date.now();
 
     // Find all entities with interpolation targets
     const entities = this.ecs.getEntitiesWithComponents(Transform, InterpolationTarget);

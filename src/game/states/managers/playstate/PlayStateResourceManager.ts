@@ -10,6 +10,7 @@ import { AnimatedSprite } from '../../../../entities/AnimatedSprite';
 import { Npc } from '../../../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
 import { PlayerRole } from '../../../../entities/player/PlayerRole';
+import { RenderSystem } from '../../../../systems/rendering/RenderSystem';
 
 /**
  * Manages PlayState resources: nicknames, entities, cleanup
@@ -99,8 +100,19 @@ export class PlayStateResourceManager {
     const canvasSize = this.world.getCanvasSize();
     const isZoomAnimating = cameraSystem.isZoomAnimationActive ? cameraSystem.isZoomAnimationActive() : false;
 
+    // FIX LOCAL NICKNAME JITTER:
+    // Use the smoothed render position (144Hz) if available, otherwise fallback to physical transform (60Hz)
+    // This matches the sprite rendering logic.
+    let targetX = transform.x;
+    let targetY = transform.y;
+
+    if (RenderSystem.smoothedLocalPlayerPos) {
+      targetX = RenderSystem.smoothedLocalPlayerPos.x;
+      targetY = RenderSystem.smoothedLocalPlayerPos.y;
+    }
+
     // Delega all'UiSystem
-    uiSystem.updatePlayerNicknamePosition(transform.x, transform.y, camera, canvasSize, isZoomAnimating);
+    uiSystem.updatePlayerNicknamePosition(targetX, targetY, camera, canvasSize, isZoomAnimating);
   }
 
   /**
@@ -217,8 +229,13 @@ export class PlayStateResourceManager {
       const transform = this.world.getECS().getComponent(entity, Transform);
       if (!transform) continue;
 
+      // Use interpolated position if available, otherwise fall back to transform
+      const interpolation = this.world.getECS().getComponent(entity, InterpolationTarget);
+      const renderX = interpolation ? interpolation.renderX : transform.x;
+      const renderY = interpolation ? interpolation.renderY : transform.y;
+
       // Converti posizione world a schermo
-      const screenPos = camera.worldToScreen(transform.x, transform.y, canvasSize.width, canvasSize.height);
+      const screenPos = camera.worldToScreen(renderX, renderY, canvasSize.width, canvasSize.height);
 
       // Assicura che esista l'elemento DOM per questo remote player
       const playerInfo = remotePlayerSystem.getRemotePlayerInfo(clientId);

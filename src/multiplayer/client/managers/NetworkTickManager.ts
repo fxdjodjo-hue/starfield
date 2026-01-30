@@ -91,21 +91,24 @@ export class NetworkTickManager {
       return;
     }
 
-    // Send ALL buffered positions in sequence to prevent teleport detection
-    for (const update of this.positionBuffer) {
+    // OPTIMIZATION: Send only the LATEST position to save bandwidth.
+    // Intermediate positions are not needed for server broadcast/interpolation.
+    const lastUpdate = this.positionBuffer[this.positionBuffer.length - 1];
+
+    if (lastUpdate) {
       // Check if position OR rotation actually changed since last sent
       // OR if this is a forced update (keep-alive)
-      const shouldSend = update.forceUpdate || !this.lastSentPosition ||
-        Math.abs(update.position.x - this.lastSentPosition.x) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
-        Math.abs(update.position.y - this.lastSentPosition.y) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
-        Math.abs(update.position.rotation - this.lastSentPosition.rotation) > NETWORK_CONFIG.ROTATION_CHANGE_THRESHOLD;
+      const shouldSend = lastUpdate.forceUpdate || !this.lastSentPosition ||
+        Math.abs(lastUpdate.position.x - this.lastSentPosition.x) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
+        Math.abs(lastUpdate.position.y - this.lastSentPosition.y) > NETWORK_CONFIG.POSITION_CHANGE_THRESHOLD ||
+        Math.abs(lastUpdate.position.rotation - this.lastSentPosition.rotation) > NETWORK_CONFIG.ROTATION_CHANGE_THRESHOLD;
 
       if (shouldSend) {
-        this.sendPositionCallback(update.position);
+        this.sendPositionCallback(lastUpdate.position);
         this.lastSentPosition = {
-          x: update.position.x,
-          y: update.position.y,
-          rotation: update.position.rotation
+          x: lastUpdate.position.x,
+          y: lastUpdate.position.y,
+          rotation: lastUpdate.position.rotation
         };
       }
     }

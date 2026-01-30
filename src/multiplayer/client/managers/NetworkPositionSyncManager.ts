@@ -158,7 +158,8 @@ export class NetworkPositionSyncManager {
       rotation: normalizedRotation, // Ora usa la rotazione normalizzata
       velocityX: normalizedPosition.velocityX,
       velocityY: normalizedPosition.velocityY,
-      tick: this.tickManager.getTickCounter()
+      tick: this.tickManager.getTickCounter(),
+      t: Date.now() // Client timestamp for accurate interpolation timing
     }));
   }
 

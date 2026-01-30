@@ -2,6 +2,8 @@ import { ECS } from '../../../infrastructure/ecs/ECS';
 import { Transform } from '../../../entities/spatial/Transform';
 import { Velocity } from '../../../entities/spatial/Velocity';
 import { Npc } from '../../../entities/ai/Npc';
+import { RemotePlayer } from '../../../entities/player/RemotePlayer';
+import { InterpolationTarget } from '../../../entities/spatial/InterpolationTarget';
 import { NETWORK_CONFIG } from '../../../config/NetworkConfig';
 
 /**
@@ -81,9 +83,9 @@ export class PlayerPositionTracker {
    */
   private isValidTransform(transform: any): boolean {
     return transform &&
-           Number.isFinite(transform.x) &&
-           Number.isFinite(transform.y) &&
-           (transform.rotation === undefined || Number.isFinite(transform.rotation));
+      Number.isFinite(transform.x) &&
+      Number.isFinite(transform.y) &&
+      (transform.rotation === undefined || Number.isFinite(transform.rotation));
   }
 
   /**
@@ -106,8 +108,12 @@ export class PlayerPositionTracker {
 
     // Find entities that have Transform but not Npc (local player)
     // Prioritize entities with Velocity (moving entities) as they are likely the player
+    // EXCLUDE RemotePlayer and InterpolationTarget to accurately identify local player
     const movingEntities = entitiesWithTransform.filter(entity =>
-      !this.ecs.hasComponent(entity, Npc) && this.ecs.hasComponent(entity, Velocity)
+      !this.ecs.hasComponent(entity, Npc) &&
+      !this.ecs.hasComponent(entity, RemotePlayer) &&
+      !this.ecs.hasComponent(entity, InterpolationTarget) &&
+      this.ecs.hasComponent(entity, Velocity)
     );
 
     if (movingEntities.length > 0) {
@@ -115,9 +121,11 @@ export class PlayerPositionTracker {
       return movingEntities[0];
     }
 
-    // Fallback: find any entity without Npc component
+    // Fallback: find any entity without Npc/Remote/Interpolation components
     for (const entity of entitiesWithTransform) {
-      if (!this.ecs.hasComponent(entity, Npc)) {
+      if (!this.ecs.hasComponent(entity, Npc) &&
+        !this.ecs.hasComponent(entity, RemotePlayer) &&
+        !this.ecs.hasComponent(entity, InterpolationTarget)) {
         return entity;
       }
     }

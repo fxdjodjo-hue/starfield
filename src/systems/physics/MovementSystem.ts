@@ -34,11 +34,15 @@ export class MovementSystem extends BaseSystem {
       }
     }
 
-    // Trova il player (entità con Transform e Velocity ma senza Npc)
+    // Trova il player locale (entità con Transform e Velocity ma SENZA Npc e SENZA InterpolationTarget)
+    // IMPORTANTE: Escludiamo InterpolationTarget per evitare che la camera segua player remoti
     const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Velocity)
-      .filter(entity => !this.ecs.hasComponent(entity, Npc));
+      .filter(entity =>
+        !this.ecs.hasComponent(entity, Npc) &&
+        !this.ecs.hasComponent(entity, InterpolationTarget)
+      );
 
-    // Comunica al CameraSystem di centrarsi sul player
+    // Comunica al CameraSystem di centrarsi sul player locale
     if (playerEntities.length > 0) {
       const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
       if (playerTransform) {

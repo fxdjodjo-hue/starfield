@@ -15,7 +15,7 @@ export class PlayStateLifecycleManager {
     private readonly updateNicknamePosition: () => void,
     private readonly updateNpcNicknames: () => void,
     private readonly updateRemotePlayerNicknames: () => void
-  ) {}
+  ) { }
 
   /**
    * Updates the gameplay
@@ -23,13 +23,6 @@ export class PlayStateLifecycleManager {
   update(deltaTime: number): void {
     // Aggiorna il mondo di gioco
     this.world.update(deltaTime);
-
-    // Aggiorna posizione del nickname del player
-    this.updateNicknamePosition();
-
-    // Aggiorna posizioni nickname NPC e remote player
-    this.updateNpcNicknames();
-    this.updateRemotePlayerNicknames();
 
     // Aggiorna il sistema di rete multiplayer
     const clientNetworkSystem = this.getClientNetworkSystem();
@@ -42,8 +35,15 @@ export class PlayStateLifecycleManager {
    * Renders the game
    */
   render(_ctx: CanvasRenderingContext2D): void {
-    // Renderizza il mondo di gioco
+    // FIRST: Render the world (this runs InterpolationSystem.render() which updates positions)
     this.world.render();
+
+    // THEN: Sync nickname positions with the updated interpolated positions
+    // This order is critical - if nicknames are updated before interpolation,
+    // they lag 1 frame behind the ship, causing visible stuttering
+    this.updateNicknamePosition();
+    this.updateNpcNicknames();
+    this.updateRemotePlayerNicknames();
   }
 
   /**

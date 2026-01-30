@@ -51,6 +51,10 @@ import { ProjectileRenderer } from '../../core/utils/rendering/ProjectileRendere
  * Renderizza tutte le entità con componente Transform applicando la camera
  */
 export class RenderSystem extends BaseSystem {
+  // Static access to smoothed position for UI synchronization (Nicknames, etc.)
+  public static smoothedLocalPlayerPos: { x: number; y: number } | null = null;
+  public static smoothedLocalPlayerId: number | null = null;
+
   private cameraSystem: CameraSystem;
   private playerSystem: PlayerSystem;
   private assetManager: AssetManager | null = null;
@@ -71,6 +75,13 @@ export class RenderSystem extends BaseSystem {
   private frameTime: number = 0; // Timestamp sincronizzato con frame rate per float offset
   private portalAnimationTime: number = 0; // Tempo per l'animazione del portale
   private readonly PORTAL_ANIMATION_FRAME_DURATION = 16.67; // ms per frame (~60fps)
+
+  // High-precision render timer for smooth camera
+  private lastRenderTimestamp: number = 0;
+  private lastDt: number = 16; // Store delta time for sub-systems
+
+  // Visual smoothing for local player (syncs with camera)
+  private localPlayerSmoothedPos: { x: number; y: number } | null = null;
 
   constructor(ecs: ECS, cameraSystem: CameraSystem, playerSystem: PlayerSystem, assetManager?: AssetManager) {
     super(ecs);
@@ -546,14 +557,54 @@ export class RenderSystem extends BaseSystem {
     }
   }
 
+  /**
+   * Renderizza informazioni di debug sull'interpolazione (solo in modalità DEBUG)
+   */
+  private renderInterpolationDebug(ctx: CanvasRenderingContext2D): void {
+    // Trova il primo remote player con un InterpolationTarget
+    const entities = this.ecs.getEntitiesWithComponents(RemotePlayer, InterpolationTarget);
+    if (entities.length === 0) return;
+
+    const entity = entities[0];
+    const target = this.ecs.getComponent(entity, InterpolationTarget) as InterpolationTarget;
+    if (!target) return;
+
+    ctx.save();
+    ctx.font = '12px Courier New';
+    ctx.textAlign = 'left';
+
+    const info = [
+      `Entity ID: ${entity.id}`,
+      `Buffer: ${target.bufferSize} snaps`,
+      `Offset: ${target.currentOffset.toFixed(1)}ms`,
+      `Jitter: ${target.jitterMs.toFixed(1)}ms`,
+      `Extrapolating: ${target.isExtrapolating ? 'YES (LIMIT!)' : 'NO'}`
+    ];
+
+    const x = 20;
+    let y = 300; // Posizionato sotto la minimappa / HUD
+
+    // Sfondo semi-trasparente
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(x - 5, y - 15, 200, info.length * 15 + 10);
+
+    // Testo
+    ctx.fillStyle = target.isExtrapolating ? '#FF5555' : '#55FF55';
+    for (const line of info) {
+      ctx.fillText(line, x, y);
+      y += 15;
+    }
+
+    ctx.restore();
+  }
+
   update(deltaTime: number): void {
-    // Il rendering avviene nel metodo render()
-    // Aggiorna animazione fiamme usando deltaTime
+    // Sincronizza frameTime con l'orologio reale invece del deltaTime fisico
+    // per evitare stutter nelle animazioni visuali (floatOffset, ecc) tra i passi di fisica
+    this.frameTime = performance.now();
+
     this.engflamesAnimationTime += deltaTime;
-    // Aggiorna animazione portale
     this.portalAnimationTime += deltaTime;
-    // Aggiorna timestamp frame per sincronizzare float offset
-    this.frameTime += deltaTime;
 
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
@@ -598,6 +649,24 @@ export class RenderSystem extends BaseSystem {
     if (worldOpacity < 1) {
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_RENDER] worldOpacity: ${worldOpacity}, isZoomAnimating: ${isZoomAnimating}`);
     }
+
+    // SMOOTH CAMERA UPDATE (Render Frequency)
+    // Calculate real render delta time
+    const now = performance.now();
+    // Cap dt to avoid huge jumps on tab switch (max 100ms)
+    const dt = this.lastRenderTimestamp > 0 ? Math.min(now - this.lastRenderTimestamp, 100) : 16;
+    this.lastRenderTimestamp = now;
+    this.lastRenderTimestamp = now;
+    this.lastDt = dt; // Store for entity rendering
+
+    // PRE-CALCULATE Player Smoothing BEFORE any rendering
+    // This ensures RepairEffects and other dependent entities use the FRESH smoothed position (Frame N)
+    // instead of the previous frame's position (Frame N-1), eliminating vibration/lag.
+    this.updateLocalPlayerSmoothing(dt);
+
+    // Update camera position smoothly
+    this.cameraSystem.updateForRender(dt);
+
     if (worldOpacity === 1 && !isZoomAnimating) {
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_RENDER] Zoom animation finished - opacity back to normal`);
     }
@@ -617,6 +686,11 @@ export class RenderSystem extends BaseSystem {
     // Render damage text (floating numbers)
     if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
       this.damageTextSystem.render(ctx);
+    }
+
+    // Render Interpolation Debug Info
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_UI) {
+      this.renderInterpolationDebug(ctx);
     }
 
     // Renderizza raggio di interesse (debug visivo, attivabile da GameConstants)
@@ -667,17 +741,11 @@ export class RenderSystem extends BaseSystem {
         let renderX = components.transform.x;
         let renderY = components.transform.y;
 
-        // Controlla se è un NPC remoto con interpolazione
-        const authority = this.ecs.getComponent(entity, Authority);
-        const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE && components.npc;
-
-        if (isRemoteNpc) {
-          // Usa valori interpolati per NPC remoti
-          const interpolationTarget = this.ecs.getComponent(entity, InterpolationTarget);
-          if (interpolationTarget) {
-            renderX = interpolationTarget.renderX;
-            renderY = interpolationTarget.renderY;
-          }
+        // Usa valori interpolati se disponibili (per NPC, PlayerRemoti, Asteroidi, ecc.)
+        const interpolationTarget = this.ecs.getComponent(entity, InterpolationTarget);
+        if (interpolationTarget) {
+          renderX = interpolationTarget.renderX;
+          renderY = interpolationTarget.renderY;
         }
 
         const screenPos = camera.worldToScreen(renderX, renderY, width, height);
@@ -709,21 +777,22 @@ export class RenderSystem extends BaseSystem {
       if (components.transform) {
         const { width, height } = this.displayManager.getLogicalSize();
 
-        // Per NPC remoti, usa coordinate interpolate se disponibili
+        // Per entità remote, usa coordinate interpolate se disponibili
         let renderX = components.transform.x;
         let renderY = components.transform.y;
 
-        // Controlla se è un NPC remoto con interpolazione
-        const authority = this.ecs.getComponent(entity, Authority);
-        const isRemoteNpc = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE && components.npc;
-
-        if (isRemoteNpc) {
-          // Usa valori interpolati per NPC remoti
-          const interpolationTarget = this.ecs.getComponent(entity, InterpolationTarget);
-          if (interpolationTarget) {
-            renderX = interpolationTarget.renderX;
-            renderY = interpolationTarget.renderY;
-          }
+        // Check for Remote Interpolation
+        const interpolationTarget = this.ecs.getComponent(entity, InterpolationTarget);
+        if (interpolationTarget) {
+          renderX = interpolationTarget.renderX;
+          renderY = interpolationTarget.renderY;
+        }
+        // FIX: Se è un effetto di riparazione collegato al Local Player, usa la posizione smoothed
+        else if (components.repairEffect &&
+          RenderSystem.smoothedLocalPlayerPos &&
+          components.repairEffect.targetEntityId === RenderSystem.smoothedLocalPlayerId) {
+          renderX = RenderSystem.smoothedLocalPlayerPos.x;
+          renderY = RenderSystem.smoothedLocalPlayerPos.y;
         }
 
         const screenPos = camera.worldToScreen(renderX, renderY, width, height);
@@ -761,8 +830,24 @@ export class RenderSystem extends BaseSystem {
       const playerTransform = this.ecs.getComponent(playerEntity, Transform);
 
       if (playerTransform) {
+
+        // --- VISUAL SMOOTHING FOR LOCAL PLAYER ---
+        // (Calculated at start of frame in updateLocalPlayerSmoothing)
+        // Just ensure it exists (fallback)
+        if (!this.localPlayerSmoothedPos) {
+          this.localPlayerSmoothedPos = { x: playerTransform.x, y: playerTransform.y };
+        }
+
+        // Create a visual transform backed by smoothed coordinates
+        const smoothedTransform = {
+          ...playerTransform,
+          x: this.localPlayerSmoothedPos.x,
+          y: this.localPlayerSmoothedPos.y
+        };
+
         const { width, height } = this.displayManager.getLogicalSize();
-        const screenPos = ScreenSpace.toScreen(playerTransform, camera, width, height);
+        // Use smoothed transform for screen projection
+        const screenPos = ScreenSpace.toScreen(smoothedTransform as Transform, camera, width, height);
         const components = this.getCachedComponents(playerEntity);
 
         // Render engine flames BEFORE player ship (behind in z-order)
@@ -813,6 +898,44 @@ export class RenderSystem extends BaseSystem {
   }
 
 
+
+  /**
+   * Updates the smoothed local player position.
+   * Called at the start of the render loop to ensure all dependent rendering uses the fresh position.
+   */
+  private updateLocalPlayerSmoothing(dt: number): void {
+    const playerEntity = this.playerSystem.getPlayerEntity();
+    if (!playerEntity) return;
+
+    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
+    if (!playerTransform) return;
+
+    // Initialize if needed
+    if (!this.localPlayerSmoothedPos) {
+      this.localPlayerSmoothedPos = { x: playerTransform.x, y: playerTransform.y };
+    }
+
+    // Update Static Ref for UI (Nicknames) and other systems
+    RenderSystem.smoothedLocalPlayerPos = this.localPlayerSmoothedPos;
+    RenderSystem.smoothedLocalPlayerId = playerEntity.id;
+
+    // Sync speed with CameraSystem (20.0)
+    const SMOOTH_SPEED = 20.0;
+    const lerpFactor = 1 - Math.exp(-SMOOTH_SPEED * (dt / 1000));
+
+    // Check for teleport/respawn (distance > 500px) -> Snap
+    const dx = playerTransform.x - this.localPlayerSmoothedPos.x;
+    const dy = playerTransform.y - this.localPlayerSmoothedPos.y;
+
+    // Squared distance check (500^2 = 250000)
+    if (dx * dx + dy * dy > 250000) {
+      this.localPlayerSmoothedPos.x = playerTransform.x;
+      this.localPlayerSmoothedPos.y = playerTransform.y;
+    } else {
+      this.localPlayerSmoothedPos.x += dx * lerpFactor;
+      this.localPlayerSmoothedPos.y += dy * lerpFactor;
+    }
+  }
 
   /**
    * Render health and shield bars using HUD helper

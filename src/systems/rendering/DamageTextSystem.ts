@@ -8,6 +8,8 @@ import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import type { DamageSystem } from '../combat/DamageSystem';
 import { DisplayManager } from '../../infrastructure/display';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
+import { RenderSystem } from './RenderSystem';
+import { RemotePlayer } from '../../entities/player/RemotePlayer';
 
 /**
  * Sistema per il rendering dei testi di danno fluttuanti
@@ -133,6 +135,14 @@ export class DamageTextSystem extends BaseSystem {
             renderY = interpolationTarget.renderY;
           }
         }
+
+        // FIX: Per Local Player, usa la posizione smoothed dal RenderSystem (se disponibile)
+        // Questo evita che i numeri "tremino" rispetto allo sprite fluido.
+        else if (RenderSystem.smoothedLocalPlayerPos && RenderSystem.smoothedLocalPlayerId === targetEntity.id) {
+          renderX = RenderSystem.smoothedLocalPlayerPos.x;
+          renderY = RenderSystem.smoothedLocalPlayerPos.y;
+        }
+
 
         // Salva l'ultima posizione dell'entità (come anchor)
         damageText.lastWorldX = renderX;

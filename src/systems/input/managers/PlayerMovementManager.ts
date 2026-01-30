@@ -71,6 +71,13 @@ export class PlayerMovementManager {
     const playerDef = getPlayerDefinition();
     const rotationSpeed = playerDef.rotationSpeed || 5; // Default to 5 from config if missing
 
+    // INSTANT ROTATION Check
+    // If rotation speed is high (e.g. > 20), snap instantly.
+    if (rotationSpeed > 20) {
+      transform.rotation = targetAngle;
+      return;
+    }
+
     // Calculate t for lerp based on time and speed
     // factor = 1 - e^(-speed * dt) gives framerate independent smoothing
     // or simple linear interpolation: t = speed * dt
@@ -138,6 +145,15 @@ export class PlayerMovementManager {
         sharpness = gameConfig.gameplay.player.deceleration / maxSpeed;
         sharpness *= 1.5;
       }
+    }
+
+
+    // Check for "INSTANT" movement mode (Arcade style)
+    // If config has extremely high acceleration, skip physics blending
+    if (gameConfig.gameplay.player.acceleration > 10000) {
+      velocity.x = targetVx;
+      velocity.y = targetVy;
+      return;
     }
 
     // Apply Damping (Frame-rate independent lerp)
@@ -286,6 +302,13 @@ export class PlayerMovementManager {
       // Apply deceleration towards 0,0
       const dt = deltaTime / 1000;
       const deceleration = gameConfig.gameplay.player.deceleration;
+
+      // Check for "INSTANT" stop mode
+      if (deceleration > 10000) {
+        velocity.x = 0;
+        velocity.y = 0;
+        return;
+      }
 
       velocity.x = MathUtils.moveTowards(velocity.x, 0, deceleration * dt);
       velocity.y = MathUtils.moveTowards(velocity.y, 0, deceleration * dt);

@@ -20,6 +20,10 @@ export class CameraSystem extends BaseSystem {
   } | null = null;
   private isZoomAnimating: boolean = false;
 
+  // Smooth Camera Follow
+  private targetPos: { x: number; y: number } | null = null;
+  private readonly CAMERA_SMOOTH_SPEED: number = 20.0; // Valore alto (20) per reattività ma sufficiente smooth per jitter
+
   // Speed-based zoom (disabled)
   private lastPosition: { x: number; y: number } | null = null;
   private currentSpeed: number = 0;
@@ -49,8 +53,16 @@ export class CameraSystem extends BaseSystem {
    */
   centerOn(x: number, y: number): void {
     // Durante l'animazione zoom, mantieni la camera centrata sulla posizione iniziale
+    // Durante l'animazione zoom, mantieni la camera centrata sulla posizione iniziale
     if (!this.isZoomAnimating) {
-      this.camera.centerOn(x, y);
+      if (!this.targetPos) {
+        // First initialization: snap instantly to prevent swoop
+        this.camera.centerOn(x, y);
+        this.targetPos = { x, y };
+      } else {
+        // Update target for smooth interpolation
+        this.targetPos = { x, y };
+      }
     }
   }
 
@@ -142,6 +154,9 @@ export class CameraSystem extends BaseSystem {
         this.zoomAnimation = null;
         this.isZoomAnimating = false;
 
+        // Reset smooth target to avoid jump after zoom
+        this.targetPos = { x: this.camera.x, y: this.camera.y };
+
         // Resetta lo speed zoom al valore finale dell'animazione
         this.currentSpeedZoom = currentZoom;
 
@@ -150,6 +165,32 @@ export class CameraSystem extends BaseSystem {
           onComplete();
         }
       }
+    }
+
+    // REMOVED: Smooth logic moved to updateForRender to run at render frequency
+  }
+
+  /**
+   * Aggiorna la posizione della camera con interpolazione fluida (da chiamare nel loop di rendering)
+   * @param deltaTime Tempo trascorso dall'ultimo frame di rendering in ms
+   */
+  public updateForRender(deltaTime: number): void {
+    // Apply Smooth Following Logic (if not zooming)
+    if (!this.isZoomAnimating && this.targetPos) {
+      const dt = deltaTime / 1000;
+      // Frame-rate independent lerp
+      // Usa un valore alto per essere reattivo ma morbido
+      const lerpFactor = 1 - Math.exp(-this.CAMERA_SMOOTH_SPEED * dt);
+
+      const currentX = this.camera.x;
+      const currentY = this.camera.y;
+
+      // Interpolate
+      const newX = currentX + (this.targetPos.x - currentX) * lerpFactor;
+      const newY = currentY + (this.targetPos.y - currentY) * lerpFactor;
+
+      // Apply
+      this.camera.centerOn(newX, newY);
     }
   }
 

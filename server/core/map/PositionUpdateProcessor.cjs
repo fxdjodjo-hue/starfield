@@ -34,11 +34,11 @@ class PositionUpdateProcessor {
         // Riduce drasticamente la dimensione del JSON evitando le chiavi per ogni giocatore
         p: [
           clientId,
-          Math.round(latestUpdate.x * 10) / 10, // 1 decimal precision for smoother interpolation
-          Math.round(latestUpdate.y * 10) / 10,
-          Math.round((latestUpdate.velocityX || 0) * 10) / 10, // Preserve velocity precision
-          Math.round((latestUpdate.velocityY || 0) * 10) / 10,
-          parseFloat(latestUpdate.rotation.toFixed(2)),
+          Math.round(latestUpdate.x * 100) / 100, // 2 decimal precision for smoother interpolation
+          Math.round(latestUpdate.y * 100) / 100,
+          Math.round((latestUpdate.velocityX || 0) * 100) / 100, // Preserve velocity precision
+          Math.round((latestUpdate.velocityY || 0) * 100) / 100,
+          parseFloat(latestUpdate.rotation.toFixed(3)),
           // PROTOCOL UPGRADE: Use authoritative server tick counter driven by FixedLoop
           // This ensures the tick perfectly matches the simulation step (MONOTONIC TIME)
           serverTick,
@@ -50,7 +50,9 @@ class PositionUpdateProcessor {
           Math.round(playerData.shield),
           Math.round(playerData.maxShield)
         ],
-        t: Date.now() // 't' per coerenza con npc_bulk_update
+        // FIX: Use client's original timestamp for accurate interpolation timing
+        // This preserves when the position was ACTUALLY valid, not when broadcast occurred
+        t: latestUpdate.clientTimestamp || Date.now()
       };
 
       MapBroadcaster.broadcastToMap(players, positionBroadcast, clientId);

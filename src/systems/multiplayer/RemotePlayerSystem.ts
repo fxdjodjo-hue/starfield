@@ -199,9 +199,9 @@ export class RemotePlayerSystem extends BaseSystem {
 
     if (interpolation) {
       // AGGIORNA SOLO TARGET - Componente rimane PERSISTENTE
-      // CONVERT TICK to SERVER TIME (MMO-Standard: tick * 50ms)
-      // InterpolationTarget ora accetta solo serverTime (ms) assoluto.
-      const serverTime = (serverTimestamp || 0) * 50;
+      // FIX: Il server invia Date.now() direttamente, NON un numero di tick.
+      // La vecchia riga `* 50` causava un errore di scala temporale di 50x.
+      const serverTime = serverTimestamp || Date.now();
 
       // Passa anche velocità per extrapolazione più precisa (Hermite)
       interpolation.updateTarget(x, y, rotation, serverTime, velocityX, velocityY);

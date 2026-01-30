@@ -24,10 +24,10 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
       position = { x: p[1], y: p[2], velocityX: p[3], velocityY: p[4] };
       rotation = p[5];
 
-      // PROTOCOL UPGRADE: Use authoritative server tick (p[6])
-      tick = p[6];
-      // Fallback if not available (legacy)
-      if (typeof tick !== 'number') tick = message.t;
+      // FIX TIMESTAMP: Use message.t (Date.now() from server) for interpolation timing.
+      // p[6] is the server tick number (integer), which cannot be used directly for time.
+      // message.t is sent as Date.now() by the server and is the correct source of truth.
+      tick = message.t;
 
       nickname = p[7];
       rank = p[8];

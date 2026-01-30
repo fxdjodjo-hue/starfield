@@ -373,7 +373,9 @@ function handlePositionUpdate(data, sanitizedData, context) {
     shield: playerData.shield,
     maxShield: playerData.maxShield,
     senderWs: ws,
-    timestamp: Date.now()
+    // Use client's original timestamp for accurate interpolation timing
+    // Falls back to server time if client doesn't provide timestamp
+    clientTimestamp: data.t || Date.now()
   });
 
   // Limita dimensione queue
