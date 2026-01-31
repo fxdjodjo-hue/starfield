@@ -35,7 +35,9 @@ export const AUDIO_ASSETS = {
 
   // Musica
   music: {
-    background: 'music/bgmusicpalantir.mp3',
+    background: 'music/bgmusicpalantir.mp3', // Legacy fallback
+    palantir: 'music/bgmusicpalantir.mp3',
+    singularity: 'music/singularity.mp3',
     ambience: 'ambient/ambience.mp3',
     menu: 'music/menu_theme.mp3',
     gameplay: 'music/gameplay_theme.mp3',

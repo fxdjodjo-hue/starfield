@@ -406,7 +406,7 @@ export default class AudioSystem extends System {
       const audioUrl = `assets/audio/${assetPath}`;
 
       this.musicInstance = new Audio(audioUrl);
-      this.musicInstance.volume = this.config.masterVolume * volume;
+      this.musicInstance.volume = 0; // Start at 0 for fade-in
       this.musicInstance.loop = true;
 
       // Verifica errori di caricamento
@@ -417,10 +417,40 @@ export default class AudioSystem extends System {
         }
       });
 
+      // Target volume calculation
+      const targetVolume = this.config.masterVolume * volume;
+
       // Stesso approccio semplice dei suoni normali
       const playMusic = async (retryCount = 0) => {
         try {
           await this.musicInstance!.play();
+
+          // FADE IN LOGIC
+          const duration = 2000; // 2 seconds fade in
+          const startTime = Date.now();
+
+          const fadeStep = () => {
+            // Check if music instance changed or was stopped
+            if (!this.musicInstance || !this.musicInstance.src.includes(assetPath)) return;
+
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Ease-in curve
+            const easedProgress = progress * progress;
+            const newVolume = targetVolume * easedProgress;
+
+            if (Number.isFinite(newVolume)) {
+              this.musicInstance.volume = Math.max(0, Math.min(1, newVolume));
+            }
+
+            if (progress < 1) {
+              requestAnimationFrame(fadeStep);
+            }
+          };
+
+          fadeStep();
+
         } catch (error) {
           if (retryCount < 2) {
             console.warn(`Audio system: Failed to play music '${key}' (attempt ${retryCount + 1}), retrying...`, error);

@@ -25,6 +25,12 @@ export class MapChangeHandler extends BaseMessageHandler {
         const ecs = networkSystem.getECS();
         if (!ecs) return;
 
+        // 🎵 STOP CURRENT MUSIC: Silence immediately when transition starts
+        const audioSystem = networkSystem.getAudioSystem();
+        if (audioSystem && typeof audioSystem.stopMusic === 'function') {
+            audioSystem.stopMusic();
+        }
+
         // 0. Start transition effect (VIDEO WORMHOLE)
         const uiSystem = networkSystem.getUiSystem();
         if (uiSystem) {
@@ -99,6 +105,13 @@ export class MapChangeHandler extends BaseMessageHandler {
                 // Ritardiamo la scritta per farla apparire quando il wormhole finisce
                 setTimeout(() => {
                     uiSystem.showMapTransitionName(mapId, 3000);
+
+                    // 🎵 CHANGE MUSIC: Play only when effectively entering (transition ends)
+                    const audioSystem = networkSystem.getAudioSystem();
+                    if (audioSystem && typeof audioSystem.playMusic === 'function') {
+                        audioSystem.playMusic(mapId); // Uses default global volume (same as Palantir)
+                        secureLogger.log(`Switching music to: ${mapId}`);
+                    }
                 }, 2500);
             }
 

@@ -57,10 +57,10 @@ class MapServer {
   initialize() {
     ServerLoggerWrapper.system(`Initializing map ${this.mapId}...`);
     this.npcManager.initializeWorldNpcs(
-      this.npcConfig.scouterCount,
-      this.npcConfig.frigateCount,
-      this.npcConfig.guardCount || 0,
-      this.npcConfig.pyramidCount || 1
+      this.npcConfig.scouterCount ?? 0,
+      this.npcConfig.frigateCount ?? 0,
+      this.npcConfig.guardCount ?? 0,
+      this.npcConfig.pyramidCount ?? 1
     );
   }
 

@@ -567,8 +567,18 @@ export class PlayStateInitializer {
     // Avvia musica di background e suoni ambientali
     if (audioSystem) {
       audioSystem.init();
-      // Usa playSound invece di playMusic per permettere più tracce contemporanee
-      audioSystem.playSound('background', 0.1, true, false, 'music');
+
+      // 🎵 START MUSIC: Use the correct map theme based on where the player spawned
+      // The currentMapId was set by WelcomeHandler during connection
+      const startMapId = this.context.currentMapId || 'palantir';
+
+      // Use playMusic (like MapChangeHandler) to manage BGM properly
+      if (typeof audioSystem.playMusic === 'function') {
+        audioSystem.playMusic(startMapId);
+      } else {
+        // Fallback for types safety
+        audioSystem.playSound(startMapId, 0.1, true, false, 'music');
+      }
       // Piccolo delay prima di avviare ambience per evitare conflitti
       setTimeout(() => {
         if (audioSystem) {
