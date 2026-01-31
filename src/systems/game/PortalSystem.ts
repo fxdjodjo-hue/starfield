@@ -156,9 +156,10 @@ export class PortalSystem extends System {
         }
 
         // Gestisci interazione con E quando player è abbastanza vicino
-        if (distance <= this.INTERACTION_DISTANCE) {
-          this.checkPortalInteraction(portalEntity, distance);
-        }
+        // REMOVED: Seamless portals don't use E key
+        // if (distance <= this.INTERACTION_DISTANCE) {
+        //   this.checkPortalInteraction(portalEntity, distance);
+        // }
 
         // 🚀 AUTO-TELEPORT: Edge detection logic
         // Only trigger when entering the zone (isInside && !wasInside)
@@ -198,50 +199,21 @@ export class PortalSystem extends System {
 
     const portal = this.ecs.getComponent(portalEntity, Portal);
     if (portal) {
-      this.isTransitioning = true; // LOCK INTERACTION
+      this.isTransitioning = true; // LOCK TRIGGERS to prevent spamming
       portal.activate();
 
-      // --- 1. IMMEDIATELY START AUDIO ---
+      // --- 1. PLAY WARP SOUND (Feedback) ---
       const uiSystem = this.ecs.getSystems().find((s) => s.constructor.name === 'UiSystem') as UiSystem | undefined;
       if (uiSystem && typeof uiSystem.playWarpSound === 'function') {
         uiSystem.playWarpSound();
-        uiSystem.playWarpSound();
       }
 
-      // --- 2. IMMEDIATELY MUTE PORTAL AMBIENCE ---
-      this.setSoundsDisabled(true);
+      // --- 2. REMOVED IMMEDIATE LOCAL EFFECTS ---
+      // We do NOT stop movement, lock input, or hide the player here.
+      // We wait for the server to acknowledge with a 'map_change' message.
+      // The player will continue to move locally until the server moves them.
 
-      // --- 3. LOCK INPUT & STOP MOVEMENT ---
-      const playerControlSystem = this.ecs.getSystems().find((s) => s.constructor.name === 'PlayerControlSystem') as PlayerControlSystem | undefined;
-      if (playerControlSystem && typeof playerControlSystem.forceStopMovement === 'function') {
-        playerControlSystem.forceStopMovement();
-      }
-      if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
-        playerControlSystem.setInputForcedDisabled(true);
-      }
-
-
-
-      // --- 4. HIDE PLAYER & MAKE INVULNERABLE (Immediate Local Effect) ---
-      const playerEntity = this.playerSystem.getPlayerEntity();
-      if (playerEntity) {
-        // KEEP PLAYER VISIBLE for Layered Warp
-        const sprite = this.ecs.getComponent(playerEntity, Sprite);
-        if (sprite) {
-          sprite.visible = true;
-        }
-        const animatedSprite = this.ecs.getComponent(playerEntity, AnimatedSprite);
-        if (animatedSprite) {
-          animatedSprite.visible = true;
-        }
-        const health = this.ecs.getComponent(playerEntity, Health);
-        if (health) {
-          health.isInvulnerable = true;
-        }
-      }
-
-      // --- 5. SERVER NOTIFICATION (IMMEDIATE) ---
-      // REMOVED DELAY: Send immediately to avoid "ghosting" to other players
+      // --- 3. SERVER NOTIFICATION (IMMEDIATE) ---
       if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
         this.clientNetworkSystem.sendMessage({
           type: 'portal_use',
@@ -249,7 +221,8 @@ export class PortalSystem extends System {
           timestamp: Date.now()
         });
       }
-      // Note: isTransitioning stays true. System will be destroyed/reset on map load.
+      // Note: isTransitioning stays true to prevent duplicate network requests
+      // It will be reset when the map actually changes (MapChangeHandler)
     }
   }
 
@@ -376,57 +349,10 @@ export class PortalSystem extends System {
   }
 
   /**
-   * Gestisce l'interazione con il portale (tasto E)
-   */
-  private checkPortalInteraction(portalEntity: Entity, distance: number): void {
-    // Verifica se il tasto E è stato premuto
-    // Questo verrà chiamato da un callback quando E viene premuto
-  }
-
-  /**
-   * Chiamato quando il tasto E viene premuto
+   * Deprecated: Portals are now seamless/auto-trigger.
    */
   handleEKeyPress(): void {
-    if (this.isTransitioning) return; // BLOCK INPUT during transition
-
-    const playerEntity = this.playerSystem.getPlayerEntity();
-    if (!playerEntity) return;
-
-    const playerTransform = this.ecs.getComponent(playerEntity, Transform);
-    if (!playerTransform) return;
-
-    // Verifica debouncing
-    const now = Date.now();
-    if (now - this.lastEKeyPress < this.E_KEY_DEBOUNCE) {
-      return;
-    }
-
-    // Trova il portale più vicino
-    const portals = this.ecs.getEntitiesWithComponents(Transform, Portal);
-    let nearestPortal: Entity | null = null;
-    let nearestDistance = Infinity;
-
-    for (const portalEntity of portals) {
-      const portalTransform = this.ecs.getComponent(portalEntity, Transform);
-      if (!portalTransform) continue;
-
-      const distance = MathUtils.calculateDistance(
-        playerTransform.x, playerTransform.y,
-        portalTransform.x, portalTransform.y
-      );
-
-      if (distance <= this.INTERACTION_DISTANCE && distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestPortal = portalEntity;
-      }
-    }
-
-    // Se c'è un portale vicino, attivalo (MANUAL TRIGGER)
-    if (nearestPortal) {
-      console.log('[PortalSystem] E Key Press detected near portal. Triggering transition.');
-      this.lastEKeyPress = now;
-      this.triggerPortalTransition(nearestPortal);
-    }
+    // No-op
   }
 
   /**

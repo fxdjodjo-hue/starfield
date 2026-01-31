@@ -83,9 +83,9 @@ export class MapChangeHandler extends BaseMessageHandler {
             }
         }
 
-        // 3.5 PAUSE POSITION UPDATES: Stay "invisible" to others during the transition
-        // until the black screen/wormhole finishes (approx 2.5s)
-        networkSystem.pausePositionUpdates(2500);
+        // 3.5 PAUSE POSITION UPDATES: REMOVED for Server Sync Alignment
+        // We want to send updates immediately so the server knows exactly where we are
+        // networkSystem.pausePositionUpdates(2500);
 
         // 4. Update GameContext and reload background/entities
         const context = networkSystem.gameContext;

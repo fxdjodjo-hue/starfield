@@ -88,6 +88,17 @@ class MapManager {
         // 3. Add to target map
         targetMap.addPlayer(clientId, playerData);
 
+        // 3a. BROADCAST ARRIVAL TO OTHERS
+        // Notify other players on the target map immediately so they spawn this player
+        const playerJoinedMsg = {
+            type: 'player_joined',
+            clientId: clientId,
+            nickname: playerData.nickname,
+            playerId: playerData.playerId,
+            rank: playerData.rank || 'Basic Space Pilot'
+        };
+        targetMap.broadcastToMap(playerJoinedMsg, clientId);
+
         // 4. Notify the client (Network message handling will be needed in websocket manager/server.cjs)
         const migrationMessage = {
             type: 'map_change',
