@@ -878,8 +878,6 @@ export class RenderSystem extends BaseSystem {
           SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
         }
 
-        // Render debug text (only one call!)
-        this.renderComingSoonText(ctx, screenX, screenY, zoom);
       } else {
         // Rendering normale per altri AnimatedSprite
         SpritesheetRenderer.render(ctx, renderTransform, animatedSprite);
@@ -1017,30 +1015,5 @@ export class RenderSystem extends BaseSystem {
     ctx.restore();
   }
 
-  /**
-   * Renderizza il testo "ACCESS DENIED" sopra al portale con effetto fluttuante
-   */
-  private renderComingSoonText(ctx: CanvasRenderingContext2D, screenX: number, screenY: number, zoom: number): void {
-    ctx.save();
-
-    // Imposta lo stile del testo
-    ctx.fillStyle = '#FF0000'; // Rosso acceso
-    ctx.strokeStyle = '#000000'; // Nero per il contorno
-    ctx.lineWidth = 3 * zoom; // Contorno più spesso per il rosso
-    ctx.font = `bold ${20 * zoom}px Arial`; // Font leggermente più grande
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    // Effetto fluttuazione usando funzione seno (ridotta)
-    const floatOffset = Math.sin(this.frameTime * 0.003) * 3 * zoom; // Fluttuazione verticale più leggera
-    const textY = screenY + floatOffset; // Al centro del portale invece che sopra
-    const text = 'ACCESS DENIED';
-
-    // Disegna l'ombra/stroke per migliore leggibilità
-    ctx.strokeText(text, screenX, textY);
-    ctx.fillText(text, screenX, textY);
-
-    ctx.restore();
-  }
 
 }
