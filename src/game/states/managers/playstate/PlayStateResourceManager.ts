@@ -6,6 +6,7 @@ import type { RemotePlayerSystem } from '../../../../systems/multiplayer/RemoteP
 import type { Entity } from '../../../../infrastructure/ecs/Entity';
 import { Transform } from '../../../../entities/spatial/Transform';
 import { InterpolationTarget } from '../../../../entities/spatial/InterpolationTarget';
+import { Sprite } from '../../../../entities/Sprite';
 import { AnimatedSprite } from '../../../../entities/AnimatedSprite';
 import { Npc } from '../../../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
@@ -111,8 +112,16 @@ export class PlayStateResourceManager {
       targetY = RenderSystem.smoothedLocalPlayerPos.y;
     }
 
-    // Delega all'UiSystem
-    uiSystem.updatePlayerNicknamePosition(targetX, targetY, camera, canvasSize, isZoomAnimating);
+    // GESTIONE VISIBILITA NICKNAME
+    const sprite = this.world.getECS().getComponent(playerEntity, Sprite);
+    const animSprite = this.world.getECS().getComponent(playerEntity, AnimatedSprite);
+    const isVisible = (sprite && (sprite as any).visible !== false) ||
+      (animSprite && (animSprite as any).visible !== false);
+
+    // Delega all'UiSystem (Aggiunto parametro isVisible)
+    if (typeof (uiSystem as any).updatePlayerNicknamePosition === 'function') {
+      (uiSystem as any).updatePlayerNicknamePosition(targetX, targetY, camera, canvasSize, isZoomAnimating, isVisible);
+    }
   }
 
   /**

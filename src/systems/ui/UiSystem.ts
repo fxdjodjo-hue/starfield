@@ -712,8 +712,8 @@ export class UiSystem extends System {
   updatePlayerNicknameContent(nickname: string): void {
     this.nicknameManager.updatePlayerNicknameContent(nickname);
   }
-  updatePlayerNicknamePosition(worldX: number, worldY: number, camera: any, canvasSize: any, isZoomAnimating: boolean = false): void {
-    this.nicknameManager.updatePlayerNicknamePosition(worldX, worldY, camera, canvasSize, isZoomAnimating);
+  updatePlayerNicknamePosition(worldX: number, worldY: number, camera: any, canvasSize: any, isZoomAnimating: boolean = false, isVisible: boolean = true): void {
+    this.nicknameManager.updatePlayerNicknamePosition(worldX, worldY, camera, canvasSize, isZoomAnimating, isVisible);
   }
   removePlayerNicknameElement(): void {
     this.nicknameManager.removePlayerNicknameElement();

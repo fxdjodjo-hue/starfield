@@ -103,10 +103,38 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
 
         // Player locale morto - mostra popup respawn con ritardo per far vedere l'esplosione
         if (this.deathPopupManager) {
+          // Determina il nome di chi ci ha ucciso
+          let killerName = 'Unknown Enemy';
+          const destroyerId = message.destroyerId;
+
+          // Ensure ECS is available for killer identification
+          const ecsForKiller = networkSystem.getECS();
+          if (destroyerId && ecsForKiller) {
+            // 1. Cerca tra i player remoti
+            const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
+            const remoteInfo = remotePlayerSystem?.getRemotePlayerInfo(destroyerId.toString());
+
+            if (remoteInfo) {
+              killerName = remoteInfo.nickname;
+            } else {
+              // 2. Cerca tra gli NPC
+              const npcEntities = ecsForKiller.getEntitiesWithComponents(Npc);
+              const npcEntity = npcEntities.find(e => {
+                const n = ecsForKiller.getComponent(e, Npc);
+                return n && n.serverId === destroyerId.toString();
+              });
+
+              if (npcEntity) {
+                const npc = ecsForKiller.getComponent(npcEntity, Npc);
+                killerName = npc?.npcType || 'Enemy Pilot';
+              }
+            }
+          }
+
           setTimeout(() => {
             // Verifica che il manager esista ancora (safety check)
             if (this.deathPopupManager) {
-              this.deathPopupManager.showDeathPopup();
+              this.deathPopupManager.showDeathPopup(killerName);
             }
           }, 2000); // 2 secondi di ritardo
         } else {

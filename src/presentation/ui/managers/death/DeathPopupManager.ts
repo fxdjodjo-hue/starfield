@@ -12,6 +12,7 @@ export class DeathPopupManager {
   // Elementi DOM
   private overlay: HTMLDivElement | null = null;
   private popup: HTMLDivElement | null = null;
+  private messageElement: HTMLParagraphElement | null = null;
 
   constructor(gameContext: GameContext) {
     this.gameContext = gameContext;
@@ -38,68 +39,107 @@ export class DeathPopupManager {
       left: 0;
       width: 100%;
       height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
+      background-color: rgba(0, 0, 0, 0.8);
       display: none;
+      opacity: 0;
+      transition: opacity 0.8s ease-in-out;
       z-index: 10000;
       justify-content: center;
       align-items: center;
     `;
 
-    // Container popup
+    // Container popup con effetto glassmorphism premium
     this.popup = document.createElement('div');
     this.popup.style.cssText = `
-      background-color: rgba(20, 20, 20, 0.95);
-      border: 2px solid #ff4444;
-      border-radius: 10px;
-      padding: 30px;
+      background: rgba(10, 10, 15, 0.65);
+      backdrop-filter: blur(25px) saturate(180%);
+      -webkit-backdrop-filter: blur(25px) saturate(180%);
+      border: 1px solid rgba(255, 68, 68, 0.25);
+      border-radius: 20px;
+      padding: 50px 60px;
       text-align: center;
-      box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
-      min-width: 300px;
+      box-shadow: 
+        0 24px 80px rgba(0, 0, 0, 0.8),
+        inset 0 1px 1px rgba(255, 255, 255, 0.05),
+        0 0 40px rgba(255, 68, 68, 0.1);
+      min-width: 420px;
+      opacity: 0;
+      transform: scale(0.9) translateY(20px);
+      transition: opacity 0.8s ease-out, transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+      font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     `;
 
-    // Titolo
+    // Titolo con gradiente e glow
     const title = document.createElement('h2');
     title.textContent = 'SHIP DESTROYED';
     title.style.cssText = `
-      color: #ff4444;
-      margin: 0 0 20px 0;
-      font-size: 24px;
-      font-family: monospace;
+      color: #ff3333;
+      margin: 0 0 12px 0;
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: 4px;
       text-transform: uppercase;
+      text-shadow: 0 0 20px rgba(255, 51, 51, 0.4);
     `;
 
-    // Messaggio
-    const message = document.createElement('p');
-    message.textContent = 'Your ship has been destroyed!';
-    message.style.cssText = `
-      color: #cccccc;
-      margin: 0 0 30px 0;
-      font-family: monospace;
+    // Linea separatrice decorativa
+    const separator = document.createElement('div');
+    separator.style.cssText = `
+      width: 60px;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, #ff3333, transparent);
+      margin: 0 auto 25px auto;
+      border-radius: 2px;
+    `;
+
+    // Messaggio con stile pulito
+    this.messageElement = document.createElement('p');
+    this.messageElement.textContent = 'Your ship was destroyed. Proceed to the space station to repair.';
+    this.messageElement.style.cssText = `
+      color: rgba(255, 255, 255, 0.7);
+      margin: 0 0 40px 0;
       font-size: 16px;
+      font-weight: 400;
+      letter-spacing: 0.5px;
     `;
 
-    // Bottone Respawn
+    // Bottone Respawn Premium
     const respawnButton = document.createElement('button');
-    respawnButton.textContent = 'RESPAWN';
+    respawnButton.textContent = 'REPAIR';
     respawnButton.style.cssText = `
-      background-color: #ff4444;
+      background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
       color: white;
-      border: none;
-      border-radius: 5px;
-      padding: 12px 24px;
-      font-size: 18px;
-      font-family: monospace;
-      font-weight: bold;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 30px;
+      padding: 16px 48px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
       cursor: pointer;
-      transition: background-color 0.2s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 8px 24px rgba(255, 68, 68, 0.3);
+      outline: none;
     `;
-    respawnButton.onmouseover = () => respawnButton.style.backgroundColor = '#cc3333';
-    respawnButton.onmouseout = () => respawnButton.style.backgroundColor = '#ff4444';
+
+    respawnButton.onmouseover = () => {
+      respawnButton.style.transform = 'translateY(-2px)';
+      respawnButton.style.boxShadow = '0 12px 32px rgba(255, 68, 68, 0.4)';
+      respawnButton.style.filter = 'brightness(1.1)';
+    };
+
+    respawnButton.onmouseout = () => {
+      respawnButton.style.transform = 'translateY(0)';
+      respawnButton.style.boxShadow = '0 8px 24px rgba(255, 68, 68, 0.3)';
+      respawnButton.style.filter = 'brightness(1)';
+    };
+
     respawnButton.onclick = () => this.onRespawnClick();
 
     // Assembla elementi
     this.popup.appendChild(title);
-    this.popup.appendChild(message);
+    this.popup.appendChild(separator);
+    if (this.messageElement) this.popup.appendChild(this.messageElement);
     this.popup.appendChild(respawnButton);
     this.overlay.appendChild(this.popup);
     document.body.appendChild(this.overlay);
@@ -109,21 +149,38 @@ export class DeathPopupManager {
   /**
    * Mostra il popup di morte
    */
-  showDeathPopup(): void {
+  showDeathPopup(killerName: string = ''): void {
 
     if (this.isVisible) {
       return;
     }
 
-    if (!this.overlay || !this.popup) {
+    if (!this.overlay || !this.popup || !this.messageElement) {
       console.error('[DeathPopupManager] UI elements not created!');
       return;
+    }
+
+    // Aggiorna il messaggio con il nome del killer se disponibile
+    if (killerName) {
+      this.messageElement.innerHTML = `
+        Your ship was destroyed by <span style="color: #ff4444; font-weight: 800;">${killerName}</span>.<br>
+        <span style="font-size: 14px; opacity: 0.8; margin-top: 10px; display: block;">Proceed to the space station to repair.</span>
+      `;
+    } else {
+      this.messageElement.innerHTML = 'Your ship was destroyed. Proceed to the space station to repair.';
     }
 
     this.isVisible = true;
     this.overlay.style.display = 'flex';
 
-    // Verifica che gli elementi siano nel DOM
+    // Trigger animation via requestAnimationFrame
+    requestAnimationFrame(() => {
+      if (this.overlay && this.popup) {
+        this.overlay.style.opacity = '1';
+        this.popup.style.opacity = '1';
+        this.popup.style.transform = 'scale(1)';
+      }
+    });
   }
 
   /**
@@ -149,8 +206,17 @@ export class DeathPopupManager {
 
     this.isVisible = false;
 
-    if (this.overlay) {
-      this.overlay.style.display = 'none';
+    if (this.overlay && this.popup) {
+      this.overlay.style.opacity = '0';
+      this.popup.style.opacity = '0';
+      this.popup.style.transform = 'scale(0.9) translateY(20px)';
+
+      // Nascondi fisicamente dopo la transizione (opzionale, o subito)
+      setTimeout(() => {
+        if (!this.isVisible && this.overlay) {
+          this.overlay.style.display = 'none';
+        }
+      }, 500);
     }
   }
 

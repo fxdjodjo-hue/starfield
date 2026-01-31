@@ -65,13 +65,16 @@ export class UINicknameManager {
   /**
    * Aggiorna la posizione del nickname del giocatore basata sulla posizione world
    */
-  updatePlayerNicknamePosition(worldX: number, worldY: number, camera: any, canvasSize: any, isZoomAnimating: boolean = false): void {
+  updatePlayerNicknamePosition(worldX: number, worldY: number, camera: any, canvasSize: any, isZoomAnimating: boolean = false, isVisible: boolean = true): void {
     if (!this.playerNicknameElement) return;
 
-    // Nascondi durante l'animazione zoom
-    if (isZoomAnimating) {
-      this.playerNicknameElement.style.opacity = '0';
-      this.playerNicknameElement.style.transition = 'none';
+    // Nascondi se non visibile o durante l'animazione zoom
+    if (!isVisible || isZoomAnimating) {
+      this.playerNicknameElement.style.display = 'none';
+      if (isZoomAnimating) {
+        this.playerNicknameElement.style.opacity = '0';
+        this.playerNicknameElement.style.transition = 'none';
+      }
       return;
     }
 
@@ -88,13 +91,10 @@ export class UINicknameManager {
       return;
     }
 
-    // Posiziona il nickname centrato orizzontalmente sotto la nave
-    const nicknameX = screenPos.x - this.playerNicknameElement.offsetWidth / 2;
-    const nicknameY = screenPos.y + 80; // Sotto la nave (Offset unificato)
-
-    this.playerNicknameElement.style.left = `${nicknameX}px`;
-    this.playerNicknameElement.style.top = `${nicknameY}px`;
-    this.playerNicknameElement.style.transform = 'none';
+    // Posiziona il nickname centrato orizzontalmente usando trasformazione CSS (più robusto di offsetWidth)
+    this.playerNicknameElement.style.left = `${screenPos.x}px`;
+    this.playerNicknameElement.style.top = `${screenPos.y + 80}px`;
+    this.playerNicknameElement.style.transform = 'translateX(-50%)';
     this.playerNicknameElement.style.display = 'block';
 
     // Memorizza la posizione per il prossimo confronto
@@ -185,13 +185,10 @@ export class UINicknameManager {
       // Memorizza la larghezza per evitare ricalcoli continui che potrebbero causare instabilità
       const elementWidth = element.offsetWidth || 0;
 
-      // Posiziona il nickname centrato orizzontalmente sotto l'NPC
-      const nicknameX = screenX - elementWidth / 2;
-      const nicknameY = screenY + 45; // Sotto l'NPC
-
-      element.style.left = `${nicknameX}px`;
-      element.style.top = `${nicknameY}px`;
-      element.style.transform = 'none';
+      // Posiziona il nickname centrato orizzontalmente usando trasformazione CSS
+      element.style.left = `${screenX}px`;
+      element.style.top = `${screenY + 45}px`;
+      element.style.transform = 'translateX(-50%)';
       element.style.display = 'block';
 
       // Memorizza la posizione per il prossimo confronto
@@ -269,11 +266,13 @@ export class UINicknameManager {
     const iconPath = RankIconMapper.getRankIconPath(rankName);
 
     element.innerHTML = `
-      <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
-        <div style="position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 10px; width: 28px; height: 18px; display: flex; align-items: center; justify-content: center;">
+      <div style="position: relative; display: inline-block;">
+        <!-- Container Rank Icon (Assoluto a sinistra, non influisce sul centro del nickname) -->
+        <div style="position: absolute; right: 100%; top: 50%; transform: translateY(-50%); margin-right: 12px; width: 28px; height: 18px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
           <img src="${iconPath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));" />
         </div>
-        <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 5px rgba(0,0,0,0.9); letter-spacing: 0.5px;">${nickname}</div>
+        <!-- Nickname (Sarà il punto centrale del transform: translateX(-50%)) -->
+        <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 5px rgba(0,0,0,0.9); letter-spacing: 0.5px; white-space: nowrap;">${nickname}</div>
       </div>
     `;
   }
@@ -296,13 +295,10 @@ export class UINicknameManager {
         return;
       }
 
-      // Posiziona il nickname centrato orizzontalmente sotto il remote player
-      const nicknameX = screenX - element.offsetWidth / 2;
-      const nicknameY = screenY + 80; // Sotto il remote player (Offset unificato)
-
-      element.style.left = `${nicknameX}px`;
-      element.style.top = `${nicknameY}px`;
-      element.style.transform = 'none';
+      // Posiziona il nickname centrato orizzontalmente usando trasformazione CSS
+      element.style.left = `${screenX}px`;
+      element.style.top = `${screenY + 80}px`;
+      element.style.transform = 'translateX(-50%)';
       element.style.display = 'block';
 
       // Memorizza la posizione per il prossimo confronto

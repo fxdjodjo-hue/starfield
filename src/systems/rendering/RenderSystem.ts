@@ -687,7 +687,7 @@ export class RenderSystem extends BaseSystem {
 
         // Render health/shield bars con fade quando l'animazione zoom è completata
         const isZoomAnimating = this.cameraSystem.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
-        if (!isZoomAnimating && (components.health || components.shield)) {
+        if (!isZoomAnimating && (components.health || components.shield) && isVisible) {
           // Inizia il fade quando l'animazione è appena completata
           if (this.healthBarsFadeStartTime === null) {
             this.healthBarsFadeStartTime = Date.now();
