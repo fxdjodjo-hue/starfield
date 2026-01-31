@@ -5,6 +5,8 @@ import { RewardSystem } from '../../../systems/rewards/RewardSystem';
 import { DeathPopupManager } from '../../../presentation/ui/managers/death/DeathPopupManager';
 import { Npc } from '../../../entities/ai/Npc';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
+import { Sprite } from '../../../entities/Sprite';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 
 /**
  * Gestisce la distruzione delle entità (NPC o giocatori morti)
@@ -86,6 +88,18 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
         // DISABILITA SUBITO L'INPUT per evitare "navi zombie" durante l'esplosione
         networkSystem.setPlayerInputEnabled(false);
         networkSystem.forceStopPlayerMovement();
+
+        // NASCONDI LA NAVE durante l'esplosione
+        if (ecs) {
+          const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+          if (playerEntity) {
+            const sprite = ecs.getComponent(playerEntity, Sprite) as any;
+            if (sprite) sprite.visible = false;
+
+            const animatedSprite = ecs.getComponent(playerEntity, AnimatedSprite) as any;
+            if (animatedSprite) animatedSprite.visible = false;
+          }
+        }
 
         // Player locale morto - mostra popup respawn con ritardo per far vedere l'esplosione
         if (this.deathPopupManager) {

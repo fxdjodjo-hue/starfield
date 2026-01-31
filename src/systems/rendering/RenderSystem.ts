@@ -223,6 +223,14 @@ export class RenderSystem extends BaseSystem {
       return;
     }
 
+    // GESTIONE VISIBILITA COMPONENTI (SPRITE/ANIMATED)
+    if (components.sprite && (components.sprite as any).visible === false) {
+      return;
+    }
+    if (components.animatedSprite && (components.animatedSprite as any).visible === false) {
+      return;
+    }
+
     const shouldApplyAlpha = visualState && visualState.alpha < 1.0;
     if (shouldApplyAlpha) {
       ctx.save();
@@ -641,11 +649,14 @@ export class RenderSystem extends BaseSystem {
         const { width, height } = this.displayManager.getLogicalSize();
         // Use smoothed transform for screen projection
         const screenPos = ScreenSpace.toScreen(smoothedTransform as Transform, camera, width, height);
-        const components = this.getCachedComponents(playerEntity);
 
         // Render engine flames BEFORE player ship (behind in z-order)
         const playerVelocity = this.ecs.getComponent(playerEntity, Velocity);
-        if (playerVelocity && this.engflamesSprite && this.engflamesOpacity > 0) {
+        const components = this.getCachedComponents(playerEntity);
+        const isVisible = (components.sprite && (components.sprite as any).visible !== false) ||
+          (components.animatedSprite && (components.animatedSprite as any).visible !== false);
+
+        if (playerVelocity && this.engflamesSprite && this.engflamesOpacity > 0 && isVisible) {
           const isMoving = Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.y) > 0.1;
           if (isMoving) {
             const params = EngineFlamesRenderer.getRenderParams(

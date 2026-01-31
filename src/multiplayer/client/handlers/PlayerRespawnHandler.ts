@@ -3,6 +3,8 @@ import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { DeathPopupManager } from '../../../presentation/ui/managers/death/DeathPopupManager';
 import { Transform } from '../../../entities/spatial/Transform';
+import { Sprite } from '../../../entities/Sprite';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { RespawnSystem } from '../../../core/domain/RespawnSystem';
 import { PlayerPositionTracker } from '../managers/PlayerPositionTracker';
 
@@ -86,6 +88,16 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
                   maxShield: maxShield
                 };
                 uiSystem.updatePlayerData(updatedData);
+              }
+
+              // RENDI IL PLAYER DI NUOVO VISIBILE dopo il respawn
+              const playerEntity = playerSystem.getPlayerEntity();
+              if (playerEntity) {
+                const sprite = ecs.getComponent(playerEntity, Sprite) as any;
+                if (sprite) sprite.visible = true;
+
+                const animatedSprite = ecs.getComponent(playerEntity, AnimatedSprite) as any;
+                if (animatedSprite) animatedSprite.visible = true;
               }
 
               // 🌟 FADE IN (Ritorna la luce dopo il respawn)

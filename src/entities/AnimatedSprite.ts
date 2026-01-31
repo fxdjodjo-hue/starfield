@@ -32,6 +32,7 @@ export class AnimatedSprite {
   public scale: number;
   public offsetX: number;
   public offsetY: number;
+  public visible: boolean = true;
 
   constructor(
     spritesheet: SpritesheetData,
