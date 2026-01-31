@@ -13,6 +13,8 @@ export class AuthStateManager {
   private readonly renderAuthForm: (() => void) | null;
   private readonly showDiscordIcon?: () => void;
   private readonly hideDiscordIcon?: () => void;
+  private readonly showLogo?: () => void;
+  private readonly hideLogo?: () => void;
 
   constructor(
     container: HTMLElement,
@@ -20,7 +22,9 @@ export class AuthStateManager {
     authContainer: HTMLElement,
     renderAuthForm: (() => void) | null,
     showDiscordIcon?: () => void,
-    hideDiscordIcon?: () => void
+    hideDiscordIcon?: () => void,
+    showLogo?: () => void,
+    hideLogo?: () => void
   ) {
     this.container = container;
     this.loadingContainer = loadingContainer;
@@ -28,6 +32,8 @@ export class AuthStateManager {
     this.renderAuthForm = renderAuthForm;
     this.showDiscordIcon = showDiscordIcon;
     this.hideDiscordIcon = hideDiscordIcon;
+    this.showLogo = showLogo;
+    this.hideLogo = hideLogo;
   }
 
   /**
@@ -42,7 +48,7 @@ export class AuthStateManager {
    * Aggiorna l'interfaccia in base allo stato corrente
    */
   private updateUI(): void {
-    
+
     // Nascondi tutti i container
     this.loadingContainer.style.display = 'none';
     this.authContainer.style.display = 'none';
@@ -51,18 +57,24 @@ export class AuthStateManager {
     switch (this.currentState) {
       case AuthState.LOADING:
         this.loadingContainer.style.display = 'flex';
-        // Nascondi icona Discord durante il caricamento
+        // Nascondi icona Discord e logo durante il caricamento
         if (this.hideDiscordIcon) {
           this.hideDiscordIcon();
+        }
+        if (this.hideLogo) {
+          this.hideLogo();
         }
         break;
       case AuthState.LOGIN:
       case AuthState.REGISTER:
       case AuthState.FORGOT_PASSWORD:
         this.authContainer.style.display = 'flex';
-        // Mostra icona Discord solo durante login/register
+        // Mostra icona Discord e logo durante login/register
         if (this.showDiscordIcon) {
           this.showDiscordIcon();
+        }
+        if (this.showLogo) {
+          this.showLogo();
         }
         if (this.renderAuthForm) {
           this.renderAuthForm();
@@ -71,13 +83,16 @@ export class AuthStateManager {
       case AuthState.VERIFIED:
         // Giocatore autenticato, nascondi tutto
         this.container.style.display = 'none';
-        // Nascondi icona Discord quando autenticato
+        // Nascondi icona Discord e logo quando autenticato
         if (this.hideDiscordIcon) {
           this.hideDiscordIcon();
         }
+        if (this.hideLogo) {
+          this.hideLogo();
+        }
         break;
     }
-    
+
   }
 
   /**
@@ -115,3 +130,4 @@ export class AuthStateManager {
     this.justLoggedIn = loggedIn;
   }
 }
+

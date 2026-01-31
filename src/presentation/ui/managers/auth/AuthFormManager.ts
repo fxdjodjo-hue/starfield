@@ -41,28 +41,21 @@ export class AuthFormManager {
     this.authContainer.innerHTML = '';
     this.feedbackElement = undefined;
 
-    // Card principale - elegante e trasparente
+    // Form container - trasparente, flotta sul video
     const formContainer = document.createElement('div');
     formContainer.className = 'auth-form-card';
     formContainer.style.cssText = `
-      background: rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(24px) saturate(160%);
-      -webkit-backdrop-filter: blur(24px) saturate(160%);
+      background: transparent;
       padding: 48px 40px;
-      border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      box-shadow: 
-        0 15px 50px rgba(0, 0, 0, 0.6),
-        inset 0 1px 1px rgba(255, 255, 255, 0.05);
       min-width: 320px;
-      max-width: 420px;
+      max-width: 380px;
       width: 100%;
       display: flex;
       flex-direction: column;
       align-items: stretch;
       position: relative;
       opacity: 0;
-      transform: translateY(20px) scale(0.98);
+      transform: translateY(20px);
       animation: cardAppear 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
     `;
 
@@ -70,32 +63,49 @@ export class AuthFormManager {
     const title = document.createElement('h2');
     title.style.cssText = `
       color: rgba(255, 255, 255, 0.95);
-      font-size: 28px;
+      font-size: 24px;
       margin: 0 0 8px 0;
       text-align: center;
-      font-weight: 300;
-      letter-spacing: 2px;
+      font-weight: 900;
+      letter-spacing: 4px;
     `;
 
     // Sottotitolo
     const subtitle = document.createElement('p');
     subtitle.style.cssText = `
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 13px;
+      color: rgba(255, 255, 255, 0.4);
+      font-size: 11px;
       margin: 0 0 32px 0;
       text-align: center;
-      font-weight: 300;
-      letter-spacing: 0.5px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
     `;
 
     const currentState = this.getCurrentState();
 
     if (currentState === AuthState.LOGIN) {
-      title.textContent = 'LOGIN';
-      subtitle.textContent = 'Welcome back';
+      // Logo only
+      const logoContainer = document.createElement('div');
+      logoContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 32px;
+      `;
 
-      formContainer.appendChild(title);
-      formContainer.appendChild(subtitle);
+      const logo = document.createElement('img');
+      logo.src = 'assets/logo/starspacelogo.png';
+      logo.alt = 'Starspace';
+      logo.style.cssText = `
+        width: 140px;
+        height: auto;
+        filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
+      `;
+
+      logoContainer.appendChild(logo);
+
+      formContainer.appendChild(logoContainer);
       formContainer.appendChild(this.createLoginForm());
 
       // Link per registrazione
@@ -130,11 +140,27 @@ export class AuthFormManager {
       }, 100);
 
     } else if (currentState === AuthState.REGISTER) {
-      title.textContent = 'REGISTER';
-      subtitle.textContent = 'Create your account';
+      // Logo only
+      const logoContainer = document.createElement('div');
+      logoContainer.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 32px;
+      `;
 
-      formContainer.appendChild(title);
-      formContainer.appendChild(subtitle);
+      const logo = document.createElement('img');
+      logo.src = 'assets/logo/starspacelogo.png';
+      logo.alt = 'Starspace';
+      logo.style.cssText = `
+        width: 140px;
+        height: auto;
+        filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.2));
+      `;
+
+      logoContainer.appendChild(logo);
+
+      formContainer.appendChild(logoContainer);
       formContainer.appendChild(this.createRegisterForm());
 
       // Link per login
@@ -313,7 +339,7 @@ export class AuthFormManager {
     this.feedbackElement = document.createElement('div');
     this.feedbackElement.className = 'auth-feedback-message';
     this.feedbackElement.style.cssText = `
-      font-size: 13px;
+      font-size: 12px;
       margin: -20px 0 20px 0;
       padding: 12px;
       text-align: center;
@@ -321,7 +347,7 @@ export class AuthFormManager {
       transform: translateY(-10px);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       min-height: 0;
-      border-radius: 10px;
+      border-radius: 2px;
     `;
 
     // Pulsante login - moderno e animato
@@ -465,7 +491,7 @@ export class AuthFormManager {
     this.feedbackElement = document.createElement('div');
     this.feedbackElement.className = 'auth-feedback-message';
     this.feedbackElement.style.cssText = `
-      font-size: 13px;
+      font-size: 12px;
       margin: -20px 0 20px 0;
       padding: 12px;
       text-align: center;
@@ -473,7 +499,7 @@ export class AuthFormManager {
       transform: translateY(-10px);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       min-height: 0;
-      border-radius: 10px;
+      border-radius: 2px;
     `;
 
     // Pulsante register
@@ -519,19 +545,19 @@ export class AuthFormManager {
     return `
       width: 100%;
       padding: 16px 20px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      background: rgba(0, 0, 0, 0.2);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       color: #ffffff;
-      font-size: 15px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      font-weight: 300;
+      font-size: 14px;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      font-weight: 400;
       box-sizing: border-box;
       outline: none;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     `;
   }
 
@@ -542,20 +568,20 @@ export class AuthFormManager {
     return `
       width: 100%;
       padding: 16px 30px;
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
       color: #ffffff;
-      font-size: 14px;
-      font-weight: 500;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      font-weight: 800;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
       cursor: pointer;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      letter-spacing: 1.5px;
+      letter-spacing: 2px;
       text-transform: uppercase;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
       position: relative;
       overflow: hidden;
       display: flex;
@@ -569,8 +595,8 @@ export class AuthFormManager {
    * Gestisce focus su input
    */
   private handleInputFocus(input: HTMLInputElement): void {
-    input.style.borderColor = 'rgba(255, 255, 255, 0.3)';
-    input.style.background = 'rgba(255, 255, 255, 0.06)';
+    input.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+    input.style.background = 'rgba(0, 0, 0, 0.4)';
     input.style.transform = 'scale(1.01)';
   }
 
@@ -578,8 +604,8 @@ export class AuthFormManager {
    * Gestisce blur su input
    */
   private handleInputBlur(input: HTMLInputElement): void {
-    input.style.borderColor = 'rgba(255, 255, 255, 0.1)';
-    input.style.background = 'rgba(255, 255, 255, 0.04)';
+    input.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+    input.style.background = 'rgba(0, 0, 0, 0.3)';
     input.style.transform = 'scale(1)';
   }
 
@@ -592,8 +618,8 @@ export class AuthFormManager {
       if (!this.isProcessing()) {
         button.style.transform = 'translateY(-2px) scale(1.01)';
         button.style.boxShadow = '0 6px 20px rgba(0, 0, 0, 0.3)';
-        button.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-        button.style.background = 'rgba(255, 255, 255, 0.12)';
+        button.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+        button.style.background = 'rgba(255, 255, 255, 0.08)';
       }
     });
 
@@ -601,8 +627,8 @@ export class AuthFormManager {
       if (!this.isProcessing()) {
         button.style.transform = 'translateY(0) scale(1)';
         button.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.2)';
-        button.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-        button.style.background = 'rgba(255, 255, 255, 0.08)';
+        button.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+        button.style.background = 'rgba(255, 255, 255, 0.05)';
       }
     });
 

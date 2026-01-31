@@ -12,8 +12,7 @@ export class AuthUIRenderer {
   private versionElement!: HTMLDivElement;
   private statusElement!: HTMLDivElement;
   private discordIcon!: DiscordIcon;
-  private stars: HTMLDivElement[] = [];
-  private animationFrameId?: number;
+  private videoBackground?: HTMLVideoElement;
 
   /**
    * Crea l'interfaccia utente
@@ -41,7 +40,7 @@ export class AuthUIRenderer {
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       z-index: 1000;
       padding: 20px;
       box-sizing: border-box;
@@ -154,8 +153,8 @@ export class AuthUIRenderer {
     this.versionElement.style.opacity = '0';
     this.versionElement.style.animation = 'fadeIn 1s ease-out 1.5s both';
 
-    // Crea stelle animate
-    this.createStarsBackground();
+    // Crea video background
+    this.createVideoBackground();
 
     // Assembla tutto
     this.container.appendChild(this.loadingContainer);
@@ -167,9 +166,6 @@ export class AuthUIRenderer {
 
     // Crea icona Discord (non mostrata subito, solo durante login)
     this.discordIcon = new DiscordIcon('https://discord.gg/eCa927g2mm');
-
-    // Avvia animazione stelle
-    this.animateStars();
 
     return {
       container: this.container,
@@ -319,67 +315,56 @@ export class AuthUIRenderer {
   }
 
   /**
-   * Crea stelle animate per effetto spaziale
+   * Crea video background con crossfade seamless sul loop
    */
-  createStarsBackground(): void {
-    const starCount = 80;
-    const sizes = ['small', 'medium', 'large'];
-
-    for (let i = 0; i < starCount; i++) {
-      const star = document.createElement('div');
-      const sizeClass = sizes[Math.floor(Math.random() * sizes.length)];
-      star.className = `star-particle ${sizeClass}`;
-
-      // Posizione casuale
-      const x = Math.random() * 100;
-      const y = Math.random() * 100;
-
-      // Velocità e delay casuali per movimento fluido
-      const duration = 8 + Math.random() * 12; // 8-20s
-      const delay = Math.random() * 4;
-      const floatDelay = Math.random() * 2;
-
-      star.style.cssText = `
-        left: ${x}%;
-        top: ${y}%;
-        animation: starTwinkle ${duration}s ease-in-out infinite,
-                   starFloat ${duration * 1.5}s ease-in-out infinite;
-        animation-delay: ${delay}s, ${floatDelay}s;
-      `;
-
-      this.container.appendChild(star);
-      this.stars.push(star);
-    }
-  }
-
   /**
-   * Anima le stelle con movimento continuo
+   * Crea video background con overlay per profondità
    */
-  private animateStars(): void {
-    let lastTime = performance.now();
+  private createVideoBackground(): void {
+    // 1. Il Video
+    this.videoBackground = document.createElement('video');
+    this.videoBackground.src = './assets/login/bg.mp4';
+    this.videoBackground.autoplay = true;
+    this.videoBackground.loop = true; // Native loop for reliability
+    this.videoBackground.muted = true;
+    this.videoBackground.playsInline = true;
+    this.videoBackground.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0; /* Start hidden for fade-in */
+      transition: opacity 2s ease-out;
+    `;
 
-    const animate = (currentTime: number) => {
-      const delta = currentTime - lastTime;
-      lastTime = currentTime;
+    // Insert video element
+    this.container.insertBefore(this.videoBackground, this.container.firstChild);
 
-      // Movimento lento e continuo delle stelle
-      this.stars.forEach((star, index) => {
-        const speed = 0.0001 + (index % 3) * 0.00005;
-        const currentLeft = parseFloat(star.style.left) || 0;
-        const currentTop = parseFloat(star.style.top) || 0;
+    // Fade in video once ready
+    this.videoBackground.addEventListener('canplay', () => {
+      if (this.videoBackground) {
+        console.log('[AuthUI] Video canplay - fading in');
+        this.videoBackground.style.opacity = '1';
+        this.videoBackground.play().catch(e => console.warn('Auto-play blocked:', e));
+      }
+    });
 
-        // Movimento orbitale lento
-        const newLeft = (currentLeft + speed * delta) % 100;
-        const newTop = (currentTop + speed * delta * 0.5) % 100;
+    // Debug: log video loading errors
+    this.videoBackground.addEventListener('error', (e) => {
+      console.error('[AuthUI] Video load error:', e);
+      console.error('[AuthUI] Video src:', this.videoBackground?.src);
+      console.error('[AuthUI] Video error code:', this.videoBackground?.error?.code);
+      console.error('[AuthUI] Video error message:', this.videoBackground?.error?.message);
+    });
 
-        star.style.left = `${newLeft}%`;
-        star.style.top = `${newTop}%`;
-      });
-
-      this.animationFrameId = requestAnimationFrame(animate);
-    };
-
-    this.animationFrameId = requestAnimationFrame(animate);
+    // Force loaded check in case event already fired
+    if (this.videoBackground.readyState >= 3) {
+      this.videoBackground.style.opacity = '1';
+    }
   }
 
   /**
@@ -401,6 +386,20 @@ export class AuthUIRenderer {
   }
 
   /**
+   * Mostra il logo del gioco (no-op: logo è ora dentro il form card)
+   */
+  showLogo(): void {
+    // Logo is now rendered inside form card by AuthFormManager
+  }
+
+  /**
+   * Nasconde il logo del gioco (no-op: logo è ora dentro il form card)
+   */
+  hideLogo(): void {
+    // Logo is now rendered inside form card by AuthFormManager
+  }
+
+  /**
    * Nasconde il DiscordIcon (metodo legacy per compatibilità)
    */
   hide(): void {
@@ -408,11 +407,12 @@ export class AuthUIRenderer {
   }
 
   /**
-   * Pulisce le animazioni quando il componente viene distrutto
+   * Pulisce quando il componente viene distrutto
    */
   destroy(): void {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
+    if (this.videoBackground) {
+      this.videoBackground.pause();
+      this.videoBackground.src = '';
     }
     if (this.discordIcon) {
       this.discordIcon.destroy();
