@@ -2,6 +2,8 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { RepairEffect } from '../../entities/combat/RepairEffect';
 import { Transform } from '../../entities/spatial/Transform';
+import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 
 /**
  * Sistema di gestione degli effetti di riparazione
@@ -26,8 +28,25 @@ export class RepairEffectSystem extends BaseSystem {
 
         // Aggiorna la posizione dell'effetto per seguire il target (player)
         const effectTransform = this.ecs.getComponent(entity, Transform);
-        const targetEntity = this.ecs.getEntity(repairEffect.targetEntityId);
-        
+        const targetEntityId = repairEffect.targetEntityId;
+        const targetEntity = this.ecs.getEntity(targetEntityId);
+
+        // 🚀 SICUREZZA: Rimuovi l'effetto se il target non esiste più o è invisibile (morto/esploso)
+        let shouldCleanup = !targetEntity;
+
+        if (targetEntity) {
+          const sprite = this.ecs.getComponent(targetEntity, Sprite) as any;
+          const animSprite = this.ecs.getComponent(targetEntity, AnimatedSprite) as any;
+          if ((sprite && sprite.visible === false) || (animSprite && animSprite.visible === false)) {
+            shouldCleanup = true;
+          }
+        }
+
+        if (shouldCleanup) {
+          this.ecs.removeEntity(entity);
+          continue;
+        }
+
         if (effectTransform && targetEntity) {
           const targetTransform = this.ecs.getComponent(targetEntity, Transform);
           if (targetTransform) {

@@ -157,10 +157,20 @@ export class WelcomeHandler extends BaseMessageHandler {
       const mapId = message.mapId || 'palantir';
       const ecs = networkSystem.getECS();
       if (ecs) {
-        // Se mapId è specificato, ricarica background ed entità specifiche
-        // (Altrimenti sono già caricate dal setup iniziale del gioco)
         console.log(`[WELCOME] Initializing map entities for: ${mapId}`);
         networkSystem.gameContext.currentMapId = mapId;
+
+        // 🗺️ UPDATE MINIMAP: Sincronizza il nome della mappa nella minimappa
+        const minimapSystem = networkSystem.getMinimapSystem();
+        if (minimapSystem && typeof minimapSystem.updateMapData === 'function') {
+          // Dimensioni fallback standard 21000x13100 se non specificate
+          minimapSystem.updateMapData(mapId, 21000, 13100);
+        }
+
+        // 🖥️ UPDATE UI INDICATOR: Aggiorna l'indicatore testuale della mappa
+        if (uiSystem && typeof uiSystem.updateMapIndicator === 'function') {
+          uiSystem.updateMapIndicator(mapId);
+        }
 
         // 🧼 CLEANUP: Rimuovi le entità caricate di default per evitare duplicati
         EntityFactory.cleanupMapEntities(ecs);

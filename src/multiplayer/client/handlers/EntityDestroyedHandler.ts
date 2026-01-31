@@ -7,6 +7,7 @@ import { Npc } from '../../../entities/ai/Npc';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Sprite } from '../../../entities/Sprite';
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
+import { RepairEffect } from '../../../entities/combat/RepairEffect';
 
 /**
  * Gestisce la distruzione delle entità (NPC o giocatori morti)
@@ -34,6 +35,7 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    const ecs = networkSystem.getECS();
 
     if (message.entityType === 'npc') {
       // NPC distrutto - NON assegnare ricompense qui (fatto in PlayerStateUpdateHandler)
@@ -67,6 +69,11 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
 
         questTrackingSystem.triggerEvent(event);
       }
+
+      // 🚀 PULIZIA EFFETTI RIPARAZIONE: se l'NPC muore, ferma gli effetti visivi
+      if (ecs) {
+        this.cleanupRepairEffects(ecs, message.entityId);
+      }
     } else if (message.entityType === 'player') {
       // Verifica se è il player locale
       const localClientId = networkSystem.getLocalClientId();
@@ -98,6 +105,11 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
 
             const animatedSprite = ecs.getComponent(playerEntity, AnimatedSprite) as any;
             if (animatedSprite) animatedSprite.visible = false;
+
+            // 🚀 PULIZIA EFFETTI RIPARAZIONE: se moriamo, fermiamo gli effetti visivi
+            if (ecs) {
+              this.cleanupRepairEffects(ecs, playerEntity.id);
+            }
           }
         }
 
@@ -145,6 +157,11 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
         const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
         if (remotePlayerSystem) {
           remotePlayerSystem.removeRemotePlayer(entityIdStr);
+        }
+
+        // 🚀 PULIZIA EFFETTI RIPARAZIONE: se il player remoto muore, ferma gli effetti visivi
+        if (ecs) {
+          this.cleanupRepairEffects(ecs, message.entityId);
         }
       }
     }
@@ -207,5 +224,52 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
   private extractNpcTypeFromMessage(message: any): string {
     // Il server ora include npcType direttamente nel messaggio
     return message.npcType || 'Scouter'; // Fallback a Scouter se non presente
+  }
+
+  /**
+   * Rimuove tutti gli effetti di riparazione attivi per un'entità specifica
+   */
+  private cleanupRepairEffects(ecs: any, targetId: any): void {
+    if (!ecs || !targetId) return;
+
+    // Id target può essere string o number a seconda del messaggio
+    const idToMatch = targetId.toString();
+
+    const repairEffectEntities = ecs.getEntitiesWithComponents(RepairEffect);
+    for (const entity of repairEffectEntities) {
+      const repairEffect = ecs.getComponent(entity, RepairEffect);
+      if (repairEffect) {
+        // Verifica corrispondenza ID
+        // Alcune entità hanno serverId (string), altre id (number)
+        const effectTargetId = repairEffect.targetEntityId;
+
+        // Se l'Id dell'entità target in ECS corrisponde all'ID distruttore
+        const targetEntityInEcs = ecs.getEntity(effectTargetId);
+        if (targetEntityInEcs) {
+          // Controlla se l'entità target in ECS è quella che stiamo distruggendo
+          // Dobbiamo verificare se il suo serverId (se NPC/Remote) o il suo Id (se local) matchano
+          if (targetEntityInEcs.id.toString() === idToMatch) {
+            ecs.removeEntity(entity);
+            continue;
+          }
+
+          // Fallback check per Npc/RemotePlayer components
+          const npc = ecs.getComponent(targetEntityInEcs, Npc);
+          if (npc && npc.serverId === idToMatch) {
+            ecs.removeEntity(entity);
+            continue;
+          }
+
+          // Import per RemotePlayer se necessario, ma di solito targetEntityId è l'id ECS
+          // Se targetEntityId === idToMatch (number strings) should be enough
+          if (effectTargetId.toString() === idToMatch) {
+            ecs.removeEntity(entity);
+          }
+        } else if (effectTargetId.toString() === idToMatch) {
+          // Se l'entità non c'è più ma l'ID matchava comunque
+          ecs.removeEntity(entity);
+        }
+      }
+    }
   }
 }

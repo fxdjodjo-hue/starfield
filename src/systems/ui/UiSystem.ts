@@ -629,12 +629,24 @@ export class UiSystem extends System {
   /**
    * Converte l'ID della mappa in un nome display leggibile
    */
-  private getMapDisplayName(mapId: string): string {
+  public getMapDisplayName(mapId: string): string {
     const mapNames: Record<string, string> = {
       'palantir': 'PALANTIR',
       'singularity': 'SINGULARITY'
     };
     return mapNames[mapId] || mapId.toUpperCase();
+  }
+
+  /**
+   * Aggiorna l'indicatore della mappa (senza animazioni di transizione)
+   */
+  public updateMapIndicator(mapId: string): void {
+    const displayName = this.getMapDisplayName(mapId);
+    const mapNameElement = document.getElementById('map-name-indicator');
+    if (mapNameElement) {
+      mapNameElement.textContent = displayName;
+    }
+    console.log(`[UiSystem] Map indicator updated to: ${displayName}`);
   }
 
   /**

@@ -7,6 +7,7 @@ import { Sprite } from '../../../entities/Sprite';
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { RespawnSystem } from '../../../core/domain/RespawnSystem';
 import { PlayerPositionTracker } from '../managers/PlayerPositionTracker';
+import { DisplayManager } from '../../../infrastructure/display/DisplayManager';
 
 /**
  * Handles player_respawn messages from the server
@@ -41,6 +42,13 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
         const playerEntity = playerSystem.getPlayerEntity();
 
         if (playerEntity) {
+          // RENDI IL PLAYER DI NUOVO VISIBILE IMMEDIATAMENTE (Cruciale per nickname e rendering)
+          const sprite = ecs.getComponent(playerEntity, Sprite) as any;
+          if (sprite) sprite.visible = true;
+
+          const animatedSprite = ecs.getComponent(playerEntity, AnimatedSprite) as any;
+          if (animatedSprite) animatedSprite.visible = true;
+
           // Usa RespawnSystem per gestire il respawn completo
           RespawnSystem.respawnEntity(playerEntity, {
             position: { x: position.x, y: position.y },
@@ -50,8 +58,6 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
             maxShield: maxShield   // Valore massimo
           }, ecs); // Passa l'ECS per aggiornare i componenti
 
-          // INVALIDA IL CACHE DELLA POSIZIONE DEL PLAYER NEL POSITION TRACKER
-          // Questo è CRITICO per forzare il refresh della posizione dopo il respawn
           try {
             // FERMA SUBITO IL COMBATTIMENTO quando il player respawna per evitare stati inconsistenti
             const combatSystem = ecs.getSystems().find((system: any) =>
@@ -90,14 +96,13 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
                 uiSystem.updatePlayerData(updatedData);
               }
 
-              // RENDI IL PLAYER DI NUOVO VISIBILE dopo il respawn
-              const playerEntity = playerSystem.getPlayerEntity();
-              if (playerEntity) {
-                const sprite = ecs.getComponent(playerEntity, Sprite) as any;
-                if (sprite) sprite.visible = true;
-
-                const animatedSprite = ecs.getComponent(playerEntity, AnimatedSprite) as any;
-                if (animatedSprite) animatedSprite.visible = true;
+              // Forza aggiornamento nickname nel caso lo stato isVisible faticasse a sincronizzarsi
+              if (typeof (uiSystem as any).updatePlayerNicknamePosition === 'function') {
+                const camera = cameraSystem?.getCamera();
+                const canvasSize = DisplayManager.getInstance().getLogicalSize();
+                if (camera && canvasSize) {
+                  (uiSystem as any).updatePlayerNicknamePosition(position.x, position.y, camera, canvasSize, false, true);
+                }
               }
 
               // 🌟 FADE IN (Ritorna la luce dopo il respawn)
@@ -128,11 +133,7 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
       const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
       if (remotePlayerSystem) {
         // 🚀 FIX: Usa updatePlayerPosition per aggiornamento immediato
-        // Questo forza la posizione immediata senza l'effetto "volo" (interpolazione)
-        // dalla posizione di morte allo spawn.
         remotePlayerSystem.updatePlayerPosition(clientId, position.x, position.y, 0);
-
-        // Note: health/shield updates for remote players are handled via regular state sync
       }
     }
   }

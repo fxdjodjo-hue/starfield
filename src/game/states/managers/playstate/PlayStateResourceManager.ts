@@ -11,6 +11,7 @@ import { AnimatedSprite } from '../../../../entities/AnimatedSprite';
 import { Npc } from '../../../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
 import { PlayerRole } from '../../../../entities/player/PlayerRole';
+import { Health } from '../../../../entities/combat/Health';
 import { RenderSystem } from '../../../../systems/rendering/RenderSystem';
 
 /**
@@ -81,6 +82,10 @@ export class PlayStateResourceManager {
     const uiSystem = this.getUiSystem();
     if (!uiSystem) return;
 
+    // AUTO-RECOVERY: Se pensiamo di aver creato il nickname ma l'elemento è sparito (es. dopo cambio mappa o bug)
+    // l'UiSystem dovrebbe idealmente dirci se l'elemento esiste. 
+    // Per ora, se siamo qui e nicknameCreated è true, confidiamo nell'updatePosition che internamente controlla l'esistenza.
+
     // Crea il nickname se non è ancora stato creato (solo una volta)
     if (!this.nicknameCreated) {
       uiSystem.createPlayerNicknameElement(`${nickname}\n[${rank}]`);
@@ -115,8 +120,21 @@ export class PlayStateResourceManager {
     // GESTIONE VISIBILITA NICKNAME
     const sprite = this.world.getECS().getComponent(playerEntity, Sprite);
     const animSprite = this.world.getECS().getComponent(playerEntity, AnimatedSprite);
-    const isVisible = (sprite && (sprite as any).visible !== false) ||
+
+    // Il nickname deve essere visibile se la nave è visibile
+    let isVisible = (sprite && (sprite as any).visible !== false) ||
       (animSprite && (animSprite as any).visible !== false);
+
+    // SICUREZZA: Se il player è vivo (HP > 0) e non siamo in fase di morte, forziamo la visibilità
+    // Questo aiuta se lo stato 'visible' dello sprite dovesse rimanere incastrato
+    const health = this.world.getECS().getComponent(playerEntity, Health) as Health | undefined;
+    if (health && health.current > 0 && !isVisible) {
+      // Se siamo vivi ma invisibili, probabilmente è un residuo del vecchio stato di morte
+      // Ripristiniamo la visibilità
+      if (sprite) (sprite as any).visible = true;
+      if (animSprite) (animSprite as any).visible = true;
+      isVisible = true;
+    }
 
     // Delega all'UiSystem (Aggiunto parametro isVisible)
     if (typeof (uiSystem as any).updatePlayerNicknamePosition === 'function') {

@@ -323,9 +323,9 @@ export class AuthUIRenderer {
   private createVideoBackground(): void {
     // 1. Il Video
     this.videoBackground = document.createElement('video');
-    this.videoBackground.src = './assets/login/bg.mp4';
+    this.videoBackground.src = '/assets/login/bg.mp4'; // Absolute path for Vite compatibility
     this.videoBackground.autoplay = true;
-    this.videoBackground.loop = true; // Native loop for reliability
+    this.videoBackground.loop = true;
     this.videoBackground.muted = true;
     this.videoBackground.playsInline = true;
     this.videoBackground.style.cssText = `
@@ -337,7 +337,7 @@ export class AuthUIRenderer {
       object-fit: cover;
       z-index: 0;
       pointer-events: none;
-      opacity: 0; /* Start hidden for fade-in */
+      opacity: 0; 
       transition: opacity 2s ease-out;
     `;
 
@@ -347,18 +347,19 @@ export class AuthUIRenderer {
     // Fade in video once ready
     this.videoBackground.addEventListener('canplay', () => {
       if (this.videoBackground) {
-        console.log('[AuthUI] Video canplay - fading in');
         this.videoBackground.style.opacity = '1';
         this.videoBackground.play().catch(e => console.warn('Auto-play blocked:', e));
       }
     });
 
-    // Debug: log video loading errors
+    // Debug: log video loading errors (but only if not destroying)
     this.videoBackground.addEventListener('error', (e) => {
-      console.error('[AuthUI] Video load error:', e);
-      console.error('[AuthUI] Video src:', this.videoBackground?.src);
-      console.error('[AuthUI] Video error code:', this.videoBackground?.error?.code);
-      console.error('[AuthUI] Video error message:', this.videoBackground?.error?.message);
+      if (this.videoBackground && this.videoBackground.src !== window.location.href && this.videoBackground.src !== '') {
+        console.error('[AuthUI] Video load error:', e);
+        console.error('[AuthUI] Video src:', this.videoBackground?.src);
+        console.error('[AuthUI] Video error code:', this.videoBackground?.error?.code);
+        console.error('[AuthUI] Video error message:', this.videoBackground?.error?.message);
+      }
     });
 
     // Force loaded check in case event already fired

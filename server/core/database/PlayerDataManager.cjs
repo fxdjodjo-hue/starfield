@@ -236,6 +236,21 @@ class PlayerDataManager {
           return null;
         })(),
         rank: playerDataRaw.current_rank_name || 'Basic Space Pilot',
+        stats: (() => {
+          try {
+            const stats = playerDataRaw.stats_data ? JSON.parse(playerDataRaw.stats_data) : null;
+            if (stats) {
+              return {
+                kills: Number(stats.kills || 0),
+                deaths: Number(stats.deaths || 0),
+                rankingPoints: Number(stats.ranking_points || stats.rankingPoints || 0)
+              };
+            }
+          } catch (e) {
+            ServerLoggerWrapper.error('DATABASE', `Error parsing stats_data for user ${userId}: ${e.message}`);
+          }
+          return { kills: 0, deaths: 0, rankingPoints: 0 };
+        })(),
         items: (() => {
           try {
             const rawItems = playerDataRaw.items_data ? JSON.parse(playerDataRaw.items_data) : [];
@@ -328,11 +343,11 @@ class PlayerDataManager {
       };
 
       const upgradesData = playerData.upgrades ? {
-        hpUpgrades: playerData.upgrades.hpUpgrades || 0,
-        shieldUpgrades: playerData.upgrades.shieldUpgrades || 0,
-        speedUpgrades: playerData.upgrades.speedUpgrades || 0,
-        damageUpgrades: playerData.upgrades.damageUpgrades || 0,
-        missileDamageUpgrades: playerData.upgrades.missileDamageUpgrades || 0
+        hp_upgrades: playerData.upgrades.hpUpgrades || 0,
+        shield_upgrades: playerData.upgrades.shieldUpgrades || 0,
+        speed_upgrades: playerData.upgrades.speedUpgrades || 0,
+        damage_upgrades: playerData.upgrades.damageUpgrades || 0,
+        missile_damage_upgrades: playerData.upgrades.missileDamageUpgrades || 0
       } : null;
 
       // DATABASE IS SOURCE OF TRUTH: Salva i valori esatti accumulati durante il gameplay
@@ -573,7 +588,18 @@ class PlayerDataManager {
     this.periodicSaveInterval = setInterval(async () => {
       try {
         ServerLoggerWrapper.database('Starting periodic save of all player data...');
-        const players = Array.from(this.mapServer.players.values());
+
+        let players = [];
+        if (this.mapServer.maps) {
+          // Multi-map architecture (MapManager)
+          for (const mapInstance of this.mapServer.maps.values()) {
+            players.push(...Array.from(mapInstance.players.values()));
+          }
+        } else if (this.mapServer.players) {
+          // Single-map architecture (MapServer)
+          players = Array.from(this.mapServer.players.values());
+        }
+
         let savedCount = 0;
         let errorCount = 0;
 
