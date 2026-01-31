@@ -128,6 +128,15 @@ export class QuestSystem extends System {
     return this.questManager;
   }
 
+  /**
+   * Imposta il sistema di rete per la sincronizzazione
+   */
+  setClientNetworkSystem(clientNetworkSystem: any): void {
+    if (this.questManager) {
+      this.questManager.setClientNetworkSystem(clientNetworkSystem);
+    }
+  }
+
   update(deltaTime: number): void {
     // Check for initial data load execution
     if (!this.initialUpdateDone) {

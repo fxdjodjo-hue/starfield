@@ -50,8 +50,12 @@ class WebSocketConnectionManager {
       ServerLoggerWrapper.info('SERVER', 'Shutting down server...');
 
       // Cleanup risorse
-      if (this.mapServer.npcManager) {
-        this.mapServer.npcManager.destroy();
+      if (this.mapManager && this.mapManager.maps) {
+        for (const mapInstance of this.mapManager.maps.values()) {
+          if (mapInstance.npcManager) {
+            mapInstance.npcManager.destroy();
+          }
+        }
       }
 
       this.wss.close();

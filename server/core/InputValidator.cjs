@@ -503,6 +503,10 @@ class ServerInputValidator {
             }
           };
 
+        case 'quest_progress_update':
+          // Valida aggiornamento progresso quest
+          return this.validateQuestProgress(data);
+
         default:
           // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
           return {
@@ -518,6 +522,41 @@ class ServerInputValidator {
         errors: ['Validation system error']
       };
     }
+  }
+
+  /**
+   * Valida update progresso quest
+   */
+  validateQuestProgress(data) {
+    const errors = [];
+
+    if (!data || typeof data !== 'object') {
+      errors.push('Data must be an object');
+      return { isValid: false, errors };
+    }
+
+    if (!data.questId || typeof data.questId !== 'string') {
+      errors.push('Invalid or missing questId');
+    } else if (data.questId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Quest ID too long');
+    }
+
+    if (!Array.isArray(data.objectives)) {
+      errors.push('objectives must be an array');
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    return {
+      isValid: true,
+      errors: [],
+      sanitizedData: {
+        questId: data.questId,
+        objectives: data.objectives
+      }
+    };
   }
 
   /**

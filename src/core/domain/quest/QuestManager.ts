@@ -166,6 +166,12 @@ export class QuestManager {
     return result;
   }
 
+  private clientNetworkSystem: any = null;
+
+  setClientNetworkSystem(networkSystem: any): void {
+    this.clientNetworkSystem = networkSystem;
+  }
+
   /**
    * Salva il progresso della quest nel database
    */
@@ -183,6 +189,17 @@ export class QuestManager {
         is_completed: quest.isCompleted,
         completed_at: quest.isCompleted ? new Date().toISOString() : null
       };
+
+      // 🔄 SYNC SERVER MEMORY VIA WEBSOCKET
+      // This is crucial: the server saves what it has in memory.
+      // We must update the server's in-memory state before it saves to DB.
+      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
+        this.clientNetworkSystem.sendMessage({
+          type: 'quest_progress_update',
+          questId: quest.id,
+          objectives: quest.objectives
+        });
+      }
 
       const result = await gameAPI.updateQuestProgress(this.playerId, quest.id, progress);
       if (result.error) {

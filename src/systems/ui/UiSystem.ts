@@ -242,6 +242,11 @@ export class UiSystem extends System {
     this.initializeManagers(this.ecs, this.questSystem, null, clientNetworkSystem);
     this.panelManager.setClientNetworkSystem(clientNetworkSystem);
     this.chatManager.setClientNetworkSystem(clientNetworkSystem);
+
+    // Inject NetworkSystem into QuestSystem for objective sync
+    if (this.questSystem) {
+      this.questSystem.setClientNetworkSystem(clientNetworkSystem);
+    }
   }
 
   /**

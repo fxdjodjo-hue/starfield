@@ -1343,8 +1343,46 @@ const handlers = {
   equip_item: handleEquipItem,
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest,
-  portal_use: handlePortalUse
+  portal_use: handlePortalUse,
+  quest_progress_update: handleQuestProgressUpdate
 };
+
+/**
+ * Handler per messaggio 'quest_progress_update'
+ * Sincronizza gli obiettivi delle quest dal client al server per permettere il salvataggio corretto
+ */
+function handleQuestProgressUpdate(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer } = context;
+
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const { questId, objectives } = sanitizedData;
+
+  if (!questId || !Array.isArray(objectives)) {
+    logger.warn('QUEST', `Invalid quest update data from ${data.clientId}`);
+    return;
+  }
+
+  // Trova la quest nei dati del player in memoria
+  const quest = playerData.quests ? playerData.quests.find(q =>
+    (q.quest_id === questId || q.id === questId)
+  ) : null;
+
+  if (quest) {
+    // Aggiorna gli obiettivi in memoria
+    quest.objectives = objectives;
+    logger.debug('QUEST', `Updated objectives for quest ${questId} for player ${playerData.nickname}`);
+  } else {
+    // Se la quest non esiste in memoria (es. appena accettata lato client ma non ancora syncata?),
+    // potremmo doverla aggiungere, ma per ora ci concentriamo sull'aggiornamento di obiettivi esistenti.
+    // Le nuove quest dovrebbero essere gestite da 'quest_accept' o ricaricate.
+    // Tuttavia, se il flusso di accettazione è client-side only e poi syncata, dovremmo gestirla qui.
+    // MA: In questo sistema, accettazione quest sembra essere client-side logic + sync.
+    // Se non troviamo la quest, loggiamo warning.
+    logger.warn('QUEST', `Quest ${questId} not found in memory for player ${playerData.nickname} during update`);
+  }
+}
 
 /**
  * Route un messaggio al handler appropriato

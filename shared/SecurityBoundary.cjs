@@ -225,7 +225,8 @@ class BoundaryEnforcement {
       'equp_item',
       'request_leaderboard',
       'equip_item',
-      'portal_use'
+      'portal_use',
+      'quest_progress_update'
     ];
 
     // Controlli specifici per tipo di messaggio
@@ -262,6 +263,8 @@ class BoundaryEnforcement {
       case 'global_monitor_request':
       case 'skill_upgrade_request':
       case 'request_leaderboard':
+      case 'portal_use':
+      case 'quest_progress_update':
         // Messaggi di connessione e sistema permessi
         return { allowed: true };
 
