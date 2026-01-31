@@ -396,7 +396,7 @@ export class UiSystem extends System {
       width: 100%;
       height: 100%;
       background-color: #000;
-      z-index: 998; /* Sotto al safeZoneElement (999) ma sopra tutto il resto */
+      z-index: 20000; /* Sopra a tutto, inclusi death popup (10000) */
       pointer-events: none;
       opacity: 0;
       transition: opacity 0.5s ease-in-out;

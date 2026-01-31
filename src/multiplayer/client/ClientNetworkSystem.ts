@@ -587,6 +587,20 @@ export class ClientNetworkSystem extends BaseSystem {
     }
   }
 
+  /**
+   * Ferma immediatamente ogni movimento del player (usato durante morte)
+   */
+  forceStopPlayerMovement(): void {
+    const systems = this.ecs.getSystems();
+    const playerControlSystem = systems.find((system: any) =>
+      system.constructor.name === 'PlayerControlSystem'
+    ) as any;
+
+    if (playerControlSystem && typeof playerControlSystem.forceStopMovement === 'function') {
+      playerControlSystem.forceStopMovement();
+    }
+  }
+
   sendExplosionCreated(data: {
     explosionId: string;
     entityId: string;
@@ -862,16 +876,26 @@ export class ClientNetworkSystem extends BaseSystem {
    * Richiede il respawn del player al server
    */
   private requestPlayerRespawn(): void {
-    const message = {
-      type: 'player_respawn_request',
-      clientId: this.clientId,
-      playerId: this.gameContext.authId
-    };
+    // 1. Avvia sfumatura a nero prima di rinascere
+    if (this.uiSystem) {
+      if (typeof this.uiSystem.fadeToBlack === 'function') {
+        this.uiSystem.fadeToBlack(500);
+      }
+    }
 
-    this.sendMessage(message);
+    // 2. Aspetta che sia nero (600ms) prima di teletrasportare e mostrare il gioco
+    setTimeout(() => {
+      const message = {
+        type: 'player_respawn_request',
+        clientId: this.clientId,
+        playerId: this.gameContext.authId
+      };
 
-    // Nasconde il popup immediatamente dopo aver inviato la richiesta
-    this.deathPopupManager.hideDeathPopup();
+      this.sendMessage(message);
+
+      // Nasconde il popup dopo che lo schermo è diventato nero
+      this.deathPopupManager.hideDeathPopup();
+    }, 600);
   }
 
   initialize(): Promise<void> {

@@ -76,15 +76,22 @@ export class PlayerRespawnHandler extends BaseMessageHandler {
           // AGGIORNA L'UI CON I NUOVI VALORI HP/SHIELD DOPO RESPAWN
           try {
             const uiSystem = networkSystem.getUiSystem();
-            if (uiSystem && uiSystem.updatePlayerData) {
-              // Passa i valori aggiornati all'HUD
-              const updatedData = {
-                health: health,
-                maxHealth: maxHealth,
-                shield: shield,
-                maxShield: maxShield
-              };
-              uiSystem.updatePlayerData(updatedData);
+            if (uiSystem) {
+              if (uiSystem.updatePlayerData) {
+                // Passa i valori aggiornati all'HUD
+                const updatedData = {
+                  health: health,
+                  maxHealth: maxHealth,
+                  shield: shield,
+                  maxShield: maxShield
+                };
+                uiSystem.updatePlayerData(updatedData);
+              }
+
+              // 🌟 FADE IN (Ritorna la luce dopo il respawn)
+              if (typeof uiSystem.fadeFromBlack === 'function') {
+                uiSystem.fadeFromBlack(1000, 200);
+              }
             }
           } catch (error) {
             console.error('[PlayerRespawnHandler] Error updating UI after respawn:', error);

@@ -83,9 +83,18 @@ export class EntityDestroyedHandler extends BaseMessageHandler {
           }
         }
 
-        // Player locale morto - mostra popup respawn
+        // DISABILITA SUBITO L'INPUT per evitare "navi zombie" durante l'esplosione
+        networkSystem.setPlayerInputEnabled(false);
+        networkSystem.forceStopPlayerMovement();
+
+        // Player locale morto - mostra popup respawn con ritardo per far vedere l'esplosione
         if (this.deathPopupManager) {
-          this.deathPopupManager.showDeathPopup();
+          setTimeout(() => {
+            // Verifica che il manager esista ancora (safety check)
+            if (this.deathPopupManager) {
+              this.deathPopupManager.showDeathPopup();
+            }
+          }, 2000); // 2 secondi di ritardo
         } else {
           console.error('[EntityDestroyedHandler] deathPopupManager is null/undefined!');
         }
