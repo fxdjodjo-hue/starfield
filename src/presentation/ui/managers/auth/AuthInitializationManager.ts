@@ -300,4 +300,18 @@ export class AuthInitializationManager {
   hideDiscordIcon(): void {
     this.uiRenderer.hideDiscordIcon();
   }
+
+  /**
+   * Mostra il logo del gioco
+   */
+  showLogo(): void {
+    this.uiRenderer.showLogo();
+  }
+
+  /**
+   * Nasconde il logo del gioco
+   */
+  hideLogo(): void {
+    this.uiRenderer.hideLogo();
+  }
 }
