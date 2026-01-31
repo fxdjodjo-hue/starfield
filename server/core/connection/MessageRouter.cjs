@@ -1054,6 +1054,47 @@ function handlePlayerRespawnRequest(data, sanitizedData, context) {
     return undefined;
   }
 
+  // 🌍 FIX: Respawn Logic with MAP MIGRATION (Always respawn in 'palantir')
+  const TARGET_MAP_ID = 'palantir';
+
+  // Se siamo nella mappa sbagliata (es. singularity), migriamo il player a palantir
+  if (mapServer.mapId !== TARGET_MAP_ID) {
+    logger.info('RESPAWN', `Player ${data.clientId} died in ${mapServer.mapId}, migrating to ${TARGET_MAP_ID} for respawn`);
+
+    // 1. Revive & Full Heal (Spawn at base bonus)
+    playerData.isDead = false;
+    playerData.respawnTime = null;
+    playerData.health = playerData.maxHealth;
+    playerData.shield = playerData.maxShield;
+
+    // 2. Define Spawn Position (Safe Zone)
+    const spawnPos = {
+      x: 0 + (Math.random() * 400 - 200),
+      y: 0 + (Math.random() * 400 - 200)
+    };
+
+    // 3. Notify Client (Clear Death Screen & Update Stats)
+    const respawnMsg = {
+      type: 'player_respawn',
+      clientId: data.clientId,
+      position: spawnPos,
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield
+    };
+    ws.send(JSON.stringify(respawnMsg));
+
+    // 4. Perform Migration
+    if (context.mapManager) {
+      context.mapManager.migratePlayer(data.clientId, mapServer.mapId, TARGET_MAP_ID, spawnPos);
+      return undefined; // Migration handles the rest
+    } else {
+      logger.error('RESPAWN', `CRITICAL: MapManager missing for cross-map respawn of ${data.clientId}`);
+      // Fallthrough to local respawn as fallback
+    }
+  }
+
   // Respawna il player usando RespawnCoordinator (separazione responsabilità)
   const RespawnCoordinator = require('../RespawnCoordinator.cjs');
   const RespawnSystem = require('../RespawnSystem.cjs');

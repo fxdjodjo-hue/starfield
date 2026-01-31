@@ -120,51 +120,12 @@ export class PlayerMovementManager {
   }
 
   /**
-   * Applies velocity change using Exponential Smoothing (Damping)
-   * This provides a "snappy but smooth" feel: swift initial response, smooth settling.
-   * Eliminates "strange arcs" (Polar) and "rubbery" feel (Linear).
+   * Applies velocity change INSTANTLY (No Inertia)
    */
   private applyVelocityChange(velocity: Velocity, targetVx: number, targetVy: number, deltaTime: number): void {
-    const dt = deltaTime / 1000;
-
-    // Choose sharpness based on whether we are accelerating (input) or Stopping
-    // Check if we have an active target velocity (Moving) or zero (Stopping)
-    const isMoving = Math.abs(targetVx) > 0.1 || Math.abs(targetVy) > 0.1;
-
-    let sharpness = 5.0; // Default fallback
-    const maxSpeed = this.getPlayerSpeed(); // Use actual current max speed (with upgrades)
-
-    if (maxSpeed > 0) {
-      if (isMoving) {
-        // Accelerating / Turning
-        // Interpret config "Acceleration" as response speed scaling
-        sharpness = gameConfig.gameplay.player.acceleration / maxSpeed;
-        sharpness *= 1.5;
-      } else {
-        // Decelerating
-        sharpness = gameConfig.gameplay.player.deceleration / maxSpeed;
-        sharpness *= 1.5;
-      }
-    }
-
-
-    // Check for "INSTANT" movement mode (Arcade style)
-    // If config has extremely high acceleration, skip physics blending
-    if (gameConfig.gameplay.player.acceleration > 10000) {
-      velocity.x = targetVx;
-      velocity.y = targetVy;
-      return;
-    }
-
-    // Apply Damping (Frame-rate independent lerp)
-    const blend = 1.0 - Math.exp(-sharpness * dt);
-
-    velocity.x = velocity.x + (targetVx - velocity.x) * blend;
-    velocity.y = velocity.y + (targetVy - velocity.y) * blend;
-
-    // Clean zeroing to prevent micro-drift
-    if (Math.abs(velocity.x) < 1) velocity.x = 0;
-    if (Math.abs(velocity.y) < 1) velocity.y = 0;
+    // INSTANT MOVEMENT AS REQUESTED
+    velocity.x = targetVx;
+    velocity.y = targetVy;
   }
 
   /**
@@ -291,7 +252,7 @@ export class PlayerMovementManager {
   }
 
   /**
-   * Stops player movement (Deceleration)
+   * Stops player movement INSTANTLY (No Inertia)
    */
   stopPlayerMovement(deltaTime: number): void {
     const playerEntity = this.getPlayerEntity();
@@ -299,19 +260,22 @@ export class PlayerMovementManager {
 
     const velocity = this.ecs.getComponent(playerEntity, Velocity);
     if (velocity) {
-      // Apply deceleration towards 0,0
-      const dt = deltaTime / 1000;
-      const deceleration = gameConfig.gameplay.player.deceleration;
+      velocity.x = 0;
+      velocity.y = 0;
+    }
+  }
 
-      // Check for "INSTANT" stop mode
-      if (deceleration > 10000) {
-        velocity.x = 0;
-        velocity.y = 0;
-        return;
-      }
+  /**
+   * Forces immediate stop (Zero Velocity)
+   */
+  forceStop(): void {
+    const playerEntity = this.getPlayerEntity();
+    if (!playerEntity) return;
 
-      velocity.x = MathUtils.moveTowards(velocity.x, 0, deceleration * dt);
-      velocity.y = MathUtils.moveTowards(velocity.y, 0, deceleration * dt);
+    const velocity = this.ecs.getComponent(playerEntity, Velocity);
+    if (velocity) {
+      velocity.x = 0;
+      velocity.y = 0;
     }
   }
 

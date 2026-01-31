@@ -50,7 +50,8 @@ export const CONFIG = {
       name: 'Space Station',
       x: 0,
       y: 0,
-      radius: 800
+      radius: 800,
+      mapId: 'palantir' // Identifies the map where this safe zone exists
     }
   ]
 } as const;

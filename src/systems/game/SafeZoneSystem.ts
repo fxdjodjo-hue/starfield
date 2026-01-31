@@ -59,30 +59,40 @@ export class SafeZoneSystem extends System {
         const spaceStationZone = CONFIG.SAFE_ZONES.find(z => z.name === 'Space Station');
         if (!spaceStationZone) return;
 
+        // Check if map matches (prevents ghost audio in other maps like Singularity)
+        // Default to true if mapId is missing (backward compatibility)
+        const isCorrectMap = !(spaceStationZone as any).mapId || (spaceStationZone as any).mapId === CONFIG.CURRENT_MAP;
+
         if (!this.audioSystem) {
             const systems = (this.ecs as any).systems || [];
             this.audioSystem = systems.find((s: any) => s.constructor.name === 'AudioSystem');
         }
 
         if (this.audioSystem) {
-            const dx = playerTransform.x - spaceStationZone.x;
-            const dy = playerTransform.y - spaceStationZone.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-
-            // Full volume inside radius (800)
-            // Fade out until radius + 2000 (2800)
-            const fadeStart = spaceStationZone.radius;
-            const fadeEnd = spaceStationZone.radius + 2000;
-
             let volume = 0;
-            if (dist <= fadeStart) {
-                volume = 1.0;
-            } else if (dist < fadeEnd) {
-                volume = 1.0 - ((dist - fadeStart) / (fadeEnd - fadeStart));
-            }
 
-            // Reducing volume significantly (0.2 factor) for subtlety
-            volume *= 0.02;
+            if (isCorrectMap) {
+                const dx = playerTransform.x - spaceStationZone.x;
+                const dy = playerTransform.y - spaceStationZone.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // Full volume inside radius (800)
+                // Fade out until radius + 2000 (2800)
+                const fadeStart = spaceStationZone.radius;
+                const fadeEnd = spaceStationZone.radius + 2000;
+
+                if (dist <= fadeStart) {
+                    volume = 1.0;
+                } else if (dist < fadeEnd) {
+                    volume = 1.0 - ((dist - fadeStart) / (fadeEnd - fadeStart));
+                }
+
+                // Reducing volume significantly (0.2 factor) for subtlety
+                volume *= 0.02;
+            } else {
+                // Wrong map - force silence (fade out handled by audio system smoothing)
+                volume = 0;
+            }
 
             // Play or update volume
             // key: 'spaceStation' (registered in AudioConfig), category: 'effects'

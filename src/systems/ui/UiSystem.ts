@@ -469,104 +469,79 @@ export class UiSystem extends System {
    */
   public playWarpSound(): void {
     try {
-      // Se è già in riproduzione, non riavviarlo
-      if (this.currentWarpSound && !this.currentWarpSound.paused) {
-        return;
+      // Inizializza istanza singola se non esiste (Singleton pattern per questo suono)
+      if (!this.currentWarpSound) {
+        this.currentWarpSound = new Audio('assets/teleport/warpSoundEffect.mp3');
+        this.currentWarpSound.preload = 'auto'; // Assicura caricamento
       }
 
-      // Ferma eventuale suono precedente se esiste ma non sta suonando (edge case)
-      if (this.currentWarpSound) {
-        this.currentWarpSound.pause();
-        this.currentWarpSound = null;
+      const audio = this.currentWarpSound;
+
+      // Se è già in riproduzione, riavvialo o ignoralo?
+      // Per effetto warp meglio riavviare da zero se chiamato di nuovo
+      audio.pause();
+      audio.currentTime = 0;
+      audio.volume = 0.5; // Volume bilanciato
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(e => console.warn('Warp sound play failed:', e));
       }
 
-      this.currentWarpSound = new Audio('assets/teleport/warpSoundEffect.mp3');
-      this.currentWarpSound.volume = 0.5; // Volume bilanciato
-      this.currentWarpSound.play().catch(e => console.warn('Warp sound play failed:', e));
     } catch (e) {
-      console.warn('Error creating warp audio:', e);
+      console.warn('Error creating/playing warp audio:', e);
     }
   }
 
   /**
-   * Avvia la transizione video wormhole
-   * Ritorna una Promise che si risolve quando il video è a "metà" o quando è "sicuro" cambiare mappa
+   * Avvia la transizione video wormhole -- ORA SOLO BLACK FADE
    */
   playWormholeTransition(): void {
-    if (!this.blackoutVideoElement) this.createVideoOverlay();
+    // 1. Nascondi tutta la UI (HUD, Chat, ecc.)
+    this.setHudVisibility(false);
 
-    if (this.blackoutVideoElement) {
-      // Blocca l'input del giocatore durante il viaggio
-      document.dispatchEvent(new CustomEvent('uiPanelOpened')); // Usa sistema esistente per disabilitare input
-
-      // 1. Nascondi tutta la UI (HUD, Chat, ecc.)
-      this.setHudVisibility(false);
-
-      // Mute immediato suoni portale (Hum/Bassdrop)
-      const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
-      if (portalSystem) {
-        if (typeof portalSystem.setSoundsDisabled === 'function') {
-          portalSystem.setSoundsDisabled(true);
-        } else if (typeof portalSystem.stopAllPortalSounds === 'function') {
-          // Fallback legacy
-          portalSystem.stopAllPortalSounds();
-        }
-      }
-
-      // 2. Play video
-      this.blackoutVideoElement.style.display = 'block';
-
-      // Assicuriamoci che sia mutato perché usiamo un audio separato
-      this.blackoutVideoElement.muted = true;
-
-      // Riproduci il suono del warp (se non già in riproduzione)
-      this.playWarpSound();
-
-      // Force reflow
-
-      // Force reflow
-      this.blackoutVideoElement.getBoundingClientRect();
-
-      // ISTANTANEO: Rimuovi transizione per coprire subito il cambio mappa
-      this.blackoutVideoElement.style.transition = 'none';
-      this.blackoutVideoElement.style.opacity = '1';
-
-      const playPromise = this.blackoutVideoElement.play();
-      if (playPromise !== undefined) {
-        playPromise.catch((error) => {
-          console.warn('Video playback failed:', error);
-          // Fallback immediato a schermo nero
-          this.fadeToBlack(0);
-        });
+    // Mute immediato suoni portale (Hum/Bassdrop)
+    const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
+    if (portalSystem) {
+      if (typeof portalSystem.setSoundsDisabled === 'function') {
+        portalSystem.setSoundsDisabled(true);
+      } else if (typeof portalSystem.stopAllPortalSounds === 'function') {
+        portalSystem.stopAllPortalSounds();
       }
     }
+
+    // 2. Play warp sound
+    this.playWarpSound();
+
+    // 3. Fade to black semplice invece del video
+    this.fadeToBlack(500);
   }
 
   /**
-   * Ferma l'effetto wormhole (dissolvenza)
+   * Ferma l'effetto wormhole (dissolvenza) - ORA FADE FROM BLACK
    */
   stopWormholeTransition(duration: number = 1000): void {
-    if (!this.blackoutVideoElement) return;
+    // Fade from black transition
+    this.fadeFromBlack(duration);
 
-    // Fade out video - RESTORE TRANSITION
-    this.blackoutVideoElement.style.transition = `opacity ${duration}ms ease-out`;
-
-    // Force reflow per assicurare che la transizione venga applicata
-    this.blackoutVideoElement.getBoundingClientRect();
-
-    this.blackoutVideoElement.style.opacity = '0';
-
-    // Fade out audio
+    // Fade out audio indipendente e più lungo per effetto "scia"
     if (this.currentWarpSound) {
       const audio = this.currentWarpSound;
       const startVolume = audio.volume;
+      const audioFadeDuration = 2500; // 2.5s di fade out audio
       const fadeStep = 50; // ms
-      const steps = duration / fadeStep;
+      const steps = audioFadeDuration / fadeStep;
       const volStep = startVolume / steps;
 
       const fadeInterval = setInterval(() => {
+        // Controllo safety: se l'audio è stato sostituito o fermato altrove
+        if (audio.paused || audio !== this.currentWarpSound) {
+          clearInterval(fadeInterval);
+          return;
+        }
+
         if (audio.volume > volStep) {
-          audio.volume -= volStep;
+          audio.volume = Math.max(0, audio.volume - volStep);
         } else {
           audio.volume = 0;
           audio.pause();
@@ -576,22 +551,17 @@ export class UiSystem extends System {
     }
 
     setTimeout(() => {
-      if (this.blackoutVideoElement) {
-        this.blackoutVideoElement.pause();
-        this.blackoutVideoElement.style.display = 'none';
-
-        // Ripristina suoni portale
-        const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
-        if (portalSystem && typeof portalSystem.setSoundsDisabled === 'function') {
-          portalSystem.setSoundsDisabled(false);
-        }
-
-        // Restore HUD visibility
-        this.setHudVisibility(true);
-
-        // Riabilita l'input del giocatore
-        document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+      // Ripristina suoni portale
+      const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
+      if (portalSystem && typeof portalSystem.setSoundsDisabled === 'function') {
+        portalSystem.setSoundsDisabled(false);
       }
+
+      // Restore HUD visibility
+      this.setHudVisibility(true);
+
+      // Riabilita l'input del giocatore
+      document.dispatchEvent(new CustomEvent('uiPanelClosed'));
     }, duration);
   }
 

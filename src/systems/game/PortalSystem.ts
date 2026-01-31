@@ -24,6 +24,7 @@ export class PortalSystem extends BaseSystem {
   private lastEKeyPress: number = 0; // Timestamp ultimo press E per debouncing
   private readonly E_KEY_DEBOUNCE = 500; // ms tra pressioni E
   private areSoundsDisabled: boolean = false;
+  private isTransitioning: boolean = false; // Prevents double activation during fade
 
   constructor(ecs: ECS, playerSystem: PlayerSystem) {
     super(ecs);
@@ -40,6 +41,18 @@ export class PortalSystem extends BaseSystem {
    */
   public setSoundsDisabled(disabled: boolean): void {
     this.areSoundsDisabled = disabled;
+
+    if (!disabled) {
+      // Re-enable interaction when sounds are enabled (end of transition)
+      this.isTransitioning = false;
+
+      // Re-enable Player Input
+      const playerControlSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerControlSystem') as any;
+      if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
+        playerControlSystem.setInputForcedDisabled(false);
+      }
+    }
+
     if (disabled) {
       // Usa un fade out molto veloce invece di stop immediato per evitare crackling
       for (const portalId of this.portalSoundInstances.keys()) {
@@ -234,9 +247,10 @@ export class PortalSystem extends BaseSystem {
     const portalAudio = this.portalSoundInstances.get(portalId);
     if (portalAudio) {
       try {
+        // FIX: Zero volume BEFORE pausing to prevent clicking/pop artifacts
+        portalAudio.volume = 0;
         portalAudio.pause();
         portalAudio.currentTime = 0;
-        portalAudio.volume = 0;
         portalAudio.removeEventListener('error', () => { });
       } catch (error) {
         console.warn('[PortalSystem] Error stopping portal sound:', error);
@@ -273,6 +287,8 @@ export class PortalSystem extends BaseSystem {
    * Chiamato quando il tasto E viene premuto
    */
   handleEKeyPress(): void {
+    if (this.isTransitioning) return; // BLOCK INPUT during transition
+
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
 
@@ -309,28 +325,44 @@ export class PortalSystem extends BaseSystem {
     if (nearestPortal) {
       const portal = this.ecs.getComponent(nearestPortal, Portal);
       if (portal) {
+        this.isTransitioning = true; // LOCK INTERACTION
         portal.activate();
         this.lastEKeyPress = now;
 
-        // --- MODIFICA SUONI ---
-        // 1. Diciamo all'UiSystem di partire SUBITO col suono warp
+        // --- MODIFICA SUONI E TRANSIZIONI ---
+        // 0. STOP MOVEMENT (Fix inertia/autopilot carry-over)
+        const playerControlSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerControlSystem') as any;
+        if (playerControlSystem && typeof playerControlSystem.forceStopMovement === 'function') {
+          playerControlSystem.forceStopMovement();
+        }
+
+        // 0.5 LOCK INPUT (Prevent WASD during fade)
+        if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
+          playerControlSystem.setInputForcedDisabled(true);
+        }
+
+        // 1. Diciamo all'UiSystem di partire SUBITO col fade e suono
         const uiSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'UiSystem') as any;
-        if (uiSystem && typeof uiSystem.playWarpSound === 'function') {
-          uiSystem.playWarpSound();
+        if (uiSystem && typeof uiSystem.playWormholeTransition === 'function') {
+          uiSystem.playWormholeTransition();
         }
 
         // 2. Silenziamo SUBITO i suoni del portale per pulizia audio
         this.setSoundsDisabled(true);
-        // ---------------------
 
-        // Invia messaggio al server per usare il portale
-        if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
-          this.clientNetworkSystem.sendMessage({
-            type: 'portal_use',
-            portalId: nearestPortal.id,
-            timestamp: now
-          });
-        }
+        // 3. --- DELAYED NETWORK MESSAGE ---
+        // Wait for screen to be black (approx 600ms) before changing map
+        setTimeout(() => {
+          // Invia messaggio al server per usare il portale
+          if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
+            this.clientNetworkSystem.sendMessage({
+              type: 'portal_use',
+              portalId: nearestPortal.id,
+              timestamp: Date.now()
+            });
+          }
+          // Note: isTransitioning stays true. System will be destroyed/reset on map load.
+        }, 600);
       }
     }
   }

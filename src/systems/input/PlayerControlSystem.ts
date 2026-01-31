@@ -403,6 +403,17 @@ export class PlayerControlSystem extends BaseSystem {
   }
 
   /**
+   * Ferma immediatamente ogni movimento (minimappa, tastiera, mouse)
+   * Usato prima di teletrasporto o eventi cutscene
+   */
+  forceStopMovement(): void {
+    if (!this.playerEntity) return;
+    this.initializeManagers();
+    this.movementManager.clearMinimapTarget();
+    this.movementManager.forceStop();
+  }
+
+  /**
    * Ferma il combattimento attivo quando disattivi manualmente l'attacco
    */
   private stopCombatIfActive(): void {
