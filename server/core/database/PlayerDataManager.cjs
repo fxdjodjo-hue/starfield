@@ -112,7 +112,7 @@ class PlayerDataManager {
           y: playerDataRaw.last_y !== null ? playerDataRaw.last_y : 200,
           rotation: playerDataRaw.last_rotation !== null ? playerDataRaw.last_rotation : 0
         },
-        currentMapId: playerDataRaw.last_map_id || 'default_map',
+        currentMapId: playerDataRaw.last_map_id || 'palantir',
         inventory: (() => {
           const defaultInventory = this.getDefaultPlayerData().inventory;
           let currencies;
@@ -383,7 +383,7 @@ class PlayerDataManager {
             x: playerData.position?.x || 200,
             y: playerData.position?.y || 200,
             rotation: playerData.position?.rotation || 0,
-            map_id: playerData.currentMapId || 'default_map'
+            map_id: playerData.currentMapId || 'palantir'
           }
         }
       );

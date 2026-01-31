@@ -3,9 +3,9 @@
  */
 
 const MAP_CONFIGS = {
-    'default_map': {
-        id: 'default_map',
-        name: 'Palantir Prime',
+    'palantir': {
+        id: 'palantir',
+        name: 'Palantir',
         width: 21000,
         height: 13100,
         npcConfig: {
@@ -16,31 +16,31 @@ const MAP_CONFIGS = {
         },
         portals: [
             {
-                id: 'portal_to_map_2',
+                id: 'portal_to_singularity',
                 x: 9000,
                 y: 0,
-                targetMap: 'palantir_2',
+                targetMap: 'singularity',
                 targetPosition: { x: -9000, y: 0 }
             }
         ]
     },
-    'palantir_2': {
-        id: 'palantir_2',
-        name: 'Palantir Sector B',
+    'singularity': {
+        id: 'singularity',
+        name: 'Singularity',
         width: 21000,
         height: 13100,
         npcConfig: {
-            scouterCount: 30, // More NPCs to differentiate
+            scouterCount: 30,
             frigateCount: 5,
             guardCount: 10,
             pyramidCount: 5
         },
         portals: [
             {
-                id: 'portal_to_map_1',
+                id: 'portal_to_palantir',
                 x: -9000,
                 y: 0,
-                targetMap: 'default_map',
+                targetMap: 'palantir',
                 targetPosition: { x: 9000, y: 0 }
             }
         ]

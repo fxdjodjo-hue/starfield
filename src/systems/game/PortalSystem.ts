@@ -23,6 +23,7 @@ export class PortalSystem extends BaseSystem {
   private readonly FADE_OUT_DURATION = 500; // ms per fade out
   private lastEKeyPress: number = 0; // Timestamp ultimo press E per debouncing
   private readonly E_KEY_DEBOUNCE = 500; // ms tra pressioni E
+  private areSoundsDisabled: boolean = false;
 
   constructor(ecs: ECS, playerSystem: PlayerSystem) {
     super(ecs);
@@ -31,6 +32,22 @@ export class PortalSystem extends BaseSystem {
 
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
+  }
+
+  /**
+   * Disabilita/Abilita i suoni dei portali
+   * @param disabled true per silenziare, false per riabilitare
+   */
+  public setSoundsDisabled(disabled: boolean): void {
+    this.areSoundsDisabled = disabled;
+    if (disabled) {
+      // Usa un fade out molto veloce invece di stop immediato per evitare crackling
+      for (const portalId of this.portalSoundInstances.keys()) {
+        if (!this.portalFadeOutAnimations.has(portalId)) {
+          this.fadeOutPortalSound(portalId, 150); // 150ms fade out veloce
+        }
+      }
+    }
   }
 
   setInputSystem(inputSystem: any): void {
@@ -42,7 +59,7 @@ export class PortalSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    if (!this.audioSystem) return;
+    if (!this.audioSystem || this.areSoundsDisabled) return;
 
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
@@ -162,29 +179,34 @@ export class PortalSystem extends BaseSystem {
     }
   }
 
-  private fadeOutPortalSound(portalId: number): void {
+  private fadeOutPortalSound(portalId: number, duration: number = this.FADE_OUT_DURATION): void {
     const portalAudio = this.portalSoundInstances.get(portalId);
     const bassdropAudio = this.portalBassdropInstances.get(portalId);
 
     if (!portalAudio && !bassdropAudio) return;
 
+    // Se c'è già un fade in corso, cancellalo per ripartire puliti (o potremmo lasciarlo andare, ma reimpostiamo per sicurezza)
+    if (this.portalFadeOutAnimations.has(portalId)) {
+      cancelAnimationFrame(this.portalFadeOutAnimations.get(portalId)!);
+    }
+
     const startTime = Date.now();
+    const startPortalVolume = portalAudio ? portalAudio.volume : 0;
+    const startBassdropVolume = bassdropAudio ? bassdropAudio.volume : 0;
 
     const fadeStep = () => {
       const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / this.FADE_OUT_DURATION, 1);
+      const progress = Math.min(elapsed / duration, 1);
 
       // Curva ease-out per fade più naturale
       const easedProgress = 1 - Math.pow(1 - progress, 2);
 
       if (portalAudio) {
-        const portalStartVolume = portalAudio.volume;
-        portalAudio.volume = portalStartVolume * (1 - easedProgress);
+        portalAudio.volume = Math.max(0, startPortalVolume * (1 - easedProgress));
       }
 
       if (bassdropAudio) {
-        const bassdropStartVolume = bassdropAudio.volume;
-        bassdropAudio.volume = bassdropStartVolume * (1 - easedProgress);
+        bassdropAudio.volume = Math.max(0, startBassdropVolume * (1 - easedProgress));
       }
 
       if (progress < 1) {
@@ -196,7 +218,8 @@ export class PortalSystem extends BaseSystem {
       }
     };
 
-    fadeStep();
+    const firstFrameId = requestAnimationFrame(fadeStep);
+    this.portalFadeOutAnimations.set(portalId, firstFrameId);
   }
 
   private stopPortalSound(portalId: number): void {
@@ -289,6 +312,17 @@ export class PortalSystem extends BaseSystem {
         portal.activate();
         this.lastEKeyPress = now;
 
+        // --- MODIFICA SUONI ---
+        // 1. Diciamo all'UiSystem di partire SUBITO col suono warp
+        const uiSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'UiSystem') as any;
+        if (uiSystem && typeof uiSystem.playWarpSound === 'function') {
+          uiSystem.playWarpSound();
+        }
+
+        // 2. Silenziamo SUBITO i suoni del portale per pulizia audio
+        this.setSoundsDisabled(true);
+        // ---------------------
+
         // Invia messaggio al server per usare il portale
         if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
           this.clientNetworkSystem.sendMessage({
@@ -301,7 +335,10 @@ export class PortalSystem extends BaseSystem {
     }
   }
 
-  destroy(): void {
+  /**
+   * Ferma tutti i suoni dei portali (chiamato durante cambio mappa)
+   */
+  stopAllPortalSounds(): void {
     // Cancella tutte le animazioni di fade out
     for (const frameId of this.portalFadeOutAnimations.values()) {
       cancelAnimationFrame(frameId);
@@ -314,6 +351,12 @@ export class PortalSystem extends BaseSystem {
     }
     this.portalSoundInstances.clear();
     this.portalBassdropInstances.clear();
+
+    console.log('[PortalSystem] All portal sounds stopped (map change)');
+  }
+
+  destroy(): void {
+    this.stopAllPortalSounds();
     this.audioSystem = null;
   }
 }

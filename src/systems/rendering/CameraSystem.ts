@@ -67,6 +67,17 @@ export class CameraSystem extends BaseSystem {
   }
 
   /**
+   * Snap istantaneo della camera a una posizione (senza interpolazione)
+   * Usato per teletrasporti e cambi mappa dove non si vuole lo slide
+   */
+  snapTo(x: number, y: number): void {
+    this.camera.centerOn(x, y);
+    this.targetPos = { x, y };
+    // Reset last position per evitare calcoli di velocità errati
+    this.lastPosition = { x, y };
+  }
+
+  /**
    * Avvia un'animazione di zoom out dalla nave
    * Parte molto zoomato sul centro della nave e fa zoom out fino alla visione normale
    */

@@ -7,6 +7,7 @@ import { Portal } from '../../../entities/spatial/Portal';
 import { SpaceStation } from '../../../entities/spatial/SpaceStation';
 import { Asteroid } from '../../../entities/spatial/Asteroid';
 import { EntityFactory } from '../../../systems/game/EntityFactory';
+import { PortalSystem } from '../../../systems/game/PortalSystem';
 
 /**
  * Handles MAP_CHANGE messages from the server
@@ -23,6 +24,17 @@ export class MapChangeHandler extends BaseMessageHandler {
         const { mapId, mapName, position, worldWidth, worldHeight } = message;
         const ecs = networkSystem.getECS();
         if (!ecs) return;
+
+        // 0. Start transition effect (VIDEO WORMHOLE)
+        const uiSystem = networkSystem.getUiSystem();
+        if (uiSystem) {
+            // Se esiste il metodo wormhole, usalo, altrimenti fallback al fadeToBlack
+            if (typeof uiSystem.playWormholeTransition === 'function') {
+                uiSystem.playWormholeTransition();
+            } else if (typeof uiSystem.fadeToBlack === 'function') {
+                uiSystem.fadeToBlack(0);
+            }
+        }
 
         // 1. Flush remote entities (NPCs, Projectiles, Remote Players)
         // This prevents "ghost" entities from the previous map
@@ -42,6 +54,14 @@ export class MapChangeHandler extends BaseMessageHandler {
                 transform.x = position.x;
                 transform.y = position.y;
                 secureLogger.log(`Local player repositioned to: ${position.x}, ${position.y}`);
+
+                // Snap camera to new position instantly (avoid slide effect)
+                const allSystems = ecs.getSystems();
+                const cameraSystem = allSystems.find(s => (s as any).constructor?.Type === 'CameraSystem') as any;
+                if (cameraSystem && typeof cameraSystem.snapTo === 'function') {
+                    cameraSystem.snapTo(position.x, position.y);
+                    secureLogger.log(`Camera snapped to new position`);
+                }
             }
         }
 
@@ -70,6 +90,29 @@ export class MapChangeHandler extends BaseMessageHandler {
             secureLogger.log(`Background and entities reload triggered for: ${mapId}`);
         }
 
+        // Show map name on screen for transition effect
+        // Show map name on screen for transition effect and fade in
+        // Show map name on screen for transition effect and fade in/video out
+        if (uiSystem) {
+            if (typeof uiSystem.showMapTransitionName === 'function') {
+                // Mostra il nome mappa (apparirà sopra il video se z-index > video)
+                // Ritardiamo la scritta per farla apparire quando il wormhole finisce
+                setTimeout(() => {
+                    uiSystem.showMapTransitionName(mapId, 3000);
+                }, 2500);
+            }
+
+            // Gestione fine transizione (Video o Blackout)
+            if (typeof uiSystem.stopWormholeTransition === 'function') {
+                // Tieni il wormhole per 2 secondi totali, poi fade out
+                setTimeout(() => {
+                    uiSystem.stopWormholeTransition(800);
+                }, 2000);
+            } else if (typeof uiSystem.fadeFromBlack === 'function') {
+                uiSystem.fadeFromBlack(1000, 500);
+            }
+        }
+
         secureLogger.log(`Successfully transitioned to map: ${mapId}`);
     }
 
@@ -79,6 +122,13 @@ export class MapChangeHandler extends BaseMessageHandler {
     private cleanupWorld(networkSystem: ClientNetworkSystem): void {
         const ecs = networkSystem.getECS();
         if (!ecs) return;
+
+        // Stop all portal sounds BEFORE removing entities
+        const allSystems = ecs.getSystems();
+        const portalSystem = allSystems.find(s => s instanceof PortalSystem) as PortalSystem | undefined;
+        if (portalSystem && typeof portalSystem.stopAllPortalSounds === 'function') {
+            portalSystem.stopAllPortalSounds();
+        }
 
         // Remove all remote players
         const remotePlayerSystem = networkSystem.getRemotePlayerSystem();

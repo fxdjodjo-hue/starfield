@@ -72,14 +72,14 @@ export class EntityFactory {
    */
   static createMapEntities(ecs: ECS, assets: any, mapId: string): void {
     console.log(`[EntityFactory] Creating map entities for: ${mapId}`);
-    if (mapId === 'palantir' || mapId === 'default_map') {
-      // Crea portale a X=9000, Y=0 (per Map 2)
+    if (mapId === 'palantir') {
+      // Crea portale a X=9000, Y=0 (per Singularity)
       EntityFactory.createTeleport(ecs, 9000, 0, assets.teleportAnimatedSprite);
 
       // Crea space station a X=0, Y=0
       EntityFactory.createSpaceStation(ecs, 0, 0, assets.spaceStationSprite);
-    } else if (mapId === 'palantir_2') {
-      // Crea portale a X=-9000, Y=0 (per tornare a Map 1)
+    } else if (mapId === 'singularity') {
+      // Crea portale a X=-9000, Y=0 (per tornare a Palantir)
       EntityFactory.createTeleport(ecs, -9000, 0, assets.teleportAnimatedSprite);
 
       // Magari una stazione diversa o nessuna
@@ -208,14 +208,12 @@ export class EntityFactory {
   static async createMapBackground(ecs: ECS, context: GameContext): Promise<void> {
     try {
       // Mappatura tra mapId del server e cartella degli asset
-      // Il server usa 'default_map' ma gli asset sono in 'palantir'
       const mapIdToFolder: Record<string, string> = {
-        'default_map': 'palantir',
         'palantir': 'palantir',
-        'palantir_2': 'palantir_2'
+        'singularity': 'singularity'
       };
 
-      const assetFolder = mapIdToFolder[context.currentMapId] || 'palantir';
+      const assetFolder = mapIdToFolder[context.currentMapId] || context.currentMapId;
       console.log(`[EntityFactory] Loading background for mapId: ${context.currentMapId}, folder: ${assetFolder}`);
 
       // Prova prima bg1forse.jpg se esiste (potrebbe essere più grande), altrimenti bg.jpg

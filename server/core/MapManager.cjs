@@ -77,9 +77,13 @@ class MapManager {
         // 2. Remove from current map
         currentMap.removePlayer(clientId);
 
-        // 2. Update position for the new map
+        // 2. Update position and MAP ID for the new map
         playerData.position.x = targetPosition.x;
         playerData.position.y = targetPosition.y;
+
+        // 🔴 FIX: Aggiorna l'ID della mappa nel playerData per la persistenza
+        // Senza questo, il DB salva solo le nuove coordinate ma con il vecchio ID mappa
+        playerData.currentMapId = targetMapId;
 
         // 3. Add to target map
         targetMap.addPlayer(clientId, playerData);

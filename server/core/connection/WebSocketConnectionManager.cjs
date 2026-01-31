@@ -100,7 +100,7 @@ class WebSocketConnectionManager {
 
     this.wss.on('connection', (ws) => {
       // PLAYTEST: Limite massimo distibuted across maps
-      const defaultMap = this.mapManager.getMap('default_map');
+      const defaultMap = this.mapManager.getMap('palantir');
       if (defaultMap && defaultMap.players.size >= 15) {
         ServerLoggerWrapper.warn('SERVER', `🚫 Connection rejected: Default map full (${defaultMap.players.size}/15 players)`);
         ws.send(JSON.stringify({
@@ -165,7 +165,7 @@ class WebSocketConnectionManager {
 
           // Route messaggio al handler appropriato
           const playerMapInfo = this.mapManager.findPlayerMap(data.clientId);
-          const currentMapServer = playerMapInfo ? playerMapInfo.mapInstance : this.mapManager.getMap('default_map');
+          const currentMapServer = playerMapInfo ? playerMapInfo.mapInstance : this.mapManager.getMap('palantir');
 
           const context = {
             ws,

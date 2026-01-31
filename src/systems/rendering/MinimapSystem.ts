@@ -41,7 +41,7 @@ export class MinimapSystem extends BaseSystem {
     );
 
     this.currentMapId = CONFIG.CURRENT_MAP;
-    this.currentMapName = this.currentMapId === 'default_map' ? 'Palantir' : this.currentMapId;
+    this.currentMapName = this.currentMapId;
 
     // Carica l'immagine di sfondo della mappa
     this.loadMapBackground(this.currentMapId);
@@ -63,7 +63,7 @@ export class MinimapSystem extends BaseSystem {
     if (mapName) {
       this.currentMapName = mapName;
     } else {
-      this.currentMapName = mapId === 'default_map' ? 'Palantir' : mapId;
+      this.currentMapName = mapId;
     }
     this.minimap.updateWorldDimensions(width, height);
     this.loadMapBackground(mapId);
@@ -75,14 +75,12 @@ export class MinimapSystem extends BaseSystem {
    */
   private loadMapBackground(mapName: string = 'sol_system'): void {
     // Mappatura tra mapId del server e cartella degli asset
-    // Il server usa 'default_map' ma gli assets sono in 'palantir'
     const mapIdToFolder: Record<string, string> = {
-      'default_map': 'palantir',
       'palantir': 'palantir',
-      'palantir_2': 'palantir_2'
+      'singularity': 'singularity'
     };
 
-    const assetFolder = mapIdToFolder[mapName] || 'palantir';
+    const assetFolder = mapIdToFolder[mapName] || mapName;
 
     // Usa percorsi assoluti dal root per maggiore robustezza
     const primaryPath = `assets/maps/${assetFolder}/bg1forse.jpg`;

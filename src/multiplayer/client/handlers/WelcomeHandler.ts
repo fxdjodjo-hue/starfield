@@ -154,10 +154,10 @@ export class WelcomeHandler extends BaseMessageHandler {
       }
 
       // 🌍 MAP INITIALIZATION: Inizializza background ed entità della mappa
-      const mapId = message.mapId || 'default_map';
+      const mapId = message.mapId || 'palantir';
       const ecs = networkSystem.getECS();
       if (ecs) {
-        // Se non siamo sulla 'default_map', ricarica background ed entità specifiche
+        // Se mapId è specificato, ricarica background ed entità specifiche
         // (Altrimenti sono già caricate dal setup iniziale del gioco)
         console.log(`[WELCOME] Initializing map entities for: ${mapId}`);
         networkSystem.gameContext.currentMapId = mapId;

@@ -36,6 +36,9 @@ export class UiSystem extends System {
   private networkStats!: NetworkStatsDisplay;
   private notificationPopup!: NotificationPopup;
   private safeZoneElement: HTMLElement | null = null;
+  private blackoutElement: HTMLElement | null = null;
+  private blackoutVideoElement: HTMLVideoElement | null = null;
+  private currentWarpSound: HTMLAudioElement | null = null;
   private managersInitialized: boolean = false;
 
   // Legacy references (maintained for backward compatibility)
@@ -334,6 +337,334 @@ export class UiSystem extends System {
         }, 850); // Leggermente più della transizione (0.8s)
       }
     }
+  }
+
+  /**
+   * Mostra il nome della mappa durante la transizione (cambio mappa via portale)
+   */
+  showMapTransitionName(mapName: string, displayDuration: number = 3000): void {
+    // Trasforma mapId in nome display
+    const displayName = this.getMapDisplayName(mapName);
+
+    // Aggiorna l'elemento del nome mappa
+    const mapNameElement = document.getElementById('map-name-indicator');
+    if (mapNameElement) {
+      mapNameElement.textContent = displayName;
+    }
+
+    // Mostra temporaneamente l'indicatore (senza SAFEZONE)
+    if (this.safeZoneElement) {
+      const safeIndicator = document.getElementById('safe-zone-text-indicator');
+      if (safeIndicator) safeIndicator.style.display = 'none'; // Nascondi SAFEZONE durante transizione
+
+      this.safeZoneElement.style.display = 'flex';
+
+      requestAnimationFrame(() => {
+        if (this.safeZoneElement) {
+          this.safeZoneElement.style.opacity = '1';
+        }
+      });
+
+      // Nascondi dopo la durata specificata
+      setTimeout(() => {
+        if (this.safeZoneElement) {
+          this.safeZoneElement.style.opacity = '0';
+          setTimeout(() => {
+            if (this.safeZoneElement && this.safeZoneElement.style.opacity === '0') {
+              this.safeZoneElement.style.display = 'none';
+            }
+          }, 850);
+        }
+      }, displayDuration);
+    }
+
+    console.log(`[UiSystem] Showing map transition: ${displayName}`);
+  }
+
+  /**
+   * Crea l'overlay nero per le transizioni
+   */
+  private createBlackoutOverlay(): void {
+    if (this.blackoutElement) return;
+
+    this.blackoutElement = document.createElement('div');
+    this.blackoutElement.id = 'transition-blackout';
+    this.blackoutElement.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      z-index: 998; /* Sotto al safeZoneElement (999) ma sopra tutto il resto */
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    `;
+    document.body.appendChild(this.blackoutElement);
+  }
+
+  /**
+   * Oscura lo schermo (fade out)
+   */
+  fadeToBlack(duration: number = 300): void {
+    if (!this.blackoutElement) this.createBlackoutOverlay();
+
+    if (this.blackoutElement) {
+      this.blackoutElement.style.transition = `opacity ${duration}ms ease-in-out`;
+      // Force reflow
+      void this.blackoutElement.offsetWidth;
+      this.blackoutElement.style.opacity = '1';
+    }
+  }
+
+  /**
+   * Ritorna alla visione normale (fade in)
+   */
+  fadeFromBlack(duration: number = 800, delay: number = 500): void {
+    if (!this.blackoutElement) return;
+
+    setTimeout(() => {
+      if (this.blackoutElement) {
+        this.blackoutElement.style.transition = `opacity ${duration}ms ease-in-out`;
+        this.blackoutElement.style.opacity = '0';
+      }
+    }, delay);
+  }
+
+  /**
+   * Crea l'elemento video per l'overlay wormhole
+   */
+  private createVideoOverlay(): void {
+    if (this.blackoutVideoElement) return;
+
+    this.blackoutVideoElement = document.createElement('video');
+    this.blackoutVideoElement.id = 'transition-video';
+    this.blackoutVideoElement.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 998; /* Stesso livello del blackout */
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+      background-color: black;
+    `;
+    // Pre-load settings
+    this.blackoutVideoElement.src = 'assets/teleport/footagecrate-space-slipstream-loop.mp4';
+    this.blackoutVideoElement.muted = false; // Suono attivo per effetto wow
+    this.blackoutVideoElement.loop = true; // Abilita loop per sicurezza dato che è un loop video
+    this.blackoutVideoElement.preload = 'auto'; // Precarica per essere pronto
+    // Importante: alcune policy browser bloccano autoplay non mutato, ma in-game user interaction c'è già stata
+
+    document.body.appendChild(this.blackoutVideoElement);
+  }
+
+  /**
+   * Avvia la riproduzione del suono warp
+   * Safe da chiamare più volte (controlla se già in riproduzione)
+   */
+  public playWarpSound(): void {
+    try {
+      // Se è già in riproduzione, non riavviarlo
+      if (this.currentWarpSound && !this.currentWarpSound.paused) {
+        return;
+      }
+
+      // Ferma eventuale suono precedente se esiste ma non sta suonando (edge case)
+      if (this.currentWarpSound) {
+        this.currentWarpSound.pause();
+        this.currentWarpSound = null;
+      }
+
+      this.currentWarpSound = new Audio('assets/teleport/warpSoundEffect.mp3');
+      this.currentWarpSound.volume = 0.5; // Volume bilanciato
+      this.currentWarpSound.play().catch(e => console.warn('Warp sound play failed:', e));
+    } catch (e) {
+      console.warn('Error creating warp audio:', e);
+    }
+  }
+
+  /**
+   * Avvia la transizione video wormhole
+   * Ritorna una Promise che si risolve quando il video è a "metà" o quando è "sicuro" cambiare mappa
+   */
+  playWormholeTransition(): void {
+    if (!this.blackoutVideoElement) this.createVideoOverlay();
+
+    if (this.blackoutVideoElement) {
+      // Blocca l'input del giocatore durante il viaggio
+      document.dispatchEvent(new CustomEvent('uiPanelOpened')); // Usa sistema esistente per disabilitare input
+
+      // 1. Nascondi tutta la UI (HUD, Chat, ecc.)
+      this.setHudVisibility(false);
+
+      // Mute immediato suoni portale (Hum/Bassdrop)
+      const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
+      if (portalSystem) {
+        if (typeof portalSystem.setSoundsDisabled === 'function') {
+          portalSystem.setSoundsDisabled(true);
+        } else if (typeof portalSystem.stopAllPortalSounds === 'function') {
+          // Fallback legacy
+          portalSystem.stopAllPortalSounds();
+        }
+      }
+
+      // 2. Play video
+      this.blackoutVideoElement.style.display = 'block';
+
+      // Assicuriamoci che sia mutato perché usiamo un audio separato
+      this.blackoutVideoElement.muted = true;
+
+      // Riproduci il suono del warp (se non già in riproduzione)
+      this.playWarpSound();
+
+      // Force reflow
+
+      // Force reflow
+      this.blackoutVideoElement.getBoundingClientRect();
+
+      // ISTANTANEO: Rimuovi transizione per coprire subito il cambio mappa
+      this.blackoutVideoElement.style.transition = 'none';
+      this.blackoutVideoElement.style.opacity = '1';
+
+      const playPromise = this.blackoutVideoElement.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((error) => {
+          console.warn('Video playback failed:', error);
+          // Fallback immediato a schermo nero
+          this.fadeToBlack(0);
+        });
+      }
+    }
+  }
+
+  /**
+   * Ferma l'effetto wormhole (dissolvenza)
+   */
+  stopWormholeTransition(duration: number = 1000): void {
+    if (!this.blackoutVideoElement) return;
+
+    // Fade out video - RESTORE TRANSITION
+    this.blackoutVideoElement.style.transition = `opacity ${duration}ms ease-out`;
+
+    // Force reflow per assicurare che la transizione venga applicata
+    this.blackoutVideoElement.getBoundingClientRect();
+
+    this.blackoutVideoElement.style.opacity = '0';
+
+    // Fade out audio
+    if (this.currentWarpSound) {
+      const audio = this.currentWarpSound;
+      const startVolume = audio.volume;
+      const fadeStep = 50; // ms
+      const steps = duration / fadeStep;
+      const volStep = startVolume / steps;
+
+      const fadeInterval = setInterval(() => {
+        if (audio.volume > volStep) {
+          audio.volume -= volStep;
+        } else {
+          audio.volume = 0;
+          audio.pause();
+          clearInterval(fadeInterval);
+        }
+      }, fadeStep);
+    }
+
+    setTimeout(() => {
+      if (this.blackoutVideoElement) {
+        this.blackoutVideoElement.pause();
+        this.blackoutVideoElement.style.display = 'none';
+
+        // Ripristina suoni portale
+        const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
+        if (portalSystem && typeof portalSystem.setSoundsDisabled === 'function') {
+          portalSystem.setSoundsDisabled(false);
+        }
+
+        // Restore HUD visibility
+        this.setHudVisibility(true);
+
+        // Riabilita l'input del giocatore
+        document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+      }
+    }, duration);
+  }
+
+  /**
+   * Imposta la visibilità di tutta l'interfaccia utente (HUD, Chat, Minimappa)
+   */
+  private setHudVisibility(visible: boolean): void {
+    if (visible) {
+      // Show
+      if (this.hudManager) this.hudManager.showHud();
+
+      // Restore settings-based visibility for optional elements
+      const settings = GameSettings.getInstance();
+      if (this.chatManager) this.chatManager.setChatVisibility(settings.interface.showChat);
+      if (this.fpsCounter) this.fpsCounter.setVisibility(settings.graphics.showFps);
+
+      // Show Minimap (via System interactions)
+      const minimapSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'MinimapSystem') as any;
+      if (minimapSystem && typeof minimapSystem.show === 'function') {
+        minimapSystem.show();
+      }
+
+      // Show Player Status Display (HP/Shield)
+      const playerStatusSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerStatusDisplaySystem') as any;
+      if (playerStatusSystem && typeof playerStatusSystem.show === 'function') {
+        playerStatusSystem.show();
+      }
+
+      // Show Floating Icons (Inventory, Settings, etc.)
+      if (this.panelManager) {
+        this.panelManager.setIconsVisibility(true);
+      }
+
+      // Show Network Stats if enabled
+      if (this.networkStats) this.networkStats.show();
+
+    } else {
+      // Hide
+      if (this.hudManager) this.hudManager.hidePlayerInfo();
+      if (this.chatManager) this.chatManager.setChatVisibility(false);
+      if (this.fpsCounter) this.fpsCounter.setVisibility(false);
+
+      // Hide Minimap
+      const minimapSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'MinimapSystem') as any;
+      if (minimapSystem && typeof minimapSystem.hide === 'function') {
+        minimapSystem.hide();
+      }
+
+      // Hide Player Status Display
+      const playerStatusSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerStatusDisplaySystem') as any;
+      if (playerStatusSystem && typeof playerStatusSystem.hide === 'function') {
+        playerStatusSystem.hide();
+      }
+
+      // Hide Floating Icons
+      if (this.panelManager) {
+        this.panelManager.setIconsVisibility(false);
+      }
+
+      // Hide Network Stats
+      if (this.networkStats) this.networkStats.hide();
+    }
+  }
+
+  /**
+   * Converte l'ID della mappa in un nome display leggibile
+   */
+  private getMapDisplayName(mapId: string): string {
+    const mapNames: Record<string, string> = {
+      'palantir': 'PALANTIR',
+      'singularity': 'SINGULARITY'
+    };
+    return mapNames[mapId] || mapId.toUpperCase();
   }
 
   /**

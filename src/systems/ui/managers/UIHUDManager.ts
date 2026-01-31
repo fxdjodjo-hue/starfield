@@ -241,6 +241,15 @@ export class UIHUDManager {
   }
 
   /**
+   * Mostra l'HUD (ripristina visibilità)
+   */
+  showHud(): void {
+    this.playerHUD.show();
+    this.questTracker.show();
+    this.weaponStatus.show();
+  }
+
+  /**
    * Mostra l'HUD espanso
    */
   showExpandedHud(): void {

@@ -26,7 +26,7 @@ class MessageBroadcaster {
    * @param {boolean} isAdministrator - Status di amministratore
    * @returns {Object} Welcome message object
    */
-  formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false, mapId = 'default_map') {
+  formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false, mapId = 'palantir') {
     return {
       type: 'welcome',
       clientId: playerData.clientId,

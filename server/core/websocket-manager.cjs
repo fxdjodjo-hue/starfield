@@ -18,7 +18,7 @@ class WebSocketConnectionManager {
   constructor(wss, mapManager, messageCount) {
     this.mapManager = mapManager;
     // For backward compatibility with managers that expect a single mapServer
-    const defaultMap = mapManager.getMap('default_map');
+    const defaultMap = mapManager.getMap('palantir');
 
     // Crea istanze dei moduli refactorizzati
     this.playerDataManager = new PlayerDataManager(defaultMap || mapManager);
