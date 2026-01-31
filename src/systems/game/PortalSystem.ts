@@ -3,11 +3,16 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Portal } from '../../entities/spatial/Portal';
 import { MathUtils } from '../../core/utils/MathUtils';
+import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Health } from '../../entities/combat/Health';
 import { Entity } from '../../infrastructure/ecs/Entity';
+
+// ... (keep existing imports)
+
+
 
 // Import Types - using type imports to avoid potential circular dependency issues at runtime
 // though strict usages might require value imports. We will use value imports for type guards if needed.
@@ -157,7 +162,7 @@ export class PortalSystem extends System {
 
         // 🚀 AUTO-TELEPORT: Edge detection logic
         // Only trigger when entering the zone (isInside && !wasInside)
-        const AUTO_TRIGGER_DISTANCE = 80;
+        const AUTO_TRIGGER_DISTANCE = 140; // Increased from 80 to ensure client hits it before server
         const isInside = distance <= AUTO_TRIGGER_DISTANCE;
 
         // FIRST RUN CHECK: If state is unknown, initialize it without triggering
@@ -200,27 +205,8 @@ export class PortalSystem extends System {
       const uiSystem = this.ecs.getSystems().find((s) => s.constructor.name === 'UiSystem') as UiSystem | undefined;
       if (uiSystem && typeof uiSystem.playWarpSound === 'function') {
         uiSystem.playWarpSound();
+        uiSystem.playWarpSound();
       }
-
-      // --- 2. DELAYED VISUAL TRANSITION (Separate sound from black screen) ---
-      // User request: Play sound on entry, not when screen goes black
-      // REMOVED DELAY: Delegated to MapChangeHandler or instant
-      // However, we want the screen to fade/wormhole immediately now to hide the transition
-      /*
-      if (uiSystem && typeof uiSystem.playWormholeTransition === 'function') {
-         uiSystem.playWormholeTransition();
-      }
-      */
-      // NOTE: We don't trigger it here anymore to avoid the "double video" bug.
-      // The server will send MapChange, which triggers the video in MapChangeHandler.
-      // OR, if we want it instant on click, we should uncomment it but handle the duplication.
-      // Current plan: Delegate to MapChangeHandler which receives the server ack.
-      // WAIT - if we rely ONLY on MapChangeHandler, there might be a delay before the screen goes black
-      // where the player sees themselves "stuck".
-      // Let's trigger it immediately for responsiveness, but MapChangeHandler handles the "Wait" logic.
-      // Actually, plan says "Delegate visual transition triggering to MapChangeHandler". 
-      // So checking implementation_plan... "Delegate visual transition triggering to MapChangeHandler".
-      // OK, commenting out here.
 
       // --- 2. IMMEDIATELY MUTE PORTAL AMBIENCE ---
       this.setSoundsDisabled(true);
@@ -234,16 +220,19 @@ export class PortalSystem extends System {
         playerControlSystem.setInputForcedDisabled(true);
       }
 
+
+
       // --- 4. HIDE PLAYER & MAKE INVULNERABLE (Immediate Local Effect) ---
       const playerEntity = this.playerSystem.getPlayerEntity();
       if (playerEntity) {
+        // KEEP PLAYER VISIBLE for Layered Warp
         const sprite = this.ecs.getComponent(playerEntity, Sprite);
         if (sprite) {
-          sprite.visible = false;
+          sprite.visible = true;
         }
         const animatedSprite = this.ecs.getComponent(playerEntity, AnimatedSprite);
         if (animatedSprite) {
-          animatedSprite.visible = false;
+          animatedSprite.visible = true;
         }
         const health = this.ecs.getComponent(playerEntity, Health);
         if (health) {
@@ -434,6 +423,7 @@ export class PortalSystem extends System {
 
     // Se c'è un portale vicino, attivalo (MANUAL TRIGGER)
     if (nearestPortal) {
+      console.log('[PortalSystem] E Key Press detected near portal. Triggering transition.');
       this.lastEKeyPress = now;
       this.triggerPortalTransition(nearestPortal);
     }
@@ -465,5 +455,20 @@ export class PortalSystem extends System {
   destroy(): void {
     this.stopAllPortalSounds();
     this.audioSystem = null;
+  }
+  /**
+   * Safe method to reset transition state (called by MapChangeHandler)
+   */
+  public resetTransitionState(): void {
+    // console.log('[PortalSystem] Resetting transition state. Unlocking portals.');
+    this.isTransitioning = false;
+    this.areSoundsDisabled = false; // RE-ENABLE UPDATE LOOP
+    this.portalProximityState.clear();
+
+    // Allow input again just in case (redundant but safe)
+    const playerControlSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerControlSystem') as any;
+    if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
+      playerControlSystem.setInputForcedDisabled(false);
+    }
   }
 }

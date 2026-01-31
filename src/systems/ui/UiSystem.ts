@@ -154,6 +154,14 @@ export class UiSystem extends System {
 
       // Setup listener per impostazioni
       this.setupSettingsListeners();
+
+      // Preload warp sound
+      if (!this.currentWarpSound) {
+        this.currentWarpSound = new Audio('assets/teleport/warpSoundEffect.mp3');
+        this.currentWarpSound.preload = 'auto';
+        this.currentWarpSound.volume = 0.5;
+        this.currentWarpSound.load(); // Force load
+      }
     } catch (error) {
       console.error('UI Error in UiSystem.initialize():', error);
       // Non bloccare l'esecuzione, sistema UI non funzionante ma app continua
@@ -499,36 +507,119 @@ export class UiSystem extends System {
         playPromise.catch(e => console.warn('Warp sound play failed:', e));
       }
 
+      // Limit to max 5 seconds as requested (fading out last second)
+      setTimeout(() => {
+        if (this.currentWarpSound && !this.currentWarpSound.paused) {
+          this.fadeToSilence(this.currentWarpSound, 1000);
+        }
+      }, 4000);
+
     } catch (e) {
       console.warn('Error creating/playing warp audio:', e);
     }
   }
 
   /**
-   * Avvia la transizione video wormhole -- ORA SOLO BLACK FADE
+   * Avvia la modalità Warp Layered (Video DIETRO, Nave SOPRA)
    */
-  playWormholeTransition(duration: number = 500): void {
-    // Evita di far ripartire la transizione se è già attiva (es. chiamata sia da PortalSystem che da MapChangeHandler)
+  public startWarpMode(): void {
     if (this.isWormholeActive) return;
     this.isWormholeActive = true;
 
-    // 1. Play warp sound IMMEDIATAMENTE (per feedback istantaneo alla pressione del tasto)
-    this.playWarpSound();
-
-    // 2. Nascondi tutta la UI (HUD, Chat, ecc.)
-    this.setHudVisibility(false);
-
-    // Mute immediato suoni portale (Hum/Bassdrop)
-    const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
-    if (portalSystem) {
-      if (typeof portalSystem.setSoundsDisabled === 'function') {
-        portalSystem.setSoundsDisabled(true);
-      } else if (typeof portalSystem.stopAllPortalSounds === 'function') {
-        portalSystem.stopAllPortalSounds();
-      }
+    // 1. Assicura che il video esista
+    if (!this.blackoutVideoElement) {
+      this.createVideoOverlay();
     }
 
-    // 3. Fade to black semplice invece del video
+    if (this.blackoutVideoElement) {
+      // 2. Configura per stare DIETRO al gioco
+      this.blackoutVideoElement.style.zIndex = '-1';
+      this.blackoutVideoElement.style.opacity = '1';
+      this.blackoutVideoElement.style.display = 'block';
+
+      // Enforce full screen coverage (Fix for "half screen" issue)
+      this.blackoutVideoElement.style.position = 'fixed';
+      this.blackoutVideoElement.style.top = '0';
+      this.blackoutVideoElement.style.left = '0';
+      this.blackoutVideoElement.style.width = '100vw'; // Use vw/vh for safer fullscreen
+      this.blackoutVideoElement.style.height = '100vh';
+      this.blackoutVideoElement.style.objectFit = 'cover';
+
+      // 3. Play
+      this.blackoutVideoElement.play().catch(e => console.warn('Video play failed:', e));
+    }
+
+    // 4. Suono
+    this.playWarpSound();
+
+    // 5. HUD? Possiamo lasciarlo o nasconderlo.
+    // Per immersione totale, meglio nascondere l'HUD ma lasciare la nave
+    this.setHudVisibility(false);
+  }
+
+  /**
+   * Ferma la modalità Warp
+   */
+  public stopWarpMode(duration: number = 1000): void {
+    if (!this.isWormholeActive) return;
+    this.isWormholeActive = false;
+
+    // Fade out video
+    if (this.blackoutVideoElement) {
+      this.blackoutVideoElement.style.transition = `opacity ${duration}ms ease-in-out`;
+      this.blackoutVideoElement.style.opacity = '0';
+
+      setTimeout(() => {
+        if (this.blackoutVideoElement) {
+          this.blackoutVideoElement.pause();
+          this.blackoutVideoElement.style.display = 'none';
+          // Reset z-index per non interferire
+          this.blackoutVideoElement.style.zIndex = '998';
+        }
+      }, duration);
+    }
+
+    // Fade out audio
+    if (this.currentWarpSound) {
+      // ... existing audio fade logic ...
+      const audio = this.currentWarpSound;
+      const startVolume = audio.volume;
+      const steps = 20;
+      const volStep = startVolume / steps;
+      const stepTime = duration / steps;
+
+      const fadeInterval = setInterval(() => {
+        if (audio.volume > volStep) {
+          audio.volume -= volStep;
+        } else {
+          audio.volume = 0;
+          audio.pause();
+          clearInterval(fadeInterval);
+        }
+      }, stepTime);
+    }
+
+    // Restore System
+    setTimeout(() => {
+      const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
+      if (portalSystem && typeof portalSystem.setSoundsDisabled === 'function') {
+        portalSystem.setSoundsDisabled(false);
+      }
+      this.setHudVisibility(true);
+      document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+    }, duration);
+  }
+
+  /**
+   * Avvia la transizione video wormhole -- ORA SOLO BLACK FADE (Legacy/Fallback)
+   */
+  playWormholeTransition(duration: number = 500): void {
+    // ... existing logic ...
+    // Manteniamo questo metodo per compatibilità o fallback
+    if (this.isWormholeActive) return;
+    this.isWormholeActive = true;
+    this.playWarpSound();
+    this.setHudVisibility(false);
     this.fadeToBlack(duration);
   }
 
@@ -536,28 +627,32 @@ export class UiSystem extends System {
    * Ferma l'effetto wormhole (dissolvenza) - ORA FADE FROM BLACK
    */
   stopWormholeTransition(duration: number = 1000): void {
+    // ... existing logic ...
+    if (typeof this.stopWarpMode === 'function' && this.blackoutVideoElement && this.blackoutVideoElement.style.opacity === '1') {
+      // Se siamo in Warp Mode video, usa stopWarpMode
+      this.stopWarpMode(duration);
+      return;
+    }
+
+    // Altrimenti usa logica fade black standard
     if (!this.isWormholeActive) return;
     this.isWormholeActive = false;
-
-    // Fade from black transition
     this.fadeFromBlack(duration);
 
-    // Fade out audio indipendente e più lungo per effetto "scia"
+    // ... audio fade logic duplicated/shared ...
     if (this.currentWarpSound) {
       const audio = this.currentWarpSound;
       const startVolume = audio.volume;
-      const audioFadeDuration = 2500; // 2.5s di fade out audio
-      const fadeStep = 50; // ms
+      const audioFadeDuration = 2500;
+      const fadeStep = 50;
       const steps = audioFadeDuration / fadeStep;
       const volStep = startVolume / steps;
 
       const fadeInterval = setInterval(() => {
-        // Controllo safety: se l'audio è stato sostituito o fermato altrove
         if (audio.paused || audio !== this.currentWarpSound) {
           clearInterval(fadeInterval);
           return;
         }
-
         if (audio.volume > volStep) {
           audio.volume = Math.max(0, audio.volume - volStep);
         } else {
@@ -569,16 +664,11 @@ export class UiSystem extends System {
     }
 
     setTimeout(() => {
-      // Ripristina suoni portale
       const portalSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PortalSystem') as any;
       if (portalSystem && typeof portalSystem.setSoundsDisabled === 'function') {
         portalSystem.setSoundsDisabled(false);
       }
-
-      // Restore HUD visibility
       this.setHudVisibility(true);
-
-      // Riabilita l'input del giocatore
       document.dispatchEvent(new CustomEvent('uiPanelClosed'));
     }, duration);
   }
@@ -901,4 +991,23 @@ export class UiSystem extends System {
   // - toggleHud() -> UIHUDManager.toggleHud()
   // - All nickname methods -> UINicknameManager
   // - All chat methods -> UIChatManager
+  /**
+   * Helper to fade out audio element
+   */
+  private fadeToSilence(audio: HTMLAudioElement, duration: number): void {
+    const startVolume = audio.volume;
+    const steps = 20;
+    const volStep = startVolume / steps;
+    const stepTime = duration / steps;
+
+    const fadeInterval = setInterval(() => {
+      if (audio.volume > volStep) {
+        audio.volume -= volStep;
+      } else {
+        audio.volume = 0;
+        audio.pause();
+        clearInterval(fadeInterval);
+      }
+    }, stepTime);
+  }
 }

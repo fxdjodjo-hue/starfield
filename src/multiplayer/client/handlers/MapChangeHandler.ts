@@ -33,16 +33,7 @@ export class MapChangeHandler extends BaseMessageHandler {
             audioSystem.stopMusic();
         }
 
-        // 0. Start transition effect (VIDEO WORMHOLE)
-        const uiSystem = networkSystem.getUiSystem();
-        if (uiSystem) {
-            // Se esiste il metodo wormhole, usalo, altrimenti fallback al fadeToBlack
-            if (typeof uiSystem.playWormholeTransition === 'function') {
-                uiSystem.playWormholeTransition(0); // Instant blackout
-            } else if (typeof uiSystem.fadeToBlack === 'function') {
-                uiSystem.fadeToBlack(0);
-            }
-        }
+
 
         // 1. Flush remote entities (NPCs, Projectiles, Remote Players)
         // This prevents "ghost" entities from the previous map
@@ -63,7 +54,7 @@ export class MapChangeHandler extends BaseMessageHandler {
                 transform.y = position.y;
                 secureLogger.log(`Local player repositioned to: ${position.x}, ${position.y}`);
 
-                // Restaurata la visibilità locale (nel caso fosse stato nascosto dal PortalSystem)
+                // Visualizziamo la nave sopra il video
                 const sprite = ecs.getComponent(playerEntity, Sprite);
                 if (sprite) sprite.visible = true;
 
@@ -77,6 +68,18 @@ export class MapChangeHandler extends BaseMessageHandler {
                     cameraSystem.snapTo(position.x, position.y);
                     secureLogger.log(`Camera snapped to new position`);
                 }
+
+                // UNLOCK INPUT (Fix for stuck player)
+                const playerControlSystem = allSystems.find(s => (s as any).constructor?.name === 'PlayerControlSystem') as any;
+                if (playerControlSystem) {
+                    if (typeof playerControlSystem.setInputForcedDisabled === 'function') {
+                        playerControlSystem.setInputForcedDisabled(false);
+                    }
+                    if (typeof playerControlSystem.forceStopMovement === 'function') {
+                        playerControlSystem.forceStopMovement(); // Reset movement state to be safe
+                    }
+                    secureLogger.log(`Player input unlocked`);
+                }
             }
         }
 
@@ -88,10 +91,11 @@ export class MapChangeHandler extends BaseMessageHandler {
         const context = networkSystem.gameContext;
         if (context) {
             context.currentMapId = mapId;
+
+            // RELOAD MAP IMMEDIATELY (Instant Teleport)
             // Reload background (static method)
             EntityFactory.createMapBackground(ecs, context);
 
-            // Recreate map-specific entities (Portals, Stations)
             // Recreate map-specific entities (Portals, Stations)
             const assets = networkSystem.getAssets();
             if (assets) {
@@ -103,52 +107,45 @@ export class MapChangeHandler extends BaseMessageHandler {
             // Update Minimap system if available
             const minimapSystem = networkSystem.getMinimapSystem();
             if (minimapSystem && typeof minimapSystem.updateMapData === 'function') {
-                // Use provided dimensions or fallback to current ones if not present
                 const w = worldWidth || 21000;
                 const h = worldHeight || 13100;
                 minimapSystem.updateMapData(mapId, w, h, mapName);
             }
 
-            secureLogger.log(`Background and entities reload triggered for: ${mapId}`);
-        }
-
-        // Show map name on screen for transition effect
-        // Show map name on screen for transition effect and fade in
-        // Show map name on screen for transition effect and fade in/video out
-        if (uiSystem) {
-            if (typeof uiSystem.showMapTransitionName === 'function') {
-                // Mostra il nome mappa (apparirà sopra il video se z-index > video)
-                // Ritardiamo la scritta per farla apparire quando il wormhole finisce
-                setTimeout(() => {
-                    uiSystem.showMapTransitionName(mapId, 3000);
-
-                    // 🌍 SCREEN SHAKE ON ARRIVAL: Impact effect
-                    // Trigger a moderate shake when the player effectively "lands"
-                    // Delayed slightly (500ms) to sync with full visibility
-                    setTimeout(() => {
-                        const cameraSystem = ecs.getSystems().find((s: any) => s.constructor.name === 'CameraSystem') as any;
-                        if (cameraSystem && typeof cameraSystem.shake === 'function') {
-                            cameraSystem.shake(15, 1000); // Intensity 15, Duration 1000ms (slightly longer)
-                        }
-                    }, 500);
-
-                    // 🎵 CHANGE MUSIC: Play only when effectively entering (transition ends)
-                    const audioSystem = networkSystem.getAudioSystem();
-                    if (audioSystem && typeof audioSystem.playMusic === 'function') {
-                        audioSystem.playMusic(mapId); // Uses default global volume (same as Palantir)
-                        secureLogger.log(`Switching music to: ${mapId}`);
-                    }
-                }, 2500);
+            // Show arrival UI
+            const uiSystem = networkSystem.getUiSystem();
+            if (uiSystem && typeof uiSystem.showMapTransitionName === 'function') {
+                uiSystem.showMapTransitionName(mapId, 3000);
             }
 
-            // Gestione fine transizione (Video o Blackout)
-            if (typeof uiSystem.stopWormholeTransition === 'function') {
-                // Tieni il wormhole per 2 secondi totali, poi fade out
-                setTimeout(() => {
-                    uiSystem.stopWormholeTransition(800);
-                }, 2000);
-            } else if (typeof uiSystem.fadeFromBlack === 'function') {
-                uiSystem.fadeFromBlack(1000, 500);
+            // Ensure Warp Video is off (Safety)
+            if (uiSystem && typeof uiSystem.stopWarpMode === 'function') {
+                uiSystem.stopWarpMode(0);
+            }
+
+            // 🌍 SCREEN SHAKE ON ARRIVAL: Impact effect
+            const cameraSystem = ecs.getSystems().find((s: any) => s.constructor.name === 'CameraSystem') as any;
+            if (cameraSystem && typeof cameraSystem.shake === 'function') {
+                cameraSystem.shake(15, 1000);
+            }
+
+            // 🎵 CHANGE MUSIC
+            const audioSystem = networkSystem.getAudioSystem();
+            if (audioSystem && typeof audioSystem.playMusic === 'function') {
+                audioSystem.playMusic(mapId);
+                secureLogger.log(`Switching music to: ${mapId}`);
+            }
+
+            secureLogger.log(`Background and entities reloaded for: ${mapId}`);
+
+            // RESET PORTAL SYSTEM STATE (Allow reuse)
+            // Use instanceof for reliability (constructor.name fails if minified)
+            const portalSystem = ecs.getSystems().find((s: any) => s instanceof PortalSystem) as PortalSystem | undefined;
+            if (portalSystem) {
+                secureLogger.log('[MapChangeHandler] Calling portalSystem.resetTransitionState()');
+                portalSystem.resetTransitionState();
+            } else {
+                secureLogger.warn('[MapChangeHandler] Could not find PortalSystem (instanceof check failed)!');
             }
         }
 

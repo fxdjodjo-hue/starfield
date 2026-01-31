@@ -19,7 +19,7 @@ export class World {
     // Configura canvas con supporto HiDPI
     this.ctx = this.displayManager.setupCanvas(canvas, {
       fullscreen: true,
-      backgroundColor: CONFIG.BACKGROUND_COLOR,
+      // backgroundColor: CONFIG.BACKGROUND_COLOR, // REMOVE: Allow CSS transparent background for Warp Video
     });
 
     // Inizializza ECS
