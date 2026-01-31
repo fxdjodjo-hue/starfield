@@ -204,13 +204,15 @@ class PlayerDataManager {
           // Non filtriamo in base al progresso qui, perché una quest appena accettata (0 progresso) deve essere caricata.
           // La rimozione definitiva avviene tramite DELETE o non includendo la missione qui.
           const processedQuests = rawLoadedQuests.map(q => {
-            const id = q.id || q.quest_id;
-            const isCompleted = q.is_completed === true || q.completed === true;
+            const id = q.quest_id || q.id;
+            const isCompleted = q.is_completed === true || q.isCompleted === true || q.completed === true;
             return {
               ...q,
               id: id,
               quest_id: id,
-              is_completed: isCompleted
+              is_completed: isCompleted,
+              isCompleted: isCompleted,
+              objectives: q.objectives || []
             };
           });
 
@@ -255,9 +257,11 @@ class PlayerDataManager {
           try {
             const rawItems = playerDataRaw.items_data ? JSON.parse(playerDataRaw.items_data) : [];
             return rawItems.map(item => ({
-              id: item.id,
-              instanceId: item.instanceId,
-              acquiredAt: typeof item.acquiredAt === 'string' ? new Date(item.acquiredAt).getTime() : item.acquiredAt,
+              id: item.item_id || item.id,
+              instanceId: item.instance_id || item.instanceId,
+              acquiredAt: typeof item.acquiredAt === 'string' ? new Date(item.acquiredAt).getTime() :
+                (typeof item.acquired_at === 'string' ? new Date(item.acquired_at).getTime() :
+                  (item.acquired_at || item.acquiredAt)),
               slot: item.slot || null
             }));
           } catch (e) {
@@ -382,6 +386,19 @@ class PlayerDataManager {
       // Il flag admin può essere modificato solo direttamente nel database, non tramite gameplay
       const profileData = null;
 
+      const itemsData = playerData.items ? playerData.items.map(item => ({
+        item_id: item.id,
+        instance_id: item.instanceId,
+        acquired_at: new Date(item.acquiredAt).toISOString(),
+        slot: item.slot || null
+      })) : null;
+
+      const questsData = playerData.quests ? playerData.quests.map(quest => ({
+        quest_id: quest.quest_id || quest.id,
+        is_completed: quest.is_completed || quest.isCompleted || quest.completed || false,
+        objectives: quest.objectives || []
+      })) : null;
+
       // Use secure RPC function instead of direct table access
       ServerLoggerWrapper.database(`Calling update_player_data_secure RPC for auth_id: ${playerId}`);
       ServerLoggerWrapper.info('DATABASE', `Player ${playerId} saved: credits=${currenciesData.credits}, hp=${currenciesData.current_health}, shield=${currenciesData.current_shield}, honor=${currenciesData.honor}, exp=${currenciesData.experience}`);
@@ -392,7 +409,8 @@ class PlayerDataManager {
           stats_data: statsData,
           upgrades_data: upgradesData,
           currencies_data: currenciesData,
-          quests_data: playerData.quests ? JSON.stringify(playerData.quests) : null,
+          quests_data: questsData ? JSON.stringify(questsData) : null,
+          items_data: itemsData ? JSON.stringify(itemsData) : null,
           profile_data: profileData,
           position_data: {
             x: playerData.position?.x || 200,
