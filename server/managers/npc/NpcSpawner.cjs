@@ -20,7 +20,7 @@ class NpcSpawner {
     // Usa valori dal mapServer con fallback sicuro
     const WORLD_WIDTH = Number(this.mapServer?.WORLD_WIDTH) || 21000;
     const WORLD_HEIGHT = Number(this.mapServer?.WORLD_HEIGHT) || 13100;
-    
+
     return {
       WORLD_LEFT: -WORLD_WIDTH / 2,
       WORLD_RIGHT: WORLD_WIDTH / 2,
@@ -48,15 +48,15 @@ class NpcSpawner {
     const bounds = this.getWorldBounds();
     const width = bounds.WORLD_RIGHT - bounds.WORLD_LEFT;
     const height = bounds.WORLD_BOTTOM - bounds.WORLD_TOP;
-    
+
     // Validazione: se width o height sono NaN, usa fallback
-    const finalX = x ?? (Number.isFinite(width) && Number.isFinite(bounds.WORLD_LEFT) 
+    const finalX = x ?? (Number.isFinite(width) && Number.isFinite(bounds.WORLD_LEFT)
       ? (Math.random() * width + bounds.WORLD_LEFT)
       : (Math.random() - 0.5) * 21000);
     const finalY = y ?? (Number.isFinite(height) && Number.isFinite(bounds.WORLD_TOP)
       ? (Math.random() * height + bounds.WORLD_TOP)
       : (Math.random() - 0.5) * 13100);
-    
+
     // Validazione finale: se ancora NaN, non creare NPC
     if (!Number.isFinite(finalX) || !Number.isFinite(finalY)) {
       logger.error('NPC', `Failed to generate valid position for ${npcId}. Bounds:`, bounds);
@@ -125,7 +125,7 @@ class NpcSpawner {
     // Controlla se ci sono movimenti significativi
     const hasSignificantMovement = updates.position &&
       (Math.abs(updates.position.x - npc.position.x) > 5 ||
-       Math.abs(updates.position.y - npc.position.y) > 5);
+        Math.abs(updates.position.y - npc.position.y) > 5);
 
     Object.assign(npc, updates);
     npc.lastUpdate = Date.now();
@@ -155,15 +155,21 @@ class NpcSpawner {
 
     // Poi crea i Guard vicino ai Kronos (max 2 per Kronos per formazione strutturata)
     for (let i = 0; i < guardCount; i++) {
-      const kronosIndex = Math.floor(i / 2) % kronosPositions.length;
-      const kronosPos = kronosPositions[kronosIndex];
+      // Se ci sono Kronos, spawn vicino a loro, altrimenti a caso
+      if (kronosPositions.length > 0) {
+        const kronosIndex = Math.floor(i / 2) % kronosPositions.length;
+        const kronosPos = kronosPositions[kronosIndex];
 
-      // Offset per formazione: sinistra/destra
-      const isLeft = i % 2 === 0;
-      const offsetX = isLeft ? -200 : 200;
-      const offsetY = -100; // leggermente dietro
+        // Offset per formazione: sinistra/destra
+        const isLeft = i % 2 === 0;
+        const offsetX = isLeft ? -200 : 200;
+        const offsetY = -100; // leggermente dietro
 
-      this.createNpc('Guard', kronosPos.x + offsetX, kronosPos.y + offsetY, true);
+        this.createNpc('Guard', kronosPos.x + offsetX, kronosPos.y + offsetY, true);
+      } else {
+        // Fallback: spawn casuale se non ci sono Kronos
+        this.createNpc('Guard', undefined, undefined, true);
+      }
     }
 
     // Infine gli Scouter (nemici solitari)

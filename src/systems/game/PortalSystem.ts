@@ -329,28 +329,25 @@ export class PortalSystem extends BaseSystem {
         portal.activate();
         this.lastEKeyPress = now;
 
-        // --- MODIFICA SUONI E TRANSIZIONI ---
-        // 0. STOP MOVEMENT (Fix inertia/autopilot carry-over)
-        const playerControlSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerControlSystem') as any;
-        if (playerControlSystem && typeof playerControlSystem.forceStopMovement === 'function') {
-          playerControlSystem.forceStopMovement();
-        }
-
-        // 0.5 LOCK INPUT (Prevent WASD during fade)
-        if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
-          playerControlSystem.setInputForcedDisabled(true);
-        }
-
-        // 1. Diciamo all'UiSystem di partire SUBITO col fade e suono
+        // --- 1. IMMEDIATELY START VISUAL/AUDIO TRANSITION ---
         const uiSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'UiSystem') as any;
         if (uiSystem && typeof uiSystem.playWormholeTransition === 'function') {
           uiSystem.playWormholeTransition();
         }
 
-        // 2. Silenziamo SUBITO i suoni del portale per pulizia audio
+        // --- 2. IMMEDIATELY MUTE PORTAL AMBIENCE ---
         this.setSoundsDisabled(true);
 
-        // 3. --- DELAYED NETWORK MESSAGE ---
+        // --- 3. LOCK INPUT & STOP MOVEMENT ---
+        const playerControlSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerControlSystem') as any;
+        if (playerControlSystem && typeof playerControlSystem.forceStopMovement === 'function') {
+          playerControlSystem.forceStopMovement();
+        }
+        if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
+          playerControlSystem.setInputForcedDisabled(true);
+        }
+
+        // --- 4. SERVER NOTIFICATION & DELAYED MAP CHANGE ---
         // Wait for screen to be black (approx 600ms) before changing map
         setTimeout(() => {
           // Invia messaggio al server per usare il portale

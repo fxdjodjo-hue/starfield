@@ -40,6 +40,7 @@ export class UiSystem extends System {
   private blackoutVideoElement: HTMLVideoElement | null = null;
   private currentWarpSound: HTMLAudioElement | null = null;
   private managersInitialized: boolean = false;
+  private isWormholeActive: boolean = false;
 
   // Legacy references (maintained for backward compatibility)
   private context: any = null;
@@ -477,8 +478,13 @@ export class UiSystem extends System {
 
       const audio = this.currentWarpSound;
 
-      // Se è già in riproduzione, riavvialo o ignoralo?
-      // Per effetto warp meglio riavviare da zero se chiamato di nuovo
+      // Se è già in riproduzione e non è vicino alla fine, non riavviarlo
+      // Questo evita il salto audio se chiamato più volte durante la transizione (es. da MapChangeHandler)
+      if (!audio.paused && audio.currentTime < audio.duration - 0.5 && audio.volume > 0.1) {
+        return;
+      }
+
+      // Se stava finendo o era in pausa, resetta e riparti
       audio.pause();
       audio.currentTime = 0;
       audio.volume = 0.5; // Volume bilanciato
@@ -497,7 +503,14 @@ export class UiSystem extends System {
    * Avvia la transizione video wormhole -- ORA SOLO BLACK FADE
    */
   playWormholeTransition(): void {
-    // 1. Nascondi tutta la UI (HUD, Chat, ecc.)
+    // Evita di far ripartire la transizione se è già attiva (es. chiamata sia da PortalSystem che da MapChangeHandler)
+    if (this.isWormholeActive) return;
+    this.isWormholeActive = true;
+
+    // 1. Play warp sound IMMEDIATAMENTE (per feedback istantaneo alla pressione del tasto)
+    this.playWarpSound();
+
+    // 2. Nascondi tutta la UI (HUD, Chat, ecc.)
     this.setHudVisibility(false);
 
     // Mute immediato suoni portale (Hum/Bassdrop)
@@ -510,9 +523,6 @@ export class UiSystem extends System {
       }
     }
 
-    // 2. Play warp sound
-    this.playWarpSound();
-
     // 3. Fade to black semplice invece del video
     this.fadeToBlack(500);
   }
@@ -521,6 +531,9 @@ export class UiSystem extends System {
    * Ferma l'effetto wormhole (dissolvenza) - ORA FADE FROM BLACK
    */
   stopWormholeTransition(duration: number = 1000): void {
+    if (!this.isWormholeActive) return;
+    this.isWormholeActive = false;
+
     // Fade from black transition
     this.fadeFromBlack(duration);
 
