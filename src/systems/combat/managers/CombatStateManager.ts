@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { Entity } from '../../../infrastructure/ecs/Entity';
 import type { PlayerSystem } from '../../player/PlayerSystem';

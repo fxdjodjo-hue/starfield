@@ -8,6 +8,8 @@ import { SpaceStation } from '../../../entities/spatial/SpaceStation';
 import { Asteroid } from '../../../entities/spatial/Asteroid';
 import { EntityFactory } from '../../../systems/game/EntityFactory';
 import { PortalSystem } from '../../../systems/game/PortalSystem';
+import { Sprite } from '../../../entities/Sprite';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 
 /**
  * Handles MAP_CHANGE messages from the server
@@ -61,6 +63,13 @@ export class MapChangeHandler extends BaseMessageHandler {
                 transform.y = position.y;
                 secureLogger.log(`Local player repositioned to: ${position.x}, ${position.y}`);
 
+                // Restaurata la visibilità locale (nel caso fosse stato nascosto dal PortalSystem)
+                const sprite = ecs.getComponent(playerEntity, Sprite);
+                if (sprite) sprite.visible = true;
+
+                const animatedSprite = ecs.getComponent(playerEntity, AnimatedSprite);
+                if (animatedSprite) animatedSprite.visible = true;
+
                 // Snap camera to new position instantly (avoid slide effect)
                 const allSystems = ecs.getSystems();
                 const cameraSystem = allSystems.find(s => (s as any).constructor?.Type === 'CameraSystem') as any;
@@ -71,6 +80,10 @@ export class MapChangeHandler extends BaseMessageHandler {
             }
         }
 
+        // 3.5 PAUSE POSITION UPDATES: Stay "invisible" to others during the transition
+        // until the black screen/wormhole finishes (approx 2.5s)
+        networkSystem.pausePositionUpdates(2500);
+
         // 4. Update GameContext and reload background/entities
         const context = networkSystem.gameContext;
         if (context) {
@@ -79,9 +92,12 @@ export class MapChangeHandler extends BaseMessageHandler {
             EntityFactory.createMapBackground(ecs, context);
 
             // Recreate map-specific entities (Portals, Stations)
+            // Recreate map-specific entities (Portals, Stations)
             const assets = networkSystem.getAssets();
             if (assets) {
                 EntityFactory.createMapEntities(ecs, assets, mapId);
+            } else {
+                console.error('[MapChangeHandler] Cannot create map entities - assets unavailable!');
             }
 
             // Update Minimap system if available
@@ -105,6 +121,16 @@ export class MapChangeHandler extends BaseMessageHandler {
                 // Ritardiamo la scritta per farla apparire quando il wormhole finisce
                 setTimeout(() => {
                     uiSystem.showMapTransitionName(mapId, 3000);
+
+                    // 🌍 SCREEN SHAKE ON ARRIVAL: Impact effect
+                    // Trigger a moderate shake when the player effectively "lands"
+                    // Delayed slightly (500ms) to sync with full visibility
+                    setTimeout(() => {
+                        const cameraSystem = ecs.getSystems().find((s: any) => s.constructor.name === 'CameraSystem') as any;
+                        if (cameraSystem && typeof cameraSystem.shake === 'function') {
+                            cameraSystem.shake(15, 1000); // Intensity 15, Duration 1000ms (slightly longer)
+                        }
+                    }, 500);
 
                     // 🎵 CHANGE MUSIC: Play only when effectively entering (transition ends)
                     const audioSystem = networkSystem.getAudioSystem();

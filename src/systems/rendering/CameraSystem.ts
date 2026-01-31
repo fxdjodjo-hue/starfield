@@ -181,27 +181,77 @@ export class CameraSystem extends BaseSystem {
     // REMOVED: Smooth logic moved to updateForRender to run at render frequency
   }
 
+  // Screen Shake State
+  private shakeState: {
+    active: boolean;
+    intensity: number;
+    initialIntensity: number;
+    duration: number;
+    elapsed: number;
+  } | null = null;
+
+  /**
+   * Avvia un effetto di screen shake
+   * @param intensity Intensità dello shake (es. 5-20 pixel)
+   * @param duration Durata in ms
+   */
+  public shake(intensity: number = 10, duration: number = 500): void {
+    this.shakeState = {
+      active: true,
+      intensity: intensity,
+      initialIntensity: intensity,
+      duration: duration,
+      elapsed: 0
+    };
+  }
+
   /**
    * Aggiorna la posizione della camera con interpolazione fluida (da chiamare nel loop di rendering)
    * @param deltaTime Tempo trascorso dall'ultimo frame di rendering in ms
    */
   public updateForRender(deltaTime: number): void {
-    // Apply Smooth Following Logic (if not zooming)
+    // 1. Update Shake
+    let shakeOffsetX = 0;
+    let shakeOffsetY = 0;
+
+    if (this.shakeState && this.shakeState.active) {
+      this.shakeState.elapsed += deltaTime;
+      const progress = this.shakeState.elapsed / this.shakeState.duration;
+
+      if (progress < 1) {
+        // Decadimento lineare dell'intensità
+        const currentIntensity = this.shakeState.initialIntensity * (1 - progress);
+
+        // Random shake offset
+        shakeOffsetX = (Math.random() - 0.5) * 2 * currentIntensity;
+        shakeOffsetY = (Math.random() - 0.5) * 2 * currentIntensity;
+      } else {
+        this.shakeState.active = false;
+        this.shakeState = null;
+      }
+    }
+
+    // 2. Apply Smooth Following Logic
     if (!this.isZoomAnimating && this.targetPos) {
       const dt = deltaTime / 1000;
       // Frame-rate independent lerp
-      // Usa un valore alto per essere reattivo ma morbido
       const lerpFactor = 1 - Math.exp(-this.CAMERA_SMOOTH_SPEED * dt);
 
       const currentX = this.camera.x;
       const currentY = this.camera.y;
 
-      // Interpolate
-      const newX = currentX + (this.targetPos.x - currentX) * lerpFactor;
-      const newY = currentY + (this.targetPos.y - currentY) * lerpFactor;
+      // Interpolate base position
+      let newX = currentX + (this.targetPos.x - currentX) * lerpFactor;
+      let newY = currentY + (this.targetPos.y - currentY) * lerpFactor;
 
-      // Apply
-      this.camera.centerOn(newX, newY);
+      // Apply shake offset
+      // NOTA: La camera usa centerOn, quindi offsettiamo la posizione target visuale
+      // Ma non salviamo lo shake nel targetPos, è solo visivo per questo frame
+      this.camera.centerOn(newX + shakeOffsetX, newY + shakeOffsetY);
+    }
+    // Se c'è un'animazione zoom in corso, applica comunque lo shake alla posizione corrente
+    else if (this.isZoomAnimating && this.shakeState?.active) {
+      this.camera.centerOn(this.camera.x + shakeOffsetX, this.camera.y + shakeOffsetY);
     }
   }
 

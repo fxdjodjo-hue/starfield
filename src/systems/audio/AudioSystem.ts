@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameSettings } from '../../core/settings/GameSettings';
@@ -258,7 +259,7 @@ export default class AudioSystem extends System {
         this.debounceTimeouts.delete(key);
         this._playSoundInternal(key, volume, loop, allowMultiple, category);
         this.lastPlayedTimes.set(key, Date.now());
-      }, debounceMs - (now - lastPlayed)));
+      }, debounceMs - (now - lastPlayed)) as unknown as number);
 
       return;
     }

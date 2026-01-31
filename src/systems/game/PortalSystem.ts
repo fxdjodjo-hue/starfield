@@ -1,22 +1,34 @@
-import { System as BaseSystem } from '../../infrastructure/ecs/System';
+import { System } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Portal } from '../../entities/spatial/Portal';
-import { PlayerSystem } from '../player/PlayerSystem';
 import { MathUtils } from '../../core/utils/MathUtils';
+import { PlayerSystem } from '../player/PlayerSystem';
+import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
+import { Health } from '../../entities/combat/Health';
+import { Entity } from '../../infrastructure/ecs/Entity';
+
+// Import Types - using type imports to avoid potential circular dependency issues at runtime
+// though strict usages might require value imports. We will use value imports for type guards if needed.
+import { UiSystem } from '../ui/UiSystem';
+import { PlayerControlSystem } from '../input/PlayerControlSystem';
+import AudioSystem from '../audio/AudioSystem';
+import { InputSystem } from '../input/InputSystem';
 
 /**
  * Sistema per gestire i portali
  * Riproduce suoni quando il player si avvicina
  */
-export class PortalSystem extends BaseSystem {
+export class PortalSystem extends System {
   private playerSystem: PlayerSystem;
-  private audioSystem: any = null;
-  private inputSystem: any = null;
-  private clientNetworkSystem: any = null;
+  private audioSystem: AudioSystem | null = null;
+  private inputSystem: InputSystem | null = null;
+  private clientNetworkSystem: any = null; // Type as any for now as we haven't located the specific definition
   private portalSoundInstances: Map<number, HTMLAudioElement> = new Map(); // entityId -> portal audio instance
   private portalBassdropInstances: Map<number, HTMLAudioElement> = new Map(); // entityId -> bassdrop audio instance
   private portalFadeOutAnimations: Map<number, number> = new Map(); // entityId -> animationFrameId
+  private portalProximityState: Map<number, boolean> = new Map(); // entityId -> isPlayerInside state
   private readonly PROXIMITY_DISTANCE = 600; // Distanza per attivare il suono
   private readonly INTERACTION_DISTANCE = 300; // Distanza per interagire con E
   private readonly MAX_VOLUME_DISTANCE = 200; // Distanza per volume massimo
@@ -31,7 +43,7 @@ export class PortalSystem extends BaseSystem {
     this.playerSystem = playerSystem;
   }
 
-  setAudioSystem(audioSystem: any): void {
+  setAudioSystem(audioSystem: AudioSystem): void {
     this.audioSystem = audioSystem;
   }
 
@@ -47,7 +59,7 @@ export class PortalSystem extends BaseSystem {
       this.isTransitioning = false;
 
       // Re-enable Player Input
-      const playerControlSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerControlSystem') as any;
+      const playerControlSystem = this.ecs.getSystems().find((s) => s.constructor.name === 'PlayerControlSystem') as PlayerControlSystem | undefined;
       if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
         playerControlSystem.setInputForcedDisabled(false);
       }
@@ -63,7 +75,7 @@ export class PortalSystem extends BaseSystem {
     }
   }
 
-  setInputSystem(inputSystem: any): void {
+  setInputSystem(inputSystem: InputSystem): void {
     this.inputSystem = inputSystem;
   }
 
@@ -93,7 +105,7 @@ export class PortalSystem extends BaseSystem {
         portalTransform.x, portalTransform.y
       );
 
-      const portalId = portalEntity.id;
+      const portalId = portalEntity.id as number; // EntityId behaves as number
       const isPlaying = this.portalSoundInstances.has(portalId);
 
       if (distance <= this.PROXIMITY_DISTANCE) {
@@ -123,7 +135,8 @@ export class PortalSystem extends BaseSystem {
           const normalizedDistance = distanceRange > 0 ? distanceFromMax / distanceRange : 0;
 
           // Ottieni volumi globali dall'AudioSystem
-          const config = this.audioSystem?.getConfig?.() || { masterVolume: 1, effectsVolume: 1 };
+          // Use unknown cast to access getConfig safely if type definition is partial
+          const config = (this.audioSystem as any)?.getConfig?.() || { masterVolume: 1, effectsVolume: 1 };
           const globalMultiplier = config.masterVolume * config.effectsVolume;
 
           const portalVolume = 0.18 * (1 - normalizedDistance) * globalMultiplier;
@@ -141,6 +154,25 @@ export class PortalSystem extends BaseSystem {
         if (distance <= this.INTERACTION_DISTANCE) {
           this.checkPortalInteraction(portalEntity, distance);
         }
+
+        // 🚀 AUTO-TELEPORT: Edge detection logic
+        // Only trigger when entering the zone (isInside && !wasInside)
+        const AUTO_TRIGGER_DISTANCE = 80;
+        const isInside = distance <= AUTO_TRIGGER_DISTANCE;
+
+        // FIRST RUN CHECK: If state is unknown, initialize it without triggering
+        // This handles spawning inside a portal (prevents immediate loop without needing a timer)
+        if (!this.portalProximityState.has(portalId)) {
+          this.portalProximityState.set(portalId, isInside);
+        } else {
+          const wasInside = this.portalProximityState.get(portalId) ?? false;
+          this.portalProximityState.set(portalId, isInside);
+
+          if (isInside && !wasInside && !this.isTransitioning) {
+            // EDGE TRIGGER: Player entered the zone
+            this.triggerPortalTransition(portalEntity);
+          }
+        }
       } else {
         // Player è lontano, avvia fade out graduale
         if (isPlaying) {
@@ -150,6 +182,85 @@ export class PortalSystem extends BaseSystem {
           }
         }
       }
+    }
+  }
+
+  /**
+   * Centralized logic for triggering portal transition (used by both Key Press and Auto-trigger)
+   */
+  private triggerPortalTransition(portalEntity: Entity): void {
+    if (this.isTransitioning) return; // Prevent double activation
+
+    const portal = this.ecs.getComponent(portalEntity, Portal);
+    if (portal) {
+      this.isTransitioning = true; // LOCK INTERACTION
+      portal.activate();
+
+      // --- 1. IMMEDIATELY START AUDIO ---
+      const uiSystem = this.ecs.getSystems().find((s) => s.constructor.name === 'UiSystem') as UiSystem | undefined;
+      if (uiSystem && typeof uiSystem.playWarpSound === 'function') {
+        uiSystem.playWarpSound();
+      }
+
+      // --- 2. DELAYED VISUAL TRANSITION (Separate sound from black screen) ---
+      // User request: Play sound on entry, not when screen goes black
+      // REMOVED DELAY: Delegated to MapChangeHandler or instant
+      // However, we want the screen to fade/wormhole immediately now to hide the transition
+      /*
+      if (uiSystem && typeof uiSystem.playWormholeTransition === 'function') {
+         uiSystem.playWormholeTransition();
+      }
+      */
+      // NOTE: We don't trigger it here anymore to avoid the "double video" bug.
+      // The server will send MapChange, which triggers the video in MapChangeHandler.
+      // OR, if we want it instant on click, we should uncomment it but handle the duplication.
+      // Current plan: Delegate to MapChangeHandler which receives the server ack.
+      // WAIT - if we rely ONLY on MapChangeHandler, there might be a delay before the screen goes black
+      // where the player sees themselves "stuck".
+      // Let's trigger it immediately for responsiveness, but MapChangeHandler handles the "Wait" logic.
+      // Actually, plan says "Delegate visual transition triggering to MapChangeHandler". 
+      // So checking implementation_plan... "Delegate visual transition triggering to MapChangeHandler".
+      // OK, commenting out here.
+
+      // --- 2. IMMEDIATELY MUTE PORTAL AMBIENCE ---
+      this.setSoundsDisabled(true);
+
+      // --- 3. LOCK INPUT & STOP MOVEMENT ---
+      const playerControlSystem = this.ecs.getSystems().find((s) => s.constructor.name === 'PlayerControlSystem') as PlayerControlSystem | undefined;
+      if (playerControlSystem && typeof playerControlSystem.forceStopMovement === 'function') {
+        playerControlSystem.forceStopMovement();
+      }
+      if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
+        playerControlSystem.setInputForcedDisabled(true);
+      }
+
+      // --- 4. HIDE PLAYER & MAKE INVULNERABLE (Immediate Local Effect) ---
+      const playerEntity = this.playerSystem.getPlayerEntity();
+      if (playerEntity) {
+        const sprite = this.ecs.getComponent(playerEntity, Sprite);
+        if (sprite) {
+          sprite.visible = false;
+        }
+        const animatedSprite = this.ecs.getComponent(playerEntity, AnimatedSprite);
+        if (animatedSprite) {
+          animatedSprite.visible = false;
+        }
+        const health = this.ecs.getComponent(playerEntity, Health);
+        if (health) {
+          health.isInvulnerable = true;
+        }
+      }
+
+      // --- 5. SERVER NOTIFICATION (IMMEDIATE) ---
+      // REMOVED DELAY: Send immediately to avoid "ghosting" to other players
+      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
+        this.clientNetworkSystem.sendMessage({
+          type: 'portal_use',
+          portalId: portalEntity.id,
+          timestamp: Date.now()
+        });
+      }
+      // Note: isTransitioning stays true. System will be destroyed/reset on map load.
     }
   }
 
@@ -278,7 +389,7 @@ export class PortalSystem extends BaseSystem {
   /**
    * Gestisce l'interazione con il portale (tasto E)
    */
-  private checkPortalInteraction(portalEntity: any, distance: number): void {
+  private checkPortalInteraction(portalEntity: Entity, distance: number): void {
     // Verifica se il tasto E è stato premuto
     // Questo verrà chiamato da un callback quando E viene premuto
   }
@@ -303,7 +414,7 @@ export class PortalSystem extends BaseSystem {
 
     // Trova il portale più vicino
     const portals = this.ecs.getEntitiesWithComponents(Transform, Portal);
-    let nearestPortal: any = null;
+    let nearestPortal: Entity | null = null;
     let nearestDistance = Infinity;
 
     for (const portalEntity of portals) {
@@ -321,46 +432,10 @@ export class PortalSystem extends BaseSystem {
       }
     }
 
-    // Se c'è un portale vicino, attivalo
+    // Se c'è un portale vicino, attivalo (MANUAL TRIGGER)
     if (nearestPortal) {
-      const portal = this.ecs.getComponent(nearestPortal, Portal);
-      if (portal) {
-        this.isTransitioning = true; // LOCK INTERACTION
-        portal.activate();
-        this.lastEKeyPress = now;
-
-        // --- 1. IMMEDIATELY START VISUAL/AUDIO TRANSITION ---
-        const uiSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'UiSystem') as any;
-        if (uiSystem && typeof uiSystem.playWormholeTransition === 'function') {
-          uiSystem.playWormholeTransition();
-        }
-
-        // --- 2. IMMEDIATELY MUTE PORTAL AMBIENCE ---
-        this.setSoundsDisabled(true);
-
-        // --- 3. LOCK INPUT & STOP MOVEMENT ---
-        const playerControlSystem = this.ecs.getSystems().find((s: any) => s.constructor.name === 'PlayerControlSystem') as any;
-        if (playerControlSystem && typeof playerControlSystem.forceStopMovement === 'function') {
-          playerControlSystem.forceStopMovement();
-        }
-        if (playerControlSystem && typeof playerControlSystem.setInputForcedDisabled === 'function') {
-          playerControlSystem.setInputForcedDisabled(true);
-        }
-
-        // --- 4. SERVER NOTIFICATION & DELAYED MAP CHANGE ---
-        // Wait for screen to be black (approx 600ms) before changing map
-        setTimeout(() => {
-          // Invia messaggio al server per usare il portale
-          if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
-            this.clientNetworkSystem.sendMessage({
-              type: 'portal_use',
-              portalId: nearestPortal.id,
-              timestamp: Date.now()
-            });
-          }
-          // Note: isTransitioning stays true. System will be destroyed/reset on map load.
-        }, 600);
-      }
+      this.lastEKeyPress = now;
+      this.triggerPortalTransition(nearestPortal);
     }
   }
 
@@ -368,6 +443,9 @@ export class PortalSystem extends BaseSystem {
    * Ferma tutti i suoni dei portali (chiamato durante cambio mappa)
    */
   stopAllPortalSounds(): void {
+    // Reset proximity state on map change
+    this.portalProximityState.clear();
+
     // Cancella tutte le animazioni di fade out
     for (const frameId of this.portalFadeOutAnimations.values()) {
       cancelAnimationFrame(frameId);

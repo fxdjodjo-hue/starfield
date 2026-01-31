@@ -2,13 +2,14 @@ import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { Entity } from '../../../infrastructure/ecs/Entity';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 import { DamageText } from '../../../entities/combat/DamageText';
-import type { Shield } from '../../../entities/combat/Shield';
+import { Shield } from '../../../entities/combat/Shield';
 
 /**
  * Manages damage text creation and tracking
  */
 export class CombatDamageManager {
   private activeLaserTexts: Map<number, number> = new Map(); // entityId -> count
+  private activeMissileTexts: Map<number, number> = new Map(); // entityId -> count
 
   constructor(
     private readonly ecs: ECS,
@@ -18,16 +19,17 @@ export class CombatDamageManager {
   /**
    * Creates a damage text for a target entity
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
     if (damage <= 0) {
       return;
     }
 
     const targetEntityId = targetEntity.id;
 
-    // Usa contatore per testi di danno attivi
-    const activeMap = this.activeLaserTexts;
-    const maxTexts = 3; // Max 3 testi di danno
+    // Seleziona la mappa corretta in base al tipo di proiettile
+    const isMissile = projectileType === 'missile';
+    const activeMap = isMissile ? this.activeMissileTexts : this.activeLaserTexts;
+    const maxTexts = 3; // Max 3 testi di danno per tipo
 
     // Controlla quanti testi sono già attivi per questa entità e tipo
     const activeCount = activeMap.get(targetEntityId) || 0;
@@ -81,8 +83,10 @@ export class CombatDamageManager {
    * Decrementa il contatore dei testi di danno attivi per un'entità
    * Chiamato dal DamageTextSystem quando un testo scade
    */
-  decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser'): void {
-    const activeMap = this.activeLaserTexts;
+  decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'npc_laser' | 'missile'): void {
+    const isMissile = projectileType === 'missile';
+    const activeMap = isMissile ? this.activeMissileTexts : this.activeLaserTexts;
+
     const currentCount = activeMap.get(targetEntityId) || 0;
     if (currentCount > 0) {
       activeMap.set(targetEntityId, currentCount - 1);

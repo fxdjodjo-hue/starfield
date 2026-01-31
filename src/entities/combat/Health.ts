@@ -5,6 +5,8 @@ import { ResourceComponent } from './ResourceComponent';
  * Include salute corrente, massima e logica di morte
  */
 export class Health extends ResourceComponent {
+  public isInvulnerable: boolean = false;
+
   constructor(current: number, max: number) {
     super(current, max);
   }
@@ -34,21 +36,7 @@ export class Health extends ResourceComponent {
 
   /**
    * Proprietà per accesso diretto (per compatibilità)
-   * Nota: questi getter/setter delegano a currentValue/maxValue che hanno clamping built-in
+   * N.B. Rimosso override accessors che andavano in conflitto con la classe base.
+   * ResourceComponent ha già public current e max o metodi appropriati.
    */
-  get current(): number {
-    return this.currentValue;
-  }
-
-  set current(value: number) {
-    this.currentValue = value;
-  }
-
-  get max(): number {
-    return this.maxValue;
-  }
-
-  set max(value: number) {
-    this.maxValue = value;
-  }
 }

@@ -375,6 +375,12 @@ export class ClientNetworkSystem extends BaseSystem {
     // Solo bufferizza aggiornamenti di posizione se il client è ready
     if (this.isReady()) {
       const now = Date.now();
+
+      // Controllo pausa aggiornamenti posizione (es. durante transizione mappa)
+      if (now < this.positionUpdatePausedUntil) {
+        return;
+      }
+
       // SECURITY FIX: Throttle position sampling to avoid rate limit issues
       // Instead of sampling every frame (60Hz), sample at the sync interval (20Hz)
       if (now - this.lastBufferedTime >= NETWORK_CONFIG.POSITION_SYNC_INTERVAL) {
@@ -407,6 +413,16 @@ export class ClientNetworkSystem extends BaseSystem {
   private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
   private lastBufferedTime: number = 0;
   private lastSentTime: number = 0;
+  private positionUpdatePausedUntil: number = 0; // Timestamp fino al quale gli update sono in pausa
+
+  /**
+   * Mette in pausa l'invio degli aggiornamenti di posizione per una durata specifica
+   * Utile durante transizioni di mappa per "nascondere" il giocatore agli altri
+   * @param durationDuration in milliseconds
+   */
+  public pausePositionUpdates(duration: number): void {
+    this.positionUpdatePausedUntil = Date.now() + duration;
+  }
 
   private shouldSendPositionUpdate(currentPosition: { x: number; y: number; rotation: number }): boolean {
     if (!this.lastSentPosition) {
