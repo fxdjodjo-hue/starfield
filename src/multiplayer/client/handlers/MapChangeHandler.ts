@@ -38,7 +38,7 @@ export class MapChangeHandler extends BaseMessageHandler {
         if (uiSystem) {
             // Se esiste il metodo wormhole, usalo, altrimenti fallback al fadeToBlack
             if (typeof uiSystem.playWormholeTransition === 'function') {
-                uiSystem.playWormholeTransition();
+                uiSystem.playWormholeTransition(0); // Instant blackout
             } else if (typeof uiSystem.fadeToBlack === 'function') {
                 uiSystem.fadeToBlack(0);
             }

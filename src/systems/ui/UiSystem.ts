@@ -507,7 +507,7 @@ export class UiSystem extends System {
   /**
    * Avvia la transizione video wormhole -- ORA SOLO BLACK FADE
    */
-  playWormholeTransition(): void {
+  playWormholeTransition(duration: number = 500): void {
     // Evita di far ripartire la transizione se è già attiva (es. chiamata sia da PortalSystem che da MapChangeHandler)
     if (this.isWormholeActive) return;
     this.isWormholeActive = true;
@@ -529,7 +529,7 @@ export class UiSystem extends System {
     }
 
     // 3. Fade to black semplice invece del video
-    this.fadeToBlack(500);
+    this.fadeToBlack(duration);
   }
 
   /**
