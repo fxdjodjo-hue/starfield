@@ -1,4 +1,5 @@
 import { CONFIG } from '../../core/utils/config/GameConfig';
+import { WorkerTimer } from './WorkerTimer';
 
 /**
  * Game loop basato su requestAnimationFrame con delta time
@@ -10,6 +11,43 @@ export class GameLoop {
   private updateCallback?: (deltaTime: number) => void;
   private renderCallback?: () => void;
 
+  // Timer basato su Worker per il background
+  private workerTimer: WorkerTimer;
+  private usingWorker = false;
+
+  constructor() {
+    // Inizializza il worker timer che chiamerà il loop
+    this.workerTimer = new WorkerTimer(() => {
+      if (this.isRunning && document.hidden) {
+        this.loop();
+      }
+    });
+
+    // Ascolta i cambi di visibilità per switchare strategia
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  }
+
+  private handleVisibilityChange = (): void => {
+    if (document.hidden) {
+      console.log('[GameLoop] Tab hidden: switching to Worker Timer');
+      // Tab nascosto: ferma rAF (implicito) e avvia Worker
+      // Usiamo 33ms (~30fps) per risparmiare risorse ma tenere viva la simulazione
+      this.usingWorker = true;
+      this.workerTimer.start(33);
+    } else {
+      console.log('[GameLoop] Tab visible: switching to requestAnimationFrame');
+      // Tab visibile: ferma Worker e riprendi rAF
+      this.usingWorker = false;
+      this.workerTimer.stop();
+
+      // Riavvia il loop rAF se il gioco è in esecuzione
+      if (this.isRunning) {
+        this.lastTime = performance.now();
+        requestAnimationFrame(this.loop);
+      }
+    }
+  };
+
   /**
    * Avvia il game loop
    */
@@ -18,7 +56,12 @@ export class GameLoop {
     this.renderCallback = renderCallback;
     this.isRunning = true;
     this.lastTime = performance.now();
-    this.loop();
+
+    if (document.hidden) {
+      this.handleVisibilityChange(); // Avvia subito il worker se siamo già nascosti
+    } else {
+      this.loop(); // Avvia rAF
+    }
   }
 
   /**
@@ -26,49 +69,57 @@ export class GameLoop {
    */
   stop(): void {
     this.isRunning = false;
+    this.workerTimer.stop();
+  }
+
+  /**
+   * Distrugge il loop e i listener
+   */
+  dispose(): void {
+    this.stop();
+    this.workerTimer.dispose();
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
   /**
    * Loop principale con fixed timestep per update e rendering variabile
    */
-  /**
-   * Loop principale con fixed timestep per update e rendering variabile
-   * Supporta fallback su setTimeout quando requestAnimationFrame viene throttlato (background tab)
-   */
   private loop = (): void => {
     if (!this.isRunning) return;
 
-    const currentTime = performance.now();
-    // Calcola delta time reale
-    const frameTime = currentTime - this.lastTime;
+    try {
+      const currentTime = performance.now();
+      // Calcola delta time reale
+      const frameTime = currentTime - this.lastTime;
 
-    // Rileva se il browser sta rallentando troppo (throttling > 100ms)
-    // Normalmente rAF gira a 16ms (60fps). Se siamo > 100ms, probabilmente siamo in background.
-    const isThrottled = frameTime > 100;
+      this.lastTime = currentTime;
 
-    this.lastTime = currentTime;
+      // Accumula tempo per fixed timestep
+      // Se il tab è visibile, cappiamo a 250ms per evitare spiral of death su lag veri.
+      // Se il tab è nascosto, permettiamo recupero totale (10s+) perché il tick del worker 
+      // potrebbe essere disallineato o il browser potrebbe aver comunque sospeso per un po'.
+      const maxFrameTime = document.hidden ? 10000 : 250;
 
-    // Accumula tempo per fixed timestep
-    // Cap frameTime a 250ms per evitare "spirale della morte" se il gioco si blocca per un po'
-    this.accumulatedTime += Math.min(frameTime, 250);
+      this.accumulatedTime += Math.min(frameTime, maxFrameTime);
 
-    // Update con timestep fisso
-    while (this.accumulatedTime >= CONFIG.FIXED_DELTA_TIME) {
-      this.updateCallback?.(CONFIG.FIXED_DELTA_TIME);
-      this.accumulatedTime -= CONFIG.FIXED_DELTA_TIME;
+      // Update con timestep fisso
+      while (this.accumulatedTime >= CONFIG.FIXED_DELTA_TIME) {
+        this.updateCallback?.(CONFIG.FIXED_DELTA_TIME);
+        this.accumulatedTime -= CONFIG.FIXED_DELTA_TIME;
+      }
+
+      // Render solo se visibile
+      if (!document.hidden) {
+        this.renderCallback?.();
+      }
+
+    } catch (error) {
+      console.error('[GameLoop] Error in game loop:', error);
     }
 
-    // Render sempre (variabile framerate)
-    this.renderCallback?.();
-
-    if (isThrottled) {
-      // Se siamo throttlati, usiamo setTimeout per garantire un tick rate decente (~30fps)
-      // anche se il browser vorrebbe fermarci a 1fps o meno
-      setTimeout(() => {
-        if (this.isRunning) this.loop();
-      }, 33); // Target ~30fps in background
-    } else {
-      // Funzionamento normale
+    // Se NON stiamo usando il worker (quindi siamo visibili), richiedi il prossimo frame.
+    // Se stiamo usando il worker, questo metodo verrà richiamato dal prossimo tick del worker.
+    if (!this.usingWorker && !document.hidden) {
       requestAnimationFrame(this.loop);
     }
   };
