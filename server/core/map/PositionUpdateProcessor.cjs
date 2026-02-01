@@ -50,10 +50,38 @@ class PositionUpdateProcessor {
           Math.round(playerData.shield),
           Math.round(playerData.maxShield)
         ],
-        // FIX: Use client's original timestamp for accurate interpolation timing
-        // This preserves when the position was ACTUALLY valid, not when broadcast occurred
         t: latestUpdate.clientTimestamp || Date.now()
       };
+
+      // SECURITY: Anti-Speed Hack Validation
+      // Recupera l'ultima posizione valida conosciuta per questo client
+      const lastKnownPos = this.lastValidPositions?.get(clientId);
+
+      // Valida il movimento se abbiamo uno storico
+      if (lastKnownPos) {
+        // Usa timestamp del client se disponibile per maggiore precisione, altrimenti server time
+        const currentTimestamp = latestUpdate.clientTimestamp || Date.now();
+        const validationResult = global.inputValidator ? global.inputValidator.validateMovement(
+          { x: latestUpdate.x, y: latestUpdate.y },
+          lastKnownPos,
+          currentTimestamp
+        ) : { isValid: true }; // Fallback se validator non disponibile (es. test)
+
+        if (!validationResult.isValid) {
+          // Rifiuta l'aggiornamento
+          // Opzionale: Loggare l'evento di sicurezza
+          // console.warn(`SECURITY: Rejected movement for ${clientId}: ${validationResult.errors[0]}`);
+          continue;
+        }
+      }
+
+      // Aggiorna l'ultima posizione valida
+      if (!this.lastValidPositions) this.lastValidPositions = new Map();
+      this.lastValidPositions.set(clientId, {
+        x: latestUpdate.x,
+        y: latestUpdate.y,
+        timestamp: latestUpdate.clientTimestamp || Date.now()
+      });
 
       MapBroadcaster.broadcastToMap(players, positionBroadcast, clientId);
       positionUpdateQueue.delete(clientId);

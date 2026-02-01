@@ -31,6 +31,10 @@ class WebSocketConnectionManager {
     this.connectionManager.setAuthManager(this.authManager);
     this.connectionManager.setMessageBroadcaster(this.messageBroadcaster);
 
+    // SECURITY: Esponi il validatore globalmente per PositionUpdateProcessor
+    // In un'architettura ideale, PositionUpdateProcessor dovrebbe riceverlo via DI
+    global.inputValidator = this.connectionManager.inputValidator || new (require('../InputValidator.cjs'))();
+
     // Setup usando i nuovi moduli
     this.connectionManager.setupConnectionHandling();
     this.connectionManager.setupShutdownHandling();

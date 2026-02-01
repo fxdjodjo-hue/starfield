@@ -280,6 +280,53 @@ class ServerInputValidator {
   }
 
   /**
+   * Valida movimento nel tempo (Anti-Speed Hack)
+   * @param {Object} currentPos - Posizione attuale {x, y}
+   * @param {Object} previousPos - Posizione precedente {x, y, timestamp}
+   * @param {number} currentTimestamp - Timestamp attuale
+   * @returns {Object} { isValid, errors }
+   */
+  validateMovement(currentPos, previousPos, currentTimestamp) {
+    if (!previousPos || !previousPos.timestamp) {
+      return { isValid: true, errors: [] }; // Primo pacchetto, non possiamo validare la velocità
+    }
+
+    const timeDiff = currentTimestamp - previousPos.timestamp;
+
+    // Ignora pacchetti duplicati o troppo vicini (meno di 10ms)
+    // Questo previene falsi positivi dovuti a burst di pacchetti
+    if (timeDiff < 10) {
+      return { isValid: true, errors: [] };
+    }
+
+    // Calcola distanza percorsa
+    const dx = currentPos.x - previousPos.x;
+    const dy = currentPos.y - previousPos.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // Calcola velocità richiesta per coprire tale distanza in tale tempo
+    // speed = distance / time (units/ms)
+    const requiredSpeed = distance / timeDiff;
+
+    // Converti in units/second per confronto con MAX_SPEED
+    const requiredSpeedPerSec = requiredSpeed * 1000;
+
+    // Tolleranza: 20% di buffer per lag/jitter di rete + base tolerance
+    // La MAX_SPEED è circa 1000 (definito in LIMITS.VELOCITY.MAX_SPEED)
+    const MAX_ALLOWED_SPEED = this.LIMITS.VELOCITY.MAX_SPEED * 1.2;
+
+    if (requiredSpeedPerSec > MAX_ALLOWED_SPEED) {
+      // SECURITY WARNING: Movimento sospetto rilevato
+      return {
+        isValid: false,
+        errors: [`Speed hack detected: speed ${Math.round(requiredSpeedPerSec)} > ${MAX_ALLOWED_SPEED} (dist: ${Math.round(distance)}, dt: ${timeDiff})`]
+      };
+    }
+
+    return { isValid: true, errors: [] };
+  }
+
+  /**
    * Validazione generale per qualsiasi messaggio
    * Questo è il punto di ingresso unico per tutta la validazione
    */
