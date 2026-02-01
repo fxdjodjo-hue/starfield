@@ -340,8 +340,8 @@ export class PlayerAttackManager {
       // If moving, set rotation to movement direction
       newRotation = Math.atan2(velocity.y, velocity.x);
     } else {
-      // If stationary, set to neutral direction (0 = right)
-      newRotation = 0;
+      // If stationary, keep current rotation instead of snapping to right
+      newRotation = oldRotation;
     }
 
     // CRITICAL: Reset both transform AND interpolation target immediately
@@ -419,7 +419,7 @@ export class PlayerAttackManager {
 
     // Usa InterpolationTarget per rotazione fluida invece di impostare direttamente
     if (playerInterpolation) {
-      playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle);
+      playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle, now);
     } else {
       // Fallback se non c'è InterpolationTarget: usa Smooth Rotation
       const playerDef = getPlayerDefinition();
@@ -458,7 +458,7 @@ export class PlayerAttackManager {
 
       // Usa InterpolationTarget per rotazione fluida invece di impostare direttamente
       if (playerInterpolation) {
-        playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle);
+        playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle, Date.now());
       } else {
         playerTransform.rotation = angle;
       }

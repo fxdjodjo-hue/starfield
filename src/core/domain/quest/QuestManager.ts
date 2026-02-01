@@ -423,6 +423,22 @@ export class QuestManager {
         console.warn(`[QuestManager] Failed to find config for quest: ${questId}`);
       }
     });
+
+    // Check for stuck completed quests (e.g. 40/40 but still active) and fix them
+    activeQuestComponent.getActiveQuests().forEach(quest => {
+      if (quest.checkCompletion()) {
+        console.log(`[QuestManager] Auto-completing stuck quest: ${quest.id}`);
+        quest.isCompleted = true;
+
+        // Fix database state
+        this.saveQuestProgressToDatabase(quest);
+
+        // Auto-complete (move to completed list)
+        // Note: This won't trigger UI reward notification since QuestTrackingSystem isn't involved here,
+        // but it ensures the quest doesn't get stuck in active state.
+        this.completeQuest(quest.id, activeQuestComponent);
+      }
+    });
   }
 
   /**
