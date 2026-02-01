@@ -1,3 +1,18 @@
+# Changelog Starfield - Versione 0.1.4 🔄
+
+## 🔄 Aggiornamento Automatico
+- **Auto-Updater**: Addio download manuali! Il gioco ora si aggiorna automaticamente ad ogni avvio.
+- **Interfaccia Update**: Nuova barra di progresso e stato aggiornamento integrati direttamente nella Splash Screen per un feedback chiaro e immediato.
+
+## ⏳ Gameplay & Cooldowns
+- **Teletrasporto Tattico**: Introdotto un cooldown di **10 secondi** per i portali di salto. Ora cambiare mappa richiede pianificazione e non può essere usato per sfuggire istantaneamente al combattimento!
+- **Feedback Visivo**: Se provi a saltare troppo presto, riceverai un avviso rosso nel log di gioco che ti indica quanto devi aspettare.
+
+## 🔧 Fix & Miglioramenti
+- **Anti-Cheat Intelligente**: Risolto un bug che poteva erroneamente segnalare i giocatori onesti come cheater durante il cambio mappa (Teleport Hack false positive).
+- **Log di Sistema**: Migliorata la gestione degli errori server, che ora appaiono chiaramente nel log di gioco invece che nella chat.
+- **Release Automation**: Implementato un sistema di rilascio automatizzato per velocizzare gli update futuri.
+
 # Changelog Starfield - Versione 0.1.3 🚀
 
 ## ☢️ Radiazioni & Pericoli (Novità)

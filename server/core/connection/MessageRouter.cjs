@@ -342,6 +342,11 @@ function handlePositionUpdate(data, sanitizedData, context) {
     const TELEPORT_THRESHOLD_MULTIPLIER = 15;
     const teleportThreshold = maxPossibleDistance * TELEPORT_THRESHOLD_MULTIPLIER;
 
+    // 🏳️ SKIP CHECKS if player is migrating (prevents false positives due to map coord jumps)
+    if (playerData.isMigrating) {
+      return;
+    }
+
     // Se la distanza è troppo grande, potrebbe essere un teleport hack
     if (distance > teleportThreshold) {
       ServerLoggerWrapper.security(`🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
@@ -1307,6 +1312,20 @@ async function handlePortalUse(data, sanitizedData, context) {
     targetPortal = portals.find(p => String(p.id) === String(data.portalId));
   }
 
+  // ⏳ COOLDOWN: 10 Seconds Map Switching Limit
+  const now = Date.now();
+
+  if (playerData.lastPortalUseTime && (now - playerData.lastPortalUseTime < 10000)) {
+    const remainingSeconds = Math.ceil((10000 - (now - playerData.lastPortalUseTime)) / 1000);
+    logger.warn('MAP', `Player ${playerData.clientId} attempted portal use before cooldown (wait ${remainingSeconds}s)`);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `Portal recharging. Wait ${remainingSeconds}s.`,
+      code: 'PORTAL_COOLDOWN'
+    }));
+    return;
+  }
+
   // Se non trovato per ID, cerca per prossimità (molto più affidabile)
   if (!targetPortal) {
     for (const portal of portals) {
@@ -1322,6 +1341,9 @@ async function handlePortalUse(data, sanitizedData, context) {
 
   if (targetPortal) {
     ServerLoggerWrapper.info('MAP', `Player ${playerData.clientId} using portal ${targetPortal.id} -> ${targetPortal.targetMap}`);
+    playerData.lastPortalUseTime = Date.now(); // Set cooldown timestamp
+    playerData.isMigrating = true; // 🏳️ Flag to suppress teleport warnings
+    setTimeout(() => { playerData.isMigrating = false; }, 2000); // Reset after 2s
     mapManager.migratePlayer(playerData.clientId, mapServer.mapId, targetPortal.targetMap, targetPortal.targetPosition);
   } else {
     ServerLoggerWrapper.warn('MAP', `Player ${playerData.clientId} attempted to use portal but none found nearby.`);

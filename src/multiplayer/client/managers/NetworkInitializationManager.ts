@@ -41,6 +41,7 @@ import { RepairCompleteHandler } from '../handlers/RepairCompleteHandler';
 import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHandler';
 import { GlobalMonitorHandler } from '../handlers/GlobalMonitorHandler';
 import { MapChangeHandler } from '../handlers/MapChangeHandler';
+import { ErrorMessageHandler } from '../handlers/ErrorMessageHandler';
 
 /**
  * Interface for JWT authentication validation
@@ -159,7 +160,8 @@ export class NetworkInitializationManager {
         new ProjectileDestroyedHandler(),
         new EntityDamagedHandler(),
         new EntityDestroyedHandler(),
-        new ExplosionCreatedHandler()
+        new ExplosionCreatedHandler(),
+        new ErrorMessageHandler()
       );
       this.combatHandlersRegistered = true;
     }

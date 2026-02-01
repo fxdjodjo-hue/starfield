@@ -22,7 +22,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "gource": "gource --auto-skip-seconds 1 --seconds-per-day 1 --title \"Starfield Development Visualization\" --background-colour 000000 --font-size 24 --hide filenames,dirnames,usernames --ignore-files \".*kenney.*\""
+    "gource": "gource --auto-skip-seconds 1 --seconds-per-day 1 --title \"Starfield Development Visualization\" --background-colour 000000 --font-size 24 --hide filenames,dirnames,usernames --ignore-files \".*kenney.*\"",
+    "release": "npm version patch && git push --follow-tags"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.0.16",
