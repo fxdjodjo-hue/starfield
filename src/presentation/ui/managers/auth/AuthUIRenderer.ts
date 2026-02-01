@@ -49,6 +49,8 @@ export class AuthUIRenderer {
       -webkit-user-select: none;
       -moz-user-select: none;
       -ms-user-select: none;
+      opacity: 0;
+      animation: fadeIn 1.5s ease-out forwards;
     `;
 
 
