@@ -8,7 +8,6 @@ import { Authority, AuthorityLevel } from '../../entities/spatial/Authority';
 import type { DamageSystem } from '../combat/DamageSystem';
 import { DisplayManager } from '../../infrastructure/display';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
-import { RenderSystem } from './RenderSystem';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
 
 /**
@@ -94,85 +93,9 @@ export class DamageTextSystem extends BaseSystem {
 
   /**
    * Renderizza i testi di danno
+   * @deprecated Rendering moved to PixiRenderSystem
    */
   render(ctx: CanvasRenderingContext2D): void {
-    if (!ctx.canvas || !this.cameraSystem || !this.visible) {
-      return; // Silenziosamente senza log per evitare spam
-    }
-
-    const camera = this.cameraSystem.getCamera();
-    if (!camera) return;
-
-    const canvasSize = DisplayManager.getInstance().getLogicalSize();
-    const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
-
-    for (const entity of damageTextEntities) {
-      const damageText = this.ecs.getComponent(entity, DamageText);
-      if (!damageText) continue;
-
-      let worldX: number;
-      let worldY: number;
-
-      const targetEntity = damageText.targetEntityId !== -1 ? this.ecs.getEntity(damageText.targetEntityId) : null;
-
-      if (targetEntity) {
-        const targetTransform = this.ecs.getComponent(targetEntity, Transform);
-        if (!targetTransform) continue;
-
-        // Per entità remote, usa coordinate interpolate se disponibili (come RenderSystem)
-        let renderX = targetTransform.x;
-        let renderY = targetTransform.y;
-
-        // Controlla se è un'entità remota con interpolazione (NPC, RemotePlayer, etc.)
-        const authority = this.ecs.getComponent(targetEntity, Authority);
-        const isRemoteEntity = authority && authority.authorityLevel === AuthorityLevel.SERVER_AUTHORITATIVE;
-
-        if (isRemoteEntity) {
-          // Usa valori interpolati per entità remote
-          const interpolationTarget = this.ecs.getComponent(targetEntity, InterpolationTarget);
-          if (interpolationTarget) {
-            renderX = interpolationTarget.renderX;
-            renderY = interpolationTarget.renderY;
-          }
-        }
-
-        // FIX: Per Local Player, usa la posizione smoothed dal RenderSystem (se disponibile)
-        // Questo evita che i numeri "tremino" rispetto allo sprite fluido.
-        else if (RenderSystem.smoothedLocalPlayerPos && RenderSystem.smoothedLocalPlayerId === targetEntity.id) {
-          renderX = RenderSystem.smoothedLocalPlayerPos.x;
-          renderY = RenderSystem.smoothedLocalPlayerPos.y;
-        }
-
-
-        // Salva l'ultima posizione dell'entità (come anchor)
-        damageText.lastWorldX = renderX;
-        damageText.lastWorldY = renderY;
-
-        worldX = renderX + damageText.initialOffsetX;
-        worldY = renderY + damageText.currentOffsetY;
-      } else {
-        // Usa l'ultima posizione conosciuta come anchor se l'entità non esiste più
-        // Questo permette al testo di continuare ad animarsi nella posizione corretta
-        worldX = damageText.lastWorldX + damageText.initialOffsetX;
-        worldY = damageText.lastWorldY + damageText.currentOffsetY;
-      }
-
-      const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
-
-      ctx.save();
-      ctx.globalAlpha = damageText.getAlpha();
-      ctx.fillStyle = damageText.color;
-      ctx.font = 'bold 16px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
-
-      ctx.fillText(NumberFormatter.format(damageText.value), screenPos.x, screenPos.y);
-      ctx.restore();
-    }
+    // Deprecated: PixiRenderSystem handles rendering now
   }
-
 }

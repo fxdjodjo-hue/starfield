@@ -36,7 +36,9 @@ export class StartState extends GameState {
   /**
    * Renderizza lo stato (opzionale, la UI è HTML)
    */
-  render(ctx: CanvasRenderingContext2D): void {
+  render(ctx: CanvasRenderingContext2D | null): void {
+    if (!ctx) return; // Skip legacy rendering if disabled
+
     // Pulisce il canvas con uno sfondo scuro usando dimensioni logiche
     const { width, height } = DisplayManager.getInstance().getLogicalSize();
     ctx.fillStyle = '#000011';

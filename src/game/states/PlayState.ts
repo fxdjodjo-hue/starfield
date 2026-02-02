@@ -79,8 +79,8 @@ export class PlayState extends GameState {
   constructor(context: GameContext) {
     super();
     this.context = context;
-    // Crea il mondo di gioco
-    this.world = new World(context.canvas);
+    // Crea il mondo di gioco (Disabilita legacy rendering per PixiJS)
+    this.world = new World(context.canvas, false);
 
     // Inizializza sistemi Quest per operazioni immediate
     this.questManager = new QuestManager();

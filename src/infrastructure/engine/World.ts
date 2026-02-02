@@ -8,19 +8,23 @@ import { DisplayManager } from '../display';
 export class World {
   private ecs: ECS;
   private canvas: HTMLCanvasElement;
-  private ctx: CanvasRenderingContext2D;
+  private ctx: CanvasRenderingContext2D | null;
   private displayManager: DisplayManager;
   private unsubscribeResize: (() => void) | null = null;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, enableLegacyRendering: boolean = true) {
     this.canvas = canvas;
     this.displayManager = DisplayManager.getInstance();
 
-    // Configura canvas con supporto HiDPI
-    this.ctx = this.displayManager.setupCanvas(canvas, {
-      fullscreen: true,
-      // backgroundColor: CONFIG.BACKGROUND_COLOR, // REMOVE: Allow CSS transparent background for Warp Video
-    });
+    if (enableLegacyRendering) {
+      // Configura canvas con supporto HiDPI (legacy 2D)
+      this.ctx = this.displayManager.setupCanvas(canvas, {
+        fullscreen: true,
+      });
+    } else {
+      // PixiJS gestisce il canvas
+      this.ctx = null;
+    }
 
     // Inizializza ECS
     this.ecs = new ECS();
@@ -36,7 +40,10 @@ export class World {
    * Riscala il canvas mantenendo il supporto HiDPI
    */
   private handleResize(): void {
-    this.displayManager.rescaleCanvas(this.canvas, this.ctx);
+    if (this.ctx) {
+      this.displayManager.rescaleCanvas(this.canvas, this.ctx);
+    }
+    // If ctx is null, PixiRenderer handles resizing
   }
 
   /**
@@ -50,6 +57,8 @@ export class World {
    * Render del mondo (chiamato dal game loop)
    */
   render(): void {
+    if (!this.ctx) return; // Skip legacy rendering if disabled
+
     // Clear canvas usando dimensioni logiche (il context è già scalato per DPR)
     const { width, height } = this.displayManager.getLogicalSize();
     this.ctx.clearRect(0, 0, width, height);

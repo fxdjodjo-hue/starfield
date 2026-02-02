@@ -34,22 +34,32 @@ export class Game {
    * Inizializza il gioco e imposta lo stato iniziale
    */
   async init(): Promise<void> {
+    // 🚀 PIXI MIGRATION: Initialize PixiRenderer BEFORE anything touches the canvas
+    // This prevents WebGL context creation failure due to existing 2D context
+    try {
+      const { PixiRenderer } = await import('../rendering/PixiRenderer');
+      await PixiRenderer.getInstance().initialize('game-canvas');
+    } catch (e) {
+      console.warn('[Game] PixiRenderer initialization failed, falling back to legacy:', e);
+    }
+
     const authScreen = this.startState.getAuthScreen();
-    
+
     // Salva riferimento a AuthScreen nel context per accesso da PlayState
     this.context.authScreen = authScreen;
 
     // Imposta il callback per il passaggio a PlayState quando autenticato
     authScreen.setOnAuthenticated(async () => {
-      
+
       // Inizializza PlayState in background SENZA cambiare stato ancora
       // Lo spinner rimarrà visibile durante l'inizializzazione
       try {
         await this.playState.enter(this.context);
-        
+
         // Solo ora cambia stato (lo spinner verrà nascosto da PlayState quando tutto è pronto)
         await this.changeState(this.playState);
-      } catch (error) {
+      } catch (e: any) {
+        const error = e as Error;
         console.error('[Game] CRITICAL: Errore durante inizializzazione PlayState:', error);
 
         // 🔴 SECURITY: Se è un errore critico (connessione, rete, etc), ferma tutto
@@ -57,12 +67,12 @@ export class Game {
         const errorString = error.toString() + (error.message || '') + (error.stack || '');
 
         if (error.message === 'CONNECTION_FAILED' ||
-            errorString.includes('WebSocket') ||
-            errorString.includes('connection') ||
-            errorString.includes('network') ||
-            errorString.includes('ECONNREFUSED') ||
-            errorString.includes('ENOTFOUND') ||
-            errorString.includes('ETIMEDOUT')) {
+          errorString.includes('WebSocket') ||
+          errorString.includes('connection') ||
+          errorString.includes('network') ||
+          errorString.includes('ECONNREFUSED') ||
+          errorString.includes('ENOTFOUND') ||
+          errorString.includes('ETIMEDOUT')) {
 
           console.error('[Game] CRITICAL: Network/connection error - stopping initialization completely');
 
@@ -137,7 +147,7 @@ export class Game {
    * Cambia lo stato del gioco
    */
   private async changeState(newState: GameState): Promise<void> {
-    
+
     // Esci dallo stato corrente
     if (this.currentState) {
       this.currentState.exit();
@@ -170,8 +180,12 @@ export class Game {
    * Renderizza il gioco (chiamato dal game loop)
    */
   private render(): void {
+    // If we are using Pixi, getContext('2d') might return null if already using WebGL
     const ctx = this.context.canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) {
+      // This is normal when Pixi is active
+      return;
+    }
 
     // Renderizza lo stato corrente
     if (this.currentState && this.currentState.render) {

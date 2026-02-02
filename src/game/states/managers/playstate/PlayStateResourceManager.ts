@@ -12,7 +12,7 @@ import { Npc } from '../../../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
 import { PlayerRole } from '../../../../entities/player/PlayerRole';
 import { Health } from '../../../../entities/combat/Health';
-import { RenderSystem } from '../../../../systems/rendering/RenderSystem';
+import { PixiRenderSystem } from '../../../../systems/rendering/PixiRenderSystem';
 
 /**
  * Manages PlayState resources: nicknames, entities, cleanup
@@ -112,9 +112,9 @@ export class PlayStateResourceManager {
     let targetX = transform.x;
     let targetY = transform.y;
 
-    if (RenderSystem.smoothedLocalPlayerPos) {
-      targetX = RenderSystem.smoothedLocalPlayerPos.x;
-      targetY = RenderSystem.smoothedLocalPlayerPos.y;
+    if (PixiRenderSystem.smoothedLocalPlayerPos) {
+      targetX = PixiRenderSystem.smoothedLocalPlayerPos.x;
+      targetY = PixiRenderSystem.smoothedLocalPlayerPos.y;
     }
 
     // GESTIONE VISIBILITA NICKNAME
@@ -128,7 +128,7 @@ export class PlayStateResourceManager {
     // SICUREZZA: Se il player è vivo (HP > 0) e non siamo in fase di morte, forziamo la visibilità
     // Questo aiuta se lo stato 'visible' dello sprite dovesse rimanere incastrato
     const health = this.world.getECS().getComponent(playerEntity, Health) as Health | undefined;
-    if (health && health.current > 0 && !isVisible) {
+    if (health && health.currentValue > 0 && !isVisible) {
       // Se siamo vivi ma invisibili, probabilmente è un residuo del vecchio stato di morte
       // Ripristiniamo la visibilità
       if (sprite) (sprite as any).visible = true;

@@ -11,7 +11,7 @@ import { UiSystem } from '../ui/UiSystem';
 import { AtlasParser } from '../../core/utils/AtlasParser';
 import { getNpcDefinition } from '../../config/NpcConfig';
 import { MovementSystem } from '../physics/MovementSystem';
-import { RenderSystem } from '../rendering/RenderSystem';
+import { PixiRenderSystem } from '../rendering/PixiRenderSystem';
 import { InputSystem } from '../input/InputSystem';
 import { PlayerControlSystem } from '../input/PlayerControlSystem';
 import { NpcSelectionSystem } from '../ai/NpcSelectionSystem';
@@ -62,7 +62,7 @@ export interface CreatedSystems {
   cameraSystem: CameraSystem;
   movementSystem: MovementSystem;
   parallaxSystem: ParallaxSystem;
-  renderSystem: RenderSystem;
+  renderSystem: PixiRenderSystem;
   inputSystem: InputSystem;
   playerControlSystem: PlayerControlSystem;
   npcSelectionSystem: NpcSelectionSystem;
@@ -148,7 +148,7 @@ export class SystemFactory {
     const { RepairEffectSystem } = await import('../../systems/combat/RepairEffectSystem');
     const repairEffectSystem = new RepairEffectSystem(ecs);
     const chatTextSystem = new ChatTextSystem(ecs, cameraSystem);
-    const minimapSystem = new MinimapSystem(ecs, context.canvas);
+    const minimapSystem = new MinimapSystem(ecs);
     const logSystem = new LogSystem(ecs);
     const economySystem = new EconomySystem(ecs);
     const rankSystem = new RankSystem(ecs);
@@ -159,7 +159,9 @@ export class SystemFactory {
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs, context);
     const playerSystem = new PlayerSystem(ecs);
     const portalSystem = new PortalSystem(ecs, playerSystem);
-    const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);
+    // SWAPPED: Phase 1 Pixi Migration
+    const renderSystem = new PixiRenderSystem(ecs, cameraSystem);
+    await renderSystem.initialize(); // Async init for Pixi
 
     // Ensure assetManager is set on renderSystem if not provided in constructor
     if (context.assetManager && (!renderSystem as any).assetManager) {
