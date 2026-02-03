@@ -1,6 +1,8 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Camera } from '../../entities/spatial/Camera';
+import { Entity } from '../../infrastructure/ecs/Entity';
+import { Transform } from '../../entities/spatial/Transform';
 
 /**
  * Sistema dedicato alla gestione della camera
@@ -20,9 +22,11 @@ export class CameraSystem extends BaseSystem {
   } | null = null;
   private isZoomAnimating: boolean = false;
 
-  // Smooth Camera Follow
+  // Direct Player Reference for Real-Time Position Reading
+  private playerEntity: Entity | null = null;
+
+  // Legacy targetPos (kept for backward compatibility with centerOn calls)
   private targetPos: { x: number; y: number } | null = null;
-  private readonly CAMERA_SMOOTH_SPEED: number = 20.0; // Valore alto (20) per reattività ma sufficiente smooth per jitter
 
   // Speed-based zoom (disabled)
   private lastPosition: { x: number; y: number } | null = null;
@@ -45,6 +49,14 @@ export class CameraSystem extends BaseSystem {
    */
   getCamera(): Camera {
     return this.camera;
+  }
+
+  /**
+   * Imposta l'entità player da seguire direttamente
+   * Questo permette alla camera di leggere la posizione in real-time durante render
+   */
+  setPlayerEntity(entity: Entity): void {
+    this.playerEntity = entity;
   }
 
   /**
@@ -231,23 +243,31 @@ export class CameraSystem extends BaseSystem {
       }
     }
 
-    // 2. Apply Smooth Following Logic
-    if (!this.isZoomAnimating && this.targetPos) {
-      const dt = deltaTime / 1000;
-      // Frame-rate independent lerp
-      const lerpFactor = 1 - Math.exp(-this.CAMERA_SMOOTH_SPEED * dt);
+    // 2. Apply Camera Following Logic - READ PLAYER POSITION DIRECTLY
+    // This eliminates timing mismatch between update (60Hz) and render (144Hz)
+    if (!this.isZoomAnimating) {
+      let newX: number | null = null;
+      let newY: number | null = null;
 
-      const currentX = this.camera.x;
-      const currentY = this.camera.y;
+      // Priority 1: Read player position directly (real-time, same frame)
+      if (this.playerEntity) {
+        const transform = this.ecs.getComponent(this.playerEntity, Transform);
+        if (transform) {
+          newX = transform.x;
+          newY = transform.y;
+        }
+      }
 
-      // Interpolate base position
-      let newX = currentX + (this.targetPos.x - currentX) * lerpFactor;
-      let newY = currentY + (this.targetPos.y - currentY) * lerpFactor;
+      // Priority 2: Fallback to targetPos (for zoom animations, etc)
+      if (newX === null && this.targetPos) {
+        newX = this.targetPos.x;
+        newY = this.targetPos.y;
+      }
 
-      // Apply shake offset
-      // NOTA: La camera usa centerOn, quindi offsettiamo la posizione target visuale
-      // Ma non salviamo lo shake nel targetPos, è solo visivo per questo frame
-      this.camera.centerOn(newX + shakeOffsetX, newY + shakeOffsetY);
+      // Apply camera position with shake
+      if (newX !== null && newY !== null) {
+        this.camera.centerOn(newX + shakeOffsetX, newY + shakeOffsetY);
+      }
     }
     // Se c'è un'animazione zoom in corso, applica comunque lo shake alla posizione corrente
     else if (this.isZoomAnimating && this.shakeState?.active) {

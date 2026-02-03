@@ -274,7 +274,7 @@ export class EntityFactory {
     const {
       playerControlSystem, economySystem, rankSystem, rewardSystem,
       boundsSystem, questTrackingSystem, playerStatusDisplaySystem,
-      playerSystem, uiSystem
+      playerSystem, uiSystem, cameraSystem
     } = systems;
 
     playerControlSystem.setPlayerEntity(playerEntity);
@@ -284,6 +284,9 @@ export class EntityFactory {
     boundsSystem.setPlayerEntity(playerEntity);
     questTrackingSystem.setPlayerEntity(playerEntity);
     playerStatusDisplaySystem.setPlayerEntity(playerEntity);
+
+    // Camera follows player directly for real-time position sync
+    cameraSystem.setPlayerEntity(playerEntity);
 
     // Imposta il riferimento al PlayerSystem nel UiSystem (per pannelli che ne hanno bisogno)
     if (uiSystem) {

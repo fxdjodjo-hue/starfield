@@ -132,8 +132,9 @@ export class PixiRenderSystem extends System {
             const isPlayer = this.isPlayerEntity(entity);
             if (isPlayer) {
                 this.playerId = entity.id;
-                // Update static reference for dependent systems (DamageText, etc)
+                // Update static reference for dependent systems (DamageText, Nickname, etc)
                 PixiRenderSystem.smoothedLocalPlayerId = entity.id;
+                // Use transform position (camera now snaps to player, so they're identical)
                 PixiRenderSystem.smoothedLocalPlayerPos = { x: transform.x, y: transform.y };
             }
 
@@ -208,6 +209,7 @@ export class PixiRenderSystem extends System {
                     posY = interpolation.renderY;
                     rotation = interpolation.renderRotation;
                 }
+                // Local player uses raw transform.x/y - camera will snap to follow
 
                 // Common Transform Sync
                 pixiObject.position.set(posX, posY);
@@ -224,34 +226,29 @@ export class PixiRenderSystem extends System {
                         const angle = Math.atan2(projectile.directionY, projectile.directionX);
                         pixiObject.rotation = angle;
                         visualChild.rotation = 0; // Reset visual rotation inside container
-                    } else {
-                        // Standard Entity Rotation
-                        if (rotation !== 0) {
-                            // Use interpolated or transform rotation
-                            pixiObject.rotation = rotation;
-                        } else {
-                            // Fallback: Velocity-based rotation for local NPCs (like legacy RenderSystem)
-                            const velocity = this.ecs.getComponent(entity, Velocity);
-                            if (velocity && (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1)) {
-                                pixiObject.rotation = Math.atan2(velocity.y, velocity.x);
-                            } else {
-                                pixiObject.rotation = transform.rotation;
-                            }
-                        }
-                        // Optional: visualChild.rotation = ecsSprite?.rotationOffset || 0;
-                    }
+                    } else if (ecsAnimSprite) {
+                        // Animated Sprite (Pre-rendered rotations)
+                        // Do NOT rotate container. Rotation is handled by frame selection.
+                        pixiObject.rotation = 0;
+                        visualChild.rotation = 0;
 
-                    // Visual Update Logic
-                    visualChild.anchor.set(0.5); // Ensure centered
-
-                    if (ecsAnimSprite) {
                         const frameIndex = ecsAnimSprite.getFrameForRotation(rotation);
                         const textures = this.getFramesFromSpritesheet(ecsAnimSprite.spritesheet);
                         if (textures && textures[frameIndex]) {
                             visualChild.texture = textures[frameIndex];
                         }
-                    } else if (explosion) {
-                        // Explosion inside Container? (Future proofing)
+                    } else {
+                        // Standard Static Sprite (Rotate the container)
+                        pixiObject.rotation = rotation;
+                        visualChild.rotation = (ecsSprite?.rotationOffset || 0); // Enable rotation offset
+                    }
+
+                    // Visual Update Logic
+                    visualChild.anchor.set(0.5); // Ensure centered
+
+                    // Explosion handled separately if present
+                    if (explosion) {
+                        // Explosion logic
                     }
                     // Note: Standard Sprite texture is static, no need to update per frame unless needed
                 }
@@ -449,10 +446,17 @@ export class PixiRenderSystem extends System {
         }
 
         // Ensure bars don't rotate with the ship if it's a Sprite
-        // But if container is a Sprite, children rotate with it.
         // Solution: Rotate barContainer opposite to container rotation to keep it horizontal
         barContainer.rotation = -container.rotation;
-        barContainer.position.set(0, BAR_OFFSET);
+
+        // Fix Position: Counter-rotate the offset vector so bars remain visually "Above" (Screen North)
+        // instead of "Ship North" (which rotates).
+        // Wanted World Offset: (0, BAR_OFFSET) relative to center.
+        // We apply the Inverse Rotation Matrix to find the Local Position.
+        barContainer.position.set(
+            BAR_OFFSET * Math.sin(container.rotation),
+            BAR_OFFSET * Math.cos(container.rotation)
+        );
 
         let graphics = barContainer.getChildByLabel('graphics') as Graphics;
         if (!graphics) {

@@ -43,12 +43,16 @@ export class MovementSystem extends BaseSystem {
       );
 
     // Comunica al CameraSystem di centrarsi sul player locale
+    // RIMOSSO: CameraSystem ora legge direttamente la posizione del player nel render loop
+    // per garantire sincronizzazione perfetta (evita timing mismatch tra update e render)
+    /*
     if (playerEntities.length > 0) {
       const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
       if (playerTransform) {
         this.cameraSystem.centerOn(playerTransform.x, playerTransform.y);
       }
     }
+    */
   }
 
   /**
