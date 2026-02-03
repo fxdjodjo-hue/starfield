@@ -18,6 +18,7 @@ import { Explosion } from '../../entities/combat/Explosion'; // Import Explosion
 import { DamageText } from '../../entities/combat/DamageText'; // Import DamageText
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'; // Import InterpolationTarget
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter'; // Import NumberFormatter
+import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer'; // Import ParallaxLayer
 
 /**
  * PixiRenderSystem - Replaces RenderSystem
@@ -63,12 +64,34 @@ export class PixiRenderSystem extends System {
         console.log('[PixiRenderSystem] Initialized');
     }
 
-    update(deltaTime: number): void {
+    // Layout: Internal render loop timer
+    private lastRenderTimestamp: number = 0;
+    private hasLoggedPlayerCheck: boolean = false; // ONE-SHOT DEBUG FLAG
+
+    /**
+     * Update - Logic Phase (Fixed Step)
+     * Used only for logic-bound updates, not visual sync.
+     */
+    update(_deltaTime: number): void {
+        // No-op for visual sync. Moved to render().
+
+        // Note: CameraSystem.updateForRender is called in render()
+    }
+
+    /**
+     * Render - Visual Phase (Variable Step)
+     * Synchronizes ECS entities with PixiJS Scene Graph.
+     * Called every frame by ECS.render().
+     */
+    render(_ctx: CanvasRenderingContext2D): void {
+        // Calculate smooth delta time for rendering
+        const now = performance.now();
+        // Cap dt to avoid huge jumps on tab switch (max 100ms)
+        const deltaTime = this.lastRenderTimestamp > 0 ? Math.min(now - this.lastRenderTimestamp, 100) : 16;
+        this.lastRenderTimestamp = now;
         const worldContainer = this.pixiRenderer.getWorldContainer();
         const camera = this.cameraSystem.getCamera();
         const { width, height } = this.displayManager.getLogicalSize();
-
-        this.engflamesAnimationTime += deltaTime;
 
         this.engflamesAnimationTime += deltaTime;
 
@@ -93,6 +116,10 @@ export class PixiRenderSystem extends System {
             const ecsAnimSprite = this.ecs.getComponent(entity, EcsAnimatedSprite);
             const projectile = this.ecs.getComponent(entity, Projectile);
             const explosion = this.ecs.getComponent(entity, Explosion); // Added explosion component
+            const parallax = this.ecs.getComponent(entity, ParallaxLayer);
+
+            // Skip entities handled by ParallaxSystem (backgrounds, clouds, etc)
+            if (parallax) continue;
 
             // Skip if no visual component or no transform
             if ((!ecsSprite && !ecsAnimSprite && !explosion) || !transform) continue; // Modified condition
@@ -110,19 +137,80 @@ export class PixiRenderSystem extends System {
                 PixiRenderSystem.smoothedLocalPlayerPos = { x: transform.x, y: transform.y };
             }
 
+            // DEBUG: Analyze entities (Broad Sweep)
+            if (!this.hasLoggedPlayerCheck) {
+                this.hasLoggedPlayerCheck = true;
+                const entityCount = entities.length || (entities as any).size;
+                console.log(`[PixiRenderSystem] Debug Sweep: Found ${entityCount} entities with Transform.`);
+
+                // Inspect first few entities
+                let count = 0;
+                for (const debugEntity of entities) {
+                    if (count++ > 5) break;
+
+                    const hasVel = this.ecs.hasComponent(debugEntity, Velocity);
+                    const isNpc = this.ecs.hasComponent(debugEntity, Npc);
+                    const isRemote = this.ecs.hasComponent(debugEntity, RemotePlayer);
+                    const hasHealth = this.ecs.hasComponent(debugEntity, Health);
+                    const hasShield = this.ecs.hasComponent(debugEntity, Shield);
+                    const animSprite = this.ecs.getComponent(debugEntity, EcsAnimatedSprite);
+
+                    console.log(`[PixiRenderSystem] Entity ${debugEntity.id}:`, {
+                        isPlayer: this.isPlayerEntity(debugEntity),
+                        hasVelocity: hasVel,
+                        isNpc,
+                        hasHealth,
+                        hasAnimSprite: !!animSprite,
+                        animSpriteLoaded: animSprite?.isLoaded(),
+                        imgComplete: animSprite?.spritesheet?.image?.complete,
+                        imgWidth: animSprite?.spritesheet?.image?.naturalWidth
+                    });
+                }
+            }
+
             if (!pixiObject) {
-                const created = this.createPixiObject(entity, ecsSprite || null, ecsAnimSprite || null, isPlayer, explosion || null); // Modified call
+                const created = this.createPixiObject(entity, ecsSprite || null, ecsAnimSprite || null, isPlayer, explosion || null);
                 if (created) {
                     pixiObject = created;
                     this.spriteMap.set(entity.id, pixiObject);
                     worldContainer.addChild(pixiObject);
+                    if (isPlayer) console.log('[PixiRenderSystem] Player Sprite Created!');
+                } else if (isPlayer) {
+                    // Removed warning to avoid spam if it retries every frame. Debug log above handles it.
                 }
+            } else if (isPlayer && Math.random() < 0.01) { // Debug log ~1% of frames
+                console.log('[PixiRenderSystem] Player Render State:', {
+                    pos: { x: transform.x.toFixed(1), y: transform.y.toFixed(1) },
+                    pixiPos: { x: pixiObject.position.x.toFixed(1), y: pixiObject.position.y.toFixed(1) },
+                    rotation: transform.rotation.toFixed(2),
+                    visible: pixiObject.visible,
+                    alpha: pixiObject.alpha,
+                    scale: pixiObject.scale.x,
+                    hasEngFlames: !!this.engflamesSprite,
+                    visualType: (pixiObject instanceof Container) ? 'Container' : 'Sprite',
+                    children: (pixiObject instanceof Container) ? pixiObject.children.length : 0,
+                    camera: { x: camera.x.toFixed(1), y: camera.y.toFixed(1), zoom: camera.zoom.toFixed(2) }
+                });
             }
 
             // Sync Properties (Position, Rotation, Scale)
             if (pixiObject) {
+                // For remote entities (NPCs, remote players), use interpolated positions
+                const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
+                let posX = transform.x;
+                let posY = transform.y;
+                let rotation = transform.rotation;
+
+                if (interpolation) {
+                    // Perform interpolation now (same logic as InterpolationSystem.render)
+                    interpolation.interpolate(Date.now());
+                    posX = interpolation.renderX;
+                    posY = interpolation.renderY;
+                    rotation = interpolation.renderRotation;
+                }
+
                 // Common Transform Sync
-                pixiObject.position.set(transform.x, transform.y);
+                pixiObject.position.set(posX, posY);
                 pixiObject.scale.set(transform.scaleX || 1, transform.scaleY || 1);
 
                 // Resolve Type: Container Wrapper vs Player vs Legacy Sprite
@@ -138,7 +226,18 @@ export class PixiRenderSystem extends System {
                         visualChild.rotation = 0; // Reset visual rotation inside container
                     } else {
                         // Standard Entity Rotation
-                        pixiObject.rotation = transform.rotation;
+                        if (rotation !== 0) {
+                            // Use interpolated or transform rotation
+                            pixiObject.rotation = rotation;
+                        } else {
+                            // Fallback: Velocity-based rotation for local NPCs (like legacy RenderSystem)
+                            const velocity = this.ecs.getComponent(entity, Velocity);
+                            if (velocity && (Math.abs(velocity.x) > 0.1 || Math.abs(velocity.y) > 0.1)) {
+                                pixiObject.rotation = Math.atan2(velocity.y, velocity.x);
+                            } else {
+                                pixiObject.rotation = transform.rotation;
+                            }
+                        }
                         // Optional: visualChild.rotation = ecsSprite?.rotationOffset || 0;
                     }
 
@@ -146,7 +245,7 @@ export class PixiRenderSystem extends System {
                     visualChild.anchor.set(0.5); // Ensure centered
 
                     if (ecsAnimSprite) {
-                        const frameIndex = ecsAnimSprite.getFrameForRotation(transform.rotation);
+                        const frameIndex = ecsAnimSprite.getFrameForRotation(rotation);
                         const textures = this.getFramesFromSpritesheet(ecsAnimSprite.spritesheet);
                         if (textures && textures[frameIndex]) {
                             visualChild.texture = textures[frameIndex];
@@ -192,6 +291,8 @@ export class PixiRenderSystem extends System {
                         } else {
                             this.engflamesOpacity = Math.max(0, this.engflamesOpacity - this.ENGFLAMES_FADE_SPEED);
                         }
+
+                        this.engflamesOpacity = Math.max(0, Math.min(1, this.engflamesOpacity));
 
                         flamesSprite.alpha = this.engflamesOpacity;
                         flamesSprite.visible = this.engflamesOpacity > 0;
@@ -320,9 +421,7 @@ export class PixiRenderSystem extends System {
         }
     }
 
-    render(): void {
-        // Optional manual render hook
-    }
+
 
     private isPlayerEntity(entity: Entity): boolean {
         // Simple heuristic: Has Transform, Health, Shield, but NOT Npc/RemotePlayer

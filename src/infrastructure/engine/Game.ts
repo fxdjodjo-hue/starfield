@@ -182,14 +182,15 @@ export class Game {
   private render(): void {
     // If we are using Pixi, getContext('2d') might return null if already using WebGL
     const ctx = this.context.canvas.getContext('2d');
-    if (!ctx) {
-      // This is normal when Pixi is active
-      return;
-    }
+
+    // CRITICAL FIX: Allow rendering even if 2D context is null (Pixi/WebGL mode)
+    // The render loop drives PixiRenderSystem synchronization.
 
     // Renderizza lo stato corrente
     if (this.currentState && this.currentState.render) {
-      this.currentState.render(ctx);
+      // Pass ctx (even if null) to maintain call chain. 
+      // PixiRenderSystem ignores it. Legacy systems needing it will throw (and be caught).
+      this.currentState.render(ctx as any);
     }
   }
 

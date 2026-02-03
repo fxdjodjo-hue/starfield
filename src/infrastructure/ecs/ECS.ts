@@ -265,7 +265,11 @@ export class ECS {
   }
 
   /**
-   * Render di tutti i sistemi che supportano il rendering con error boundary
+   * Render di tutti i sistemi che supportano il rendering con error boundary.
+   * 
+   * Note: Most visual rendering now uses PixiJS scene graph (updated in update()).
+   * However, some systems like InterpolationSystem MUST run in render phase
+   * to avoid tick-based acceleration bugs. See InterpolationSystem docs.
    */
   render(ctx: CanvasRenderingContext2D): void {
     for (const system of this.systems) {

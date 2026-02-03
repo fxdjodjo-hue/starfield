@@ -3,24 +3,29 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { ChatText } from '../../entities/combat/ChatText';
 import { Transform } from '../../entities/spatial/Transform';
 import { DisplayManager } from '../../infrastructure/display';
+import { PixiRenderer } from '../../infrastructure/rendering/PixiRenderer';
+import { Container, Graphics, Text, TextStyle } from 'pixi.js';
 
 /**
- * Sistema per il rendering dei testi dei messaggi di chat
+ * ChatTextSystem - PixiJS Version
+ * Renderizza i testi dei messaggi di chat usando PixiJS
  */
 export class ChatTextSystem extends BaseSystem {
-  private cameraSystem: any = null; // Cache del sistema camera
+  private cameraSystem: any = null;
+  private pixiInitialized: boolean = false;
+
+  // PixiJS elements
+  private chatContainer: Container;
+  private chatBubbles: Map<number, Container> = new Map(); // entityId -> bubble container
 
   constructor(ecs: ECS, cameraSystem?: any) {
     super(ecs);
-    // Usa il cameraSystem passato o cercalo
     this.cameraSystem = cameraSystem || this.findCameraSystem();
+    this.chatContainer = new Container();
+    this.chatContainer.label = 'ChatBubbles';
   }
 
-  /**
-   * Trova il sistema camera
-   */
   private findCameraSystem(): any {
-    // Cerca nei sistemi registrati (robusto contro minificazione)
     if (this.ecs && (this.ecs as any).systems) {
       return (this.ecs as any).systems.find((system: any) => typeof system.getCamera === 'function');
     }
@@ -28,128 +33,175 @@ export class ChatTextSystem extends BaseSystem {
   }
 
   /**
-   * Rimuove un testo di chat quando scade naturalmente
+   * Inizializza PixiJS container (lazy)
    */
+  private initPixi(): void {
+    if (this.pixiInitialized) return;
+
+    try {
+      const pixiRenderer = PixiRenderer.getInstance();
+      // Chat bubbles vanno nel world container (seguono la camera)
+      const worldContainer = pixiRenderer.getWorldContainer();
+      worldContainer.addChild(this.chatContainer);
+      this.chatContainer.zIndex = 500; // Sopra entità, sotto UI
+      this.pixiInitialized = true;
+    } catch (e) {
+      // PixiRenderer non ancora pronto
+    }
+  }
+
   private cleanupChatText(chatTextEntity: any): void {
     this.ecs.removeEntity(chatTextEntity);
   }
 
   /**
-   * Aggiorna i testi di chat (lifetime e movimento)
+   * Crea un bubble container con sfondo glass e testo
    */
-  update(deltaTime: number): void {
-    const deltaTimeSeconds = deltaTime / 1000; // Converti in secondi
+  private createChatBubble(message: string): Container {
+    const bubble = new Container();
 
-    // Trova tutte le entità con ChatText
+    // Stile testo
+    const textStyle = new TextStyle({
+      fontFamily: 'Arial',
+      fontSize: 18,
+      fontWeight: 'bold',
+      fill: 'rgba(255, 255, 255, 0.95)',
+      dropShadow: {
+        color: 'rgba(0, 0, 0, 0.3)',
+        blur: 1,
+        distance: 1,
+        angle: Math.PI / 4,
+      },
+    });
+
+    const text = new Text({ text: message, style: textStyle });
+    text.anchor.set(0.5, 0.5);
+
+    // Calcola dimensioni sfondo
+    const padding = 10;
+    const rectWidth = text.width + padding * 2;
+    const rectHeight = 24 + padding * 2;
+
+    // Sfondo glass
+    const bg = new Graphics();
+
+    // Rettangolo semi-trasparente
+    bg.rect(-rectWidth / 2, -rectHeight / 2, rectWidth, rectHeight);
+    bg.fill({ color: 0x0f172a, alpha: 0.9 }); // Blu scuro
+
+    // Bordo gradiente (simula con colore solido per performance)
+    bg.rect(-rectWidth / 2, -rectHeight / 2, rectWidth, rectHeight);
+    bg.stroke({ color: 0x3b82f6, alpha: 0.6, width: 1 }); // Blu
+
+    // Effetto luce interna
+    bg.rect(-rectWidth / 2 + 1, -rectHeight / 2 + 1, rectWidth - 2, rectHeight - 2);
+    bg.stroke({ color: 0xffffff, alpha: 0.1, width: 1 });
+
+    bubble.addChild(bg);
+    bubble.addChild(text);
+
+    return bubble;
+  }
+
+  update(deltaTime: number): void {
+    this.initPixi();
+
+    // Trova camera se non già trovata
+    if (!this.cameraSystem) {
+      this.cameraSystem = this.findCameraSystem();
+    }
+
     const chatTextEntities = this.ecs.getEntitiesWithComponents(ChatText);
 
+    // Aggiorna lifetime e rimuovi scaduti
     for (const entity of chatTextEntities) {
       const chatText = this.ecs.getComponent(entity, ChatText);
       if (!chatText) continue;
 
-      // Il testo appare immediatamente e rimane fisso sopra la barra HP/shield
       chatText.currentOffsetY = chatText.initialOffsetY;
-
-      // Aggiorna lifetime (2.5 secondi totali)
       chatText.lifetime -= deltaTime;
 
-      // Rimuovi testi scaduti
       if (chatText.isExpired()) {
         this.cleanupChatText(entity);
       }
     }
-  }
 
-  /**
-   * Renderizza i testi dei messaggi di chat
-   */
-  render(ctx: CanvasRenderingContext2D): void {
-    if (!ctx.canvas || !this.cameraSystem) {
-      return; // Silenziosamente senza log per evitare spam
-    }
+    if (!this.pixiInitialized || !this.cameraSystem) return;
 
     const camera = this.cameraSystem.getCamera();
     if (!camera) return;
 
     const canvasSize = DisplayManager.getInstance().getLogicalSize();
-    const chatTextEntities = this.ecs.getEntitiesWithComponents(ChatText);
 
+    // Aggiorna bubble visivi
+    const validEntities = this.ecs.getEntitiesWithComponents(ChatText);
+    const validIds = new Set<number>();
 
-    for (const entity of chatTextEntities) {
+    for (const entity of validEntities) {
+      const entityId = typeof entity === 'number' ? entity : (entity as any).id;
+      validIds.add(entityId);
+
       const chatText = this.ecs.getComponent(entity, ChatText);
       if (!chatText) continue;
 
+      // Calcola posizione mondo
       let worldX: number;
       let worldY: number;
 
       const targetEntity = this.ecs.getEntity(chatText.targetEntityId);
 
       if (targetEntity) {
-        // L'entità target esiste ancora - seguila
         const targetTransform = this.ecs.getComponent(targetEntity, Transform);
         if (targetTransform) {
           worldX = targetTransform.x + chatText.initialOffsetX;
           worldY = targetTransform.y + chatText.currentOffsetY;
-          // Salva la posizione per quando l'entità muore
           chatText.lastWorldX = worldX;
           chatText.lastWorldY = worldY;
         } else {
-          // Entità senza transform - usa ultima posizione conosciuta
           worldX = chatText.lastWorldX;
           worldY = chatText.lastWorldY;
         }
       } else {
-        // Entità morta - usa ultima posizione e lascia il testo lì
         worldX = chatText.lastWorldX;
         worldY = chatText.lastWorldY;
       }
 
+      // Converti in coordinate schermo
       const screenPos = camera.worldToScreen(worldX, worldY, canvasSize.width, canvasSize.height);
 
-      ctx.save();
-      ctx.globalAlpha = chatText.getAlpha();
+      // Crea o aggiorna bubble
+      let bubble = this.chatBubbles.get(entityId);
 
-      // Misura il testo per creare il rettangolo di sfondo
-      ctx.font = 'bold 18px Arial';
-      const textMetrics = ctx.measureText(chatText.message);
-      const textWidth = textMetrics.width;
-      const textHeight = 24; // Altezza approssimativa del testo
-      const padding = 10;
-      const rectX = screenPos.x - textWidth/2 - padding;
-      const rectY = screenPos.y - textHeight/2 - padding;
-      const rectWidth = textWidth + padding * 2;
-      const rectHeight = textHeight + padding * 2;
+      if (!bubble) {
+        bubble = this.createChatBubble(chatText.message);
+        this.chatContainer.addChild(bubble);
+        this.chatBubbles.set(entityId, bubble);
+      }
 
-      // Stile glass: sfondo semi-trasparente con blur simulato
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.9)'; // Blu scuro semi-trasparente
-      ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
+      // Aggiorna posizione e alpha
+      bubble.position.set(screenPos.x, screenPos.y);
+      bubble.alpha = chatText.getAlpha();
+    }
 
-      // Bordo glass con gradiente
-      const gradient = ctx.createLinearGradient(rectX, rectY, rectX + rectWidth, rectY + rectHeight);
-      gradient.addColorStop(0, 'rgba(59, 130, 246, 0.6)'); // Blu chiaro
-      gradient.addColorStop(0.5, 'rgba(147, 51, 234, 0.4)'); // Viola
-      gradient.addColorStop(1, 'rgba(59, 130, 246, 0.6)'); // Blu chiaro
+    // Rimuovi bubble per entità non più esistenti
+    for (const [entityId, bubble] of this.chatBubbles) {
+      if (!validIds.has(entityId)) {
+        bubble.destroy({ children: true });
+        this.chatBubbles.delete(entityId);
+      }
+    }
+  }
 
-      ctx.strokeStyle = gradient;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(rectX, rectY, rectWidth, rectHeight);
-
-      // Effetto luce interna (simula il glass)
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(rectX + 1, rectY + 1, rectWidth - 2, rectHeight - 2);
-
-      // Testo bianco con leggera ombra
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-      ctx.shadowBlur = 1;
-      ctx.shadowOffsetX = 1;
-      ctx.shadowOffsetY = 1;
-
-      ctx.fillText(chatText.message, screenPos.x, screenPos.y);
-      ctx.restore();
+  /**
+   * Cleanup risorse PixiJS
+   */
+  destroy(): void {
+    for (const bubble of this.chatBubbles.values()) {
+      bubble.destroy({ children: true });
+    }
+    this.chatBubbles.clear();
+    if (this.chatContainer) {
+      this.chatContainer.destroy({ children: true });
     }
   }
 }

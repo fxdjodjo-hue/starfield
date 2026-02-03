@@ -30,6 +30,7 @@ export abstract class System {
 
   /**
    * Render del sistema (opzionale, usato dal RenderSystem)
+   * @deprecated Rendering now uses PixiJS scene graph updated in update(). This method is no longer called by ECS.
    */
   render?(ctx: CanvasRenderingContext2D): void;
 

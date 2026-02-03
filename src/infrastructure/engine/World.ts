@@ -57,14 +57,18 @@ export class World {
    * Render del mondo (chiamato dal game loop)
    */
   render(): void {
-    if (!this.ctx) return; // Skip legacy rendering if disabled
+    // CRITICAL FIX: Allow rendering even if legacy 2D context is null (PixiJS mode)
+    // if (!this.ctx) return; 
 
-    // Clear canvas usando dimensioni logiche (il context è già scalato per DPR)
-    const { width, height } = this.displayManager.getLogicalSize();
-    this.ctx.clearRect(0, 0, width, height);
+    // Clear canvas only if ctx exists
+    if (this.ctx) {
+      const { width, height } = this.displayManager.getLogicalSize();
+      this.ctx.clearRect(0, 0, width, height);
+    }
 
-    // Render attraverso ECS
-    this.ecs.render(this.ctx);
+    // Render attraverso ECS (passando ctx o null)
+    // PixiRenderSystem will work; legacy systems needing ctx will throw (caught by ECS)
+    this.ecs.render(this.ctx as any);
   }
 
   /**

@@ -1,116 +1,164 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
-import { Transform } from '../../entities/spatial/Transform';
 import { LogMessage, LogType } from '../../presentation/ui/LogMessage';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import { DisplayManager } from '../../infrastructure/display';
+import { PixiRenderer } from '../../infrastructure/rendering/PixiRenderer';
+import { Container, Text, TextStyle } from 'pixi.js';
 
 /**
- * Sistema per gestire e renderizzare i messaggi di log centrati in alto
- * Mostra informazioni importanti del gameplay con animazioni e styling
+ * LogSystem - PixiJS Version
+ * Gestisce e renderizza i messaggi di log centrati in alto usando PixiJS Text
  */
 export class LogSystem extends BaseSystem {
-  private maxMessages: number = 3; // Numero massimo di messaggi visibili contemporaneamente
-  private messageSpacing: number = 8; // Spazio tra i messaggi
-  private topMargin: number = 50; // Margine dall'alto dello schermo
+  private maxMessages: number = 3;
+  private messageSpacing: number = 8;
+  private topMargin: number = 50;
+
+  // PixiJS elements
+  private logContainer: Container;
+  private textPool: Map<number, Container> = new Map(); // entityId -> text container
+  private pixiInitialized: boolean = false;
 
   constructor(ecs: ECS) {
     super(ecs);
+    this.logContainer = new Container();
+    this.logContainer.label = 'LogMessages';
   }
 
   /**
-   * Aggiorna i messaggi di log (lifetime e rimozione scaduti)
+   * Inizializza PixiJS container (lazy)
    */
-  update(deltaTime: number): void {
-    const logMessages = this.ecs.getEntitiesWithComponents(LogMessage);
+  private initPixi(): void {
+    if (this.pixiInitialized) return;
 
-    for (const entity of logMessages) {
-      const logMessage = this.ecs.getComponent(entity, LogMessage);
-      if (!logMessage) continue;
-
-      // Aggiorna durata
-      logMessage.duration -= deltaTime;
-
-      // Rimuovi messaggi scaduti
-      if (logMessage.isExpired()) {
-        this.ecs.removeEntity(entity);
-      }
+    try {
+      const pixiRenderer = PixiRenderer.getInstance();
+      const uiContainer = pixiRenderer.getUIContainer();
+      uiContainer.addChild(this.logContainer);
+      this.logContainer.zIndex = 1000; // Sempre in cima
+      this.pixiInitialized = true;
+    } catch (e) {
+      // PixiRenderer non ancora pronto
     }
   }
 
   /**
-   * Renderizza i messaggi di log centrati in alto
+   * Crea stile testo premium per i log
    */
-  render(ctx: CanvasRenderingContext2D): void {
-    const logMessages = this.ecs.getEntitiesWithComponents(LogMessage);
-
-    // Ordina per timestamp (più recenti in basso)
-    const sortedMessages = logMessages
-      .map(entity => this.ecs.getComponent(entity, LogMessage))
-      .filter(msg => msg !== null)
-      .sort((a, b) => a!.timestamp - b!.timestamp);
-
-    // Mostra solo gli ultimi maxMessages
-    const visibleMessages = sortedMessages.slice(-this.maxMessages);
-
-    // Renderizza ogni messaggio
-    let currentY = this.topMargin;
-    visibleMessages.forEach((message) => {
-      const lineCount = message!.text.split('\n').length;
-      this.renderLogMessage(ctx, message!, currentY);
-      const messageHeight = lineCount * 22 + this.messageSpacing; // Ridotto a 22px
-      currentY += messageHeight;
+  private createTextStyle(color: string, alpha: number): TextStyle {
+    return new TextStyle({
+      fontFamily: '"Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif',
+      fontSize: 15,
+      fontWeight: '200',
+      fill: color,
+      align: 'center',
+      letterSpacing: 4,
+      dropShadow: {
+        color: 'rgba(0, 0, 0, 0.4)',
+        blur: 4,
+        distance: 1,
+        angle: Math.PI / 4,
+      },
     });
   }
 
   /**
-   * Renderizza un singolo messaggio di log
+   * Aggiorna i messaggi di log (lifetime, rimozione scaduti, e rendering PixiJS)
    */
-  private renderLogMessage(ctx: CanvasRenderingContext2D, message: LogMessage, startY: number): void {
-    const { width: canvasWidth } = DisplayManager.getInstance().getLogicalSize();
-    const alpha = message.getAlpha();
+  update(deltaTime: number): void {
+    this.initPixi();
+    if (!this.pixiInitialized) return;
 
-    // Usa la posizione Y fornita come punto di partenza per le righe
+    const { width: screenWidth } = DisplayManager.getInstance().getLogicalSize();
+    const logEntities = this.ecs.getEntitiesWithComponents(LogMessage);
 
-    // Salva contesto per applicare alpha
-    ctx.save();
-    ctx.globalAlpha = alpha;
+    // Aggiorna durata e rimuovi scaduti
+    for (const entity of logEntities) {
+      const logMessage = this.ecs.getComponent(entity, LogMessage);
+      if (!logMessage) continue;
 
-    // Imposta stile del testo premium (Look PALANTIR: 200 weight, 4px spacing)
-    ctx.font = '200 15px \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.letterSpacing = '4px'; // Ridotto per risparmiare spazio (da 6.8px)
+      logMessage.duration -= deltaTime;
 
-    // Aggiungi leggera ombra per leggibilità
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-    ctx.shadowBlur = 4;
-    ctx.shadowOffsetX = 1;
-    ctx.shadowOffsetY = 1;
+      if (logMessage.isExpired()) {
+        this.ecs.removeEntity(entity);
+      }
+    }
 
-    // Splitta il messaggio su nuove righe e renderizza ogni riga
-    const lines = message.text.split('\n');
-    const lineHeight = 22; // Altezza di ogni riga ridotta (da 25px)
+    // Ottieni messaggi ancora validi dopo cleanup
+    const validEntities = this.ecs.getEntitiesWithComponents(LogMessage);
 
-    lines.forEach((line, lineIndex) => {
-      const lineY = startY + (lineIndex * lineHeight);
+    // Ordina per timestamp (più recenti in basso)
+    const sortedMessages = validEntities
+      .map(entity => ({
+        entity,
+        message: this.ecs.getComponent(entity, LogMessage)!,
+        entityId: typeof entity === 'number' ? entity : (entity as any).id
+      }))
+      .filter(item => item.message !== null)
+      .sort((a, b) => a.message.timestamp - b.message.timestamp);
 
-      // La prima riga usa il colore del tipo, le altre sono bianche (per rewards/info)
-      ctx.fillStyle = lineIndex === 0 ? message.getTextColor() : '#ffffff';
+    // Mostra solo gli ultimi maxMessages
+    const visibleMessages = sortedMessages.slice(-this.maxMessages);
+    const visibleIds = new Set(visibleMessages.map(m => m.entityId));
 
-      ctx.fillText(line, canvasWidth / 2, lineY);
-    });
+    // Rimuovi text containers per messaggi non più visibili
+    for (const [entityId, container] of this.textPool) {
+      if (!visibleIds.has(entityId)) {
+        container.destroy({ children: true });
+        this.textPool.delete(entityId);
+      }
+    }
 
-    // Ripristina contesto
-    ctx.restore();
+    // Renderizza messaggi visibili
+    let currentY = this.topMargin;
+
+    for (const { entity, message, entityId } of visibleMessages) {
+      const alpha = message.getAlpha();
+      const lines = message.text.split('\n');
+      const lineHeight = 22;
+
+      // Crea o riutilizza container per questo messaggio
+      let textContainer = this.textPool.get(entityId);
+
+      if (!textContainer) {
+        textContainer = new Container();
+        textContainer.label = `LogMessage_${entityId}`;
+        this.logContainer.addChild(textContainer);
+        this.textPool.set(entityId, textContainer);
+
+        // Crea testi per ogni riga
+        lines.forEach((line, lineIndex) => {
+          const color = lineIndex === 0 ? message.getTextColor() : '#ffffff';
+          const style = this.createTextStyle(color, alpha);
+          const text = new Text({ text: line, style });
+          text.anchor.set(0.5, 0.5);
+          text.y = lineIndex * lineHeight;
+          textContainer!.addChild(text);
+        });
+      }
+
+      // Aggiorna posizione e alpha
+      textContainer.position.set(screenWidth / 2, currentY);
+      textContainer.alpha = alpha;
+
+      // Aggiorna testi esistenti se necessario
+      const children = textContainer.children as Text[];
+      lines.forEach((line, lineIndex) => {
+        if (children[lineIndex]) {
+          children[lineIndex].text = line;
+          children[lineIndex].y = lineIndex * lineHeight;
+        }
+      });
+
+      currentY += lines.length * lineHeight + this.messageSpacing;
+    }
   }
-
 
   /**
    * Aggiunge un nuovo messaggio di log
    */
   addLogMessage(text: string, type: LogType = LogType.INFO, duration: number = 3000): void {
-    // Evita messaggi vuoti o solo spazi
     if (!text || text.trim().length === 0) {
       return;
     }
@@ -128,14 +176,14 @@ export class LogSystem extends BaseSystem {
   }
 
   /**
-   * Log specifico per inizio attacco (disabilitato su richiesta utente)
+   * Log specifico per inizio attacco (disabilitato)
    */
   logAttackStart(targetName: string): void {
     // Hidden by default
   }
 
   /**
-   * Log specifico per fine attacco (disabilitato su richiesta utente)
+   * Log specifico per fine attacco (disabilitato)
    */
   logAttackEnd(targetName: string): void {
     // Hidden by default
@@ -147,7 +195,6 @@ export class LogSystem extends BaseSystem {
   logAttackFailed(targetName: string): void {
     this.addLogMessage(`Attack failed against ${targetName}`, LogType.ATTACK_FAILED, 2000);
   }
-
 
   /**
    * Log specifico per NPC ucciso
@@ -186,7 +233,6 @@ export class LogSystem extends BaseSystem {
     if (experience > 0) rewards.push(`${f(experience)} Experience`);
     if (honor > 0) rewards.push(`${f(honor)} Honor`);
 
-    // Mostra messaggio solo se ci sono ricompense
     if (rewards.length > 0) {
       const rewardText = `Rewards: ${rewards.join(', ')}`;
       this.addLogMessage(rewardText, LogType.REWARD, duration);
@@ -209,10 +255,23 @@ export class LogSystem extends BaseSystem {
   }
 
   /**
-   * Log specifico per completamento missione (Titolo + Ricompense)
+   * Log specifico per completamento missione
    */
   logMissionCompletion(title: string, rewards: string, duration: number = 6000): void {
     const text = rewards ? `MISSION COMPLETED: ${title}\n${rewards}` : `MISSION COMPLETED: ${title}`;
     this.addLogMessage(text, LogType.MISSION, duration);
+  }
+
+  /**
+   * Cleanup risorse PixiJS
+   */
+  destroy(): void {
+    for (const container of this.textPool.values()) {
+      container.destroy({ children: true });
+    }
+    this.textPool.clear();
+    if (this.logContainer) {
+      this.logContainer.destroy({ children: true });
+    }
   }
 }
