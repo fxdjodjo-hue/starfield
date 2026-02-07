@@ -1366,7 +1366,9 @@ const handlers = {
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest,
   portal_use: handlePortalUse,
-  quest_progress_update: handleQuestProgressUpdate
+  quest_progress_update: handleQuestProgressUpdate,
+  quest_accept: handleQuestAccept,
+  quest_abandon: handleQuestAbandon
 };
 
 /**
@@ -1403,6 +1405,38 @@ function handleQuestProgressUpdate(data, sanitizedData, context) {
     // MA: In questo sistema, accettazione quest sembra essere client-side logic + sync.
     // Se non troviamo la quest, loggiamo warning.
     logger.warn('QUEST', `Quest ${questId} not found in memory for player ${playerData.nickname} during update`);
+  }
+}
+
+/**
+ * Handler per messaggio 'quest_accept'
+ */
+async function handleQuestAccept(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const { questId } = sanitizedData;
+  if (!questId) return;
+
+  if (mapServer.questManager) {
+    await mapServer.questManager.acceptQuest(playerData, questId);
+  }
+}
+
+/**
+ * Handler per messaggio 'quest_abandon'
+ */
+async function handleQuestAbandon(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const { questId } = sanitizedData;
+  if (!questId) return;
+
+  if (mapServer.questManager) {
+    await mapServer.questManager.abandonQuest(playerData, questId);
   }
 }
 
@@ -1485,7 +1519,7 @@ function validatePlayerContext(type, data, context) {
   }
 
   // 🚫 SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
-  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade', 'chat_message', 'portal_use'];
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
     logger.warn('SECURITY', `🚫 BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
     return { valid: false, reason: 'PLAYER_DEAD' };

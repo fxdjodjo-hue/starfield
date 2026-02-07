@@ -42,6 +42,7 @@ import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHan
 import { GlobalMonitorHandler } from '../handlers/GlobalMonitorHandler';
 import { MapChangeHandler } from '../handlers/MapChangeHandler';
 import { ErrorMessageHandler } from '../handlers/ErrorMessageHandler';
+import { QuestUpdateHandler } from '../handlers/QuestUpdateHandler';
 
 /**
  * Interface for JWT authentication validation
@@ -131,7 +132,8 @@ export class NetworkInitializationManager {
         new RepairStoppedHandler(),
         new RepairCompleteHandler(),
         new GlobalMonitorHandler(),
-        new MapChangeHandler()
+        new MapChangeHandler(),
+        new QuestUpdateHandler()
       );
       this.baseHandlersRegistered = true;
     }

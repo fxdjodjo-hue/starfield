@@ -89,14 +89,19 @@ export class QuestTrackingSystem implements QuestEventHandler {
         if (remainingAmount <= 0) break;
 
         if (this.shouldUpdateObjective(objective, event)) {
-          const result = this.questManager.updateQuestProgress(
-            quest.id,
-            objective.id,
-            activeQuestComponent,
-            remainingAmount
-          );
+          // SERVER-AUTHORITATIVE: Local progress update DISABLED.
+          // The server will send QuestProgressUpdate messages.
+          // const result = this.questManager.updateQuestProgress(
+          //   quest.id,
+          //   objective.id,
+          //   activeQuestComponent,
+          //   remainingAmount
+          // );
 
-          remainingAmount -= result.consumed;
+          // Only for visual feedback prediction (optional, skipping for now to be strictly authoritative)
+          const result = { completed: false, consumed: 0 };
+
+          // remainingAmount -= result.consumed;
 
           // Notifica la UI che i dati delle missioni sono cambiati
           if (typeof document !== 'undefined' && result.consumed > 0) {

@@ -553,6 +553,10 @@ class ServerInputValidator {
         case 'quest_progress_update':
           // Valida aggiornamento progresso quest
           return this.validateQuestProgress(data);
+        case 'quest_accept':
+          return this.validateQuestAccept(data);
+        case 'quest_abandon':
+          return this.validateQuestAbandon(data);
 
         default:
           // SECURITY: Rifiuta tutti i messaggi sconosciuti - solo tipi espliciti permessi
@@ -604,6 +608,44 @@ class ServerInputValidator {
         objectives: data.objectives
       }
     };
+  }
+
+  /**
+   * Valida accettazione quest
+   */
+  validateQuestAccept(data) {
+    const errors = [];
+
+    if (!data || typeof data !== 'object') {
+      errors.push('Data must be an object');
+      return { isValid: false, errors };
+    }
+
+    if (!data.questId || typeof data.questId !== 'string') {
+      errors.push('Invalid or missing questId');
+    } else if (data.questId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Quest ID too long');
+    }
+
+    if (errors.length > 0) {
+      return { isValid: false, errors };
+    }
+
+    return {
+      isValid: true,
+      errors: [],
+      sanitizedData: {
+        questId: data.questId
+      }
+    };
+  }
+
+  /**
+   * Valida abbandono quest
+   */
+  validateQuestAbandon(data) {
+    // Stessa logica di accept per ora (solo questId richiesto)
+    return this.validateQuestAccept(data);
   }
 
   /**

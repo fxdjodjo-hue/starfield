@@ -9,6 +9,7 @@ import {
 } from '../../../config/QuestConfig';
 import { initializeDefaultQuests } from '../../../config/quests';
 import { gameAPI } from '../../../lib/SupabaseClient';
+import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 
 /**
  * QuestManager - Sistema di gestione delle quest
@@ -102,8 +103,13 @@ export class QuestManager {
     this.availableQuests = this.availableQuests.filter(q => q.id !== questId);
     activeQuestComponent.addQuest(quest);
 
-    // Salva il nuovo stato della quest nel database
-    this.saveQuestProgressToDatabase(quest);
+    // SERVER-AUTHORITATIVE: Send accept request to server
+    if (this.clientNetworkSystem) {
+      this.clientNetworkSystem.sendMessage({
+        type: MESSAGE_TYPES.QUEST_ACCEPT,
+        questId: questId
+      });
+    }
 
     return true;
   }
@@ -142,8 +148,13 @@ export class QuestManager {
     // Rimetti tra le quest disponibili
     this.availableQuests.push(quest);
 
-    // Per abbandonare, rimuoviamo completamente il record dal database
-    this.deleteQuestProgressFromDatabase(quest.id);
+    // SERVER-AUTHORITATIVE: Send abandon request to server
+    if (this.clientNetworkSystem) {
+      this.clientNetworkSystem.sendMessage({
+        type: MESSAGE_TYPES.QUEST_ABANDON,
+        questId: questId
+      });
+    }
 
     return true;
   }
@@ -175,40 +186,13 @@ export class QuestManager {
   /**
    * Salva il progresso della quest nel database
    */
+  /**
+   * Salva il progresso della quest nel database
+   * DEPRECATED: Client no longer saves to DB. Server is authoritative.
+   */
   private async saveQuestProgressToDatabase(quest: Quest): Promise<void> {
-    if (!this.playerId) {
-      console.warn('[QUEST_MANAGER] Cannot save progress: Player ID not set');
-      // It's acceptable for playerId to be missing briefly during init; 
-      // the main save loop in PlayState will eventually catch up once ID is set.
-      return;
-    }
-
-    try {
-      const progress = {
-        objectives: quest.objectives,
-        is_completed: quest.isCompleted,
-        completed_at: quest.isCompleted ? new Date().toISOString() : null
-      };
-
-      // 🔄 SYNC SERVER MEMORY VIA WEBSOCKET
-      // This is crucial: the server saves what it has in memory.
-      // We must update the server's in-memory state before it saves to DB.
-      if (this.clientNetworkSystem && typeof this.clientNetworkSystem.sendMessage === 'function') {
-        this.clientNetworkSystem.sendMessage({
-          type: 'quest_progress_update',
-          questId: quest.id,
-          objectives: quest.objectives
-        });
-      }
-
-      const result = await gameAPI.updateQuestProgress(this.playerId, quest.id, progress);
-      if (result.error) {
-        console.error('[QUEST_MANAGER] Failed to save quest progress:', result.error);
-      } else {
-      }
-    } catch (error) {
-      console.error('[QUEST_MANAGER] Error saving quest progress:', error);
-    }
+    // SERVER-AUTHORITATIVE: Disabled client-side save.
+    return;
   }
 
   /**

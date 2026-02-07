@@ -130,6 +130,13 @@ class NpcRewardSystem {
 
     // Invia notifica delle ricompense al client
     this.sendRewardsNotification(playerId, finalRewards, npcType);
+
+    // QUEST HOOK: Notify QuestManager about the kill
+    if (this.mapServer.questManager) {
+      this.mapServer.questManager.onNpcKilled(playerId, npcType).catch(err => {
+        ServerLoggerWrapper.error('QUEST', `Error updating quest progress for ${playerId}: ${err.message}`);
+      });
+    }
   }
 
   /**

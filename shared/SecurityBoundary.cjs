@@ -226,7 +226,9 @@ class BoundaryEnforcement {
       'request_leaderboard',
       'equip_item',
       'portal_use',
-      'quest_progress_update'
+      'quest_progress_update',
+      'quest_accept',
+      'quest_abandon'
     ];
 
     // Controlli specifici per tipo di messaggio
@@ -265,6 +267,8 @@ class BoundaryEnforcement {
       case 'request_leaderboard':
       case 'portal_use':
       case 'quest_progress_update':
+      case 'quest_accept':
+      case 'quest_abandon':
         // Messaggi di connessione e sistema permessi
         return { allowed: true };
 

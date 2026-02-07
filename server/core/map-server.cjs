@@ -6,6 +6,7 @@ const ServerLoggerWrapper = require('./infrastructure/ServerLoggerWrapper.cjs');
 const ServerNpcManager = require('../managers/npc-manager.cjs');
 const ServerCombatManager = require('../managers/combat-manager.cjs');
 const ServerProjectileManager = require('../managers/projectile-manager.cjs');
+const ServerQuestManager = require('../managers/quest-manager.cjs');
 const NpcMovementSystem = require('./map/NpcMovementSystem.cjs');
 const MapBroadcaster = require('./map/MapBroadcaster.cjs');
 const PositionUpdateProcessor = require('./map/PositionUpdateProcessor.cjs');
@@ -26,8 +27,10 @@ class MapServer {
     this.npcManager = new ServerNpcManager(this);
     this.projectileManager = new ServerProjectileManager(this);
     this.combatManager = new ServerCombatManager(this);
+    this.combatManager = new ServerCombatManager(this);
     this.repairManager = new RepairManager(this);
     this.hazardManager = new HazardManager(this);
+    this.questManager = new ServerQuestManager(this);
 
     // Players connessi a questa mappa
     this.players = new Map();

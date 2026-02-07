@@ -181,7 +181,12 @@ export const MESSAGE_TYPES = {
 
   // Map messages
   PORTAL_USE: 'portal_use',
-  MAP_CHANGE: 'map_change'
+  MAP_CHANGE: 'map_change',
+
+  // Quest messages
+  QUEST_PROGRESS_UPDATE: 'quest_progress_update',
+  QUEST_ACCEPT: 'quest_accept',
+  QUEST_ABANDON: 'quest_abandon'
 } as const;
 
 /**
@@ -611,19 +616,48 @@ export interface LeaderboardResponseMessage extends BaseMessage {
   playerRank?: number;
 }
 
+/**
+ * Aggiornamento progresso quest dal server
+ */
+export interface QuestProgressUpdateMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.QUEST_PROGRESS_UPDATE;
+  questId: string;
+  objectives: Array<{
+    id: string;
+    current: number;
+    target: number;
+    completed: boolean;
+  }>;
+  isCompleted: boolean;
+  rewards?: any[];
+}
+
+/**
+ * Richiesta di accettare una quest
+ */
+export interface QuestAcceptMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.QUEST_ACCEPT;
+  questId: string;
+}
+
+/**
+ * Richiesta di abbandonare una quest
+ */
+export interface QuestAbandonMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.QUEST_ABANDON;
+  questId: string;
+}
+
 // Type union per tutti i messaggi di rete
 export type NetworkMessageUnion =
   | ConnectionMessage
   | PlayerMessage
   | NpcMessage
   | CombatMessage
-  | RequestPlayerDataMessage
-  | PlayerDataResponseMessage
-  | EconomyUpdateMessage
-  | SaveRequestMessage
-  | SaveResponseMessage
-  | LeaderboardRequestMessage
-  | LeaderboardResponseMessage;
+  | LeaderboardResponseMessage
+  | QuestProgressUpdateMessage
+  | QuestAcceptMessage
+  | QuestAbandonMessage;
 
 /**
  * SECURITY: Conditional logging utility - logs only in development
