@@ -30,4 +30,4 @@ jobs:
       - name: Build and Publish
         run: npm run electron:build
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token automatico di GitHub
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
