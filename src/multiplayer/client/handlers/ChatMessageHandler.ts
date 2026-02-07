@@ -19,25 +19,25 @@ export class ChatMessageHandler extends BaseMessageHandler {
     // Non mostrare messaggi propri (già mostrati localmente)
     // Usa playerId se disponibile, altrimenti clientId come fallback
     const senderPlayerId = message.playerId;
-    const localPlayerId = networkSystem.gameContext?.playerId;
-    const isOwnMessage = message.clientId === networkSystem.clientId || 
-                         (senderPlayerId && localPlayerId && senderPlayerId === localPlayerId);
-    
+    const localPlayerId = networkSystem.gameContext?.authId;
+    const isOwnMessage = message.clientId === networkSystem.clientId ||
+      (senderPlayerId && localPlayerId && senderPlayerId === localPlayerId);
+
     if (isOwnMessage) {
       return;
     }
 
     // Inoltra il messaggio al ChatManager per la visualizzazione
-    
+
     // Usa playerId come senderId se disponibile, altrimenti clientId come fallback
     // L'ID del messaggio usa playerId se disponibile per identificare univocamente il player
-    const senderId = senderPlayerId ? `${senderPlayerId}` : message.clientId;
+    const senderId = senderPlayerId ? `${senderPlayerId}` : (message.clientId || 'unknown');
     const messageId = message.id || `chat_${message.timestamp}_${senderId}_${message.content.substring(0, 20)}`;
-    
+
     this.chatManager.receiveNetworkMessage({
       id: messageId,
       senderId: senderId,
-      senderName: message.senderName,
+      senderName: message.senderName || 'Unknown',
       content: message.content,
       timestamp: new Date(message.timestamp),
       type: 'user',

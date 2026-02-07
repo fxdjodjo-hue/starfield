@@ -375,7 +375,7 @@ export class PortalSystem extends System {
     this.portalSoundInstances.clear();
     this.portalBassdropInstances.clear();
 
-    console.log('[PortalSystem] All portal sounds stopped (map change)');
+    // console.log('[PortalSystem] All portal sounds stopped (map change)');
   }
 
   destroy(): void {

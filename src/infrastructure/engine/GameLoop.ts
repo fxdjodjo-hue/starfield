@@ -29,13 +29,13 @@ export class GameLoop {
 
   private handleVisibilityChange = (): void => {
     if (document.hidden) {
-      console.log('[GameLoop] Tab hidden: switching to Worker Timer');
+      // console.log('[GameLoop] Tab hidden: switching to Worker Timer');
       // Tab nascosto: ferma rAF (implicito) e avvia Worker
       // Usiamo 33ms (~30fps) per risparmiare risorse ma tenere viva la simulazione
       this.usingWorker = true;
       this.workerTimer.start(33);
     } else {
-      console.log('[GameLoop] Tab visible: switching to requestAnimationFrame');
+      // console.log('[GameLoop] Tab visible: switching to requestAnimationFrame');
       // Tab visibile: ferma Worker e riprendi rAF
       this.usingWorker = false;
       this.workerTimer.stop();

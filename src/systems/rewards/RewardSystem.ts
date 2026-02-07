@@ -136,7 +136,7 @@ export class RewardSystem extends BaseSystem {
 
             this.logSystem.addLogMessage(`DROPPED: ${item.name}! [${rarity}]`, logType, 5000);
           }
-          console.log(`[RewardSystem] Item dropped from server: ${itemData.id} (${itemData.instanceId})`);
+          // console.log(`[RewardSystem] Item dropped from server: ${itemData.id} (${itemData.instanceId})`);
         }
       }
     }

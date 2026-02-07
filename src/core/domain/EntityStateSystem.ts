@@ -125,7 +125,7 @@ export class EntityStateSystem {
         // Remote entity: ONLY update InterpolationTarget, NOT Transform directly.
         // Transform is managed exclusively by InterpolationSystem.render().
         // This is critical to prevent the NPC acceleration bug.
-        interpolationTarget.updateTarget(newX, newY, newRotation, serverTimestamp);
+        interpolationTarget.updateTarget(newX, newY, newRotation, serverTimestamp ?? Date.now());
       } else {
         // Local entity (no interpolation): Update Transform directly
         ComponentHelper.updatePosition(ecs, entity, newX, newY, newRotation);

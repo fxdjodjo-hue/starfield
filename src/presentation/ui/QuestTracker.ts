@@ -310,6 +310,13 @@ export class QuestTracker {
 
     public show(): void {
         this.hasBeenExplicitlyShown = true;
+
+        // Only actually show the container if we have active quests
+        // Otherwise, just mark it as ready to show when quests arrive
+        if (!this.lastData || !this.lastData.activeQuests || this.lastData.activeQuests.length === 0) {
+            return;
+        }
+
         if (!document.body.contains(this.container)) {
             document.body.appendChild(this.container);
         }

@@ -4,6 +4,7 @@ import { Component } from '../../infrastructure/ecs/Component';
  * Componente per i proiettili
  */
 export class Projectile extends Component {
+  public id?: string; // ID univoco per tracking remoto
   public damage: number;
   public speed: number;
   public directionX: number;

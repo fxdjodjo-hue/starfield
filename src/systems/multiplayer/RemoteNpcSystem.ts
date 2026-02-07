@@ -149,7 +149,7 @@ export class RemoteNpcSystem extends BaseSystem {
     const npcDef = getNpcDefinition(validType);
     const transformScale = npcDef?.transformScale || (npcDef?.spriteScale || 1);
     this.ecs.addComponent(entity, Transform, new Transform(x, y, rotation, transformScale, transformScale));
-    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation, true));
+    this.ecs.addComponent(entity, InterpolationTarget, new InterpolationTarget(x, y, rotation));
 
     // Inizializza interpolazione con timestamp se presente
     const interpolation = this.ecs.getComponent(entity, InterpolationTarget);

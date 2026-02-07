@@ -1,4 +1,4 @@
-import { Entity, EntityIdGenerator } from './Entity';
+import { Entity, EntityIdGenerator, type EntityId } from './Entity';
 import { Component } from './Component';
 import { System } from './System';
 import { Transform } from '../../entities/spatial/Transform';
@@ -176,14 +176,14 @@ export class ECS {
   /**
    * Verifica se un'entità esiste
    */
-  entityExists(id: EntityId): boolean {
+  entityExists(id: number): boolean {
     return this.entities.has(id);
   }
 
   /**
    * Ottiene un'entità per ID
    */
-  getEntity(id: EntityId): Entity | undefined {
+  getEntity(id: number): Entity | undefined {
     if (this.entities.has(id)) {
       return new Entity(id);
     }
@@ -299,10 +299,11 @@ export class ECS {
     console.error(`[ECS] System failure:`, errorContext);
 
     // In produzione, possiamo aggiungere monitoring/telemetry
-    if (process.env.NODE_ENV === 'production') {
-      // TODO: Integrazione con servizio di monitoring (es. Sentry)
-      // this.telemetry.reportSystemError(errorContext);
-    }
+    // In produzione, possiamo aggiungere monitoring/telemetry
+    // if (process.env.NODE_ENV === 'production') {
+    // TODO: Integrazione con servizio di monitoring (es. Sentry)
+    // this.telemetry.reportSystemError(errorContext);
+    // }
 
     // Strategia di recovery: per ora continuiamo, ma possiamo estendere
     // - Disabilitare sistema temporaneamente

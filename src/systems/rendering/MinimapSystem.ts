@@ -67,7 +67,7 @@ export class MinimapSystem extends BaseSystem {
     }
     this.minimap.updateWorldDimensions(width, height);
     this.loadMapBackground(mapId);
-    console.log(`[MinimapSystem] Updated map data for: ${mapId} (${width}x${height})`);
+    // console.log(`[MinimapSystem] Updated map data for: ${mapId} (${width}x${height})`);
   }
 
   /**
@@ -97,7 +97,7 @@ export class MinimapSystem extends BaseSystem {
         return;
       }
 
-      console.log(`[MinimapSystem] Trying fallback background for map: ${mapName} (folder: ${assetFolder})`);
+      // console.log(`[MinimapSystem] Trying fallback background for map: ${mapName} (folder: ${assetFolder})`);
       this.mapBackgroundImage = new Image();
       this.mapBackgroundImage.src = fallbackPath;
       this.mapBackgroundImage.onerror = () => {

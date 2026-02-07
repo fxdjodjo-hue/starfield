@@ -116,6 +116,14 @@ export class PlayStateInitializer {
         if (typeof uiSystem.showQuestTracker === 'function') {
           uiSystem.showQuestTracker();
         }
+
+        // Mostra le icone delle armi (SPACEBAR, AUTO) insieme al resto della UI
+        if (typeof uiSystem.getWeaponStatus === 'function') {
+          const weaponStatus = uiSystem.getWeaponStatus();
+          if (weaponStatus && typeof weaponStatus.show === 'function') {
+            weaponStatus.show();
+          }
+        }
       }
     };
 
@@ -590,7 +598,7 @@ export class PlayStateInitializer {
     // Messaggio di benvenuto nella chat
     setTimeout(() => {
       if (uiSystem) {
-        uiSystem.addSystemMessage('Welcome! Press [Space] to attack. Ship repairs are automatic out of combat. Full controls in Settings -> Controls.');
+        uiSystem.addSystemMessage('Welcome to Starspace!');
       }
     }, 2000);
 

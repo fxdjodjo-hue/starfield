@@ -50,7 +50,7 @@ export class NetworkAuthenticationManager {
       const { data: { session }, error } = await supabase.auth.getSession();
 
       if (error) {
-        secureLogger.security('Session validation failed', { error: error.message });
+        secureLogger.security('Session validation failed', { error: (error as any).message });
         return { session: null, error };
       }
 
@@ -76,7 +76,7 @@ export class NetworkAuthenticationManager {
 
       return { session, error: null };
     } catch (error) {
-      secureLogger.security('Session validation error', { error: error.message });
+      secureLogger.security('Session validation error', { error: (error as any).message });
       return { session: null, error };
     }
   }
@@ -126,7 +126,7 @@ export class NetworkAuthenticationManager {
         const { data, error } = await supabase.auth.refreshSession();
 
         if (error) {
-          secureLogger.security('Session refresh failed', { error: error.message });
+          secureLogger.security('Session refresh failed', { error: (error as any).message });
           this.isRetryingJwt = false;
           this.handleAuthError('Session refresh failed');
           return;
@@ -143,7 +143,7 @@ export class NetworkAuthenticationManager {
           this.handleAuthError('No token after refresh');
         }
       } catch (error) {
-        secureLogger.security('JWT retry failed', { error: error.message });
+        secureLogger.security('JWT retry failed', { error: (error as any).message });
         this.isRetryingJwt = false;
         this.handleAuthError('Retry failed');
       }

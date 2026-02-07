@@ -35,34 +35,35 @@ export class Game {
    */
   async init(): Promise<void> {
     const authScreen = this.startState.getAuthScreen();
-    
+
     // Salva riferimento a AuthScreen nel context per accesso da PlayState
     this.context.authScreen = authScreen;
 
     // Imposta il callback per il passaggio a PlayState quando autenticato
     authScreen.setOnAuthenticated(async () => {
-      
+
       // Inizializza PlayState in background SENZA cambiare stato ancora
       // Lo spinner rimarrà visibile durante l'inizializzazione
       try {
         await this.playState.enter(this.context);
-        
+
         // Solo ora cambia stato (lo spinner verrà nascosto da PlayState quando tutto è pronto)
         await this.changeState(this.playState);
-      } catch (error) {
-        console.error('[Game] CRITICAL: Errore durante inizializzazione PlayState:', error);
+      } catch (err) {
+        console.error('[Game] CRITICAL: Errore durante inizializzazione PlayState:', err);
 
         // 🔴 SECURITY: Se è un errore critico (connessione, rete, etc), ferma tutto
         // Non continuare con inizializzazioni inconsistenti
+        const error = err instanceof Error ? err : new Error(String(err));
         const errorString = error.toString() + (error.message || '') + (error.stack || '');
 
         if (error.message === 'CONNECTION_FAILED' ||
-            errorString.includes('WebSocket') ||
-            errorString.includes('connection') ||
-            errorString.includes('network') ||
-            errorString.includes('ECONNREFUSED') ||
-            errorString.includes('ENOTFOUND') ||
-            errorString.includes('ETIMEDOUT')) {
+          errorString.includes('WebSocket') ||
+          errorString.includes('connection') ||
+          errorString.includes('network') ||
+          errorString.includes('ECONNREFUSED') ||
+          errorString.includes('ENOTFOUND') ||
+          errorString.includes('ETIMEDOUT')) {
 
           console.error('[Game] CRITICAL: Network/connection error - stopping initialization completely');
 
@@ -137,7 +138,7 @@ export class Game {
    * Cambia lo stato del gioco
    */
   private async changeState(newState: GameState): Promise<void> {
-    
+
     // Esci dallo stato corrente
     if (this.currentState) {
       this.currentState.exit();

@@ -1,4 +1,5 @@
-import { type PlayerUuid, type PlayerDbId, type ClientId, type EntityId } from '../../../config/NetworkConfig';
+import { type PlayerUuid, type PlayerDbId, type ClientId } from '../../../config/NetworkConfig';
+import { type EntityId } from '../../../infrastructure/ecs/Entity';
 
 /**
  * Utility per conversioni sicure tra tipi di ID

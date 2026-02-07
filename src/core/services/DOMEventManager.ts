@@ -298,7 +298,7 @@ export class DOMEventManager {
   ): string {
     return this.addEventHandler(element, 'contextmenu', (event) => {
       event.preventDefault(); // Previene il menu contestuale di default
-      handler(event);
+      handler(event as MouseEvent);
     }, false, context);
   }
 

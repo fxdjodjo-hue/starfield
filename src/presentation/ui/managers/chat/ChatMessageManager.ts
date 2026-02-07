@@ -11,7 +11,7 @@ export class ChatMessageManager {
     private readonly messagesContainer: HTMLElement,
     private readonly createMessageElement: (message: ChatMessage, context?: any) => HTMLElement,
     private readonly context?: any
-  ) {}
+  ) { }
 
   /**
    * Adds a message to the chat
@@ -76,7 +76,6 @@ export class ChatMessageManager {
    */
   clear(): void {
     this.messages = [];
-    this.messageIds.clear();
     this.messagesContainer.innerHTML = '';
   }
 }

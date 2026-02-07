@@ -22,7 +22,7 @@ export type ConnectionState = typeof ConnectionState[keyof typeof ConnectionStat
  * Estratto da ClientNetworkSystem per Separation of Concerns
  */
 export class NetworkStateManager {
-  private connectionState = ConnectionState.DISCONNECTED;
+  private connectionState: ConnectionState = ConnectionState.DISCONNECTED;
   private connectionPromise: Promise<void> | null = null;
   private connectionResolver: (() => void) | null = null;
   private connectionRejector: ((error: Error) => void) | null = null;
@@ -40,7 +40,7 @@ export class NetworkStateManager {
     private readonly tickManager: NetworkTickManager,
     public clientId: string,
     private readonly isClientReady?: () => boolean
-  ) {}
+  ) { }
 
   /**
    * Gets the current connection state
@@ -53,8 +53,8 @@ export class NetworkStateManager {
    * Checks if connected
    */
   isConnected(): boolean {
-    return this.connectionState === ConnectionState.CONNECTED && 
-           this.connectionManager.isConnectionActive();
+    return this.connectionState === ConnectionState.CONNECTED &&
+      this.connectionManager.isConnectionActive();
   }
 
   /**
@@ -63,7 +63,7 @@ export class NetworkStateManager {
   async connect(): Promise<void> {
     // Prevent multiple concurrent connection attempts
     if (this.connectionState === ConnectionState.CONNECTING ||
-        this.connectionState === ConnectionState.CONNECTED) {
+      this.connectionState === ConnectionState.CONNECTED) {
       return this.connectionPromise || Promise.resolve();
     }
 

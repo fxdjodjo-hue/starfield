@@ -4,7 +4,7 @@
  */
 
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
-import { MessageSerializer, SerializationResult } from '../utils/MessageSerializer';
+import { MessageSerializer } from '../utils/MessageSerializer';
 
 export interface BroadcastOptions {
   excludeClientId?: string;

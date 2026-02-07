@@ -26,17 +26,17 @@ export class LeaderboardResponseHandler extends BaseMessageHandler {
     const leaderboardData: LeaderboardData = {
       entries: (message.entries || []).map(entry => ({
         rank: entry.rank,
-        playerId: entry.playerId,
+        playerId: entry.playerId as number,
         username: entry.username,
         experience: entry.experience,
         honor: entry.honor,
-        recentHonor: entry.recentHonor,
+        recentHonor: entry.recentHonor || 0,
         rankingPoints: entry.rankingPoints,
         playTime: entry.playTime,
         level: entry.level,
         rankName: entry.rankName
       })),
-      sortBy: message.sortBy,
+      sortBy: message.sortBy as any,
       playerRank: message.playerRank
     };
 

@@ -85,7 +85,7 @@ export class QuestRegistry {
     }
 
     this.initialized = true;
-    console.log(`[QuestRegistry] Loaded ${this.quests.size} quests from JSON`);
+    // console.log(`[QuestRegistry] Loaded ${this.quests.size} quests from JSON`);
   }
 
   /**

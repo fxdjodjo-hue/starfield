@@ -88,17 +88,17 @@ export class RemoteEntityManager {
     }
 
     // Find the CombatSystem and stop combat immediately
-    const combatSystem = this.ecs.systems?.find((system: any) =>
+    const combatSystem = this.ecs.getSystems().find((system: any) =>
       typeof system.stopCombatImmediately === 'function'
-    );
+    ) as any;
 
     if (combatSystem) {
       combatSystem.stopCombatImmediately();
 
       // Also deactivate attack in PlayerControlSystem to prevent auto-attack
-      const playerControlSystem = this.ecs.systems?.find((system: any) =>
+      const playerControlSystem = this.ecs.getSystems().find((system: any) =>
         typeof system.deactivateAttack === 'function'
-      );
+      ) as any;
 
       if (playerControlSystem) {
         playerControlSystem.deactivateAttack();

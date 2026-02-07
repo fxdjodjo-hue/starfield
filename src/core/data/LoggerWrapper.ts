@@ -62,41 +62,37 @@ export class LoggerWrapper {
    * Log di debug
    */
   static debug(category: LogCategory, message: string, context?: LogContext): void {
-    if (this.currentLevel > LogLevel.DEBUG) return null;
+    if (this.currentLevel > LogLevel.DEBUG) return;
     this.logWithCategory('debug', category, message, context);
-    return null;
   }
 
   /**
    * Log informativo
    */
   static info(category: LogCategory, message: string, context?: LogContext): void {
-    if (this.currentLevel > LogLevel.INFO) return null;
+    if (this.currentLevel > LogLevel.INFO) return;
     this.logWithCategory('info', category, message, context);
-    return null;
   }
 
   /**
    * Log di avviso
    */
   static warn(category: LogCategory, message: string, context?: LogContext): void {
-    if (this.currentLevel > LogLevel.WARN) return null;
+    if (this.currentLevel > LogLevel.WARN) return;
     this.logWithCategory('warn', category, message, context);
-    return null;
   }
 
   /**
    * Log di errore
    */
   static error(category: LogCategory, message: string, error?: Error, context?: LogContext): void {
-    if (this.currentLevel > LogLevel.ERROR) return null;
+    if (this.currentLevel > LogLevel.ERROR) return;
 
     const fullMessage = error ?
       `${message}: ${error.message}\n${error.stack}` :
       message;
 
     this.logWithCategory('error', category, fullMessage, context);
-    return null;
   }
 
   /**
@@ -108,7 +104,6 @@ export class LoggerWrapper {
       message;
 
     this.logWithCategory('error', category, `[CRITICAL] ${fullMessage}`, context);
-    return null;
   }
 
   /**
@@ -116,7 +111,6 @@ export class LoggerWrapper {
    */
   static combat(message: string, context?: LogContext): void {
     this.info(LogCategory.COMBAT, message, context);
-    return null;
   }
 
   /**
@@ -124,7 +118,6 @@ export class LoggerWrapper {
    */
   static network(message: string, context?: LogContext): void {
     this.info(LogCategory.NETWORK, message, context);
-    return null;
   }
 
   /**
@@ -132,7 +125,6 @@ export class LoggerWrapper {
    */
   static database(message: string, context?: LogContext): void {
     this.info(LogCategory.DATABASE, message, context);
-    return null;
   }
 
   /**
@@ -140,7 +132,6 @@ export class LoggerWrapper {
    */
   static security(message: string, context?: LogContext): void {
     this.warn(LogCategory.SECURITY, message, context);
-    return null;
   }
 
   /**
@@ -148,7 +139,6 @@ export class LoggerWrapper {
    */
   static gameplay(message: string, context?: LogContext): void {
     this.debug(LogCategory.GAMEPLAY, message, context);
-    return null;
   }
 
   /**
@@ -156,7 +146,6 @@ export class LoggerWrapper {
    */
   static system(message: string, context?: LogContext): void {
     this.info(LogCategory.SYSTEM, message, context);
-    return null;
   }
 
   /**
@@ -164,7 +153,6 @@ export class LoggerWrapper {
    */
   static performance(message: string, context?: LogContext): void {
     this.debug(LogCategory.PERFORMANCE, message, context);
-    return null;
   }
 
   /**
@@ -172,7 +160,6 @@ export class LoggerWrapper {
    */
   static ecs(message: string, context?: LogContext): void {
     this.debug(LogCategory.ECS, message, context);
-    return null;
   }
 
   /**
@@ -180,7 +167,6 @@ export class LoggerWrapper {
    */
   static ai(message: string, context?: LogContext): void {
     this.debug(LogCategory.AI, message, context);
-    return null;
   }
 
   /**
@@ -188,7 +174,6 @@ export class LoggerWrapper {
    */
   static projectile(message: string, context?: LogContext): void {
     this.debug(LogCategory.PROJECTILE, message, context);
-    return null;
   }
 
   /**
@@ -196,7 +181,6 @@ export class LoggerWrapper {
    */
   static render(message: string, context?: LogContext): void {
     this.debug(LogCategory.RENDER, message, context);
-    return null;
   }
 
   /**
@@ -236,9 +220,6 @@ export class LoggerWrapper {
     } else {
       console[level](`${timestamp} ${fullMessage}`);
     }
-
-    // VOID-SAFE: Ritorna null invece di undefined per evitare problemi se usato come valore
-    return null as any;
   }
 
   /**

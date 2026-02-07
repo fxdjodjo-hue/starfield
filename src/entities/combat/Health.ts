@@ -33,10 +33,4 @@ export class Health extends ResourceComponent {
   setHealth(current: number, max?: number): void {
     this.setResource(current, max);
   }
-
-  /**
-   * Proprietà per accesso diretto (per compatibilità)
-   * N.B. Rimosso override accessors che andavano in conflitto con la classe base.
-   * ResourceComponent ha già public current e max o metodi appropriati.
-   */
 }

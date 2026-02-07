@@ -392,7 +392,7 @@ export class UiSystem extends System {
       }, displayDuration);
     }
 
-    console.log(`[UiSystem] Showing map transition: ${displayName}`);
+    // console.log(`[UiSystem] Showing map transition: ${displayName}`);
   }
 
   /**
@@ -754,7 +754,7 @@ export class UiSystem extends System {
     if (mapNameElement) {
       mapNameElement.textContent = displayName;
     }
-    console.log(`[UiSystem] Map indicator updated to: ${displayName}`);
+    // console.log(`[UiSystem] Map indicator updated to: ${displayName}`);
   }
 
   /**

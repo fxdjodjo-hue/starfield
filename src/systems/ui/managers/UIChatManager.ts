@@ -99,7 +99,7 @@ export class UIChatManager {
 
       // Registra gli handler per ricevere messaggi dalla rete
       const chatHandler = new ChatMessageHandler(this.chatManager);
-      const errorHandler = new ErrorMessageHandler(this.chatManager);
+      const errorHandler = new ErrorMessageHandler();
       clientNetworkSystem.getMessageRouter().registerHandler(chatHandler);
       clientNetworkSystem.getMessageRouter().registerHandler(errorHandler);
 

@@ -39,7 +39,7 @@ const DEFAULT_SETTINGS: GameSettingsData = {
  * Salva e carica le configurazioni persistenti (localStorage)
  */
 export class GameSettings {
-    private staticinstance: GameSettings;
+    private static instance: GameSettings;
     private settings: GameSettingsData;
     private readonly STORAGE_KEY = 'starfield_settings';
 

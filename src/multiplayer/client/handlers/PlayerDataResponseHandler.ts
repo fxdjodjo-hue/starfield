@@ -167,7 +167,7 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
 
         if (inventoryComponent) {
           inventoryComponent.sync((message as any).items);
-          console.log('[PlayerDataResponseHandler] Inventory synced with', (message as any).items.length, 'items');
+          // console.log('[PlayerDataResponseHandler] Inventory synced with', (message as any).items.length, 'items');
 
           // Refresh stats to apply item bonuses
           networkSystem.getPlayerSystem()?.refreshPlayerStats();

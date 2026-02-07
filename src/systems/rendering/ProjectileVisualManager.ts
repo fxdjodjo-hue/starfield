@@ -205,7 +205,7 @@ export class ProjectileVisualManager extends BaseSystem {
    * Interfaccia pubblica: ottiene lo stato visivo corrente
    */
   getVisualState(entity: Entity): ProjectileVisualState | null {
-    return this.ecs.getComponent(entity, ProjectileVisualState);
+    return this.ecs.getComponent(entity, ProjectileVisualState) ?? null;
   }
 
   /**

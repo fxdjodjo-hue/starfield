@@ -177,8 +177,7 @@ export class UIHUDManager {
 
     // Aggiorna sempre l'HUD con i dati disponibili
     this.playerHUD.updateData(hudData);
-    // Mostra anche gli indicatori delle armi se necessario
-    this.weaponStatus.show();
+    // NON mostrare weaponStatus qui - verrà mostrato da showHud() dopo l'animazione camera
     // NON mostrare automaticamente - viene mostrato da hideLoadingScreen() quando la schermata di autenticazione è nascosta
     // this.playerHUD.show();
 

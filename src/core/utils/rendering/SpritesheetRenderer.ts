@@ -1,5 +1,5 @@
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
-import type { SpriteFrame } from '../../entities/AnimatedSprite';
+import type { SpriteFrame } from '../../../entities/AnimatedSprite';
 
 /**
  * Transform data for rendering
@@ -29,22 +29,22 @@ export class SpritesheetRenderer {
     if (!sprite) {
       return;
     }
-    
+
     // Robust check: verify sprite has valid data structure
     if (!sprite.spritesheet || !sprite.spritesheet.image) {
       return;
     }
-    
+
     // Check if image is loaded - if not, try to render anyway if image exists
     // This handles edge cases where image.complete might be false but image is actually ready
     const img = sprite.spritesheet.image;
-    const isImageReady = sprite.isLoaded() || 
-                        (img.naturalWidth > 0 && img.naturalHeight > 0);
-    
+    const isImageReady = sprite.isLoaded() ||
+      (img.naturalWidth > 0 && img.naturalHeight > 0);
+
     if (!isImageReady) {
       return;
     }
-    
+
     // Verify we have valid frames
     if (!sprite.hasValidFrames()) {
       return;
@@ -53,7 +53,7 @@ export class SpritesheetRenderer {
     // Get frame based on rotation
     const frameIndex = sprite.getFrameForRotation(transform.rotation);
     const frame = sprite.getFrame(frameIndex);
-    
+
     // Validate frame before rendering
     if (!frame || frame.width <= 0 || frame.height <= 0) {
       return;
@@ -74,24 +74,24 @@ export class SpritesheetRenderer {
     if (!sprite || !sprite.spritesheet || !sprite.spritesheet.image) {
       return;
     }
-    
+
     const { image } = sprite.spritesheet;
-    
+
     // Robust check: verify image is ready (more lenient than isLoaded)
     const isImageReady = image.naturalWidth > 0 && image.naturalHeight > 0;
     if (!isImageReady) {
       return;
     }
-    
+
     // Validate frame bounds
     if (!frame || frame.width <= 0 || frame.height <= 0) {
       return;
     }
-    
+
     // Validate frame coordinates are within image bounds
-    if (frame.x < 0 || frame.y < 0 || 
-        frame.x + frame.width > image.naturalWidth || 
-        frame.y + frame.height > image.naturalHeight) {
+    if (frame.x < 0 || frame.y < 0 ||
+      frame.x + frame.width > image.naturalWidth ||
+      frame.y + frame.height > image.naturalHeight) {
       return;
     }
 
@@ -100,7 +100,7 @@ export class SpritesheetRenderer {
     // Calculate destination dimensions
     const destWidth = frame.width * scale;
     const destHeight = frame.height * scale;
-    
+
     // Skip rendering if dimensions are invalid
     if (destWidth <= 0 || destHeight <= 0) {
       return;
@@ -133,25 +133,25 @@ export class SpritesheetRenderer {
     frameIndex: number
   ): void {
     if (!sprite) return;
-    
+
     // Robust check: verify sprite has valid data structure
     if (!sprite.spritesheet || !sprite.spritesheet.image) return;
-    
+
     // Check if image is loaded - use same lenient check as render()
     const img = sprite.spritesheet.image;
-    const isImageReady = sprite.isLoaded() || 
-                        (img.naturalWidth > 0 && img.naturalHeight > 0);
-    
+    const isImageReady = sprite.isLoaded() ||
+      (img.naturalWidth > 0 && img.naturalHeight > 0);
+
     if (!isImageReady) return;
-    
+
     // Verify we have valid frames
     if (!sprite.hasValidFrames()) return;
 
     const frame = sprite.getFrame(frameIndex);
-    
+
     // Validate frame before rendering
     if (!frame || frame.width <= 0 || frame.height <= 0) return;
-    
+
     this.renderFrame(ctx, transform, sprite, frame);
   }
 }

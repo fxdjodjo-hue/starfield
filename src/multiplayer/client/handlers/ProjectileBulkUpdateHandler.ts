@@ -61,7 +61,7 @@ export class ProjectileBulkUpdateHandler extends BaseMessageHandler {
         if (vx !== undefined && vy !== undefined && (vx !== 0 || vy !== 0)) {
           rotation = Math.atan2(vy, vx);
         }
-        interpolation.updateTarget(x, y, rotation);
+        interpolation.updateTarget(x, y, rotation, message.timestamp || Date.now());
 
         // Update rotation for interpolation target too if supported, currently handled by visual update
       } else if (transform && x !== undefined && y !== undefined) {

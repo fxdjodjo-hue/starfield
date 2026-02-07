@@ -101,6 +101,9 @@ export class GameContext {
   public pendingAdministrator: boolean | null = null;
   public totalWorldNpcs: number = 0;
 
+  // Riferimento allo stato corrente del gioco
+  public currentState: any = null;
+
   constructor(canvas: HTMLCanvasElement, gameContainer: HTMLElement) {
     this.canvas = canvas;
     this.gameContainer = gameContainer;

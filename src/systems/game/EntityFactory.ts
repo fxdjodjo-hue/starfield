@@ -46,7 +46,7 @@ export class EntityFactory {
       const playerRole = ecs.getComponent(playerEntity, PlayerRole);
       if (playerRole) {
         playerRole.setAdministrator(context.pendingAdministrator);
-        console.log(`[EntityFactory] Applied pending admin status: ${context.pendingAdministrator}`);
+        // console.log(`[EntityFactory] Applied pending admin status: ${context.pendingAdministrator}`);
       }
       // Clear pending status after applying
       context.pendingAdministrator = null;
@@ -71,7 +71,7 @@ export class EntityFactory {
    * Crea le entità specifiche di una mappa
    */
   static createMapEntities(ecs: ECS, assets: any, mapId: string): void {
-    console.log(`[EntityFactory] Creating map entities for: ${mapId}`);
+    // console.log(`[EntityFactory] Creating map entities for: ${mapId}`);
     if (mapId === 'palantir') {
       // Crea portale a X=9000, Y=0 (per Singularity)
       EntityFactory.createTeleport(ecs, 9000, 0, assets.teleportAnimatedSprite);
@@ -95,7 +95,7 @@ export class EntityFactory {
    * Rimuove tutte le entità statiche della mappa per prepararsi a un cambio mappa o ricaricamento
    */
   static cleanupMapEntities(ecs: ECS): void {
-    console.log('[EntityFactory] Cleaning up map entities...');
+    // console.log('[EntityFactory] Cleaning up map entities...');
 
     const entitiesToRemove = [
       ...ecs.getEntitiesWithComponents(ParallaxLayer),
@@ -110,14 +110,14 @@ export class EntityFactory {
       ecs.removeEntity(entity);
     });
 
-    console.log(`[EntityFactory] Removed ${entitiesToRemove.length} map entities.`);
+    // console.log(`[EntityFactory] Removed ${entitiesToRemove.length} map entities.`);
   }
 
   /**
    * Crea un'entità portale statica
    */
   static createTeleport(ecs: ECS, x: number, y: number, animatedSprite: AnimatedSprite): void {
-    console.log(`[EntityFactory] Creating teleport at: ${x}, ${y}`);
+    // console.log(`[EntityFactory] Creating teleport at: ${x}, ${y}`);
     const entity = ecs.createEntity();
 
     // Componenti spaziali - scala aumentata per renderlo più visibile (2.5x)
@@ -214,7 +214,7 @@ export class EntityFactory {
       };
 
       const assetFolder = mapIdToFolder[context.currentMapId] || context.currentMapId;
-      console.log(`[EntityFactory] Loading background for mapId: ${context.currentMapId}, folder: ${assetFolder}`);
+      // console.log(`[EntityFactory] Loading background for mapId: ${context.currentMapId}, folder: ${assetFolder}`);
 
       // Prova prima bg1forse.jpg se esiste (potrebbe essere più grande), altrimenti bg.jpg
       let mapPath = `assets/maps/${assetFolder}/bg1forse.jpg`;

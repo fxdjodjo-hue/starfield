@@ -38,23 +38,4 @@ export class Shield extends ResourceComponent {
   setShield(current: number, max?: number): void {
     this.setResource(current, max);
   }
-
-  /**
-   * Proprietà per accesso diretto (per compatibilità)
-   */
-  get current(): number {
-    return this.currentValue;
-  }
-
-  set current(value: number) {
-    this.currentValue = value;
-  }
-
-  get max(): number {
-    return this.maxValue;
-  }
-
-  set max(value: number) {
-    this.maxValue = value;
-  }
 }

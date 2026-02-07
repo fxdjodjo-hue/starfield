@@ -131,6 +131,7 @@ export const MESSAGE_TYPES = {
 
   // Player messages
   POSITION_UPDATE: 'position_update',
+  POSITION_CORRECTION: 'position_correction',
   POSITION_ACK: 'position_ack',
   REMOTE_PLAYER_UPDATE: 'remote_player_update',
   PLAYER_JOINED: 'player_joined',

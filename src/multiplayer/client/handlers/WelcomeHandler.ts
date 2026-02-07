@@ -157,7 +157,7 @@ export class WelcomeHandler extends BaseMessageHandler {
       const mapId = message.mapId || 'palantir';
       const ecs = networkSystem.getECS();
       if (ecs) {
-        console.log(`[WELCOME] Initializing map entities for: ${mapId}`);
+        // console.log(`[WELCOME] Initializing map entities for: ${mapId}`);
         networkSystem.gameContext.currentMapId = mapId;
 
         // 🗺️ UPDATE MINIMAP: Sincronizza il nome della mappa nella minimappa
@@ -184,7 +184,7 @@ export class WelcomeHandler extends BaseMessageHandler {
         // 🔄 FALLBACK: Se gli assets non sono ancora registrati nel networkSystem,
         // creali on-demand usando l'assetManager
         if (!assets) {
-          console.log('[WELCOME] Assets not in networkSystem, loading on-demand...');
+          // console.log('[WELCOME] Assets not in networkSystem, loading on-demand...');
           const assetManager = networkSystem.gameContext.assetManager;
           if (assetManager) {
             try {
@@ -200,7 +200,7 @@ export class WelcomeHandler extends BaseMessageHandler {
 
               // Registra gli assets nel networkSystem per uso futuro
               networkSystem.setAssets(assets);
-              console.log('[WELCOME] On-demand assets loaded and registered.');
+              // console.log('[WELCOME] On-demand assets loaded and registered.');
             } catch (e) {
               console.error('[WELCOME] Failed to load on-demand assets:', e);
             }

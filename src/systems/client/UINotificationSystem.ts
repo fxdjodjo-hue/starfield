@@ -18,6 +18,14 @@ export class UINotificationSystem extends BaseSystem {
   }
 
   /**
+   * Update method required by base System class
+   * This system is event-driven, so no per-frame updates needed
+   */
+  update(_deltaTime: number): void {
+    // Event-driven system - no per-frame updates
+  }
+
+  /**
    * Imposta riferimenti ai sistemi UI
    */
   setUISystems(uiSystem: any, logSystem: any, economySystem: any): void {

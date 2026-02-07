@@ -256,7 +256,8 @@ export class RespawnSystem {
         }
 
       } catch (error) {
-        console.error('[RespawnSystem] Error accessing ECS components:', error.message);
+        const message = error instanceof Error ? error.message : String(error);
+        console.error('[RespawnSystem] Error accessing ECS components:', message);
       }
     }
 

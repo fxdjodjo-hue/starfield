@@ -5,16 +5,33 @@ import { Component } from '../../infrastructure/ecs/Component';
  * Fornisce logica comune per gestione current/max, danno, guarigione, percentuali
  */
 export abstract class ResourceComponent extends Component {
-  protected current: number;
-  protected max: number;
+  private _current: number;
+  private _max: number;
   protected lastDamageTime: number = 0;
 
   constructor(current: number, max: number) {
     super();
-    this.current = current;
-    this.max = max;
-    // Assicuriamoci che il valore corrente non superi il massimo
-    this.current = Math.min(current, max);
+    this._max = max;
+    this._current = Math.min(current, max);
+  }
+
+  /** Public accessor for current value */
+  get current(): number {
+    return this._current;
+  }
+
+  set current(value: number) {
+    this._current = Math.max(0, Math.min(value, this._max));
+  }
+
+  /** Public accessor for max value */
+  get max(): number {
+    return this._max;
+  }
+
+  set max(value: number) {
+    this._max = Math.max(0, value);
+    this._current = Math.min(this._current, this._max);
   }
 
   /**
