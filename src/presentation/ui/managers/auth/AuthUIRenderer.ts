@@ -325,7 +325,7 @@ export class AuthUIRenderer {
   private createVideoBackground(): void {
     // 1. Il Video
     this.videoBackground = document.createElement('video');
-    this.videoBackground.src = '/assets/login/bg.mp4'; // Absolute path for Vite compatibility
+    this.videoBackground.src = 'assets/login/bg.mp4';
     this.videoBackground.autoplay = true;
     this.videoBackground.loop = true;
     this.videoBackground.muted = true;

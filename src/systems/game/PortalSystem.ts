@@ -26,6 +26,8 @@ import { InputSystem } from '../input/InputSystem';
  * Riproduce suoni quando il player si avvicina
  */
 export class PortalSystem extends System {
+  public static override readonly Type = 'PortalSystem';
+
   private playerSystem: PlayerSystem;
   private audioSystem: AudioSystem | null = null;
   private inputSystem: InputSystem | null = null;

@@ -53,7 +53,10 @@ export class ErrorMessageHandler extends BaseMessageHandler {
         if (ecs) {
           // We need to import PortalSystem class or dynamic find
           const systems = ecs.getSystems();
-          const portalSystem = systems.find((s: any) => s.constructor.name === 'PortalSystem') as any;
+          const portalSystem = systems.find((s: any) =>
+            (s.constructor as any).Type === 'PortalSystem' ||
+            s.constructor.name === 'PortalSystem'
+          ) as any;
           if (portalSystem && typeof portalSystem.resetTransitionState === 'function') {
             // Reset immediately so the user can try again (and see the message again if they want)
             // or wait for the cooldown.

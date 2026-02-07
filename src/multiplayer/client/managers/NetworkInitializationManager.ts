@@ -133,7 +133,10 @@ export class NetworkInitializationManager {
         new RepairCompleteHandler(),
         new GlobalMonitorHandler(),
         new MapChangeHandler(),
-        new QuestUpdateHandler()
+        new GlobalMonitorHandler(),
+        new MapChangeHandler(),
+        new QuestUpdateHandler(),
+        new ErrorMessageHandler()
       );
       this.baseHandlersRegistered = true;
     }
@@ -162,8 +165,8 @@ export class NetworkInitializationManager {
         new ProjectileDestroyedHandler(),
         new EntityDamagedHandler(),
         new EntityDestroyedHandler(),
-        new ExplosionCreatedHandler(),
-        new ErrorMessageHandler()
+        new EntityDestroyedHandler(),
+        new ExplosionCreatedHandler()
       );
       this.combatHandlersRegistered = true;
     }
