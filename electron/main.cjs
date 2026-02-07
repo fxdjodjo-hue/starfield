@@ -65,7 +65,8 @@ function createSplashWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
-            preload: path.join(__dirname, 'preload.cjs')
+            preload: path.join(__dirname, 'preload.cjs'),
+            devTools: isDev
         }
     });
 
@@ -101,7 +102,8 @@ function createWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.cjs'),
-            backgroundThrottling: false // CRITICAL: Impedisce a Electron di rallentare il loop quando in background
+            backgroundThrottling: false, // CRITICAL: Impedisce a Electron di rallentare il loop quando in background
+            devTools: isDev
         },
         backgroundColor: '#000011',
         autoHideMenuBar: true,
@@ -142,6 +144,11 @@ function createWindow() {
     } else {
         // Production: carica i file buildati
         mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    }
+
+    // Nascondi il menu completamente in produzione
+    if (!isDev) {
+        mainWindow.setMenu(null);
     }
 
     // Mantieni titolo custom

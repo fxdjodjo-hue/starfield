@@ -1,3 +1,19 @@
+# Changelog Starfield - Versione 0.2.3 🚀✨
+
+**Questa è l'ultima versione che richiederà un download manuale!**
+Da ora in poi, il gioco si aggiornerà automaticamente.
+
+## 🌟 Auto-Updater Attivo
+- Il client ora rileva, scarica e installa autonomamente le nuove patch all'avvio.
+
+## 🌌 Nuova Mappa: Singularity
+- Aggiunta la mappa **Singularity**! Esplora nuove zone e nuove sfide.
+
+## 🛡️ Missioni più stabili
+- I tuoi progressi nelle missioni sono ora salvati in modo sicuro sui server. Niente più perdite di dati!
+
+---
+
 # Changelog Starfield - Versione 0.1.4 🔄
 
 ## 🔄 Aggiornamento Automatico

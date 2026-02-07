@@ -252,6 +252,11 @@ export class SystemConfigurator {
       }
     }
 
+    // Imposta il ClientNetworkSystem nel UiSystem per la chat e altri moduli UI
+    if (systems.uiSystem && typeof systems.uiSystem.setClientNetworkSystem === 'function') {
+      systems.uiSystem.setClientNetworkSystem(clientNetworkSystem);
+    }
+
     // Imposta il ClientNetworkSystem nel PortalSystem
     if (systems.portalSystem && typeof systems.portalSystem.setClientNetworkSystem === 'function') {
       systems.portalSystem.setClientNetworkSystem(clientNetworkSystem);
