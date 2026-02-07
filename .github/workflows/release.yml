@@ -4,7 +4,11 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # Permette di avviare la build manualmente dalla tab Actions di GitHub
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
 
 jobs:
   release:
