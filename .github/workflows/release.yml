@@ -26,4 +26,4 @@ jobs:
       - name: Build and Publish
         run: npm run electron:build
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }} # Necessario per caricare su GitHub Releases
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Token automatico di GitHub
