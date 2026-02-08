@@ -272,7 +272,7 @@ export class UINicknameManager {
           <img src="${iconPath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));" />
         </div>
         <!-- Nickname (Sarà il punto centrale del transform: translateX(-50%)) -->
-        <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: 0 1px 5px rgba(0,0,0,0.9); letter-spacing: 0.5px; white-space: nowrap;">${nickname}</div>
+        <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: -0.75px 0 0 rgba(0,0,0,0.85), 0.75px 0 0 rgba(0,0,0,0.85), 0 -0.75px 0 rgba(0,0,0,0.85), 0 0.75px 0 rgba(0,0,0,0.85), -0.75px -0.75px 0 rgba(0,0,0,0.85), 0.75px -0.75px 0 rgba(0,0,0,0.85), -0.75px 0.75px 0 rgba(0,0,0,0.85), 0.75px 0.75px 0 rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.5); letter-spacing: 0.5px; white-space: nowrap;">${nickname}</div>
       </div>
     `;
   }
@@ -340,3 +340,7 @@ export class UINicknameManager {
     return Array.from(this.remotePlayerNicknameElements.keys());
   }
 }
+
+
+
+
