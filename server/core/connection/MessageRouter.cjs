@@ -821,6 +821,10 @@ function handleStopCombat(data, sanitizedData, context) {
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
+  if (process.env.DEBUG_COMBAT === 'true') {
+    ServerLoggerWrapper.combat(`STOP_COMBAT: clientId=${data.clientId} userId=${playerData.userId} npcId=${data.npcId || 'unknown'}`);
+  }
+
   // ✅ ARCHITECTURAL CLEANUP: Chiudi completamente il combat invece di settare npcId=null
   // Questo è più sicuro e consistente con la nuova architettura
   if (mapServer.combatManager.playerCombats.has(data.clientId)) {
