@@ -90,6 +90,18 @@ class SecurityBoundary {
  */
 const TRUST_MODEL = {
   /**
+   * Identity model (authoritative sources)
+   * - auth_id: UUID from auth provider, persistent DB key
+   * - player_id: numeric DB id used for HUD/display only
+   * - clientId: ephemeral WebSocket connection id (never persisted)
+   */
+  IDENTITY_MODEL: {
+    auth_id: 'UUID from auth provider; primary persistence key',
+    player_id: 'numeric player_id for display/HUD only',
+    clientId: 'ephemeral WebSocket connection id (routing only)'
+  },
+
+  /**
    * Il client NON può mai modificare direttamente:
    * - Health/shield di altre entity
    * - Inventory di altri giocatori
@@ -102,7 +114,9 @@ const TRUST_MODEL = {
     'player_inventory',
     'server_positions',
     'combat_state',
-    'upgrade_levels'
+    'upgrade_levels',
+    'server_time',
+    'server_tick'
   ],
 
   /**
@@ -116,7 +130,8 @@ const TRUST_MODEL = {
     'own_position_input',
     'movement_input',
     'action_requests',
-    'chat_messages'
+    'chat_messages',
+    'client_timestamp_for_interpolation'
   ],
 
   /**
@@ -130,7 +145,8 @@ const TRUST_MODEL = {
     'validate_all_inputs',
     'sanitize_data',
     'enforce_rate_limits',
-    'check_authority'
+    'check_authority',
+    'treat_client_timestamp_as_advisory'
   ]
 };
 
@@ -209,6 +225,7 @@ class BoundaryEnforcement {
     }
 
     // Whitelist dei tipi di messaggio permessi dal client al server
+    // NOTE: Keep in sync with server/router allowed message types.
     const allowedClientMessageTypes = [
       'join',
       'position_update',
@@ -222,7 +239,7 @@ class BoundaryEnforcement {
       'player_respawn_request',
       'global_monitor_request',
       'skill_upgrade_request',
-      'equp_item',
+      'equp_item', // legacy typo kept for backward compatibility
       'request_leaderboard',
       'equip_item',
       'portal_use',
