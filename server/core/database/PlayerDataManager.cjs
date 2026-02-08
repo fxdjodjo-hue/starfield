@@ -4,20 +4,18 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
-const { createClient } = require('@supabase/supabase-js');
+const { createSupabaseClient, getSupabaseConfig } = require('../../config/supabase.cjs');
 const playerConfig = require('../../../shared/player-config.json');
 
-// Supabase client - usa le stesse variabili d'ambiente di server.cjs
-// IMPORTANTE: Assicurati che dotenv.config() sia chiamato PRIMA di richiedere questo modulo
-const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbwbvwis.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
+// Supabase client - config centralizzata (dotenv.config() deve essere chiamato prima dell'import)
+const { url: supabaseUrl, serviceKey: supabaseServiceKey } = getSupabaseConfig();
 
 // Log per debug (solo se non in produzione)
 if (process.env.NODE_ENV !== 'production') {
   ServerLoggerWrapper.database(`Supabase client initialized - URL: ${supabaseUrl.substring(0, 30)}..., Key length: ${supabaseServiceKey.length}`);
 }
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+const supabase = createSupabaseClient({
   auth: {
     persistSession: false,
     autoRefreshToken: false

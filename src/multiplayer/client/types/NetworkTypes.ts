@@ -80,6 +80,13 @@ export interface PlayerJoinedMessage extends NetworkMessage {
   clientId: string;
   nickname?: string;
   playerId?: number;
+  rank?: string;
+  position?: { x: number; y: number; rotation?: number; velocityX?: number; velocityY?: number };
+  health?: number;
+  maxHealth?: number;
+  shield?: number;
+  maxShield?: number;
+  t?: number;
 }
 
 export interface PlayerLeftMessage extends NetworkMessage {

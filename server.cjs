@@ -3,18 +3,15 @@ require('dotenv').config(); // Load environment variables
 const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
-const { createClient } = require('@supabase/supabase-js');
+const { createSupabaseClient, validateSupabaseEnv } = require('./server/config/supabase.cjs');
 
 // Sistema di logging
 const { logger, messageCount } = require('./server/logger.cjs');
 const ServerLoggerWrapper = require('./server/core/infrastructure/ServerLoggerWrapper.cjs');
 
-// Supabase client per il server
-const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbwbvwis.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
-
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+// Supabase client per il server (fail-fast se env mancante)
+validateSupabaseEnv();
+const supabase = createSupabaseClient();
 
 // Database è configurato correttamente - le policy RLS sono applicate
 

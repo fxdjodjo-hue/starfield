@@ -6,14 +6,8 @@ const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const ServerInputValidator = require('../InputValidator.cjs');
 const { BoundaryEnforcement } = require('../../../shared/SecurityBoundary.cjs');
-const { createClient } = require('@supabase/supabase-js');
 const WebSocket = require('ws');
 const { routeMessage } = require('./MessageRouter.cjs');
-
-// Supabase client (per leaderboard)
-const supabaseUrl = process.env.SUPABASE_URL || 'https://euvlanwkqzhqnbvwis.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || 'your-service-role-key';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 /**
  * Gestisce le connessioni WebSocket base e il routing dei messaggi

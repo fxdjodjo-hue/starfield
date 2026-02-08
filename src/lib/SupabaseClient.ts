@@ -1,9 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 import { getApiBaseUrl } from '../config/NetworkConfig'
 
-// Supabase configuration
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key'
+function getRequiredEnv(name: 'VITE_SUPABASE_URL' | 'VITE_SUPABASE_ANON_KEY'): string {
+  const value = (import.meta.env?.[name] || '').trim()
+  if (!value) {
+    console.error(`[SUPABASE CLIENT] Missing required env ${name}. Set it in .env before starting the client.`)
+    throw new Error(`[SUPABASE CLIENT] Missing required env ${name}.`)
+  }
+  return value
+}
+
+// Supabase configuration (fail-fast se env mancante)
+const supabaseUrl = getRequiredEnv('VITE_SUPABASE_URL')
+const supabaseAnonKey = getRequiredEnv('VITE_SUPABASE_ANON_KEY')
 
 // Create Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

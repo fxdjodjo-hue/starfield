@@ -204,7 +204,12 @@ async function handleJoin(data, sanitizedData, context) {
     persistentClientId,
     data.nickname,
     playerData.playerId,
-    playerData.rank
+    playerData.rank,
+    playerData.position,
+    playerData.health,
+    playerData.maxHealth,
+    playerData.shield,
+    playerData.maxShield
   );
   effectiveMapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
 
@@ -342,10 +347,10 @@ function handlePositionUpdate(data, sanitizedData, context) {
     const TELEPORT_THRESHOLD_MULTIPLIER = 15;
     const teleportThreshold = maxPossibleDistance * TELEPORT_THRESHOLD_MULTIPLIER;
 
-    // 🏳️ SKIP CHECKS if player is migrating (prevents false positives due to map coord jumps)
-    if (playerData.isMigrating) {
-      return;
-    }
+  // 🏳️ SKIP ANTI-TELEPORT CHECKS if player is migrating (allow immediate movement after map change)
+  if (playerData.isMigrating) {
+    // Still accept and broadcast updates; only bypass anti-teleport validation.
+  } else {
 
     // Se la distanza è troppo grande, potrebbe essere un teleport hack
     if (distance > teleportThreshold) {
@@ -359,6 +364,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
       // Ignora questo update invece di applicarlo
       return;
     }
+  }
   }
 
   playerData.lastInputAt = new Date().toISOString();

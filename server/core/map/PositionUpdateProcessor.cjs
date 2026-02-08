@@ -27,6 +27,7 @@ class PositionUpdateProcessor {
         positionUpdateQueue.delete(clientId);
         continue;
       }
+      const isMigrating = !!playerData.isMigrating;
 
       const positionBroadcast = {
         type: 'remote_player_update',
@@ -58,7 +59,7 @@ class PositionUpdateProcessor {
       const lastKnownPos = this.lastValidPositions?.get(clientId);
 
       // Valida il movimento se abbiamo uno storico
-      if (lastKnownPos) {
+      if (lastKnownPos && !isMigrating) {
         // Usa timestamp del client se disponibile per maggiore precisione, altrimenti server time
         const currentTimestamp = latestUpdate.clientTimestamp || Date.now();
         const validationResult = global.inputValidator ? global.inputValidator.validateMovement(

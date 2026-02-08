@@ -89,15 +89,26 @@ class MessageBroadcaster {
    * @param {string} nickname - Nickname
    * @param {number} playerId - Player ID numerico
    * @param {string} rank - Player rank name
+   * @param {Object} position - Player position (x, y, rotation, velocityX, velocityY)
+   * @param {number} health - Current health
+   * @param {number} maxHealth - Max health
+   * @param {number} shield - Current shield
+   * @param {number} maxShield - Max shield
    * @returns {Object} Player joined message
    */
-  formatPlayerJoinedMessage(clientId, nickname, playerId, rank) {
+  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, position, health, maxHealth, shield, maxShield) {
     return {
       type: 'player_joined',
       clientId: clientId,
       nickname: nickname,
       playerId: playerId,
-      rank: rank || 'Basic Space Pilot'
+      rank: rank || 'Basic Space Pilot',
+      position: position,
+      health: health,
+      maxHealth: maxHealth,
+      shield: shield,
+      maxShield: maxShield,
+      t: Date.now()
     };
   }
 

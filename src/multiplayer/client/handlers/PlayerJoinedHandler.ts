@@ -12,13 +12,33 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    const { clientId, nickname, playerId, rank } = message;
+    const { clientId, nickname, playerId, rank, position, health, maxHealth, shield, maxShield, t } = message;
 
     // Set up remote player info if RemotePlayerSystem is available
     if (networkSystem.remotePlayerManager && nickname) {
       // Use rank from message or default to 'Basic Space Pilot'
       const playerRank = rank || 'Basic Space Pilot';
-      networkSystem.remotePlayerManager.setPlayerInfo(clientId, nickname, playerRank);
+      if (position && typeof position.x === 'number' && typeof position.y === 'number') {
+        networkSystem.remotePlayerManager.handleUpdate(
+          clientId,
+          {
+            x: position.x,
+            y: position.y,
+            velocityX: position.velocityX,
+            velocityY: position.velocityY
+          },
+          position.rotation || 0,
+          health,
+          maxHealth,
+          shield,
+          maxShield,
+          nickname,
+          playerRank,
+          t || Date.now()
+        );
+      } else {
+        networkSystem.remotePlayerManager.setPlayerInfo(clientId, nickname, playerRank);
+      }
     }
   }
 }

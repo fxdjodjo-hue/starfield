@@ -95,7 +95,19 @@ class MapManager {
             clientId: clientId,
             nickname: playerData.nickname,
             playerId: playerData.playerId,
-            rank: playerData.rank || 'Basic Space Pilot'
+            rank: playerData.rank || 'Basic Space Pilot',
+            position: {
+                x: targetPosition.x,
+                y: targetPosition.y,
+                rotation: (playerData.position && playerData.position.rotation) || playerData.rotation || 0,
+                velocityX: 0,
+                velocityY: 0
+            },
+            health: playerData.health,
+            maxHealth: playerData.maxHealth,
+            shield: playerData.shield,
+            maxShield: playerData.maxShield,
+            t: Date.now()
         };
         targetMap.broadcastToMap(playerJoinedMsg, clientId);
 
@@ -111,7 +123,32 @@ class MapManager {
         };
 
         if (playerData.ws && playerData.ws.readyState === 1) { // WebSocket.OPEN
+            // Send map change first so the client cleans up the old world
             playerData.ws.send(JSON.stringify(migrationMessage));
+
+            // Immediately send existing players in the target map to the migrating client
+            for (const [existingClientId, existingPlayerData] of targetMap.players.entries()) {
+                if (existingClientId === clientId) continue;
+                if (!existingPlayerData.position) continue;
+
+                const existingPlayerBroadcast = {
+                    type: 'remote_player_update',
+                    clientId: existingClientId,
+                    position: existingPlayerData.position,
+                    rotation: existingPlayerData.position.rotation || 0,
+                    tick: 0,
+                    nickname: existingPlayerData.nickname,
+                    playerId: existingPlayerData.playerId,
+                    rank: existingPlayerData.rank,
+                    health: existingPlayerData.health,
+                    maxHealth: existingPlayerData.maxHealth,
+                    shield: existingPlayerData.shield,
+                    maxShield: existingPlayerData.maxShield,
+                    t: Date.now()
+                };
+
+                playerData.ws.send(JSON.stringify(existingPlayerBroadcast));
+            }
         }
 
         return true;
