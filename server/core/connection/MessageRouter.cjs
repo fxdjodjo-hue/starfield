@@ -1061,6 +1061,17 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
+  // Rate limit: at most 1 request per second per player
+  const now = Date.now();
+  if (!playerData.lastPlayerDataRequestAt) {
+    playerData.lastPlayerDataRequestAt = 0;
+  }
+  if (now - playerData.lastPlayerDataRequestAt < 1000) {
+    logger.warn('SECURITY', `🚫 BLOCKED: request_player_data rate limit from clientId:${data.clientId}`);
+    return;
+  }
+  playerData.lastPlayerDataRequestAt = now;
+
   // Security check
   const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
   if (!playerIdValidation.valid) {
@@ -1234,6 +1245,24 @@ async function handleSaveRequest(data, sanitizedData, context) {
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
+
+  // Rate limit: at most 1 save per 5 seconds per player
+  const now = Date.now();
+  if (!playerData.lastSaveRequestAt) {
+    playerData.lastSaveRequestAt = 0;
+  }
+  if (now - playerData.lastSaveRequestAt < 5000) {
+    logger.warn('SECURITY', `🚫 BLOCKED: save_request rate limit from clientId:${data.clientId}`);
+    ws.send(JSON.stringify({
+      type: 'save_response',
+      success: false,
+      message: 'Rate limited',
+      code: 'RATE_LIMITED',
+      timestamp: Date.now()
+    }));
+    return;
+  }
+  playerData.lastSaveRequestAt = now;
 
   // Security check
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
