@@ -407,8 +407,10 @@ class ServerInputValidator {
           // Valida richiesta di upgrade skill
           const skillErrors = [];
 
-          if (!data.playerId || typeof data.playerId !== 'string') {
-            skillErrors.push('Invalid or missing playerId');
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            skillErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            skillErrors.push('Client ID too long');
           }
 
           if (!data.upgradeType || typeof data.upgradeType !== 'string') {
@@ -421,7 +423,7 @@ class ServerInputValidator {
             isValid: skillErrors.length === 0,
             errors: skillErrors,
             sanitizedData: {
-              playerId: data.playerId,
+              clientId: data.clientId,
               upgradeType: data.upgradeType
             }
           };

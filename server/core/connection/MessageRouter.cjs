@@ -549,14 +549,14 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
     return;
   }
 
-  // Security check
-  const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
-  if (!playerIdValidation.valid) {
-    ServerLoggerWrapper.security(`🚫 BLOCKED: Skill upgrade attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+  // Security check (server authoritative identity)
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    ServerLoggerWrapper.security(`🚫 BLOCKED: Skill upgrade attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
-      message: 'Invalid player ID for skill upgrade.',
-      code: 'INVALID_PLAYER_ID'
+      message: 'Invalid client ID for skill upgrade.',
+      code: 'INVALID_CLIENT_ID'
     }));
     return;
   }
