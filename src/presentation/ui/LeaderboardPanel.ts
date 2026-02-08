@@ -66,6 +66,8 @@ const THEME = {
   }
 };
 
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+
 /**
  * LeaderboardPanel - Pannello che mostra la classifica globale dei giocatori
  * Implementa l'interfaccia BasePanel per l'integrazione nel sistema UI
@@ -75,10 +77,8 @@ export class LeaderboardPanel extends BasePanel {
     entries: [],
     sortBy: 'ranking_points'
   };
-  private refreshButton: HTMLElement | null = null;
-  private loadingIndicator: HTMLElement | null = null;
-  private loadingSpinner: HTMLElement | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
+  private autoRefreshIntervalId: number | null = null;
 
   constructor(config: PanelConfig, clientNetworkSystem?: ClientNetworkSystem | null) {
     super(config);
@@ -92,6 +92,12 @@ export class LeaderboardPanel extends BasePanel {
         this.requestLeaderboard();
       }
     });
+
+    if (this.autoRefreshIntervalId === null) {
+      this.autoRefreshIntervalId = window.setInterval(() => {
+        this.requestLeaderboard();
+      }, AUTO_REFRESH_INTERVAL_MS);
+    }
 
     if (this.isVisible && this.leaderboardData.entries.length === 0) {
       this.requestLeaderboard();
@@ -176,45 +182,6 @@ export class LeaderboardPanel extends BasePanel {
     headerSection.appendChild(closeButton);
     content.appendChild(headerSection);
 
-    // Controls Bar (Refresh only)
-    const controlsBar = document.createElement('div');
-    controlsBar.style.cssText = `
-      display: flex;
-      justify-content: flex-end;
-      padding-bottom: 12px;
-    `;
-
-    this.refreshButton = document.createElement('button');
-    this.refreshButton.innerHTML = 'REFRESH';
-    this.refreshButton.style.cssText = `
-      padding: 6px 14px;
-      background: ${THEME.colors.background.buttonDefault};
-      border: 1px solid ${THEME.colors.border.light};
-      border-radius: 6px;
-      color: ${THEME.colors.text.secondary};
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      letter-spacing: 0.5px;
-    `;
-
-    this.refreshButton.addEventListener('mouseenter', () => {
-      this.refreshButton!.style.background = THEME.colors.background.buttonActive;
-      this.refreshButton!.style.color = THEME.colors.text.primary;
-      this.refreshButton!.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-    });
-    this.refreshButton.addEventListener('mouseleave', () => {
-      this.refreshButton!.style.background = THEME.colors.background.buttonDefault;
-      this.refreshButton!.style.color = THEME.colors.text.secondary;
-      this.refreshButton!.style.borderColor = THEME.colors.border.light;
-    });
-
-    this.refreshButton.addEventListener('click', () => this.requestLeaderboard());
-
-    controlsBar.appendChild(this.refreshButton);
-    content.appendChild(controlsBar);
-
     // Table Container
     const tableContainer = document.createElement('div');
     tableContainer.className = 'leaderboard-table-container';
@@ -277,8 +244,7 @@ export class LeaderboardPanel extends BasePanel {
     content.appendChild(tableContainer);
 
     // Loading Spinner
-    this.loadingSpinner = this.createLoadingSpinner();
-    content.appendChild(this.loadingSpinner);
+    content.appendChild(this.createLoadingSpinner());
 
     return content;
   }
@@ -333,15 +299,20 @@ export class LeaderboardPanel extends BasePanel {
     return spinner;
   }
 
+  private getLoadingSpinner(): HTMLElement | null {
+    return this.container.querySelector('#leaderboard-loading-spinner');
+  }
+
 
   private requestLeaderboardWithRetry(retryCount: number = 0): void {
     if (this.clientNetworkSystem) {
       this.requestLeaderboard();
     } else if (retryCount < 5) {
       setTimeout(() => this.requestLeaderboardWithRetry(retryCount + 1), Math.min(100 * Math.pow(2, retryCount), 1000));
-    } else if (this.loadingSpinner) {
+    } else {
       // Failed to get network system, hide spinner or show error
-      this.loadingSpinner.style.display = 'none';
+      const spinner = this.getLoadingSpinner();
+      if (spinner) spinner.style.display = 'none';
       console.warn('Leaderboard: Failed to connect to network system for request');
     }
   }
@@ -352,9 +323,8 @@ export class LeaderboardPanel extends BasePanel {
     if (tbody) tbody.innerHTML = '';
 
     // Show spinner
-    if (this.loadingSpinner) {
-      this.loadingSpinner.style.display = 'flex';
-    }
+    const spinner = this.getLoadingSpinner();
+    if (spinner) spinner.style.display = 'flex';
 
     this.clientNetworkSystem.sendMessage({
       type: MESSAGE_TYPES.REQUEST_LEADERBOARD,
@@ -372,7 +342,8 @@ export class LeaderboardPanel extends BasePanel {
   }
 
   private updateDisplay(): void {
-    if (this.loadingSpinner) this.loadingSpinner.style.display = 'none';
+    const spinner = this.getLoadingSpinner();
+    if (spinner) spinner.style.display = 'none';
     const tbody = this.container.querySelector('#leaderboard-tbody');
     if (!tbody) return;
     tbody.innerHTML = '';
@@ -477,7 +448,8 @@ export class LeaderboardPanel extends BasePanel {
   }
 
   protected onShow(): void {
-    if (this.loadingSpinner) this.loadingSpinner.style.display = 'flex';
+    const spinner = this.getLoadingSpinner();
+    if (spinner) spinner.style.display = 'flex';
     setTimeout(() => this.requestLeaderboardWithRetry(), 50);
   }
 
