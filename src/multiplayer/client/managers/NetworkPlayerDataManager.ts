@@ -55,7 +55,7 @@ export class NetworkPlayerDataManager {
   /**
    * Richiede i dati completi del giocatore al server (dopo welcome)
    */
-  requestPlayerData(playerUuid: PlayerUuid): void {
+  requestPlayerData(_playerUuid: PlayerUuid): void {
     if (!this.connectionManager.isConnectionActive()) {
       console.warn('📊 [PLAYER_DATA] Cannot request player data - not connected');
       return;
@@ -70,9 +70,7 @@ export class NetworkPlayerDataManager {
 
     const message = {
       type: MESSAGE_TYPES.REQUEST_PLAYER_DATA,
-      clientId: this.clientId,
-      playerId: playerUuid, // Type-safe: PlayerUuid
-      timestamp: Date.now()
+      clientId: this.clientId
     };
 
     this.connectionManager.send(JSON.stringify(message));

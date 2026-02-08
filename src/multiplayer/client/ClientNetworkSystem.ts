@@ -458,15 +458,13 @@ export class ClientNetworkSystem extends BaseSystem {
    * Sends a save request to the server
    * Public method for PlayState.markAsChanged()
    */
-  sendSaveRequest(playerId: string): void {
+  sendSaveRequest(_playerId: string): void {
     if (!this.connectionManager.isConnectionActive()) {
       return;
     }
     this.sendMessage({
       type: 'save_request',
-      clientId: this.clientId,
-      playerId: playerId,
-      timestamp: Date.now()
+      clientId: this.clientId
     });
   }
 

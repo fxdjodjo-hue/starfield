@@ -530,7 +530,9 @@ export type PlayerMessage =
 // Player data messages
 export interface RequestPlayerDataMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.REQUEST_PLAYER_DATA;
-  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
+  clientId: string;
+  playerId?: PlayerUuid; // Legacy (server authoritative)
+  timestamp?: number; // Legacy (server authoritative)
 }
 
 export interface PlayerDataResponseMessage extends BaseMessage {
@@ -560,8 +562,8 @@ export interface PlayerDataResponseMessage extends BaseMessage {
 export interface SaveRequestMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.SAVE_REQUEST;
   clientId: string;
-  playerId: PlayerUuid; // Nome JSON invariato per compatibilità server
-  timestamp: number;
+  playerId?: PlayerUuid; // Legacy (server authoritative)
+  timestamp?: number; // Legacy (server authoritative)
 }
 
 export interface SaveResponseMessage extends BaseMessage {
