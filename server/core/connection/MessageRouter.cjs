@@ -1073,10 +1073,11 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     return;
   }
 
+  // Server authority: ignore client-sent playerId; use server-side userId for data fetch.
   const recentHonor = await playerDataManager.getRecentHonorAverage(playerData.userId, 30);
 
   const responseMessage = messageBroadcaster.formatPlayerDataResponse(
-    data.playerId,
+    playerData.userId,
     playerData.inventory,
     playerData.upgrades,
     playerData.quests,
@@ -1247,6 +1248,7 @@ async function handleSaveRequest(data, sanitizedData, context) {
     return;
   }
 
+  // Server authority: ignore client-sent playerId; save based on server-side playerData.
   try {
     await playerDataManager.savePlayerData(playerData);
 
