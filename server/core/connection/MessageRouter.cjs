@@ -761,9 +761,6 @@ function handleProjectileFired(data, sanitizedData, context) {
  * Handler per messaggio 'start_combat'
  */
 function handleStartCombat(data, sanitizedData, context) {
-  // DEBUG: Log quando riceve start_combat
-  console.log(`[SERVER_START_COMBAT] Received start_combat: clientId=${data.clientId}, playerId=${playerData?.userId || 'unknown'}, npcId=${data.npcId}`);
-
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster } = context;
 
   // Fallback a mapServer se playerData non è nel context
@@ -772,6 +769,9 @@ function handleStartCombat(data, sanitizedData, context) {
     ServerLoggerWrapper.system(`Player data not found for clientId: ${data.clientId}`);
     return;
   }
+
+  // DEBUG: Log quando riceve start_combat (usa userId server-authoritative)
+  console.log(`[SERVER_START_COMBAT] Received start_combat: clientId=${data.clientId}, playerId=${playerData.userId}, npcId=${data.npcId}`);
 
   // Security check (server authoritative identity)
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
