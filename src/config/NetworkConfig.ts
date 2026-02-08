@@ -299,8 +299,9 @@ export interface NpcDamagedMessage {
  */
 export interface StartCombatMessage {
   type: typeof MESSAGE_TYPES.START_COMBAT;
+  clientId: ClientId;
   npcId: NpcId;
-  playerId: ClientId;
+  playerId?: ClientId; // Legacy (server authoritative)
 }
 
 /**
@@ -308,6 +309,7 @@ export interface StartCombatMessage {
  */
 export interface StopCombatMessage {
   type: typeof MESSAGE_TYPES.STOP_COMBAT;
+  clientId?: ClientId;
   playerId: ClientId;
 }
 

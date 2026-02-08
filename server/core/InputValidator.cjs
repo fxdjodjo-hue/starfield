@@ -125,7 +125,7 @@ class ServerInputValidator {
       return { isValid: false, errors };
     }
 
-    const { npcId, playerId } = data;
+    const { npcId, clientId } = data;
 
     // Validazione NPC ID
     if (!npcId || typeof npcId !== 'string') {
@@ -136,11 +136,11 @@ class ServerInputValidator {
       errors.push('NPC ID contains invalid characters');
     }
 
-    // Validazione Player ID
-    if (!playerId || typeof playerId !== 'string') {
-      errors.push('Player ID must be a non-empty string');
-    } else if (playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
-      errors.push('Player ID too long');
+    // Validazione Client ID
+    if (!clientId || typeof clientId !== 'string') {
+      errors.push('Client ID must be a non-empty string');
+    } else if (clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Client ID too long');
     }
 
     if (errors.length > 0) {
@@ -150,7 +150,7 @@ class ServerInputValidator {
     return {
       isValid: true,
       errors: [],
-      sanitizedData: { npcId, playerId }
+      sanitizedData: { npcId, clientId }
     };
   }
 

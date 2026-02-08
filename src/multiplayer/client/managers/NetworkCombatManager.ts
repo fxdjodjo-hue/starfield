@@ -47,7 +47,7 @@ export class NetworkCombatManager {
    */
   sendStartCombat(data: {
     npcId: string;
-    playerId: string;
+    playerId?: string;
   }, networkSystem?: any): void {
     if (!this.connectionManager.isConnectionActive()) {
       return;
@@ -75,8 +75,7 @@ export class NetworkCombatManager {
     const message = {
       type: MESSAGE_TYPES.START_COMBAT,
       clientId: this.clientId,
-      npcId: data.npcId,
-      playerId: data.playerId
+      npcId: data.npcId
     };
 
     this.connectionManager.send(JSON.stringify(message));
@@ -86,7 +85,7 @@ export class NetworkCombatManager {
    * Sends request to stop combat
    */
   sendStopCombat(data: {
-    playerId: string;
+    playerId?: string;
     npcId?: string;
   }): void {
     if (!this.isConnected()) {
@@ -96,7 +95,6 @@ export class NetworkCombatManager {
     const message = {
       type: MESSAGE_TYPES.STOP_COMBAT,
       clientId: this.clientId,
-      playerId: data.playerId,
       npcId: data.npcId || this.getCurrentCombatNpcId() || 'unknown'
     };
 
@@ -108,7 +106,7 @@ export class NetworkCombatManager {
    */
   sendProjectileFired(data: {
     projectileId: string;
-    playerId: string;
+    playerId?: string;
     position: { x: number; y: number };
     velocity: { x: number; y: number };
     projectileType: string;
@@ -133,7 +131,6 @@ export class NetworkCombatManager {
       type: MESSAGE_TYPES.PROJECTILE_FIRED,
       clientId: this.clientId,
       projectileId: data.projectileId,
-      playerId: data.playerId,
       position: data.position,
       velocity: data.velocity,
       projectileType: data.projectileType

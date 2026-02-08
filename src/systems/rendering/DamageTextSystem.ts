@@ -161,18 +161,28 @@ export class DamageTextSystem extends BaseSystem {
 
       ctx.save();
       ctx.globalAlpha = damageText.getAlpha();
-      ctx.fillStyle = damageText.color;
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.7)';
-      ctx.shadowBlur = 4;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
 
+      // Thin black outline for readability (similar to nickname style)
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.shadowColor = 'transparent';
+      ctx.strokeText(NumberFormatter.format(damageText.value), screenPos.x, screenPos.y);
+
+      // Fill with a subtle shadow
+      ctx.fillStyle = damageText.color;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 2;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
       ctx.fillText(NumberFormatter.format(damageText.value), screenPos.x, screenPos.y);
       ctx.restore();
     }
   }
 
 }
+
+

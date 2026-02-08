@@ -741,7 +741,7 @@ function handleProjectileFired(data, sanitizedData, context) {
   const projectileMessage = {
     type: 'projectile_fired',
     projectileId: data.projectileId,
-    playerId: data.playerId, // Mantieni authId per retrocompatibilità client
+    playerId: playerData.userId, // Server authoritative authId
     clientId: data.clientId, // clientId per identificare il giocatore locale
     position: data.position,
     velocity: data.velocity,
@@ -762,7 +762,7 @@ function handleProjectileFired(data, sanitizedData, context) {
  */
 function handleStartCombat(data, sanitizedData, context) {
   // DEBUG: Log quando riceve start_combat
-  console.log(`[SERVER_START_COMBAT] Received start_combat: clientId=${data.clientId}, playerId=${data.playerId}, npcId=${data.npcId}`);
+  console.log(`[SERVER_START_COMBAT] Received start_combat: clientId=${data.clientId}, playerId=${playerData?.userId || 'unknown'}, npcId=${data.npcId}`);
 
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster } = context;
 
@@ -799,7 +799,7 @@ function handleStartCombat(data, sanitizedData, context) {
 
     // Broadcast solo se il combat è stato creato con successo
     const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
-      data.playerId,
+      playerData.userId,
       data.npcId,
       true,
       data.clientId, // Passa il persistent clientId
@@ -829,7 +829,7 @@ function handleStopCombat(data, sanitizedData, context) {
   }
 
   const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
-    data.playerId,
+    playerData.userId,
     null,
     false,
     data.clientId
