@@ -1072,11 +1072,12 @@ function handlePlayerRespawnRequest(data, sanitizedData, context) {
   if (mapServer.mapId !== TARGET_MAP_ID) {
     logger.info('RESPAWN', `Player ${data.clientId} died in ${mapServer.mapId}, migrating to ${TARGET_MAP_ID} for respawn`);
 
-    // 1. Revive & Full Heal (Spawn at base bonus)
+    // 1. Revive & apply standard respawn stats (same as local respawn)
     playerData.isDead = false;
     playerData.respawnTime = null;
-    playerData.health = playerData.maxHealth;
-    playerData.shield = playerData.maxShield;
+    const PlayerStatsSystem = require('../PlayerStatsSystem.cjs');
+    const statsSystem = new PlayerStatsSystem(mapServer);
+    statsSystem.resetPlayerStats(data.clientId);
 
     // 2. Define Spawn Position (Safe Zone)
     const spawnPos = {
