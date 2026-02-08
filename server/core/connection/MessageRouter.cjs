@@ -11,6 +11,7 @@ const playerConfig = require('../../../shared/player-config.json');
 const { MAP_CONFIGS } = require('../../config/MapConfigs.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
+const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
 
 async function verifyJoinAuthToken(data, context) {
   const ws = context?.ws;
@@ -1356,6 +1357,18 @@ function handleGlobalMonitorRequest(data, sanitizedData, context) {
 
   // Permetti accesso speciale per client "monitor" (dashboard)
   if (data.clientId === 'monitor') {
+    if (!GLOBAL_MONITOR_TOKEN) {
+      ServerLoggerWrapper.warn('GLOBAL_MONITOR', 'GLOBAL_MONITOR_TOKEN not set; allowing monitor access without token');
+    } else if (data.monitorToken !== GLOBAL_MONITOR_TOKEN) {
+      ServerLoggerWrapper.warn('GLOBAL_MONITOR', `Invalid monitor token from clientId=monitor`);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Access denied.',
+        code: 'ACCESS_DENIED'
+      }));
+      return;
+    }
+
     const globalState = mapServer.getGlobalGameState();
 
     ws.send(JSON.stringify({
