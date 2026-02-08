@@ -60,28 +60,43 @@ function checkRateLimit(ip) {
   return userData.count <= MAX_REQUESTS_PER_WINDOW;
 }
 
-async function auditAuthIdMismatch(req, authId, contextLabel) {
-  if (!AUTH_AUDIT_LOGS) return;
+async function verifyAuthId(req, res, authId, contextLabel) {
   const authHeader = req.headers.authorization;
   const ip = req.socket?.remoteAddress || 'unknown';
+
   if (!authHeader?.startsWith('Bearer ')) {
-    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Missing Bearer token for ${contextLabel} authId=${authId} ip=${ip}`);
-    return;
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Unauthorized' }));
+    return null;
   }
 
   const token = authHeader.substring(7);
   try {
     const { data: { user }, error } = await supabase.auth.getUser(token);
     if (error || !user) {
-      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Invalid token for ${contextLabel} authId=${authId} ip=${ip} error=${error?.message || 'unknown'}`);
-      return;
+      if (AUTH_AUDIT_LOGS) {
+        ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Invalid token for ${contextLabel} authId=${authId} ip=${ip} error=${error?.message || 'unknown'}`);
+      }
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid token' }));
+      return null;
     }
 
     if (user.id !== authId) {
-      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] authId mismatch for ${contextLabel} authId=${authId} tokenUser=${user.id} ip=${ip}`);
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH] authId mismatch for ${contextLabel} authId=${authId} tokenUser=${user.id} ip=${ip}`);
+      res.writeHead(401, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unauthorized' }));
+      return null;
     }
+
+    return user;
   } catch (error) {
-    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Token verification failed for ${contextLabel} authId=${authId} ip=${ip} error=${error.message}`);
+    if (AUTH_AUDIT_LOGS) {
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Token verification failed for ${contextLabel} authId=${authId} ip=${ip} error=${error.message}`);
+    }
+    res.writeHead(401, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Invalid token' }));
+    return null;
   }
 }
 
@@ -236,16 +251,9 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Verifica autenticazione
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Unauthorized' }));
-          return;
-        }
-
         try {
-          await auditAuthIdMismatch(req, authId, 'GET /api/player-lazy-data');
+          const authUser = await verifyAuthId(req, res, authId, 'GET /api/player-lazy-data');
+          if (!authUser) return;
 
           // Usa la RPC consolidata per ottenere SOLO i dati lazy
           const { data, error } = await supabase.rpc('get_player_complete_data_secure', {
@@ -289,16 +297,9 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Verifica autenticazione
-        const authHeader = req.headers.authorization;
-        if (!authHeader?.startsWith('Bearer ')) {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: 'Unauthorized' }));
-          return;
-        }
-
         try {
-          await auditAuthIdMismatch(req, authId, 'GET /api/player-data');
+          const authUser = await verifyAuthId(req, res, authId, 'GET /api/player-data');
+          if (!authUser) return;
           // Usa RPC sicura per ottenere dati
           const { data, error } = await supabase.rpc('get_player_data_secure', {
             auth_id_param: authId
@@ -344,7 +345,8 @@ const server = http.createServer(async (req, res) => {
 
         req.on('end', async () => {
           try {
-            await auditAuthIdMismatch(req, authId, 'POST /api/player-data/:authId/quest-progress');
+            const authUser = await verifyAuthId(req, res, authId, 'POST /api/player-data/:authId/quest-progress');
+            if (!authUser) return;
             if (!body) throw new Error('Empty request body');
             const { questId, progress } = JSON.parse(body);
 
@@ -485,7 +487,8 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
-          await auditAuthIdMismatch(req, authId, 'DELETE /api/player-data/:authId/quest-progress');
+          const authUser = await verifyAuthId(req, res, authId, 'DELETE /api/player-data/:authId/quest-progress');
+          if (!authUser) return;
           ServerLoggerWrapper.info('API', `Deleting quest ${questId} for user ${authId}`);
 
           // 1. Rimuovi dalla tabella quest_progress
@@ -566,7 +569,8 @@ const server = http.createServer(async (req, res) => {
         req.on('data', chunk => body += chunk);
         req.on('end', async () => {
           try {
-            await auditAuthIdMismatch(req, authId, 'PUT /api/player-data/:authId');
+            const authUser = await verifyAuthId(req, res, authId, 'PUT /api/player-data/:authId');
+            if (!authUser) return;
             const playerData = JSON.parse(body);
 
             // Usa RPC sicura per salvare dati
