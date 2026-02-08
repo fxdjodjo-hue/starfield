@@ -1,15 +1,18 @@
 import { BasePanel } from './FloatingIcon';
 import type { PanelConfig } from './PanelConfig';
 import { GameSettings } from '../../core/settings/GameSettings';
+import { ConfirmationModal } from './ConfirmationModal';
 
 /**
  * SettingsPanel - Gestisce le configurazioni di gioco
  */
 export class SettingsPanel extends BasePanel {
     private activeTab: 'graphics' | 'audio' | 'interface' | 'controls' = 'graphics';
+    private logoutModal: ConfirmationModal;
 
     constructor(config: PanelConfig) {
         super(config);
+        this.logoutModal = new ConfirmationModal();
     }
 
     protected createPanelContent(): HTMLElement {
@@ -254,6 +257,47 @@ export class SettingsPanel extends BasePanel {
                 settings.setShowDamageNumbers(val);
                 document.dispatchEvent(new CustomEvent('settings:ui:damage_numbers', { detail: val }));
             });
+
+            // Logout Button
+            const logoutContainer = document.createElement('div');
+            logoutContainer.style.cssText = 'margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; justify-content: flex-end;';
+
+            const logoutBtn = document.createElement('button');
+            logoutBtn.textContent = 'LOGOUT';
+            logoutBtn.style.cssText = `
+                background: rgba(239, 68, 68, 0.2);
+                color: #ef4444;
+                border: 1px solid rgba(239, 68, 68, 0.5);
+                padding: 10px 24px;
+                border-radius: 6px;
+                font-weight: 700;
+                cursor: pointer;
+                font-family: 'Segoe UI', sans-serif;
+                letter-spacing: 1px;
+                transition: all 0.2s;
+            `;
+            logoutBtn.addEventListener('mouseenter', () => {
+                logoutBtn.style.background = 'rgba(239, 68, 68, 0.8)';
+                logoutBtn.style.color = '#ffffff';
+            });
+            logoutBtn.addEventListener('mouseleave', () => {
+                logoutBtn.style.background = 'rgba(239, 68, 68, 0.2)';
+                logoutBtn.style.color = '#ef4444';
+            });
+            logoutBtn.addEventListener('click', () => {
+                this.logoutModal.show(
+                    'LOGOUT',
+                    'Are you sure you want to log out? Any unsaved progress will be lost.',
+                    () => {
+                        document.dispatchEvent(new CustomEvent('settings:logout'));
+                    },
+                    undefined,
+                    true // Is Destructive
+                );
+            });
+
+            logoutContainer.appendChild(logoutBtn);
+            container.appendChild(logoutContainer);
         } else if (this.activeTab === 'controls') {
             this.createControlsContent(container);
         }

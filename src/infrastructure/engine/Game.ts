@@ -4,6 +4,7 @@ import { GameState } from '../../game/states/GameState';
 import { StartState } from '../../game/states/StartState';
 import { PlayState } from '../../game/states/PlayState';
 import { DisplayManager } from '../display';
+import { supabase } from '../../lib/SupabaseClient';
 
 /**
  * Classe principale del gioco che coordina stati e game loop
@@ -100,6 +101,11 @@ export class Game {
 
     // Inizia con lo StartState
     await this.changeState(this.startState);
+
+    // Listen for logout events
+    document.addEventListener('settings:logout', () => {
+      this.logout();
+    });
   }
 
   /**
@@ -132,6 +138,23 @@ export class Game {
 
     // Cleanup DisplayManager
     this.displayManager.destroy();
+  }
+
+  /**
+   * Log out the user and reset the game
+   */
+  async logout(): Promise<void> {
+    try {
+      console.log('[Game] User requested logout. Signing out...');
+      // Sign out from Supabase (clears session)
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error('[Game] Error during logout:', e);
+    } finally {
+      // Close the window to quit the application (Electron)
+      console.log('[Game] Closing application...');
+      window.close();
+    }
   }
 
   /**

@@ -7,6 +7,7 @@
 import type { PanelConfig } from './PanelConfig';
 import { DisplayManager } from '../../infrastructure/display';
 import { BasePanel, FloatingIcon } from './FloatingIcon';
+import { ConfirmationModal } from './ConfirmationModal';
 
 export interface PanelData {
   [key: string]: any; // Flexible data structure for different panels
@@ -19,6 +20,7 @@ export interface PanelData {
 export class UIManager {
   private panels: Map<string, BasePanel> = new Map();
   private icons: Map<string, FloatingIcon> = new Map();
+  private logoutModal: ConfirmationModal;
   private isVisible: boolean = false; // Inizia nascosto, verrà mostrato dopo l'animazione camera
   private unsubscribeResize: (() => void) | null = null;
   private documentClickHandler: ((e: Event) => void) | null = null;
@@ -26,6 +28,7 @@ export class UIManager {
   private panelJustOpened: boolean = false;
 
   constructor() {
+    this.logoutModal = new ConfirmationModal();
     this.setupResizeHandler();
     this.setupPanelEventListeners();
   }
@@ -87,11 +90,29 @@ export class UIManager {
     this.documentKeydownHandler = (e: Event) => {
       const keyboardEvent = e as KeyboardEvent;
       if (keyboardEvent.key === 'Escape') {
+        // 1. Priority: If Logout Modal is open, close it (Cancel)
+        if (this.logoutModal && this.logoutModal.isModalVisible()) {
+          this.logoutModal.hide();
+          return;
+        }
+
+        // 2. If a Panel is open, close it
         const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
         if (openPanel) {
           openPanel.hide();
           // Notifica che i controlli del player possono essere riabilitati
           document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+        } else {
+          // 3. If nothing is open, show Logout/Exit Confirmation
+          this.logoutModal.show(
+            'EXIT GAME',
+            'Are you sure you want to quit the game?',
+            () => {
+              document.dispatchEvent(new CustomEvent('settings:logout'));
+            },
+            undefined,
+            true
+          );
         }
       }
     };
