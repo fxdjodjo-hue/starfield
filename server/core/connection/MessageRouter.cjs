@@ -695,14 +695,14 @@ function handleProjectileFired(data, sanitizedData, context) {
     return;
   }
 
-  // Security check
-  const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
-  if (!playerIdValidation.valid) {
-    ServerLoggerWrapper.security(`🚫 BLOCKED: Projectile fire attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+  // Security check (server authoritative identity)
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    ServerLoggerWrapper.security(`🚫 BLOCKED: Projectile fire attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
-      message: 'Invalid player ID for projectile action.',
-      code: 'INVALID_PLAYER_ID'
+      message: 'Invalid client ID for projectile action.',
+      code: 'INVALID_CLIENT_ID'
     }));
     return;
   }
@@ -773,14 +773,14 @@ function handleStartCombat(data, sanitizedData, context) {
     return;
   }
 
-  // Security check
-  const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
-  if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Combat start attempt with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+  // Security check (server authoritative identity)
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    logger.error('SECURITY', `🚫 BLOCKED: Combat start attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
-      message: 'Invalid player ID for combat action.',
-      code: 'INVALID_PLAYER_ID'
+      message: 'Invalid client ID for combat action.',
+      code: 'INVALID_CLIENT_ID'
     }));
     return;
   }
