@@ -12,40 +12,73 @@ const { MAP_CONFIGS } = require('../../config/MapConfigs.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 
-async function auditJoinAuthToken(data, context) {
-  if (!AUTH_AUDIT_LOGS) return;
-
+async function verifyJoinAuthToken(data, context) {
+  const ws = context?.ws;
   const clientId = data?.clientId || 'unknown';
   const userId = data?.userId;
   const authToken = data?.authToken;
+
   if (!userId) {
-    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join missing userId clientId=${clientId}`);
-    return;
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH] join missing userId clientId=${clientId}`);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized', code: 'UNAUTHORIZED' }));
+    }
+    ws?.close(1008, 'Unauthorized');
+    return false;
   }
+
   if (!authToken) {
-    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join missing authToken clientId=${clientId} userId=${userId}`);
-    return;
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH] join missing authToken clientId=${clientId} userId=${userId}`);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized', code: 'UNAUTHORIZED' }));
+    }
+    ws?.close(1008, 'Unauthorized');
+    return false;
   }
 
   const supabase = context?.playerDataManager?.getSupabaseClient?.();
   if (!supabase?.auth?.getUser) {
-    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join cannot verify token (supabase auth unavailable) clientId=${clientId} userId=${userId}`);
-    return;
+    ServerLoggerWrapper.error('SECURITY', `[AUTH] join cannot verify token (supabase auth unavailable) clientId=${clientId} userId=${userId}`);
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Authentication unavailable', code: 'AUTH_UNAVAILABLE' }));
+    }
+    ws?.close(1011, 'Auth unavailable');
+    return false;
   }
 
   try {
     const { data: { user }, error } = await supabase.auth.getUser(authToken);
     if (error || !user) {
-      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join invalid authToken clientId=${clientId} userId=${userId} error=${error?.message || 'unknown'}`);
-      return;
+      if (AUTH_AUDIT_LOGS) {
+        ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join invalid authToken clientId=${clientId} userId=${userId} error=${error?.message || 'unknown'}`);
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid token', code: 'INVALID_TOKEN' }));
+      }
+      ws?.close(1008, 'Invalid token');
+      return false;
     }
 
     if (user.id !== userId) {
-      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join authId mismatch clientId=${clientId} userId=${userId} tokenUser=${user.id}`);
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH] join authId mismatch clientId=${clientId} userId=${userId} tokenUser=${user.id}`);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Unauthorized', code: 'UNAUTHORIZED' }));
+      }
+      ws?.close(1008, 'Unauthorized');
+      return false;
     }
   } catch (error) {
-    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join token verification failed clientId=${clientId} userId=${userId} error=${error.message}`);
+    if (AUTH_AUDIT_LOGS) {
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join token verification failed clientId=${clientId} userId=${userId} error=${error.message}`);
+    }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'error', message: 'Invalid token', code: 'INVALID_TOKEN' }));
+    }
+    ws?.close(1008, 'Invalid token');
+    return false;
   }
+
+  return true;
 }
 
 /**
@@ -54,7 +87,8 @@ async function auditJoinAuthToken(data, context) {
 async function handleJoin(data, sanitizedData, context) {
   const { ws, mapServer, mapManager, playerDataManager, authManager, messageBroadcaster } = context;
 
-  await auditJoinAuthToken(data, context);
+  const authOk = await verifyJoinAuthToken(data, context);
+  if (!authOk) return null;
 
   // Carica i dati del giocatore dal database
   let loadedData;
