@@ -1072,18 +1072,6 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
   }
   playerData.lastPlayerDataRequestAt = now;
 
-  // Security check
-  const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
-  if (!playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Player data request with mismatched playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
-    ws.send(JSON.stringify({
-      type: 'error',
-      message: 'Invalid player ID for data request.',
-      code: 'INVALID_PLAYER_ID'
-    }));
-    return;
-  }
-
   // Server authority: ignore client-sent playerId; use server-side userId for data fetch.
   const recentHonor = await playerDataManager.getRecentHonorAverage(playerData.userId, 30);
 
@@ -1266,13 +1254,12 @@ async function handleSaveRequest(data, sanitizedData, context) {
 
   // Security check
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
-  const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
-  if (!clientIdValidation.valid || !playerIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client/player ID from clientId:${data.clientId} playerId:${playerData.playerId}`);
+  if (!clientIdValidation.valid) {
+    logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client ID from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
-      message: 'Invalid client or player ID for save request.',
-      code: 'INVALID_IDS'
+      message: 'Invalid client ID for save request.',
+      code: 'INVALID_CLIENT_ID'
     }));
     return;
   }

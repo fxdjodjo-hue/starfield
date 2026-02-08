@@ -430,19 +430,17 @@ class ServerInputValidator {
           // Valida richiesta dati player
           const playerDataErrors = [];
 
-          if (!data.playerId || typeof data.playerId !== 'string') {
-            playerDataErrors.push('Invalid or missing playerId');
-          } else if (data.playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
-            playerDataErrors.push('Player ID too long');
-          } else if (!this.LIMITS.IDENTIFIERS.UUID_PATTERN.test(data.playerId)) {
-            playerDataErrors.push('Player ID must be a valid UUID');
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            playerDataErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            playerDataErrors.push('Client ID too long');
           }
 
           return {
             isValid: playerDataErrors.length === 0,
             errors: playerDataErrors,
             sanitizedData: {
-              playerId: data.playerId
+              clientId: data.clientId
             }
           };
 
@@ -450,22 +448,17 @@ class ServerInputValidator {
           // Valida richiesta salvataggio
           const saveErrors = [];
 
-          if (!data.playerId || typeof data.playerId !== 'string') {
-            saveErrors.push('Invalid or missing playerId');
-          } else if (data.playerId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
-            saveErrors.push('Player ID too long');
-          }
-
-          if (typeof data.timestamp !== 'number' || isNaN(data.timestamp) || data.timestamp <= 0) {
-            saveErrors.push('Invalid timestamp');
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            saveErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            saveErrors.push('Client ID too long');
           }
 
           return {
             isValid: saveErrors.length === 0,
             errors: saveErrors,
             sanitizedData: {
-              playerId: data.playerId,
-              timestamp: data.timestamp
+              clientId: data.clientId
             }
           };
 
