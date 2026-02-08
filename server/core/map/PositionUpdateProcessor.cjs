@@ -5,6 +5,8 @@
  */
 
 const MapBroadcaster = require('./MapBroadcaster.cjs');
+const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
+const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 
 class PositionUpdateProcessor {
   /**
@@ -60,7 +62,8 @@ class PositionUpdateProcessor {
 
       // Valida il movimento se abbiamo uno storico
       if (lastKnownPos && !isMigrating) {
-        // Usa timestamp del client se disponibile per maggiore precisione, altrimenti server time
+        // clientTimestamp is used for interpolation timing only (not authoritative)
+        // Falls back to server time if client doesn't provide timestamp
         const currentTimestamp = latestUpdate.clientTimestamp || Date.now();
         const validationResult = global.inputValidator ? global.inputValidator.validateMovement(
           { x: latestUpdate.x, y: latestUpdate.y },
@@ -69,6 +72,30 @@ class PositionUpdateProcessor {
         ) : { isValid: true }; // Fallback se validator non disponibile (es. test)
 
         if (!validationResult.isValid) {
+          if (MOVEMENT_AUDIT_LOGS) {
+            if (!this.movementAudit) this.movementAudit = new Map();
+            const auditState = this.movementAudit.get(clientId) || { lastSpeedLog: 0, lastTimeLog: 0 };
+            const now = Date.now();
+            const timeDiff = currentTimestamp - lastKnownPos.timestamp;
+
+            if (timeDiff <= 0) {
+              if (now - auditState.lastTimeLog > 5000) {
+                ServerLoggerWrapper.warn('SECURITY', `[MOVEMENT AUDIT] Non-monotonic clientTimestamp dt=${timeDiff}ms clientId=${clientId}`);
+                auditState.lastTimeLog = now;
+              }
+            } else {
+              const dx = latestUpdate.x - lastKnownPos.x;
+              const dy = latestUpdate.y - lastKnownPos.y;
+              const distance = Math.sqrt(dx * dx + dy * dy);
+              const speedPerSec = (distance / timeDiff) * 1000;
+              if (now - auditState.lastSpeedLog > 5000) {
+                ServerLoggerWrapper.warn('SECURITY', `[MOVEMENT AUDIT] Speed outlier ${Math.round(speedPerSec)} u/s (dist=${Math.round(distance)}, dt=${Math.round(timeDiff)}ms) clientId=${clientId}`);
+                auditState.lastSpeedLog = now;
+              }
+            }
+
+            this.movementAudit.set(clientId, auditState);
+          }
           // Rifiuta l'aggiornamento
           // Opzionale: Loggare l'evento di sicurezza
           // console.warn(`SECURITY: Rejected movement for ${clientId}: ${validationResult.errors[0]}`);

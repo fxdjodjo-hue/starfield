@@ -9,12 +9,52 @@ const messageBroadcaster = require('../messaging/MessageBroadcaster.cjs');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
 const playerConfig = require('../../../shared/player-config.json');
 const { MAP_CONFIGS } = require('../../config/MapConfigs.cjs');
+const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
+const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
+
+async function auditJoinAuthToken(data, context) {
+  if (!AUTH_AUDIT_LOGS) return;
+
+  const clientId = data?.clientId || 'unknown';
+  const userId = data?.userId;
+  const authToken = data?.authToken;
+  if (!userId) {
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join missing userId clientId=${clientId}`);
+    return;
+  }
+  if (!authToken) {
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join missing authToken clientId=${clientId} userId=${userId}`);
+    return;
+  }
+
+  const supabase = context?.playerDataManager?.getSupabaseClient?.();
+  if (!supabase?.auth?.getUser) {
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join cannot verify token (supabase auth unavailable) clientId=${clientId} userId=${userId}`);
+    return;
+  }
+
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(authToken);
+    if (error || !user) {
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join invalid authToken clientId=${clientId} userId=${userId} error=${error?.message || 'unknown'}`);
+      return;
+    }
+
+    if (user.id !== userId) {
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join authId mismatch clientId=${clientId} userId=${userId} tokenUser=${user.id}`);
+    }
+  } catch (error) {
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join token verification failed clientId=${clientId} userId=${userId} error=${error.message}`);
+  }
+}
 
 /**
  * Handler per messaggio 'join'
  */
 async function handleJoin(data, sanitizedData, context) {
   const { ws, mapServer, mapManager, playerDataManager, authManager, messageBroadcaster } = context;
+
+  await auditJoinAuthToken(data, context);
 
   // Carica i dati del giocatore dal database
   let loadedData;
@@ -301,6 +341,31 @@ function handlePositionUpdate(data, sanitizedData, context) {
 
   // 🔒 SECURITY: Rate limiting lato server per position_update
   const now = Date.now();
+  const rawClientTimestamp = Number.isFinite(data.t) ? data.t : null;
+
+  // AUDIT ONLY: clientTimestamp is used for interpolation/telemetry, not authority.
+  if (MOVEMENT_AUDIT_LOGS) {
+    if (!playerData.movementAudit) {
+      playerData.movementAudit = {
+        lastMissingTsLog: 0,
+        lastSkewLog: 0
+      };
+    }
+
+    if (!rawClientTimestamp) {
+      if (now - playerData.movementAudit.lastMissingTsLog > 10000) {
+        ServerLoggerWrapper.warn('SECURITY', `[MOVEMENT AUDIT] Missing client timestamp in position_update clientId=${data.clientId} playerId=${playerData.playerId}`);
+        playerData.movementAudit.lastMissingTsLog = now;
+      }
+    } else {
+      const skewMs = rawClientTimestamp - now;
+      const SKEW_LOG_THRESHOLD_MS = 5000;
+      if (Math.abs(skewMs) > SKEW_LOG_THRESHOLD_MS && now - playerData.movementAudit.lastSkewLog > 5000) {
+        ServerLoggerWrapper.warn('SECURITY', `[MOVEMENT AUDIT] clientTimestamp skew=${skewMs}ms clientId=${data.clientId} playerId=${playerData.playerId}`);
+        playerData.movementAudit.lastSkewLog = now;
+      }
+    }
+  }
 
   // Inizializza timestamp per rate limiting
   if (!playerData.lastPositionUpdateTime) {
@@ -404,7 +469,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
     shield: playerData.shield,
     maxShield: playerData.maxShield,
     senderWs: ws,
-    // Use client's original timestamp for accurate interpolation timing
+    // clientTimestamp is used for interpolation timing only (not authoritative)
     // Falls back to server time if client doesn't provide timestamp
     clientTimestamp: data.t || Date.now()
   });

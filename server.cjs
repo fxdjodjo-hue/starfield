@@ -38,6 +38,7 @@ const IS_PLAYTEST = process.env.IS_PLAYTEST === 'true';
 const PLAYTEST_CODE = process.env.PLAYTEST_CODE;
 const MAX_ACCOUNTS = parseInt(process.env.MAX_ACCOUNTS || '20');
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
+const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 
 // Simple in-memory rate limiter for login/register
 const rateLimitMap = new Map();
@@ -57,6 +58,31 @@ function checkRateLimit(ip) {
 
   rateLimitMap.set(ip, userData);
   return userData.count <= MAX_REQUESTS_PER_WINDOW;
+}
+
+async function auditAuthIdMismatch(req, authId, contextLabel) {
+  if (!AUTH_AUDIT_LOGS) return;
+  const authHeader = req.headers.authorization;
+  const ip = req.socket?.remoteAddress || 'unknown';
+  if (!authHeader?.startsWith('Bearer ')) {
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Missing Bearer token for ${contextLabel} authId=${authId} ip=${ip}`);
+    return;
+  }
+
+  const token = authHeader.substring(7);
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error || !user) {
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Invalid token for ${contextLabel} authId=${authId} ip=${ip} error=${error?.message || 'unknown'}`);
+      return;
+    }
+
+    if (user.id !== authId) {
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] authId mismatch for ${contextLabel} authId=${authId} tokenUser=${user.id} ip=${ip}`);
+    }
+  } catch (error) {
+    ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] Token verification failed for ${contextLabel} authId=${authId} ip=${ip} error=${error.message}`);
+  }
 }
 
 const http = require('http');
@@ -219,6 +245,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
+          await auditAuthIdMismatch(req, authId, 'GET /api/player-lazy-data');
 
           // Usa la RPC consolidata per ottenere SOLO i dati lazy
           const { data, error } = await supabase.rpc('get_player_complete_data_secure', {
@@ -271,6 +298,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
+          await auditAuthIdMismatch(req, authId, 'GET /api/player-data');
           // Usa RPC sicura per ottenere dati
           const { data, error } = await supabase.rpc('get_player_data_secure', {
             auth_id_param: authId
@@ -316,6 +344,7 @@ const server = http.createServer(async (req, res) => {
 
         req.on('end', async () => {
           try {
+            await auditAuthIdMismatch(req, authId, 'POST /api/player-data/:authId/quest-progress');
             if (!body) throw new Error('Empty request body');
             const { questId, progress } = JSON.parse(body);
 
@@ -456,6 +485,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         try {
+          await auditAuthIdMismatch(req, authId, 'DELETE /api/player-data/:authId/quest-progress');
           ServerLoggerWrapper.info('API', `Deleting quest ${questId} for user ${authId}`);
 
           // 1. Rimuovi dalla tabella quest_progress
@@ -536,6 +566,7 @@ const server = http.createServer(async (req, res) => {
         req.on('data', chunk => body += chunk);
         req.on('end', async () => {
           try {
+            await auditAuthIdMismatch(req, authId, 'PUT /api/player-data/:authId');
             const playerData = JSON.parse(body);
 
             // Usa RPC sicura per salvare dati

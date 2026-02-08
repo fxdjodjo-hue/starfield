@@ -115,6 +115,7 @@ class WebSocketConnectionManager {
 
       // Gestisce messaggi dal client
       ws.on('message', async (message) => {
+        // SECURITY BOUNDARY: treat all inbound fields as untrusted client input.
         this.messageCount.increment();
         try {
           const data = JSON.parse(message.toString());
