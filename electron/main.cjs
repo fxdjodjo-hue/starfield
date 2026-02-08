@@ -2,6 +2,7 @@ const { app, BrowserWindow, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const isDev = !app.isPackaged;
+const DEVTOOLS_ENABLED = false; // Intentionally disabled for all builds
 
 // Configurazione base per gli aggiornamenti
 if (!isDev) {
@@ -66,7 +67,7 @@ function createSplashWindow() {
             nodeIntegration: false,
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.cjs'),
-            devTools: isDev
+            devTools: DEVTOOLS_ENABLED
         }
     });
 
@@ -103,7 +104,7 @@ function createWindow() {
             contextIsolation: true,
             preload: path.join(__dirname, 'preload.cjs'),
             backgroundThrottling: false, // CRITICAL: Impedisce a Electron di rallentare il loop quando in background
-            devTools: isDev
+            devTools: DEVTOOLS_ENABLED
         },
         backgroundColor: '#000011',
         autoHideMenuBar: true,
@@ -162,6 +163,24 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+    app.on('web-contents-created', (_event, contents) => {
+        if (DEVTOOLS_ENABLED) return;
+        contents.on('before-input-event', (event, input) => {
+            const isMac = process.platform === 'darwin';
+            const isDevtoolsShortcut = input.type === 'keyDown' && (
+                input.key === 'F12' ||
+                (input.control && input.shift && ['I', 'J', 'C'].includes(input.key)) ||
+                (isMac && input.meta && input.alt && ['I', 'J', 'C'].includes(input.key))
+            );
+            if (isDevtoolsShortcut) {
+                event.preventDefault();
+            }
+        });
+        contents.on('context-menu', (event) => {
+            event.preventDefault();
+        });
+    });
+
     createSplashWindow();
 
     app.on('activate', () => {
