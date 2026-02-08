@@ -7,6 +7,37 @@ const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs')
 const { createSupabaseClient, getSupabaseConfig } = require('../../config/supabase.cjs');
 const playerConfig = require('../../../shared/player-config.json');
 
+const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
+
+function auditIdentityConsistency(playerData, contextLabel) {
+  if (!playerData) return;
+  if (playerData._identityAuditLogged) return;
+
+  const issues = [];
+  const authId = playerData.userId;
+  const playerDbId = playerData.playerId;
+
+  if (!authId || typeof authId !== 'string') {
+    issues.push('missing auth_id');
+  } else if (!UUID_PATTERN.test(authId)) {
+    issues.push('auth_id not UUID');
+  }
+
+  const numericPlayerId = Number(playerDbId);
+  if (!Number.isFinite(numericPlayerId) || numericPlayerId <= 0) {
+    issues.push('invalid player_id');
+  }
+
+  if (issues.length === 0) return;
+
+  ServerLoggerWrapper.warn('DATABASE', `[ID AUDIT] ${contextLabel}: ${issues.join(', ')}`, {
+    authId,
+    playerDbId,
+    clientId: playerData.clientId
+  });
+  playerData._identityAuditLogged = true;
+}
+
 // Supabase client - config centralizzata (dotenv.config() deve essere chiamato prima dell'import)
 const { url: supabaseUrl, serviceKey: supabaseServiceKey } = getSupabaseConfig();
 
@@ -283,6 +314,7 @@ class PlayerDataManager {
       const { honor, cosmos, credits, experience, current_health, current_shield } = playerData.inventory;
       ServerLoggerWrapper.database(`Loaded currencies`, { honor, cosmos, credits, experience, current_health, current_shield });
       ServerLoggerWrapper.debug('DATABASE', `RecentHonor (30 days): ${recentHonor}`);
+      auditIdentityConsistency(playerData, 'load');
       return playerData;
 
     } catch (error) {
@@ -307,12 +339,14 @@ class PlayerDataManager {
         return;
       }
 
-      const playerId = playerData.userId; // Usa auth_id invece del player_id numerico
+      // authId = auth_id UUID (chiave persistente). playerId = player_id numerico (solo display/HUD).
+      const authId = playerData.userId;
+      auditIdentityConsistency(playerData, 'save');
 
       // 🔴 CRITICAL: Verifica che inventory esista prima di salvare
       // Se inventory è null/undefined, NON salvare per evitare di sovrascrivere i valori esistenti nel database
       if (!playerData.inventory) {
-        ServerLoggerWrapper.database(`🚨 CRITICAL: Cannot save player data for ${playerId} - inventory is null/undefined!`);
+        ServerLoggerWrapper.database(`🚨 CRITICAL: Cannot save player data for ${authId} - inventory is null/undefined!`);
         ServerLoggerWrapper.database(`Player data state`, {
           playerId: playerData.playerId,
           userId: playerData.userId,
@@ -331,7 +365,7 @@ class PlayerDataManager {
         playerData.stats = { kills: 0, deaths: 0, ranking_points: 0 };
       }
 
-      ServerLoggerWrapper.database(`Saving player data for player ID: ${playerId}`);
+      ServerLoggerWrapper.database(`Saving player data for auth_id: ${authId}`);
 
       // Prepare data for secure RPC function
       const statsData = playerData.stats ? {
@@ -398,12 +432,12 @@ class PlayerDataManager {
       })) : null;
 
       // Use secure RPC function instead of direct table access
-      ServerLoggerWrapper.database(`Calling update_player_data_secure RPC for auth_id: ${playerId}`);
-      ServerLoggerWrapper.info('DATABASE', `Player ${playerId} saved: credits=${currenciesData.credits}, hp=${currenciesData.current_health}, shield=${currenciesData.current_shield}, honor=${currenciesData.honor}, exp=${currenciesData.experience}`);
+      ServerLoggerWrapper.database(`Calling update_player_data_secure RPC for auth_id: ${authId}`);
+      ServerLoggerWrapper.info('DATABASE', `Player ${authId} saved: credits=${currenciesData.credits}, hp=${currenciesData.current_health}, shield=${currenciesData.current_shield}, honor=${currenciesData.honor}, exp=${currenciesData.experience}`);
       const { data: updateResult, error: updateError } = await supabase.rpc(
         'update_player_data_secure',
         {
-          auth_id_param: playerId,
+          auth_id_param: authId,
           stats_data: statsData,
           upgrades_data: upgradesData,
           currencies_data: currenciesData,
@@ -424,14 +458,14 @@ class PlayerDataManager {
         throw updateError;
       }
 
-      ServerLoggerWrapper.database(`Player data saved successfully for ${playerId}`);
+      ServerLoggerWrapper.database(`Player data saved successfully for ${authId}`);
 
       // Salva quest progress separatamente se presente
       if (playerData.quests && Array.isArray(playerData.quests)) {
-        ServerLoggerWrapper.database(`Saving quest progress for auth_id: ${playerId}`);
+        ServerLoggerWrapper.database(`Saving quest progress for auth_id: ${authId}`);
         for (const quest of playerData.quests) {
           const questResult = await supabase.from('quest_progress').upsert({
-            auth_id: playerId,
+            auth_id: authId,
             quest_id: quest.quest_id || quest.id,
             objectives: quest.objectives || [],
             is_completed: quest.is_completed || quest.completed || false
@@ -447,7 +481,7 @@ class PlayerDataManager {
 
       // Salva inventory items separatamente
       if (playerData.items && Array.isArray(playerData.items)) {
-        ServerLoggerWrapper.database(`Saving inventory items for auth_id: ${playerId} (${playerData.items.length} items)`);
+        ServerLoggerWrapper.database(`Saving inventory items for auth_id: ${authId} (${playerData.items.length} items)`);
 
         // 1. Rimuovi items non più presenti (per gestire vendite/eliminazioni se implementate)
         // Per ora facciamo solo upsert di quelli esistenti
@@ -457,7 +491,7 @@ class PlayerDataManager {
             ServerLoggerWrapper.database(`Saving item ${item.id} (${item.instanceId}) in slot ${item.slot}`);
           }
           const itemResult = await supabase.from('player_inventory').upsert({
-            auth_id: playerId,
+            auth_id: authId,
             instance_id: item.instanceId,
             item_id: item.id,
             slot: item.slot || null,
@@ -484,6 +518,10 @@ class PlayerDataManager {
    */
   async createInitialPlayerRecords(playerId) {
     try {
+      if (!UUID_PATTERN.test(playerId || '')) {
+        ServerLoggerWrapper.warn('DATABASE', `[ID AUDIT] createInitialPlayerRecords: auth_id not UUID`, { authId: playerId });
+      }
+
       // Stats iniziali
       await supabase.from('player_stats').insert({
         auth_id: playerId,
