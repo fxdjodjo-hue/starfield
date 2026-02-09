@@ -1,3 +1,17 @@
+# Changelog Starfield - Versione 0.2.9
+
+## Fix
+- Risolto un problema di build che poteva causare schermata nera all'avvio in produzione.
+
+---
+
+# Changelog Starfield - Versione 0.2.8
+
+## Fix
+- Corretto il pacchetto client: ora include la configurazione Supabase necessaria per evitare la schermata nera all'avvio.
+
+---
+
 # Changelog Starfield - Versione 0.2.6
 
 ## Missioni
