@@ -4,7 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
-const { NPC_CONFIG } = require('../../config/constants.cjs');
+const { NPC_CONFIG, SERVER_CONSTANTS } = require('../../config/constants.cjs');
 
 class NpcDamageHandler {
   constructor(mapServer, npcs, respawnSystem, rewardSystem) {
@@ -63,12 +63,51 @@ class NpcDamageHandler {
         this.mapServer.projectileManager.broadcaster.broadcastEntityDestroyed(npc, attackerId, 'npc', rewards);
       }
 
+      // Calcola player eleggibili alla ricompensa (combat attivo + vivi + in range)
+      const eligiblePlayers = this.getEligibleRewardPlayers(npc);
+
       this.removeNpc(npcId);
-      this.rewardSystem.awardNpcKillRewards(attackerId, npc.type);
+
+      for (const playerId of eligiblePlayers) {
+        this.rewardSystem.awardNpcKillRewards(playerId, npc.type);
+      }
+
       return true; // NPC morto
     }
 
     return false; // NPC sopravvissuto
+  }
+
+  /**
+   * Trova i player eleggibili per la ricompensa di un NPC
+   * Regole: combat attivo su questo NPC, player vivo, in range al momento della kill
+   * @param {Object} npc - NPC distrutto
+   * @returns {Array<string>} lista di playerId eleggibili
+   */
+  getEligibleRewardPlayers(npc) {
+    const combats = this.mapServer.combatManager?.playerCombats;
+    if (!combats || !npc?.position) return [];
+
+    const rangeWidth = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_WIDTH;
+    const rangeHeight = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_HEIGHT;
+
+    const eligible = [];
+
+    for (const [playerId, combat] of combats.entries()) {
+      if (!combat || combat.npcId !== npc.id) continue;
+
+      const playerData = this.mapServer.players.get(playerId);
+      if (!playerData || playerData.isDead || !playerData.position) continue;
+
+      const dx = Math.abs(playerData.position.x - npc.position.x);
+      const dy = Math.abs(playerData.position.y - npc.position.y);
+
+      if (dx > rangeWidth / 2 || dy > rangeHeight / 2) continue;
+
+      eligible.push(playerId);
+    }
+
+    return eligible;
   }
 
   /**
