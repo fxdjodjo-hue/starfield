@@ -1,4 +1,4 @@
-# Changelog Starfield - Versione 0.2.5
+# Changelog Starfield - Versione 0.2.6
 
 ## Missioni
 - Limite massimo di 3 missioni attive alla volta.
