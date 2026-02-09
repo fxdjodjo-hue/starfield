@@ -56,19 +56,32 @@ class NpcDamageHandler {
 
     // Se morto, rimuovi l'NPC e assegna ricompense
     if (npc.health <= 0) {
+      // Calcola player eleggibili alla ricompensa (combat attivo + vivi + in range)
+      const eligiblePlayers = this.getEligibleRewardPlayers(npc);
+      const recipients = (eligiblePlayers.length > 0)
+        ? eligiblePlayers
+        : (this.mapServer.players?.has(attackerId) ? [attackerId] : []);
+
       // 🚀 IMMEDIATE REMOVAL BROADCAST: Comunica subito la morte a tutti i client
       // Questo previene l'effetto "fermo per qualche secondo" (ghost corpse)
       const rewards = NPC_CONFIG[npc.type]?.rewards;
       if (this.mapServer.projectileManager && this.mapServer.projectileManager.broadcaster) {
-        this.mapServer.projectileManager.broadcaster.broadcastEntityDestroyed(npc, attackerId, 'npc', rewards);
+        this.mapServer.projectileManager.broadcaster.broadcastEntityDestroyed(
+          npc,
+          attackerId,
+          'npc',
+          rewards,
+          {
+            sharedRewards: recipients.length > 1,
+            rewardRecipients: recipients.length,
+            rewardPolicy: 'eligible_combatants'
+          }
+        );
       }
-
-      // Calcola player eleggibili alla ricompensa (combat attivo + vivi + in range)
-      const eligiblePlayers = this.getEligibleRewardPlayers(npc);
 
       this.removeNpc(npcId);
 
-      for (const playerId of eligiblePlayers) {
+      for (const playerId of recipients) {
         this.rewardSystem.awardNpcKillRewards(playerId, npc.type);
       }
 

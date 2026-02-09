@@ -128,8 +128,9 @@ class ProjectileBroadcaster {
    * @param {string} destroyerId - ID del distruttore
    * @param {string} entityType - Tipo entità ('npc' o 'player')
    * @param {Object} rewards - Ricompense (opzionale, solo per NPC)
+   * @param {Object} meta - Metadata extra (opzionale)
    */
-  broadcastEntityDestroyed(entity, destroyerId, entityType = 'npc', rewards = undefined) {
+  broadcastEntityDestroyed(entity, destroyerId, entityType = 'npc', rewards = undefined, meta = undefined) {
     // PRIMA: Crea e broadcasta l'esplosione per effetti visivi sincronizzati
     const explosionId = `expl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const explosionMessage = {
@@ -152,7 +153,8 @@ class ProjectileBroadcaster {
       npcType: entityType === 'npc' ? entity.type : undefined,
       destroyerId,
       position: entity.position,
-      rewards: entityType === 'npc' ? rewards : undefined
+      rewards: entityType === 'npc' ? rewards : undefined,
+      meta: meta
     };
 
     // Interest radius: TUTTO IL MONDO per distruzioni NPC (minimappa globale richiede aggiornamenti globali)
