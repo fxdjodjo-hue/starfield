@@ -1,11 +1,18 @@
-# Changelog Starfield - Versione 0.2.4
+# Changelog Starfield - Versione 0.2.5
 
-## UI & Qualita della Vita
+## Missioni
+- Limite massimo di 3 missioni attive alla volta.
+- Le missioni completate non possono essere accettate di nuovo.
+- Le missioni a coordinate ora si completano correttamente.
+- Quando completi una missione, la lista si aggiorna subito e il messaggio di completamento torna visibile.
+
+## Interfaccia e qualita della vita
 - Leaderboard: aggiornamento automatico ogni 5 minuti, anche a pannello chiuso.
-- Leaderboard: spinner di caricamento visibile all'apertura del pannello.
+- Leaderboard: caricamento visibile all'apertura del pannello.
 - Leaderboard: rimosso il pulsante di refresh manuale.
 - Nickname piu leggibili con contorno/ombra migliorati.
 - Numeri di danno piu leggibili con contorno/ombra migliorati.
+- Il tracker missioni non va piu in errore quando i dati non sono pronti.
 
 ## Suggerimenti
 - Logout disponibile da Settings > Interface (pulsante LOGOUT).
