@@ -2,7 +2,7 @@ const { app, BrowserWindow, screen } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const isDev = !app.isPackaged;
-const DEVTOOLS_ENABLED = false; // Intentionally disabled for all builds
+const DEVTOOLS_ENABLED = true; // Re-enabled to allow debugging in builds
 
 // Configurazione base per gli aggiornamenti
 if (!isDev) {
