@@ -19,6 +19,7 @@ export class QuestManager {
   private availableQuests: Quest[] = [];
   private completedQuests: Quest[] = [];
   private playerId: number | null = null;
+  private pendingQuestState: any = null;
 
   constructor() {
     this.initializeQuests();
@@ -29,6 +30,54 @@ export class QuestManager {
    */
   setPlayerId(playerId: number): void {
     this.playerId = playerId;
+  }
+
+  setPendingQuestState(savedQuests: any): void {
+    this.pendingQuestState = savedQuests;
+  }
+
+  applyPendingQuestState(activeQuestComponent: ActiveQuest): boolean {
+    if (!this.pendingQuestState) return false;
+    const pending = this.pendingQuestState;
+    this.pendingQuestState = null;
+    this.restoreActiveQuests(pending, activeQuestComponent);
+    return true;
+  }
+
+  private isQuestCompletedFlag(savedQuest: any): boolean {
+    return savedQuest?.is_completed === true || savedQuest?.isCompleted === true || savedQuest?.completed === true;
+  }
+
+  forceCompleteQuest(questId: string, activeQuestComponent?: ActiveQuest): boolean {
+    if (!questId) return false;
+
+    const activeQuest = activeQuestComponent?.getQuest(questId);
+    if (activeQuest && activeQuestComponent) {
+      const wasCompleted = activeQuest.isCompleted;
+      if (!wasCompleted) {
+        activeQuest.isCompleted = true;
+      }
+      const wasInCompletedList = this.completedQuests.some(q => q.id === questId);
+      this.completeQuest(questId, activeQuestComponent);
+      return !wasCompleted || !wasInCompletedList;
+    }
+
+    if (this.completedQuests.some(q => q.id === questId)) {
+      return false;
+    }
+
+    const config = QuestRegistry.get(questId);
+    if (!config) {
+      console.warn(`[QuestManager] Failed to find config for quest: ${questId}`);
+      return false;
+    }
+
+    const quest = this.createQuestFromConfig(config);
+    quest.isCompleted = true;
+    this.completedQuests.push(quest);
+    this.availableQuests = this.availableQuests.filter(q => q.id !== questId);
+    this.updateQuestAvailability();
+    return true;
   }
 
   /**
@@ -320,7 +369,7 @@ export class QuestManager {
 
     // Process saved quests
     questsToProcess.forEach(savedQuest => {
-      if (savedQuest.is_completed) {
+      if (this.isQuestCompletedFlag(savedQuest)) {
         // Move to completed
         const config = QuestRegistry.get(savedQuest.id || savedQuest.quest_id);
         if (config) {
@@ -374,7 +423,7 @@ export class QuestManager {
 
     questsToProcess.forEach(savedQuest => {
       // Ignora quest completate (già gestite da loadState)
-      if (savedQuest.is_completed) return;
+      if (this.isQuestCompletedFlag(savedQuest)) return;
 
       const questId = savedQuest.id || savedQuest.quest_id;
 

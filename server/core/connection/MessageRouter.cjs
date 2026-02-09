@@ -484,6 +484,13 @@ function handlePositionUpdate(data, sanitizedData, context) {
     playerData.lastMovementTime = now;
   }
 
+  // Server-authoritative coordinate/explore quests
+  if (mapServer.questManager && playerData.position) {
+    mapServer.questManager.onPlayerPositionUpdated(playerData, now).catch(err => {
+      ServerLoggerWrapper.error('QUEST', `Error processing coordinate quests for ${playerData.nickname}: ${err.message}`);
+    });
+  }
+
   // Aggiungi alla queue
   if (!mapServer.positionUpdateQueue.has(data.clientId)) {
     mapServer.positionUpdateQueue.set(data.clientId, []);

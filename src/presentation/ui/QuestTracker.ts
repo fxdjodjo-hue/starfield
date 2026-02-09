@@ -129,6 +129,12 @@ export class QuestTracker {
     }
 
     public update(data: QuestData): void {
+        if (!data || !data.activeQuests) {
+            this.lastData = data;
+            this.hide();
+            return;
+        }
+
         this.lastData = data;
         const activeQuests = data.activeQuests;
 

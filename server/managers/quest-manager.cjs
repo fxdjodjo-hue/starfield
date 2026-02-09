@@ -32,7 +32,7 @@ class ServerQuestManager {
         if (!player.quests) player.quests = [];
 
         // Filtra solo le quest attive (non completate)
-        const activeQuests = player.quests.filter(q => !q.is_completed && !q.isCompleted);
+        const activeQuests = player.quests.filter(q => !q.is_completed && !q.isCompleted && !q.completed);
 
         let progressUpdated = false;
 
@@ -117,6 +117,90 @@ class ServerQuestManager {
     }
 
     /**
+     * Gestisce il movimento del player per obiettivi di tipo explore (coordinate)
+     * @param {Object} player - Player object from mapServer
+     * @param {number} now - Timestamp corrente (ms)
+     */
+    async onPlayerPositionUpdated(player, now = Date.now()) {
+        if (!player || !player.position) return;
+        if (!player.quests || player.quests.length === 0) return;
+
+        const COORD_CHECK_INTERVAL_MS = 500;
+        const lastCheck = player.lastQuestCoordinateCheckAt || 0;
+        if (now - lastCheck < COORD_CHECK_INTERVAL_MS) return;
+        player.lastQuestCoordinateCheckAt = now;
+
+        const posX = Number(player.position.x);
+        const posY = Number(player.position.y);
+        if (!Number.isFinite(posX) || !Number.isFinite(posY)) return;
+
+        const activeQuests = player.quests.filter(q => !q.is_completed && !q.isCompleted && !q.completed);
+        for (const questProgress of activeQuests) {
+            const questId = questProgress.quest_id || questProgress.id;
+            const questConfig = QUESTS_CONFIG[questId];
+
+            if (!questConfig || !Array.isArray(questConfig.objectives)) {
+                continue;
+            }
+
+            if (!questProgress.objectives) questProgress.objectives = [];
+
+            let questUpdated = false;
+
+            for (const configObj of questConfig.objectives) {
+                if (configObj.type !== 'explore') continue;
+                if (configObj.x === undefined || configObj.y === undefined) continue;
+
+                const radius = Number(configObj.radius) || 500;
+                const dx = posX - Number(configObj.x);
+                const dy = posY - Number(configObj.y);
+                const distanceSq = (dx * dx) + (dy * dy);
+
+                if (distanceSq > radius * radius) continue;
+
+                const target = Number(configObj.target) || 1;
+                let progressObj = questProgress.objectives.find(o => o.id === configObj.id);
+
+                if (!progressObj) {
+                    progressObj = {
+                        id: configObj.id,
+                        current: 0,
+                        target: target,
+                        type: 'explore'
+                    };
+                    questProgress.objectives.push(progressObj);
+                }
+
+                if (progressObj.current < target) {
+                    progressObj.current = target;
+                    questUpdated = true;
+                    ServerLoggerWrapper.info('QUEST', `Player ${player.nickname} reached explore objective ${configObj.id} for ${questId}`);
+                }
+            }
+
+            if (questUpdated) {
+                const allObjectivesComplete = questConfig.objectives.every(confObj => {
+                    const progObj = questProgress.objectives.find(p => p.id === confObj.id);
+                    const target = Number(confObj.target) || 1;
+                    return progObj && progObj.current >= target;
+                });
+
+                if (allObjectivesComplete) {
+                    questProgress.is_completed = true;
+                    questProgress.isCompleted = true;
+                    questProgress.completed_at = new Date().toISOString();
+
+                    ServerLoggerWrapper.info('QUEST', `Player ${player.nickname} COMPLETED quest: ${questId}`);
+                    this.awardQuestRewards(player, questConfig);
+                }
+
+                this.sendQuestUpdate(player, questProgress);
+                this.persistQuestProgress(player, questProgress);
+            }
+        }
+    }
+
+    /**
      * Assegna le ricompense della quest completata
      */
     awardQuestRewards(player, questConfig) {
@@ -192,9 +276,18 @@ class ServerQuestManager {
         // Check if already active
         const existing = player.quests.find(q => (q.quest_id === questId || q.id === questId));
         if (existing) {
-            if (!existing.is_completed && !existing.isCompleted) {
-                return; // Already active
+            if (existing.is_completed || existing.isCompleted || existing.completed) {
+                ServerLoggerWrapper.warn('QUEST', `Player ${player.nickname} tried to re-accept completed quest: ${questId}`);
+                return;
             }
+            return; // Already active
+        }
+
+        const MAX_ACTIVE_QUESTS = 3;
+        const activeCount = player.quests.filter(q => !q.is_completed && !q.isCompleted && !q.completed).length;
+        if (activeCount >= MAX_ACTIVE_QUESTS) {
+            ServerLoggerWrapper.warn('QUEST', `Player ${player.nickname} reached max active quests (${MAX_ACTIVE_QUESTS})`);
+            return;
         }
 
         const newQuest = {
@@ -247,10 +340,16 @@ class ServerQuestManager {
                 const supabase = wsManager.playerDataManager.getSupabaseClient();
                 if (supabase) {
                     // Delete row from quest_progress
+                    const authId = player.userId || player.authId || null;
+                    if (!authId) {
+                        ServerLoggerWrapper.error('QUEST', `Missing auth_id while removing quest ${questId} for player ${player.playerId}`);
+                        return;
+                    }
+
                     const { error } = await supabase
                         .from('quest_progress')
                         .delete()
-                        .eq('player_id', player.playerId)
+                        .eq('auth_id', authId)
                         .eq('quest_id', questId);
 
                     if (error) {
@@ -266,7 +365,7 @@ class ServerQuestManager {
     /**
      * Salva il progresso su DB
      */
-    async persistQuestProgress(authId, questProgress) {
+    async persistQuestProgress(player, questProgress) {
         // Nota: questo usa il client Supabase globale o passato in altro modo.
         // Assumiamo che mapServer abbia accesso a un db manager o usiamo require
         // Per semplicità e robustezza, usiamo il PlayerDataManager se accessibile dal mapServer,
@@ -299,22 +398,17 @@ class ServerQuestManager {
             // const websocketManager = this.mapServer.websocketManager;
 
             const wsManager = this.mapServer.websocketManager;
-            if (wsManager && wsManager.playerDataManager) {
+            if (wsManager && wsManager.playerDataManager && player) {
                 // Salvataggio parziale ottimizzato? O full save?
                 // PlayerDataManager ha savePlayerData.
                 // Creiamo un oggetto player parziale wrapper se serve, o passiamo quello intero.
                 // Passiamo l'oggetto player della mappa che contiene i dati aggiornati.
                 // NOTA: il player objeto in mappa ha una struttura specifica.
 
-                // Cerchiamo il player object corretto. 
-                // Attenzione: authId è userId.
-                const player = this.mapServer.players.get(authId);
-                if (player) {
-                    // Triggera salvataggio asincrono
-                    wsManager.playerDataManager.savePlayerData(player).catch(err => {
-                        ServerLoggerWrapper.error('QUEST', `Failed to persist quest progress: ${err.message}`);
-                    });
-                }
+                // Salva direttamente l'oggetto player della mappa (già autoritativo)
+                wsManager.playerDataManager.savePlayerData(player).catch(err => {
+                    ServerLoggerWrapper.error('QUEST', `Failed to persist quest progress: ${err.message}`);
+                });
             }
 
         } catch (err) {

@@ -138,13 +138,21 @@ export class QuestSystem extends System {
   }
 
   update(deltaTime: number): void {
-    // Check for initial data load execution
-    if (!this.initialUpdateDone) {
-      const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
-      if (entities.length > 0) {
-        // Player loaded and quests ready - triggering initial UI update
-        this.notifyQuestPanelUpdate();
-        this.initialUpdateDone = true;
+    const entities = this.ecs.getEntitiesWithComponents(ActiveQuest);
+    if (entities.length > 0) {
+      const playerEntity = entities[0];
+      const activeQuest = this.ecs.getComponent(playerEntity, ActiveQuest);
+      if (activeQuest) {
+        if (this.questManager.applyPendingQuestState(activeQuest)) {
+          this.notifyQuestPanelUpdate();
+        }
+
+        // Check for initial data load execution
+        if (!this.initialUpdateDone) {
+          // Player loaded and quests ready - triggering initial UI update
+          this.notifyQuestPanelUpdate();
+          this.initialUpdateDone = true;
+        }
       }
     }
   }

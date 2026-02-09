@@ -64,7 +64,10 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
               questManager.restoreActiveQuests(message.quests, activeQuestComponent);
             } else {
               console.warn('[PlayerDataResponseHandler] ActiveQuest component missing on player entity!');
+              questManager.setPendingQuestState(message.quests);
             }
+          } else {
+            questManager.setPendingQuestState(message.quests);
           }
         } else {
           console.warn('[PlayerDataResponseHandler] QuestManager not found!');

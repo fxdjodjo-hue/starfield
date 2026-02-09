@@ -1,3 +1,18 @@
+# Changelog Starfield - Versione 0.2.4
+
+## UI & Qualita della Vita
+- Leaderboard: aggiornamento automatico ogni 5 minuti, anche a pannello chiuso.
+- Leaderboard: spinner di caricamento visibile all'apertura del pannello.
+- Leaderboard: rimosso il pulsante di refresh manuale.
+- Nickname piu leggibili con contorno/ombra migliorati.
+- Numeri di danno piu leggibili con contorno/ombra migliorati.
+
+## Suggerimenti
+- Logout disponibile da Settings > Interface (pulsante LOGOUT).
+- Logout rapido anche con ESC quando nessun pannello e aperto.
+
+---
+
 # Changelog Starfield - Versione 0.2.3 🚀✨
 
 **Questa è l'ultima versione che richiederà un download manuale!**

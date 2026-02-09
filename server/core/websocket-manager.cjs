@@ -31,6 +31,16 @@ class WebSocketConnectionManager {
     this.connectionManager.setAuthManager(this.authManager);
     this.connectionManager.setMessageBroadcaster(this.messageBroadcaster);
 
+    // Wire websocket manager into each map server for immediate saves/rewards
+    if (this.mapManager && this.mapManager.maps) {
+      for (const mapInstance of this.mapManager.maps.values()) {
+        mapInstance.websocketManager = this;
+      }
+    } else if (this.mapManager) {
+      // Single-map fallback
+      this.mapManager.websocketManager = this;
+    }
+
     // SECURITY: Esponi il validatore globalmente per PositionUpdateProcessor
     // In un'architettura ideale, PositionUpdateProcessor dovrebbe riceverlo via DI
     global.inputValidator = this.connectionManager.inputValidator || new (require('../InputValidator.cjs'))();
