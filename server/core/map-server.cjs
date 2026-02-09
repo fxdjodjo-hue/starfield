@@ -94,7 +94,12 @@ class MapServer {
 
       // 1. Movimento NPC (Sempre a 20 Hz per precisione fisica server)
       const allNpcs = this.npcManager.getAllNpcs();
-      NpcMovementSystem.updateMovements(allNpcs, this.players, this.npcManager);
+      NpcMovementSystem.updateMovements(
+        allNpcs,
+        this.players,
+        this.npcManager,
+        this.combatManager?.playerCombats
+      );
 
       // 2. Logica di combat NPC (Sempre a 20 Hz per precisione attacchi)
       if (this.combatManager) {

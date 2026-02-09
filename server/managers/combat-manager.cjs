@@ -570,42 +570,52 @@ class ServerCombatManager {
       return;
     }
 
-    // Trova player nel raggio di attacco
+    // Trova player nel raggio di attacco (solo chi ha targhettato questo NPC)
     const attackRange = NPC_CONFIG[npc.type].stats.range;
     const attackRangeSq = attackRange * attackRange;
 
+    const lastAttackerId = npc.lastAttackerId ? String(npc.lastAttackerId) : null;
     let targetPlayer = null;
+    let newestCombatTime = -Infinity;
 
-    // PRIORITÀ 1: L'ultimo attaccante (Retaliation)
-    if (npc.lastAttackerId) {
-      const attackerData = this.mapServer.players.get(npc.lastAttackerId);
-      if (attackerData && attackerData.position) {
-        // 🚀 RETALIATION logic: Permetti di continuare ad attaccare l'aggressore anche in Safe Zone
-        const dx = attackerData.position.x - npc.position.x;
-        const dy = attackerData.position.y - npc.position.y;
-        const distSq = dx * dx + dy * dy;
+    // PRIORITÀ 1: L'ultimo attaccante, ma solo se sta davvero targhettando questo NPC
+    if (lastAttackerId) {
+      const lastCombat = this.playerCombats.get(lastAttackerId);
+      if (lastCombat && lastCombat.npcId === npc.id) {
+        const attackerData = this.mapServer.players.get(lastAttackerId);
+        if (attackerData && attackerData.position && !attackerData.isDead) {
+          // RETALIATION: Permetti attacco anche in Safe Zone se è l'aggressore
+          const dx = attackerData.position.x - npc.position.x;
+          const dy = attackerData.position.y - npc.position.y;
+          const distSq = dx * dx + dy * dy;
 
-        if (distSq <= attackRangeSq) {
-          targetPlayer = attackerData;
+          if (distSq <= attackRangeSq) {
+            targetPlayer = attackerData;
+          }
         }
       }
     }
 
-    // PRIORITÀ 2: Se l'ultimo attaccante non è più nel range o è in Safe Zone, cerca il più vicino
+    // PRIORITÀ 2: Solo player con combat attivo su questo NPC (no nearest globale)
     if (!targetPlayer) {
-      let minDistanceSq = Infinity;
-      for (const [clientId, playerData] of this.mapServer.players.entries()) {
-        if (!playerData.position || playerData.isDead) continue;
+      for (const [clientId, combat] of this.playerCombats.entries()) {
+        if (!combat || combat.npcId !== npc.id) continue;
 
-        // 🛡️ SAFE ZONE CHECK: NPC non punta player in una zona sicura
+        const playerData = this.mapServer.players.get(clientId);
+        if (!playerData || playerData.isDead || !playerData.position) continue;
+
+        // SAFE ZONE CHECK: Non agganciare player in Safe Zone (tranne ritorsione)
         if (this.isInSafeZone(playerData.position)) continue;
 
         const dx = playerData.position.x - npc.position.x;
         const dy = playerData.position.y - npc.position.y;
         const distSq = dx * dx + dy * dy;
 
-        if (distSq <= attackRangeSq && distSq < minDistanceSq) {
-          minDistanceSq = distSq;
+        if (distSq > attackRangeSq) continue;
+
+        const combatStartTime = combat.combatStartTime || 0;
+        if (combatStartTime >= newestCombatTime) {
+          newestCombatTime = combatStartTime;
           targetPlayer = playerData;
         }
       }

@@ -9,12 +9,26 @@ const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs')
 
 class NpcMovementSystem {
   /**
+   * Verifica se un player sta targhettando questo NPC (combat attivo)
+   * @param {Map|null} playerCombats - Map clientId -> combat state
+   * @param {string} playerId - clientId
+   * @param {string} npcId - npc id
+   * @returns {boolean}
+   */
+  static isPlayerTargetingNpc(playerCombats, playerId, npcId) {
+    if (!playerCombats || typeof playerCombats.get !== 'function') return true;
+    const combat = playerCombats.get(playerId);
+    return !!(combat && combat.npcId === npcId);
+  }
+
+  /**
    * Aggiorna movimento per tutti gli NPC
    * @param {Array} allNpcs - Array di tutti gli NPC
    * @param {Map} players - Map di clientId -> playerData
    * @param {Object} npcManager - NpcManager per accedere ai world bounds
+   * @param {Map|null} playerCombats - Map di clientId -> combat state (target NPC)
    */
-  static updateMovements(allNpcs, players, npcManager) {
+  static updateMovements(allNpcs, players, npcManager, playerCombats = null) {
     const deltaTime = 1000 / 60; // Fixed timestep per fisica server
 
     for (const npc of allNpcs) {
@@ -36,6 +50,9 @@ class NpcMovementSystem {
       for (const [clientId, playerData] of players.entries()) {
         if (!playerData.position || playerData.isDead) continue;
 
+        // 🎯 TARGET LOCK: Considera solo player che hanno targhettato questo NPC
+        if (!this.isPlayerTargetingNpc(playerCombats, clientId, npc.id)) continue;
+
         // 🛡️ SAFE ZONE CHECK: NPC ignora i player nelle zone sicure per il tracking di base
         if (this.isInSafeZone(playerData.position)) continue;
 
@@ -51,12 +68,15 @@ class NpcMovementSystem {
 
       // 🚀 ENGAGEMENT LOCK: Valida se il target attuale è ancora valido
       if (npc.lastAttackerId) {
-        const targetPlayer = players.get(npc.lastAttackerId);
+        const targetId = npc.lastAttackerId;
+        const targetPlayer = players.get(targetId);
         const PURSUIT_RANGE = attackRange * 4;
         const pursuitRangeSq = PURSUIT_RANGE * PURSUIT_RANGE;
         let targetValid = false;
 
-        if (targetPlayer && !targetPlayer.isDead && targetPlayer.position) {
+        const isStillTargeting = this.isPlayerTargetingNpc(playerCombats, targetId, npc.id);
+
+        if (targetPlayer && !targetPlayer.isDead && targetPlayer.position && isStillTargeting) {
           // 🚀 RETALIATION logic: Permetti di mantenere il lock sull'aggressore anche in Safe Zone
           const dx = targetPlayer.position.x - npc.position.x;
           const dy = targetPlayer.position.y - npc.position.y;

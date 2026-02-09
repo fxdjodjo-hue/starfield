@@ -4,7 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
-const { NPC_CONFIG } = require('../../config/constants.cjs');
+const { NPC_CONFIG, SERVER_CONSTANTS } = require('../../config/constants.cjs');
 
 class GlobalGameMonitor {
   constructor(mapServer) {
@@ -190,6 +190,20 @@ class GlobalGameMonitor {
   }
 
   // Metodi di utilità
+  isInSafeZone(position) {
+    if (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y)) return false;
+
+    for (const zone of SERVER_CONSTANTS.SAFE_ZONES) {
+      const dx = position.x - zone.x;
+      const dy = position.y - zone.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq <= zone.radius * zone.radius) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   isPlayerRepairing(clientId) {
     const repairManager = this.mapServer.repairManager;
     if (!repairManager?.playerRepairStates) return false;
@@ -227,30 +241,65 @@ class GlobalGameMonitor {
   }
 
   getNpcTargetPlayer(npcId) {
-    // Trova quale player questo NPC sta inseguendo
-    for (const [clientId, playerData] of this.mapServer.players.entries()) {
-      if (!playerData?.position) continue;
+    // Trova quale player questo NPC sta inseguendo (solo chi lo ha targhettato)
+    const npc = this.mapServer.npcManager?.npcs.get(npcId);
+    if (!npc) return null;
 
-      const npc = this.mapServer.npcManager?.npcs.get(npcId);
-      if (!npc) continue;
+    const attackRange = NPC_CONFIG[npc.type]?.stats?.range || 800;
+    const attackRangeSq = attackRange * attackRange;
+    const playerCombats = this.mapServer.combatManager?.playerCombats || new Map();
 
-      // Calcola se il player è nel range di attacco dell'NPC
-      const attackRange = NPC_CONFIG[npc.type]?.stats?.range || 800;
-      const distance = Math.sqrt(
-        Math.pow(npc.position.x - playerData.position.x, 2) +
-        Math.pow(npc.position.y - playerData.position.y, 2)
-      );
+    // PRIORITÀ 1: Last attacker se ha ancora combat attivo su questo NPC
+    const lastAttackerId = npc.lastAttackerId ? String(npc.lastAttackerId) : null;
+    if (lastAttackerId) {
+      const combat = playerCombats.get(lastAttackerId);
+      if (combat && combat.npcId === npcId) {
+        const playerData = this.mapServer.players.get(lastAttackerId);
+        if (playerData?.position && !playerData.isDead) {
+          const dx = npc.position.x - playerData.position.x;
+          const dy = npc.position.y - playerData.position.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq <= attackRangeSq) {
+            return {
+              id: lastAttackerId,
+              nickname: playerData.nickname,
+              distance: Math.round(Math.sqrt(distSq))
+            };
+          }
+        }
+      }
+    }
 
-      if (distance <= attackRange && npc.behavior === 'aggressive') {
-        return {
+    // PRIORITÀ 2: Player con combat attivo su questo NPC (no nearest globale)
+    let target = null;
+    let newestCombatTime = -Infinity;
+
+    for (const [clientId, combat] of playerCombats.entries()) {
+      if (!combat || combat.npcId !== npcId) continue;
+
+      const playerData = this.mapServer.players.get(clientId);
+      if (!playerData?.position || playerData.isDead) continue;
+
+      // SAFE ZONE CHECK: NPC non punta player in una zona sicura
+      if (this.isInSafeZone(playerData.position)) continue;
+
+      const dx = npc.position.x - playerData.position.x;
+      const dy = npc.position.y - playerData.position.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq > attackRangeSq) continue;
+
+      const combatStartTime = combat.combatStartTime || 0;
+      if (combatStartTime >= newestCombatTime) {
+        newestCombatTime = combatStartTime;
+        target = {
           id: clientId,
           nickname: playerData.nickname,
-          distance: Math.round(distance)
+          distance: Math.round(Math.sqrt(distSq))
         };
       }
     }
 
-    return null;
+    return target;
   }
 
   getPlayerStatus(playerData) {
