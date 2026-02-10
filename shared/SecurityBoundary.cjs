@@ -230,7 +230,6 @@ class BoundaryEnforcement {
       'join',
       'position_update',
       'heartbeat',
-      'projectile_fired',
       'start_combat',
       'stop_combat',
       'request_player_data',
@@ -243,7 +242,6 @@ class BoundaryEnforcement {
       'request_leaderboard',
       'equip_item',
       'portal_use',
-      'quest_progress_update',
       'quest_accept',
       'quest_abandon'
     ];
@@ -251,7 +249,7 @@ class BoundaryEnforcement {
     // Controlli specifici per tipo di messaggio
     switch (messageType) {
       case 'position_update':
-        // Il client può fornire posizione propria, ma il server deve validarla
+        // Il client può inviare input di movimento, ma la posizione è server-authoritative
         return { allowed: true };
 
       case 'chat_message':
@@ -277,13 +275,11 @@ class BoundaryEnforcement {
 
       case 'join':
       case 'heartbeat':
-      case 'projectile_fired':
       case 'player_respawn_request':
       case 'global_monitor_request':
       case 'skill_upgrade_request':
       case 'request_leaderboard':
       case 'portal_use':
-      case 'quest_progress_update':
       case 'quest_accept':
       case 'quest_abandon':
         // Messaggi di connessione e sistema permessi

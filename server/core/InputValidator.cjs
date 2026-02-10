@@ -364,20 +364,6 @@ class ServerInputValidator {
         case 'chat_message':
           return this.validateChat(data);
         // SECURITY: test_damage RIMOSSO - metodo client eliminato per sicurezza
-        case 'projectile_fired':
-          // Valida sia posizione che velocità
-          const posResult = this.validatePosition(data.position);
-          const velResult = this.validateVelocity(data.velocity);
-
-          return {
-            isValid: posResult.isValid && velResult.isValid,
-            errors: [...posResult.errors, ...velResult.errors],
-            sanitizedData: {
-              position: posResult.sanitizedData,
-              velocity: velResult.sanitizedData,
-              projectileType: data.projectileType || 'laser'
-            }
-          };
         case 'request_leaderboard':
           // Valida richiesta leaderboard
           const leaderboardErrors = [];
@@ -545,9 +531,6 @@ class ServerInputValidator {
             }
           };
 
-        case 'quest_progress_update':
-          // Valida aggiornamento progresso quest
-          return this.validateQuestProgress(data);
         case 'quest_accept':
           return this.validateQuestAccept(data);
         case 'quest_abandon':

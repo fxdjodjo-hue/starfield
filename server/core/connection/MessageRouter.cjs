@@ -422,105 +422,59 @@ function handlePositionUpdate(data, sanitizedData, context) {
   }
   playerData.positionUpdateCount++;
 
-  // 🔒 SECURITY: Anti-teleport - verifica che il movimento sia fisicamente possibile
+  // 🔒 SERVER-AUTHORITATIVE: tratta position_update come INPUT, non come posizione
   const PLAYER_CONFIG = require('../../../shared/player-config.json');
   const baseSpeed = PLAYER_CONFIG.stats.speed || 300; // 300 unità/secondo
 
-  // Calcola velocità effettiva del giocatore basata sui suoi upgrade
   const playerSpeedUpgrades = playerData.upgrades?.speedUpgrades || 0;
   const speedMultiplier = 1.0 + (playerSpeedUpgrades * 0.005); // Ogni upgrade = +0.5% velocità
   const actualMaxSpeed = baseSpeed * speedMultiplier;
 
-  // Calcola tempo effettivo dall'ultimo movimento (non dall'ultimo rate limit reset)
-  const timeSinceLastMovement = now - (playerData.lastMovementTime || now);
-  const timeInSeconds = Math.max(timeSinceLastMovement / 1000, 0.01); // Minimo 10ms per evitare divisioni per zero
+  let inputVx = Number.isFinite(sanitizedData.velocityX) ? sanitizedData.velocityX : 0;
+  let inputVy = Number.isFinite(sanitizedData.velocityY) ? sanitizedData.velocityY : 0;
 
-  // Distanza massima possibile in questo intervallo di tempo
-  const maxPossibleDistance = actualMaxSpeed * timeInSeconds;
+  // Fallback: se il client non invia velocity affidabile, derivala dal delta posizione
+  const clientTimestamp = rawClientTimestamp || now;
+  const hasClientPos = Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y);
+  const lowInput = Math.abs(inputVx) < 0.001 && Math.abs(inputVy) < 0.001;
 
-  if (playerData.position && Number.isFinite(playerData.position.x) && Number.isFinite(playerData.position.y)) {
-    const dx = sanitizedData.x - playerData.position.x;
-    const dy = sanitizedData.y - playerData.position.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    // Threshold più permissivo per compensare lag network e buffering client (15x per gestire burst posizioni)
-    const TELEPORT_THRESHOLD_MULTIPLIER = 15;
-    const teleportThreshold = maxPossibleDistance * TELEPORT_THRESHOLD_MULTIPLIER;
-
-  // 🏳️ SKIP ANTI-TELEPORT CHECKS if player is migrating (allow immediate movement after map change)
-  if (playerData.isMigrating) {
-    // Still accept and broadcast updates; only bypass anti-teleport validation.
-  } else {
-
-    // Se la distanza è troppo grande, potrebbe essere un teleport hack
-    if (distance > teleportThreshold) {
-      ServerLoggerWrapper.security(`🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
-        `distance ${distance.toFixed(2)} > threshold ${teleportThreshold.toFixed(2)} | ` +
-        `actualMaxSpeed: ${actualMaxSpeed.toFixed(0)} u/s | ` +
-        `speedUpgrades: ${playerSpeedUpgrades} | ` +
-        `timeDelta: ${timeSinceLastMovement}ms | ` +
-        `from (${playerData.position.x.toFixed(1)}, ${playerData.position.y.toFixed(1)}) ` +
-        `to (${sanitizedData.x.toFixed(1)}, ${sanitizedData.y.toFixed(1)})`);
-      // Ignora questo update invece di applicarlo
-      return;
+  if (hasClientPos) {
+    const prevClientPos = playerData.lastClientPos;
+    if (lowInput && prevClientPos && Number.isFinite(prevClientPos.x) && Number.isFinite(prevClientPos.y)) {
+      const dtMs = clientTimestamp - (prevClientPos.timestamp || clientTimestamp);
+      if (dtMs > 10 && dtMs < 1000) {
+        const dtSec = dtMs / 1000;
+        inputVx = (sanitizedData.x - prevClientPos.x) / dtSec;
+        inputVy = (sanitizedData.y - prevClientPos.y) / dtSec;
+      }
     }
-  }
-  }
 
-  playerData.lastInputAt = new Date().toISOString();
-
-  if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
-    playerData.position = {
+    playerData.lastClientPos = {
       x: sanitizedData.x,
       y: sanitizedData.y,
-      rotation: sanitizedData.rotation,
-      velocityX: sanitizedData.velocityX || 0,
-      velocityY: sanitizedData.velocityY || 0
+      timestamp: clientTimestamp
     };
-    // Sync top-level coordinates for safety/legacy compatibility
-    playerData.x = sanitizedData.x;
-    playerData.y = sanitizedData.y;
-    // Aggiorna timestamp per calcolo movimento successivo
-    playerData.lastMovementTime = now;
   }
 
-  // Server-authoritative coordinate/explore quests
-  if (mapServer.questManager && playerData.position) {
-    mapServer.questManager.onPlayerPositionUpdated(playerData, now).catch(err => {
-      ServerLoggerWrapper.error('QUEST', `Error processing coordinate quests for ${playerData.nickname}: ${err.message}`);
-    });
+  const inputSpeed = Math.sqrt(inputVx * inputVx + inputVy * inputVy);
+  if (inputSpeed > actualMaxSpeed && inputSpeed > 0) {
+    const scale = actualMaxSpeed / inputSpeed;
+    inputVx *= scale;
+    inputVy *= scale;
   }
 
-  // Aggiungi alla queue
-  if (!mapServer.positionUpdateQueue.has(data.clientId)) {
-    mapServer.positionUpdateQueue.set(data.clientId, []);
-  }
+  const fallbackRotation = playerData.position?.rotation ?? playerData.rotation ?? 0;
+  const inputRotation = Number.isFinite(sanitizedData.rotation) ? sanitizedData.rotation : fallbackRotation;
 
-  mapServer.positionUpdateQueue.get(data.clientId).push({
-    x: data.x,
-    y: data.y,
-    rotation: data.rotation,
-    velocityX: data.velocityX || 0,
-    velocityY: data.velocityY || 0,
-    tick: data.tick,
-    nickname: playerData.nickname,
-    playerId: playerData.playerId,
-    rank: playerData.rank,
-    health: playerData.health,
-    maxHealth: playerData.maxHealth,
-    shield: playerData.shield,
-    maxShield: playerData.maxShield,
-    senderWs: ws,
-    // clientTimestamp is used for interpolation timing only (not authoritative)
-    // Falls back to server time if client doesn't provide timestamp
-    clientTimestamp: data.t || Date.now()
-  });
+  playerData.movementInput = {
+    vx: inputVx,
+    vy: inputVy,
+    rotation: inputRotation,
+    updatedAt: now,
+    clientTimestamp: rawClientTimestamp || null
+  };
 
-  // Limita dimensione queue
-  const clientQueue = mapServer.positionUpdateQueue.get(data.clientId);
-  if (clientQueue.length > 5) {
-    clientQueue.shift();
-  }
+  playerData.lastInputAt = new Date(now).toISOString();
 
   // Echo back acknowledgment
   ws.send(JSON.stringify({
@@ -701,6 +655,15 @@ function handleProjectileFired(data, sanitizedData, context) {
     logger.warn('PROJECTILE', `Player data not found for clientId: ${data.clientId}`);
     return;
   }
+
+  // 🚫 SERVER-AUTHORITATIVE: Client non può creare proiettili
+  // Il server genera i proiettili in base allo stato di combat (start_combat)
+  const now = Date.now();
+  if (!playerData.lastProjectileIgnoreLog || (now - playerData.lastProjectileIgnoreLog > 5000)) {
+    ServerLoggerWrapper.security('COMBAT', `BLOCKED: client projectile_fired ignored for ${data.clientId} (server-authoritative)`);
+    playerData.lastProjectileIgnoreLog = now;
+  }
+  return;
 
   // Security check (server authoritative identity)
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
@@ -1528,6 +1491,15 @@ function handleQuestProgressUpdate(data, sanitizedData, context) {
 
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
+
+  // 🚫 SERVER-AUTHORITATIVE: Il client non può aggiornare il progresso quest
+  // Il progresso è calcolato dal server (kill/explore) e poi notificato al client
+  const now = Date.now();
+  if (!playerData.lastQuestIgnoreLog || (now - playerData.lastQuestIgnoreLog > 5000)) {
+    logger.warn('QUEST', `Ignored client quest_progress_update from ${data.clientId} (server-authoritative)`);
+    playerData.lastQuestIgnoreLog = now;
+  }
+  return;
 
   const { questId, objectives } = sanitizedData;
 

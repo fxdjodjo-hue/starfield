@@ -338,6 +338,13 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
+        // SERVER-AUTHORITATIVE: Blocca aggiornamenti quest dal client salvo override esplicito
+        if (process.env.ALLOW_CLIENT_QUEST_UPDATES !== 'true') {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Quest progress updates are server-authoritative.' }));
+          return;
+        }
+
         let body = '';
         req.on('data', chunk => {
           body += chunk.toString();

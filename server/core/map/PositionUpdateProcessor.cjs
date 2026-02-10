@@ -59,12 +59,13 @@ class PositionUpdateProcessor {
       // SECURITY: Anti-Speed Hack Validation
       // Recupera l'ultima posizione valida conosciuta per questo client
       const lastKnownPos = this.lastValidPositions?.get(clientId);
+      const serverTimestamp = Date.now();
 
       // Valida il movimento se abbiamo uno storico
       if (lastKnownPos && !isMigrating) {
         // clientTimestamp is used for interpolation timing only (not authoritative)
         // Falls back to server time if client doesn't provide timestamp
-        const currentTimestamp = latestUpdate.clientTimestamp || Date.now();
+        const currentTimestamp = serverTimestamp;
         const validationResult = global.inputValidator ? global.inputValidator.validateMovement(
           { x: latestUpdate.x, y: latestUpdate.y },
           lastKnownPos,
@@ -108,7 +109,7 @@ class PositionUpdateProcessor {
       this.lastValidPositions.set(clientId, {
         x: latestUpdate.x,
         y: latestUpdate.y,
-        timestamp: latestUpdate.clientTimestamp || Date.now()
+        timestamp: serverTimestamp
       });
 
       MapBroadcaster.broadcastToMap(players, positionBroadcast, clientId);

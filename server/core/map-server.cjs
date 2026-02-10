@@ -13,6 +13,7 @@ const PositionUpdateProcessor = require('./map/PositionUpdateProcessor.cjs');
 const RepairManager = require('../managers/repair-manager.cjs');
 const HazardManager = require('../managers/hazard-manager.cjs');
 const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
+const playerConfig = require('../../shared/player-config.json');
 
 class MapServer {
   constructor(mapId, config = {}) {
@@ -37,6 +38,9 @@ class MapServer {
 
     // Queue per aggiornamenti posizione per ridurre race conditions
     this.positionUpdateQueue = new Map(); // clientId -> Array di aggiornamenti
+
+    // Timestamp ultimo aggiornamento movimento player
+    this.lastPlayerMovementUpdate = 0;
 
     // Configurazione NPC per questa mappa
     this.npcConfig = config.npcConfig || { scouterCount: 0, frigateCount: 0, guardCount: 0, pyramidCount: 1 };
@@ -91,6 +95,9 @@ class MapServer {
       // Incrementa counter per throttling
       this.tickCounter = (this.tickCounter || 0) + 1;
       const isThrottledTick = this.tickCounter % 2 === 0;
+
+      // 0. Movimento player (server-authoritative input integration)
+      this.updatePlayerMovements();
 
       // 1. Movimento NPC (Sempre a 20 Hz per precisione fisica server)
       const allNpcs = this.npcManager.getAllNpcs();
@@ -156,6 +163,122 @@ class MapServer {
   // Processa aggiornamenti posizione giocatori (delegato a PositionUpdateProcessor)
   processPositionUpdates() {
     PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);
+  }
+
+  // Movimento player server-authoritative (usa input velocity dal client)
+  updatePlayerMovements() {
+    const now = Date.now();
+    const lastUpdate = this.lastPlayerMovementUpdate || now;
+    const deltaMs = Math.min(Math.max(now - lastUpdate, 0), 200); // Clamp per evitare salti eccessivi
+    this.lastPlayerMovementUpdate = now;
+
+    const dtSec = deltaMs / 1000;
+    if (dtSec <= 0) return;
+
+    const baseSpeed = playerConfig.stats.speed || 300;
+    const worldLeft = -this.WORLD_WIDTH / 2;
+    const worldRight = this.WORLD_WIDTH / 2;
+    const worldTop = -this.WORLD_HEIGHT / 2;
+    const worldBottom = this.WORLD_HEIGHT / 2;
+
+    for (const [clientId, playerData] of this.players.entries()) {
+      if (!playerData || playerData.isDead) continue;
+
+      if (!playerData.position) {
+        const fallbackX = Number.isFinite(playerData.x) ? playerData.x : 0;
+        const fallbackY = Number.isFinite(playerData.y) ? playerData.y : 0;
+        const fallbackRotation = Number.isFinite(playerData.rotation) ? playerData.rotation : 0;
+        playerData.position = {
+          x: fallbackX,
+          y: fallbackY,
+          rotation: fallbackRotation,
+          velocityX: 0,
+          velocityY: 0
+        };
+      }
+
+      const input = playerData.movementInput;
+      const inputAgeMs = input?.updatedAt ? (now - input.updatedAt) : Infinity;
+      const inputStale = inputAgeMs > 250;
+
+      let vx = 0;
+      let vy = 0;
+      let rotation = playerData.position.rotation ?? playerData.rotation ?? 0;
+
+      if (input && !inputStale && !playerData.isMigrating) {
+        vx = Number.isFinite(input.vx) ? input.vx : 0;
+        vy = Number.isFinite(input.vy) ? input.vy : 0;
+        if (Number.isFinite(input.rotation)) {
+          rotation = input.rotation;
+        }
+      }
+
+      const playerSpeedUpgrades = playerData.upgrades?.speedUpgrades || 0;
+      const speedMultiplier = 1.0 + (playerSpeedUpgrades * 0.005);
+      const actualMaxSpeed = baseSpeed * speedMultiplier;
+      const speed = Math.sqrt(vx * vx + vy * vy);
+
+      if (speed > actualMaxSpeed && speed > 0) {
+        const scale = actualMaxSpeed / speed;
+        vx *= scale;
+        vy *= scale;
+      }
+
+      const newX = playerData.position.x + (vx * dtSec);
+      const newY = playerData.position.y + (vy * dtSec);
+      const clampedX = Math.max(worldLeft, Math.min(worldRight, newX));
+      const clampedY = Math.max(worldTop, Math.min(worldBottom, newY));
+
+      playerData.position = {
+        x: clampedX,
+        y: clampedY,
+        rotation: rotation,
+        velocityX: vx,
+        velocityY: vy
+      };
+
+      // Sync top-level coordinates for safety/legacy compatibility
+      playerData.x = clampedX;
+      playerData.y = clampedY;
+      playerData.rotation = rotation;
+      playerData.velocityX = vx;
+      playerData.velocityY = vy;
+      playerData.lastMovementTime = now;
+
+      // Server-authoritative coordinate/explore quests
+      if (this.questManager) {
+        this.questManager.onPlayerPositionUpdated(playerData, now).catch(err => {
+          ServerLoggerWrapper.error('QUEST', `Error processing coordinate quests for ${playerData.nickname}: ${err.message}`);
+        });
+      }
+
+      if (!this.positionUpdateQueue.has(clientId)) {
+        this.positionUpdateQueue.set(clientId, []);
+      }
+
+      const clientQueue = this.positionUpdateQueue.get(clientId);
+      clientQueue.push({
+        x: clampedX,
+        y: clampedY,
+        rotation: rotation,
+        velocityX: vx,
+        velocityY: vy,
+        tick: this.tickCounter,
+        nickname: playerData.nickname,
+        playerId: playerData.playerId,
+        rank: playerData.rank,
+        health: playerData.health,
+        maxHealth: playerData.maxHealth,
+        shield: playerData.shield,
+        maxShield: playerData.maxShield,
+        clientTimestamp: now,
+        timestamp: now
+      });
+
+      if (clientQueue.length > 5) {
+        clientQueue.shift();
+      }
+    }
   }
 
   // Setup hook per eventi critici nel GlobalGameMonitor
