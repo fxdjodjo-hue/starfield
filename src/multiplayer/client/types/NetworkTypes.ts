@@ -68,6 +68,7 @@ export interface HeartbeatMessage extends NetworkMessage {
 
 export interface RemotePlayerUpdateMessage extends NetworkMessage {
   type: 'remote_player_update';
+  mapId: string;
   clientId: string;
   position: { x: number; y: number };
   rotation?: number;
@@ -77,6 +78,7 @@ export interface RemotePlayerUpdateMessage extends NetworkMessage {
 
 export interface PlayerJoinedMessage extends NetworkMessage {
   type: 'player_joined';
+  mapId: string;
   clientId: string;
   nickname?: string;
   playerId?: number;
@@ -91,7 +93,16 @@ export interface PlayerJoinedMessage extends NetworkMessage {
 
 export interface PlayerLeftMessage extends NetworkMessage {
   type: 'player_left';
+  mapId: string;
   clientId: string;
+}
+
+export interface MapTransitionStartMessage extends NetworkMessage {
+  type: 'map_transition_start';
+  sourceMapId?: string;
+  targetMapId?: string;
+  targetPosition?: { x: number; y: number };
+  timestamp?: number;
 }
 
 export interface WelcomeMessage extends NetworkMessage {
@@ -131,6 +142,7 @@ export type NetworkMessageUnion =
   | RemotePlayerUpdateMessage
   | PlayerJoinedMessage
   | PlayerLeftMessage
+  | MapTransitionStartMessage
   | WelcomeMessage
   | ErrorMessage
   | RewardsEarnedMessage;

@@ -39,7 +39,7 @@ export class InterpolationTarget {
     // SNAPSHOT BUFFER
     // ==========================================
     private snapshots: Snapshot[] = [];
-    private readonly MAX_BUFFER_SIZE = 10;
+    private readonly MAX_BUFFER_SIZE = NETWORK_CONFIG.MAX_SNAPSHOT_BUFFER_SIZE || 10;
 
     // ==========================================
     // TIMING

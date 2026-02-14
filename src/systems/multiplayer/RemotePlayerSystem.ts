@@ -15,6 +15,7 @@ import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
  * Usa componenti ECS invece di Map manuale per maggiore robustezza
  */
 export class RemotePlayerSystem extends BaseSystem {
+  private static readonly REMOTE_PLAYER_STALE_TIMEOUT_MS = 20000;
   // AnimatedSprite condiviso per tutti i remote player (più efficiente)
   private sharedAnimatedSprite: AnimatedSprite | null;
   // Logging per evitare spam di aggiornamenti posizione
@@ -45,7 +46,7 @@ export class RemotePlayerSystem extends BaseSystem {
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
     for (const entity of remotePlayerEntities) {
       const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
-      if (remotePlayer && (now - remotePlayer.lastSeen > 5000)) {
+      if (remotePlayer && (now - remotePlayer.lastSeen > RemotePlayerSystem.REMOTE_PLAYER_STALE_TIMEOUT_MS)) {
         this.ecs.removeEntity(entity);
       }
     }

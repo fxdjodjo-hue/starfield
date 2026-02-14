@@ -96,9 +96,14 @@ class MessageBroadcaster {
    * @param {number} maxShield - Max shield
    * @returns {Object} Player joined message
    */
-  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, position, health, maxHealth, shield, maxShield) {
+  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, position, health, maxHealth, shield, maxShield, mapId) {
+    if (!mapId) {
+      logger.warn('NETWORK', `formatPlayerJoinedMessage called without mapId for clientId=${clientId}`);
+    }
+
     return {
       type: 'player_joined',
+      mapId: mapId || null,
       clientId: clientId,
       nickname: nickname,
       playerId: playerId,
@@ -117,9 +122,14 @@ class MessageBroadcaster {
    * @param {string} clientId - Client ID
    * @returns {Object} Player left message
    */
-  formatPlayerLeftMessage(clientId) {
+  formatPlayerLeftMessage(clientId, mapId) {
+    if (!mapId) {
+      logger.warn('NETWORK', `formatPlayerLeftMessage called without mapId for clientId=${clientId}`);
+    }
+
     return {
       type: 'player_left',
+      mapId: mapId || null,
       clientId: clientId
     };
   }

@@ -70,7 +70,8 @@ class MapManager {
         const playerLeftMessage = {
             type: 'player_left',
             clientId: clientId,
-            reason: 'map_change'
+            reason: 'map_change',
+            mapId: currentMapId
         };
         currentMap.broadcastToMap(playerLeftMessage, clientId);
 
@@ -92,6 +93,7 @@ class MapManager {
         // Notify other players on the target map immediately so they spawn this player
         const playerJoinedMsg = {
             type: 'player_joined',
+            mapId: targetMapId,
             clientId: clientId,
             nickname: playerData.nickname,
             playerId: playerData.playerId,
@@ -126,32 +128,55 @@ class MapManager {
             // Send map change first so the client cleans up the old world
             playerData.ws.send(JSON.stringify(migrationMessage));
 
-            // Immediately send existing players in the target map to the migrating client
-            for (const [existingClientId, existingPlayerData] of targetMap.players.entries()) {
-                if (existingClientId === clientId) continue;
-                if (!existingPlayerData.position) continue;
+            // Presence snapshot immediately after map_change
+            this.sendPresenceSnapshotToClient(playerData.ws, targetMap, clientId, targetMapId);
 
-                const existingPlayerBroadcast = {
-                    type: 'remote_player_update',
-                    clientId: existingClientId,
-                    position: existingPlayerData.position,
-                    rotation: existingPlayerData.position.rotation || 0,
-                    tick: 0,
-                    nickname: existingPlayerData.nickname,
-                    playerId: existingPlayerData.playerId,
-                    rank: existingPlayerData.rank,
-                    health: existingPlayerData.health,
-                    maxHealth: existingPlayerData.maxHealth,
-                    shield: existingPlayerData.shield,
-                    maxShield: existingPlayerData.maxShield,
-                    t: Date.now()
-                };
-
-                playerData.ws.send(JSON.stringify(existingPlayerBroadcast));
-            }
+            // Safety resnapshot shortly after map_change to absorb race/jitter during transition
+            setTimeout(() => {
+                this.sendPresenceSnapshotToClient(playerData.ws, targetMap, clientId, targetMapId);
+            }, 250);
         }
 
         return true;
+    }
+
+    /**
+     * Sends a full snapshot of players currently present on a target map to one client.
+     * Used after map transitions to avoid stale/missing remote player state.
+     */
+    sendPresenceSnapshotToClient(ws, targetMap, excludedClientId, targetMapId) {
+        if (!ws || ws.readyState !== 1) return; // WebSocket.OPEN
+
+        const snapshotTimestamp = Date.now();
+        for (const [existingClientId, existingPlayerData] of targetMap.players.entries()) {
+            if (existingClientId === excludedClientId) continue;
+            if (!existingPlayerData.position) continue;
+
+            const existingPlayerBroadcast = {
+                type: 'remote_player_update',
+                mapId: targetMapId,
+                clientId: existingClientId,
+                position: existingPlayerData.position,
+                rotation: existingPlayerData.position.rotation || 0,
+                tick: 0,
+                nickname: existingPlayerData.nickname,
+                playerId: existingPlayerData.playerId,
+                rank: existingPlayerData.rank,
+                health: existingPlayerData.health,
+                maxHealth: existingPlayerData.maxHealth,
+                shield: existingPlayerData.shield,
+                maxShield: existingPlayerData.maxShield,
+                t: snapshotTimestamp
+            };
+
+            try {
+                if (ws.readyState !== 1) break; // WebSocket.OPEN
+                ws.send(JSON.stringify(existingPlayerBroadcast));
+            } catch (error) {
+                ServerLoggerWrapper.warn('MAP', `Failed to send presence snapshot to ${excludedClientId}: ${error.message}`);
+                break;
+            }
+        }
     }
 
     /**

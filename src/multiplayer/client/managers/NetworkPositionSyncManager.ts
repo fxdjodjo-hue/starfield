@@ -17,6 +17,7 @@ export class NetworkPositionSyncManager {
   private lastInvalidPositionLog = 0;
   private hasReceivedWelcome = false;
   private pendingPosition: { x: number; y: number; rotation: number } | null = null;
+  private lastVelocitySample: { x: number; y: number; t: number } | null = null;
 
   constructor(
     private readonly ecs: ECS | null,
@@ -112,13 +113,40 @@ export class NetworkPositionSyncManager {
 
     // OTTIENI VELOCITÀ DAL PLAYER (per extrapolation client-side)
     const velocity = this.getCurrentPlayerVelocity();
+    const now = Date.now();
+
+    let velocityX = velocity.x;
+    let velocityY = velocity.y;
+
+    // Fallback: se la velocity è ~0, derivala dal delta posizione (robusto con server-authoritative)
+    if (this.lastVelocitySample) {
+      const dtSec = (now - this.lastVelocitySample.t) / 1000;
+      if (dtSec > 0 && dtSec < 1) {
+        const dx = position.x - this.lastVelocitySample.x;
+        const dy = position.y - this.lastVelocitySample.y;
+        const derivedVx = dx / dtSec;
+        const derivedVy = dy / dtSec;
+
+        if (Math.abs(velocityX) < 0.01 && Math.abs(velocityY) < 0.01) {
+          velocityX = derivedVx;
+          velocityY = derivedVy;
+        }
+      }
+    }
+
+    this.lastVelocitySample = { x: position.x, y: position.y, t: now };
+
+    // Clamp per evitare valori fuori range validazione client/server
+    const MAX_VELOCITY = 500;
+    velocityX = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocityX));
+    velocityY = Math.max(-MAX_VELOCITY, Math.min(MAX_VELOCITY, velocityY));
 
     const normalizedPosition = {
       x: position.x,
       y: position.y,
       rotation: normalizedRotation,
-      velocityX: velocity.x,
-      velocityY: velocity.y
+      velocityX: velocityX,
+      velocityY: velocityY
     };
 
     // RATE LIMITING: Controlla se possiamo inviare aggiornamenti posizione
@@ -159,7 +187,7 @@ export class NetworkPositionSyncManager {
       velocityX: normalizedPosition.velocityX,
       velocityY: normalizedPosition.velocityY,
       tick: this.tickManager.getTickCounter(),
-      t: Date.now() // Client timestamp for accurate interpolation timing
+      t: now // Client timestamp for accurate interpolation timing
     }));
   }
 

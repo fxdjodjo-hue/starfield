@@ -8,6 +8,7 @@ const { createSupabaseClient, validateSupabaseEnv } = require('./server/config/s
 // Sistema di logging
 const { logger, messageCount } = require('./server/logger.cjs');
 const ServerLoggerWrapper = require('./server/core/infrastructure/ServerLoggerWrapper.cjs');
+const CrashReporter = require('./server/core/infrastructure/CrashReporter.cjs');
 
 // Supabase client per il server (fail-fast se env mancante)
 validateSupabaseEnv();
@@ -39,6 +40,18 @@ const PLAYTEST_CODE = process.env.PLAYTEST_CODE;
 const MAX_ACCOUNTS = parseInt(process.env.MAX_ACCOUNTS || '20');
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
+const MAX_BODY_BYTES = Number(process.env.MAX_BODY_BYTES || (256 * 1024)); // 256KB default
+const ALLOW_CLIENT_PLAYER_DATA_UPDATES = process.env.ALLOW_CLIENT_PLAYER_DATA_UPDATES === 'true';
+
+const ALLOWED_ORIGINS = ALLOWED_ORIGIN === '*'
+  ? ['*']
+  : ALLOWED_ORIGIN.split(',').map(origin => origin.trim()).filter(Boolean);
+
+function isOriginAllowed(origin) {
+  if (!origin) return true; // Non-browser clients may omit Origin
+  if (ALLOWED_ORIGINS.includes('*')) return true;
+  return ALLOWED_ORIGINS.includes(origin);
+}
 
 // Simple in-memory rate limiter for login/register
 const rateLimitMap = new Map();
@@ -58,6 +71,54 @@ function checkRateLimit(ip) {
 
   rateLimitMap.set(ip, userData);
   return userData.count <= MAX_REQUESTS_PER_WINDOW;
+}
+
+function readJsonBody(req, res) {
+  return new Promise((resolve) => {
+    let body = '';
+    let size = 0;
+    let aborted = false;
+
+    req.on('data', (chunk) => {
+      if (aborted) return;
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        aborted = true;
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Payload too large' }));
+        req.destroy();
+        resolve(null);
+        return;
+      }
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      if (aborted) return;
+      if (!body) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Empty request body' }));
+        resolve(null);
+        return;
+      }
+
+      try {
+        const json = JSON.parse(body);
+        resolve(json);
+      } catch (error) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Invalid JSON body' }));
+        resolve(null);
+      }
+    });
+
+    req.on('error', () => {
+      if (aborted) return;
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Failed to read request body' }));
+      resolve(null);
+    });
+  });
 }
 
 async function verifyAuthId(req, res, authId, contextLabel) {
@@ -105,9 +166,21 @@ const http = require('http');
 // Crea server HTTP con API endpoints sicuri
 const server = http.createServer(async (req, res) => {
   // Global CORS headers
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  const origin = req.headers.origin;
+  const responseOrigin = ALLOWED_ORIGINS.includes('*')
+    ? '*'
+    : (origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0] || '');
+  if (responseOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', responseOrigin);
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (!isOriginAllowed(origin)) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Origin not allowed' }));
+    return;
+  }
 
   // Handle global OPTIONS pre-flight
   if (req.method === 'OPTIONS') {
@@ -139,105 +212,101 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', async () => {
-          try {
-            const { username, playtestCode } = JSON.parse(body);
+        try {
+          const payload = await readJsonBody(req, res);
+          if (!payload) return;
+          const { username, playtestCode } = payload;
 
-            // PLAYTEST GATE: Verify playtest code if enabled
-            if (IS_PLAYTEST && PLAYTEST_CODE) {
-              if (playtestCode !== PLAYTEST_CODE) {
-                res.writeHead(403, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Invalid playtest code.' }));
-                return;
-              }
-            }
-
-            // PLAYTEST GATE: Check max accounts
-            if (IS_PLAYTEST) {
-              const { count, error: countError } = await supabase
-                .from('players')
-                .select('*', { count: 'exact', head: true });
-
-              if (!countError && count >= MAX_ACCOUNTS) {
-                res.writeHead(403, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ error: 'Maximum account limit reached for this playtest.' }));
-                return;
-              }
-            }
-
-            // Verifica autenticazione
-            const authHeader = req.headers.authorization;
-            if (!authHeader?.startsWith('Bearer ')) {
-              res.writeHead(401, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Unauthorized' }));
+          // PLAYTEST GATE: Verify playtest code if enabled
+          if (IS_PLAYTEST && PLAYTEST_CODE) {
+            if (playtestCode !== PLAYTEST_CODE) {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Invalid playtest code.' }));
               return;
             }
-
-            const token = authHeader.substring(7);
-
-            // Verifica token con Supabase
-            const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-            if (authError || !user) {
-              res.writeHead(401, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: 'Invalid token' }));
-              return;
-            }
-
-            // Crea profilo usando RPC sicura
-            const { data, error } = await supabase.rpc('create_player_profile', {
-              auth_id_param: user.id,
-              username_param: username
-            });
-
-
-            if (error) {
-              ServerLoggerWrapper.warn('API', `RPC error creating player profile: ${error.message}`);
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: error.message }));
-              return;
-            }
-
-            // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
-            const profileData = Array.isArray(data) && data.length > 0 ? data[0] : data;
-            res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ data: profileData }));
-
-          } catch (error) {
-            ServerLoggerWrapper.error('API', `Exception in create-profile: ${error.message}`);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: error.message }));
           }
-        });
+
+          // PLAYTEST GATE: Check max accounts
+          if (IS_PLAYTEST) {
+            const { count, error: countError } = await supabase
+              .from('players')
+              .select('*', { count: 'exact', head: true });
+
+            if (!countError && count >= MAX_ACCOUNTS) {
+              res.writeHead(403, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: 'Maximum account limit reached for this playtest.' }));
+              return;
+            }
+          }
+
+          // Verifica autenticazione
+          const authHeader = req.headers.authorization;
+          if (!authHeader?.startsWith('Bearer ')) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Unauthorized' }));
+            return;
+          }
+
+          const token = authHeader.substring(7);
+
+          // Verifica token con Supabase
+          const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+          if (authError || !user) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Invalid token' }));
+            return;
+          }
+
+          // Crea profilo usando RPC sicura
+          const { data, error } = await supabase.rpc('create_player_profile', {
+            auth_id_param: user.id,
+            username_param: username
+          });
+
+
+          if (error) {
+            ServerLoggerWrapper.warn('API', `RPC error creating player profile: ${error.message}`);
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: error.message }));
+            return;
+          }
+
+          // PostgreSQL RPC restituisce sempre un array, prendiamo il primo elemento
+          const profileData = Array.isArray(data) && data.length > 0 ? data[0] : data;
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ data: profileData }));
+
+        } catch (error) {
+          ServerLoggerWrapper.error('API', `Exception in create-profile: ${error.message}`);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message }));
+        }
         return;
       }
 
       // POST /api/verify-playtest-code - Verifica codice accesso playtest
       if (pathParts[0] === 'api' && pathParts[1] === 'verify-playtest-code' && req.method === 'POST') {
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', async () => {
-          try {
-            const { code } = JSON.parse(body);
-            if (!IS_PLAYTEST || !PLAYTEST_CODE) {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: true }));
-              return;
-            }
-
-            if (code === PLAYTEST_CODE) {
-              res.writeHead(200, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: true }));
-            } else {
-              res.writeHead(403, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: false, error: 'Invalid playtest code' }));
-            }
-          } catch (error) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
+        try {
+          const payload = await readJsonBody(req, res);
+          if (!payload) return;
+          const { code } = payload;
+          if (!IS_PLAYTEST || !PLAYTEST_CODE) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
+            return;
           }
-        });
+
+          if (code === PLAYTEST_CODE) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true }));
+          } else {
+            res.writeHead(403, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid playtest code' }));
+          }
+        } catch (error) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid request' }));
+        }
         return;
       }
 
@@ -345,17 +414,12 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        let body = '';
-        req.on('data', chunk => {
-          body += chunk.toString();
-        });
-
-        req.on('end', async () => {
-          try {
-            const authUser = await verifyAuthId(req, res, authId, 'POST /api/player-data/:authId/quest-progress');
-            if (!authUser) return;
-            if (!body) throw new Error('Empty request body');
-            const { questId, progress } = JSON.parse(body);
+        try {
+          const payload = await readJsonBody(req, res);
+          if (!payload) return;
+          const authUser = await verifyAuthId(req, res, authId, 'POST /api/player-data/:authId/quest-progress');
+          if (!authUser) return;
+          const { questId, progress } = payload;
 
             // 1. Fetch current data
             const { data: rawData, error: fetchError } = await supabase.rpc('get_player_data_secure', {
@@ -473,12 +537,11 @@ const server = http.createServer(async (req, res) => {
 
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ data: { success: true } }));
-          } catch (error) {
-            ServerLoggerWrapper.error('API', `Exception in POST quest-progress: ${error.message}`);
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: error.message }));
-          }
-        });
+        } catch (error) {
+          ServerLoggerWrapper.error('API', `Exception in POST quest-progress: ${error.message}`);
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message }));
+        }
         return;
       }
 
@@ -572,13 +635,19 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        let body = '';
-        req.on('data', chunk => body += chunk);
-        req.on('end', async () => {
-          try {
-            const authUser = await verifyAuthId(req, res, authId, 'PUT /api/player-data/:authId');
-            if (!authUser) return;
-            const playerData = JSON.parse(body);
+        // SERVER-AUTHORITATIVE: Blocca aggiornamenti player dal client salvo override esplicito
+        if (!ALLOW_CLIENT_PLAYER_DATA_UPDATES) {
+          res.writeHead(403, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Player data updates are server-authoritative.' }));
+          return;
+        }
+
+        try {
+          const payload = await readJsonBody(req, res);
+          if (!payload) return;
+          const authUser = await verifyAuthId(req, res, authId, 'PUT /api/player-data/:authId');
+          if (!authUser) return;
+          const playerData = payload;
 
             // Usa RPC sicura per salvare dati
             const { data, error } = await supabase.rpc('update_player_data_secure', {
@@ -600,11 +669,10 @@ const server = http.createServer(async (req, res) => {
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ data: { success: true } }));
 
-          } catch (error) {
-            res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: error.message }));
-          }
-        });
+        } catch (error) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: error.message }));
+        }
         return;
       }
 
@@ -624,7 +692,14 @@ const server = http.createServer(async (req, res) => {
 // Crea server WebSocket sullo stesso server HTTP
 const wss = new WebSocket.Server({
   server: server,
-  host: '0.0.0.0'
+  host: '0.0.0.0',
+  verifyClient: (info, done) => {
+    const origin = info.origin;
+    if (!isOriginAllowed(origin)) {
+      return done(false, 403, 'Origin not allowed');
+    }
+    return done(true);
+  }
 });
 
 // Avvia il server sulla porta configurata
@@ -671,11 +746,21 @@ process.on('SIGINT', () => {
 
 // Global Error Handling to prevent crashes
 process.on('uncaughtException', (error) => {
-  ServerLoggerWrapper.error('FATAL', `Uncaught Exception: ${error.message}`);
-  ServerLoggerWrapper.error('FATAL', error.stack);
-  // Optional: Graceful shutdown or alert
+  CrashReporter.captureException(error, {
+    scope: 'process.uncaughtException',
+    severity: 'fatal',
+    context: {
+      pid: process.pid
+    }
+  });
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  ServerLoggerWrapper.error('FATAL', `Unhandled Rejection at: ${promise}, reason: ${reason}`);
+  CrashReporter.captureUnhandledRejection(reason, {
+    scope: 'process.unhandledRejection',
+    severity: 'fatal',
+    context: {
+      promise: String(promise)
+    }
+  });
 });

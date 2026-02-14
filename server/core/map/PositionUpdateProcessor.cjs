@@ -14,8 +14,9 @@ class PositionUpdateProcessor {
    * @param {Map} positionUpdateQueue - Map di clientId -> Array di aggiornamenti
    * @param {Map} players - Map di clientId -> playerData (per broadcasting)
    * @param {number} serverTick - Authoritative server tick from FixedLoop
+   * @param {string} mapId - Current map id for stale-packet filtering on client
    */
-  static processUpdates(positionUpdateQueue, players, serverTick) {
+  static processUpdates(positionUpdateQueue, players, serverTick, mapId) {
     for (const [clientId, updates] of positionUpdateQueue) {
       if (updates.length === 0) continue;
 
@@ -33,6 +34,7 @@ class PositionUpdateProcessor {
 
       const positionBroadcast = {
         type: 'remote_player_update',
+        mapId,
         // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh]
         // Riduce drasticamente la dimensione del JSON evitando le chiavi per ogni giocatore
         p: [
@@ -53,7 +55,8 @@ class PositionUpdateProcessor {
           Math.round(playerData.shield),
           Math.round(playerData.maxShield)
         ],
-        t: latestUpdate.clientTimestamp || Date.now()
+        // Server timestamp for interpolation (authoritative clock source)
+        t: latestUpdate.timestamp || Date.now()
       };
 
       // SECURITY: Anti-Speed Hack Validation

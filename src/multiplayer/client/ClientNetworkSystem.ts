@@ -424,6 +424,21 @@ export class ClientNetworkSystem extends BaseSystem {
     this.positionUpdatePausedUntil = Date.now() + duration;
   }
 
+  /**
+   * Mette in pausa gli aggiornamenti di posizione finché non vengono riabilitati.
+   * Usato durante la transizione mappa per evitare desync.
+   */
+  public pausePositionUpdatesUntilResume(): void {
+    this.positionUpdatePausedUntil = Number.MAX_SAFE_INTEGER;
+  }
+
+  /**
+   * Riabilita immediatamente gli aggiornamenti di posizione.
+   */
+  public resumePositionUpdates(): void {
+    this.positionUpdatePausedUntil = 0;
+  }
+
   private shouldSendPositionUpdate(currentPosition: { x: number; y: number; rotation: number }): boolean {
     if (!this.lastSentPosition) {
       return true; // Prima volta, invia sempre

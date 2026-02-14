@@ -41,6 +41,7 @@ import { RepairCompleteHandler } from '../handlers/RepairCompleteHandler';
 import { ProjectileBulkUpdateHandler } from '../handlers/ProjectileBulkUpdateHandler';
 import { GlobalMonitorHandler } from '../handlers/GlobalMonitorHandler';
 import { MapChangeHandler } from '../handlers/MapChangeHandler';
+import { MapTransitionStartHandler } from '../handlers/MapTransitionStartHandler';
 import { ErrorMessageHandler } from '../handlers/ErrorMessageHandler';
 import { QuestUpdateHandler } from '../handlers/QuestUpdateHandler';
 
@@ -133,8 +134,10 @@ export class NetworkInitializationManager {
         new RepairCompleteHandler(),
         new GlobalMonitorHandler(),
         new MapChangeHandler(),
+        new MapTransitionStartHandler(),
         new GlobalMonitorHandler(),
         new MapChangeHandler(),
+        new MapTransitionStartHandler(),
         new QuestUpdateHandler(),
         new ErrorMessageHandler()
       );

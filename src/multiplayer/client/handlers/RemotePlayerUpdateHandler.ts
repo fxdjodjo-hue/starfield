@@ -15,6 +15,14 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
+    const currentMapId = networkSystem.gameContext?.currentMapId;
+    const messageMapId = message?.mapId;
+    // Map-strict filter: once currentMapId is known, accept only packets for that map.
+    // This also drops stale packets that do not carry mapId.
+    if (currentMapId && messageMapId !== currentMapId) {
+      return;
+    }
+
     let clientId, position, rotation, tick, nickname, rank, health, maxHealth, shield, maxShield;
 
     if (message.p && Array.isArray(message.p)) {

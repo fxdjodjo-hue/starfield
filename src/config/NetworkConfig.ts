@@ -89,8 +89,8 @@ export const NETWORK_CONFIG = {
 
   // Snapshot interpolation settings (MMO-grade fix for tab-switch acceleration)
   // 150ms provides 3 ticks of buffer at 20Hz. Reduced from 400ms which caused excessive lag.
-  // UPDATE: Reduced to 80ms (1.6 ticks) for snappier response requested by user.
-  INTERPOLATION_DELAY: 80,
+  // UPDATE: Reduced to 50ms (1 tick) for tighter cross-client alignment.
+  INTERPOLATION_DELAY: 50,
   // MAX_SNAPSHOT_BUFFER_SIZE: Max number of snapshots to store per entity.
   // At 20Hz server tick, 20 snapshots = ~1 second of history.
   MAX_SNAPSHOT_BUFFER_SIZE: 20,
@@ -182,6 +182,7 @@ export const MESSAGE_TYPES = {
   // Map messages
   PORTAL_USE: 'portal_use',
   MAP_CHANGE: 'map_change',
+  MAP_TRANSITION_START: 'map_transition_start',
 
   // Quest messages
   QUEST_PROGRESS_UPDATE: 'quest_progress_update',
