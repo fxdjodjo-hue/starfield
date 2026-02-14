@@ -17,6 +17,7 @@
     "playtest:restart": "pm2 restart starfield-playtest",
     "playtest:logs": "pm2 logs starfield-playtest",
     "playtest:status": "pm2 status",
+    "smoke:test": "node tools/smoke-test.cjs",
     "electron:dev": "electron .",
     "electron:build": "npm run build && electron-builder",
     "test": "vitest",
