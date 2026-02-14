@@ -8,7 +8,6 @@ import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
 import { ActiveQuest } from '../../../entities/quest/ActiveQuest';
 import { Inventory } from '../../../entities/player/Inventory';
-import { getPlayerDefinition } from '../../../config/PlayerConfig';
 
 /**
  * Handles player data response messages from the server
@@ -101,8 +100,8 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     // SINCRONIZZA IL RUOLO DEL PLAYER (Server Authoritative)
     // 🔧 FIX: Also check pendingAdministrator from GameContext (from welcome message)
     const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
-    if (playerEntity && networkSystem.getECS()) {
-      const ecs = networkSystem.getECS();
+    const ecs = networkSystem.getECS();
+    if (playerEntity && ecs) {
       const playerRole = ecs?.getComponent(playerEntity, PlayerRole);
       if (playerRole) {
         // Use message.isAdministrator if available, otherwise check pending from GameContext
@@ -122,10 +121,8 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
 
     // SINCRONIZZA GLI UPGRADE DEL PLAYER CON IL COMPONENTE ECS (Server Authoritative)
     if (networkSystem.getPlayerSystem() && message.upgrades) {
-      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
-      if (playerEntity && networkSystem.getECS()) {
-        const ecs = networkSystem.getECS();
-        const playerUpgrades = ecs?.getComponent(playerEntity, PlayerUpgrades);
+      if (playerEntity && ecs) {
+        const playerUpgrades = ecs.getComponent(playerEntity, PlayerUpgrades);
 
         if (playerUpgrades) {
           // Sincronizza gli upgrade ricevuti dal server con il componente ECS
@@ -136,37 +133,14 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
             message.upgrades.damageUpgrades || 0,
             message.upgrades.missileDamageUpgrades || 0
           );
-
-          // APPLICA GLI UPGRADE AI VALORI ATTUALI DI HP E SHIELD
-          const playerDef = getPlayerDefinition();
-
-          // Aggiorna Health component con upgrade applicati
-          const healthComponent = ecs?.getComponent(playerEntity, Health);
-          if (healthComponent) {
-            const newMaxHP = Math.floor(playerDef.stats.health * playerUpgrades.getHPBonus());
-            const currentHPPercent = healthComponent.current / healthComponent.max;
-            healthComponent.max = newMaxHP;
-            healthComponent.current = Math.floor(newMaxHP * currentHPPercent);
-          }
-
-          // Aggiorna Shield component con upgrade applicati
-          const shieldComponent = ecs?.getComponent(playerEntity, Shield);
-          if (shieldComponent && playerDef.stats.shield) {
-            const newMaxShield = Math.floor(playerDef.stats.shield * playerUpgrades.getShieldBonus());
-            const currentShieldPercent = shieldComponent.current / shieldComponent.max;
-            shieldComponent.max = newMaxShield;
-            shieldComponent.current = Math.floor(newMaxShield * currentShieldPercent);
-          }
         }
       }
     }
 
     // SINCRONIZZA L'INVENTARIO ITEMS (Server Authoritative)
     if (networkSystem.getPlayerSystem() && (message as any).items) {
-      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
-      if (playerEntity && networkSystem.getECS()) {
-        const ecs = networkSystem.getECS();
-        const inventoryComponent = ecs?.getComponent(playerEntity, Inventory);
+      if (playerEntity && ecs) {
+        const inventoryComponent = ecs.getComponent(playerEntity, Inventory);
 
         if (inventoryComponent) {
           inventoryComponent.sync((message as any).items);
@@ -175,6 +149,41 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
           // Refresh stats to apply item bonuses
           networkSystem.getPlayerSystem()?.refreshPlayerStats();
         }
+      }
+    }
+
+    // Applica SEMPRE i vitals server-authoritative se presenti nel payload.
+    // Questo evita che eventuali ricalcoli locali lascino HP/SHD "stale" dopo il login.
+    const hasAuthoritativeVitals =
+      typeof message.health === 'number' &&
+      typeof message.maxHealth === 'number' &&
+      typeof message.shield === 'number' &&
+      typeof message.maxShield === 'number';
+
+    if (hasAuthoritativeVitals && playerEntity && ecs) {
+      const health = message.health as number;
+      const maxHealth = message.maxHealth as number;
+      const shield = message.shield as number;
+      const maxShield = message.maxShield as number;
+
+      const healthComponent = ecs.getComponent(playerEntity, Health);
+      if (healthComponent) {
+        healthComponent.current = health;
+        healthComponent.max = maxHealth;
+      }
+
+      const shieldComponent = ecs.getComponent(playerEntity, Shield);
+      if (shieldComponent) {
+        shieldComponent.current = shield;
+        shieldComponent.max = maxShield;
+      }
+
+      // Refresh immediato HUD HP/SHD senza aspettare il prossimo tick.
+      const playerStatusSystem = ecs
+        .getSystems()
+        .find((s: any) => s.constructor.name === 'PlayerStatusDisplaySystem') as any;
+      if (playerStatusSystem && typeof playerStatusSystem.updateDisplay === 'function') {
+        playerStatusSystem.updateDisplay();
       }
     }
 

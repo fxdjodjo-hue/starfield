@@ -554,6 +554,10 @@ export interface PlayerDataResponseMessage extends BaseMessage {
     damageUpgrades: number;
     missileDamageUpgrades: number;
   };
+  health?: number;
+  maxHealth?: number;
+  shield?: number;
+  maxShield?: number;
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
   isAdministrator?: boolean; // Admin status
   rank?: string;

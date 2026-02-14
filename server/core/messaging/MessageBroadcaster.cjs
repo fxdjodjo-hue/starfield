@@ -199,19 +199,27 @@ class MessageBroadcaster {
    * @param {Object} inventory - Inventory data
    * @param {Object} upgrades - Upgrades data
    * @param {Array} quests - Quests array
+   * @param {number} health - Current health
+   * @param {number} maxHealth - Max health
+   * @param {number} shield - Current shield
+   * @param {number} maxShield - Max shield
    * @param {number} recentHonor - Recent honor value
    * @param {boolean} isAdministrator - Admin status
    * @param {string} rank - Player rank name
    * @param {Array} items - Inventory items array
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = []) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, health, maxHealth, shield, maxShield, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = []) {
     return {
       type: 'player_data_response',
       playerId: playerId,
       inventory: inventory,
       upgrades: upgrades,
       quests: quests || [],
+      health: health,
+      maxHealth: maxHealth,
+      shield: shield,
+      maxShield: maxShield,
       items: items || [],
       recentHonor: recentHonor,
       isAdministrator: isAdministrator,
