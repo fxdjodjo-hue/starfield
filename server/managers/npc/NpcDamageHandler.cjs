@@ -6,6 +6,10 @@ const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
 const { NPC_CONFIG, SERVER_CONSTANTS } = require('../../config/constants.cjs');
 
+function buildKillOpId(npcId, attackerId) {
+  return `${npcId}:${Date.now()}:${attackerId || 'unknown'}`;
+}
+
 class NpcDamageHandler {
   constructor(mapServer, npcs, respawnSystem, rewardSystem) {
     this.mapServer = mapServer;
@@ -24,6 +28,7 @@ class NpcDamageHandler {
   damageNpc(npcId, damage, attackerId) {
     const npc = this.npcs.get(npcId);
     if (!npc) return false;
+    if (npc.deathEmitted === true) return true;
 
     const rawDamage = damage;
     let shieldAbsorbed = 0;
@@ -56,13 +61,19 @@ class NpcDamageHandler {
 
     // Se morto, rimuovi l'NPC e assegna ricompense
     if (npc.health <= 0) {
+      if (npc.deathEmitted === true) {
+        return true;
+      }
+      npc.deathEmitted = true;
+
       // Calcola player eleggibili alla ricompensa (combat attivo + vivi + in range)
       const eligiblePlayers = this.getEligibleRewardPlayers(npc);
       const recipients = (eligiblePlayers.length > 0)
         ? eligiblePlayers
         : (this.mapServer.players?.has(attackerId) ? [attackerId] : []);
+      const killOpId = buildKillOpId(npc.id, attackerId);
 
-      // 🚀 IMMEDIATE REMOVAL BROADCAST: Comunica subito la morte a tutti i client
+      // IMMEDIATE REMOVAL BROADCAST: comunica subito la morte a tutti i client
       // Questo previene l'effetto "fermo per qualche secondo" (ghost corpse)
       const rewards = NPC_CONFIG[npc.type]?.rewards;
       if (this.mapServer.projectileManager && this.mapServer.projectileManager.broadcaster) {
@@ -72,6 +83,7 @@ class NpcDamageHandler {
           'npc',
           rewards,
           {
+            killOpId,
             sharedRewards: recipients.length > 1,
             rewardRecipients: recipients.length,
             rewardPolicy: 'eligible_combatants'
@@ -82,7 +94,11 @@ class NpcDamageHandler {
       this.removeNpc(npcId);
 
       for (const playerId of recipients) {
-        this.rewardSystem.awardNpcKillRewards(playerId, npc.type);
+        this.rewardSystem.awardNpcKillRewards(playerId, npc.type, {
+          killOpId,
+          npcId: npc.id,
+          attackerId
+        });
       }
 
       return true; // NPC morto

@@ -4,7 +4,48 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
+const CrashReporter = require('../../core/infrastructure/CrashReporter.cjs');
 const { NPC_CONFIG } = require('../../config/constants.cjs');
+
+function toNonNegativeNumber(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric < 0) return 0;
+  return numeric;
+}
+
+const RECENT_KILL_OPS_LIMIT = Number(process.env.KILL_OP_DEDUPE_BUFFER_SIZE || 300);
+
+function ensureKillOpsState(playerData) {
+  if (!playerData._recentKillOps || !Array.isArray(playerData._recentKillOps.order)) {
+    playerData._recentKillOps = {
+      order: [],
+      seen: Object.create(null)
+    };
+  }
+  return playerData._recentKillOps;
+}
+
+function hasKillOp(playerData, killOpId) {
+  if (!killOpId) return false;
+  const state = ensureKillOpsState(playerData);
+  return state.seen[killOpId] === true;
+}
+
+function rememberKillOp(playerData, killOpId) {
+  if (!killOpId) return;
+  const state = ensureKillOpsState(playerData);
+  if (state.seen[killOpId] === true) return;
+
+  state.order.push(killOpId);
+  state.seen[killOpId] = true;
+
+  while (state.order.length > RECENT_KILL_OPS_LIMIT) {
+    const oldest = state.order.shift();
+    if (oldest) {
+      delete state.seen[oldest];
+    }
+  }
+}
 
 class NpcRewardSystem {
   constructor(mapServer) {
@@ -15,8 +56,9 @@ class NpcRewardSystem {
    * Assegna ricompense al giocatore che ha ucciso un NPC
    * @param {string} playerId - ID del player
    * @param {string} npcType - Tipo di NPC ucciso
+   * @param {Object} options - metadata evento kill
    */
-  awardNpcKillRewards(playerId, npcType) {
+  awardNpcKillRewards(playerId, npcType, options = {}) {
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData) {
       logger.warn('REWARDS', `Cannot award rewards to unknown player: ${playerId}`);
@@ -29,6 +71,29 @@ class NpcRewardSystem {
       return;
     }
 
+    const rewardFields = ['credits', 'cosmos', 'experience', 'honor'];
+    for (const field of rewardFields) {
+      const value = Number(rewards[field] || 0);
+      if (!Number.isFinite(value) || value < 0) {
+        ServerLoggerWrapper.error('REWARDS', `Invalid reward field ${field}=${rewards[field]} for npcType=${npcType}`);
+        return;
+      }
+    }
+
+    const killOpId = options.killOpId || `${playerId}:${npcType}:${Date.now()}`;
+    const npcId = options.npcId || null;
+
+    if (hasKillOp(playerData, killOpId)) {
+      ServerLoggerWrapper.warn('REWARDS', `Duplicate kill reward suppressed for player=${playerId} killOpId=${killOpId}`);
+      CrashReporter.recordEventForClient(playerId, 'loot_duplicate_suppressed', {
+        killOpId,
+        npcId,
+        npcType
+      });
+      return;
+    }
+    rememberKillOp(playerData, killOpId);
+
     // Aggiungi ricompense all'inventario del giocatore (assicurati che siano numeri)
     playerData.inventory.credits = Number(playerData.inventory.credits || 0) + (rewards.credits || 0);
     playerData.inventory.cosmos = Number(playerData.inventory.cosmos || 0) + (rewards.cosmos || 0);
@@ -38,6 +103,12 @@ class NpcRewardSystem {
     const oldHonor = Number(playerData.inventory.honor || 0);
     const newHonor = oldHonor + (rewards.honor || 0);
     playerData.inventory.honor = newHonor;
+
+    // Hardening transazioni: mai lasciare currency invalide o negative.
+    playerData.inventory.credits = toNonNegativeNumber(playerData.inventory.credits);
+    playerData.inventory.cosmos = toNonNegativeNumber(playerData.inventory.cosmos);
+    playerData.inventory.experience = toNonNegativeNumber(playerData.inventory.experience);
+    playerData.inventory.honor = toNonNegativeNumber(playerData.inventory.honor);
 
     // Salva snapshot honor se è cambiato (non bloccante)
     if (rewards.honor && rewards.honor !== 0) {
@@ -115,7 +186,7 @@ class NpcRewardSystem {
     // Persist changes immediately to prevent data loss (items, currencies)
     const websocketManager = this.mapServer.websocketManager;
     if (websocketManager && typeof websocketManager.savePlayerData === 'function') {
-      websocketManager.savePlayerData(playerData).catch(err => {
+      websocketManager.savePlayerData(playerData, { reason: `npc_reward:${killOpId}` }).catch(err => {
         ServerLoggerWrapper.error('REWARDS', `Immediate save failed for ${playerId}: ${err.message}`);
       });
     }
@@ -125,11 +196,29 @@ class NpcRewardSystem {
     // Invia notifica delle ricompense al client
     const finalRewards = {
       ...rewards,
-      droppedItems: droppedItems
+      droppedItems: droppedItems,
+      killOpId,
+      npcId
     };
 
+    CrashReporter.recordEventForClient(playerId, 'loot', {
+      killOpId,
+      npcId,
+      npcType,
+      rewards: {
+        credits: rewards.credits || 0,
+        cosmos: rewards.cosmos || 0,
+        experience: rewards.experience || 0,
+        honor: rewards.honor || 0
+      },
+      droppedItems: droppedItems.map(item => item.id)
+    });
+
     // Invia notifica delle ricompense al client
-    this.sendRewardsNotification(playerId, finalRewards, npcType);
+    this.sendRewardsNotification(playerId, finalRewards, npcType, {
+      killOpId,
+      npcId
+    });
 
     // QUEST HOOK: Notify QuestManager about the kill
     if (this.mapServer.questManager) {
@@ -144,8 +233,9 @@ class NpcRewardSystem {
    * @param {string} playerId - ID del player
    * @param {Object} rewards - Oggetto ricompense
    * @param {string} npcType - Tipo di NPC ucciso
+   * @param {Object} metadata - metadata idempotenza reward
    */
-  sendRewardsNotification(playerId, rewards, npcType) {
+  sendRewardsNotification(playerId, rewards, npcType, metadata = {}) {
     const playerData = this.mapServer.players.get(playerId);
     if (!playerData || playerData.ws.readyState !== 1) return; // WebSocket.OPEN = 1
 
@@ -172,7 +262,9 @@ class NpcRewardSystem {
       source: `killed_${npcType}`,
       rewardsEarned: {
         ...rewards,
-        npcType: npcType
+        npcType: npcType,
+        killOpId: metadata.killOpId || rewards.killOpId || null,
+        npcId: metadata.npcId || rewards.npcId || null
       }
     };
 

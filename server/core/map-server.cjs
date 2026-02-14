@@ -126,7 +126,7 @@ class MapServer {
       MapBroadcaster.broadcastNpcUpdates(this.players, currentNpcs);
 
       // 5. Processa aggiornamenti posizione giocatori (20Hz per massima fluidità)
-      PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
+      PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter, this.mapId);
 
       // 6. Processa riparazioni
       if (this.repairManager) {
@@ -162,7 +162,7 @@ class MapServer {
 
   // Processa aggiornamenti posizione giocatori (delegato a PositionUpdateProcessor)
   processPositionUpdates() {
-    PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players);
+    PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter || 0, this.mapId);
   }
 
   // Movimento player server-authoritative (usa input velocity dal client)
@@ -205,7 +205,7 @@ class MapServer {
       let vy = 0;
       let rotation = playerData.position.rotation ?? playerData.rotation ?? 0;
 
-      if (input && !inputStale && !playerData.isMigrating) {
+      if (input && !inputStale) {
         vx = Number.isFinite(input.vx) ? input.vx : 0;
         vy = Number.isFinite(input.vy) ? input.vy : 0;
         if (Number.isFinite(input.rotation)) {
@@ -293,9 +293,9 @@ class MapServer {
 
     // Hook ricompense NPC
     const originalAwardRewards = this.npcManager.rewardSystem.awardNpcKillRewards;
-    this.npcManager.rewardSystem.awardNpcKillRewards = (playerId, npcType) => {
-      const result = originalAwardRewards.call(this.npcManager.rewardSystem, playerId, npcType);
-      this.globalMonitor.addCriticalEvent('NPC_KILL_REWARD', { playerId, npcType });
+    this.npcManager.rewardSystem.awardNpcKillRewards = (playerId, npcType, options = {}) => {
+      const result = originalAwardRewards.call(this.npcManager.rewardSystem, playerId, npcType, options);
+      this.globalMonitor.addCriticalEvent('NPC_KILL_REWARD', { playerId, npcType, killOpId: options.killOpId || null });
       return result;
     };
   }
