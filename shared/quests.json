@@ -357,7 +357,7 @@
       }
     ],
     "levelRequirement": 25,
-    "repeatable": true
+    "repeatable": false
   },
   "kill_guard_4": {
     "id": "kill_guard_4",
@@ -415,7 +415,7 @@
       }
     ],
     "levelRequirement": 35,
-    "repeatable": true
+    "repeatable": false
   },
   "kill_pyramid_3": {
     "id": "kill_pyramid_3",
@@ -484,7 +484,7 @@
       }
     ],
     "levelRequirement": 45,
-    "repeatable": true
+    "repeatable": false
   },
   "kill_kronos_2": {
     "id": "kill_kronos_2",
@@ -557,7 +557,7 @@
       }
     ],
     "levelRequirement": 40,
-    "repeatable": true
+    "repeatable": false
   },
   "kill_operation_1": {
     "id": "kill_operation_1",
