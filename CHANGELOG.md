@@ -1,3 +1,30 @@
+# Changelog Starfield - Versione 0.3.0 🚀
+
+## ⚔️ Combattimento e NPC
+- I laser ora colpiscono solo il bersaglio selezionato e non più i giocatori che si trovano sulla traiettoria.
+- Gli NPC ora attaccano solo il giocatore che li sta combattendo, senza cambiare bersaglio a caso.
+- Quando più giocatori attaccano lo stesso NPC, tutti quelli che lo stanno combattendo ricevono la ricompensa.
+- Risolto un raro bug che poteva assegnare ricompense doppie alla morte di un NPC.
+
+## 🌀 Portali e Teletrasporto
+- Il movimento degli altri giocatori dopo un portale è ora immediato (prima potevano sembrare bloccati per diversi secondi).
+- Risolto un problema che causava il desync della posizione dei giocatori dopo il teletrasporto.
+
+## 🎮 Movimento e Sincronizzazione
+- Movimento degli altri giocatori molto più fluido e preciso grazie a un nuovo sistema di interpolazione avanzato.
+- Ridotto il lag visivo sui movimenti degli altri giocatori durante picchi di latenza.
+
+## 🛡️ Interfaccia
+- Fixato errore che impediva di vedere HP e Shield corretti al login.
+- Aggiunta rotazione orizzontale della nave nel pannello equipaggiamento.
+- Migliorata la gestione degli oggetti duplicati nell'inventario.
+
+## 🌍 Mondo
+- Aumentato il numero di NPC nelle mappe del 40%, universo più popolato e vivo.
+- Disattivate le quest di uccisione di alto livello ripetibili per bilanciare l'economia.
+
+---
+
 # Changelog Starfield - Versione 0.2.9
 
 ## Fix
