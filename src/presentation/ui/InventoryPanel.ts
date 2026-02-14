@@ -17,6 +17,11 @@ import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
  * Layout a tre colonne: Stats, Ship Visualization, Cargo
  */
 export class InventoryPanel extends BasePanel {
+  private static readonly SHIP_FRAME_COUNT = 72;
+  private static readonly SHIP_FRAME_SPACING = 191;
+  private static readonly SHIP_FRAME_OFFSET = 2;
+  private static readonly SHIP_DRAG_PIXELS_PER_TURN = 220;
+
   private ecs!: ECS;
   private playerSystem: PlayerSystem | null = null;
   private statsElements!: { [key: string]: HTMLElement };
@@ -28,6 +33,10 @@ export class InventoryPanel extends BasePanel {
   private networkSystem: any = null;
   private activePopup: HTMLElement | null = null;
   private lastInventoryHash: string = '';
+  private isShipDragging: boolean = false;
+  private shipDragPointerId: number | null = null;
+  private shipDragStartFrame: number = 0;
+  private shipDragStartClientX: number = 0;
 
   constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
     super(config);
@@ -315,8 +324,12 @@ export class InventoryPanel extends BasePanel {
       background-position: -2px -2px;
       background-repeat: no-repeat;
       image-rendering: pixelated;
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
     `;
     this.shipVisual = shipDisplay;
+    this.bindShipDragControls(shipDisplay);
     shipContainer.appendChild(shipDisplay);
 
     // Equipment Slots
@@ -691,22 +704,16 @@ export class InventoryPanel extends BasePanel {
       }
 
       if (!this.isVisible) return;
+      if (this.isShipDragging) return;
 
       // Senso orario: decrementiamo il frame
       if (this.currentFrame <= 0) {
-        this.currentFrame = 71;
+        this.currentFrame = InventoryPanel.SHIP_FRAME_COUNT - 1;
       } else {
         this.currentFrame--;
       }
 
-      const row = Math.floor(this.currentFrame / 10);
-      const col = this.currentFrame % 10;
-      const spacing = 191;
-
-      const posX = -(col * spacing + 2);
-      const posY = -(row * spacing + 2);
-
-      this.shipVisual.style.backgroundPosition = `${posX}px ${posY}px`;
+      this.renderShipFrame(this.currentFrame);
 
       // Aggiorna dati ogni 10 step
       if (this.currentFrame % 10 === 0) {
@@ -741,11 +748,92 @@ export class InventoryPanel extends BasePanel {
   }
 
   protected onHide(): void {
+    this.cancelShipDrag();
     this.stopShipAnimation();
     if (this.activePopup) {
       this.activePopup.remove();
       this.activePopup = null;
     }
+  }
+
+  private bindShipDragControls(shipDisplay: HTMLElement): void {
+    shipDisplay.addEventListener('pointerdown', (event) => this.handleShipPointerDown(event));
+    shipDisplay.addEventListener('pointermove', (event) => this.handleShipPointerMove(event));
+    shipDisplay.addEventListener('pointerup', (event) => this.handleShipPointerUp(event));
+    shipDisplay.addEventListener('pointercancel', (event) => this.handleShipPointerUp(event));
+    shipDisplay.addEventListener('lostpointercapture', () => this.cancelShipDrag());
+  }
+
+  private handleShipPointerDown(event: PointerEvent): void {
+    if (event.button !== 0 || !this.shipVisual) return;
+
+    event.preventDefault();
+
+    this.isShipDragging = true;
+    this.shipDragPointerId = event.pointerId;
+    this.shipDragStartFrame = this.normalizeShipFrame(this.currentFrame >= 0 ? this.currentFrame : 0);
+    this.shipDragStartClientX = event.clientX;
+    this.shipVisual.style.cursor = 'grabbing';
+
+    this.renderShipFrame(this.shipDragStartFrame);
+    this.shipVisual.setPointerCapture(event.pointerId);
+  }
+
+  private handleShipPointerMove(event: PointerEvent): void {
+    if (!this.isShipDragging || event.pointerId !== this.shipDragPointerId) return;
+
+    event.preventDefault();
+
+    const deltaX = event.clientX - this.shipDragStartClientX;
+    const frameDelta = Math.round((deltaX / InventoryPanel.SHIP_DRAG_PIXELS_PER_TURN) * InventoryPanel.SHIP_FRAME_COUNT);
+    const frame = this.normalizeShipFrame(this.shipDragStartFrame + frameDelta);
+
+    if (frame !== this.currentFrame) {
+      this.renderShipFrame(frame);
+    }
+  }
+
+  private handleShipPointerUp(event: PointerEvent): void {
+    if (!this.isShipDragging || event.pointerId !== this.shipDragPointerId) return;
+    event.preventDefault();
+    this.cancelShipDrag();
+  }
+
+  private cancelShipDrag(): void {
+    if (!this.isShipDragging) return;
+
+    if (this.shipVisual && this.shipDragPointerId !== null) {
+      try {
+        if (this.shipVisual.hasPointerCapture(this.shipDragPointerId)) {
+          this.shipVisual.releasePointerCapture(this.shipDragPointerId);
+        }
+      } catch (error) {
+        // no-op: pointer may already be released
+      }
+      this.shipVisual.style.cursor = 'grab';
+    }
+
+    this.isShipDragging = false;
+    this.shipDragPointerId = null;
+    this.shipDragStartClientX = 0;
+  }
+
+  private normalizeShipFrame(frame: number): number {
+    const normalized = frame % InventoryPanel.SHIP_FRAME_COUNT;
+    return normalized < 0 ? normalized + InventoryPanel.SHIP_FRAME_COUNT : normalized;
+  }
+
+  private renderShipFrame(frame: number): void {
+    if (!this.shipVisual) return;
+
+    this.currentFrame = this.normalizeShipFrame(frame);
+
+    const row = Math.floor(this.currentFrame / 10);
+    const col = this.currentFrame % 10;
+    const posX = -(col * InventoryPanel.SHIP_FRAME_SPACING + InventoryPanel.SHIP_FRAME_OFFSET);
+    const posY = -(row * InventoryPanel.SHIP_FRAME_SPACING + InventoryPanel.SHIP_FRAME_OFFSET);
+
+    this.shipVisual.style.backgroundPosition = `${posX}px ${posY}px`;
   }
 
   private showItemDetails(item: any, instanceId: string, isEquipped: boolean, inventory: Inventory): void {
