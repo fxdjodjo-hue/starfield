@@ -118,7 +118,8 @@ export class RemoteNpcSystem extends BaseSystem {
       const existingNpcData = this.remoteNpcs.get(npcId)!;
       console.warn(`[RemoteNpcSystem] Duplicate NPC creation attempt for ${npcId} (${type}) - updating existing entity ${existingNpcData.entityId} instead`);
 
-      this.updateRemoteNpc(npcId, { x, y, rotation: 0 }, health, shield, behavior, timestamp);
+      // Preserve server rotation when a duplicate create arrives (common during re-sync bursts).
+      this.updateRemoteNpc(npcId, { x, y, rotation }, health, shield, behavior, timestamp);
 
       // Aggiorna anche il lastSeen per prevenire rimozione ghost
       const data = this.remoteNpcs.get(npcId);
@@ -206,7 +207,7 @@ export class RemoteNpcSystem extends BaseSystem {
       update.position = {
         x: position.x,
         y: position.y,
-        rotation: position.rotation || 0
+        rotation: Number.isFinite(position.rotation) ? position.rotation : 0
       };
     }
 
@@ -225,7 +226,7 @@ export class RemoteNpcSystem extends BaseSystem {
     }
 
     if (behavior) {
-      update.behavior = behavior;
+      update.behavior = { behavior };
     }
 
     // Usa EntityStateSystem per aggiornare lo stato
@@ -262,7 +263,7 @@ export class RemoteNpcSystem extends BaseSystem {
         const [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behaviorChar] = update;
 
         let behavior = 'cruise';
-        if (behaviorChar === 'a') behavior = 'attack';
+        if (behaviorChar === 'a') behavior = 'aggressive';
         else if (behaviorChar === 'f') behavior = 'flee';
         else if (behaviorChar === 'p') behavior = 'patrol';
         else if (behaviorChar === 'g') behavior = 'guard';
@@ -310,7 +311,7 @@ export class RemoteNpcSystem extends BaseSystem {
         const [id, type, x, y, rotation, hp, maxHp, sh, maxSh, behaviorChar] = npcData;
 
         let behavior = 'cruise';
-        if (behaviorChar === 'a') behavior = 'attack';
+        if (behaviorChar === 'a') behavior = 'aggressive';
         else if (behaviorChar === 'f') behavior = 'flee';
         else if (behaviorChar === 'p') behavior = 'patrol';
         else if (behaviorChar === 'g') behavior = 'guard';

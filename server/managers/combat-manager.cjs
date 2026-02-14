@@ -6,6 +6,7 @@ const ServerLoggerWrapper = require('../core/infrastructure/ServerLoggerWrapper.
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('../config/constants.cjs');
 const DamageCalculationSystem = require('../core/combat/DamageCalculationSystem.cjs');
 const PLAYER_CONFIG = require('../../shared/player-config.json');
+const { getEffectivePlayerPosition } = require('../core/map/PlayerPositionResolver.cjs');
 
 class ServerCombatManager {
   constructor(mapServer) {
@@ -32,6 +33,33 @@ class ServerCombatManager {
       }
     }
     return false;
+  }
+
+  /**
+   * Lock target ownership when combat starts so NPC reacts immediately.
+   * Keeps an existing lock if another player already owns this NPC.
+   */
+  lockNpcTargetOnCombatStart(npc, playerId, now) {
+    if (!npc || !npc.position) return;
+
+    const existingOwner = npc.lastAttackerId ? String(npc.lastAttackerId) : null;
+    if (existingOwner && existingOwner !== playerId) {
+      return;
+    }
+
+    const playerData = this.mapServer.players.get(playerId);
+    if (!playerData || !playerData.position) return;
+
+    npc.lastAttackerId = playerId;
+    npc.lastDamage = now;
+    npc.behavior = 'aggressive';
+
+    const targetPos = getEffectivePlayerPosition(playerData, now) || playerData.position;
+    const dx = targetPos.x - npc.position.x;
+    const dy = targetPos.y - npc.position.y;
+    if (Number.isFinite(dx) && Number.isFinite(dy) && (dx !== 0 || dy !== 0)) {
+      npc.position.rotation = Math.atan2(dy, dx);
+    }
   }
 
   // Pattern ritmico come moltiplicatori rispetto al cooldown base
@@ -63,15 +91,17 @@ class ServerCombatManager {
    * @param {object} context - Context con connessione WebSocket per errori
    */
   startPlayerCombat(playerId, npcId, context = null) {
+    const combatPlayerId = String(playerId);
+
     // 🚫 BLOCCA combat senza target valido
     if (!npcId) {
-      ServerLoggerWrapper.warn('COMBAT', `Player ${playerId} tried to start combat with null/invalid npcId`);
+      ServerLoggerWrapper.warn('COMBAT', `Player ${combatPlayerId} tried to start combat with null/invalid npcId`);
       return; // Non creare il combat
     }
 
     // 🔒 SECURITY: Anti-spam - previene spam di start_combat per bypassare cooldown
     const now = Date.now();
-    const lastCombatStart = this.combatStartCooldowns.get(playerId) || 0;
+    const lastCombatStart = this.combatStartCooldowns.get(combatPlayerId) || 0;
     const minTimeBetweenStarts = 500; // 500ms tra avvii combattimento
 
     if (now - lastCombatStart < minTimeBetweenStarts) {
@@ -82,7 +112,7 @@ class ServerCombatManager {
     // ✅ Verifica sempre che l'NPC esista prima di creare qualsiasi combat
     const existingNpc = this.mapServer.npcManager.getNpc(npcId);
     if (!existingNpc) {
-      ServerLoggerWrapper.warn('COMBAT', `Player ${playerId} tried to start combat with non-existing NPC ${npcId}`);
+      ServerLoggerWrapper.warn('COMBAT', `Player ${combatPlayerId} tried to start combat with non-existing NPC ${npcId}`);
       return;
     }
 
@@ -101,12 +131,13 @@ class ServerCombatManager {
     }
     */
 
-    ServerLoggerWrapper.combat(`Start combat: ${playerId} vs ${npcId}`);
+    this.lockNpcTargetOnCombatStart(existingNpc, combatPlayerId, now);
+    ServerLoggerWrapper.combat(`Start combat: ${combatPlayerId} vs ${npcId}`);
 
     // 🚫 COMBAT SESSION SECURITY: Un solo combattimento attivo per player alla volta
-    if (this.playerCombats.has(playerId)) {
-      const existingCombat = this.playerCombats.get(playerId);
-      ServerLoggerWrapper.combat(`🚫 BLOCKED: Player ${playerId} attempted multiple combat sessions. Active session: ${existingCombat.sessionId}, attempted vs ${npcId}`);
+    if (this.playerCombats.has(combatPlayerId)) {
+      const existingCombat = this.playerCombats.get(combatPlayerId);
+      ServerLoggerWrapper.combat(`🚫 BLOCKED: Player ${combatPlayerId} attempted multiple combat sessions. Active session: ${existingCombat.sessionId}, attempted vs ${npcId}`);
 
       // Invia messaggio di errore al client
       if (context && context.ws) {
@@ -122,7 +153,7 @@ class ServerCombatManager {
     }
 
     // Registra il timestamp dell'avvio combattimento
-    this.combatStartCooldowns.set(playerId, now);
+    this.combatStartCooldowns.set(combatPlayerId, now);
 
     // Ottieni cooldown dalla configurazione player (coerente con client)
     const attackCooldown = PLAYER_CONFIG.stats.cooldown;
@@ -131,31 +162,34 @@ class ServerCombatManager {
     const sessionId = `combat_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
     // Imposta combattimento attivo con session ID
-    this.playerCombats.set(playerId, {
+    this.playerCombats.set(combatPlayerId, {
       sessionId: sessionId,
       npcId: npcId,
       lastAttackTime: 0,
       lastMissileTime: Date.now(), // NEW: Start cooldown immediately to prevent instant fire
       attackCooldown: attackCooldown,
-      combatStartTime: Date.now() // Timestamp di inizio combattimento
+      combatStartTime: Date.now(), // Timestamp di inizio combattimento
+      outOfRangeSince: 0
     });
 
-    ServerLoggerWrapper.combat(`Combat session started: ${sessionId} for player ${playerId} vs ${npcId}`);
+    ServerLoggerWrapper.combat(`Combat session started: ${sessionId} for player ${combatPlayerId} vs ${npcId}`);
   }
 
   /**
    * Ferma combattimento player
    */
   stopPlayerCombat(playerId) {
-    if (this.playerCombats.has(playerId)) {
-      this.playerCombats.delete(playerId);
+    const combatPlayerId = String(playerId);
 
-      // ✅ FIX: Rimuovi anche l'entry dai cooldown temporanei per evitare spam
-      this.combatStartCooldowns.delete(playerId);
+    if (this.playerCombats.has(combatPlayerId)) {
+      this.playerCombats.delete(combatPlayerId);
 
-      // Notifica repair manager che il combattimento è terminato
+      // Remove temporary cooldown entry to avoid start/stop spam buildup
+      this.combatStartCooldowns.delete(combatPlayerId);
+
+      // Notify repair manager that combat ended
       if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
-        this.mapServer.repairManager.onCombatEnded(playerId);
+        this.mapServer.repairManager.onCombatEnded(combatPlayerId);
       }
     }
   }
@@ -227,10 +261,12 @@ class ServerCombatManager {
       return;
     }
 
+    const effectivePlayerPos = getEffectivePlayerPosition(playerData, now) || playerData.position;
+    const effectivePx = effectivePlayerPos.x;
+    const effectivePy = effectivePlayerPos.y;
+
     // Validazione posizione player
-    const px = playerData.position.x;
-    const py = playerData.position.y;
-    if (!Number.isFinite(px) || !Number.isFinite(py)) {
+    if (!Number.isFinite(effectivePx) || !Number.isFinite(effectivePy)) {
       return;
     }
 
@@ -238,17 +274,34 @@ class ServerCombatManager {
     const rangeWidth = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_WIDTH;
     const rangeHeight = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_HEIGHT;
 
-    const dx = Math.abs(px - npc.position.x);
-    const dy = Math.abs(py - npc.position.y);
+    const serverDx = Math.abs(playerData.position.x - npc.position.x);
+    const serverDy = Math.abs(playerData.position.y - npc.position.y);
+    const effectiveDx = Math.abs(effectivePx - npc.position.x);
+    const effectiveDy = Math.abs(effectivePy - npc.position.y);
+    const inRange = effectiveDx <= rangeWidth / 2 && effectiveDy <= rangeHeight / 2;
 
-    // Controllo range rigoroso rettangolare: ferma combattimento se fuori dal rettangolo
-    // I proiettili già sparati continueranno il loro volo, ma non verranno sparati altri
-    if (dx > rangeWidth / 2 || dy > rangeHeight / 2) {
+    if (!inRange) {
+      // Grace window per evitare stop/start oscillanti dovuti a jitter di sincronizzazione.
+      if (!combat.outOfRangeSince) {
+        combat.outOfRangeSince = now;
+      }
+
+      const OUT_OF_RANGE_GRACE_MS = 1200;
+      if (now - combat.outOfRangeSince < OUT_OF_RANGE_GRACE_MS) {
+        return;
+      }
+
       this.playerCombats.delete(playerId);
 
       // Notifica repair manager che il combattimento è terminato
       if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
         this.mapServer.repairManager.onCombatEnded(playerId);
+      }
+
+      if (process.env.DEBUG_COMBAT === 'true') {
+        ServerLoggerWrapper.combat(
+          `STOP_COMBAT out_of_range player=${playerId} npc=${npc.id} source=${effectivePlayerPos.source || 'server'} serverDx=${Math.round(serverDx)} serverDy=${Math.round(serverDy)} effectiveDx=${Math.round(effectiveDx)} effectiveDy=${Math.round(effectiveDy)}`
+        );
       }
 
       // Notifica il client che il combattimento è stato fermato automaticamente per range
@@ -261,6 +314,11 @@ class ServerCombatManager {
 
       return;
     }
+
+    combat.outOfRangeSince = 0;
+
+    const dx = Math.abs(effectivePx - npc.position.x);
+    const dy = Math.abs(effectivePy - npc.position.y);
 
     // 🔒 SECURITY: Cooldown fisso dal PLAYER_CONFIG (server-authoritative)
     // Il danno viene applicato secondo il cooldown configurato
@@ -282,7 +340,11 @@ class ServerCombatManager {
 
     // Esegui attacco (danno applicato secondo cooldown configurato)
     // Combat attack logging removed for production - too verbose
-    this.performPlayerAttack(playerId, playerData, npc, now);
+    this.performPlayerAttack(playerId, playerData, npc, now, {
+      x: effectivePx,
+      y: effectivePy,
+      rotation: playerData.position?.rotation || playerData.rotation || 0
+    });
     combat.lastAttackTime = now;
 
     // 🚀 AUTO-FIRE MISSILES
@@ -312,7 +374,11 @@ class ServerCombatManager {
 
       // 4. Fuoco solo se TTD > arrivalTime
       if (timeToDeath > arrivalTime) {
-        this.performPlayerMissileAttack(playerId, playerData, npc, now);
+        this.performPlayerMissileAttack(playerId, playerData, npc, now, {
+          x: effectivePx,
+          y: effectivePy,
+          rotation: playerData.position?.rotation || playerData.rotation || 0
+        });
         combat.lastMissileTime = now;
       }
     }
@@ -321,7 +387,7 @@ class ServerCombatManager {
   /**
    * Esegue attacco missile automatico del player
    */
-  performPlayerMissileAttack(playerId, playerData, npc, now) {
+  performPlayerMissileAttack(playerId, playerData, npc, now, attackOrigin = null) {
     // Calcola danno missili: Base + Bonus Upgrades
     // Nota: I missili scalano con missileDamageUpgrades, non weaponDamageUpgrades
     const baseMissileDamage = PLAYER_CONFIG.stats.missileDamage || 100;
@@ -349,8 +415,8 @@ class ServerCombatManager {
 
     const damage = Math.floor(baseMissileDamage * upgradeMultiplier * itemMultiplier);
 
-    // Usa posizione corrente del player
-    const playerPos = playerData.position;
+    // Usa la stessa posizione effettiva del loop combat per evitare dual source durante jitter.
+    const playerPos = attackOrigin || playerData.position;
 
     // Crea proiettile missile (FISICO, non deterministico)
     // Usiamo la logica standard dei laser ma con tipo 'missile' e target specifico per homing
@@ -508,12 +574,12 @@ class ServerCombatManager {
    * Esegue attacco del player contro NPC
    * @returns {string|null} ID del proiettile creato
    */
-  performPlayerAttack(playerId, playerData, npc, now) {
+  performPlayerAttack(playerId, playerData, npc, now, attackOrigin = null) {
     // DEBUG: Log quando il player spara
     // Combat tick logging removed for production - too verbose
 
     // Usa posizione corrente del player dal server (più affidabile)
-    const playerPos = playerData.position;
+    const playerPos = attackOrigin || playerData.position;
 
     // Calcola danno usando DamageCalculationSystem (logica di gioco)
     const baseDamage = DamageCalculationSystem.getBasePlayerDamage();
@@ -584,9 +650,10 @@ class ServerCombatManager {
       if (lastCombat && lastCombat.npcId === npc.id) {
         const attackerData = this.mapServer.players.get(lastAttackerId);
         if (attackerData && attackerData.position && !attackerData.isDead) {
+          const attackerPos = getEffectivePlayerPosition(attackerData, now) || attackerData.position;
           // RETALIATION: Permetti attacco anche in Safe Zone se è l'aggressore
-          const dx = attackerData.position.x - npc.position.x;
-          const dy = attackerData.position.y - npc.position.y;
+          const dx = attackerPos.x - npc.position.x;
+          const dy = attackerPos.y - npc.position.y;
           const distSq = dx * dx + dy * dy;
 
           if (distSq <= attackRangeSq) {
@@ -604,11 +671,13 @@ class ServerCombatManager {
         const playerData = this.mapServer.players.get(clientId);
         if (!playerData || playerData.isDead || !playerData.position) continue;
 
-        // SAFE ZONE CHECK: Non agganciare player in Safe Zone (tranne ritorsione)
-        if (this.isInSafeZone(playerData.position)) continue;
+        const targetPos = getEffectivePlayerPosition(playerData, now) || playerData.position;
 
-        const dx = playerData.position.x - npc.position.x;
-        const dy = playerData.position.y - npc.position.y;
+        // SAFE ZONE CHECK: Non agganciare player in Safe Zone (tranne ritorsione)
+        if (this.isInSafeZone(targetPos)) continue;
+
+        const dx = targetPos.x - npc.position.x;
+        const dy = targetPos.y - npc.position.y;
         const distSq = dx * dx + dy * dy;
 
         if (distSq > attackRangeSq) continue;
@@ -624,8 +693,9 @@ class ServerCombatManager {
     if (targetPlayer) {
       // Player nel range E NPC è aggressivo - NPC attacca
       if (process.env.DEBUG_COMBAT === 'true') {
-        const dx = targetPlayer.position.x - npc.position.x;
-        const dy = targetPlayer.position.y - npc.position.y;
+        const targetPos = getEffectivePlayerPosition(targetPlayer, now) || targetPlayer.position;
+        const dx = targetPos.x - npc.position.x;
+        const dy = targetPos.y - npc.position.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
         console.log(`[NPC ${npc.id}] Attacca player ${targetPlayer.clientId} nel range (comportamento: ${npc.behavior}). Distanza: ${dist.toFixed(1)}`);
       }
@@ -648,6 +718,11 @@ class ServerCombatManager {
       return;
     }
 
+    const effectiveTargetPos = getEffectivePlayerPosition(targetPlayer, now) || targetPlayer.position;
+    if (!Number.isFinite(effectiveTargetPos.x) || !Number.isFinite(effectiveTargetPos.y)) {
+      return;
+    }
+
     // 🛡️ FINAL SAFE ZONE SECURITY CHECK
     // Permetti l'attacco se è una ritorsione (lastAttackerId), altrimenti blocca se in Safe Zone
     // 🚀 RETALIATION bypassa completamente la protezione della Safe Zone (sia per NPC che per Player)
@@ -655,13 +730,13 @@ class ServerCombatManager {
     const targetClientId = targetPlayer.clientId ? String(targetPlayer.clientId) : null;
     const isRetaliation = lastAttackerId === targetClientId;
 
-    if (!isRetaliation && (this.isInSafeZone(npc.position) || this.isInSafeZone(targetPlayer.position))) {
+    if (!isRetaliation && (this.isInSafeZone(npc.position) || this.isInSafeZone(effectiveTargetPos))) {
       return;
     }
 
     // Calcola direzione e distanza
-    const dx = targetPlayer.position.x - npc.position.x;
-    const dy = targetPlayer.position.y - npc.position.y;
+    const dx = effectiveTargetPos.x - npc.position.x;
+    const dy = effectiveTargetPos.y - npc.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
     // Se troppo vicino, non sparare
@@ -679,10 +754,18 @@ class ServerCombatManager {
     const hitTime = now + 600; // 600ms di viaggio del proiettile (tempo fisso)
 
     // Crea proiettile homing con hit garantito
+    const targetForProjectile = {
+      ...targetPlayer,
+      position: {
+        x: effectiveTargetPos.x,
+        y: effectiveTargetPos.y
+      }
+    };
+
     const projectileId = this.performDeterministicAttack(
       npc.id,
       npc.position,
-      targetPlayer,
+      targetForProjectile,
       damage,
       hitTime,
       'scouter_laser'

@@ -463,7 +463,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
   if (hasClientPos) {
     const prevClientPos = playerData.lastClientPos;
     if (lowInput && prevClientPos && Number.isFinite(prevClientPos.x) && Number.isFinite(prevClientPos.y)) {
-      const dtMs = clientTimestamp - (prevClientPos.timestamp || clientTimestamp);
+      const dtMs = now - (prevClientPos.timestamp || now);
       if (dtMs > 10 && dtMs < 1000) {
         const dtSec = dtMs / 1000;
         inputVx = (sanitizedData.x - prevClientPos.x) / dtSec;
@@ -474,7 +474,8 @@ function handlePositionUpdate(data, sanitizedData, context) {
     playerData.lastClientPos = {
       x: sanitizedData.x,
       y: sanitizedData.y,
-      timestamp: clientTimestamp
+      timestamp: now,
+      clientTimestamp: clientTimestamp
     };
   }
 
@@ -794,23 +795,24 @@ function handleStartCombat(data, sanitizedData, context) {
     return;
   }
 
-  mapServer.combatManager.startPlayerCombat(data.clientId, data.npcId, context);
+  const combatClientId = String(data.clientId);
+  mapServer.combatManager.startPlayerCombat(combatClientId, data.npcId, context);
 
-  const combat = mapServer.combatManager.playerCombats.get(data.clientId);
+  const combat = mapServer.combatManager.playerCombats.get(combatClientId);
   if (combat) {
-    mapServer.combatManager.processPlayerCombat(data.clientId, combat, Date.now());
+    mapServer.combatManager.processPlayerCombat(combatClientId, combat, Date.now());
 
     // Broadcast solo se il combat è stato creato con successo
     const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
       playerData.userId,
       data.npcId,
       true,
-      data.clientId, // Passa il persistent clientId
+      combatClientId, // Passa il persistent clientId
       combat.sessionId // Passa il session ID univoco
     );
     mapServer.broadcastToMap(combatUpdate);
   } else {
-    ServerLoggerWrapper.error('SERVER', `Combat not found after startPlayerCombat for ${data.clientId}`);
+    ServerLoggerWrapper.error('SERVER', `Combat not found after startPlayerCombat for ${combatClientId}`);
   }
 }
 
@@ -830,8 +832,9 @@ function handleStopCombat(data, sanitizedData, context) {
 
   // ✅ ARCHITECTURAL CLEANUP: Chiudi completamente il combat invece di settare npcId=null
   // Questo è più sicuro e consistente con la nuova architettura
-  if (mapServer.combatManager.playerCombats.has(data.clientId)) {
-    mapServer.combatManager.stopPlayerCombat(data.clientId);
+  const combatClientId = String(data.clientId);
+  if (mapServer.combatManager.playerCombats.has(combatClientId)) {
+    mapServer.combatManager.stopPlayerCombat(combatClientId);
     // Combat stop logging removed for production - too verbose
   }
 
@@ -839,7 +842,7 @@ function handleStopCombat(data, sanitizedData, context) {
     playerData.userId,
     null,
     false,
-    data.clientId
+    combatClientId
   );
   mapServer.broadcastToMap(combatUpdate);
 }

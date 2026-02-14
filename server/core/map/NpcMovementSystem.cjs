@@ -6,6 +6,7 @@
 
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('../../config/constants.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
+const { getEffectivePlayerPosition } = require('./PlayerPositionResolver.cjs');
 
 class NpcMovementSystem {
   /**
@@ -54,10 +55,13 @@ class NpcMovementSystem {
         if (!this.isPlayerTargetingNpc(playerCombats, clientId, npc.id)) continue;
 
         // 🛡️ SAFE ZONE CHECK: NPC ignora i player nelle zone sicure per il tracking di base
-        if (this.isInSafeZone(playerData.position)) continue;
 
-        const dx = playerData.position.x - npc.position.x;
-        const dy = playerData.position.y - npc.position.y;
+        const effectivePlayerPos = getEffectivePlayerPosition(playerData, now);
+        const targetX = effectivePlayerPos ? effectivePlayerPos.x : playerData.position.x;
+        const targetY = effectivePlayerPos ? effectivePlayerPos.y : playerData.position.y;
+        if (this.isInSafeZone({ x: targetX, y: targetY })) continue;
+        const dx = targetX - npc.position.x;
+        const dy = targetY - npc.position.y;
         const distSq = dx * dx + dy * dy;
 
         if (distSq < closestDistSq) {
@@ -78,8 +82,11 @@ class NpcMovementSystem {
 
         if (targetPlayer && !targetPlayer.isDead && targetPlayer.position && isStillTargeting) {
           // 🚀 RETALIATION logic: Permetti di mantenere il lock sull'aggressore anche in Safe Zone
-          const dx = targetPlayer.position.x - npc.position.x;
-          const dy = targetPlayer.position.y - npc.position.y;
+          const effectiveTargetPos = getEffectivePlayerPosition(targetPlayer, now);
+          const targetX = effectiveTargetPos ? effectiveTargetPos.x : targetPlayer.position.x;
+          const targetY = effectiveTargetPos ? effectiveTargetPos.y : targetPlayer.position.y;
+          const dx = targetX - npc.position.x;
+          const dy = targetY - npc.position.y;
           const distSq = dx * dx + dy * dy;
 
           if (distSq <= pursuitRangeSq) {
@@ -101,7 +108,7 @@ class NpcMovementSystem {
       const behavior = this.calculateBehavior(npc, now, closestPlayer, attackRange, npcConfig);
       npc.behavior = behavior;
 
-      const movement = this.calculateMovement(npc, closestPlayer, players, speed, deltaTime, attackRange, behavior);
+      const movement = this.calculateMovement(npc, closestPlayer, players, speed, deltaTime, attackRange, behavior, now);
 
       // Calcola nuova posizione
       const newX = npc.position.x + movement.deltaX;
@@ -143,7 +150,8 @@ class NpcMovementSystem {
     const detectionRange = npcConfig.ai?.detectionRange || 0;
     if (detectionRange > 0 && closestPlayer && closestPlayer.distSq <= (detectionRange * detectionRange)) {
       // 🛡️ SAFE ZONE CHECK: Non attivare aggro se il player è in una zona sicura
-      if (!this.isInSafeZone(closestPlayer.data.position)) {
+      const effectiveClosestPos = getEffectivePlayerPosition(closestPlayer.data, now) || closestPlayer.data.position;
+      if (!this.isInSafeZone(effectiveClosestPos)) {
         // Inizia a puntare il player che lo ha "triggerato"
         npc.lastAttackerId = closestPlayer.id;
         npc.lastDamage = now; // Simula un colpo per attivare la logica temporale esistente
@@ -157,12 +165,12 @@ class NpcMovementSystem {
   /**
    * Calcola movimento basato sul comportamento
    */
-  static calculateMovement(npc, closestPlayer, players, speed, deltaTime, attackRange, behavior) {
+  static calculateMovement(npc, closestPlayer, players, speed, deltaTime, attackRange, behavior, now) {
     switch (behavior) {
       case 'aggressive':
-        return this.applyAggressiveMovement(npc, players, speed, deltaTime, attackRange);
+        return this.applyAggressiveMovement(npc, players, speed, deltaTime, attackRange, now);
       case 'flee':
-        return this.applyFleeMovement(npc, closestPlayer, speed, deltaTime, attackRange);
+        return this.applyFleeMovement(npc, closestPlayer, speed, deltaTime, attackRange, now);
       case 'cruise':
         return this.applyCruiseMovement(npc, speed, deltaTime);
       default:
@@ -176,7 +184,7 @@ class NpcMovementSystem {
   /**
    * Applica movimento aggressive (insegue e orbita)
    */
-  static applyAggressiveMovement(npc, players, speed, deltaTime, attackRange) {
+  static applyAggressiveMovement(npc, players, speed, deltaTime, attackRange, now) {
     const targetId = npc.lastAttackerId;
     const targetPlayer = players.get(targetId);
 
@@ -184,13 +192,18 @@ class NpcMovementSystem {
       return this.applyCruiseMovement(npc, speed, deltaTime);
     }
 
-    const dx = targetPlayer.position.x - npc.position.x;
-    const dy = targetPlayer.position.y - npc.position.y;
+    const targetPos = getEffectivePlayerPosition(targetPlayer, now);
+    const tx = targetPos ? targetPos.x : targetPlayer.position.x;
+    const ty = targetPos ? targetPos.y : targetPlayer.position.y;
+    const dx = tx - npc.position.x;
+    const dy = ty - npc.position.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
     const dtSec = deltaTime / 1000;
 
-    // NPC guarda sempre il target
-    npc.position.rotation = Math.atan2(dy, dx);
+    // Usa la stessa posizione target per movimento e facing.
+    if (Number.isFinite(dx) && Number.isFinite(dy) && (dx !== 0 || dy !== 0)) {
+      npc.position.rotation = Math.atan2(dy, dx);
+    }
 
     const OPTIMAL_DISTANCE = attackRange * 0.8;
     let moveDirX = 0;
@@ -236,11 +249,14 @@ class NpcMovementSystem {
   /**
    * Applica movimento flee (fuga)
    */
-  static applyFleeMovement(npc, closestPlayer, speed, deltaTime, attackRange) {
+  static applyFleeMovement(npc, closestPlayer, speed, deltaTime, attackRange, now) {
     if (!closestPlayer) return this.applyCruiseMovement(npc, speed, deltaTime);
 
-    const dx = closestPlayer.data.position.x - npc.position.x;
-    const dy = closestPlayer.data.position.y - npc.position.y;
+    const targetPos = getEffectivePlayerPosition(closestPlayer.data, now);
+    const tx = targetPos ? targetPos.x : closestPlayer.data.position.x;
+    const ty = targetPos ? targetPos.y : closestPlayer.data.position.y;
+    const dx = tx - npc.position.x;
+    const dy = ty - npc.position.y;
     const dist = Math.sqrt(dx * dx + dy * dy) || 1;
 
     // Fuga: direzione opposta al player più vicino
