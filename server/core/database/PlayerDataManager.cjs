@@ -133,6 +133,15 @@ class PlayerDataManager {
 
       // Calcola RecentHonor (media mobile ultimi 30 giorni)
       const recentHonor = await this.getRecentHonorAverage(userId, 30);
+      let parsedUpgradesData = null;
+      if (playerDataRaw.upgrades_data) {
+        try {
+          parsedUpgradesData = JSON.parse(playerDataRaw.upgrades_data);
+        } catch (error) {
+          ServerLoggerWrapper.error('DATABASE', `Error parsing upgrades_data for user ${userId}: ${error.message}`);
+          throw error;
+        }
+      }
 
       // Costruisci playerData con i dati reali del database
       const playerData = {
@@ -199,42 +208,35 @@ class PlayerDataManager {
         })(),
         upgrades: (() => {
           const defaultUpgrades = this.getDefaultPlayerData().upgrades;
-          if (playerDataRaw.upgrades_data) {
-            const upgrades = JSON.parse(playerDataRaw.upgrades_data);
+          if (parsedUpgradesData) {
             // DATABASE IS SOURCE OF TRUTH: Carica i valori esatti dal database
-            // Mappa sia snake_case (dal DB) che camelCase (per compatibilità/nuovi record)
+            // Mappa sia snake_case (dal DB) che camelCase (per compatibilita/nuovi record)
             return {
-              hpUpgrades: upgrades.hpUpgrades ?? upgrades.hp_upgrades ?? defaultUpgrades.hpUpgrades,
-              shieldUpgrades: upgrades.shieldUpgrades ?? upgrades.shield_upgrades ?? defaultUpgrades.shieldUpgrades,
-              speedUpgrades: upgrades.speedUpgrades ?? upgrades.speed_upgrades ?? defaultUpgrades.speedUpgrades,
-              damageUpgrades: upgrades.damageUpgrades ?? upgrades.damage_upgrades ?? defaultUpgrades.damageUpgrades,
-              missileDamageUpgrades: upgrades.missileDamageUpgrades ?? upgrades.missile_damage_upgrades ?? defaultUpgrades.missileDamageUpgrades
+              hpUpgrades: parsedUpgradesData.hpUpgrades ?? parsedUpgradesData.hp_upgrades ?? defaultUpgrades.hpUpgrades,
+              shieldUpgrades: parsedUpgradesData.shieldUpgrades ?? parsedUpgradesData.shield_upgrades ?? defaultUpgrades.shieldUpgrades,
+              speedUpgrades: parsedUpgradesData.speedUpgrades ?? parsedUpgradesData.speed_upgrades ?? defaultUpgrades.speedUpgrades,
+              damageUpgrades: parsedUpgradesData.damageUpgrades ?? parsedUpgradesData.damage_upgrades ?? defaultUpgrades.damageUpgrades,
+              missileDamageUpgrades: parsedUpgradesData.missileDamageUpgrades ?? parsedUpgradesData.missile_damage_upgrades ?? defaultUpgrades.missileDamageUpgrades
             };
           }
           // Nessun record nel database, usa default (nuovo player)
           return { ...defaultUpgrades };
         })(),
+
         quests: (() => {
           // Primary source: The RPC return value (likely from quest_progress table)
           let rawLoadedQuests = playerDataRaw.quests_data ? JSON.parse(playerDataRaw.quests_data) : [];
 
           // BACKUP RECOVERY STRATEGY:
-          if ((!rawLoadedQuests || rawLoadedQuests.length === 0) && playerDataRaw.upgrades_data) {
-            try {
-              const upgrades = JSON.parse(playerDataRaw.upgrades_data);
-              if (upgrades._quests_backup) {
-                ServerLoggerWrapper.database(`RECOVERY: Found quest data in upgrades backup for ${userId}`);
-                const questsMap = upgrades._quests_backup;
-                rawLoadedQuests = Object.values(questsMap);
-              }
-            } catch (e) {
-              ServerLoggerWrapper.warn('DATABASE', 'Failed to parse upgrades for quest recovery');
-            }
+          if ((!rawLoadedQuests || rawLoadedQuests.length === 0) && parsedUpgradesData && parsedUpgradesData._quests_backup) {
+            ServerLoggerWrapper.database(`RECOVERY: Found quest data in upgrades backup for ${userId}`);
+            const questsMap = parsedUpgradesData._quests_backup;
+            rawLoadedQuests = Object.values(questsMap);
           }
 
           // Standardize
-          // Standardizziamo i nomi delle proprietà e assicuriamoci che l'ID sia presente.
-          // Non filtriamo in base al progresso qui, perché una quest appena accettata (0 progresso) deve essere caricata.
+          // Standardizziamo i nomi delle proprieta e assicuriamoci che l'ID sia presente.
+          // Non filtriamo in base al progresso qui, perche una quest appena accettata (0 progresso) deve essere caricata.
           // La rimozione definitiva avviene tramite DELETE o non includendo la missione qui.
           const processedQuests = rawLoadedQuests.map(q => {
             const id = q.quest_id || q.id;
@@ -250,8 +252,7 @@ class PlayerDataManager {
           });
 
           return processedQuests;
-        })(),
-        recentHonor: recentHonor, // Media mobile honor ultimi 30 giorni
+        })(), recentHonor: recentHonor, // Media mobile honor ultimi 30 giorni
         health: (() => {
           if (playerDataRaw.currencies_data) {
             const currencies = JSON.parse(playerDataRaw.currencies_data);
@@ -303,6 +304,7 @@ class PlayerDataManager {
           }
         })()
       };
+
 
       // Crea snapshot iniziale dell'honor corrente (non bloccante)
       // Questo assicura che i player esistenti abbiano uno snapshot per il calcolo della media mobile
@@ -700,3 +702,4 @@ class PlayerDataManager {
 }
 
 module.exports = PlayerDataManager;
+
