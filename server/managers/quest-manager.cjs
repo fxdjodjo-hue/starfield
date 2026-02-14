@@ -406,7 +406,7 @@ class ServerQuestManager {
                 // NOTA: il player objeto in mappa ha una struttura specifica.
 
                 // Salva direttamente l'oggetto player della mappa (già autoritativo)
-                wsManager.playerDataManager.savePlayerData(player).catch(err => {
+                wsManager.playerDataManager.savePlayerData(player, { reason: 'quest_progress' }).catch(err => {
                     ServerLoggerWrapper.error('QUEST', `Failed to persist quest progress: ${err.message}`);
                 });
             }

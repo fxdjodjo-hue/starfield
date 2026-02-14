@@ -4,6 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
+const CrashReporter = require('../infrastructure/CrashReporter.cjs');
 const ServerInputValidator = require('../InputValidator.cjs');
 const { BoundaryEnforcement } = require('../../../shared/SecurityBoundary.cjs');
 const WebSocket = require('ws');
@@ -29,6 +30,7 @@ class WebSocketConnectionManager {
     this.lastValidationWarning = 0;
     this.securityWarningCount = 0;
     this.lastSecurityWarning = 0;
+    this.lastMoveEventBySession = new Map();
 
     // Dependency injection - verranno impostati dopo la creazione
     this.playerDataManager = null;
@@ -88,6 +90,75 @@ class WebSocketConnectionManager {
   }
 
   /**
+   * Registra eventi diagnostici essenziali nel ring buffer di crash reporting
+   */
+  recordInboundEvent(sessionId, data, sanitizedData, playerData = null) {
+    if (!sessionId || !data?.type) return;
+
+    const clientId = data.clientId || playerData?.clientId || null;
+    const eventType = data.type;
+
+    if (eventType === 'position_update') {
+      const now = Date.now();
+      const lastMove = this.lastMoveEventBySession.get(sessionId) || 0;
+      if (now - lastMove < 250) {
+        return;
+      }
+      this.lastMoveEventBySession.set(sessionId, now);
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId,
+        eventType: 'move',
+        payload: {
+          x: sanitizedData?.x,
+          y: sanitizedData?.y,
+          rotation: sanitizedData?.rotation,
+          velocityX: sanitizedData?.velocityX,
+          velocityY: sanitizedData?.velocityY,
+          tick: data.tick
+        }
+      });
+      return;
+    }
+
+    if (eventType === 'start_combat') {
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId,
+        eventType: 'shoot_intent',
+        payload: {
+          npcId: sanitizedData?.npcId || data.npcId || null
+        }
+      });
+      return;
+    }
+
+    if (eventType === 'save_request') {
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId,
+        eventType: 'save_request',
+        payload: {
+          hasPlayerData: !!playerData
+        }
+      });
+      return;
+    }
+
+    if (eventType === 'join') {
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId,
+        eventType: 'join_request',
+        payload: {
+          userId: data.userId,
+          nickname: data.nickname
+        }
+      });
+    }
+  }
+
+  /**
    * Configura la gestione delle connessioni WebSocket
    * Gestisce tutti i tipi di messaggio e il routing
    */
@@ -96,7 +167,21 @@ class WebSocketConnectionManager {
       throw new Error('WebSocketConnectionManager: playerDataManager, authManager, and messageBroadcaster must be set before setupConnectionHandling()');
     }
 
-    this.wss.on('connection', (ws) => {
+    this.wss.on('connection', (ws, req) => {
+      const sessionId = CrashReporter.bindWebSocket(ws, {
+        remoteAddress: req?.socket?.remoteAddress || ws?._socket?.remoteAddress || null,
+        origin: req?.headers?.origin || null,
+        userAgent: req?.headers?.['user-agent'] || null
+      });
+      CrashReporter.recordEvent({
+        sessionId,
+        eventType: 'socket_connected',
+        payload: {
+          protocol: req?.headers?.['sec-websocket-protocol'] || null,
+          path: req?.url || null
+        }
+      });
+
       // PLAYTEST: Limite massimo distibuted across maps
       const defaultMap = this.mapManager.getMap('palantir');
       if (defaultMap && defaultMap.players.size >= 15) {
@@ -107,6 +192,9 @@ class WebSocketConnectionManager {
           code: 'SERVER_FULL'
         }));
         ws.close(1013, 'Server full'); // 1013 = Try Again Later
+        CrashReporter.closeSession(sessionId, {
+          reason: 'server_full'
+        });
         return;
       }
 
@@ -124,6 +212,14 @@ class WebSocketConnectionManager {
           const structureValidation = this.inputValidator.validateMessageStructure(data);
           if (!structureValidation.isValid) {
             ServerLoggerWrapper.debug('VALIDATION', `Invalid message structure from ${data.clientId || 'unknown'}: ${structureValidation.errors.join(', ')}`);
+            CrashReporter.recordEvent({
+              sessionId,
+              eventType: 'invalid_message_structure',
+              payload: {
+                messageType: data.type || 'unknown',
+                errors: structureValidation.errors
+              }
+            });
             return;
           }
 
@@ -140,6 +236,15 @@ class WebSocketConnectionManager {
               this.lastValidationWarning = now;
               this.validationWarningCount = 0; // Reset counter
             }
+            CrashReporter.recordEvent({
+              sessionId,
+              clientId: data.clientId,
+              eventType: 'invalid_message_content',
+              payload: {
+                messageType: data.type || 'unknown',
+                firstError: contentValidation.errors?.[0] || 'unknown'
+              }
+            });
             return;
           }
 
@@ -156,11 +261,21 @@ class WebSocketConnectionManager {
               this.lastSecurityWarning = now;
               this.securityWarningCount = 0; // Reset counter
             }
+            CrashReporter.recordEvent({
+              sessionId,
+              clientId: data.clientId,
+              eventType: 'intent_violation',
+              payload: {
+                messageType: data.type || 'unknown',
+                reason: intentValidation.reason
+              }
+            });
             return;
           }
 
           // Usa dati sanitizzati per elaborazione successiva
           const sanitizedData = contentValidation.sanitizedData;
+          this.recordInboundEvent(sessionId, data, sanitizedData, playerData);
 
           // Route messaggio al handler appropriato
           const playerMapInfo = this.mapManager.findPlayerMap(data.clientId);
@@ -174,7 +289,8 @@ class WebSocketConnectionManager {
             playerDataManager: this.playerDataManager,
             authManager: this.authManager,
             messageBroadcaster: this.messageBroadcaster,
-            filterChatMessage: (content) => this.filterChatMessage(content)
+            filterChatMessage: (content) => this.filterChatMessage(content),
+            sessionId
           };
 
           // Gestisce join separatamente perché ritorna playerData
@@ -188,6 +304,17 @@ class WebSocketConnectionManager {
             // join ritorna playerData se successo, null se errore
             if (result) {
               playerData = result;
+              CrashReporter.attachPlayer(sessionId, playerData);
+              CrashReporter.recordEvent({
+                sessionId,
+                clientId: playerData.clientId,
+                playerDbId: playerData.playerId,
+                userId: playerData.userId,
+                eventType: 'join_success',
+                payload: {
+                  mapId: playerData.currentMapId || currentMapServer?.mapId || null
+                }
+              });
             }
           } else {
             // Aggiorna playerData nel context prima di route (per messaggi dopo join)
@@ -227,6 +354,17 @@ class WebSocketConnectionManager {
             rawMessage: errorDetails.rawMessage,
             timestamp: errorDetails.timestamp
           });
+          CrashReporter.captureException(error, {
+            scope: 'websocket.message',
+            sessionId,
+            clientId: errorDetails.clientInfo,
+            playerDbId: playerData?.playerId,
+            userId: playerData?.userId,
+            context: {
+              rawMessage: errorDetails.rawMessage,
+              timestamp: errorDetails.timestamp
+            }
+          });
 
           // For critical errors, consider disconnecting the client
           if (error.message.includes('Invalid JSON') || error.message.includes('Maximum call stack')) {
@@ -235,6 +373,13 @@ class WebSocketConnectionManager {
               ws.close(1003, 'Protocol error'); // 1003 = Unsupported data
             } catch (closeError) {
               ServerLoggerWrapper.error('WEBSOCKET', `Failed to close WebSocket connection: ${closeError.message}`);
+              CrashReporter.captureException(closeError, {
+                scope: 'websocket.close_failure',
+                sessionId,
+                clientId: playerData?.clientId || errorDetails.clientInfo,
+                playerDbId: playerData?.playerId,
+                userId: playerData?.userId
+              });
             }
           }
         }
@@ -247,7 +392,7 @@ class WebSocketConnectionManager {
           // Salva i dati del giocatore prima della disconnessione
           try {
             ServerLoggerWrapper.database(`Saving player data on disconnect for ${playerData.userId}`);
-            await this.playerDataManager.savePlayerData(playerData);
+            await this.playerDataManager.savePlayerData(playerData, { reason: 'disconnect' });
           } catch (saveError) {
             ServerLoggerWrapper.error('DATABASE', `Failed to save player data on disconnect: ${saveError.message}`);
           }
@@ -259,7 +404,7 @@ class WebSocketConnectionManager {
 
             // Broadcast player left
             try {
-              const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(playerData.clientId);
+              const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(playerData.clientId, playerMapInfo.mapId);
               mapServer.broadcastToMap(playerLeftMsg);
             } catch (broadcastError) {
               ServerLoggerWrapper.error('WEBSOCKET', `Failed to broadcast player left: ${broadcastError.message}`);
@@ -277,13 +422,38 @@ class WebSocketConnectionManager {
 
             ServerLoggerWrapper.debug('SERVER', `Remaining players in ${playerMapInfo.mapId}: ${mapServer.players.size}`);
           }
+          CrashReporter.recordEvent({
+            sessionId,
+            clientId: playerData.clientId,
+            playerDbId: playerData.playerId,
+            userId: playerData.userId,
+            eventType: 'socket_disconnected',
+            payload: {
+              mapId: playerData.currentMapId || null
+            }
+          });
         } else {
           ServerLoggerWrapper.warn('PLAYER', 'Unknown client disconnected');
+          CrashReporter.recordEvent({
+            sessionId,
+            eventType: 'socket_disconnected_unknown',
+            payload: {}
+          });
         }
+        CrashReporter.closeSession(sessionId, {
+          reason: 'websocket_close'
+        });
       });
 
       ws.on('error', (error) => {
         ServerLoggerWrapper.error('WEBSOCKET', `WebSocket error: ${error.message}`);
+        CrashReporter.captureException(error, {
+          scope: 'websocket.error',
+          sessionId,
+          clientId: playerData?.clientId,
+          playerDbId: playerData?.playerId,
+          userId: playerData?.userId
+        });
       });
     });
   }

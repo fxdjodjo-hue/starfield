@@ -66,8 +66,8 @@ class WebSocketConnectionManager {
    * Salva i dati del giocatore nel database
    * @param {Object} playerData - Dati del giocatore
    */
-  async savePlayerData(playerData) {
-    return this.playerDataManager.savePlayerData(playerData);
+  async savePlayerData(playerData, options = {}) {
+    return this.playerDataManager.savePlayerData(playerData, options);
   }
 
   /**

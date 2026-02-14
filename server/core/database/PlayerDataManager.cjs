@@ -5,6 +5,7 @@
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { createSupabaseClient, getSupabaseConfig } = require('../../config/supabase.cjs');
+const SaveCoordinator = require('./SaveCoordinator.cjs');
 const playerConfig = require('../../../shared/player-config.json');
 
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
@@ -68,6 +69,9 @@ class PlayerDataManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
     this.periodicSaveInterval = null;
+    this.saveCoordinator = new SaveCoordinator({
+      debugLogs: process.env.SAVE_COORDINATOR_DEBUG === 'true'
+    });
   }
 
   /**
@@ -332,184 +336,191 @@ class PlayerDataManager {
    * Salva i dati del giocatore nel database
    * @param {Object} playerData - Dati del giocatore da salvare
    */
-  async savePlayerData(playerData) {
-    try {
-      if (!playerData || !playerData.playerId) {
-        ServerLoggerWrapper.database('Cannot save player data: invalid player data');
-        return;
-      }
-
-      // authId = auth_id UUID (chiave persistente). playerId = player_id numerico (solo display/HUD).
-      const authId = playerData.userId;
-      auditIdentityConsistency(playerData, 'save');
-
-      // 🔴 CRITICAL: Verifica che inventory esista prima di salvare
-      // Se inventory è null/undefined, NON salvare per evitare di sovrascrivere i valori esistenti nel database
-      if (!playerData.inventory) {
-        ServerLoggerWrapper.database(`🚨 CRITICAL: Cannot save player data for ${authId} - inventory is null/undefined!`);
-        ServerLoggerWrapper.database(`Player data state`, {
-          playerId: playerData.playerId,
-          userId: playerData.userId,
-          nickname: playerData.nickname,
-          hasInventory: !!playerData.inventory,
-          hasUpgrades: !!playerData.upgrades,
-          hasStats: !!playerData.stats
-        });
-        // NON salvare - preserva i valori esistenti nel database
-        // Questo previene la sovrascrittura con null
-        return;
-      }
-
-      // Assicurati che stats sia sempre presente come oggetto valido
-      if (!playerData.stats) {
-        playerData.stats = { kills: 0, deaths: 0, ranking_points: 0 };
-      }
-
-      ServerLoggerWrapper.database(`Saving player data for auth_id: ${authId}`);
-
-      // Prepare data for secure RPC function
-      const statsData = playerData.stats ? {
-        kills: playerData.stats.kills || 0,
-        deaths: playerData.stats.deaths || 0,
-        ranking_points: playerData.stats.rankingPoints || 0
-      } : {
-        kills: 0,
-        deaths: 0,
-        ranking_points: 0
-      };
-
-      const upgradesData = playerData.upgrades ? {
-        hp_upgrades: playerData.upgrades.hpUpgrades || 0,
-        shield_upgrades: playerData.upgrades.shieldUpgrades || 0,
-        speed_upgrades: playerData.upgrades.speedUpgrades || 0,
-        damage_upgrades: playerData.upgrades.damageUpgrades || 0,
-        missile_damage_upgrades: playerData.upgrades.missileDamageUpgrades || 0
-      } : null;
-
-      // DATABASE IS SOURCE OF TRUTH: Salva i valori esatti accumulati durante il gameplay
-      // playerData.inventory contiene i valori accumulati dal player (NPC kills, quest, etc.)
-      const currenciesData = {
-        credits: Number(playerData.inventory.credits ?? 0),
-        cosmos: Number(playerData.inventory.cosmos ?? 0),
-        experience: Number(playerData.inventory.experience ?? 0),
-        honor: Number(playerData.inventory.honor ?? 0),
-        // 🟢 MMO-CORRECT: Salva SEMPRE HP/shield correnti (persistenza vera)
-        // NULL ora significa "errore DB", mai "ottimizzazione"
-        // Questo garantisce che ogni logout/login mantenga lo stato esatto
-        current_health: (() => {
-          // 🛡️ FIX: Assicura valori validi - mai null per rispettare vincolo DB
-          const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : playerData.maxHealth || playerConfig.stats.health;
-          return Number(health) || playerConfig.stats.health; // Fallback sicuro
-        })(),
-        current_shield: (() => {
-          // 🛡️ FIX: Assicura valori validi - mai null per rispettare vincolo DB
-          const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : playerData.maxShield || playerConfig.stats.shield;
-          return Number(shield) || playerConfig.stats.shield; // Fallback sicuro
-        })()
-      };
-
-      // 🔴 FIX: Salva SEMPRE i currencies quando vengono modificati durante il gameplay
-      // Il server è la fonte di verità - se i valori sono stati modificati in memoria (NPC kills, etc.),
-      // devono essere salvati nel database, indipendentemente dallo stato iniziale del DB
-
-
-      // Prepare profile data (e.g., is_administrator)
-      // 🔒 SECURITY: NON salvare is_administrator dal client - è gestito solo dal database
-      // Il flag admin può essere modificato solo direttamente nel database, non tramite gameplay
-      const profileData = null;
-
-      const itemsData = playerData.items ? playerData.items.map(item => ({
-        item_id: item.id,
-        instance_id: item.instanceId,
-        acquired_at: new Date(item.acquiredAt).toISOString(),
-        slot: item.slot || null
-      })) : null;
-
-      const questsData = playerData.quests ? playerData.quests.map(quest => ({
-        quest_id: quest.quest_id || quest.id,
-        is_completed: quest.is_completed || quest.isCompleted || quest.completed || false,
-        objectives: quest.objectives || []
-      })) : null;
-
-      // Use secure RPC function instead of direct table access
-      ServerLoggerWrapper.database(`Calling update_player_data_secure RPC for auth_id: ${authId}`);
-      ServerLoggerWrapper.info('DATABASE', `Player ${authId} saved: credits=${currenciesData.credits}, hp=${currenciesData.current_health}, shield=${currenciesData.current_shield}, honor=${currenciesData.honor}, exp=${currenciesData.experience}`);
-      const { data: updateResult, error: updateError } = await supabase.rpc(
-        'update_player_data_secure',
-        {
-          auth_id_param: authId,
-          stats_data: statsData,
-          upgrades_data: upgradesData,
-          currencies_data: currenciesData,
-          quests_data: questsData ? JSON.stringify(questsData) : null,
-          items_data: itemsData ? JSON.stringify(itemsData) : null,
-          profile_data: profileData,
-          position_data: {
-            x: playerData.position?.x || 200,
-            y: playerData.position?.y || 200,
-            rotation: playerData.position?.rotation || 0,
-            map_id: playerData.currentMapId || 'palantir'
-          }
-        }
-      );
-
-      if (updateError) {
-        ServerLoggerWrapper.database(`Error updating player data: ${updateError.message}`);
-        throw updateError;
-      }
-
-      ServerLoggerWrapper.database(`Player data saved successfully for ${authId}`);
-
-      // Salva quest progress separatamente se presente
-      if (playerData.quests && Array.isArray(playerData.quests)) {
-        ServerLoggerWrapper.database(`Saving quest progress for auth_id: ${authId}`);
-        for (const quest of playerData.quests) {
-          const questResult = await supabase.from('quest_progress').upsert({
-            auth_id: authId,
-            quest_id: quest.quest_id || quest.id,
-            objectives: quest.objectives || [],
-            is_completed: quest.is_completed || quest.completed || false
-          }, {
-            onConflict: 'auth_id,quest_id'
-          });
-
-          if (questResult.error) {
-            ServerLoggerWrapper.database(`Error saving quest progress: ${questResult.error.message}`);
-          }
-        }
-      }
-
-      // Salva inventory items separatamente
-      if (playerData.items && Array.isArray(playerData.items)) {
-        ServerLoggerWrapper.database(`Saving inventory items for auth_id: ${authId} (${playerData.items.length} items)`);
-
-        // 1. Rimuovi items non più presenti (per gestire vendite/eliminazioni se implementate)
-        // Per ora facciamo solo upsert di quelli esistenti
-
-        for (const item of playerData.items) {
-          if (item.slot) {
-            ServerLoggerWrapper.database(`Saving item ${item.id} (${item.instanceId}) in slot ${item.slot}`);
-          }
-          const itemResult = await supabase.from('player_inventory').upsert({
-            auth_id: authId,
-            instance_id: item.instanceId,
-            item_id: item.id,
-            slot: item.slot || null,
-            acquired_at: new Date(item.acquiredAt).toISOString()
-          }, {
-            onConflict: 'auth_id,instance_id'
-          });
-
-          if (itemResult.error) {
-            ServerLoggerWrapper.database(`Error saving inventory item ${item.instanceId}: ${itemResult.error.message}`);
-          }
-        }
-      }
-
-    } catch (error) {
-      ServerLoggerWrapper.database(`Error saving player data: ${error.message}`);
-      throw error;
+  async savePlayerData(playerData, options = {}) {
+    if (!playerData || !playerData.playerId) {
+      ServerLoggerWrapper.database('Cannot save player data: invalid player data');
+      return;
     }
+
+    // authId = auth_id UUID (chiave persistente). playerId = player_id numerico (solo display/HUD).
+    const authId = playerData.userId;
+    if (!authId) {
+      ServerLoggerWrapper.database('Cannot save player data: missing auth_id');
+      return;
+    }
+
+    const saveReason = options.reason || 'unspecified';
+    auditIdentityConsistency(playerData, 'save');
+
+    return this.saveCoordinator.runExclusive(authId, saveReason, async ({ saveSeq }) => {
+      try {
+        // CRITICAL: verifica che inventory esista prima di salvare
+        // Se inventory e' null/undefined, NON salvare per evitare di sovrascrivere i valori esistenti nel database
+        if (!playerData.inventory) {
+          ServerLoggerWrapper.database(`CRITICAL: Cannot save player data for ${authId} - inventory is null/undefined!`);
+          ServerLoggerWrapper.database(`Player data state`, {
+            playerId: playerData.playerId,
+            userId: playerData.userId,
+            nickname: playerData.nickname,
+            hasInventory: !!playerData.inventory,
+            hasUpgrades: !!playerData.upgrades,
+            hasStats: !!playerData.stats
+          });
+          // NON salvare - preserva i valori esistenti nel database
+          // Questo previene la sovrascrittura con null
+          return;
+        }
+
+        // Assicurati che stats sia sempre presente come oggetto valido
+        if (!playerData.stats) {
+          playerData.stats = { kills: 0, deaths: 0, ranking_points: 0 };
+        }
+
+        ServerLoggerWrapper.database(`Saving player data for auth_id: ${authId} (reason=${saveReason}, saveSeq=${saveSeq})`);
+
+        // Prepare data for secure RPC function
+        const statsData = playerData.stats ? {
+          kills: playerData.stats.kills || 0,
+          deaths: playerData.stats.deaths || 0,
+          ranking_points: playerData.stats.rankingPoints || 0
+        } : {
+          kills: 0,
+          deaths: 0,
+          ranking_points: 0
+        };
+
+        const upgradesData = playerData.upgrades ? {
+          hp_upgrades: playerData.upgrades.hpUpgrades || 0,
+          shield_upgrades: playerData.upgrades.shieldUpgrades || 0,
+          speed_upgrades: playerData.upgrades.speedUpgrades || 0,
+          damage_upgrades: playerData.upgrades.damageUpgrades || 0,
+          missile_damage_upgrades: playerData.upgrades.missileDamageUpgrades || 0
+        } : null;
+
+        // DATABASE IS SOURCE OF TRUTH: Salva i valori esatti accumulati durante il gameplay
+        // playerData.inventory contiene i valori accumulati dal player (NPC kills, quest, etc.)
+        const currenciesData = {
+          credits: Number(playerData.inventory.credits ?? 0),
+          cosmos: Number(playerData.inventory.cosmos ?? 0),
+          experience: Number(playerData.inventory.experience ?? 0),
+          honor: Number(playerData.inventory.honor ?? 0),
+          // MMO-CORRECT: salva SEMPRE HP/shield correnti (persistenza vera)
+          // NULL ora significa "errore DB", mai "ottimizzazione"
+          // Questo garantisce che ogni logout/login mantenga lo stato esatto
+          current_health: (() => {
+            // FIX: assicura valori validi - mai null per rispettare vincolo DB
+            const health = playerData.health !== null && playerData.health !== undefined ? playerData.health : playerData.maxHealth || playerConfig.stats.health;
+            return Number(health) || playerConfig.stats.health; // Fallback sicuro
+          })(),
+          current_shield: (() => {
+            // FIX: assicura valori validi - mai null per rispettare vincolo DB
+            const shield = playerData.shield !== null && playerData.shield !== undefined ? playerData.shield : playerData.maxShield || playerConfig.stats.shield;
+            return Number(shield) || playerConfig.stats.shield; // Fallback sicuro
+          })()
+        };
+
+        // FIX: salva SEMPRE i currencies quando vengono modificati durante il gameplay
+        // Il server e' la fonte di verita' - se i valori sono stati modificati in memoria (NPC kills, etc.),
+        // devono essere salvati nel database, indipendentemente dallo stato iniziale del DB
+
+
+        // Prepare profile data (e.g., is_administrator)
+        // SECURITY: NON salvare is_administrator dal client - e' gestito solo dal database
+        // Il flag admin puo' essere modificato solo direttamente nel database, non tramite gameplay
+        const profileData = null;
+
+        const itemsData = playerData.items ? playerData.items.map(item => ({
+          item_id: item.id,
+          instance_id: item.instanceId,
+          acquired_at: new Date(item.acquiredAt).toISOString(),
+          slot: item.slot || null
+        })) : null;
+
+        const questsData = playerData.quests ? playerData.quests.map(quest => ({
+          quest_id: quest.quest_id || quest.id,
+          is_completed: quest.is_completed || quest.isCompleted || quest.completed || false,
+          objectives: quest.objectives || []
+        })) : null;
+
+        // Use secure RPC function instead of direct table access
+        ServerLoggerWrapper.database(`Calling update_player_data_secure RPC for auth_id: ${authId}`);
+        ServerLoggerWrapper.info('DATABASE', `Player ${authId} saved: credits=${currenciesData.credits}, hp=${currenciesData.current_health}, shield=${currenciesData.current_shield}, honor=${currenciesData.honor}, exp=${currenciesData.experience}`);
+        const { data: updateResult, error: updateError } = await supabase.rpc(
+          'update_player_data_secure',
+          {
+            auth_id_param: authId,
+            stats_data: statsData,
+            upgrades_data: upgradesData,
+            currencies_data: currenciesData,
+            quests_data: questsData ? JSON.stringify(questsData) : null,
+            items_data: itemsData ? JSON.stringify(itemsData) : null,
+            profile_data: profileData,
+            position_data: {
+              x: playerData.position?.x || 200,
+              y: playerData.position?.y || 200,
+              rotation: playerData.position?.rotation || 0,
+              map_id: playerData.currentMapId || 'palantir'
+            }
+          }
+        );
+
+        if (updateError) {
+          ServerLoggerWrapper.database(`Error updating player data: ${updateError.message}`);
+          throw updateError;
+        }
+
+        ServerLoggerWrapper.database(`Player data saved successfully for ${authId}`);
+
+        // Salva quest progress separatamente se presente
+        if (playerData.quests && Array.isArray(playerData.quests)) {
+          ServerLoggerWrapper.database(`Saving quest progress for auth_id: ${authId}`);
+          for (const quest of playerData.quests) {
+            const questResult = await supabase.from('quest_progress').upsert({
+              auth_id: authId,
+              quest_id: quest.quest_id || quest.id,
+              objectives: quest.objectives || [],
+              is_completed: quest.is_completed || quest.completed || false
+            }, {
+              onConflict: 'auth_id,quest_id'
+            });
+
+            if (questResult.error) {
+              ServerLoggerWrapper.database(`Error saving quest progress: ${questResult.error.message}`);
+            }
+          }
+        }
+
+        // Salva inventory items separatamente
+        if (playerData.items && Array.isArray(playerData.items)) {
+          ServerLoggerWrapper.database(`Saving inventory items for auth_id: ${authId} (${playerData.items.length} items)`);
+
+          // 1. Rimuovi items non piu' presenti (per gestire vendite/eliminazioni se implementate)
+          // Per ora facciamo solo upsert di quelli esistenti
+
+          for (const item of playerData.items) {
+            if (item.slot) {
+              ServerLoggerWrapper.database(`Saving item ${item.id} (${item.instanceId}) in slot ${item.slot}`);
+            }
+            const itemResult = await supabase.from('player_inventory').upsert({
+              auth_id: authId,
+              instance_id: item.instanceId,
+              item_id: item.id,
+              slot: item.slot || null,
+              acquired_at: new Date(item.acquiredAt).toISOString()
+            }, {
+              onConflict: 'auth_id,instance_id'
+            });
+
+            if (itemResult.error) {
+              ServerLoggerWrapper.database(`Error saving inventory item ${item.instanceId}: ${itemResult.error.message}`);
+            }
+          }
+        }
+      } catch (error) {
+        ServerLoggerWrapper.database(`Error saving player data (reason=${saveReason}, saveSeq=${saveSeq}): ${error.message}`);
+        throw error;
+      }
+    });
   }
 
   /**
@@ -659,7 +670,7 @@ class PlayerDataManager {
 
         for (const playerData of players) {
           try {
-            await this.savePlayerData(playerData);
+            await this.savePlayerData(playerData, { reason: 'periodic_save' });
             savedCount++;
           } catch (error) {
             ServerLoggerWrapper.database(`Error saving player data for ${playerData.userId}: ${error.message}`);

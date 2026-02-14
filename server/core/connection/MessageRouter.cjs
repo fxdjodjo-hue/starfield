@@ -4,6 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
+const CrashReporter = require('../infrastructure/CrashReporter.cjs');
 const WebSocket = require('ws');
 const messageBroadcaster = require('../messaging/MessageBroadcaster.cjs');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
@@ -12,6 +13,16 @@ const { MAP_CONFIGS } = require('../../config/MapConfigs.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
+const ACTION_RATE_LIMITS = Object.freeze({
+  start_combat: { windowMs: 5000, max: 8 },
+  stop_combat: { windowMs: 5000, max: 12 },
+  save_request: { windowMs: 15000, max: 2 },
+  equip_item: { windowMs: 5000, max: 12 },
+  skill_upgrade_request: { windowMs: 10000, max: 8 },
+  quest_accept: { windowMs: 10000, max: 6 },
+  quest_abandon: { windowMs: 10000, max: 6 },
+  chat_message: { windowMs: 5000, max: 8 }
+});
 
 async function verifyJoinAuthToken(data, context) {
   const ws = context?.ws;
@@ -219,7 +230,7 @@ async function handleJoin(data, sanitizedData, context) {
       ServerLoggerWrapper.security(`🧹 CLEANUP: Removing old instance of player ${playerData.playerId} with clientId ${existingClientId} (reconnection)`);
 
       // Broadcast player left per il vecchio giocatore
-      const playerLeftMsg = messageBroadcaster.formatPlayerLeftMessage(existingClientId);
+      const playerLeftMsg = messageBroadcaster.formatPlayerLeftMessage(existingClientId, effectiveMapServer.mapId);
       effectiveMapServer.broadcastToMap(playerLeftMsg);
 
       // Rimuovi dalla mappa
@@ -284,15 +295,18 @@ async function handleJoin(data, sanitizedData, context) {
     playerData.health,
     playerData.maxHealth,
     playerData.shield,
-    playerData.maxShield
+    playerData.maxShield,
+    effectiveMapServer.mapId
   );
   effectiveMapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
 
   // Invia posizioni dei giocatori esistenti
+  const joinSnapshotTime = Date.now();
   effectiveMapServer.players.forEach((existingPlayerData, existingClientId) => {
     if (existingClientId !== persistentClientId && existingPlayerData.position) {
       const existingPlayerBroadcast = {
         type: 'remote_player_update',
+        mapId: effectiveMapServer.mapId,
         clientId: existingClientId,
         position: existingPlayerData.position,
         rotation: existingPlayerData.position.rotation || 0,
@@ -303,7 +317,8 @@ async function handleJoin(data, sanitizedData, context) {
         health: existingPlayerData.health,
         maxHealth: existingPlayerData.maxHealth,
         shield: existingPlayerData.shield,
-        maxShield: existingPlayerData.maxShield
+        maxShield: existingPlayerData.maxShield,
+        t: joinSnapshotTime
       };
       ws.send(JSON.stringify(existingPlayerBroadcast));
     }
@@ -313,6 +328,7 @@ async function handleJoin(data, sanitizedData, context) {
   if (playerData.position) {
     const newPlayerBroadcast = {
       type: 'remote_player_update',
+      mapId: effectiveMapServer.mapId,
       clientId: persistentClientId,
       position: playerData.position,
       rotation: playerData.position.rotation || 0,
@@ -323,7 +339,8 @@ async function handleJoin(data, sanitizedData, context) {
       health: playerData.health,
       maxHealth: playerData.maxHealth,
       shield: playerData.shield,
-      maxShield: playerData.maxShield
+      maxShield: playerData.maxShield,
+      t: joinSnapshotTime
     };
     effectiveMapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
   }
@@ -373,6 +390,11 @@ function handlePositionUpdate(data, sanitizedData, context) {
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
+
+  // End migration grace mode as soon as fresh input arrives post-teleport.
+  if (playerData.isMigrating) {
+    playerData.isMigrating = false;
+  }
 
   // 🔒 SECURITY: Rate limiting lato server per position_update
   const now = Date.now();
@@ -513,6 +535,17 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   // Security check (server authoritative identity)
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
+    CrashReporter.recordEvent({
+      sessionId: context.sessionId,
+      clientId: data.clientId,
+      playerDbId: playerData.playerId,
+      userId: playerData.userId,
+      eventType: 'security_block',
+      payload: {
+        messageType: 'skill_upgrade_request',
+        reason: 'INVALID_CLIENT_ID'
+      }
+    });
     ServerLoggerWrapper.security(`🚫 BLOCKED: Skill upgrade attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
@@ -1214,6 +1247,14 @@ async function handleSaveRequest(data, sanitizedData, context) {
     playerData.lastSaveRequestAt = 0;
   }
   if (now - playerData.lastSaveRequestAt < 5000) {
+    CrashReporter.recordEvent({
+      sessionId: context.sessionId,
+      clientId: data.clientId,
+      playerDbId: playerData.playerId,
+      userId: playerData.userId,
+      eventType: 'save_rate_limited',
+      payload: {}
+    });
     logger.warn('SECURITY', `🚫 BLOCKED: save_request rate limit from clientId:${data.clientId}`);
     ws.send(JSON.stringify({
       type: 'save_response',
@@ -1230,6 +1271,17 @@ async function handleSaveRequest(data, sanitizedData, context) {
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
     logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client ID from clientId:${data.clientId} playerId:${playerData.playerId}`);
+    CrashReporter.recordEvent({
+      sessionId: context.sessionId,
+      clientId: data.clientId,
+      playerDbId: playerData.playerId,
+      userId: playerData.userId,
+      eventType: 'security_block',
+      payload: {
+        messageType: 'save_request',
+        reason: 'INVALID_CLIENT_ID'
+      }
+    });
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client ID for save request.',
@@ -1240,8 +1292,16 @@ async function handleSaveRequest(data, sanitizedData, context) {
 
   // Server authority: ignore client-sent playerId; save based on server-side playerData.
   try {
-    await playerDataManager.savePlayerData(playerData);
+    await playerDataManager.savePlayerData(playerData, { reason: 'manual_save_request' });
 
+    CrashReporter.recordEvent({
+      sessionId: context.sessionId,
+      clientId: data.clientId,
+      playerDbId: playerData.playerId,
+      userId: playerData.userId,
+      eventType: 'save_success',
+      payload: {}
+    });
     ws.send(JSON.stringify({
       type: 'save_response',
       success: true,
@@ -1250,6 +1310,13 @@ async function handleSaveRequest(data, sanitizedData, context) {
     }));
   } catch (error) {
     logger.error('DATABASE', `Error during immediate save for player ${playerData.playerId}: ${error.message}`);
+    CrashReporter.captureException(error, {
+      scope: 'save_request',
+      sessionId: context.sessionId,
+      clientId: data.clientId,
+      playerDbId: playerData.playerId,
+      userId: playerData.userId
+    });
 
     ws.send(JSON.stringify({
       type: 'save_response',
@@ -1320,7 +1387,7 @@ async function handleEquipItem(data, sanitizedData, context) {
   // SAVE IMMEDIATELY: Ensure persistence on every equipment change
   try {
     // Non attendiamo il salvataggio per non bloccare la risposta al client, ma logghiamo eventuali errori
-    playerDataManager.savePlayerData(playerData).catch(err => {
+    playerDataManager.savePlayerData(playerData, { reason: 'equip_change' }).catch(err => {
       logger.error('DATABASE', `Failed to save equipment change for ${playerData.userId}: ${err.message}`);
     });
   } catch (e) {
@@ -1350,8 +1417,15 @@ function handleGlobalMonitorRequest(data, sanitizedData, context) {
   // Permetti accesso speciale per client "monitor" (dashboard)
   if (data.clientId === 'monitor') {
     if (!GLOBAL_MONITOR_TOKEN) {
-      ServerLoggerWrapper.warn('GLOBAL_MONITOR', 'GLOBAL_MONITOR_TOKEN not set; allowing monitor access without token');
-    } else if (data.monitorToken !== GLOBAL_MONITOR_TOKEN) {
+      ServerLoggerWrapper.warn('GLOBAL_MONITOR', 'GLOBAL_MONITOR_TOKEN not set; denying monitor access');
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Access denied. Monitor token required.',
+        code: 'ACCESS_DENIED'
+      }));
+      return;
+    }
+    if (data.monitorToken !== GLOBAL_MONITOR_TOKEN) {
       ServerLoggerWrapper.warn('GLOBAL_MONITOR', `Invalid monitor token from clientId=monitor`);
       ws.send(JSON.stringify({
         type: 'error',
@@ -1451,10 +1525,43 @@ async function handlePortalUse(data, sanitizedData, context) {
   }
 
   if (targetPortal) {
+    const dx = targetPortal.x - px;
+    const dy = targetPortal.y - py;
+    const distSq = dx * dx + dy * dy;
+    const MAX_PORTAL_RANGE_SQ = 1500 * 1500;
+    if (distSq > MAX_PORTAL_RANGE_SQ) {
+      ServerLoggerWrapper.warn('MAP', `Player ${playerData.clientId} attempted portal ${targetPortal.id} from too far (distSq=${distSq})`);
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Portal too far.',
+        code: 'PORTAL_OUT_OF_RANGE'
+      }));
+      return;
+    }
+
     ServerLoggerWrapper.info('MAP', `Player ${playerData.clientId} using portal ${targetPortal.id} -> ${targetPortal.targetMap}`);
     playerData.lastPortalUseTime = Date.now(); // Set cooldown timestamp
     playerData.isMigrating = true; // 🏳️ Flag to suppress teleport warnings
+    // Clear pre-portal movement state to avoid stale carry-over after teleport.
+    playerData.movementInput = null;
+    playerData.lastClientPos = null;
+    if (playerData.position) {
+      playerData.position.velocityX = 0;
+      playerData.position.velocityY = 0;
+    }
+    playerData.velocityX = 0;
+    playerData.velocityY = 0;
     setTimeout(() => { playerData.isMigrating = false; }, 2000); // Reset after 2s
+    // Notify client to lock input and pause position sync until map_change arrives
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'map_transition_start',
+        sourceMapId: mapServer.mapId,
+        targetMapId: targetPortal.targetMap,
+        targetPosition: targetPortal.targetPosition,
+        timestamp: Date.now()
+      }));
+    }
     mapManager.migratePlayer(playerData.clientId, mapServer.mapId, targetPortal.targetMap, targetPortal.targetPosition);
   } else {
     ServerLoggerWrapper.warn('MAP', `Player ${playerData.clientId} attempted to use portal but none found nearby.`);
@@ -1582,7 +1689,7 @@ async function handleQuestAbandon(data, sanitizedData, context) {
  * - 'global_monitor_request' è usato dalla dashboard di monitoraggio (client speciale)
  */
 function validatePlayerContext(type, data, context) {
-  const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
+  const { ws, playerData: contextPlayerData, mapServer, authManager, sessionId } = context;
 
   // Fallback a mapServer se playerData non è nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
@@ -1590,6 +1697,15 @@ function validatePlayerContext(type, data, context) {
   // 🚫 SECURITY: Giocatore deve esistere
   if (!playerData) {
     logger.error('SECURITY', `🚫 BLOCKED: Message ${type} from non-existent player ${data.clientId}`);
+    CrashReporter.recordEvent({
+      sessionId,
+      clientId: data.clientId,
+      eventType: 'security_block',
+      payload: {
+        messageType: type,
+        reason: 'PLAYER_NOT_FOUND'
+      }
+    });
     ws.close(1008, 'Player not found');
     return { valid: false, reason: 'PLAYER_NOT_FOUND' };
   }
@@ -1609,11 +1725,30 @@ function validatePlayerContext(type, data, context) {
     // 🚫 SECURITY: Per messaggi critici, blocca e disconnetti
     if (type !== 'heartbeat') {
       logger.error('SECURITY', `🚫 BLOCKED: Message ${type} with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (expected: ${playerData.clientId} or ${expectedPersistentClientId})`);
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId: data.clientId,
+        playerDbId: playerData.playerId,
+        userId: playerData.userId,
+        eventType: 'security_block',
+        payload: {
+          messageType: type,
+          reason: 'INVALID_CLIENT_ID'
+        }
+      });
       ws.close(1008, 'Invalid client ID');
       return { valid: false, reason: 'INVALID_CLIENT_ID' };
     } else {
       // ❤️ MMO-FRIENDLY: Per heartbeat, logga ma ignora (possono essere stale da riconnessioni)
       logger.info('SECURITY', `❤️ IGNORED: Stale heartbeat with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (reconnection artifact)`);
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId: data.clientId,
+        playerDbId: playerData.playerId,
+        userId: playerData.userId,
+        eventType: 'stale_heartbeat_ignored',
+        payload: {}
+      });
       return { valid: false, reason: 'STALE_HEARTBEAT_IGNORED' };
     }
   }
@@ -1633,15 +1768,37 @@ function validatePlayerContext(type, data, context) {
     const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
     if (!playerIdValidation.valid) {
       logger.error('SECURITY', `🚫 BLOCKED: Message ${type} with invalid playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId: data.clientId,
+        playerDbId: playerData.playerId,
+        userId: playerData.userId,
+        eventType: 'security_block',
+        payload: {
+          messageType: type,
+          reason: 'INVALID_PLAYER_ID'
+        }
+      });
       ws.close(1008, 'Invalid player ID');
       return { valid: false, reason: 'INVALID_PLAYER_ID' };
     }
   }
 
   // 🚫 SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
-  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon'];
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
     logger.warn('SECURITY', `🚫 BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
+    CrashReporter.recordEvent({
+      sessionId,
+      clientId: data.clientId,
+      playerDbId: playerData.playerId,
+      userId: playerData.userId,
+      eventType: 'security_block',
+      payload: {
+        messageType: type,
+        reason: 'PLAYER_DEAD'
+      }
+    });
     return { valid: false, reason: 'PLAYER_DEAD' };
   }
 
@@ -1667,8 +1824,58 @@ function validatePlayerContext(type, data, context) {
   playerData.messageRateLimit.messageCount++;
   if (playerData.messageRateLimit.messageCount > 2000) {
     logger.error('SECURITY', `🚫 BLOCKED: Rate limit exceeded for ${data.clientId} playerId:${playerData.playerId} (${playerData.messageRateLimit.messageCount} messages/minute)`);
+    CrashReporter.recordEvent({
+      sessionId,
+      clientId: data.clientId,
+      playerDbId: playerData.playerId,
+      userId: playerData.userId,
+      eventType: 'security_block',
+      payload: {
+        messageType: type,
+        reason: 'RATE_LIMIT_EXCEEDED',
+        messageCount: playerData.messageRateLimit.messageCount
+      }
+    });
     ws.close(1008, 'Rate limit exceeded');
     return { valid: false, reason: 'RATE_LIMIT_EXCEEDED' };
+  }
+
+  const actionLimit = ACTION_RATE_LIMITS[type];
+  if (actionLimit) {
+    if (!playerData.actionRateLimit) {
+      playerData.actionRateLimit = {};
+    }
+
+    const state = playerData.actionRateLimit[type] || {
+      windowStart: now,
+      count: 0
+    };
+
+    if (now - state.windowStart >= actionLimit.windowMs) {
+      state.windowStart = now;
+      state.count = 0;
+    }
+
+    state.count += 1;
+    playerData.actionRateLimit[type] = state;
+
+    if (state.count > actionLimit.max) {
+      logger.warn('SECURITY', `BLOCKED: Action rate limit ${type} from ${data.clientId} (${state.count}/${actionLimit.max} in ${actionLimit.windowMs}ms)`);
+      CrashReporter.recordEvent({
+        sessionId,
+        clientId: data.clientId,
+        playerDbId: playerData.playerId,
+        userId: playerData.userId,
+        eventType: 'security_block',
+        payload: {
+          messageType: type,
+          reason: 'ACTION_RATE_LIMIT_EXCEEDED',
+          count: state.count,
+          windowMs: actionLimit.windowMs
+        }
+      });
+      return { valid: false, reason: 'ACTION_RATE_LIMIT_EXCEEDED' };
+    }
   }
 
   // 🚫 SECURITY: Validazione specifica per tipo di messaggio
@@ -1677,6 +1884,19 @@ function validatePlayerContext(type, data, context) {
       // Deve essere in un'area valida della mappa (Map is 21k x 13k, security allows buffer)
       if (data.x < -12000 || data.x > 12000 || data.y < -10000 || data.y > 10000) {
         logger.error('SECURITY', `🚫 BLOCKED: Invalid position (${data.x}, ${data.y}) from ${data.clientId} playerId:${playerData.playerId}`);
+        CrashReporter.recordEvent({
+          sessionId,
+          clientId: data.clientId,
+          playerDbId: playerData.playerId,
+          userId: playerData.userId,
+          eventType: 'security_block',
+          payload: {
+            messageType: type,
+            reason: 'INVALID_POSITION',
+            x: data.x,
+            y: data.y
+          }
+        });
         return { valid: false, reason: 'INVALID_POSITION' };
       }
       break;
@@ -1685,14 +1905,37 @@ function validatePlayerContext(type, data, context) {
       // Deve avere munizioni (server-authoritative)
       if (playerData.ammo <= 0) {
         logger.warn('SECURITY', `🚫 BLOCKED: No ammo projectile attempt from ${data.clientId} playerId:${playerData.playerId} (ammo: ${playerData.ammo})`);
+        CrashReporter.recordEvent({
+          sessionId,
+          clientId: data.clientId,
+          playerDbId: playerData.playerId,
+          userId: playerData.userId,
+          eventType: 'security_block',
+          payload: {
+            messageType: type,
+            reason: 'NO_AMMO'
+          }
+        });
         return { valid: false, reason: 'NO_AMMO' };
       }
       break;
 
     case 'skill_upgrade':
+    case 'skill_upgrade_request':
       // Deve avere abbastanza crediti (server-authoritative)
-      if (playerData.credits < data.cost) {
-        logger.warn('SECURITY', `🚫 BLOCKED: Insufficient credits for upgrade from ${data.clientId} playerId:${playerData.playerId} (has: ${playerData.credits}, needs: ${data.cost})`);
+      if (Number(playerData.inventory?.credits || 0) < Number(data.cost || 0)) {
+        logger.warn('SECURITY', `🚫 BLOCKED: Insufficient credits for upgrade from ${data.clientId} playerId:${playerData.playerId} (has: ${playerData.inventory?.credits}, needs: ${data.cost})`);
+        CrashReporter.recordEvent({
+          sessionId,
+          clientId: data.clientId,
+          playerDbId: playerData.playerId,
+          userId: playerData.userId,
+          eventType: 'security_block',
+          payload: {
+            messageType: type,
+            reason: 'INSUFFICIENT_CREDITS'
+          }
+        });
         return { valid: false, reason: 'INSUFFICIENT_CREDITS' };
       }
       break;
@@ -1701,6 +1944,17 @@ function validatePlayerContext(type, data, context) {
       // Non deve già essere in combattimento
       if (playerData.inCombat) {
         logger.warn('SECURITY', `🚫 BLOCKED: Already in combat attempt from ${data.clientId} playerId:${playerData.playerId}`);
+        CrashReporter.recordEvent({
+          sessionId,
+          clientId: data.clientId,
+          playerDbId: playerData.playerId,
+          userId: playerData.userId,
+          eventType: 'security_block',
+          payload: {
+            messageType: type,
+            reason: 'ALREADY_IN_COMBAT'
+          }
+        });
         return { valid: false, reason: 'ALREADY_IN_COMBAT' };
       }
       break;
@@ -1741,6 +1995,20 @@ async function routeMessage({ type, data, sanitizedData, context }) {
         code: 'INTERNAL_ERROR'
       }));
     }
+
+    CrashReporter.captureException(error, {
+      scope: `router.${type}`,
+      sessionId: context.sessionId,
+      clientId: data.clientId,
+      playerDbId: context.playerData?.playerId,
+      userId: context.playerData?.userId,
+      context: {
+        messageType: type,
+        clientId: data.clientId,
+        npcId: data.npcId,
+        questId: data.questId
+      }
+    });
 
     throw error;
   }
