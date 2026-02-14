@@ -4,6 +4,7 @@
 
 const { logger } = require('../logger.cjs');
 const ServerLoggerWrapper = require('../core/infrastructure/ServerLoggerWrapper.cjs');
+const CrashReporter = require('../core/infrastructure/CrashReporter.cjs');
 const { SERVER_CONSTANTS } = require('../config/constants.cjs');
 const ProjectileSpawner = require('./projectile/ProjectileSpawner.cjs');
 const ProjectilePhysics = require('./projectile/ProjectilePhysics.cjs');
@@ -25,6 +26,26 @@ class ServerProjectileManager {
     this.homing = new ProjectileHoming(mapServer);
     this.broadcaster = new ProjectileBroadcaster(mapServer);
     this.damageHandler = new ProjectileDamageHandler(mapServer);
+  }
+
+  recordHitEvents(projectile, targetType, targetEntity, actualDamage) {
+    const attackerClientId = projectile?.playerId;
+    const targetClientId = targetType === 'player' ? targetEntity?.clientId : null;
+    const payload = {
+      projectileId: projectile?.id || null,
+      projectileType: projectile?.projectileType || 'unknown',
+      targetType,
+      targetId: targetType === 'player' ? targetEntity?.clientId : targetEntity?.id,
+      damage: actualDamage
+    };
+
+    if (attackerClientId && typeof attackerClientId === 'string' && !attackerClientId.startsWith('npc_')) {
+      CrashReporter.recordEventForClient(attackerClientId, 'hit', payload);
+    }
+
+    if (targetClientId) {
+      CrashReporter.recordEventForClient(targetClientId, 'hit_taken', payload);
+    }
   }
 
   /**
@@ -60,6 +81,15 @@ class ServerProjectileManager {
     const excludeClientId = excludeSender ? playerId : null;
     const actualDamage = this.calculateProjectileDamage(projectile);
     this.broadcaster.broadcastProjectileFired(projectile, excludeClientId, actualDamage);
+
+    if (typeof playerId === 'string' && !playerId.startsWith('npc_')) {
+      CrashReporter.recordEventForClient(playerId, 'shoot', {
+        projectileId,
+        projectileType,
+        targetId,
+        damage: actualDamage
+      });
+    }
   }
 
   /**
@@ -179,22 +209,32 @@ class ServerProjectileManager {
 
             if (targetType === 'player') {
               const playerDead = this.damageHandler.handlePlayerDamage(targetEntity.clientId, actualDamage, projectile.playerId);
+              this.recordHitEvents(projectile, 'player', targetEntity, actualDamage);
               this.broadcaster.broadcastEntityDamaged(targetEntity, projectile, 'player', actualDamage);
 
               if (playerDead) {
                 ServerLoggerWrapper.combat(`Player ${targetEntity.clientId} killed by ${projectile.playerId} (deterministic hit)`);
+                CrashReporter.recordEventForClient(targetEntity.clientId, 'player_death', {
+                  killerId: projectile.playerId,
+                  projectileId: projectile.id
+                });
                 this.damageHandler.handlePlayerDeath(targetEntity.clientId, projectile.playerId);
                 this.broadcaster.broadcastEntityDestroyed(targetEntity, projectile.playerId, 'player');
               }
             } else {
               // Target è NPC
               const npcDead = this.damageHandler.handleNpcDamage(targetEntity.id, actualDamage, projectile.playerId);
+              this.recordHitEvents(projectile, 'npc', targetEntity, actualDamage);
               // Usa 'npc' come tipo entità
               this.broadcaster.broadcastEntityDamaged(targetEntity, projectile, 'npc', actualDamage);
 
               if (npcDead) {
-                const rewards = this.damageHandler.calculateRewards(targetEntity);
-                this.broadcaster.broadcastEntityDestroyed(targetEntity, projectile.playerId, 'npc', rewards);
+                if (typeof projectile.playerId === 'string' && !projectile.playerId.startsWith('npc_')) {
+                  CrashReporter.recordEventForClient(projectile.playerId, 'npc_kill', {
+                    npcId: targetEntity.id,
+                    npcType: targetEntity.type
+                  });
+                }
               }
             }
           }
@@ -225,21 +265,31 @@ class ServerProjectileManager {
             // Applica danno all'NPC target
             const actualDamage = this.calculateProjectileDamage(projectile);
             const npcDead = this.damageHandler.handleNpcDamage(targetHit.entity.id, actualDamage, projectile.playerId);
+            this.recordHitEvents(projectile, 'npc', targetHit.entity, actualDamage);
             this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile, 'npc', actualDamage);
 
             if (npcDead) {
-              const rewards = this.damageHandler.calculateRewards(targetHit.entity);
-              this.broadcaster.broadcastEntityDestroyed(targetHit.entity, projectile.playerId, 'npc', rewards);
+              if (typeof projectile.playerId === 'string' && !projectile.playerId.startsWith('npc_')) {
+                CrashReporter.recordEventForClient(projectile.playerId, 'npc_kill', {
+                  npcId: targetHit.entity.id,
+                  npcType: targetHit.entity.type
+                });
+              }
             }
 
           } else if (targetHit.type === 'player') {
             // Applica danno al giocatore target
             const actualDamage = this.calculateProjectileDamage(projectile);
             const playerDead = this.damageHandler.handlePlayerDamage(targetHit.entity.clientId, actualDamage, projectile.playerId);
+            this.recordHitEvents(projectile, 'player', targetHit.entity, actualDamage);
             this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile, 'player', actualDamage);
 
             if (playerDead) {
               ServerLoggerWrapper.combat(`Player ${targetHit.entity.clientId} killed by ${projectile.playerId}`);
+              CrashReporter.recordEventForClient(targetHit.entity.clientId, 'player_death', {
+                killerId: projectile.playerId,
+                projectileId: projectile.id
+              });
               this.damageHandler.handlePlayerDeath(targetHit.entity.clientId, projectile.playerId);
               this.broadcaster.broadcastEntityDestroyed(targetHit.entity, projectile.playerId, 'player');
             }
@@ -297,10 +347,15 @@ class ServerProjectileManager {
 
           const actualDamage = this.calculateProjectileDamage(projectile);
           const playerDead = this.damageHandler.handlePlayerDamage(hitPlayer.clientId, actualDamage, projectile.playerId);
+          this.recordHitEvents(projectile, 'player', hitPlayer.playerData, actualDamage);
           this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player', actualDamage);
 
           if (playerDead) {
             ServerLoggerWrapper.combat(`Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
+            CrashReporter.recordEventForClient(hitPlayer.clientId, 'player_death', {
+              killerId: projectile.playerId,
+              projectileId: projectile.id
+            });
             this.damageHandler.handlePlayerDeath(hitPlayer.clientId, projectile.playerId);
             this.broadcaster.broadcastEntityDestroyed(hitPlayer.playerData, projectile.playerId, 'player');
           }
@@ -337,10 +392,15 @@ class ServerProjectileManager {
 
           const actualDamage = this.calculateProjectileDamage(projectile);
           const playerDead = this.damageHandler.handlePlayerDamage(hitPlayer.clientId, actualDamage, projectile.playerId);
+          this.recordHitEvents(projectile, 'player', hitPlayer.playerData, actualDamage);
           this.broadcaster.broadcastEntityDamaged(hitPlayer.playerData, projectile, 'player', actualDamage);
 
           if (playerDead) {
             ServerLoggerWrapper.combat(`Player ${hitPlayer.clientId} killed by ${projectile.playerId}`);
+            CrashReporter.recordEventForClient(hitPlayer.clientId, 'player_death', {
+              killerId: projectile.playerId,
+              projectileId: projectile.id
+            });
             this.damageHandler.handlePlayerDeath(hitPlayer.clientId, projectile.playerId);
             this.broadcaster.broadcastEntityDestroyed(hitPlayer.playerData, projectile.playerId, 'player');
           }
