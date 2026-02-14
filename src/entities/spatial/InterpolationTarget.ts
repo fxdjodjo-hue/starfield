@@ -8,6 +8,8 @@ export interface Snapshot {
     y: number;
     rotation: number;
     serverTime: number;
+    vx: number;
+    vy: number;
 }
 
 /**
@@ -62,7 +64,9 @@ export class InterpolationTarget {
             x: initialX,
             y: initialY,
             rotation: initialRotation,
-            serverTime: now
+            serverTime: now,
+            vx: 0,
+            vy: 0
         });
     }
 
@@ -71,8 +75,8 @@ export class InterpolationTarget {
         y: number,
         rotation: number,
         serverTime: number,
-        _vx: number = 0,
-        _vy: number = 0
+        vx: number = 0,
+        vy: number = 0
     ): void {
         if (!Number.isFinite(x) || !Number.isFinite(y)) {
             return;
@@ -103,8 +107,23 @@ export class InterpolationTarget {
             }
         }
 
+        // TELEPORT DETECTION: If position jumped far (portal, respawn), snap instead of interpolating
+        const TELEPORT_THRESHOLD_SQ = 500 * 500; // 500px
+        if (this.snapshots.length > 0) {
+            const last = this.snapshots[this.snapshots.length - 1];
+            const dx = x - last.x;
+            const dy = y - last.y;
+            if (dx * dx + dy * dy > TELEPORT_THRESHOLD_SQ) {
+                // Clear all old snapshots and start fresh from this position
+                this.snapshots = [];
+                this.renderX = x;
+                this.renderY = y;
+                this.renderRotation = rotation;
+            }
+        }
+
         // Add snapshot to buffer
-        this.snapshots.push({ x, y, rotation, serverTime });
+        this.snapshots.push({ x, y, rotation, serverTime, vx, vy });
 
         // Keep buffer from growing too large (FIFO)
         while (this.snapshots.length > this.MAX_BUFFER_SIZE) {
@@ -143,11 +162,14 @@ export class InterpolationTarget {
 
         // Calculate and apply position DIRECTLY (no extra smoothing)
         if (!next) {
-            // Buffer underrun - hold last known position
+            // Buffer underrun - extrapolate using last known velocity
             this._isExtrapolating = true;
             const last = this.snapshots[this.snapshots.length - 1];
-            this.renderX = last.x;
-            this.renderY = last.y;
+            const overrunMs = renderServerTime - last.serverTime;
+            const MAX_EXTRAPOLATION_MS = 150; // Cap to avoid runaway drift
+            const clampedMs = Math.min(Math.max(overrunMs, 0), MAX_EXTRAPOLATION_MS);
+            this.renderX = last.x + last.vx * (clampedMs / 1000);
+            this.renderY = last.y + last.vy * (clampedMs / 1000);
             this.renderRotation = last.rotation;
         } else if (!prev) {
             // Too far in past - snap to oldest
@@ -156,16 +178,17 @@ export class InterpolationTarget {
             this.renderY = next.y;
             this.renderRotation = next.rotation;
         } else {
-            // NORMAL INTERPOLATION - This is the core logic
+            // NORMAL INTERPOLATION - Hermite cubic spline using velocity
             this._isExtrapolating = false;
             const totalTime = next.serverTime - prev.serverTime;
             const elapsedTime = renderServerTime - prev.serverTime;
             let t = totalTime > 0 ? elapsedTime / totalTime : 0;
             t = Math.max(0, Math.min(1, t));
 
-            // Apply interpolated position DIRECTLY to renderX/Y
-            this.renderX = prev.x + (next.x - prev.x) * t;
-            this.renderY = prev.y + (next.y - prev.y) * t;
+            // Hermite interpolation: velocity tangents scaled to the interval duration (seconds)
+            const dtSec = totalTime / 1000;
+            this.renderX = this.hermite(prev.x, prev.vx * dtSec, next.x, next.vx * dtSec, t);
+            this.renderY = this.hermite(prev.y, prev.vy * dtSec, next.y, next.vy * dtSec, t);
             this.renderRotation = this.lerpAngle(prev.rotation, next.rotation, t);
         }
     }
@@ -181,7 +204,7 @@ export class InterpolationTarget {
         const now = Date.now();
         const serverTime = this.clockOffset !== null ? now + this.clockOffset : now;
 
-        this.snapshots = [{ x, y, rotation, serverTime }];
+        this.snapshots = [{ x, y, rotation, serverTime, vx: 0, vy: 0 }];
     }
 
     // ==========================================
@@ -205,6 +228,24 @@ export class InterpolationTarget {
     // ==========================================
     // HELPERS
     // ==========================================
+
+    /**
+     * Cubic Hermite spline: smooth interpolation that respects velocity at both endpoints.
+     * h(t) = (2t³ - 3t² + 1)p0 + (t³ - 2t² + t)m0 + (-2t³ + 3t²)p1 + (t³ - t²)m1
+     * @param p0 Start position
+     * @param m0 Start tangent (velocity * dt)
+     * @param p1 End position
+     * @param m1 End tangent (velocity * dt)
+     * @param t  Interpolation factor [0, 1]
+     */
+    private hermite(p0: number, m0: number, p1: number, m1: number, t: number): number {
+        const t2 = t * t;
+        const t3 = t2 * t;
+        return (2 * t3 - 3 * t2 + 1) * p0
+            + (t3 - 2 * t2 + t) * m0
+            + (-2 * t3 + 3 * t2) * p1
+            + (t3 - t2) * m1;
+    }
 
     private lerpAngle(from: number, to: number, t: number): number {
         let diff = to - from;

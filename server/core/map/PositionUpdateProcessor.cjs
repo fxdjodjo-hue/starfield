@@ -101,10 +101,17 @@ class PositionUpdateProcessor {
             this.movementAudit.set(clientId, auditState);
           }
           // Rifiuta l'aggiornamento
-          // Opzionale: Loggare l'evento di sicurezza
-          // console.warn(`SECURITY: Rejected movement for ${clientId}: ${validationResult.errors[0]}`);
           continue;
         }
+      } else if (isMigrating) {
+        // Player just teleported via portal — reset lastValidPositions baseline immediately
+        // so that when isMigrating expires, the audit uses the new-map position as reference
+        if (!this.lastValidPositions) this.lastValidPositions = new Map();
+        this.lastValidPositions.set(clientId, {
+          x: latestUpdate.x,
+          y: latestUpdate.y,
+          timestamp: serverTimestamp
+        });
       }
 
       // Aggiorna l'ultima posizione valida
