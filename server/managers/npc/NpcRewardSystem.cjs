@@ -14,6 +14,18 @@ function toNonNegativeNumber(value) {
 }
 
 const RECENT_KILL_OPS_LIMIT = Number(process.env.KILL_OP_DEDUPE_BUFFER_SIZE || 300);
+const DUPLICATE_CONVERSION_COSMOS = Object.freeze({
+  COMMON: 60,
+  UNCOMMON: 180,
+  RARE: 700,
+  EPIC: 2400
+});
+
+function getDuplicateConversionCosmos(rarity) {
+  if (!rarity) return 0;
+  const rarityKey = String(rarity).toUpperCase();
+  return Number(DUPLICATE_CONVERSION_COSMOS[rarityKey] || 0);
+}
 
 function ensureKillOpsState(playerData) {
   if (!playerData._recentKillOps || !Array.isArray(playerData._recentKillOps.order)) {
@@ -123,25 +135,37 @@ class NpcRewardSystem {
 
     // 🚀 Item-Based Drops (Autoritativo)
     const droppedItems = [];
+    const duplicateConversions = [];
+    let duplicateCosmosTotal = 0;
     const npcPossibleDrops = NPC_CONFIG[npcType]?.possibleDrops || [];
 
     if (npcPossibleDrops.length > 0) {
       const itemConfig = require('../../../shared/item-config.json');
       const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
+      if (!Array.isArray(playerData.items)) playerData.items = [];
+      const ownedItemIds = new Set(
+        playerData.items
+          .map(item => item && item.id)
+          .filter(itemId => typeof itemId === 'string')
+      );
 
       // 🎲 SINGLE ROLL SYSTEM (Fair & Weighted)
       // Calculate probability segments for all potential drops
-      const candidates = [];
+      const allCandidates = [];
       for (const itemId of npcPossibleDrops) {
         const itemDef = ITEM_REGISTRY[itemId];
         if (itemDef && itemDef.dropChance > 0) {
-          candidates.push({
+          allCandidates.push({
             id: itemId,
             chance: itemDef.dropChance,
             def: itemDef
           });
         }
       }
+
+      // Niente doppioni finché esistono item non posseduti nel pool.
+      const nonDuplicateCandidates = allCandidates.filter(candidate => !ownedItemIds.has(candidate.id));
+      const candidates = nonDuplicateCandidates.length > 0 ? nonDuplicateCandidates : allCandidates;
 
       // Shuffle candidates to ensure fairness if total probability > 100% (rare edge case)
       // preventing the same items from always being "cut off" at the end of the 0-1 range
@@ -159,20 +183,36 @@ class NpcRewardSystem {
           const itemDef = candidate.def;
           const dropChance = candidate.chance;
           const itemId = candidate.id;
+          const isDuplicate = ownedItemIds.has(itemId);
 
-          const instanceId = Math.random().toString(36).substring(2, 9);
-          const newItem = {
-            id: itemId,
-            instanceId,
-            acquiredAt: Date.now(),
-            slot: null
-          };
-
-          if (!playerData.items) playerData.items = [];
-          playerData.items.push(newItem);
-          droppedItems.push(newItem);
-
-          ServerLoggerWrapper.info('REWARDS', `Player ${playerId} dropped ${itemDef.rarity} item: ${itemId} (${instanceId}) [Rate: ${dropChance.toFixed(4)}]`);
+          if (isDuplicate) {
+            const duplicateCosmos = getDuplicateConversionCosmos(itemDef.rarity);
+            if (duplicateCosmos > 0) {
+              playerData.inventory.cosmos = Number(playerData.inventory.cosmos || 0) + duplicateCosmos;
+              playerData.inventory.cosmos = toNonNegativeNumber(playerData.inventory.cosmos);
+              duplicateCosmosTotal += duplicateCosmos;
+              duplicateConversions.push({
+                itemId,
+                rarity: itemDef.rarity,
+                cosmos: duplicateCosmos
+              });
+              ServerLoggerWrapper.info(
+                'REWARDS',
+                `Player ${playerId} duplicate ${itemDef.rarity} item converted: ${itemId} -> +${duplicateCosmos} cosmos [Rate: ${dropChance.toFixed(4)}]`
+              );
+            }
+          } else {
+            const instanceId = Math.random().toString(36).substring(2, 9);
+            const newItem = {
+              id: itemId,
+              instanceId,
+              acquiredAt: Date.now(),
+              slot: null
+            };
+            playerData.items.push(newItem);
+            droppedItems.push(newItem);
+            ServerLoggerWrapper.info('REWARDS', `Player ${playerId} dropped ${itemDef.rarity} item: ${itemId} (${instanceId}) [Rate: ${dropChance.toFixed(4)}]`);
+          }
 
           // Only one drop per roll (implicit by loop break)
           break;
@@ -191,11 +231,18 @@ class NpcRewardSystem {
       });
     }
 
-    ServerLoggerWrapper.info('REWARDS', `Player ${playerId} awarded: ${rewards.credits} credits, ${rewards.cosmos} cosmos, ${rewards.experience} XP, ${rewards.honor} honor`);
+    const totalCosmosAwarded = Number(rewards.cosmos || 0) + duplicateCosmosTotal;
+    ServerLoggerWrapper.info(
+      'REWARDS',
+      `Player ${playerId} awarded: ${rewards.credits} credits, ${totalCosmosAwarded} cosmos (${duplicateCosmosTotal} duplicate conversion), ${rewards.experience} XP, ${rewards.honor} honor`
+    );
 
     // Invia notifica delle ricompense al client
     const finalRewards = {
       ...rewards,
+      cosmos: totalCosmosAwarded,
+      duplicateCosmos: duplicateCosmosTotal,
+      duplicateConversions,
       droppedItems: droppedItems,
       killOpId,
       npcId
@@ -207,10 +254,12 @@ class NpcRewardSystem {
       npcType,
       rewards: {
         credits: rewards.credits || 0,
-        cosmos: rewards.cosmos || 0,
+        cosmos: totalCosmosAwarded,
+        duplicateCosmos: duplicateCosmosTotal,
         experience: rewards.experience || 0,
         honor: rewards.honor || 0
       },
+      duplicateConversions: duplicateConversions,
       droppedItems: droppedItems.map(item => item.id)
     });
 

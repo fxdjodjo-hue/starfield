@@ -578,15 +578,44 @@ export class InventoryPanel extends BasePanel {
     // Mostra gli item nell'inventario (FILTRATI: solo quelli non equipaggiati)
     const equippedInstanceIds = new Set(Object.values(inventory.equipped));
     const unequippedItems = inventory.items.filter(itemInfo => !equippedInstanceIds.has(itemInfo.instanceId));
+    const stackedUnequippedItems = new Map<string, { itemId: string; instanceIds: string[] }>();
 
-    unequippedItems.forEach(itemInfo => {
-      const itemDef = ITEM_REGISTRY[itemInfo.id];
+    // Auto-stack: raggruppa i duplicati per itemId mantenendo gli instanceId per equip.
+    for (const itemInfo of unequippedItems) {
+      const existingStack = stackedUnequippedItems.get(itemInfo.id);
+      if (existingStack) {
+        existingStack.instanceIds.push(itemInfo.instanceId);
+      } else {
+        stackedUnequippedItems.set(itemInfo.id, {
+          itemId: itemInfo.id,
+          instanceIds: [itemInfo.instanceId]
+        });
+      }
+    }
+
+    stackedUnequippedItems.forEach(stackedItem => {
+      const itemDef = ITEM_REGISTRY[stackedItem.itemId];
       if (!itemDef) return;
+      const stackCount = stackedItem.instanceIds.length;
+      const representativeInstanceId = stackedItem.instanceIds[0];
 
       const slot = document.createElement('div');
+      slot.style.cssText = `
+        min-height: 50px;
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+      `;
+
       // Rarity style
       let rarityColor = 'rgba(255, 255, 255, 0.05)';
-      let textColor = '#ffffff';
       if (itemDef.rarity === 'UNCOMMON') rarityColor = 'rgba(34, 197, 94, 0.1)';
       if (itemDef.rarity === 'RARE') rarityColor = 'rgba(59, 130, 246, 0.1)';
       if (itemDef.rarity === 'EPIC') rarityColor = 'rgba(168, 85, 247, 0.1)';
@@ -603,22 +632,25 @@ export class InventoryPanel extends BasePanel {
         <div style="width: 48px; display: flex; justify-content: center;">${this.renderIcon(itemDef.icon, '36px', itemDef.rarity !== 'COMMON' ? `drop-shadow(0 0 5px ${rarityBorder})` : '')}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="color: ${itemDef.rarity !== 'COMMON' ? rarityBorder.replace('0.3', '1.0') : '#ffffff'}; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px;">${itemDef.name}</div>
-          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.rarity} ${itemDef.slot}</div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.rarity} ${itemDef.slot}</div>
+            ${stackCount > 1 ? `<div style="padding: 2px 8px; border-radius: 999px; border: 1px solid ${rarityBorder}; color: ${itemDef.rarity !== 'COMMON' ? rarityBorder.replace('0.3', '1.0') : '#ffffff'}; font-size: 10px; font-weight: 800;">x${stackCount}</div>` : ''}
+          </div>
         </div>
       `;
 
-      slot.title = `${itemDef.name}\n${itemDef.description}\n(Click to Equip)`;
+      slot.title = `${itemDef.name}\n${itemDef.description}\nQuantity: ${stackCount}\n(Click to Equip)`;
 
       slot.onclick = (e) => {
         e.stopPropagation();
-        this.showItemDetails(itemDef, itemInfo.instanceId, false, inventory);
+        this.showItemDetails(itemDef, representativeInstanceId, false, inventory);
       };
 
       cargoGrid.appendChild(slot);
     });
 
     // Riempi con slot vuoti se necessario (basato su unepuippedItems)
-    const emptySlots = Math.max(0, 8 - unequippedItems.length);
+    const emptySlots = Math.max(0, 8 - stackedUnequippedItems.size);
     for (let i = 0; i < emptySlots; i++) {
       const slot = document.createElement('div');
       slot.style.cssText = `
