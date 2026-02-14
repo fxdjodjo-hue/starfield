@@ -373,17 +373,13 @@ class ServerProjectileManager {
         }
       }
 
-      // Proiettili senza target specifico continuano la verifica collisioni
-
-      // DISABILITATO: Rimossi fallback collisioni generiche per proiettili player
-      // I proiettili del giocatore dovrebbero avere sempre un target specifico
-      // Se non hanno target, vengono rimossi per timeout invece di colpire chiunque
-
-      // Verifica collisioni con giocatori (solo per proiettili NON NPC, perché gli NPC sono già gestiti sopra)
-      if (!isNpcProjectile) {
+      // Verifica collisioni con giocatori (solo per proiettili SENZA target specifico)
+      // i laser con target specifico colpiscono SOLO il target selezionato,
+      // non altri player lungo la traiettoria
+      if (!isNpcProjectile && (!projectile.targetId || projectile.targetId === -1)) {
         const hitPlayer = this.collision.checkPlayerCollision(projectile);
         if (hitPlayer) {
-          // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
+          // Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
           projectile.velocity.x = 0;
           projectile.velocity.y = 0;
 
@@ -482,3 +478,4 @@ class ServerProjectileManager {
 }
 
 module.exports = ServerProjectileManager;
+
