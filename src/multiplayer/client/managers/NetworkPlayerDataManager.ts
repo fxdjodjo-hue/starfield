@@ -28,6 +28,10 @@ export class NetworkPlayerDataManager {
     this.isConnected = isConnected;
   }
 
+  private getCurrentClientId(): string {
+    return this.gameContext.localClientId || this.clientId;
+  }
+
   /**
    * Requests a stat upgrade to the server (Server Authoritative)
    * Costs credits and cosmos instead of skill points
@@ -37,9 +41,10 @@ export class NetworkPlayerDataManager {
       return;
     }
 
+    const currentClientId = this.getCurrentClientId();
     const message = {
       type: 'skill_upgrade_request',
-      clientId: this.clientId,  // WebSocket client ID
+      clientId: currentClientId,  // WebSocket client ID
       playerId: this.gameContext.authId,  // User/auth ID (UUID)
       upgradeType: upgradeType
     };
@@ -61,16 +66,16 @@ export class NetworkPlayerDataManager {
       return;
     }
 
-    // 🔴 CRITICAL: Non richiedere dati player finché non abbiamo il clientId persistente
-    // Sappiamo di essere ready se il clientId è un numero (persistente)
-    if (isNaN(Number(this.clientId))) {
+    // Require a server-assigned client id, without assuming a numeric format.
+    const currentClientId = this.getCurrentClientId();
+    if (!currentClientId || `${currentClientId}`.trim().length === 0) {
       console.warn('📊 [PLAYER_DATA] Cannot request player data - waiting for persistent clientId');
       return;
     }
 
     const message = {
       type: MESSAGE_TYPES.REQUEST_PLAYER_DATA,
-      clientId: this.clientId
+      clientId: currentClientId
     };
 
     this.connectionManager.send(JSON.stringify(message));
