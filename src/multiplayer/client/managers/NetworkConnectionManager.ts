@@ -1,4 +1,3 @@
-import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { NETWORK_CONFIG } from '../../../config/NetworkConfig';
 import type { NetMessage } from '../types/MessageTypes';
 
@@ -23,6 +22,10 @@ export class NetworkConnectionManager {
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private lastHeartbeatAck = 0;
   private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
+  private connectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  // Disconnection dedupe guard (prevents duplicate callbacks on timeout+close race)
+  private hasNotifiedDisconnect = false;
 
   // Bandwidth tracking
   private bytesIn = 0;
@@ -70,12 +73,51 @@ export class NetworkConnectionManager {
     return new Promise((resolve, reject) => {
       try {
         this.socket = new WebSocket(this.serverUrl);
+        this.hasNotifiedDisconnect = false;
+        let settled = false;
+
+        const clearConnectTimeout = (): void => {
+          if (this.connectTimeout) {
+            clearTimeout(this.connectTimeout);
+            this.connectTimeout = null;
+          }
+        };
+
+        const resolveIfPending = (socket: WebSocket): void => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearConnectTimeout();
+          resolve(socket);
+        };
+
+        const rejectIfPending = (error: unknown): void => {
+          if (settled) {
+            return;
+          }
+          settled = true;
+          clearConnectTimeout();
+          reject(error instanceof Error ? error : new Error(String(error)));
+        };
 
         this.socket.onopen = async () => {
-          await this.handleConnected(this.socket!);
-          this.startHeartbeat();
-          this.startBandwidthTracking();
-          resolve(this.socket!);
+          try {
+            await this.handleConnected(this.socket!);
+
+            // Connection init might explicitly close the socket (e.g. auth failure).
+            if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+              rejectIfPending(new Error('Connection closed during initialization'));
+              return;
+            }
+
+            this.startBandwidthTracking();
+            resolveIfPending(this.socket);
+          } catch (error) {
+            console.error('🔌 [CONNECTION] Failed during connection initialization:', error);
+            this.cleanup();
+            rejectIfPending(error);
+          }
         };
 
         this.socket.onmessage = (event) => {
@@ -84,27 +126,45 @@ export class NetworkConnectionManager {
             this.bytesIn += event.data.length;
           } else if (event.data instanceof Blob) {
             this.bytesIn += event.data.size;
+          } else if (event.data instanceof ArrayBuffer) {
+            this.bytesIn += event.data.byteLength;
           }
 
-          this.handleMessage(event.data);
+          if (typeof event.data === 'string') {
+            this.handleMessage(event.data);
+          } else if (event.data instanceof Blob) {
+            void event.data.text()
+              .then((text) => {
+                this.handleMessage(text);
+              })
+              .catch((error) => {
+                console.error('❌ [CONNECTION] Error decoding blob message:', error);
+              });
+          } else if (event.data instanceof ArrayBuffer) {
+            const text = new TextDecoder().decode(event.data);
+            this.handleMessage(text);
+          }
         };
 
         this.socket.onclose = () => {
-          this.cleanup();
-          this.handleDisconnected();
+          this.notifyDisconnectedOnce();
+          rejectIfPending(new Error('Connection closed during establishment'));
         };
 
         this.socket.onerror = (error) => {
           console.error('🔌 [CONNECTION] WebSocket error:', error);
-          this.cleanup();
-          reject(error);
+          this.handleConnectionError(error);
+          if (!settled) {
+            this.cleanup();
+            rejectIfPending(new Error('WebSocket connection error'));
+          }
         };
 
         // Timeout di connessione
-        setTimeout(() => {
+        this.connectTimeout = setTimeout(() => {
           if (this.socket?.readyState === WebSocket.CONNECTING) {
             this.socket.close();
-            reject(new Error('Connection timeout'));
+            rejectIfPending(new Error('Connection timeout'));
           }
         }, 10000);
 
@@ -162,10 +222,7 @@ export class NetworkConnectionManager {
    * Gestisce disconnessione
    */
   private handleDisconnected(): void {
-    this.cleanup();
-    if (this.onDisconnectedCallback) {
-      this.onDisconnectedCallback();
-    }
+    this.notifyDisconnectedOnce();
   }
 
   /**
@@ -250,6 +307,12 @@ export class NetworkConnectionManager {
   private sendHeartbeat(): void {
     if (!this.socket || !this.clientId) return;
 
+    // Cancel previous pending heartbeat timeout before sending a new heartbeat.
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout);
+      this.heartbeatTimeout = null;
+    }
+
     const message = {
       type: 'heartbeat',
       clientId: this.clientId, // Usa il clientId persistente
@@ -265,8 +328,6 @@ export class NetworkConnectionManager {
       // FORCE DISCONNECT to trigger UI popup
       // This ensures handleDisconnected is called (via socket.onclose or explicitly if needed)
       this.disconnect();
-      // Manually trigger callback just in case socket.close() doesn't fire immediately due to state
-      this.handleDisconnected();
     }, 5000);
   }
 
@@ -274,9 +335,24 @@ export class NetworkConnectionManager {
    * Cleanup risorse
    */
   private cleanup(): void {
+    if (this.connectTimeout) {
+      clearTimeout(this.connectTimeout);
+      this.connectTimeout = null;
+    }
     this.stopHeartbeat();
     this.stopBandwidthTracking();
     this.socket = null;
+  }
+
+  private notifyDisconnectedOnce(): void {
+    if (this.hasNotifiedDisconnect) {
+      return;
+    }
+    this.hasNotifiedDisconnect = true;
+    this.cleanup();
+    if (this.onDisconnectedCallback) {
+      this.onDisconnectedCallback();
+    }
   }
 
   /**
