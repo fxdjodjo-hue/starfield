@@ -61,25 +61,28 @@ export class NetworkStateManager {
    * Connects to the server using the connection manager with race condition prevention
    */
   async connect(): Promise<void> {
-    // Prevent multiple concurrent connection attempts
-    if (this.connectionState === ConnectionState.CONNECTING ||
-      this.connectionState === ConnectionState.CONNECTED) {
+    // Prevent multiple concurrent connection attempts.
+    if (this.connectionState === ConnectionState.CONNECTED) {
+      return Promise.resolve();
+    }
+    if (this.connectionState === ConnectionState.CONNECTING) {
       return this.connectionPromise || Promise.resolve();
+    }
+    if (this.connectionState === ConnectionState.RECONNECTING && this.connectionPromise) {
+      return this.connectionPromise;
     }
 
-    if (this.connectionState === ConnectionState.RECONNECTING) {
-      return this.connectionPromise || Promise.resolve();
-    }
+    const isReconnectAttempt = this.connectionState === ConnectionState.RECONNECTING;
 
     // Set state and create promise
-    this.connectionState = ConnectionState.CONNECTING;
+    this.connectionState = isReconnectAttempt ? ConnectionState.RECONNECTING : ConnectionState.CONNECTING;
     this.connectionPromise = new Promise<void>((resolve, reject) => {
       this.connectionResolver = resolve;
       this.connectionRejector = reject;
     });
 
     try {
-      const socket = await this.connectionManager.connect();
+      await this.connectionManager.connect();
 
       // Connection successful
       this.connectionState = ConnectionState.CONNECTED;
@@ -111,11 +114,14 @@ export class NetworkStateManager {
    * Handles disconnection events
    */
   handleDisconnected(): void {
-    const wasConnected = this.connectionState === ConnectionState.CONNECTED;
+    const previousState = this.connectionState;
+    if (previousState === ConnectionState.DISCONNECTED && !this.connectionPromise) {
+      return;
+    }
     this.connectionState = ConnectionState.DISCONNECTED;
 
     // Reset connection promise
-    if (this.connectionPromise && !wasConnected) {
+    if (this.connectionPromise && previousState !== ConnectionState.CONNECTED) {
       // If we were connecting but not yet connected, reject the promise
       if (this.connectionRejector) {
         this.connectionRejector(new Error('Connection lost during establishment'));
@@ -145,6 +151,10 @@ export class NetworkStateManager {
    * Handles reconnection attempts
    */
   handleReconnecting(): void {
+    if (this.connectionState !== ConnectionState.RECONNECTING) {
+      this.connectionState = ConnectionState.RECONNECTING;
+    }
+
     // Notify external systems
     if (this.onReconnectingCallback) {
       this.onReconnectingCallback();
