@@ -85,6 +85,11 @@ export class ClientNetworkSystem extends BaseSystem {
 
   // Callbacks for external systems
   private onPlayerIdReceived?: (playerDbId: PlayerDbId) => void;
+  private readonly onDisconnectedCallbacks: Array<() => void> = [];
+  private readonly onConnectionErrorCallbacks: Array<(error: Event) => void> = [];
+  private readonly onReconnectingCallbacks: Array<() => void> = [];
+  private readonly onReconnectedCallbacks: Array<() => void> = [];
+  private readonly onConnectedCallbacks: Array<() => void> = [];
 
   // Legacy socket reference (for backward compatibility)
   private socket: WebSocket | null = null;
@@ -203,18 +208,24 @@ export class ClientNetworkSystem extends BaseSystem {
     // Initialize disconnection popup manager
     this.disconnectionPopupManager = new DisconnectionPopupManager(this);
 
-    // Setup disconnection listener
+    // Setup state manager listeners once and fan out to multiple subscribers.
     this.stateManager.onDisconnected(() => {
       this.disconnectionPopupManager.show();
+      this.emitDisconnected();
     });
-
-    // Setup reconnection listener
+    this.stateManager.onConnectionError((error: Event) => {
+      this.emitConnectionError(error);
+    });
+    this.stateManager.onReconnecting(() => {
+      this.emitReconnecting();
+    });
     this.stateManager.onConnected(() => {
       this.disconnectionPopupManager.hide();
+      this.emitConnected();
     });
-
     this.stateManager.onReconnected(() => {
       this.disconnectionPopupManager.hide();
+      this.emitReconnected();
     });
 
     // Register message handlers
@@ -287,7 +298,7 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   getHasReceivedWelcome(): boolean {
-    return this.positionSyncManager.getHasReceivedWelcome();
+    return this.hasReceivedWelcome;
   }
 
   getLocalPlayerPosition(): { x: number; y: number; rotation: number } {
@@ -308,12 +319,6 @@ export class ClientNetworkSystem extends BaseSystem {
         message.type === MESSAGE_TYPES.HEARTBEAT_ACK ||
         message.type === MESSAGE_TYPES.WORLD_UPDATE) {
         return; // No action needed
-      }
-
-      // 🔧 FIX: Assicurati che ogni messaggio abbia un clientId valido
-      // Per i messaggi ricevuti dal server, usa il nostro clientId locale
-      if (!message.clientId || message.clientId === 'undefined') {
-        message.clientId = this.clientId;
       }
 
       // Route all other messages to appropriate handlers
@@ -340,23 +345,33 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   onDisconnected(callback: () => void): void {
-    this.stateManager.onDisconnected(callback);
+    if (!this.onDisconnectedCallbacks.includes(callback)) {
+      this.onDisconnectedCallbacks.push(callback);
+    }
   }
 
   onConnectionError(callback: (error: Event) => void): void {
-    this.stateManager.onConnectionError(callback);
+    if (!this.onConnectionErrorCallbacks.includes(callback)) {
+      this.onConnectionErrorCallbacks.push(callback);
+    }
   }
 
   onReconnecting(callback: () => void): void {
-    this.stateManager.onReconnecting(callback);
+    if (!this.onReconnectingCallbacks.includes(callback)) {
+      this.onReconnectingCallbacks.push(callback);
+    }
   }
 
   onReconnected(callback: () => void): void {
-    this.stateManager.onReconnected(callback);
+    if (!this.onReconnectedCallbacks.includes(callback)) {
+      this.onReconnectedCallbacks.push(callback);
+    }
   }
 
   onConnected(callback: () => void): void {
-    this.stateManager.onConnected(callback);
+    if (!this.onConnectedCallbacks.includes(callback)) {
+      this.onConnectedCallbacks.push(callback);
+    }
   }
 
   async connect(): Promise<void> {
@@ -951,6 +966,11 @@ export class ClientNetworkSystem extends BaseSystem {
 
     // Clear callbacks
     this.onPlayerIdReceived = undefined;
+    this.onDisconnectedCallbacks.length = 0;
+    this.onConnectionErrorCallbacks.length = 0;
+    this.onReconnectingCallbacks.length = 0;
+    this.onReconnectedCallbacks.length = 0;
+    this.onConnectedCallbacks.length = 0;
   }
 
   /**
@@ -958,5 +978,55 @@ export class ClientNetworkSystem extends BaseSystem {
    */
   getNetworkStats() {
     return this.connectionManager.getStats();
+  }
+
+  private emitDisconnected(): void {
+    this.onDisconnectedCallbacks.forEach((callback) => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('[ClientNetworkSystem] onDisconnected callback failed:', error);
+      }
+    });
+  }
+
+  private emitConnectionError(error: Event): void {
+    this.onConnectionErrorCallbacks.forEach((callback) => {
+      try {
+        callback(error);
+      } catch (callbackError) {
+        console.error('[ClientNetworkSystem] onConnectionError callback failed:', callbackError);
+      }
+    });
+  }
+
+  private emitReconnecting(): void {
+    this.onReconnectingCallbacks.forEach((callback) => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('[ClientNetworkSystem] onReconnecting callback failed:', error);
+      }
+    });
+  }
+
+  private emitReconnected(): void {
+    this.onReconnectedCallbacks.forEach((callback) => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('[ClientNetworkSystem] onReconnected callback failed:', error);
+      }
+    });
+  }
+
+  private emitConnected(): void {
+    this.onConnectedCallbacks.forEach((callback) => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('[ClientNetworkSystem] onConnected callback failed:', error);
+      }
+    });
   }
 }
