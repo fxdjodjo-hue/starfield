@@ -204,20 +204,8 @@ export class NetworkInitializationManager {
    * Handles successful connection establishment
    * Validates JWT and sends JOIN message
    */
-  async handleConnected(socket: WebSocket, jwtValidator: JwtAuthValidator): Promise<void> {
+  async handleConnected(_socket: WebSocket, jwtValidator: JwtAuthValidator): Promise<void> {
     const previousState = this.stateManager.getConnectionState();
-
-    // Set connection state
-    this.stateManager.setConnectionState(ConnectionState.CONNECTED);
-
-    // Reset tick manager timing on (re)connection
-    this.tickManager.reset();
-
-    // Notify external systems.
-    if (previousState === ConnectionState.RECONNECTING) {
-      this.stateManager.notifyReconnected();
-    }
-    this.stateManager.notifyConnected();
 
     // 🔴 CRITICAL SECURITY: Verifica che abbiamo sia una sessione valida che un token JWT
     if (!jwtValidator.validateLocalClientId()) {
@@ -245,6 +233,9 @@ export class NetworkInitializationManager {
     const nicknameToSend = this.gameContext.playerNickname || 'Player';
 
     const currentClientId = this.getCurrentClientId();
+    if (!this.connectionManager.isConnectionActive()) {
+      throw new Error('Connection dropped before JOIN dispatch');
+    }
     this.sendMessageInternal({
       type: MESSAGE_TYPES.JOIN,
       clientId: currentClientId,
@@ -256,6 +247,14 @@ export class NetworkInitializationManager {
       userId: this.gameContext.authId || this.gameContext.localClientId,
       position: currentPosition
     });
+
+    // Mark as connected only after auth+JOIN dispatch prerequisites are satisfied.
+    this.stateManager.setConnectionState(ConnectionState.CONNECTED);
+    this.tickManager.reset();
+    if (previousState === ConnectionState.RECONNECTING) {
+      this.stateManager.notifyReconnected();
+    }
+    this.stateManager.notifyConnected();
   }
 
   /**
