@@ -87,8 +87,15 @@ export class NetworkAuthenticationManager {
   private getTokenExpiry(token: string): number | null {
     try {
       const payload = token.split('.')[1];
-      const decoded = JSON.parse(atob(payload));
-      return decoded.exp || null;
+      if (!payload) {
+        return null;
+      }
+
+      // JWT uses base64url encoding, normalize it before atob().
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const paddedBase64 = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      const decoded = JSON.parse(atob(paddedBase64));
+      return typeof decoded.exp === 'number' ? decoded.exp : null;
     } catch {
       return null;
     }
