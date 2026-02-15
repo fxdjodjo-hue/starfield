@@ -77,7 +77,7 @@ export class NetworkInitializationManager {
   private readonly positionTracker: PlayerPositionTracker;
   private readonly stateManager: NetworkStateManager;
   private readonly gameContext: GameContext;
-  private readonly clientId: string;
+  private readonly initialClientId: string;
 
   constructor(
     messageRouter: MessageRouter,
@@ -96,9 +96,17 @@ export class NetworkInitializationManager {
     this.positionTracker = positionTracker;
     this.stateManager = stateManager;
     this.gameContext = gameContext;
-    this.clientId = clientId;
+    this.initialClientId = clientId;
     this.remoteNpcSystem = remoteNpcSystem;
     this.remoteProjectileSystem = remoteProjectileSystem;
+  }
+
+  /**
+   * Returns the most up-to-date clientId available.
+   * Priority: state manager (updated on welcome) -> game context -> initial constructor value.
+   */
+  private getCurrentClientId(): string {
+    return this.stateManager.clientId || this.gameContext.localClientId || this.initialClientId;
   }
 
   /**
@@ -133,8 +141,6 @@ export class NetworkInitializationManager {
         new RepairCompleteHandler(),
         new GlobalMonitorHandler(),
         new MapChangeHandler(),
-        new GlobalMonitorHandler(),
-        new MapChangeHandler(),
         new QuestUpdateHandler(),
         new ErrorMessageHandler()
       );
@@ -165,16 +171,20 @@ export class NetworkInitializationManager {
         new ProjectileDestroyedHandler(),
         new EntityDamagedHandler(),
         new EntityDestroyedHandler(),
-        new EntityDestroyedHandler(),
         new ExplosionCreatedHandler()
       );
       this.combatHandlersRegistered = true;
     }
 
     // Registra solo i nuovi handler (non sovrascrive quelli esistenti)
-    if (handlersToRegister.length > 0) {
-      secureLogger.log('Registering new handlers:', handlersToRegister.map((h: any) => h.constructor?.name).join(', '));
-      handlersToRegister.forEach(handler => this.messageRouter.registerHandler(handler));
+    // Defensive dedupe in caso di future regressioni/copy-paste.
+    const uniqueHandlers = handlersToRegister.filter((handler, index, array) =>
+      array.findIndex((candidate) => candidate.constructor?.name === handler.constructor?.name) === index
+    );
+
+    if (uniqueHandlers.length > 0) {
+      secureLogger.log('Registering new handlers:', uniqueHandlers.map((h: any) => h.constructor?.name).join(', '));
+      uniqueHandlers.forEach(handler => this.messageRouter.registerHandler(handler));
     } else {
       secureLogger.log('All handlers already registered');
     }
@@ -195,16 +205,18 @@ export class NetworkInitializationManager {
    * Validates JWT and sends JOIN message
    */
   async handleConnected(socket: WebSocket, jwtValidator: JwtAuthValidator): Promise<void> {
+    const previousState = this.stateManager.getConnectionState();
+
     // Set connection state
     this.stateManager.setConnectionState(ConnectionState.CONNECTED);
 
     // Reset tick manager timing on (re)connection
     this.tickManager.reset();
 
-    // Notify external systems of successful (re)connection
-    this.stateManager.notifyReconnected();
-
-    // Notify external systems of successful connection
+    // Notify external systems.
+    if (previousState === ConnectionState.RECONNECTING) {
+      this.stateManager.notifyReconnected();
+    }
     this.stateManager.notifyConnected();
 
     // 🔴 CRITICAL SECURITY: Verifica che abbiamo sia una sessione valida che un token JWT
@@ -232,9 +244,10 @@ export class NetworkInitializationManager {
     const currentPosition = this.positionTracker.getLocalPlayerPosition();
     const nicknameToSend = this.gameContext.playerNickname || 'Player';
 
+    const currentClientId = this.getCurrentClientId();
     this.sendMessageInternal({
       type: MESSAGE_TYPES.JOIN,
-      clientId: this.clientId,
+      clientId: currentClientId,
       nickname: nicknameToSend,
       // 🔴 CRITICAL SECURITY: Include JWT token for server-side validation
       authToken: session.access_token,
@@ -250,10 +263,12 @@ export class NetworkInitializationManager {
    * Automatically adds clientId if not present
    */
   private sendMessageInternal(message: NetMessage): void {
+    const currentClientId = this.getCurrentClientId();
+
     // Ensure clientId is always included
     const messageWithClientId = {
       ...message,
-      clientId: message.clientId || this.clientId
+      clientId: message.clientId || currentClientId
     };
     this.connectionManager.send(JSON.stringify(messageWithClientId));
   }
