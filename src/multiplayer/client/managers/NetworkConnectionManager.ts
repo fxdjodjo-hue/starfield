@@ -19,7 +19,6 @@ export class NetworkConnectionManager {
   private onReconnectedCallback?: () => void;
 
   // Heartbeat management
-  private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private lastHeartbeatAck = 0;
   private heartbeatTimeout: ReturnType<typeof setTimeout> | null = null;
   private connectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -180,7 +179,6 @@ export class NetworkConnectionManager {
    */
   private async handleConnected(socket: WebSocket): Promise<void> {
     this.socket = socket;
-    this.startHeartbeat();
 
     if (this.onConnectedCallback) {
       await this.onConnectedCallback(socket);
@@ -251,6 +249,7 @@ export class NetworkConnectionManager {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.bytesOut += message.length;
       this.socket.send(message);
+      this.trackHeartbeatLiveness(message);
     } else {
       console.warn('🔌 [CONNECTION] Cannot send message - socket not connected');
     }
@@ -274,61 +273,33 @@ export class NetworkConnectionManager {
   }
 
   /**
-   * Avvia il sistema di heartbeat
+   * Arms heartbeat liveness timeout when upper layers send a heartbeat packet.
    */
-  private startHeartbeat(): void {
-    this.stopHeartbeat(); // Cleanup any existing heartbeat
-
-    this.heartbeatInterval = setInterval(() => {
-      if (this.isConnectionActive()) {
-        this.sendHeartbeat();
-      }
-    }, NETWORK_CONFIG.HEARTBEAT_INTERVAL);
-  }
-
-  /**
-   * Ferma il sistema di heartbeat
-   */
-  private stopHeartbeat(): void {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
+  private trackHeartbeatLiveness(message: string): void {
+    if (!message.includes('"type":"heartbeat"')) {
+      return;
     }
 
     if (this.heartbeatTimeout) {
       clearTimeout(this.heartbeatTimeout);
       this.heartbeatTimeout = null;
     }
-  }
 
-  /**
-   * Invia heartbeat al server
-   */
-  private sendHeartbeat(): void {
-    if (!this.socket || !this.clientId) return;
-
-    // Cancel previous pending heartbeat timeout before sending a new heartbeat.
-    if (this.heartbeatTimeout) {
-      clearTimeout(this.heartbeatTimeout);
-      this.heartbeatTimeout = null;
-    }
-
-    const message = {
-      type: 'heartbeat',
-      clientId: this.clientId, // Usa il clientId persistente
-      timestamp: Date.now()
-    };
-
-    this.send(JSON.stringify(message));
-
-    // Set timeout for heartbeat response
     this.heartbeatTimeout = setTimeout(() => {
-      console.warn('🔌 [CONNECTION] Heartbeat timeout - connection lost');
+      console.warn('[CONNECTION] Heartbeat timeout - connection lost');
       this.handleConnectionError(new Event('heartbeat_timeout'));
-      // FORCE DISCONNECT to trigger UI popup
-      // This ensures handleDisconnected is called (via socket.onclose or explicitly if needed)
       this.disconnect();
     }, 5000);
+  }
+
+  /**
+   * Clears heartbeat liveness timeout tracking.
+   */
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimeout) {
+      clearTimeout(this.heartbeatTimeout);
+      this.heartbeatTimeout = null;
+    }
   }
 
   /**
@@ -419,3 +390,4 @@ export class NetworkConnectionManager {
     };
   }
 }
+
