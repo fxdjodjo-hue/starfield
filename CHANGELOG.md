@@ -1,3 +1,11 @@
+# Changelog Starfield - Versione 0.3.1
+
+## Rollback controllato
+- Release di rollback: il codice runtime e gameplay e stato riallineato alla base stabile 0.2.9.
+- Versione pubblicata come 0.3.1 per consentire all'auto-updater di aggiornare da 0.3.0 senza blocchi di downgrade.
+
+---
+
 # Changelog Starfield - Versione 0.2.9
 
 ## Fix
