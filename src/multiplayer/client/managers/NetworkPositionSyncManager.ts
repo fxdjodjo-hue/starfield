@@ -71,7 +71,7 @@ export class NetworkPositionSyncManager {
       const playerEntity = this.ecs.getEntitiesWithComponents(Transform, Velocity, Authority)
         .find(entity => {
           const authority = this.ecs!.getComponent(entity, Authority);
-          return authority && authority.ownerId === this.clientId;
+          return authority && String(authority.ownerId) === String(this.clientId);
         });
 
       if (playerEntity) {
@@ -155,7 +155,7 @@ export class NetworkPositionSyncManager {
       clientId: this.clientId,
       x: normalizedPosition.x,
       y: normalizedPosition.y,
-      rotation: normalizedRotation, // Ora usa la rotazione normalizzata
+      rotation: normalizedPosition.rotation,
       velocityX: normalizedPosition.velocityX,
       velocityY: normalizedPosition.velocityY,
       tick: this.tickManager.getTickCounter(),
@@ -202,7 +202,7 @@ export class NetworkPositionSyncManager {
       for (const entity of entitiesWithHealth) {
         // Controlla se ha Authority con il nostro clientId
         const authority = this.ecs.getComponent(entity, Authority);
-        if (authority && authority.ownerId === this.clientId) {
+        if (authority && String(authority.ownerId) === String(this.clientId)) {
           const health = this.ecs.getComponent(entity, Health);
           if (health && health.isDead()) {
             // console.log(`[CLIENT] Player ${this.clientId} is dead (HP: ${health.current}/${health.max})`);
@@ -211,29 +211,6 @@ export class NetworkPositionSyncManager {
         }
       }
 
-      // Fallback: controlla se il giocatore ha HP = 0 direttamente
-      const playerPosition = this.getLocalPlayerPosition();
-      if (playerPosition && this.ecs) {
-        // Cerca entità vicino alla posizione del giocatore
-        const entitiesWithTransform = this.ecs.getEntitiesWithComponents(Transform);
-        for (const entity of entitiesWithTransform) {
-          const transform = this.ecs.getComponent(entity, Transform);
-          const health = this.ecs.getComponent(entity, Health);
-
-          if (transform && health) {
-            const distance = Math.sqrt(
-              Math.pow(transform.x - playerPosition.x, 2) +
-              Math.pow(transform.y - playerPosition.y, 2)
-            );
-
-            // Se è vicino alla posizione del giocatore e ha HP = 0
-            if (distance < 10 && health.current <= 0) {
-              // console.log(`[CLIENT] Player near position (${playerPosition.x}, ${playerPosition.y}) is dead (HP: ${health.current})`);
-              return true;
-            }
-          }
-        }
-      }
 
     } catch (error) {
       console.warn('[CLIENT] Error checking if player is dead:', error);
