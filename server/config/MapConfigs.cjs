@@ -9,9 +9,9 @@ const MAP_CONFIGS = {
         width: 21000,
         height: 13100,
         npcConfig: {
-            scouterCount: 25,
+            scouterCount: 50,
             frigateCount: 0,
-            guardCount: 25,
+            guardCount: 50,
             pyramidCount: 0
         },
         portals: [
@@ -31,9 +31,9 @@ const MAP_CONFIGS = {
         height: 13100,
         npcConfig: {
             scouterCount: 0,
-            frigateCount: 15,
+            frigateCount: 30,
             guardCount: 0,
-            pyramidCount: 35
+            pyramidCount: 70
         },
         portals: [
             {
