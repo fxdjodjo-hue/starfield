@@ -169,13 +169,17 @@ export class NetworkTickManager {
    */
   forcePositionSync(position?: { x: number; y: number; rotation: number }): void {
     if (this.sendPositionCallback) {
-      const positionToSend = position || this.positionBuffer[this.positionBuffer.length - 1]?.position;
-      if (positionToSend) {
-        this.flushPositionBuffer(); // Flush any buffered updates first
-        this.sendPositionCallback(positionToSend);
+      if (position) {
+        this.flushPositionBuffer(); // Flush buffered updates before the explicit forced position
+        this.sendPositionCallback(position);
         this.lastPositionSyncTime = Date.now();
-        this.lastSentPosition = { x: positionToSend.x, y: positionToSend.y, rotation: positionToSend.rotation };
+        this.lastSentPosition = { x: position.x, y: position.y, rotation: position.rotation };
+        return;
       }
+
+      // No explicit position: flush only once, avoid duplicate send of the same buffered snapshot.
+      this.flushPositionBuffer();
+      this.lastPositionSyncTime = Date.now();
     }
   }
 
