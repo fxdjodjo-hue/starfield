@@ -347,8 +347,9 @@ export class AtlasParser {
       console.warn(`[AtlasParser] Trovati ${invalidFrames.length} frame senza dimensioni valide. Primo frame valido:`, frames.find(f => f.width > 0 && f.height > 0));
     }
 
-    // Ordina frames per nome
-    frames.sort((a, b) => a.name.localeCompare(b.name));
+    // Mantieni l'ordine originale del file atlas.
+    // Alcuni exporter riutilizzano i nomi frame (es. 01..32 ripetuti):
+    // ordinare per nome rompe la sequenza reale di rotazione/animazione.
 
     return {
       imagePath: firstSection.imagePath,

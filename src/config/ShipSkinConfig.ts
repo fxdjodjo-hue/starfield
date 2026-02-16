@@ -50,7 +50,7 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
     id: 'ship70',
     displayName: 'Aegis Prototype',
     basePath: 'assets/ships/ship70/ship70',
-    inGameScale: 0.72,
+    inGameScale: 0.8,
     rotationFrameCount: 32,
     preview: {
       frameWidth: 250,
@@ -64,6 +64,26 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
       offsetX: 0,
       offsetY: 0,
       displayScale: 0.7
+    }
+  },
+  {
+    id: 'ship102',
+    displayName: 'Ship 102',
+    basePath: 'assets/ships/ship102/ship102',
+    inGameScale: 0.8,
+    rotationFrameCount: 32,
+    preview: {
+      frameWidth: 214,
+      frameHeight: 166,
+      sheetWidth: 2048,
+      sheetHeight: 1024,
+      totalFrames: 32,
+      columns: 9,
+      spacingX: 216,
+      spacingY: 168,
+      offsetX: 2,
+      offsetY: 4,
+      displayScale: 0.82
     }
   }
 ];
