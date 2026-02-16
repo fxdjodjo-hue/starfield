@@ -222,13 +222,20 @@ export class ProjectileSystem extends BaseSystem {
       );
 
       // Se la distanza è minore di una soglia (hitbox), colpisce
-      let hitDistance = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
+      let hitDistance: number = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
 
       // I proiettili visivi (laser) hanno un raggio di collisione maggiore per evitare
       // che "orbitino" attorno al target a causa della loro velocità ridotta o 
       // di scatti nel movimento.
       if (projectile.damage === 0 || projectile.projectileType === 'npc_laser') {
         hitDistance *= 1.5; // +50% raggio per visual lasers
+      }
+
+      // NPC deterministic beams are server-authoritative on damage and can visually
+      // overshoot near moving targets. A wider local completion radius avoids
+      // end-of-flight jitter before server destroy arrives.
+      if (projectile.projectileType === 'npc_laser') {
+        hitDistance = Math.max(hitDistance, 50);
       }
 
       if (distance < hitDistance) {
