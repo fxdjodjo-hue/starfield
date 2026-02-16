@@ -159,8 +159,8 @@ export class CombatStateSystem extends BaseSystem {
     // Crea laser periodici durante attacco attivo
     this.processPeriodicLaserFiring();
 
-    // Gestisci laser visivi per NPC in combattimento
-    this.processNpcLaserFiring();
+    // NPC projectiles are server-authoritative via `projectile_fired`.
+    // Disable legacy local NPC beam simulation to avoid fake visual aggro on non-target players.
 
     // Gestisci laser visivi per giocatori remoti in combattimento
     this.processRemotePlayerLaserFiring();
