@@ -8,6 +8,7 @@ export async function createPlayerShipAnimatedSprite(
 ): Promise<AnimatedSprite> {
   const shipSkin = getPlayerShipSkinById(shipSkinId);
   const playerSprite = await assetManager.createAnimatedSprite(shipSkin.basePath, shipSkin.inGameScale);
+  (playerSprite as AnimatedSprite & { shipSkinId?: string }).shipSkinId = shipSkin.id;
 
   if (
     typeof shipSkin.rotationFrameCount === 'number' &&

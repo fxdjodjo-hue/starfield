@@ -1,8 +1,8 @@
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { Transform } from '../../../entities/spatial/Transform';
-import { Velocity } from '../../../entities/spatial/Velocity';
 import { Camera } from '../../../entities/spatial/Camera';
 import { PLAYTEST_CONFIG } from '../../../config/GameConstants';
+import { getPlayerShipSkinById, type ShipSkinEngineFlameConfig } from '../../../config/ShipSkinConfig';
 
 /**
  * Rendering parameters for engine flames
@@ -16,23 +16,72 @@ export interface EngineFlamesRenderParams {
   scale: number;
 }
 
+interface EngineFlameVisualConfig {
+  backwardOffset: number;
+  lateralOffset: number;
+  scale: number;
+}
+
 /**
  * Helper for engine flames rendering logic
  */
 export class EngineFlamesRenderer {
-  private static readonly BASE_FLAME_OFFSET = 50;
-  private static readonly HORIZONTAL_OFFSET_BONUS = 25;
-  private static readonly FLAME_SCALE = 0.5;
+  private static readonly FLAME_SCALE_BASE = 0.5;
+  private static readonly DEFAULT_BASE_OFFSET_RATIO = 0.34;
+  private static readonly DEFAULT_HORIZONTAL_OFFSET_BONUS_RATIO = 0;
+  private static readonly DEFAULT_REFERENCE_FRAME_SIZE = 189;
   private static readonly ANIMATION_FRAME_DURATION = 100; // ms per frame
   private static readonly TOTAL_FRAMES = 32;
 
-  /**
-   * Calculate dynamic flame offset based on ship orientation
-   * More offset when ship is horizontal (left/right) to avoid being covered
-   */
-  static calculateFlameOffset(shipRotation: number): number {
-    const horizontalFactor = Math.abs(Math.cos(shipRotation));
-    return this.BASE_FLAME_OFFSET + (horizontalFactor * this.HORIZONTAL_OFFSET_BONUS);
+  private static resolveSkinFlameConfig(shipSprite?: AnimatedSprite): ShipSkinEngineFlameConfig | null {
+    const shipSkinId = (shipSprite as AnimatedSprite & { shipSkinId?: string } | undefined)?.shipSkinId;
+    if (!shipSkinId) return null;
+    return getPlayerShipSkinById(shipSkinId).engineFlame || null;
+  }
+
+  private static getShipFrameReferenceSize(shipSprite?: AnimatedSprite): number {
+    const frameWidth = shipSprite?.spritesheet?.frameWidth || 0;
+    const frameHeight = shipSprite?.spritesheet?.frameHeight || 0;
+    const measured = Math.max(frameWidth, frameHeight);
+    return measured > 0 ? measured : this.DEFAULT_REFERENCE_FRAME_SIZE;
+  }
+
+  private static getShipScreenScale(
+    transform: Transform,
+    camera?: Camera,
+    shipSprite?: AnimatedSprite
+  ): number {
+    const zoom = camera?.zoom || 1;
+    const transformScaleX = Math.abs(transform.scaleX || 1);
+    const transformScaleY = Math.abs(transform.scaleY || 1);
+    const transformScale = Math.max(transformScaleX, transformScaleY, 1);
+    const spriteScale = Math.abs(shipSprite?.scale || 1);
+    return zoom * transformScale * spriteScale;
+  }
+
+  private static getVisualConfig(
+    transform: Transform,
+    camera?: Camera,
+    shipSprite?: AnimatedSprite
+  ): EngineFlameVisualConfig {
+    const skinFlame = this.resolveSkinFlameConfig(shipSprite);
+    const referenceFrameSize = this.getShipFrameReferenceSize(shipSprite);
+    const shipScreenScale = this.getShipScreenScale(transform, camera, shipSprite);
+    const adaptiveBackwardOffset = referenceFrameSize * this.DEFAULT_BASE_OFFSET_RATIO;
+
+    // Keep a skin-specific override only when it increases the separation.
+    // This avoids large skins covering flames with too-short fixed offsets.
+    const baseBackwardOffset = Math.max(adaptiveBackwardOffset, skinFlame?.backwardOffset ?? 0);
+    const extraBackwardOffset =
+      skinFlame?.horizontalOffsetBonus ?? (referenceFrameSize * this.DEFAULT_HORIZONTAL_OFFSET_BONUS_RATIO);
+    const lateralOffset = skinFlame?.lateralOffset ?? 0;
+    const flameScaleMultiplier = skinFlame?.flameScale ?? 1;
+
+    return {
+      backwardOffset: (baseBackwardOffset + extraBackwardOffset) * shipScreenScale,
+      lateralOffset: lateralOffset * shipScreenScale,
+      scale: this.FLAME_SCALE_BASE * shipScreenScale * flameScaleMultiplier
+    };
   }
 
   /**
@@ -41,14 +90,15 @@ export class EngineFlamesRenderer {
   static calculateFlamePosition(
     shipRotation: number,
     screenX: number,
-    screenY: number
+    screenY: number,
+    config: EngineFlameVisualConfig
   ): { x: number; y: number } {
     const flameRotation = shipRotation + Math.PI; // Opposite to ship direction
-    const flameOffset = this.calculateFlameOffset(shipRotation);
-    
+    const lateralRotation = flameRotation + Math.PI / 2;
+
     return {
-      x: screenX + Math.cos(flameRotation) * flameOffset,
-      y: screenY + Math.sin(flameRotation) * flameOffset
+      x: screenX + Math.cos(flameRotation) * config.backwardOffset + Math.cos(lateralRotation) * config.lateralOffset,
+      y: screenY + Math.sin(flameRotation) * config.backwardOffset + Math.sin(lateralRotation) * config.lateralOffset
     };
   }
 
@@ -70,7 +120,8 @@ export class EngineFlamesRenderer {
     screenY: number,
     animationTime: number,
     opacity: number,
-    camera?: Camera
+    camera?: Camera,
+    shipSprite?: AnimatedSprite
   ): EngineFlamesRenderParams | null {
     if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_PARAMS] getRenderParams called with:`, {
       transform: transform ? 'VALID' : 'NULL',
@@ -91,12 +142,12 @@ export class EngineFlamesRenderer {
     }
 
     const shipRotation = transform.rotation;
-    const flamePosition = this.calculateFlamePosition(shipRotation, screenX, screenY);
+    const visualConfig = this.getVisualConfig(transform, camera, shipSprite);
+    const flamePosition = this.calculateFlamePosition(shipRotation, screenX, screenY, visualConfig);
     const flameRotation = shipRotation + Math.PI; // Opposite to ship direction
     const flameSpriteRotation = flameRotation - Math.PI / 2; // Rotate from vertical to horizontal
     const frameIndex = this.calculateFrameIndex(animationTime);
-    const zoom = camera?.zoom || 1;
-    const scale = this.FLAME_SCALE * zoom;
+    const scale = visualConfig.scale;
 
     if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES_PARAMS] ✅ Returning valid params - Ship at (${screenX.toFixed(1)}, ${screenY.toFixed(1)}), flames at (${flamePosition.x.toFixed(1)}, ${flamePosition.y.toFixed(1)}), rotation: ${shipRotation.toFixed(2)}, opacity: ${opacity}, scale: ${scale.toFixed(2)}, frameIndex: ${frameIndex}`);
 

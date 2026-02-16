@@ -12,6 +12,13 @@ export interface ShipSkinPreviewConfig {
   displayScale: number;
 }
 
+export interface ShipSkinEngineFlameConfig {
+  backwardOffset: number;
+  horizontalOffsetBonus: number;
+  flameScale: number;
+  lateralOffset?: number;
+}
+
 export interface PlayerShipSkinDefinition {
   id: string;
   displayName: string;
@@ -19,6 +26,7 @@ export interface PlayerShipSkinDefinition {
   inGameScale: number;
   rotationFrameCount?: number;
   preview: ShipSkinPreviewConfig;
+  engineFlame?: ShipSkinEngineFlameConfig;
 }
 
 export const DEFAULT_PLAYER_SHIP_SKIN_ID = 'ship106';
@@ -32,6 +40,12 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
     basePath: 'assets/ships/ship106/ship106',
     inGameScale: 0.8,
     rotationFrameCount: 72,
+    engineFlame: {
+      backwardOffset: 96,
+      horizontalOffsetBonus: 0,
+      flameScale: 0.95,
+      lateralOffset: 0
+    },
     preview: {
       frameWidth: 189,
       frameHeight: 189,
@@ -52,6 +66,12 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
     basePath: 'assets/ships/ship70/ship70',
     inGameScale: 0.8,
     rotationFrameCount: 32,
+    engineFlame: {
+      backwardOffset: 88,
+      horizontalOffsetBonus: 0,
+      flameScale: 0.86,
+      lateralOffset: 0
+    },
     preview: {
       frameWidth: 250,
       frameHeight: 200,
@@ -72,6 +92,12 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
     basePath: 'assets/ships/ship102/ship102',
     inGameScale: 0.9,
     rotationFrameCount: 32,
+    engineFlame: {
+      backwardOffset: 98,
+      horizontalOffsetBonus: 0,
+      flameScale: 0.92,
+      lateralOffset: 0
+    },
     preview: {
       frameWidth: 214,
       frameHeight: 166,

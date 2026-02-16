@@ -665,7 +665,8 @@ export class RenderSystem extends BaseSystem {
             screenPos.y + playerFloatOffsetY,
             this.engflamesAnimationTime,
             this.engflamesOpacity,
-            camera
+            camera,
+            components.animatedSprite || undefined
           );
           if (params) {
             EngineFlamesRenderer.render(ctx, this.engflamesSprite, params);
