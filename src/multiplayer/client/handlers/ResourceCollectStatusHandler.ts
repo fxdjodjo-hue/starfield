@@ -18,6 +18,13 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
       resourceInteractionSystem.handleCollectionStatus(message);
     }
 
+    const resourceInventory = this.normalizeResourceInventory(message?.resourceInventory);
+    if (resourceInventory) {
+      networkSystem.gameContext.playerResourceInventory = resourceInventory;
+      this.notifyResourceInventoryUpdated(resourceInventory);
+      this.updateCraftingPanel(networkSystem, resourceInventory);
+    }
+
     const logSystem = networkSystem.getLogSystem();
     if (!logSystem || typeof logSystem.addLogMessage !== 'function') return;
 
@@ -57,5 +64,40 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     if (normalized === 'out_of_range') return ' (fuori raggio)';
     if (normalized === 'resource_unavailable') return ' (non disponibile)';
     return '';
+  }
+
+  private normalizeResourceInventory(rawInventory: unknown): Record<string, number> | null {
+    if (!rawInventory || typeof rawInventory !== 'object') return null;
+
+    const normalizedInventory: Record<string, number> = {};
+    for (const [rawType, rawQuantity] of Object.entries(rawInventory as Record<string, unknown>)) {
+      const resourceType = String(rawType || '').trim();
+      if (!resourceType) continue;
+
+      const parsedQuantity = Number(rawQuantity);
+      normalizedInventory[resourceType] = Number.isFinite(parsedQuantity)
+        ? Math.max(0, Math.floor(parsedQuantity))
+        : 0;
+    }
+
+    return normalizedInventory;
+  }
+
+  private updateCraftingPanel(networkSystem: ClientNetworkSystem, resourceInventory: Record<string, number>): void {
+    const uiSystem = networkSystem.getUiSystem();
+    if (!uiSystem || typeof uiSystem.getUIManager !== 'function') return;
+
+    const uiManager = uiSystem.getUIManager();
+    const craftingPanel = uiManager?.getPanel?.('crafting-panel');
+    if (craftingPanel && typeof (craftingPanel as any).update === 'function') {
+      (craftingPanel as any).update({ resourceInventory });
+    }
+  }
+
+  private notifyResourceInventoryUpdated(resourceInventory: Record<string, number>): void {
+    if (typeof document === 'undefined') return;
+    document.dispatchEvent(new CustomEvent('playerResourceInventoryUpdated', {
+      detail: { resourceInventory }
+    }));
   }
 }

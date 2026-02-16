@@ -22,7 +22,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory } = message;
+    const normalizedResourceInventory = this.normalizeResourceInventory(resourceInventory);
     const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);
     const previousCosmos = Number(networkSystem.gameContext?.playerInventory?.cosmos || 0);
     const previousSelectedShipSkinId = networkSystem.gameContext?.playerShipSkinId || '';
@@ -48,6 +49,11 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       );
       networkSystem.gameContext.playerShipSkinId = selectedSkinId;
       networkSystem.gameContext.unlockedPlayerShipSkinIds = unlockedSkinIds;
+    }
+
+    if (networkSystem.gameContext && normalizedResourceInventory) {
+      networkSystem.gameContext.playerResourceInventory = normalizedResourceInventory;
+      this.notifyResourceInventoryUpdated(normalizedResourceInventory);
     }
 
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (server authoritative)
@@ -203,6 +209,13 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         }
         (inventoryPanel as any).update();
       }
+
+      if (normalizedResourceInventory) {
+        const craftingPanel = uiManager.getPanel('crafting-panel');
+        if (craftingPanel && typeof (craftingPanel as any).update === 'function') {
+          (craftingPanel as any).update({ resourceInventory: normalizedResourceInventory });
+        }
+      }
     }
 
     if (inventory) {
@@ -292,6 +305,30 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     (statItems[1] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.cosmos || 0));
     (statItems[2] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.experience || 0));
     (statItems[3] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.honor || 0));
+  }
+
+  private normalizeResourceInventory(rawInventory: unknown): Record<string, number> | null {
+    if (!rawInventory || typeof rawInventory !== 'object') return null;
+
+    const normalizedInventory: Record<string, number> = {};
+    for (const [rawType, rawQuantity] of Object.entries(rawInventory as Record<string, unknown>)) {
+      const resourceType = String(rawType || '').trim();
+      if (!resourceType) continue;
+
+      const parsedQuantity = Number(rawQuantity);
+      normalizedInventory[resourceType] = Number.isFinite(parsedQuantity)
+        ? Math.max(0, Math.floor(parsedQuantity))
+        : 0;
+    }
+
+    return normalizedInventory;
+  }
+
+  private notifyResourceInventoryUpdated(resourceInventory: Record<string, number>): void {
+    if (typeof document === 'undefined') return;
+    document.dispatchEvent(new CustomEvent('playerResourceInventoryUpdated', {
+      detail: { resourceInventory }
+    }));
   }
 
   /**

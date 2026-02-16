@@ -35,7 +35,7 @@ export interface PanelConfig {
   icon: string; // Unicode icon or CSS class (fallback)
   svgPath?: string; // Percorso per l'asset SVG
   title: string;
-  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'center-left-below2' | 'center-left-below3' | 'center-left-below4' | 'bottom-left' | 'bottom-right';
+  position: 'top-left' | 'top-right' | 'center-left' | 'center-left-below' | 'center-left-below2' | 'center-left-below3' | 'center-left-below4' | 'center-left-below5' | 'center-left-col2' | 'center-left-col2-below' | 'center-left-col2-below2' | 'center-left-col2-below3' | 'center-left-col2-below4' | 'center-left-col2-below5' | 'bottom-left' | 'bottom-right';
   size: { width: number; height: number };
 }
 
@@ -84,6 +84,13 @@ const PANEL_CONFIGS_BASE = {
     svgPath: 'assets/svg/gameUi/spaceship-svgrepo-com.svg',
     title: 'Ship',
     position: 'center-left-below4' as const,
+    size: { ...LARGE_PANEL_SIZE }
+  },
+  crafting: {
+    id: 'crafting-panel',
+    icon: '🛠️',
+    title: 'Crafting',
+    position: 'center-left-col2' as const,
     size: { ...LARGE_PANEL_SIZE }
   }
 } as const;
@@ -170,6 +177,13 @@ export const ICON_POSITIONS = {
   'center-left-below2': 'center-left-below2',
   'center-left-below3': 'center-left-below3',
   'center-left-below4': 'center-left-below4',
+  'center-left-below5': 'center-left-below5',
+  'center-left-col2': 'center-left-col2',
+  'center-left-col2-below': 'center-left-col2-below',
+  'center-left-col2-below2': 'center-left-col2-below2',
+  'center-left-col2-below3': 'center-left-col2-below3',
+  'center-left-col2-below4': 'center-left-col2-below4',
+  'center-left-col2-below5': 'center-left-col2-below5',
   'top-left': 'top-left',
   'top-right': 'top-right',
   'bottom-left': 'bottom-left',

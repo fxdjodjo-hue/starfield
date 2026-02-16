@@ -4,6 +4,7 @@ import { QuestPanel } from '../../../presentation/ui/QuestPanel';
 import { UpgradePanel } from '../../../presentation/ui/UpgradePanel';
 import { SettingsPanel } from '../../../presentation/ui/SettingsPanel';
 import { InventoryPanel } from '../../../presentation/ui/InventoryPanel';
+import { CraftingPanel } from '../../../presentation/ui/CraftingPanel';
 import { getPanelConfig } from '../../../presentation/ui/PanelConfig';
 import type { QuestSystem } from '../../quest/QuestSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
@@ -20,6 +21,11 @@ export class UIPanelManager {
   private ecs: ECS;
   private playerSystem: PlayerSystem | null = null;
   private clientNetworkSystem: ClientNetworkSystem | null = null;
+  private lastCraftingResourceInventorySignature: string = '';
+  private cachedCraftingResourceInventory: Record<string, number> = {};
+  private resourceInventoryUpdateListener: ((event: Event) => void) | null = null;
+  private panelVisibilityListener: ((event: Event) => void) | null = null;
+  private lastCraftingDataRefreshRequestAt: number = 0;
 
   constructor(
     ecs: ECS,
@@ -32,6 +38,8 @@ export class UIPanelManager {
     this.ecs = ecs;
     this.playerSystem = playerSystem;
     this.clientNetworkSystem = clientNetworkSystem;
+    this.setupResourceInventorySyncListener();
+    this.setupCraftingPanelVisibilityListener();
   }
 
   /**
@@ -65,6 +73,15 @@ export class UIPanelManager {
       inventoryPanel.setClientNetworkSystem(this.clientNetworkSystem);
     }
     this.uiManager.registerPanel(inventoryPanel);
+
+    // Crea e registra il pannello crafting
+    const craftingConfig = getPanelConfig('crafting');
+    const craftingPanel = new CraftingPanel(
+      craftingConfig,
+      () => this.resolveCraftingResourceInventory()
+    );
+    this.uiManager.registerPanel(craftingPanel);
+    this.syncCraftingPanelResourceInventory(true);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
@@ -107,6 +124,11 @@ export class UIPanelManager {
     if (upgradePanel && typeof (upgradePanel as any).updateECS === 'function') {
       (upgradePanel as any).updateECS(deltaTime);
     }
+
+    const craftingPanel = this.uiManager.getPanel('crafting-panel');
+    if (craftingPanel && craftingPanel.isPanelVisible()) {
+      this.syncCraftingPanelResourceInventory();
+    }
   }
 
   /**
@@ -134,6 +156,12 @@ export class UIPanelManager {
    */
   setClientNetworkSystem(clientNetworkSystem: ClientNetworkSystem): void {
     this.clientNetworkSystem = clientNetworkSystem;
+    const normalizedNetworkInventory = this.normalizeResourceInventory(
+      clientNetworkSystem?.gameContext?.playerResourceInventory
+    );
+    if (normalizedNetworkInventory) {
+      this.cachedCraftingResourceInventory = normalizedNetworkInventory;
+    }
 
     // Aggiorna anche i pannelli che ne hanno bisogno
     if (this.upgradePanel) {
@@ -151,6 +179,8 @@ export class UIPanelManager {
     if (inventoryPanel && typeof (inventoryPanel as any).setClientNetworkSystem === 'function') {
       (inventoryPanel as any).setClientNetworkSystem(clientNetworkSystem);
     }
+
+    this.syncCraftingPanelResourceInventory(true);
   }
 
   /**
@@ -185,5 +215,133 @@ export class UIPanelManager {
    */
   getUIManager(): UIManager {
     return this.uiManager;
+  }
+
+  destroy(): void {
+    this.teardownResourceInventorySyncListener();
+    this.teardownCraftingPanelVisibilityListener();
+    this.uiManager.destroy();
+  }
+
+  private syncCraftingPanelResourceInventory(force: boolean = false): void {
+    const craftingPanel = this.uiManager.getPanel('crafting-panel');
+    if (!craftingPanel || typeof (craftingPanel as any).update !== 'function') return;
+
+    const resourceInventory = this.resolveCraftingResourceInventory();
+    if (!resourceInventory) return;
+
+    const signature = this.buildCraftingResourceInventorySignature(resourceInventory);
+    if (!force && signature === this.lastCraftingResourceInventorySignature) {
+      return;
+    }
+    this.lastCraftingResourceInventorySignature = signature;
+
+    (craftingPanel as any).update({ resourceInventory });
+  }
+
+  private buildCraftingResourceInventorySignature(resourceInventory: Record<string, number>): string {
+    const entries = Object.entries(resourceInventory)
+      .map(([resourceType, quantity]) => [
+        String(resourceType || '').trim(),
+        Math.max(0, Math.floor(Number(quantity || 0)))
+      ] as [string, number])
+      .filter(([resourceType]) => resourceType.length > 0)
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+    return JSON.stringify(entries);
+  }
+
+  private setupResourceInventorySyncListener(): void {
+    if (typeof document === 'undefined' || this.resourceInventoryUpdateListener) return;
+
+    this.resourceInventoryUpdateListener = (event: Event) => {
+      const customEvent = event as CustomEvent<{ resourceInventory?: Record<string, number> }>;
+      const normalizedInventory = this.normalizeResourceInventory(customEvent?.detail?.resourceInventory);
+      if (!normalizedInventory) return;
+
+      this.cachedCraftingResourceInventory = normalizedInventory;
+      this.syncCraftingPanelResourceInventory(true);
+    };
+
+    document.addEventListener('playerResourceInventoryUpdated', this.resourceInventoryUpdateListener);
+  }
+
+  private teardownResourceInventorySyncListener(): void {
+    if (typeof document === 'undefined' || !this.resourceInventoryUpdateListener) return;
+    document.removeEventListener('playerResourceInventoryUpdated', this.resourceInventoryUpdateListener);
+    this.resourceInventoryUpdateListener = null;
+  }
+
+  private resolveCraftingResourceInventory(): Record<string, number> | null {
+    const networkInventory = this.normalizeResourceInventory(
+      this.clientNetworkSystem?.gameContext?.playerResourceInventory
+    );
+    const cachedInventory = this.normalizeResourceInventory(this.cachedCraftingResourceInventory);
+
+    const hasNetworkData = this.hasInventoryEntries(networkInventory);
+    const hasCachedData = this.hasInventoryEntries(cachedInventory);
+
+    if (hasNetworkData) return networkInventory;
+    if (hasCachedData) return cachedInventory;
+    if (networkInventory) return networkInventory;
+    if (cachedInventory) return cachedInventory;
+    return null;
+  }
+
+  private hasInventoryEntries(resourceInventory: Record<string, number> | null): boolean {
+    return !!resourceInventory && Object.keys(resourceInventory).length > 0;
+  }
+
+  private normalizeResourceInventory(rawInventory: unknown): Record<string, number> | null {
+    if (!rawInventory || typeof rawInventory !== 'object') return null;
+
+    const normalizedInventory: Record<string, number> = {};
+    for (const [rawType, rawQuantity] of Object.entries(rawInventory as Record<string, unknown>)) {
+      const resourceType = String(rawType || '').trim();
+      if (!resourceType) continue;
+
+      const parsedQuantity = Number(rawQuantity);
+      normalizedInventory[resourceType] = Number.isFinite(parsedQuantity)
+        ? Math.max(0, Math.floor(parsedQuantity))
+        : 0;
+    }
+
+    return normalizedInventory;
+  }
+
+  private setupCraftingPanelVisibilityListener(): void {
+    if (typeof document === 'undefined' || this.panelVisibilityListener) return;
+
+    this.panelVisibilityListener = (event: Event) => {
+      const customEvent = event as CustomEvent<{ panelId?: string; isVisible?: boolean }>;
+      const panelId = String(customEvent?.detail?.panelId || '');
+      const isVisible = Boolean(customEvent?.detail?.isVisible);
+      if (panelId !== 'crafting-panel' || !isVisible) return;
+
+      this.syncCraftingPanelResourceInventory(true);
+      this.requestCraftingDataRefreshFromServer();
+    };
+
+    document.addEventListener('panelVisibilityChanged', this.panelVisibilityListener);
+  }
+
+  private teardownCraftingPanelVisibilityListener(): void {
+    if (typeof document === 'undefined' || !this.panelVisibilityListener) return;
+    document.removeEventListener('panelVisibilityChanged', this.panelVisibilityListener);
+    this.panelVisibilityListener = null;
+  }
+
+  private requestCraftingDataRefreshFromServer(): void {
+    const now = Date.now();
+    if (now - this.lastCraftingDataRefreshRequestAt < 1500) return;
+
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem || typeof networkSystem.requestPlayerData !== 'function') return;
+
+    const authId = String(networkSystem.gameContext?.authId || '').trim();
+    if (!authId) return;
+
+    this.lastCraftingDataRefreshRequestAt = now;
+    networkSystem.requestPlayerData(authId as any);
   }
 }

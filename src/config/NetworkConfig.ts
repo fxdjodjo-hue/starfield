@@ -482,6 +482,7 @@ export interface PlayerStateUpdateMessage {
     lastAction?: 'equip' | 'purchase' | 'purchase_and_equip';
   };
   items?: any[];
+  resourceInventory?: Record<string, number>;
 }
 
 /**
@@ -515,6 +516,7 @@ export interface WelcomeMessage {
       rotation?: number;
       scale?: number;
     }>;
+    resourceInventory?: Record<string, number>;
 
     // Flag per lazy loading
     inventoryLazy?: boolean;
@@ -598,6 +600,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
   };
   quests: any[];
   items: any[];
+  resourceInventory?: Record<string, number>;
   timestamp: number;
 }
 
@@ -632,6 +635,7 @@ export interface ResourceCollectStatusMessage extends BaseMessage {
   resourceId: string;
   resourceType?: string | null;
   resourceName?: string | null;
+  resourceInventory?: Record<string, number>;
   reason?: string;
   remainingMs?: number;
   timestamp?: number;

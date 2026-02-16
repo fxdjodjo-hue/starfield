@@ -72,6 +72,25 @@ function normalizePlayerShipSkinState(shipSkins) {
   };
 }
 
+function normalizeResourceInventoryPayload(resourceInventory) {
+  const normalizedResourceInventory = {};
+  if (!resourceInventory || typeof resourceInventory !== 'object') {
+    return normalizedResourceInventory;
+  }
+
+  for (const [rawType, rawQuantity] of Object.entries(resourceInventory)) {
+    const resourceType = String(rawType || '').trim();
+    if (!resourceType) continue;
+
+    const parsedQuantity = Number(rawQuantity);
+    normalizedResourceInventory[resourceType] = Number.isFinite(parsedQuantity)
+      ? Math.max(0, Math.floor(parsedQuantity))
+      : 0;
+  }
+
+  return normalizedResourceInventory;
+}
+
 async function resolveLeaderboardPodiumRank(supabase, playerDbId) {
   if (!supabase || !Number.isFinite(Number(playerDbId))) return 0;
 
@@ -458,6 +477,19 @@ async function handleJoin(data, sanitizedData, context) {
 
   try {
     ws.send(JSON.stringify(welcomeMessage));
+    const sentWelcomeResourceInventory = normalizeResourceInventoryPayload(
+      welcomeMessage?.initialState?.resourceInventory
+    );
+    ServerLoggerWrapper.debug(
+      'RESOURCE',
+      `[RESOURCE_SYNC] welcome payload auth_id=${playerData.userId} inventory=${JSON.stringify(sentWelcomeResourceInventory)}`
+    );
+
+    ws.send(JSON.stringify({
+      type: 'player_state_update',
+      resourceInventory: normalizeResourceInventoryPayload(playerData.resourceInventory),
+      source: 'resource_inventory_sync'
+    }));
   } catch (error) {
     ServerLoggerWrapper.warn('SERVER', `Failed to send welcome message: ${error.message}`);
   }
@@ -1197,7 +1229,14 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.isAdministrator,
     playerData.rank,
     playerData.items,
-    normalizePlayerShipSkinState(playerData.shipSkins)
+    normalizePlayerShipSkinState(playerData.shipSkins),
+    playerData.resourceInventory
+  );
+  ServerLoggerWrapper.debug(
+    'RESOURCE',
+    `[RESOURCE_SYNC] player_data_response auth_id=${playerData.userId} inventory=${JSON.stringify(
+      normalizeResourceInventoryPayload(responseMessage?.resourceInventory)
+    )}`
   );
   ws.send(JSON.stringify(responseMessage));
 }
@@ -1884,12 +1923,15 @@ function handleResourceCollect(data, sanitizedData, context) {
   }
 
   if (result.code === 'COLLECTION_STARTED' && ws && ws.readyState === WebSocket.OPEN) {
+    const normalizedResourceInventory = normalizeResourceInventoryPayload(playerData?.resourceInventory);
+
     ws.send(JSON.stringify({
       type: 'resource_collect_status',
       status: 'started',
       resourceId: result.resourceId || resourceId,
       resourceType: result.resourceType || null,
       resourceName: result.resourceName || result.resourceType || 'Resource',
+      resourceInventory: normalizedResourceInventory,
       remainingMs: Number.isFinite(Number(result.remainingMs))
         ? Math.max(0, Math.floor(Number(result.remainingMs)))
         : 0,

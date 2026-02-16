@@ -1003,6 +1003,9 @@ export class UiSystem extends System {
       document.removeEventListener('keydown', this.hudToggleListener);
     }
     this.teardownSettingsListeners();
+    if (this.panelManager && typeof this.panelManager.destroy === 'function') {
+      this.panelManager.destroy();
+    }
     this.chatManager.destroy();
     this.audioManager.destroy();
     if (this.fpsCounter) {

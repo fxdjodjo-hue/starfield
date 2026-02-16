@@ -355,10 +355,24 @@ class MapResourceManager {
     const ws = playerData?.ws;
     if (!ws || ws.readyState !== 1) return;
 
+    const normalizedResourceInventory = {};
+    if (playerData?.resourceInventory && typeof playerData.resourceInventory === 'object') {
+      for (const [rawType, rawQuantity] of Object.entries(playerData.resourceInventory)) {
+        const resourceType = String(rawType || '').trim();
+        if (!resourceType) continue;
+
+        const parsedQuantity = Number(rawQuantity);
+        normalizedResourceInventory[resourceType] = Number.isFinite(parsedQuantity)
+          ? Math.max(0, Math.floor(parsedQuantity))
+          : 0;
+      }
+    }
+
     try {
       ws.send(JSON.stringify({
         type: 'resource_collect_status',
-        ...payload
+        ...payload,
+        resourceInventory: normalizedResourceInventory
       }));
     } catch (error) {
       ServerLoggerWrapper.warn('RESOURCE', `Failed to send resource collection status: ${error.message}`);

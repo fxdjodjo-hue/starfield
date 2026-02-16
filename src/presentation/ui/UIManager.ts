@@ -141,6 +141,10 @@ export class UIManager {
   registerPanel(panel: BasePanel): void {
     // La configurazione è già nel pannello stesso (single source of truth)
     const config = panel.getConfig();
+    const resolvedAutoPosition = this.resolveAutoIconPosition(config.position);
+    if (resolvedAutoPosition !== config.position) {
+      config.position = resolvedAutoPosition;
+    }
     const icon = new FloatingIcon(panel, (panelId) => this.openPanel(panelId));
 
     this.panels.set(config.id, panel);
@@ -150,6 +154,31 @@ export class UIManager {
     if (this.isVisible) {
       icon.show();
     }
+  }
+
+  private resolveAutoIconPosition(position: PanelConfig['position']): PanelConfig['position'] {
+    if (position !== 'center-left-col2') {
+      return position;
+    }
+
+    const col2Slots: PanelConfig['position'][] = [
+      'center-left-col2',
+      'center-left-col2-below',
+      'center-left-col2-below2',
+      'center-left-col2-below3',
+      'center-left-col2-below4',
+      'center-left-col2-below5'
+    ];
+
+    let existingCol2Count = 0;
+    for (const registeredPanel of this.panels.values()) {
+      const registeredPosition = registeredPanel.getConfig().position;
+      if (registeredPosition.startsWith('center-left-col2')) {
+        existingCol2Count += 1;
+      }
+    }
+
+    return col2Slots[Math.min(existingCol2Count, col2Slots.length - 1)];
   }
 
   /**

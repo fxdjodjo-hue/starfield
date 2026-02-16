@@ -77,7 +77,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       const {
         position, health, maxHealth, shield, maxShield,
-        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank, leaderboardPodiumRank, shipSkins
+        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank, leaderboardPodiumRank, shipSkins, resourceInventory
       } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
@@ -94,6 +94,12 @@ export class WelcomeHandler extends BaseMessageHandler {
 
       networkSystem.gameContext.playerShipSkinId = resolvedSelectedSkinId;
       networkSystem.gameContext.unlockedPlayerShipSkinIds = resolvedUnlockedSkinIds;
+      const normalizedResourceInventory = this.normalizeResourceInventory(resourceInventory);
+      if (normalizedResourceInventory) {
+        networkSystem.gameContext.playerResourceInventory = normalizedResourceInventory;
+        this.notifyResourceInventoryUpdated(normalizedResourceInventory);
+        this.updateCraftingPanel(networkSystem, normalizedResourceInventory);
+      }
 
       networkSystem.invalidatePositionCache();
 
@@ -257,5 +263,40 @@ export class WelcomeHandler extends BaseMessageHandler {
         }
       }
     }
+  }
+
+  private normalizeResourceInventory(rawInventory: unknown): Record<string, number> | null {
+    if (!rawInventory || typeof rawInventory !== 'object') return null;
+
+    const normalizedInventory: Record<string, number> = {};
+    for (const [rawType, rawQuantity] of Object.entries(rawInventory as Record<string, unknown>)) {
+      const resourceType = String(rawType || '').trim();
+      if (!resourceType) continue;
+
+      const parsedQuantity = Number(rawQuantity);
+      normalizedInventory[resourceType] = Number.isFinite(parsedQuantity)
+        ? Math.max(0, Math.floor(parsedQuantity))
+        : 0;
+    }
+
+    return normalizedInventory;
+  }
+
+  private updateCraftingPanel(networkSystem: ClientNetworkSystem, resourceInventory: Record<string, number>): void {
+    const uiSystem = networkSystem.getUiSystem();
+    if (!uiSystem || typeof uiSystem.getUIManager !== 'function') return;
+
+    const uiManager = uiSystem.getUIManager();
+    const craftingPanel = uiManager?.getPanel?.('crafting-panel');
+    if (craftingPanel && typeof (craftingPanel as any).update === 'function') {
+      (craftingPanel as any).update({ resourceInventory });
+    }
+  }
+
+  private notifyResourceInventoryUpdated(resourceInventory: Record<string, number>): void {
+    if (typeof document === 'undefined') return;
+    document.dispatchEvent(new CustomEvent('playerResourceInventoryUpdated', {
+      detail: { resourceInventory }
+    }));
   }
 }

@@ -76,6 +76,7 @@ export class GameContext {
     };
 
   public playerQuests: any[] = [];             // Lista quest del giocatore
+  public playerResourceInventory: Record<string, number> = {};
 
   // Stato connessione
   public connectionState: ConnectionState = ConnectionState.DISCONNECTED;

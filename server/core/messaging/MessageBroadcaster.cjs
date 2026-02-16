@@ -5,6 +5,25 @@
 const { logger } = require('../../logger.cjs');
 const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../../config/ShipSkinCatalog.cjs');
 
+function normalizeResourceInventory(resourceInventory) {
+  const normalizedResourceInventory = {};
+  if (!resourceInventory || typeof resourceInventory !== 'object') {
+    return normalizedResourceInventory;
+  }
+
+  for (const [rawType, rawQuantity] of Object.entries(resourceInventory)) {
+    const resourceType = String(rawType || '').trim();
+    if (!resourceType) continue;
+
+    const parsedQuantity = Number(rawQuantity);
+    normalizedResourceInventory[resourceType] = Number.isFinite(parsedQuantity)
+      ? Math.max(0, Math.floor(parsedQuantity))
+      : 0;
+  }
+
+  return normalizedResourceInventory;
+}
+
 /**
  * Utility per formattare e gestire messaggi di broadcast
  * TODO: Valutare se necessario o se può essere parte di WebSocketConnectionManager
@@ -28,6 +47,8 @@ class MessageBroadcaster {
    * @returns {Object} Welcome message object
    */
   formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false, mapId = 'palantir') {
+    const normalizedResourceInventory = normalizeResourceInventory(playerData?.resourceInventory);
+
     return {
       type: 'welcome',
       clientId: playerData.clientId,
@@ -61,7 +82,8 @@ class MessageBroadcaster {
           unlockedSkinIds: Array.isArray(playerData.shipSkins?.unlockedSkinIds)
             ? playerData.shipSkins.unlockedSkinIds
             : [DEFAULT_PLAYER_SHIP_SKIN_ID]
-        }
+        },
+        resourceInventory: normalizedResourceInventory
       }
     };
   }
@@ -207,7 +229,9 @@ class MessageBroadcaster {
    * @param {Array} items - Inventory items array
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null, resourceInventory = null) {
+    const normalizedResourceInventory = normalizeResourceInventory(resourceInventory);
+
     return {
       type: 'player_data_response',
       playerId: playerId,
@@ -215,6 +239,7 @@ class MessageBroadcaster {
       upgrades: upgrades,
       quests: quests || [],
       items: items || [],
+      resourceInventory: normalizedResourceInventory,
       recentHonor: recentHonor,
       isAdministrator: isAdministrator,
       rank: rank || 'Basic Space Pilot',

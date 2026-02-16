@@ -74,6 +74,8 @@ class PlayerDataManager {
     this.mapServer = mapServer;
     this.periodicSaveInterval = null;
     this.playerResourcesTableUnavailable = false;
+    this.playerResourcesTableUnavailableMarkedAt = 0;
+    this.playerResourcesTableRetryIntervalMs = 60000;
     this.lastSavedResourceInventorySignatureByAuthId = new Map();
   }
 
@@ -187,10 +189,27 @@ class PlayerDataManager {
   markPlayerResourcesTableUnavailable(error, operation) {
     if (this.playerResourcesTableUnavailable) return;
     this.playerResourcesTableUnavailable = true;
+    this.playerResourcesTableUnavailableMarkedAt = Date.now();
     ServerLoggerWrapper.warn(
       'DATABASE',
       `[PLAYER_RESOURCES] Table unavailable during ${operation}. Run latest migrations. ${error?.message || 'Unknown error'}`
     );
+  }
+
+  shouldSkipPlayerResourcesTableAccess() {
+    if (!this.playerResourcesTableUnavailable) return false;
+
+    const markedAt = Number(this.playerResourcesTableUnavailableMarkedAt || 0);
+    const elapsed = Date.now() - markedAt;
+    if (elapsed < this.playerResourcesTableRetryIntervalMs) {
+      return true;
+    }
+
+    // Retry automatically after cooldown in case migrations were applied
+    // while the server process stayed alive.
+    this.playerResourcesTableUnavailable = false;
+    this.playerResourcesTableUnavailableMarkedAt = 0;
+    return false;
   }
 
   normalizeResourceInventory(resourceInventory) {
@@ -221,7 +240,7 @@ class PlayerDataManager {
   }
 
   async loadPlayerResourceInventory(authId) {
-    if (this.playerResourcesTableUnavailable) return {};
+    if (this.shouldSkipPlayerResourcesTableAccess()) return {};
 
     try {
       const { data, error } = await supabase
@@ -247,6 +266,8 @@ class PlayerDataManager {
         inventory[resourceType] = quantity;
       }
 
+      this.playerResourcesTableUnavailable = false;
+      this.playerResourcesTableUnavailableMarkedAt = 0;
       return inventory;
     } catch (error) {
       if (this.isMissingPlayerResourcesTableError(error)) {
@@ -260,7 +281,7 @@ class PlayerDataManager {
 
   async savePlayerResourceInventory(authId, resourceInventory) {
     const normalizedInventory = this.normalizeResourceInventory(resourceInventory);
-    if (this.playerResourcesTableUnavailable) return normalizedInventory;
+    if (this.shouldSkipPlayerResourcesTableAccess()) return normalizedInventory;
 
     try {
       const resourceTypes = Object.keys(normalizedInventory);
@@ -322,6 +343,8 @@ class PlayerDataManager {
           return normalizedInventory;
         }
       }
+      this.playerResourcesTableUnavailable = false;
+      this.playerResourcesTableUnavailableMarkedAt = 0;
     } catch (error) {
       if (this.isMissingPlayerResourcesTableError(error)) {
         this.markPlayerResourcesTableUnavailable(error, 'save');

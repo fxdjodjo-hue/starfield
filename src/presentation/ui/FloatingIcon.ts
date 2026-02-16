@@ -356,6 +356,26 @@ export class FloatingIcon {
   /**
    * Calcola la posizione del tooltip basata sulla posizione dell'icona
    */
+  private getNormalizedCenterLeftPosition(position: string): string {
+    if (position.startsWith('center-left-col2')) {
+      return position.replace('center-left-col2', 'center-left');
+    }
+    return position;
+  }
+
+  private getLeftOffset(position: string): number {
+    const dpr = DisplayManager.getInstance().getDevicePixelRatio();
+    const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
+
+    if (!position.startsWith('center-left-col2')) {
+      return margin;
+    }
+
+    const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE / dpr);
+    const columnGap = Math.round(14 / dpr);
+    return margin + iconSize + columnGap;
+  }
+
   private getTooltipPosition(position: string): string {
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
@@ -367,7 +387,7 @@ export class FloatingIcon {
 
     // Centratura perfetta: usiamo gli stessi valori top dell'icona e translateY(-50%)
     if (position.includes('left')) {
-      const leftOffset = margin + iconSize + tooltipGap;
+      const leftOffset = this.getLeftOffset(position) + iconSize + tooltipGap;
       return `top: ${verticalAnchor}; left: ${leftOffset}px; transform: translateY(-50%) translateX(${initialTranslateX});`;
     }
 
@@ -386,8 +406,9 @@ export class FloatingIcon {
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
     const iconSize = Math.round(DISPLAY_CONSTANTS.ICON_SIZE / dpr);
+    const normalizedPosition = this.getNormalizedCenterLeftPosition(position);
 
-    switch (position) {
+    switch (normalizedPosition) {
       case 'top-left':
       case 'top-right':
         // Per top-x, l'icona è a 'margin' top. Il centro è margin + size/2
@@ -407,6 +428,8 @@ export class FloatingIcon {
         return '56%';
       case 'center-left-below4':
         return '62%';
+      case 'center-left-below5':
+        return '68%';
       default:
         return '50%';
     }
@@ -419,18 +442,21 @@ export class FloatingIcon {
     // Usa il margine standard compensato per DPR
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     const margin = Math.round(DISPLAY_CONSTANTS.SCREEN_MARGIN / dpr);
+    const leftOffset = this.getLeftOffset(position);
+    const normalizedPosition = this.getNormalizedCenterLeftPosition(position);
 
-    switch (position) {
+    switch (normalizedPosition) {
       case 'top-left': return `top: ${margin}px; left: ${margin}px;`;
       case 'top-right': return `top: ${margin}px; right: ${margin}px;`;
-      case 'center-left': return `top: 38%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below': return `top: 44%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below2': return `top: 50%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below3': return `top: 56%; left: ${margin}px; transform: translateY(-50%);`;
-      case 'center-left-below4': return `top: 62%; left: ${margin}px; transform: translateY(-50%);`;
+      case 'center-left': return `top: 38%; left: ${leftOffset}px; transform: translateY(-50%);`;
+      case 'center-left-below': return `top: 44%; left: ${leftOffset}px; transform: translateY(-50%);`;
+      case 'center-left-below2': return `top: 50%; left: ${leftOffset}px; transform: translateY(-50%);`;
+      case 'center-left-below3': return `top: 56%; left: ${leftOffset}px; transform: translateY(-50%);`;
+      case 'center-left-below4': return `top: 62%; left: ${leftOffset}px; transform: translateY(-50%);`;
+      case 'center-left-below5': return `top: 68%; left: ${leftOffset}px; transform: translateY(-50%);`;
       case 'bottom-left': return `bottom: ${margin}px; left: ${margin}px;`;
       case 'bottom-right': return `bottom: ${margin}px; right: ${margin}px;`;
-      default: return `top: 50%; left: ${margin}px; transform: translateY(-50%);`; // Default al centro sinistro
+      default: return `top: 50%; left: ${leftOffset}px; transform: translateY(-50%);`; // Default al centro sinistro
     }
   }
 
