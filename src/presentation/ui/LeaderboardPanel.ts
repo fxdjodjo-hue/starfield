@@ -187,6 +187,7 @@ export class LeaderboardPanel extends BasePanel {
     tableContainer.className = 'leaderboard-table-container';
     tableContainer.style.cssText = `
       flex: 1;
+      position: relative;
       overflow-y: auto;
       border-radius: 8px;
     `;
@@ -198,14 +199,11 @@ export class LeaderboardPanel extends BasePanel {
       color: ${THEME.colors.text.primary};
     `;
 
-    // Sticky Header
+    // Header row (sticky behavior is applied on each TH for reliable cross-browser rendering)
     const thead = document.createElement('thead');
     thead.style.cssText = `
-      position: sticky;
-      top: 0;
-      background: rgba(0,0,0,0.2); // Scurisci leggermente header per leggibilità su blur
-      z-index: 10;
-      backdrop-filter: blur(5px);
+      position: relative;
+      z-index: 20;
     `;
 
     const headerRow = document.createElement('tr');
@@ -222,6 +220,12 @@ export class LeaderboardPanel extends BasePanel {
       th.textContent = col.text;
       th.style.cssText = `
         padding: 16px 8px;
+        position: sticky;
+        top: 0;
+        z-index: 21;
+        background: rgba(10, 14, 24, 0.94);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
         text-align: ${col.align};
         font-size: 10px;
         font-weight: 800;
