@@ -140,6 +140,11 @@ class ServerCombatManager {
       combatStartTime: Date.now() // Timestamp di inizio combattimento
     });
 
+    // Lock NPC retaliation target to an active fighter instead of nearest random player.
+    if (!existingNpc.lastAttackerId) {
+      existingNpc.lastAttackerId = playerId;
+    }
+
     ServerLoggerWrapper.combat(`Combat session started: ${sessionId} for player ${playerId} vs ${npcId}`);
   }
 
@@ -148,10 +153,24 @@ class ServerCombatManager {
    */
   stopPlayerCombat(playerId) {
     if (this.playerCombats.has(playerId)) {
+      const previousCombat = this.playerCombats.get(playerId);
       this.playerCombats.delete(playerId);
 
       // ✅ FIX: Rimuovi anche l'entry dai cooldown temporanei per evitare spam
       this.combatStartCooldowns.delete(playerId);
+
+      if (previousCombat && previousCombat.npcId) {
+        const npc = this.mapServer.npcManager.getNpc(previousCombat.npcId);
+        if (npc && String(npc.lastAttackerId) === String(playerId)) {
+          const remainingParticipants = this.getNpcCombatParticipants(previousCombat.npcId);
+          if (remainingParticipants.length > 0) {
+            npc.lastAttackerId = remainingParticipants[0].playerId;
+          } else {
+            npc.lastAttackerId = null;
+            npc.lastDamage = null;
+          }
+        }
+      }
 
       // Notifica repair manager che il combattimento è terminato
       if (this.mapServer.repairManager && typeof this.mapServer.repairManager.onCombatEnded === 'function') {
@@ -175,6 +194,36 @@ class ServerCombatManager {
     for (const [playerId, combat] of this.playerCombats) {
       this.processPlayerCombat(playerId, combat, now);
     }
+  }
+
+  /**
+   * Returns active players currently fighting a specific NPC.
+   * Order is deterministic by combat start time (oldest first).
+   * @param {string} npcId
+   * @returns {Array<{playerId: string, playerData: object, combatStartTime: number}>}
+   */
+  getNpcCombatParticipants(npcId) {
+    const participants = [];
+
+    for (const [playerId, combat] of this.playerCombats.entries()) {
+      if (!combat || combat.npcId !== npcId) {
+        continue;
+      }
+
+      const playerData = this.mapServer.players.get(playerId);
+      if (!playerData || playerData.isDead || !playerData.position) {
+        continue;
+      }
+
+      participants.push({
+        playerId,
+        playerData,
+        combatStartTime: combat.combatStartTime || 0
+      });
+    }
+
+    participants.sort((a, b) => a.combatStartTime - b.combatStartTime);
+    return participants;
   }
 
   /**
@@ -574,41 +623,30 @@ class ServerCombatManager {
     const attackRange = NPC_CONFIG[npc.type].stats.range;
     const attackRangeSq = attackRange * attackRange;
 
-    let targetPlayer = null;
-
-    // PRIORITÀ 1: L'ultimo attaccante (Retaliation)
-    if (npc.lastAttackerId) {
-      const attackerData = this.mapServer.players.get(npc.lastAttackerId);
-      if (attackerData && attackerData.position) {
-        // 🚀 RETALIATION logic: Permetti di continuare ad attaccare l'aggressore anche in Safe Zone
-        const dx = attackerData.position.x - npc.position.x;
-        const dy = attackerData.position.y - npc.position.y;
-        const distSq = dx * dx + dy * dy;
-
-        if (distSq <= attackRangeSq) {
-          targetPlayer = attackerData;
-        }
-      }
+    const participants = this.getNpcCombatParticipants(npc.id);
+    if (participants.length === 0) {
+      return;
     }
 
-    // PRIORITÀ 2: Se l'ultimo attaccante non è più nel range o è in Safe Zone, cerca il più vicino
-    if (!targetPlayer) {
-      let minDistanceSq = Infinity;
-      for (const [clientId, playerData] of this.mapServer.players.entries()) {
-        if (!playerData.position || playerData.isDead) continue;
+    // Keep current lock when possible. Do not retarget to nearest random players.
+    let lockedParticipant = null;
+    if (npc.lastAttackerId) {
+      lockedParticipant = participants.find((entry) => String(entry.playerId) === String(npc.lastAttackerId)) || null;
+    }
 
-        // 🛡️ SAFE ZONE CHECK: NPC non punta player in una zona sicura
-        if (this.isInSafeZone(playerData.position)) continue;
+    if (!lockedParticipant) {
+      lockedParticipant = participants[0];
+      npc.lastAttackerId = lockedParticipant.playerId;
+    }
 
-        const dx = playerData.position.x - npc.position.x;
-        const dy = playerData.position.y - npc.position.y;
-        const distSq = dx * dx + dy * dy;
+    const targetPlayer = lockedParticipant.playerData;
+    const dxToLocked = targetPlayer.position.x - npc.position.x;
+    const dyToLocked = targetPlayer.position.y - npc.position.y;
+    const distSqToLocked = dxToLocked * dxToLocked + dyToLocked * dyToLocked;
 
-        if (distSq <= attackRangeSq && distSq < minDistanceSq) {
-          minDistanceSq = distSq;
-          targetPlayer = playerData;
-        }
-      }
+    // Out of attack range: keep lock but do not switch targets.
+    if (distSqToLocked > attackRangeSq) {
+      return;
     }
 
     if (targetPlayer) {
