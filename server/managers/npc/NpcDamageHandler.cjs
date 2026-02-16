@@ -24,6 +24,7 @@ class NpcDamageHandler {
   damageNpc(npcId, damage, attackerId) {
     const npc = this.npcs.get(npcId);
     if (!npc) return false;
+    const rewardAttackerId = this.registerRewardParticipant(npc, attackerId);
 
     const rawDamage = damage;
     let shieldAbsorbed = 0;
@@ -48,14 +49,15 @@ class NpcDamageHandler {
     // 🚀 ENGAGEMENT LOCK: Imposta l'attaccante solo se l'NPC non ne ha già uno.
     // Questo previene il comportamento confuso tra più player.
     // Il reset del target avviene nel NpcMovementSystem se il player muore o scappa.
-    if (!npc.lastAttackerId) {
-      npc.lastAttackerId = attackerId;
+    if (!npc.lastAttackerId && rewardAttackerId) {
+      npc.lastAttackerId = rewardAttackerId;
     }
 
     // Damage details logging removed for production - too verbose
 
     // Se morto, rimuovi l'NPC e assegna ricompense
     if (npc.health <= 0) {
+      const rewardParticipantIds = this.collectRewardParticipants(npc, attackerId);
       // 🚀 IMMEDIATE REMOVAL BROADCAST: Comunica subito la morte a tutti i client
       // Questo previene l'effetto "fermo per qualche secondo" (ghost corpse)
       const rewards = NPC_CONFIG[npc.type]?.rewards;
@@ -64,11 +66,104 @@ class NpcDamageHandler {
       }
 
       this.removeNpc(npcId);
-      this.rewardSystem.awardNpcKillRewards(attackerId, npc.type);
+      if (rewardParticipantIds.length === 0) {
+        logger.warn('REWARDS', `No eligible reward participants for NPC ${npcId} (${npc.type}), attackerId=${attackerId}`);
+      } else {
+        rewardParticipantIds.forEach((participantId) => {
+          this.rewardSystem.awardNpcKillRewards(participantId, npc.type);
+        });
+      }
       return true; // NPC morto
     }
 
     return false; // NPC sopravvissuto
+  }
+
+  /**
+   * Risolve un attackerId nel clientId reale usato in mapServer.players
+   * @param {string|number|null|undefined} attackerId
+   * @returns {string|null}
+   */
+  resolveRewardPlayerId(attackerId) {
+    if (attackerId === null || attackerId === undefined) return null;
+
+    const rawId = String(attackerId).trim();
+    if (!rawId || rawId.startsWith('npc_')) return null;
+
+    const normalizedId = rawId.startsWith('player_')
+      ? rawId.slice('player_'.length)
+      : rawId;
+
+    // Fast path: exact key lookup
+    if (this.mapServer.players.has(normalizedId)) {
+      return normalizedId;
+    }
+
+    if (this.mapServer.players.has(rawId)) {
+      return rawId;
+    }
+
+    // Fallback robusto: trova il player con ID equivalente.
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      if (!playerData) continue;
+
+      const knownIds = [
+        String(clientId),
+        String(playerData.clientId || ''),
+        playerData.playerId !== undefined && playerData.playerId !== null
+          ? String(playerData.playerId)
+          : ''
+      ];
+
+      if (knownIds.includes(normalizedId) || knownIds.includes(rawId)) {
+        return String(clientId);
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Registra un partecipante valido ai reward per l'NPC corrente
+   * @param {object} npc
+   * @param {string|number|null|undefined} attackerId
+   * @returns {string|null}
+   */
+  registerRewardParticipant(npc, attackerId) {
+    const resolvedPlayerId = this.resolveRewardPlayerId(attackerId);
+    if (!resolvedPlayerId) return null;
+
+    if (!(npc.rewardParticipants instanceof Set)) {
+      npc.rewardParticipants = new Set();
+    }
+
+    npc.rewardParticipants.add(resolvedPlayerId);
+    return resolvedPlayerId;
+  }
+
+  /**
+   * Raccoglie tutti i partecipanti validi al kill reward
+   * @param {object} npc
+   * @param {string|number|null|undefined} attackerId
+   * @returns {string[]}
+   */
+  collectRewardParticipants(npc, attackerId) {
+    const participants = new Set();
+
+    const killerId = this.resolveRewardPlayerId(attackerId);
+    if (killerId) participants.add(killerId);
+
+    const lockedAttackerId = this.resolveRewardPlayerId(npc.lastAttackerId);
+    if (lockedAttackerId) participants.add(lockedAttackerId);
+
+    if (npc.rewardParticipants && typeof npc.rewardParticipants.forEach === 'function') {
+      npc.rewardParticipants.forEach((participantId) => {
+        const resolved = this.resolveRewardPlayerId(participantId);
+        if (resolved) participants.add(resolved);
+      });
+    }
+
+    return Array.from(participants);
   }
 
   /**
