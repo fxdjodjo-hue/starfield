@@ -227,6 +227,30 @@ class ServerCombatManager {
   }
 
   /**
+   * Resolves a connected/alive player by combat/client identifier.
+   * Supports both map key and playerData.clientId lookup.
+   * @param {string} playerId
+   * @returns {object|null}
+   */
+  resolveCombatPlayer(playerId) {
+    if (!playerId) return null;
+
+    const directPlayer = this.mapServer.players.get(playerId);
+    if (directPlayer && !directPlayer.isDead && directPlayer.position) {
+      return directPlayer;
+    }
+
+    for (const [clientId, playerData] of this.mapServer.players.entries()) {
+      if (!playerData || playerData.isDead || !playerData.position) continue;
+      if (String(clientId) === String(playerId) || String(playerData.clientId) === String(playerId)) {
+        return playerData;
+      }
+    }
+
+    return null;
+  }
+
+  /**
    * Processa combattimento per un singolo player
    */
   processPlayerCombat(playerId, combat, now) {
@@ -625,19 +649,32 @@ class ServerCombatManager {
     const attackRangeSq = attackRange * attackRange;
 
     const participants = this.getNpcCombatParticipants(npc.id);
-    if (participants.length === 0) {
-      return;
-    }
 
     // Keep current lock when possible. Do not retarget to nearest random players.
     let lockedParticipant = null;
-    if (npc.lastAttackerId) {
-      lockedParticipant = participants.find((entry) => String(entry.playerId) === String(npc.lastAttackerId)) || null;
+    if (participants.length > 0) {
+      if (npc.lastAttackerId) {
+        lockedParticipant = participants.find((entry) => String(entry.playerId) === String(npc.lastAttackerId)) || null;
+      }
+
+      if (!lockedParticipant) {
+        lockedParticipant = participants[0];
+        npc.lastAttackerId = lockedParticipant.playerId;
+      }
+    } else if (npc.lastAttackerId) {
+      // Fallback: if NPC is still combat-locked but player combat map is temporarily empty,
+      // keep attacking only the locked target instead of becoming visually "mute".
+      const fallbackTarget = this.resolveCombatPlayer(npc.lastAttackerId);
+      if (fallbackTarget) {
+        lockedParticipant = {
+          playerId: fallbackTarget.clientId || npc.lastAttackerId,
+          playerData: fallbackTarget
+        };
+      }
     }
 
     if (!lockedParticipant) {
-      lockedParticipant = participants[0];
-      npc.lastAttackerId = lockedParticipant.playerId;
+      return;
     }
 
     const targetPlayer = lockedParticipant.playerData;
