@@ -325,7 +325,8 @@ class ServerProjectileManager {
       // Se non hanno target, vengono rimossi per timeout invece di colpire chiunque
 
       // Verifica collisioni con giocatori (solo per proiettili NON NPC, perché gli NPC sono già gestiti sopra)
-      if (!isNpcProjectile) {
+      // Enforce strict target-only hits for player-fired lasers/projectiles.
+      if (!isNpcProjectile && !projectile.targetId) {
         const hitPlayer = this.collision.checkPlayerCollision(projectile);
         if (hitPlayer) {
           // CRITICO: Ferma immediatamente il movimento del proiettile per evitare "rimbalzi"
