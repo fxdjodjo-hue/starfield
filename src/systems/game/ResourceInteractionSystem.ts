@@ -22,6 +22,7 @@ interface ResourceCollectEffectState {
   elapsedMs: number;
   durationMs: number;
   frameDurationMs: number;
+  resourceId: string | null;
 }
 
 interface PendingResourceRemovalState {
@@ -35,6 +36,7 @@ export class ResourceInteractionSystem extends BaseSystem {
   private readonly resourceSprites: Map<string, AnimatedSprite> = new Map();
   private readonly pendingCollectRequests: Map<string, number> = new Map();
   private readonly activeCollectEffects: Map<number, ResourceCollectEffectState> = new Map();
+  private readonly collectEffectByResourceId: Map<string, number> = new Map();
   private readonly pendingResourceRemovals: Map<string, PendingResourceRemovalState> = new Map();
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private movePlayerToCallback: ((worldX: number, worldY: number, stopDistancePx?: number) => void) | null = null;
@@ -42,16 +44,19 @@ export class ResourceInteractionSystem extends BaseSystem {
   private playerPositionResolver: (() => { x: number; y: number } | null) | null = null;
   private collectEffectSprite: AnimatedSprite | null = null;
   private activeCollectTargetResourceId: string | null = null;
+  private collectMovementLockResourceId: string | null = null;
+  private collectMovementLockUntilMs: number = 0;
   private lastMoveCommandAtMs: number = 0;
 
   private readonly PENDING_REQUEST_TTL_MS = 1600;
-  private readonly RESOURCE_ROTATION_SPEED_RAD_PER_SEC = Math.PI * 0.75;
+  private readonly RESOURCE_ROTATION_TARGET_FPS = 60;
   private readonly COLLECT_EFFECT_FRAME_DURATION_MS = 55;
   private readonly MOVE_COMMAND_INTERVAL_MS = 220;
   private readonly ALIGNMENT_DISTANCE_PX = 1;
-  private readonly RESOURCE_APPROACH_STOP_DISTANCE_PX = 1;
+  private readonly RESOURCE_APPROACH_STOP_DISTANCE_PX = 8;
   private readonly COLLECT_DISTANCE_TOLERANCE_PX = 8;
   private readonly RESOURCE_COLLECT_ANCHOR_OFFSET_Y = 62;
+  private readonly COLLECT_MOVEMENT_LOCK_DURATION_MS = 2400;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -119,6 +124,8 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.pendingResourceRemovals.clear();
     this.pendingCollectRequests.clear();
     this.activeCollectTargetResourceId = null;
+    this.collectMovementLockResourceId = null;
+    this.collectMovementLockUntilMs = 0;
   }
 
   removeResource(resourceId: string, worldX?: number, worldY?: number): void {
@@ -129,6 +136,11 @@ export class ResourceInteractionSystem extends BaseSystem {
         this.activeCollectTargetResourceId = null;
       }
       return;
+    }
+
+    const hadCollectChannelEffect = this.collectEffectByResourceId.has(resourceId);
+    if (hadCollectChannelEffect) {
+      this.removeCollectEffectForResource(resourceId);
     }
 
     const entity = this.resourceEntities.get(resourceId);
@@ -147,9 +159,20 @@ export class ResourceInteractionSystem extends BaseSystem {
     if (this.activeCollectTargetResourceId === resourceId) {
       this.activeCollectTargetResourceId = null;
     }
+    if (this.collectMovementLockResourceId === resourceId) {
+      this.collectMovementLockResourceId = null;
+      this.collectMovementLockUntilMs = 0;
+    }
 
     this.resourceEntities.delete(resourceId);
     this.pendingCollectRequests.delete(resourceId);
+
+    if (hadCollectChannelEffect) {
+      if (entity && this.ecs.entityExists(entity.id)) {
+        this.ecs.removeEntity(entity);
+      }
+      return;
+    }
 
     const effectDurationMs = Number.isFinite(effectX) && Number.isFinite(effectY)
       ? this.spawnCollectEffect(effectX, effectY)
@@ -161,6 +184,59 @@ export class ResourceInteractionSystem extends BaseSystem {
         elapsedMs: 0,
         durationMs: effectDurationMs ?? 260
       });
+    }
+  }
+
+  handleCollectionStatus(message: {
+    status?: string;
+    resourceId?: string;
+    remainingMs?: number;
+  }): void {
+    const resourceId = typeof message?.resourceId === 'string' ? message.resourceId : '';
+    if (!resourceId) return;
+
+    const status = String(message?.status || '').toLowerCase();
+    if (!status) return;
+
+    if (status === 'started' || status === 'in_progress') {
+      const resourceTransform = this.getResourceTransform(resourceId);
+      if (!resourceTransform) return;
+
+      const durationMs = Number.isFinite(Number(message?.remainingMs))
+        ? Math.max(200, Math.floor(Number(message.remainingMs)))
+        : undefined;
+
+      const now = Date.now();
+      this.collectMovementLockResourceId = resourceId;
+      this.collectMovementLockUntilMs = now + (durationMs || this.COLLECT_MOVEMENT_LOCK_DURATION_MS);
+
+      this.spawnCollectEffect(resourceTransform.x, resourceTransform.y, resourceId, durationMs);
+      return;
+    }
+
+    if (status === 'interrupted') {
+      this.pendingCollectRequests.delete(resourceId);
+      if (this.activeCollectTargetResourceId === resourceId) {
+        this.activeCollectTargetResourceId = null;
+      }
+      if (this.collectMovementLockResourceId === resourceId) {
+        this.collectMovementLockResourceId = null;
+        this.collectMovementLockUntilMs = 0;
+      }
+      this.removeCollectEffectForResource(resourceId);
+      return;
+    }
+
+    if (status === 'completed') {
+      this.pendingCollectRequests.delete(resourceId);
+      if (this.activeCollectTargetResourceId === resourceId) {
+        this.activeCollectTargetResourceId = null;
+      }
+      if (this.collectMovementLockResourceId === resourceId) {
+        this.collectMovementLockResourceId = null;
+        this.collectMovementLockUntilMs = 0;
+      }
+      this.removeCollectEffectForResource(resourceId);
     }
   }
 
@@ -280,6 +356,10 @@ export class ResourceInteractionSystem extends BaseSystem {
     const resourceEntity = this.resourceEntities.get(this.activeCollectTargetResourceId);
     if (!resourceEntity || !this.ecs.entityExists(resourceEntity.id)) {
       this.pendingCollectRequests.delete(this.activeCollectTargetResourceId);
+      if (this.collectMovementLockResourceId === this.activeCollectTargetResourceId) {
+        this.collectMovementLockResourceId = null;
+        this.collectMovementLockUntilMs = 0;
+      }
       this.activeCollectTargetResourceId = null;
       return;
     }
@@ -288,6 +368,10 @@ export class ResourceInteractionSystem extends BaseSystem {
     const resourceNode = this.ecs.getComponent(resourceEntity, ResourceNode);
     if (!resourceTransform || !resourceNode) {
       this.pendingCollectRequests.delete(this.activeCollectTargetResourceId);
+      if (this.collectMovementLockResourceId === this.activeCollectTargetResourceId) {
+        this.collectMovementLockResourceId = null;
+        this.collectMovementLockUntilMs = 0;
+      }
       this.activeCollectTargetResourceId = null;
       return;
     }
@@ -295,6 +379,7 @@ export class ResourceInteractionSystem extends BaseSystem {
     const playerPosition = this.resolvePlayerWorldPosition();
     if (!playerPosition) return;
     const collectAnchor = this.getCollectAnchor(resourceTransform);
+    const now = Date.now();
 
     const collectDistance = this.ALIGNMENT_DISTANCE_PX + this.COLLECT_DISTANCE_TOLERANCE_PX;
 
@@ -309,12 +394,21 @@ export class ResourceInteractionSystem extends BaseSystem {
         this.stopPlayerMovementCallback();
       }
 
-      const now = Date.now();
       const lastRequestTime = this.pendingCollectRequests.get(this.activeCollectTargetResourceId);
       if (!lastRequestTime || now - lastRequestTime >= this.PENDING_REQUEST_TTL_MS) {
         this.pendingCollectRequests.set(this.activeCollectTargetResourceId, now);
+        this.collectMovementLockResourceId = this.activeCollectTargetResourceId;
+        this.collectMovementLockUntilMs = now + this.COLLECT_MOVEMENT_LOCK_DURATION_MS;
         this.clientNetworkSystem.sendResourceCollectRequest(this.activeCollectTargetResourceId);
       }
+      return;
+    }
+
+    const isMovementLockedForCollect = (
+      this.collectMovementLockResourceId === this.activeCollectTargetResourceId &&
+      now < this.collectMovementLockUntilMs
+    );
+    if (isMovementLockedForCollect) {
       return;
     }
 
@@ -329,7 +423,6 @@ export class ResourceInteractionSystem extends BaseSystem {
   private animateResourceNodes(deltaTime: number): void {
     if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
 
-    const rotationStep = this.RESOURCE_ROTATION_SPEED_RAD_PER_SEC * (deltaTime / 1000);
     const fullTurn = Math.PI * 2;
 
     for (const [resourceId, entity] of this.resourceEntities.entries()) {
@@ -344,6 +437,11 @@ export class ResourceInteractionSystem extends BaseSystem {
 
       const transform = this.ecs.getComponent(entity, Transform);
       if (!transform) continue;
+
+      const animatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
+      const frameCount = Math.max(1, Number(animatedSprite?.frameCount || 1));
+      const rotationsPerSecond = this.RESOURCE_ROTATION_TARGET_FPS / frameCount;
+      const rotationStep = rotationsPerSecond * fullTurn * (deltaTime / 1000);
 
       let nextRotation = Number(transform.rotation || 0) + rotationStep;
       if (nextRotation >= fullTurn) {
@@ -404,8 +502,17 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.movePlayerToCallback(worldX, worldY, stopDistancePx);
   }
 
-  private spawnCollectEffect(worldX: number, worldY: number): number | null {
+  private spawnCollectEffect(
+    worldX: number,
+    worldY: number,
+    resourceId: string | null = null,
+    durationOverrideMs?: number
+  ): number | null {
     if (!this.collectEffectSprite) return null;
+
+    if (resourceId) {
+      this.removeCollectEffectForResource(resourceId);
+    }
 
     const entity = this.ecs.createEntity();
     this.ecs.addComponent(entity, Transform, new Transform(worldX, worldY, 0, 1, 1));
@@ -413,16 +520,39 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.ecs.addComponent(entity, ResourceCollectEffect, new ResourceCollectEffect('resource_collect', 0));
     const frameCount = Math.max(1, Number(this.collectEffectSprite.frameCount || 1));
     const frameDurationMs = Math.max(16, this.COLLECT_EFFECT_FRAME_DURATION_MS);
-    const durationMs = Math.max(frameDurationMs, frameCount * frameDurationMs);
+    const defaultDurationMs = Math.max(frameDurationMs, frameCount * frameDurationMs);
+    const durationMs = Number.isFinite(Number(durationOverrideMs))
+      ? Math.max(frameDurationMs, Math.floor(Number(durationOverrideMs)))
+      : defaultDurationMs;
 
     this.activeCollectEffects.set(entity.id, {
       entity,
       elapsedMs: 0,
       durationMs,
-      frameDurationMs
+      frameDurationMs,
+      resourceId
     });
 
+    if (resourceId) {
+      this.collectEffectByResourceId.set(resourceId, entity.id);
+    }
+
     return durationMs;
+  }
+
+  private removeCollectEffectForResource(resourceId: string): void {
+    const effectEntityId = this.collectEffectByResourceId.get(resourceId);
+    if (typeof effectEntityId !== 'number') {
+      this.collectEffectByResourceId.delete(resourceId);
+      return;
+    }
+
+    const effectState = this.activeCollectEffects.get(effectEntityId);
+    if (effectState && this.ecs.entityExists(effectState.entity.id)) {
+      this.ecs.removeEntity(effectState.entity);
+    }
+    this.activeCollectEffects.delete(effectEntityId);
+    this.collectEffectByResourceId.delete(resourceId);
   }
 
   private animateCollectEffects(deltaTime: number): void {
@@ -445,6 +575,9 @@ export class ResourceInteractionSystem extends BaseSystem {
       }
 
       if (effectState.elapsedMs >= effectState.durationMs) {
+        if (effectState.resourceId && this.collectEffectByResourceId.get(effectState.resourceId) === entityId) {
+          this.collectEffectByResourceId.delete(effectState.resourceId);
+        }
         if (this.ecs.entityExists(entityId)) {
           this.ecs.removeEntity(effectState.entity);
         }
@@ -460,6 +593,7 @@ export class ResourceInteractionSystem extends BaseSystem {
       }
     }
     this.activeCollectEffects.clear();
+    this.collectEffectByResourceId.clear();
   }
 
   private processPendingResourceRemovals(deltaTime: number): void {

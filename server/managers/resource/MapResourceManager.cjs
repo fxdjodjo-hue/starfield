@@ -10,6 +10,7 @@ class MapResourceManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
     this.resources = new Map();
+    this.activeCollections = new Map();
     this.resourceIdCounter = 0;
 
     this.SPAWN_PADDING = 420;
@@ -17,10 +18,16 @@ class MapResourceManager {
     this.PORTAL_EXCLUSION_RADIUS = 1350;
     this.MIN_RESOURCE_GAP = 120;
     this.MAX_SPAWN_ATTEMPTS = 80;
+    this.COLLECT_CHANNEL_DURATION_MS = 1800;
+    this.COLLECT_STATIONARY_DRIFT_PX = 26;
+    this.COLLECT_START_GRACE_MS = 350;
+    this.COLLECT_START_DRIFT_PX = 70;
+    this.COLLECT_ANCHOR_SYNC_TIMEOUT_MS = 250;
   }
 
   initializeResources() {
     this.resources.clear();
+    this.activeCollections.clear();
 
     const spawnPlans = listMapResourceSpawns(this.mapServer.mapId);
     let spawnedCount = 0;
@@ -117,40 +124,243 @@ class MapResourceManager {
   }
 
   collectResource(playerData, resourceId) {
+    const now = Date.now();
     const node = this.resources.get(resourceId);
-    if (!node) {
-      return { ok: false, code: 'RESOURCE_NOT_FOUND' };
-    }
+    if (!node) return { ok: false, code: 'RESOURCE_NOT_FOUND' };
 
-    const playerX = Number(playerData?.position?.x ?? playerData?.x ?? 0);
-    const playerY = Number(playerData?.position?.y ?? playerData?.y ?? 0);
-    if (!Number.isFinite(playerX) || !Number.isFinite(playerY)) {
-      return { ok: false, code: 'INVALID_PLAYER_POSITION' };
-    }
+    const playerPosition = this.getPlayerPosition(playerData);
+    if (!playerPosition) return { ok: false, code: 'INVALID_PLAYER_POSITION' };
 
-    const definition = getResourceDefinition(node.resourceType);
-    const collectDistance = Math.max(
-      60,
-      Number(definition?.collectDistance || getDefaultCollectDistance())
-    );
-    const distanceSq = this.distanceSq(playerX, playerY, node.x, node.y);
-    if (distanceSq > collectDistance * collectDistance) {
+    const collectDistance = this.resolveCollectDistance(node.resourceType);
+    if (!this.isPointWithinRange(playerPosition, node, collectDistance)) {
       return { ok: false, code: 'RESOURCE_TOO_FAR' };
     }
 
-    this.resources.delete(resourceId);
-
-    if (!playerData.resourceInventory || typeof playerData.resourceInventory !== 'object') {
-      playerData.resourceInventory = {};
+    const existingCollection = this.activeCollections.get(resourceId);
+    if (existingCollection) {
+      if (existingCollection.playerClientId !== playerData.clientId) {
+        return { ok: false, code: 'RESOURCE_BUSY' };
+      }
+      return {
+        ok: true,
+        code: 'COLLECTION_IN_PROGRESS',
+        remainingMs: Math.max(0, existingCollection.completeAt - now),
+        resourceId: node.id,
+        resourceType: node.resourceType,
+        resourceName: this.resolveResourceDisplayName(node)
+      };
     }
-    const currentCount = Number(playerData.resourceInventory[node.resourceType] || 0);
-    playerData.resourceInventory[node.resourceType] = Math.max(0, Math.floor(currentCount + 1));
+
+    this.activeCollections.set(resourceId, {
+      resourceId,
+      resourceType: node.resourceType,
+      playerClientId: playerData.clientId,
+      startedAt: now,
+      completeAt: now + this.COLLECT_CHANNEL_DURATION_MS,
+      collectDistance,
+      anchorX: playerPosition.x,
+      anchorY: playerPosition.y,
+      anchorSynced: false,
+      anchorSyncedAt: null,
+      startedMovementAt: this.getPlayerMovementTimestamp(playerData)
+    });
 
     return {
       ok: true,
-      node,
-      totalOwned: playerData.resourceInventory[node.resourceType]
+      code: 'COLLECTION_STARTED',
+      remainingMs: this.COLLECT_CHANNEL_DURATION_MS,
+      resourceId: node.id,
+      resourceType: node.resourceType,
+      resourceName: this.resolveResourceDisplayName(node)
     };
+  }
+
+  updateCollections(now = Date.now()) {
+    if (this.activeCollections.size === 0) return;
+
+    for (const [resourceId, collection] of this.activeCollections.entries()) {
+      const node = this.resources.get(resourceId);
+      if (!node) {
+        this.cancelCollection(resourceId, collection, null, 'resource_unavailable');
+        continue;
+      }
+
+      const playerData = this.mapServer.players.get(collection.playerClientId);
+      if (!playerData) {
+        this.cancelCollection(resourceId, collection, null, 'player_unavailable');
+        continue;
+      }
+
+      const playerPosition = this.getPlayerPosition(playerData);
+      if (!playerPosition) {
+        this.cancelCollection(resourceId, collection, playerData, 'invalid_player_position');
+        continue;
+      }
+
+      if (!this.isPointWithinRange(playerPosition, node, collection.collectDistance)) {
+        this.cancelCollection(resourceId, collection, playerData, 'out_of_range');
+        continue;
+      }
+
+      const anchorReady = this.ensureCollectionAnchorSynchronized(
+        collection,
+        playerData,
+        playerPosition,
+        now
+      );
+      if (!anchorReady) {
+        continue;
+      }
+
+      if (this.hasPlayerMovedFromAnchor(playerPosition, collection, now)) {
+        this.cancelCollection(resourceId, collection, playerData, 'player_moved');
+        continue;
+      }
+
+      if (now < collection.completeAt) continue;
+
+      this.resources.delete(resourceId);
+      this.activeCollections.delete(resourceId);
+
+      if (!playerData.resourceInventory || typeof playerData.resourceInventory !== 'object') {
+        playerData.resourceInventory = {};
+      }
+      const currentCount = Number(playerData.resourceInventory[node.resourceType] || 0);
+      playerData.resourceInventory[node.resourceType] = Math.max(0, Math.floor(currentCount + 1));
+
+      this.sendCollectionStatus(playerData, {
+        status: 'completed',
+        resourceId: node.id,
+        resourceType: node.resourceType,
+        resourceName: this.resolveResourceDisplayName(node),
+        reason: 'completed',
+        timestamp: now
+      });
+
+      this.mapServer.broadcastToMap({
+        type: 'resource_node_removed',
+        resourceId: node.id,
+        resourceType: node.resourceType,
+        collectedBy: playerData.clientId,
+        x: Math.round(Number(node.x || 0)),
+        y: Math.round(Number(node.y || 0)),
+        timestamp: Date.now()
+      });
+    }
+  }
+
+  resolveCollectDistance(resourceType) {
+    const definition = getResourceDefinition(resourceType);
+    return Math.max(
+      60,
+      Number(definition?.collectDistance || getDefaultCollectDistance())
+    );
+  }
+
+  isPlayerWithinRange(playerData, node, collectDistance) {
+    const position = this.getPlayerPosition(playerData);
+    if (!position) return false;
+
+    return this.isPointWithinRange(position, node, collectDistance);
+  }
+
+  getPlayerPosition(playerData) {
+    const playerX = Number(playerData?.position?.x ?? playerData?.x ?? 0);
+    const playerY = Number(playerData?.position?.y ?? playerData?.y ?? 0);
+    if (!Number.isFinite(playerX) || !Number.isFinite(playerY)) return null;
+
+    return { x: playerX, y: playerY };
+  }
+
+  getPlayerMovementTimestamp(playerData) {
+    const movementTs = Number(playerData?.lastMovementTime);
+    return Number.isFinite(movementTs) ? movementTs : 0;
+  }
+
+  isPointWithinRange(point, node, collectDistance) {
+    if (!point) return false;
+    const distanceSq = this.distanceSq(point.x, point.y, node.x, node.y);
+    return distanceSq <= (collectDistance * collectDistance);
+  }
+
+  ensureCollectionAnchorSynchronized(collection, playerData, playerPosition, now = Date.now()) {
+    if (collection?.anchorSynced === true) return true;
+
+    const startedMovementAt = Number(collection?.startedMovementAt || 0);
+    const currentMovementAt = this.getPlayerMovementTimestamp(playerData);
+    const hasFreshMovementSample = currentMovementAt > startedMovementAt;
+
+    const startedAt = Number(collection?.startedAt);
+    const elapsedMs = Number.isFinite(startedAt)
+      ? Math.max(0, now - startedAt)
+      : this.COLLECT_ANCHOR_SYNC_TIMEOUT_MS + 1;
+    const timedOutWaitingForFreshSample = elapsedMs >= this.COLLECT_ANCHOR_SYNC_TIMEOUT_MS;
+
+    if (!hasFreshMovementSample && !timedOutWaitingForFreshSample) {
+      return false;
+    }
+
+    collection.anchorX = playerPosition.x;
+    collection.anchorY = playerPosition.y;
+    collection.anchorSynced = true;
+    collection.anchorSyncedAt = now;
+    return true;
+  }
+
+  hasPlayerMovedFromAnchor(playerPosition, collection, now = Date.now()) {
+    const anchorX = Number(collection?.anchorX);
+    const anchorY = Number(collection?.anchorY);
+    if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) return false;
+
+    const anchorSyncedAt = Number(collection?.anchorSyncedAt);
+    const startedAt = Number(collection?.startedAt);
+    const timeReference = Number.isFinite(anchorSyncedAt) ? anchorSyncedAt : startedAt;
+    const elapsedMs = Number.isFinite(timeReference) ? Math.max(0, now - timeReference) : this.COLLECT_START_GRACE_MS + 1;
+    const allowedDriftPx = elapsedMs <= this.COLLECT_START_GRACE_MS
+      ? this.COLLECT_START_DRIFT_PX
+      : this.COLLECT_STATIONARY_DRIFT_PX;
+
+    const movedDistanceSq = this.distanceSq(playerPosition.x, playerPosition.y, anchorX, anchorY);
+    return movedDistanceSq > (allowedDriftPx * allowedDriftPx);
+  }
+
+  resolveResourceDisplayName(node) {
+    if (node && typeof node.displayName === 'string' && node.displayName.trim().length > 0) {
+      return node.displayName.trim();
+    }
+    if (node && typeof node.resourceType === 'string' && node.resourceType.trim().length > 0) {
+      return node.resourceType.trim();
+    }
+    return 'Resource';
+  }
+
+  cancelCollection(resourceId, collection, playerData, reason) {
+    this.activeCollections.delete(resourceId);
+    if (!playerData) return;
+
+    const node = this.resources.get(resourceId);
+    this.sendCollectionStatus(playerData, {
+      status: 'interrupted',
+      resourceId: node?.id || resourceId,
+      resourceType: node?.resourceType || collection?.resourceType || null,
+      resourceName: this.resolveResourceDisplayName(node || collection || null),
+      reason: reason || 'interrupted',
+      timestamp: Date.now()
+    });
+  }
+
+  sendCollectionStatus(playerData, payload) {
+    const ws = playerData?.ws;
+    if (!ws || ws.readyState !== 1) return;
+
+    try {
+      ws.send(JSON.stringify({
+        type: 'resource_collect_status',
+        ...payload
+      }));
+    } catch (error) {
+      ServerLoggerWrapper.warn('RESOURCE', `Failed to send resource collection status: ${error.message}`);
+    }
   }
 
   distanceSq(x1, y1, x2, y2) {

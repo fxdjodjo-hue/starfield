@@ -2,11 +2,11 @@
   "defaultCollectDistance": 520,
   "resources": [
     {
-      "id": "promet",
-      "displayName": "Promet",
+      "id": "cuprite",
+      "displayName": "Cuprite",
       "assetBasePath": "assets/resources/resource_2",
       "spriteScale": 0.6,
-      "debugHitbox": true,
+      "debugHitbox": false,
       "clickRadius": 30,
       "collectDistance": 620
     }
@@ -14,7 +14,7 @@
   "mapSpawns": {
     "palantir": [
       {
-        "resourceType": "promet",
+        "resourceType": "cuprite",
         "count": 200
       }
     ]
