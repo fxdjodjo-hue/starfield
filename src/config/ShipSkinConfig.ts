@@ -68,7 +68,7 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
   },
   {
     id: 'ship102',
-    displayName: 'Ship 102',
+    displayName: 'Goliath',
     basePath: 'assets/ships/ship102/ship102',
     inGameScale: 0.8,
     rotationFrameCount: 32,
