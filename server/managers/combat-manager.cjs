@@ -595,9 +595,10 @@ class ServerCombatManager {
    * Processa logica di combat per un singolo NPC
    */
   processNpcCombat(npc, now) {
-    // NPC attacca SOLO se è in modalità aggressive (non appena un player entra nel range)
-    if (npc.behavior !== 'aggressive') {
-      return; // Non attaccare se non è aggressivo
+    // NPC attacks while fighting, both in aggressive chase and low-health flee mode.
+    // Target selection remains strictly locked to active combat participants.
+    if (npc.behavior !== 'aggressive' && npc.behavior !== 'flee') {
+      return;
     }
 
     // Per proiettili deterministici, permettiamo multipli proiettili attivi
