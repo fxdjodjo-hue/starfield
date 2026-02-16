@@ -28,6 +28,7 @@ export class InventoryPanel extends BasePanel {
   private networkSystem: any = null;
   private activePopup: HTMLElement | null = null;
   private lastInventoryHash: string = '';
+  private lastInventoryLayoutSignature: string = '';
 
   constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
     super(config);
@@ -83,7 +84,9 @@ export class InventoryPanel extends BasePanel {
       overflow: hidden;
       box-sizing: border-box;
       font-family: 'Segoe UI', Tahoma, sans-serif;
-      background: rgba(0, 0, 0, 0.2);
+      background:
+        radial-gradient(circle at 30% 35%, rgba(255, 255, 255, 0.08), transparent 42%),
+        rgba(0, 0, 0, 0.36);
     `;
 
     // Header Section
@@ -101,18 +104,18 @@ export class InventoryPanel extends BasePanel {
     title.style.cssText = `
       margin: 0;
       color: #ffffff;
-      font-size: 28px;
+      font-size: 30px;
       font-weight: 900;
-      letter-spacing: 5px;
-      text-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+      letter-spacing: 5.5px;
+      text-shadow: 0 0 24px rgba(255, 255, 255, 0.28);
     `;
 
     const subtitle = document.createElement('p');
     subtitle.textContent = 'MODULES MANAGEMENT';
     subtitle.style.cssText = `
       margin: 4px 0 0 0;
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 11px;
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 12px;
       font-weight: 700;
       letter-spacing: 2px;
     `;
@@ -193,9 +196,9 @@ export class InventoryPanel extends BasePanel {
     statsColumn.style.cssText = `
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      gap: 14px;
+      background: rgba(11, 14, 22, 0.58);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 2px;
       padding: 24px;
       box-sizing: border-box;
@@ -206,8 +209,8 @@ export class InventoryPanel extends BasePanel {
     statsHeader.textContent = 'TELEMETRY DATA';
     statsHeader.style.cssText = `
       margin: 0;
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 13px;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 14px;
       font-weight: 800;
       letter-spacing: 2px;
       line-height: 1;
@@ -216,26 +219,35 @@ export class InventoryPanel extends BasePanel {
     statsColumn.appendChild(statsHeader);
 
     const statsList = document.createElement('div');
-    statsList.style.cssText = `display: flex; flex-direction: column; gap: 15px;`;
+    statsList.style.cssText = `
+      display: grid;
+      grid-template-rows: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
+    `;
 
     const createStatRow = (label: string, id: string, icon: string) => {
       const row = document.createElement('div');
       row.style.cssText = `
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        justify-content: space-between;
+        gap: 10px;
         padding: 12px;
-        background: rgba(0, 0, 0, 0.2);
+        background: rgba(255, 255, 255, 0.06);
         border-radius: 2px;
-        border: 1px solid rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        min-height: 0;
+        box-sizing: border-box;
       `;
       row.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span style="color: rgba(255, 255, 255, 0.5); font-size: 11px; font-weight: 700; letter-spacing: 1px;">${icon} ${label}</span>
-          <span class="stat-value-${id}" style="color: #ffffff; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums;">--</span>
+          <span style="color: rgba(255, 255, 255, 0.78); font-size: 11px; font-weight: 800; letter-spacing: 1.1px;">${icon} ${label}</span>
+          <span class="stat-value-${id}" style="color: #ffffff; font-size: 19px; font-weight: 900; font-variant-numeric: tabular-nums; text-shadow: 0 0 10px rgba(255,255,255,0.2);">--</span>
         </div>
-        <div style="height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 2px; overflow: hidden;">
-          <div class="stat-bar-${id}" style="height: 100%; width: 0%; background: #ffffff; opacity: 0.6; transition: width 0.5s ease;"></div>
+        <div style="height: 5px; background: rgba(255, 255, 255, 0.16); border-radius: 2px; overflow: hidden;">
+          <div class="stat-bar-${id}" style="height: 100%; width: 0%; background: #ffffff; opacity: 0.95; transition: width 0.5s ease;"></div>
         </div>
       `;
       this.statsElements[id] = row.querySelector(`.stat-value-${id}`) as HTMLElement;
@@ -272,19 +284,19 @@ export class InventoryPanel extends BasePanel {
       width: 100%;
       max-width: 420px;
       padding: 24px;
-      background: rgba(255, 255, 255, 0.03);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(12, 16, 24, 0.62);
+      border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 2px;
       display: flex;
       flex-direction: column;
       gap: 12px;
       align-items: center;
       box-sizing: border-box;
-      backdrop-filter: blur(5px);
+      backdrop-filter: blur(6px);
     `;
     powerBox.innerHTML = `
-      <div style="color: rgba(255, 255, 255, 0.4); font-size: 13px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin: 0; line-height: 1; align-self: center;">Combat Power</div>
-      <div class="stat-value-total" style="color: #ffffff; font-size: 32px; font-weight: 900; text-shadow: 0 0 20px rgba(255, 255, 255, 0.2); line-height: 1;">--</div>
+      <div style="color: rgba(255, 255, 255, 0.82); font-size: 13px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin: 0; line-height: 1; align-self: center;">Combat Power</div>
+      <div class="stat-value-total" style="color: #ffffff; font-size: 37px; font-weight: 900; text-shadow: 0 0 24px rgba(255, 255, 255, 0.28); line-height: 1;">--</div>
     `;
     this.statsElements['total'] = powerBox.querySelector('.stat-value-total') as HTMLElement;
 
@@ -341,8 +353,8 @@ export class InventoryPanel extends BasePanel {
       slot.style.cssText = `
         width: 80px;
         height: 80px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 2px;
         display: flex;
         align-items: center;
@@ -356,9 +368,9 @@ export class InventoryPanel extends BasePanel {
 
       const labelEl = document.createElement('div');
       labelEl.style.cssText = `
-        font-size: 9px;
+        font-size: 10px;
         font-weight: 800;
-        color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.75);
         text-transform: uppercase;
         letter-spacing: 1px;
         text-align: center;
@@ -385,11 +397,11 @@ export class InventoryPanel extends BasePanel {
     cargoColumn.style.cssText = `
       display: flex;
       flex-direction: column;
-      gap: 20px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid rgba(255, 255, 255, 0.05);
+      gap: 14px;
+      background: rgba(11, 14, 22, 0.58);
+      border: 1px solid rgba(255, 255, 255, 0.14);
       border-radius: 2px;
-      padding: 24px 0 24px 24px;
+      padding: 24px 18px 24px 24px;
       box-sizing: border-box;
       min-height: 0;
       overflow: hidden;
@@ -398,9 +410,9 @@ export class InventoryPanel extends BasePanel {
     const cargoHeader = document.createElement('h3');
     cargoHeader.textContent = 'INVENTORY';
     cargoHeader.style.cssText = `
-      margin: 0 24px 0 0;
-      color: rgba(255, 255, 255, 0.4);
-      font-size: 13px;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 14px;
       font-weight: 800;
       letter-spacing: 2px;
       line-height: 1;
@@ -415,19 +427,20 @@ export class InventoryPanel extends BasePanel {
       gap: 10px;
       overflow-y: auto;
       overflow-x: hidden;
-      padding-right: 12px;
+      padding-right: 6px;
       flex: 1;
       min-height: 0;
       width: 100%;
       box-sizing: border-box;
+      align-content: flex-start;
     `;
 
     for (let i = 0; i < 30; i++) {
       const slot = document.createElement('div');
       slot.style.cssText = `
           aspect-ratio: 1/1;
-          background: rgba(0, 0, 0, 0.3);
-          border: 1px solid rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
           border-radius: 2px;
           display: flex;
           align-items: center;
@@ -546,18 +559,20 @@ export class InventoryPanel extends BasePanel {
    * Renderizza l'inventario e gli slot equipaggiamento
    */
   private renderInventory(inventory: Inventory): void {
-    const cargoGrid = this.container.querySelector('.inventory-grid');
+    const cargoGrid = this.container.querySelector('.inventory-grid') as HTMLElement | null;
     if (!cargoGrid) return;
 
     // 🚀 OPTIMIZATION: Check if inventory actually changed before destroying DOM
+    const layoutSignature = `${cargoGrid.clientWidth}x${cargoGrid.clientHeight}`;
     const currentHash = JSON.stringify(inventory.items.map(i => ({ id: i.id, instanceId: i.instanceId }))) +
       JSON.stringify(inventory.equipped);
-    if (this.lastInventoryHash === currentHash) {
+    if (this.lastInventoryHash === currentHash && this.lastInventoryLayoutSignature === layoutSignature) {
       // Still update visual slots (they are cheaper and might need updates even if items are same)
       this.updateVisualSlots(inventory);
       return;
     }
     this.lastInventoryHash = currentHash;
+    this.lastInventoryLayoutSignature = layoutSignature;
 
     // Svuota e ripopola la griglia cargo (solo per item non equipaggiati)
     cargoGrid.innerHTML = '';
@@ -591,26 +606,46 @@ export class InventoryPanel extends BasePanel {
       const slot = document.createElement('div');
       // Rarity style
       let rarityColor = 'rgba(255, 255, 255, 0.05)';
-      let textColor = '#ffffff';
       if (itemDef.rarity === 'UNCOMMON') rarityColor = 'rgba(34, 197, 94, 0.1)';
       if (itemDef.rarity === 'RARE') rarityColor = 'rgba(59, 130, 246, 0.1)';
       if (itemDef.rarity === 'EPIC') rarityColor = 'rgba(168, 85, 247, 0.1)';
 
-      let rarityBorder = 'rgba(255, 255, 255, 0.05)';
+      let rarityBorder = 'rgba(203, 213, 225, 0.28)';
       if (itemDef.rarity === 'UNCOMMON') rarityBorder = 'rgba(34, 197, 94, 0.3)';
       if (itemDef.rarity === 'RARE') rarityBorder = 'rgba(59, 130, 246, 0.3)';
       if (itemDef.rarity === 'EPIC') rarityBorder = 'rgba(168, 85, 247, 0.3)';
 
-      slot.style.background = (itemDef.rarity === 'COMMON') ? 'rgba(0, 0, 0, 0.3)' : rarityColor;
-      slot.style.borderColor = rarityBorder;
+      const baseBackground = (itemDef.rarity === 'COMMON') ? 'rgba(30, 41, 59, 0.24)' : rarityColor;
+      slot.style.cssText = `
+        min-height: 78px;
+        background: linear-gradient(135deg, ${baseBackground}, rgba(8, 12, 20, 0.78));
+        border: 1px solid ${rarityBorder};
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        box-sizing: border-box;
+        cursor: pointer;
+        transition: filter 0.2s ease, border-color 0.2s ease;
+        flex-shrink: 0;
+      `;
 
       slot.innerHTML = `
-        <div style="width: 48px; display: flex; justify-content: center;">${this.renderIcon(itemDef.icon, '36px', itemDef.rarity !== 'COMMON' ? `drop-shadow(0 0 5px ${rarityBorder})` : '')}</div>
+        <div style="width: 52px; display: flex; justify-content: center;">${this.renderIcon(itemDef.icon, '40px', itemDef.rarity !== 'COMMON' ? `drop-shadow(0 0 6px ${rarityBorder})` : '')}</div>
         <div style="flex: 1; min-width: 0;">
-          <div style="color: ${itemDef.rarity !== 'COMMON' ? rarityBorder.replace('0.3', '1.0') : '#ffffff'}; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px;">${itemDef.name}</div>
-          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.rarity} ${itemDef.slot}  •  x${stackedItem.count}</div>
+          <div style="color: ${itemDef.rarity !== 'COMMON' ? rarityBorder.replace('0.3', '1.0') : '#ffffff'}; font-size: 15px; font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 0.95px;">${itemDef.name}</div>
+          <div style="color: rgba(255, 255, 255, 0.75); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;">${itemDef.rarity} ${itemDef.slot}  •  x${stackedItem.count}</div>
         </div>
       `;
+      slot.onmouseenter = () => {
+        slot.style.filter = 'brightness(1.08)';
+        slot.style.borderColor = itemDef.rarity === 'COMMON' ? 'rgba(226, 232, 240, 0.48)' : rarityBorder.replace('0.3', '0.55');
+      };
+      slot.onmouseleave = () => {
+        slot.style.filter = 'none';
+        slot.style.borderColor = rarityBorder;
+      };
 
       slot.title = `${itemDef.name} x${stackedItem.count}\n${itemDef.description}\n(Click to Equip)`;
 
@@ -622,22 +657,48 @@ export class InventoryPanel extends BasePanel {
       cargoGrid.appendChild(slot);
     });
 
-    // Riempi con slot vuoti se necessario (basato sugli stack)
-    const emptySlots = Math.max(0, 8 - stackedItems.size);
+    // Riempi con slot vuoti in base allo spazio disponibile della colonna
+    const emptySlots = this.getInventoryPlaceholderCount(cargoGrid, stackedItems.size);
     for (let i = 0; i < emptySlots; i++) {
       const slot = document.createElement('div');
       slot.style.cssText = `
-        height: 50px;
-        background: rgba(255, 255, 255, 0.01);
-        border: 1px dashed rgba(255, 255, 255, 0.03);
+        min-height: 78px;
+        background: linear-gradient(135deg, rgba(148, 163, 184, 0.06), rgba(15, 23, 42, 0.32));
+        border: 1px solid rgba(148, 163, 184, 0.28);
         border-radius: 2px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         flex-shrink: 0;
+        color: rgba(203, 213, 225, 0.52);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
       `;
+      slot.textContent = 'Empty Slot';
       cargoGrid.appendChild(slot);
     }
 
     // Aggiorna gli slot visuali della nave (quelli intorno alla nave)
     this.updateVisualSlots(inventory);
+  }
+
+  private getInventoryPlaceholderCount(cargoGrid: HTMLElement, usedRows: number): number {
+    const fallbackRows = 10;
+    const minRows = 8;
+    const maxRows = 16;
+    const rowHeight = 78;
+    const rowGap = 10;
+
+    const availableHeight = Number(cargoGrid.clientHeight || 0);
+    const dynamicRows = availableHeight > 0
+      ? Math.floor((availableHeight + rowGap) / (rowHeight + rowGap))
+      : fallbackRows;
+
+    const targetRows = Math.max(minRows, Math.min(maxRows, dynamicRows));
+    return Math.max(0, targetRows - usedRows);
   }
 
   /**
@@ -683,8 +744,8 @@ export class InventoryPanel extends BasePanel {
           };
         } else {
           slotElement.innerHTML = `<div style="font-size: 20px; opacity: 0.1;">+</div>`;
-          slotElement.style.background = 'rgba(255, 255, 255, 0.03)';
-          slotElement.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+          slotElement.style.background = 'rgba(255, 255, 255, 0.08)';
+          slotElement.style.borderColor = 'rgba(255, 255, 255, 0.18)';
           slotElement.onclick = null;
         }
       }
@@ -752,6 +813,7 @@ export class InventoryPanel extends BasePanel {
   protected onShow(): void {
     this.recoverElements();
     this.lastInventoryHash = ''; // Force fresh render on first show
+    this.lastInventoryLayoutSignature = '';
     this.update();
     setTimeout(() => {
       if (this.isVisible) this.startShipAnimation();
@@ -768,6 +830,7 @@ export class InventoryPanel extends BasePanel {
 
   public invalidateInventoryCache(): void {
     this.lastInventoryHash = '';
+    this.lastInventoryLayoutSignature = '';
   }
 
   private getSellValue(item: any): number {
