@@ -104,6 +104,12 @@ export class MapChangeHandler extends BaseMessageHandler {
                 console.error('[MapChangeHandler] Cannot create map entities - assets unavailable!');
             }
 
+            const resourceInteractionSystem = networkSystem.getResourceInteractionSystem();
+            if (resourceInteractionSystem) {
+                const resourceNodes = Array.isArray(message.resources) ? message.resources : [];
+                resourceInteractionSystem.syncResources(resourceNodes);
+            }
+
             // Update Minimap system if available
             const minimapSystem = networkSystem.getMinimapSystem();
             if (minimapSystem && typeof minimapSystem.updateMapData === 'function') {

@@ -247,6 +247,14 @@ export class WelcomeHandler extends BaseMessageHandler {
         } else {
           console.error('[WELCOME] Cannot create map entities - assets unavailable!');
         }
+
+        const resourceInteractionSystem = networkSystem.getResourceInteractionSystem();
+        if (resourceInteractionSystem) {
+          const resourceNodes = Array.isArray(message.initialState?.resources)
+            ? message.initialState.resources
+            : [];
+          resourceInteractionSystem.syncResources(resourceNodes as any[]);
+        }
       }
     }
   }

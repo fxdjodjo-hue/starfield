@@ -23,6 +23,8 @@ import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { Asteroid } from '../../entities/spatial/Asteroid';
+import { ResourceCollectEffect } from '../../entities/spatial/ResourceCollectEffect';
+import { ResourceNode } from '../../entities/spatial/ResourceNode';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -483,6 +485,9 @@ export class RenderSystem extends BaseSystem {
     // Render entities and health/shield bars
     this.renderEntities(ctx, camera);
 
+    // Resource hitbox debug overlay
+    this.renderResourceHitboxDebug(ctx, camera);
+
 
     // Render damage text (floating numbers)
     if (this.damageTextSystem && typeof this.damageTextSystem.render === 'function') {
@@ -528,6 +533,9 @@ export class RenderSystem extends BaseSystem {
     const entitiesWithoutPlayer = playerEntity
       ? entities.filter(entity => !entity || entity.id !== playerEntity.id)
       : entities;
+    const collectEffects = entitiesWithoutPlayer.filter(entity =>
+      this.ecs.hasComponent(entity, ResourceCollectEffect)
+    );
 
     // Render space stations PRIMA di tutte le altre entità (più in background)
     const spaceStations = entitiesWithoutPlayer.filter(entity =>
@@ -565,7 +573,8 @@ export class RenderSystem extends BaseSystem {
 
     // Render altre entità (portali, NPC, ecc.) - player verrà renderizzato dopo
     const otherEntities = entitiesWithoutPlayer.filter(entity =>
-      !this.ecs.hasComponent(entity, SpaceStation)
+      !this.ecs.hasComponent(entity, SpaceStation) &&
+      !this.ecs.hasComponent(entity, ResourceCollectEffect)
     );
     for (const entity of otherEntities) {
       // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
@@ -623,6 +632,34 @@ export class RenderSystem extends BaseSystem {
           this.healthBarsFadeStartTime = null;
         }
       }
+    }
+
+    // Render collect effects before the player so they stay "under" the ship.
+    for (const entity of collectEffects) {
+      const components = this.getCachedComponents(entity);
+      if (!components.transform) continue;
+
+      const { width, height } = this.displayManager.getLogicalSize();
+
+      let renderX = components.transform.x;
+      let renderY = components.transform.y;
+      const interpolationTarget = this.ecs.getComponent(entity, InterpolationTarget);
+      if (interpolationTarget) {
+        renderX = interpolationTarget.renderX;
+        renderY = interpolationTarget.renderY;
+      }
+
+      const screenPos = camera.worldToScreen(renderX, renderY, width, height);
+      this.renderGameEntity(ctx, entity, components.transform, screenPos.x, screenPos.y, {
+        explosion: components.explosion,
+        repairEffect: components.repairEffect,
+        npc: components.npc,
+        sprite: components.sprite,
+        animatedSprite: components.animatedSprite,
+        velocity: components.velocity,
+        projectile: components.projectile,
+        projectileVisualState: components.projectileVisualState
+      }, camera);
     }
 
     // Render player DOPO tutte le altre entità (sopra portali, NPC e space stations)
@@ -700,9 +737,6 @@ export class RenderSystem extends BaseSystem {
       }
     }
   }
-
-
-
   /**
    * Updates the smoothed local player position.
    * Called at the start of the render loop to ensure all dependent rendering uses the fresh position.
@@ -865,6 +899,14 @@ export class RenderSystem extends BaseSystem {
         scaleY: (transform.scaleY || 1) * zoom
       };
 
+      // Resource collect effects advance via explicit frame index from system state.
+      const collectEffect = this.ecs.getComponent(entity, ResourceCollectEffect);
+      if (collectEffect) {
+        const frameIndex = Math.max(0, Math.floor(Number(collectEffect.frameIndex || 0)));
+        SpritesheetRenderer.renderByIndex(ctx, renderTransform, animatedSprite, frameIndex);
+        return;
+      }
+
       // Controlla se questa entità è un portale per applicare animazione temporale
       const isPortal = this.ecs.hasComponent(entity, Portal);
       if (isPortal) {
@@ -1011,6 +1053,36 @@ export class RenderSystem extends BaseSystem {
     ctx.font = '14px Arial';
     ctx.textAlign = 'center';
     ctx.fillText(`Network Interest Radius: ${worldRadius} units`, screenPos.x, screenPos.y - screenRadius - 10);
+
+    ctx.restore();
+  }
+
+  private renderResourceHitboxDebug(ctx: CanvasRenderingContext2D, camera: Camera): void {
+    const entities = this.ecs.getEntitiesWithComponents(Transform, ResourceNode);
+    if (!entities.length) return;
+
+    const { width, height } = this.displayManager.getLogicalSize();
+    const zoom = camera?.zoom || 1;
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.85)';
+    ctx.fillStyle = 'rgba(0, 255, 255, 0.12)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 6]);
+
+    for (const entity of entities) {
+      const transform = this.ecs.getComponent(entity, Transform);
+      const resourceNode = this.ecs.getComponent(entity, ResourceNode);
+      if (!transform || !resourceNode || !resourceNode.debugHitbox) continue;
+
+      const screenPos = camera.worldToScreen(transform.x, transform.y, width, height);
+      const radius = Math.max(4, resourceNode.clickRadius * zoom);
+
+      ctx.beginPath();
+      ctx.arc(screenPos.x, screenPos.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
 
     ctx.restore();
   }

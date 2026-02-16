@@ -260,6 +260,8 @@ class BoundaryEnforcement {
         return { allowed: true };
       case 'ship_skin_action':
         return { allowed: true };
+      case 'resource_collect':
+        return { allowed: true };
 
       case 'join':
       case 'heartbeat':

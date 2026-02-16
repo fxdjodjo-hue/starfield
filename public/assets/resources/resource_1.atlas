@@ -1,0 +1,308 @@
+
+resource_1.png
+size: 2048, 2048
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+Palladium0001
+  rotate: false
+  xy: 2, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0002
+  rotate: false
+  xy: 804, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0003
+  rotate: false
+  xy: 2, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0004
+  rotate: false
+  xy: 804, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0005
+  rotate: false
+  xy: 2, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0006
+  rotate: false
+  xy: 804, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+
+resource_12.png
+size: 2048, 2048
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+Palladium0007
+  rotate: false
+  xy: 2, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0008
+  rotate: false
+  xy: 804, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0009
+  rotate: false
+  xy: 2, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0010
+  rotate: false
+  xy: 804, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0011
+  rotate: false
+  xy: 2, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0012
+  rotate: false
+  xy: 804, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+
+resource_13.png
+size: 2048, 2048
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+Palladium0013
+  rotate: false
+  xy: 2, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0014
+  rotate: false
+  xy: 804, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0015
+  rotate: false
+  xy: 2, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0016
+  rotate: false
+  xy: 804, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0017
+  rotate: false
+  xy: 2, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0018
+  rotate: false
+  xy: 804, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+
+resource_14.png
+size: 2048, 2048
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+Palladium0019
+  rotate: false
+  xy: 2, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0020
+  rotate: false
+  xy: 804, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0021
+  rotate: false
+  xy: 2, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0022
+  rotate: false
+  xy: 804, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0023
+  rotate: false
+  xy: 2, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0024
+  rotate: false
+  xy: 804, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+
+resource_15.png
+size: 2048, 2048
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+Palladium0025
+  rotate: false
+  xy: 2, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0026
+  rotate: false
+  xy: 804, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0027
+  rotate: false
+  xy: 2, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0028
+  rotate: false
+  xy: 804, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0029
+  rotate: false
+  xy: 2, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0030
+  rotate: false
+  xy: 804, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+
+resource_16.png
+size: 2048, 2048
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+Palladium0031
+  rotate: false
+  xy: 2, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0032
+  rotate: false
+  xy: 804, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0033
+  rotate: false
+  xy: 2, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0034
+  rotate: false
+  xy: 804, 606
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0035
+  rotate: false
+  xy: 2, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0036
+  rotate: false
+  xy: 804, 1208
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+
+resource_17.png
+size: 2048, 1024
+format: RGBA8888
+filter: Nearest, Nearest
+repeat: none
+Palladium0037
+  rotate: false
+  xy: 2, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1
+Palladium0038
+  rotate: false
+  xy: 804, 4
+  size: 800, 600
+  orig: 800, 600
+  offset: 0, 0
+  index: -1

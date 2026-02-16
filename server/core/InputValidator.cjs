@@ -197,6 +197,43 @@ class ServerInputValidator {
     return { isValid: false, errors };
   }
 
+  /**
+   * Valida raccolta risorsa world-space (server authoritative)
+   */
+  validateResourceCollect(data) {
+    const errors = [];
+
+    if (!data || typeof data !== 'object') {
+      errors.push('Resource collect data must be an object');
+      return { isValid: false, errors };
+    }
+
+    const { clientId, resourceId } = data;
+
+    if (!clientId || typeof clientId !== 'string') {
+      errors.push('Invalid or missing clientId');
+    } else if (clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Client ID too long');
+    }
+
+    if (!resourceId || typeof resourceId !== 'string') {
+      errors.push('Invalid or missing resourceId');
+    } else if (resourceId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Resource ID too long');
+    } else if (!/^[a-zA-Z0-9:_-]+$/.test(resourceId)) {
+      errors.push('Resource ID contains invalid characters');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedData: {
+        clientId,
+        resourceId
+      }
+    };
+  }
+
 
   /**
    * Valida heartbeat - connessione keep-alive
@@ -602,6 +639,9 @@ class ServerInputValidator {
               action: data.action
             }
           };
+
+        case 'resource_collect':
+          return this.validateResourceCollect(data);
 
         case 'portal_use':
           // Valida richiesta utilizzo portale

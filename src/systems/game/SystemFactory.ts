@@ -44,10 +44,12 @@ import { RemoteNpcSystem } from '../multiplayer/RemoteNpcSystem';
 import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { AsteroidSystem } from '../environment/AsteroidSystem';
 import { SafeZoneSystem } from './SafeZoneSystem';
+import { ResourceInteractionSystem } from './ResourceInteractionSystem';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Sprite } from '../../entities/Sprite';
 import { getSelectedPlayerShipSkinId } from '../../config/ShipSkinConfig';
 import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSpriteFactory';
+import { listResourceDefinitions } from '../../config/ResourceConfig';
 
 export interface SystemFactoryDependencies {
   ecs: ECS;
@@ -92,6 +94,7 @@ export interface CreatedSystems {
   playerSystem: PlayerSystem;
   audioSystem: AudioSystem;
   portalSystem: PortalSystem;
+  resourceInteractionSystem: ResourceInteractionSystem;
   clientNetworkSystem?: any;
   remoteNpcSystem: RemoteNpcSystem;
   remoteProjectileSystem: RemoteProjectileSystem;
@@ -165,6 +168,7 @@ export class SystemFactory {
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs, context);
     const playerSystem = new PlayerSystem(ecs);
     const portalSystem = new PortalSystem(ecs, playerSystem);
+    const resourceInteractionSystem = new ResourceInteractionSystem(ecs);
     const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);
 
     // Ensure assetManager is set on renderSystem if not provided in constructor
@@ -235,6 +239,35 @@ export class SystemFactory {
     // Sistema Safe Zone
     const safeZoneSystem = new SafeZoneSystem(ecs, uiSystem!, audioSystem);
 
+    // Registra sprite risorse disponibili per il sistema di raccolta
+    for (const resourceDef of listResourceDefinitions()) {
+      if (!resourceDef.assetBasePath) continue;
+      try {
+        const resourceSprite = await context.assetManager.createAnimatedSprite(
+          resourceDef.assetBasePath,
+          resourceDef.spriteScale
+        );
+        resourceInteractionSystem.registerResourceSprite(resourceDef.id, resourceSprite);
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn(`[SystemFactory] Failed to load resource sprite "${resourceDef.id}"`, error);
+        }
+      }
+    }
+
+    // Effetto raccolta risorsa (spritesheet da collecting.atlas)
+    try {
+      const collectEffectSprite = await context.assetManager.createAnimatedSprite(
+        'assets/resources/collecting',
+        0.58
+      );
+      resourceInteractionSystem.setCollectEffectSprite(collectEffectSprite);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[SystemFactory] Failed to load collecting resource effect', error);
+      }
+    }
+
     // Collega sistemi ai sistemi di combattimento modulari
     if (combatStateSystem) {
       combatStateSystem.setPlayerControlSystem(playerControlSystem);
@@ -292,6 +325,7 @@ export class SystemFactory {
       playerSystem,
       audioSystem,
       portalSystem,
+      resourceInteractionSystem,
       clientNetworkSystem,
       remoteNpcSystem,
       remoteProjectileSystem,

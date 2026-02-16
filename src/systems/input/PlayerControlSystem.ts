@@ -396,10 +396,10 @@ export class PlayerControlSystem extends BaseSystem {
    * Imposta una destinazione per il movimento del player
    * Usato per click-to-move dalla minimappa
    */
-  movePlayerTo(worldX: number, worldY: number): void {
+  movePlayerTo(worldX: number, worldY: number, stopDistancePx?: number): void {
     if (!this.playerEntity) return;
     this.initializeManagers();
-    this.movementManager.movePlayerTo(worldX, worldY);
+    this.movementManager.movePlayerTo(worldX, worldY, stopDistancePx);
   }
 
   /**

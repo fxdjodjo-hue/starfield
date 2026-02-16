@@ -6,6 +6,7 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { GameContext } from '../../infrastructure/engine/GameContext';
 import type { CreatedSystems } from './SystemFactory';
 import { DisplayManager } from '../../infrastructure/display';
+import { Transform } from '../../entities/spatial/Transform';
 
 export interface SystemConfiguratorDependencies {
   ecs: ECS;
@@ -27,7 +28,7 @@ export class SystemConfigurator {
       parallaxSystem, renderSystem, boundsSystem, minimapSystem,
       damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
       rewardSystem, questSystem, questDiscoverySystem, uiSystem, playerStatusDisplaySystem,
-      playerSystem, portalSystem, remoteNpcSystem, remoteProjectileSystem, asteroidSystem
+      playerSystem, portalSystem, resourceInteractionSystem, remoteNpcSystem, remoteProjectileSystem, asteroidSystem
     } = systems;
 
     // Ordine importante per l'esecuzione
@@ -63,6 +64,7 @@ export class SystemConfigurator {
     ecs.addSystem(questSystem);
     ecs.addSystem(questDiscoverySystem);
     ecs.addSystem(portalSystem);
+    ecs.addSystem(resourceInteractionSystem);
     ecs.addSystem(remoteNpcSystem);
     ecs.addSystem(remoteProjectileSystem);
     if (uiSystem) {
@@ -81,7 +83,7 @@ export class SystemConfigurator {
       movementSystem, playerControlSystem, npcSelectionSystem, minimapSystem, economySystem,
       rankSystem, rewardSystem, damageSystem, projectileCreationSystem, combatStateSystem,
       logSystem, boundsSystem, questTrackingSystem, inputSystem,
-      chatTextSystem, uiSystem, cameraSystem, audioSystem, portalSystem
+      chatTextSystem, uiSystem, cameraSystem, audioSystem, portalSystem, resourceInteractionSystem, playerSystem
     } = systems;
 
     // Configura sistemi che richiedono riferimenti ad altri sistemi
@@ -145,6 +147,11 @@ export class SystemConfigurator {
 
           // Per click sinistro: prova selezione NPC, altrimenti movimento
           if (button === 0 || button === undefined) {
+            const resourceClicked = resourceInteractionSystem.handleMouseClick(worldPos.x, worldPos.y);
+            if (resourceClicked) {
+              return;
+            }
+
             const npcSelected = npcSelectionSystem.handleMouseClick(worldPos.x, worldPos.y);
 
             if (!npcSelected) {
@@ -176,6 +183,24 @@ export class SystemConfigurator {
       }
     });
 
+    inputSystem.setMouseMoveCallback((x: number, y: number) => {
+      let nextCursor = 'default';
+      const inMinimapGlassPanel = minimapSystem.isClickInGlassPanel(x, y);
+      const inPlayerStatusHUD = playerStatusDisplaySystem.isClickInHUD(x, y);
+
+      if (!inMinimapGlassPanel && !inPlayerStatusHUD) {
+        const { width, height } = DisplayManager.getInstance().getLogicalSize();
+        const worldPos = cameraSystem.getCamera().screenToWorld(x, y, width, height);
+        if (resourceInteractionSystem.isResourceHovered(worldPos.x, worldPos.y)) {
+          nextCursor = 'pointer';
+        }
+      }
+
+      if (context.canvas.style.cursor !== nextCursor) {
+        context.canvas.style.cursor = nextCursor;
+      }
+    });
+
     inputSystem.setMouseMoveWhilePressedCallback((x: number, y: number) => {
       const minimapHandled = minimapSystem.handleMouseMove(x, y);
       if (!minimapHandled) {
@@ -191,6 +216,25 @@ export class SystemConfigurator {
     // Collega ClientNetworkSystem al PortalSystem
     if (portalSystem && typeof portalSystem.setClientNetworkSystem === 'function' && clientNetworkSystem) {
       portalSystem.setClientNetworkSystem(clientNetworkSystem);
+    }
+
+    // Configura auto-move + auto-collect per risorse
+    if (resourceInteractionSystem) {
+      resourceInteractionSystem.setMovePlayerToCallback((worldX: number, worldY: number, stopDistancePx?: number) => {
+        playerControlSystem.movePlayerTo(worldX, worldY, stopDistancePx);
+      });
+      resourceInteractionSystem.setStopPlayerMovementCallback(() => {
+        playerControlSystem.forceStopMovement();
+      });
+      resourceInteractionSystem.setPlayerPositionResolver(() => {
+        const playerEntity = playerSystem.getPlayerEntity();
+        if (!playerEntity) return null;
+
+        const transform = ecs.getComponent(playerEntity, Transform);
+        if (!transform) return null;
+
+        return { x: transform.x, y: transform.y };
+      });
     }
 
     // Collega assets al ClientNetworkSystem per gestione cambi mappa
@@ -260,6 +304,10 @@ export class SystemConfigurator {
     // Imposta il ClientNetworkSystem nel PortalSystem
     if (systems.portalSystem && typeof systems.portalSystem.setClientNetworkSystem === 'function') {
       systems.portalSystem.setClientNetworkSystem(clientNetworkSystem);
+    }
+
+    if (systems.resourceInteractionSystem && clientNetworkSystem && typeof clientNetworkSystem.setResourceInteractionSystem === 'function') {
+      clientNetworkSystem.setResourceInteractionSystem(systems.resourceInteractionSystem);
     }
 
     // Configura le impostazioni specifiche del ClientNetworkSystem

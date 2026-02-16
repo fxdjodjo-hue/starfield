@@ -13,6 +13,7 @@ import { ParallaxLayer } from '../../entities/spatial/ParallaxLayer';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { Asteroid } from '../../entities/spatial/Asteroid';
+import { ResourceNode } from '../../entities/spatial/ResourceNode';
 import { PlayerRole } from '../../entities/player/PlayerRole';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 import asteroidConfig from '../../../shared/asteroid-config.json';
@@ -101,7 +102,8 @@ export class EntityFactory {
       ...ecs.getEntitiesWithComponents(ParallaxLayer),
       ...ecs.getEntitiesWithComponents(Portal),
       ...ecs.getEntitiesWithComponents(SpaceStation),
-      ...ecs.getEntitiesWithComponents(Asteroid)
+      ...ecs.getEntitiesWithComponents(Asteroid),
+      ...ecs.getEntitiesWithComponents(ResourceNode)
     ];
 
     entitiesToRemove.forEach(entity => {

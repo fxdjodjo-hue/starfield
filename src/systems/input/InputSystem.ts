@@ -11,6 +11,7 @@ export class InputSystem extends BaseSystem {
   private isMouseDown = false;
   private inputDisabled = false;
   private onMouseState?: (pressed: boolean, x: number, y: number, button?: number) => void;
+  private onMouseMove?: (x: number, y: number) => void;
   private onMouseMoveWhilePressed?: (x: number, y: number) => void;
   private onRightMouseState?: (pressed: boolean, x: number, y: number) => void;
   private onKeyPress?: (key: string) => void;
@@ -34,6 +35,13 @@ export class InputSystem extends BaseSystem {
    */
   setRightMouseStateCallback(callback: (pressed: boolean, x: number, y: number) => void): void {
     this.onRightMouseState = callback;
+  }
+
+  /**
+   * Imposta il callback per il movimento mouse (hover)
+   */
+  setMouseMoveCallback(callback: (x: number, y: number) => void): void {
+    this.onMouseMove = callback;
   }
 
   /**
@@ -62,6 +70,9 @@ export class InputSystem extends BaseSystem {
    */
   setInputDisabled(disabled: boolean): void {
     this.inputDisabled = disabled;
+    if (disabled) {
+      this.canvas.style.cursor = 'default';
+    }
   }
 
 
@@ -95,6 +106,7 @@ export class InputSystem extends BaseSystem {
       const rect = this.canvas.getBoundingClientRect();
       this.mousePosition.x = event.clientX - rect.left;
       this.mousePosition.y = event.clientY - rect.top;
+      this.onMouseMove?.(this.mousePosition.x, this.mousePosition.y);
 
       // Se il mouse è premuto, notifica il movimento
       if (this.isMouseDown) {
@@ -175,6 +187,10 @@ export class InputSystem extends BaseSystem {
     // Previene context menu
     this.canvas.addEventListener('contextmenu', (event) => {
       event.preventDefault();
+    });
+
+    this.canvas.addEventListener('mouseleave', () => {
+      this.canvas.style.cursor = 'default';
     });
   }
 }

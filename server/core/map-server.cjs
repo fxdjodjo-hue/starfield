@@ -12,6 +12,7 @@ const MapBroadcaster = require('./map/MapBroadcaster.cjs');
 const PositionUpdateProcessor = require('./map/PositionUpdateProcessor.cjs');
 const RepairManager = require('../managers/repair-manager.cjs');
 const HazardManager = require('../managers/hazard-manager.cjs');
+const MapResourceManager = require('../managers/resource/MapResourceManager.cjs');
 const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
 const BossEncounterManager = require('../events/boss/BossEncounterManager.cjs');
 
@@ -31,6 +32,7 @@ class MapServer {
     this.combatManager = new ServerCombatManager(this);
     this.repairManager = new RepairManager(this);
     this.hazardManager = new HazardManager(this);
+    this.resourceManager = new MapResourceManager(this);
     this.questManager = new ServerQuestManager(this);
     this.bossEncounterManager = new BossEncounterManager(this);
 
@@ -67,6 +69,7 @@ class MapServer {
       this.npcConfig.guardCount ?? 0,
       this.npcConfig.pyramidCount ?? 1
     );
+    this.resourceManager.initializeResources();
   }
 
   // Gestione giocatori

@@ -15,11 +15,15 @@ import gameConfig from '../../../config/gameConfig.json';
 export class PlayerMovementManager {
   private minimapTargetX: number | null = null;
   private minimapTargetY: number | null = null;
+  private minimapTargetStopDistance: number = 80;
   private onMinimapMovementComplete?: () => void;
   private faceTargetX: number | null = null;
   private faceTargetY: number | null = null;
 
   private isAttackActivated: () => boolean = () => false;
+  private readonly DEFAULT_TARGET_STOP_DISTANCE = 80;
+  private readonly MIN_TARGET_STOP_DISTANCE = 1;
+  private readonly MAX_TARGET_STOP_DISTANCE = 220;
 
   constructor(
     private readonly ecs: ECS,
@@ -110,12 +114,16 @@ export class PlayerMovementManager {
   /**
    * Moves player to a world position (used for minimap click-to-move)
    */
-  movePlayerTo(worldX: number, worldY: number): void {
+  movePlayerTo(worldX: number, worldY: number, stopDistancePx: number = this.DEFAULT_TARGET_STOP_DISTANCE): void {
     const playerEntity = this.getPlayerEntity();
     if (!playerEntity) return;
 
     this.minimapTargetX = worldX;
     this.minimapTargetY = worldY;
+    const sanitizedStopDistance = Number.isFinite(Number(stopDistancePx))
+      ? Math.max(this.MIN_TARGET_STOP_DISTANCE, Math.min(this.MAX_TARGET_STOP_DISTANCE, Number(stopDistancePx)))
+      : this.DEFAULT_TARGET_STOP_DISTANCE;
+    this.minimapTargetStopDistance = sanitizedStopDistance;
     this.setIsMousePressed(false);
   }
 
@@ -145,7 +153,7 @@ export class PlayerMovementManager {
       this.minimapTargetX, this.minimapTargetY
     );
 
-    if (distance > 80) {
+    if (distance > this.minimapTargetStopDistance) {
       const dirX = direction.x;
       const dirY = direction.y;
       const speed = this.getPlayerSpeed();
@@ -161,6 +169,7 @@ export class PlayerMovementManager {
       this.stopPlayerMovement(deltaTime);
       this.minimapTargetX = null;
       this.minimapTargetY = null;
+      this.minimapTargetStopDistance = this.DEFAULT_TARGET_STOP_DISTANCE;
 
       if (this.onMinimapMovementComplete) {
         this.onMinimapMovementComplete();
@@ -311,5 +320,6 @@ export class PlayerMovementManager {
   clearMinimapTarget(): void {
     this.minimapTargetX = null;
     this.minimapTargetY = null;
+    this.minimapTargetStopDistance = this.DEFAULT_TARGET_STOP_DISTANCE;
   }
 }

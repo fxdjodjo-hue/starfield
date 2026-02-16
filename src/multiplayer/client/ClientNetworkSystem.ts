@@ -27,6 +27,7 @@ import { PlayerPositionTracker } from './managers/PlayerPositionTracker';
 import { NetworkTickManager } from './managers/NetworkTickManager';
 import { DeathPopupManager } from '../../presentation/ui/managers/death/DeathPopupManager';
 import { DisconnectionPopupManager } from '../../presentation/ui/managers/DisconnectionPopupManager';
+import type { ResourceInteractionSystem } from '../../systems/game/ResourceInteractionSystem';
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
@@ -49,6 +50,7 @@ export class ClientNetworkSystem extends BaseSystem {
   private minimapSystem: any = null;
   private questTrackingSystem: any = null; // QuestSystem wiring
   private questManager: any = null; // QuestManager reference
+  private resourceInteractionSystem: ResourceInteractionSystem | null = null;
 
   // Modular architecture components
   private readonly connectionManager: NetworkConnectionManager;
@@ -537,6 +539,19 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 
+  sendResourceCollectRequest(resourceId: string): void {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.RESOURCE_COLLECT,
+      clientId: this.clientId,
+      resourceId,
+      timestamp: Date.now()
+    });
+  }
+
 
   isConnected(): boolean {
     return this.stateManager.isConnected();
@@ -859,6 +874,17 @@ export class ClientNetworkSystem extends BaseSystem {
 
   setMinimapSystem(minimapSystem: any): void {
     this.minimapSystem = minimapSystem;
+  }
+
+  setResourceInteractionSystem(resourceInteractionSystem: ResourceInteractionSystem | null): void {
+    this.resourceInteractionSystem = resourceInteractionSystem;
+    if (this.resourceInteractionSystem) {
+      this.resourceInteractionSystem.setClientNetworkSystem(this);
+    }
+  }
+
+  getResourceInteractionSystem(): ResourceInteractionSystem | null {
+    return this.resourceInteractionSystem;
   }
 
   getMinimapSystem(): any {

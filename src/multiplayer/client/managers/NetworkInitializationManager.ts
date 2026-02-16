@@ -44,6 +44,7 @@ import { MapChangeHandler } from '../handlers/MapChangeHandler';
 import { ErrorMessageHandler } from '../handlers/ErrorMessageHandler';
 import { QuestUpdateHandler } from '../handlers/QuestUpdateHandler';
 import { BossEventHandler } from '../handlers/BossEventHandler';
+import { ResourceNodeRemovedHandler } from '../handlers/ResourceNodeRemovedHandler';
 
 /**
  * Interface for JWT authentication validation
@@ -142,6 +143,7 @@ export class NetworkInitializationManager {
         new RepairCompleteHandler(),
         new GlobalMonitorHandler(),
         new MapChangeHandler(),
+        new ResourceNodeRemovedHandler(),
         new QuestUpdateHandler(),
         new BossEventHandler(),
         new ErrorMessageHandler()

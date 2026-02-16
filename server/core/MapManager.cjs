@@ -122,6 +122,9 @@ class MapManager {
             position: targetPosition,
             worldWidth: targetMap.WORLD_WIDTH,
             worldHeight: targetMap.WORLD_HEIGHT,
+            resources: targetMap.resourceManager
+                ? targetMap.resourceManager.getSerializedResources()
+                : [],
             timestamp: Date.now()
         };
 

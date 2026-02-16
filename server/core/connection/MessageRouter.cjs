@@ -451,6 +451,9 @@ async function handleJoin(data, sanitizedData, context) {
     playerData.isAdministrator,
     effectiveMapServer.mapId
   );
+  if (effectiveMapServer.resourceManager && welcomeMessage?.initialState) {
+    welcomeMessage.initialState.resources = effectiveMapServer.resourceManager.getSerializedResources();
+  }
 
   try {
     ws.send(JSON.stringify(welcomeMessage));
@@ -1844,6 +1847,46 @@ async function handleShipSkinAction(data, sanitizedData, context) {
   }
 }
 
+function handleResourceCollect(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData || !mapServer?.resourceManager) return;
+
+  const resourceId = typeof sanitizedData?.resourceId === 'string'
+    ? sanitizedData.resourceId
+    : data.resourceId;
+  if (!resourceId) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid resource target.',
+      code: 'INVALID_RESOURCE_TARGET'
+    }));
+    return;
+  }
+
+  const result = mapServer.resourceManager.collectResource(playerData, resourceId);
+  if (!result.ok) {
+    if (result.code === 'RESOURCE_TOO_FAR') {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Resource is too far away.',
+        code: 'RESOURCE_TOO_FAR'
+      }));
+    }
+    return;
+  }
+
+  mapServer.broadcastToMap({
+    type: 'resource_node_removed',
+    resourceId: result.node.id,
+    resourceType: result.node.resourceType,
+    collectedBy: playerData.clientId,
+    x: Math.round(Number(result.node.x || 0)),
+    y: Math.round(Number(result.node.y || 0)),
+    timestamp: Date.now()
+  });
+}
+
 /**
  * Handler per messaggio 'global_monitor_request'
  */
@@ -1976,6 +2019,7 @@ const handlers = {
   request_player_data: handleRequestPlayerData,
   chat_message: handleChatMessage,
   save_request: handleSaveRequest,
+  resource_collect: handleResourceCollect,
   equip_item: handleEquipItem,
   sell_item: handleSellItem,
   ship_skin_action: handleShipSkinAction,
@@ -2135,7 +2179,7 @@ function validatePlayerContext(type, data, context) {
   }
 
   // ðŸš« SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
-  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon'];
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon', 'resource_collect'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
     logger.warn('SECURITY', `ðŸš« BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
     return { valid: false, reason: 'PLAYER_DEAD' };
