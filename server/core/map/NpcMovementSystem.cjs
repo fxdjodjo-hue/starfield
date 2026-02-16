@@ -16,6 +16,8 @@ class NpcMovementSystem {
    */
   static updateMovements(allNpcs, players, npcManager) {
     const deltaTime = 1000 / 60; // Fixed timestep per fisica server
+    const combatParticipantsByNpc = this.buildNpcCombatParticipantMap(npcManager);
+    const emptyParticipants = this.EMPTY_PARTICIPANTS;
 
     for (const npc of allNpcs) {
       if (!Number.isFinite(npc.position.x) || !Number.isFinite(npc.position.y)) {
@@ -28,12 +30,18 @@ class NpcMovementSystem {
       const npcConfig = NPC_CONFIG[npc.type];
       const attackRange = npcConfig.stats.range;
       const speed = npcConfig.stats.speed;
+      const combatParticipantIds = combatParticipantsByNpc.get(npc.id) || emptyParticipants;
+      const hasCombatParticipants = combatParticipantIds.size > 0;
 
       // 🔍 OTTIMIZZAZIONE: Trova il player più vicino una sola volta per NPC
       let closestPlayer = null;
       let closestDistSq = Infinity;
 
       for (const [clientId, playerData] of players.entries()) {
+        // During active combat, NPC movement/targeting should only consider players
+        // who are currently fighting this NPC.
+        if (hasCombatParticipants && !combatParticipantIds.has(clientId)) continue;
+
         if (!playerData.position || playerData.isDead) continue;
 
         // 🛡️ SAFE ZONE CHECK: NPC ignora i player nelle zone sicure per il tracking di base
@@ -57,17 +65,27 @@ class NpcMovementSystem {
         let targetValid = false;
 
         if (targetPlayer && !targetPlayer.isDead && targetPlayer.position) {
-          // 🚀 RETALIATION logic: Permetti di mantenere il lock sull'aggressore anche in Safe Zone
-          const dx = targetPlayer.position.x - npc.position.x;
-          const dy = targetPlayer.position.y - npc.position.y;
-          const distSq = dx * dx + dy * dy;
+          if (hasCombatParticipants) {
+            targetValid = combatParticipantIds.has(npc.lastAttackerId);
+          } else {
+            // 🚀 RETALIATION logic: Permetti di mantenere il lock sull'aggressore anche in Safe Zone
+            const dx = targetPlayer.position.x - npc.position.x;
+            const dy = targetPlayer.position.y - npc.position.y;
+            const distSq = dx * dx + dy * dy;
 
-          if (distSq <= pursuitRangeSq) {
-            targetValid = true;
+            if (distSq <= pursuitRangeSq) {
+              targetValid = true;
+            }
           }
         }
 
         if (!targetValid) npc.lastAttackerId = null;
+      }
+
+      // If this NPC has active combat participants but no valid lock target,
+      // lock to the nearest valid participant candidate.
+      if (!npc.lastAttackerId && hasCombatParticipants && closestPlayer) {
+        npc.lastAttackerId = closestPlayer.id;
       }
 
       // Validazione velocità
@@ -261,6 +279,34 @@ class NpcMovementSystem {
   }
 
   /**
+   * Builds a map of NPC id -> player IDs currently fighting that NPC.
+   * @param {Object} npcManager
+   * @returns {Map<string, Set<string>>}
+   */
+  static buildNpcCombatParticipantMap(npcManager) {
+    const participantsByNpc = new Map();
+    const playerCombats = npcManager?.mapServer?.combatManager?.playerCombats;
+
+    if (!playerCombats || typeof playerCombats.entries !== 'function') {
+      return participantsByNpc;
+    }
+
+    for (const [playerId, combat] of playerCombats.entries()) {
+      if (!combat || !combat.npcId) continue;
+
+      let participantIds = participantsByNpc.get(combat.npcId);
+      if (!participantIds) {
+        participantIds = new Set();
+        participantsByNpc.set(combat.npcId, participantIds);
+      }
+
+      participantIds.add(playerId);
+    }
+
+    return participantsByNpc;
+  }
+
+  /**
    * Valida e applica movimento con boundary collision
    */
   static validateAndApplyMovement(npc, newX, newY, deltaX, deltaY, speed, deltaTime, npcManager) {
@@ -308,5 +354,7 @@ class NpcMovementSystem {
     return false;
   }
 }
+
+NpcMovementSystem.EMPTY_PARTICIPANTS = new Set();
 
 module.exports = NpcMovementSystem;
