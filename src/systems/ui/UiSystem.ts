@@ -41,6 +41,10 @@ export class UiSystem extends System {
   private currentWarpSound: HTMLAudioElement | null = null;
   private managersInitialized: boolean = false;
   private isWormholeActive: boolean = false;
+  private settingsListenersRegistered: boolean = false;
+  private settingsChatListener: ((e: any) => void) | null = null;
+  private settingsFpsListener: ((e: any) => void) | null = null;
+  private systemMessageListener: ((e: any) => void) | null = null;
 
   // Legacy references (maintained for backward compatibility)
   private context: any = null;
@@ -150,7 +154,6 @@ export class UiSystem extends System {
     try {
       this.panelManager.initializePanels();
       this.panelManager.setupQuestPanelIntegration(() => this.panelManager.updatePanels());
-      this.panelManager.setupQuestPanelIntegration(() => this.panelManager.updatePanels());
       this.chatManager.initialize();
 
       // Setup listener per impostazioni
@@ -170,12 +173,16 @@ export class UiSystem extends System {
   }
 
   private setupSettingsListeners(): void {
-    document.addEventListener('settings:ui:chat', (e: any) => {
+    if (this.settingsListenersRegistered) {
+      return;
+    }
+
+    this.settingsChatListener = (e: any) => {
       // Usa il nuovo metodo setChatVisibility per nascondere/mostrare tutto
       this.chatManager.setChatVisibility(e.detail);
-    });
+    };
 
-    document.addEventListener('settings:graphics:show_fps', (e: any) => {
+    this.settingsFpsListener = (e: any) => {
       if (this.fpsCounter) {
         this.fpsCounter.setVisibility(e.detail);
       }
@@ -183,10 +190,10 @@ export class UiSystem extends System {
       // if (this.networkStats) {
       //   this.networkStats.setVisibility(e.detail);
       // }
-    });
+    };
 
     // Ascolta messaggi di sistema globali da qualsiasi componente
-    document.addEventListener('ui:system-message', (e: any) => {
+    this.systemMessageListener = (e: any) => {
       if (e.detail && typeof e.detail.content === 'string') {
         // Usa il popup invece della chat per messaggi di sistema critici
         if (this.notificationPopup) {
@@ -200,7 +207,32 @@ export class UiSystem extends System {
           this.notificationPopup.show(e.detail);
         }
       }
-    });
+    };
+
+    document.addEventListener('settings:ui:chat', this.settingsChatListener);
+    document.addEventListener('settings:graphics:show_fps', this.settingsFpsListener);
+    document.addEventListener('ui:system-message', this.systemMessageListener);
+    this.settingsListenersRegistered = true;
+  }
+
+  private teardownSettingsListeners(): void {
+    if (!this.settingsListenersRegistered) {
+      return;
+    }
+
+    if (this.settingsChatListener) {
+      document.removeEventListener('settings:ui:chat', this.settingsChatListener);
+      this.settingsChatListener = null;
+    }
+    if (this.settingsFpsListener) {
+      document.removeEventListener('settings:graphics:show_fps', this.settingsFpsListener);
+      this.settingsFpsListener = null;
+    }
+    if (this.systemMessageListener) {
+      document.removeEventListener('ui:system-message', this.systemMessageListener);
+      this.systemMessageListener = null;
+    }
+    this.settingsListenersRegistered = false;
   }
 
   /**
@@ -967,6 +999,7 @@ export class UiSystem extends System {
     if (this.hudToggleListener) {
       document.removeEventListener('keydown', this.hudToggleListener);
     }
+    this.teardownSettingsListeners();
     this.chatManager.destroy();
     this.audioManager.destroy();
     if (this.fpsCounter) {

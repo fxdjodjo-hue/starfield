@@ -32,6 +32,7 @@ export class MinimapSystem extends BaseSystem {
   private currentMapName: string = '';
   private portalAnimationTime: number = 0;
   private readonly PORTAL_ANIMATION_FRAME_DURATION = 16.67; // ms per frame (~60fps)
+  private unsubscribeResize: (() => void) | null = null;
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -52,7 +53,7 @@ export class MinimapSystem extends BaseSystem {
     this.loadMapBackground(this.currentMapId);
 
     // Usa DisplayManager per gestire il resize in modo centralizzato
-    DisplayManager.getInstance().onResize(() => this.handleResize());
+    this.unsubscribeResize = DisplayManager.getInstance().onResize(() => this.handleResize());
     this.handleResize(); // Imposta posizione iniziale
   }
 
@@ -966,5 +967,12 @@ export class MinimapSystem extends BaseSystem {
     ctx.lineTo(x, y + radius);
     ctx.quadraticCurveTo(x, y, x + radius, y);
     ctx.closePath();
+  }
+
+  destroy(): void {
+    if (this.unsubscribeResize) {
+      this.unsubscribeResize();
+      this.unsubscribeResize = null;
+    }
   }
 }

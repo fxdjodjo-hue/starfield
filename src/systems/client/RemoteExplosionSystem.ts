@@ -221,6 +221,10 @@ export class RemoteExplosionSystem extends BaseSystem {
    * Cleanup risorse
    */
   destroy(): void {
+    this.pendingMissileSounds.forEach(timeoutId => clearTimeout(timeoutId));
+    this.pendingMissileSounds.clear();
+    this.pendingExplosions.forEach(timeoutId => clearTimeout(timeoutId));
+    this.pendingExplosions.clear();
     this.explosionFramesCache.clear();
     this.audioSystem = null;
   }

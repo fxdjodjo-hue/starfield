@@ -219,6 +219,7 @@ export class UINicknameManager {
       }
     }
     this.npcNicknameElements.clear();
+    this.npcNicknameLastPositions.clear();
   }
 
   /**
@@ -330,6 +331,7 @@ export class UINicknameManager {
       }
     }
     this.remotePlayerNicknameElements.clear();
+    this.remotePlayerNicknameLastPositions.clear();
     this.remotePlayerLastState.clear();
   }
 

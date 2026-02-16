@@ -288,7 +288,13 @@ export class RemoteProjectileSystem extends BaseSystem {
    * Update periodico (principalmente per logging)
    */
   update(deltaTime: number): void {
-    // Aggiorna proiettili remoti (nessun logging verbose necessario)
-    // I proiettili vengono gestiti automaticamente dal sistema
+    // Cleanup safety: remove stale tracking entries whose ECS entity no longer exists.
+    // Without this, long sessions can accumulate orphan projectile IDs in the map.
+    for (const [projectileId, projectileData] of this.remoteProjectiles.entries()) {
+      const entity = this.ecs.getEntity(projectileData.entityId);
+      if (!entity) {
+        this.remoteProjectiles.delete(projectileId);
+      }
+    }
   }
 }

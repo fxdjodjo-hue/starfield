@@ -49,6 +49,8 @@ export class CombatStateSystem extends BaseSystem {
   private lastAttackActivatedState: boolean = false; // Per edge detection
   private lastCombatLogTime: number = 0; // For throttling debug logs
   private activeBeamEntities: Set<number> = new Set(); // Traccia laser beam attivi
+  private beamCleanupAccumulator: number = 0;
+  private readonly BEAM_CLEANUP_INTERVAL_MS: number = 1000;
   private lastLaserFireTime: number = 0;
   private lastLaserSoundTime: number = 0; // Per evitare suoni duplicati // Per controllo frequenza laser
   private laserSequenceCount: number = 0; // Contatore per ritmica
@@ -56,6 +58,8 @@ export class CombatStateSystem extends BaseSystem {
   // Sistema laser NPC
   private npcLaserFireTimes: Map<number, number> = new Map(); // entityId -> lastFireTime
   private npcLastInRange: Map<number, number> = new Map(); // entityId -> lastTimeInRange
+  private npcTrackingCleanupAccumulator: number = 0;
+  private readonly NPC_TRACKING_CLEANUP_INTERVAL_MS: number = 5000;
 
   /**
    * Ottiene l'intervallo di fuoco laser per un NPC specifico basato sul suo tipo
@@ -164,6 +168,53 @@ export class CombatStateSystem extends BaseSystem {
 
     // Gestisci laser visivi per giocatori remoti in combattimento
     this.processRemotePlayerLaserFiring();
+
+    // Prune dei tracking set/map per evitare crescita infinita in sessioni lunghe.
+    this.beamCleanupAccumulator += deltaTime;
+    if (this.beamCleanupAccumulator >= this.BEAM_CLEANUP_INTERVAL_MS) {
+      this.beamCleanupAccumulator = 0;
+      this.pruneActiveBeamTracking();
+    }
+
+    this.npcTrackingCleanupAccumulator += deltaTime;
+    if (this.npcTrackingCleanupAccumulator >= this.NPC_TRACKING_CLEANUP_INTERVAL_MS) {
+      this.npcTrackingCleanupAccumulator = 0;
+      this.pruneNpcLaserTracking();
+    }
+  }
+
+  private pruneActiveBeamTracking(): void {
+    if (this.activeBeamEntities.size === 0) {
+      return;
+    }
+
+    for (const entityId of this.activeBeamEntities) {
+      if (!this.ecs.entityExists(entityId)) {
+        this.activeBeamEntities.delete(entityId);
+      }
+    }
+  }
+
+  private pruneNpcLaserTracking(): void {
+    if (this.npcLaserFireTimes.size === 0 && this.npcLastInRange.size === 0) {
+      return;
+    }
+
+    const activeNpcIds = new Set<number>(
+      this.ecs.getEntitiesWithComponents(Npc).map((entity: Entity) => entity.id)
+    );
+
+    for (const npcId of this.npcLaserFireTimes.keys()) {
+      if (!activeNpcIds.has(npcId)) {
+        this.npcLaserFireTimes.delete(npcId);
+      }
+    }
+
+    for (const npcId of this.npcLastInRange.keys()) {
+      if (!activeNpcIds.has(npcId)) {
+        this.npcLastInRange.delete(npcId);
+      }
+    }
   }
 
   /**

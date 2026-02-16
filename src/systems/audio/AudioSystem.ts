@@ -30,6 +30,10 @@ export default class AudioSystem extends System {
   // Debouncing system to prevent sound duplication
   private lastPlayedTimes: Map<string, number> = new Map();
   private debounceTimeouts: Map<string, number> = new Map();
+  private settingsListenersRegistered = false;
+  private masterVolumeListener: ((e: any) => void) | null = null;
+  private effectsVolumeListener: ((e: any) => void) | null = null;
+  private musicVolumeListener: ((e: any) => void) | null = null;
 
   constructor(ecs: ECS, config: Partial<AudioConfig> = {}) {
     super(ecs);
@@ -60,15 +64,45 @@ export default class AudioSystem extends System {
   }
 
   private setupSettingsListeners(): void {
-    document.addEventListener('settings:volume:master', (e: any) => {
+    if (this.settingsListenersRegistered) {
+      return;
+    }
+
+    this.masterVolumeListener = (e: any) => {
       this.setMasterVolume(e.detail);
-    });
-    document.addEventListener('settings:volume:sfx', (e: any) => {
+    };
+    this.effectsVolumeListener = (e: any) => {
       this.setEffectsVolume(e.detail);
-    });
-    document.addEventListener('settings:volume:music', (e: any) => {
+    };
+    this.musicVolumeListener = (e: any) => {
       this.setMusicVolume(e.detail);
-    });
+    };
+
+    document.addEventListener('settings:volume:master', this.masterVolumeListener);
+    document.addEventListener('settings:volume:sfx', this.effectsVolumeListener);
+    document.addEventListener('settings:volume:music', this.musicVolumeListener);
+    this.settingsListenersRegistered = true;
+  }
+
+  private teardownSettingsListeners(): void {
+    if (!this.settingsListenersRegistered) {
+      return;
+    }
+
+    if (this.masterVolumeListener) {
+      document.removeEventListener('settings:volume:master', this.masterVolumeListener);
+      this.masterVolumeListener = null;
+    }
+    if (this.effectsVolumeListener) {
+      document.removeEventListener('settings:volume:sfx', this.effectsVolumeListener);
+      this.effectsVolumeListener = null;
+    }
+    if (this.musicVolumeListener) {
+      document.removeEventListener('settings:volume:music', this.musicVolumeListener);
+      this.musicVolumeListener = null;
+    }
+
+    this.settingsListenersRegistered = false;
   }
 
   /**
@@ -137,6 +171,8 @@ export default class AudioSystem extends System {
       audio.currentTime = 0;
     });
     this.sounds.clear();
+    this.activeSoundCategories.clear();
+    this.activeSoundBaseVolumes.clear();
 
     if (this.musicInstance) {
       this.musicInstance.pause();
@@ -148,10 +184,14 @@ export default class AudioSystem extends System {
     this.debounceTimeouts.forEach(timeout => clearTimeout(timeout));
     this.debounceTimeouts.clear();
     this.lastPlayedTimes.clear();
+    this.audioPool.clear();
+    this.preloadedSounds.clear();
+    this.teardownSettingsListeners();
 
     if (this.audioContext && this.audioContext.state !== 'closed') {
       this.audioContext.close();
     }
+    this.audioContext = null;
   }
 
   private setupAudio(): void {
@@ -353,6 +393,8 @@ export default class AudioSystem extends System {
           } else {
             console.warn(`Audio system: Failed to play '${key}' after ${retryCount + 1} attempts:`, error);
             this.sounds.delete(soundKey);
+            this.activeSoundCategories.delete(soundKey);
+            this.activeSoundBaseVolumes.delete(soundKey);
           }
           return;
         }
@@ -373,6 +415,8 @@ export default class AudioSystem extends System {
         setTimeout(() => {
           if (this.sounds.has(soundKey)) {
             this.sounds.delete(soundKey);
+            this.activeSoundCategories.delete(soundKey);
+            this.activeSoundBaseVolumes.delete(soundKey);
           }
         }, 5000); // 5 secondi massimo per suoni laser
       }
@@ -648,6 +692,8 @@ export default class AudioSystem extends System {
           audio.pause();
           audio.currentTime = 0;
           this.sounds.delete(key);
+          this.activeSoundCategories.delete(key);
+          this.activeSoundBaseVolumes.delete(key);
           resolve();
         }
       };
@@ -662,6 +708,8 @@ export default class AudioSystem extends System {
       audio.currentTime = 0;
     });
     this.sounds.clear();
+    this.activeSoundCategories.clear();
+    this.activeSoundBaseVolumes.clear();
     this.stopMusic();
   }
 

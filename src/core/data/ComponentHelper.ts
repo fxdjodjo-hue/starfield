@@ -15,6 +15,20 @@ import { CollectionManager } from './CollectionManager';
 export class ComponentHelper {
   private static componentCache: Map<string, any> = new Map();
   private static cacheEnabled: boolean = true;
+  private static readonly MAX_CACHE_SIZE = 3000;
+
+  /**
+   * Cache write with bounded size to avoid unbounded memory growth
+   * when many transient entities are created (projectiles, effects, etc.).
+   */
+  private static setCacheEntry(cacheKey: string, value: any): void {
+    this.componentCache.set(cacheKey, value);
+
+    // Keep cache bounded to prevent progressive FPS degradation over time.
+    if (this.componentCache.size > this.MAX_CACHE_SIZE) {
+      this.maintainCache(this.MAX_CACHE_SIZE);
+    }
+  }
 
   /**
    * Abilita/disabilita il caching dei componenti
@@ -38,7 +52,7 @@ export class ComponentHelper {
     try {
       const transform = ecs.getComponent(entity, Transform);
       if (this.cacheEnabled && transform) {
-        this.componentCache.set(cacheKey, transform);
+        this.setCacheEntry(cacheKey, transform);
       }
       return transform || null;
     } catch (error) {
@@ -59,7 +73,7 @@ export class ComponentHelper {
     try {
       const velocity = ecs.getComponent(entity, Velocity);
       if (this.cacheEnabled && velocity) {
-        this.componentCache.set(cacheKey, velocity);
+        this.setCacheEntry(cacheKey, velocity);
       }
       return velocity || null;
     } catch (error) {
@@ -80,7 +94,7 @@ export class ComponentHelper {
     try {
       const health = ecs.getComponent(entity, Health);
       if (this.cacheEnabled && health) {
-        this.componentCache.set(cacheKey, health);
+        this.setCacheEntry(cacheKey, health);
       }
       return health || null;
     } catch (error) {
@@ -101,7 +115,7 @@ export class ComponentHelper {
     try {
       const shield = ecs.getComponent(entity, Shield);
       if (this.cacheEnabled && shield) {
-        this.componentCache.set(cacheKey, shield);
+        this.setCacheEntry(cacheKey, shield);
       }
       return shield || null;
     } catch (error) {
@@ -122,7 +136,7 @@ export class ComponentHelper {
     try {
       const damage = ecs.getComponent(entity, Damage);
       if (this.cacheEnabled && damage) {
-        this.componentCache.set(cacheKey, damage);
+        this.setCacheEntry(cacheKey, damage);
       }
       return damage || null;
     } catch (error) {

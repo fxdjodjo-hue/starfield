@@ -10,6 +10,8 @@ export class UIAudioManager {
    */
   setAudioSystem(audioSystem: any): void {
     this.audioSystem = audioSystem;
+    // Evita observer duplicati in caso di re-init UI/audio.
+    this.destroy();
     this.setupUIClickSounds();
   }
 
@@ -63,6 +65,11 @@ export class UIAudioManager {
    * Osserva cambiamenti DOM per aggiungere suoni ai nuovi elementi
    */
   private setupMutationObserver(): void {
+    if (this.mutationObserver) {
+      this.mutationObserver.disconnect();
+      this.mutationObserver = null;
+    }
+
     this.mutationObserver = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
