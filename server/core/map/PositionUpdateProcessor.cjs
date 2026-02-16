@@ -33,7 +33,7 @@ class PositionUpdateProcessor {
 
       const positionBroadcast = {
         type: 'remote_player_update',
-        // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh]
+        // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh, leaderboardPodiumRank]
         // Riduce drasticamente la dimensione del JSON evitando le chiavi per ogni giocatore
         p: [
           clientId,
@@ -51,7 +51,8 @@ class PositionUpdateProcessor {
           Math.round(playerData.health),
           Math.round(playerData.maxHealth),
           Math.round(playerData.shield),
-          Math.round(playerData.maxShield)
+          Math.round(playerData.maxShield),
+          Number(latestUpdate.leaderboardPodiumRank || 0)
         ],
         t: latestUpdate.clientTimestamp || Date.now()
       };

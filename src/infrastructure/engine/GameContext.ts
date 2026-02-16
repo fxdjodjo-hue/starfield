@@ -46,6 +46,7 @@ export class GameContext {
   public authId: PlayerUuid = '' as PlayerUuid;              // Auth ID dell'utente (UUID Supabase)
   public playerDbId: PlayerDbId = 0 as PlayerDbId;           // ID numerico database del player
   public playerNickname: string = '';                        // Nickname del player
+  public playerLeaderboardPodiumRank: number = 0;            // Posizione podio leaderboard (1-3, altrimenti 0)
   public sessionId: string = '';                             // ID sessione corrente
 
   // Dati giocatore (sincronizzati dal server)

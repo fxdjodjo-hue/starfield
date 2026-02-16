@@ -61,6 +61,31 @@ function normalizePlayerShipSkinState(shipSkins) {
   };
 }
 
+async function resolveLeaderboardPodiumRank(supabase, playerDbId) {
+  if (!supabase || !Number.isFinite(Number(playerDbId))) return 0;
+
+  try {
+    const { data, error } = await supabase.rpc('get_leaderboard', {
+      p_limit: 3,
+      p_sort_by: 'ranking_points'
+    });
+
+    if (error || !Array.isArray(data)) return 0;
+
+    const match = data.find((entry) => Number(entry?.player_id) === Number(playerDbId));
+    if (!match) return 0;
+
+    const rankPosition = Number(match.rank_position || 0);
+    if (rankPosition >= 1 && rankPosition <= 3) {
+      return rankPosition;
+    }
+  } catch (error) {
+    ServerLoggerWrapper.warn('LEADERBOARD', `Podium lookup failed for player ${playerDbId}: ${error.message}`);
+  }
+
+  return 0;
+}
+
 async function verifyJoinAuthToken(data, context) {
   const ws = context?.ws;
   const clientId = data?.clientId || 'unknown';
@@ -219,6 +244,11 @@ async function handleJoin(data, sanitizedData, context) {
   logger.info('CONNECTION', `ðŸŽ¯ APPLY Health: loaded=${loadedData.health}, max=${maxHealth}, applied=${savedHealth}`);
   logger.info('CONNECTION', `ðŸŽ¯ APPLY Shield: loaded=${loadedData.shield}, max=${maxShield}, applied=${savedShield}`);
 
+  const leaderboardPodiumRank = await resolveLeaderboardPodiumRank(
+    playerDataManager?.getSupabaseClient?.(),
+    loadedData.playerId
+  );
+
   const playerData = {
     clientId: data.clientId,
     nickname: data.nickname,
@@ -234,6 +264,7 @@ async function handleJoin(data, sanitizedData, context) {
     maxHealth: maxHealth,
     shield: savedShield,
     maxShield: maxShield,
+    leaderboardPodiumRank: leaderboardPodiumRank,
     lastDamage: null,
     isDead: false,
     respawnTime: null,
@@ -329,6 +360,7 @@ async function handleJoin(data, sanitizedData, context) {
     data.nickname,
     playerData.playerId,
     playerData.rank,
+    Number(playerData.leaderboardPodiumRank || 0),
     playerData.position,
     playerData.health,
     playerData.maxHealth,
@@ -349,6 +381,7 @@ async function handleJoin(data, sanitizedData, context) {
         nickname: existingPlayerData.nickname,
         playerId: existingPlayerData.playerId,
         rank: existingPlayerData.rank,
+        leaderboardPodiumRank: Number(existingPlayerData.leaderboardPodiumRank || 0),
         health: existingPlayerData.health,
         maxHealth: existingPlayerData.maxHealth,
         shield: existingPlayerData.shield,
@@ -369,6 +402,7 @@ async function handleJoin(data, sanitizedData, context) {
       nickname: data.nickname,
       playerId: playerData.playerId,
       rank: playerData.rank,
+      leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
       health: playerData.health,
       maxHealth: playerData.maxHealth,
       shield: playerData.shield,
@@ -555,6 +589,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
     nickname: playerData.nickname,
     playerId: playerData.playerId,
     rank: playerData.rank,
+    leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
     health: playerData.health,
     maxHealth: playerData.maxHealth,
     shield: playerData.shield,

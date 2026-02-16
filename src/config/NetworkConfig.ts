@@ -499,6 +499,7 @@ export interface WelcomeMessage {
     maxShield: number;
     isAdministrator?: boolean;
     rank?: string;
+    leaderboardPodiumRank?: number;
     shipSkins?: {
       selectedSkinId: string;
       unlockedSkinIds: string[];

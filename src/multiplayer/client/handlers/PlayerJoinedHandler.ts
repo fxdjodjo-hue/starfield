@@ -12,7 +12,19 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    const { clientId, nickname, playerId, rank, position, health, maxHealth, shield, maxShield, t } = message;
+    const {
+      clientId,
+      nickname,
+      playerId,
+      rank,
+      leaderboardPodiumRank,
+      position,
+      health,
+      maxHealth,
+      shield,
+      maxShield,
+      t
+    } = message;
 
     // Set up remote player info if RemotePlayerSystem is available
     if (networkSystem.remotePlayerManager && nickname) {
@@ -34,10 +46,16 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
           maxShield,
           nickname,
           playerRank,
+          Number(leaderboardPodiumRank || 0),
           t || Date.now()
         );
       } else {
-        networkSystem.remotePlayerManager.setPlayerInfo(clientId, nickname, playerRank);
+        networkSystem.remotePlayerManager.setPlayerInfo(
+          clientId,
+          nickname,
+          playerRank,
+          Number(leaderboardPodiumRank || 0)
+        );
       }
     }
   }

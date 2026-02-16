@@ -14,7 +14,9 @@ export class UINicknameManager {
   private remotePlayerNicknameLastPositions: Map<string, { x: number, y: number }> = new Map();
 
   // Cache stato contenuto remote player per evitare redraw
-  private remotePlayerLastState: Map<string, { nickname: string, rank: string }> = new Map();
+  private remotePlayerLastState: Map<string, { nickname: string, rank: string, leaderboardPodiumRank: number }> = new Map();
+  private playerNicknameRawContent: string = '';
+  private playerLeaderboardPodiumRank: number = 0;
 
   // Stile condiviso per tutti i nickname (giocatore locale e remoti)
   private readonly SHARED_NICKNAME_STYLE = `
@@ -31,6 +33,13 @@ export class UINicknameManager {
     white-space: nowrap;
     will-change: left, top;
   `;
+
+  private getLeaderboardBadgePath(rank: number): string | null {
+    if (rank === 1) return 'assets/badgeleaderboards/1nd.png';
+    if (rank === 2) return 'assets/badgeleaderboards/2nd.png';
+    if (rank === 3) return 'assets/badgeleaderboards/3nd.png';
+    return null;
+  }
 
   /**
    * Crea l'elemento nickname del giocatore
@@ -51,6 +60,7 @@ export class UINicknameManager {
    * Aggiorna il contenuto del nickname
    */
   updatePlayerNicknameContent(nickname: string): void {
+    this.playerNicknameRawContent = nickname;
     if (this.playerNicknameElement) {
       // Formatta il nickname: separa nome e rank (se presente nel formato "Nome\n[Rank]")
       const parts = nickname.split('\n');
@@ -58,7 +68,26 @@ export class UINicknameManager {
       const rawRank = parts[1] || '[Basic Space Pilot]';
       const rankName = rawRank.replace('[', '').replace(']', '').trim();
 
-      this.updateNicknameHTML(this.playerNicknameElement, name, rankName);
+      this.updateNicknameHTML(
+        this.playerNicknameElement,
+        name,
+        rankName,
+        this.playerLeaderboardPodiumRank
+      );
+    }
+  }
+
+  setPlayerLeaderboardPodiumRank(rank: number): void {
+    const numericRank = Number(rank);
+    const normalizedRank = Number.isFinite(numericRank) && numericRank >= 1 && numericRank <= 3
+      ? numericRank
+      : 0;
+
+    if (normalizedRank === this.playerLeaderboardPodiumRank) return;
+    this.playerLeaderboardPodiumRank = normalizedRank;
+
+    if (this.playerNicknameElement && this.playerNicknameRawContent) {
+      this.updatePlayerNicknameContent(this.playerNicknameRawContent);
     }
   }
 
@@ -234,38 +263,56 @@ export class UINicknameManager {
   /**
    * Assicura che esista un elemento DOM per il nickname del remote player
    */
-  ensureRemotePlayerNicknameElement(clientId: string, nickname: string, rank: string): void {
+  ensureRemotePlayerNicknameElement(clientId: string, nickname: string, rank: string, leaderboardPodiumRank: number = 0): void {
     if (!this.remotePlayerNicknameElements.has(clientId)) {
       const element = document.createElement('div');
       element.id = `remote-player-nickname-${clientId}`;
       element.style.cssText = this.SHARED_NICKNAME_STYLE;
       element.style.zIndex = '45'; // Player remoti leggermente sotto il locale
 
-      this.updateNicknameHTML(element, nickname, rank);
+      this.updateNicknameHTML(element, nickname, rank, leaderboardPodiumRank);
 
       document.body.appendChild(element);
       this.remotePlayerNicknameElements.set(clientId, element);
-      this.remotePlayerLastState.set(clientId, { nickname, rank });
+      this.remotePlayerLastState.set(clientId, {
+        nickname,
+        rank,
+        leaderboardPodiumRank: Number(leaderboardPodiumRank || 0)
+      });
     } else {
       // Check if content changed before updating DOM (fixes flickering) // FIX
       const lastState = this.remotePlayerLastState.get(clientId);
-      if (lastState && lastState.nickname === nickname && lastState.rank === rank) {
+      if (
+        lastState &&
+        lastState.nickname === nickname &&
+        lastState.rank === rank &&
+        lastState.leaderboardPodiumRank === Number(leaderboardPodiumRank || 0)
+      ) {
         return;
       }
 
       const element = this.remotePlayerNicknameElements.get(clientId)!;
-      this.updateNicknameHTML(element, nickname, rank);
-      this.remotePlayerLastState.set(clientId, { nickname, rank });
+      this.updateNicknameHTML(element, nickname, rank, leaderboardPodiumRank);
+      this.remotePlayerLastState.set(clientId, {
+        nickname,
+        rank,
+        leaderboardPodiumRank: Number(leaderboardPodiumRank || 0)
+      });
     }
   }
 
   /**
    * Helper unico per generare l'HTML dei nickname (giocatore locale e remoti)
    */
-  private updateNicknameHTML(element: HTMLElement, nickname: string, rank: string): void {
+  private updateNicknameHTML(
+    element: HTMLElement,
+    nickname: string,
+    rank: string,
+    leaderboardPodiumRank: number = 0
+  ): void {
     const rankName = rank.replace('[', '').replace(']', '').trim();
     const iconPath = RankIconMapper.getRankIconPath(rankName);
-
+    const podiumBadgePath = this.getLeaderboardBadgePath(leaderboardPodiumRank);
     element.innerHTML = `
       <div style="position: relative; display: inline-block;">
         <!-- Container Rank Icon (Assoluto a sinistra, non influisce sul centro del nickname) -->
@@ -274,6 +321,9 @@ export class UINicknameManager {
         </div>
         <!-- Nickname (Sarà il punto centrale del transform: translateX(-50%)) -->
         <div style="font-size: 16px; font-weight: 700; color: #ffffff; text-shadow: -0.75px 0 0 rgba(0,0,0,0.85), 0.75px 0 0 rgba(0,0,0,0.85), 0 -0.75px 0 rgba(0,0,0,0.85), 0 0.75px 0 rgba(0,0,0,0.85), -0.75px -0.75px 0 rgba(0,0,0,0.85), 0.75px -0.75px 0 rgba(0,0,0,0.85), -0.75px 0.75px 0 rgba(0,0,0,0.85), 0.75px 0.75px 0 rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.5); letter-spacing: 0.5px; white-space: nowrap;">${nickname}</div>
+        ${podiumBadgePath ? `<div style="position: absolute; left: 100%; top: 50%; transform: translateY(-50%); margin-left: 8px; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;">
+          <img src="${podiumBadgePath}" style="width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));" />
+        </div>` : ''}
       </div>
     `;
   }

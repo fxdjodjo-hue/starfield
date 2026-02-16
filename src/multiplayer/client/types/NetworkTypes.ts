@@ -73,6 +73,7 @@ export interface RemotePlayerUpdateMessage extends NetworkMessage {
   rotation?: number;
   nickname?: string;
   rank?: string;
+  leaderboardPodiumRank?: number;
 }
 
 export interface PlayerJoinedMessage extends NetworkMessage {
@@ -81,6 +82,7 @@ export interface PlayerJoinedMessage extends NetworkMessage {
   nickname?: string;
   playerId?: number;
   rank?: string;
+  leaderboardPodiumRank?: number;
   position?: { x: number; y: number; rotation?: number; velocityX?: number; velocityY?: number };
   health?: number;
   maxHealth?: number;

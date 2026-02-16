@@ -82,6 +82,7 @@ export interface RemotePlayerConfig {
   clientId: string;
   nickname?: string;
   rank?: string;
+  leaderboardPodiumRank?: number;
   position: SpatialConfig;
   animatedSprite?: AnimatedSprite | null;
   combat?: CombatConfig;
@@ -295,7 +296,8 @@ export class GameEntityFactory extends EntityFactory {
     this.ecs.addComponent(entity, RemotePlayer, new RemotePlayer(
       config.clientId,
       config.nickname || '',
-      config.rank || 'Recruit'
+      config.rank || 'Recruit',
+      Number(config.leaderboardPodiumRank || 0)
     ));
 
     return entity;

@@ -31,6 +31,7 @@ export class RemotePlayerManager {
     maxShield?: number,
     nickname?: string,
     rank?: string,
+    leaderboardPodiumRank?: number,
     serverTick?: number
   ): void {
     if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
@@ -48,7 +49,7 @@ export class RemotePlayerManager {
       );
       // Set info if provided
       if (nickname) {
-        this.setPlayerInfo(clientId, nickname, rank || 'Recruit');
+        this.setPlayerInfo(clientId, nickname, rank || 'Recruit', Number(leaderboardPodiumRank || 0));
       }
     } else {
       // Update existing remote player with velocity for better extrapolation
@@ -76,8 +77,8 @@ export class RemotePlayerManager {
   /**
    * Sets nickname and rank info for a remote player
    */
-  setPlayerInfo(clientId: string, nickname: string, rank: string): void {
-    this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank);
+  setPlayerInfo(clientId: string, nickname: string, rank: string, leaderboardPodiumRank: number = 0): void {
+    this.remotePlayerSystem.setRemotePlayerInfo(clientId, nickname, rank, leaderboardPodiumRank);
   }
 
   /**

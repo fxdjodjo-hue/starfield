@@ -8,6 +8,7 @@ export class RemotePlayer extends Component {
   public clientId: string;
   public nickname: string;
   public rank: string;
+  public leaderboardPodiumRank: number;
 
   public targetId: string | null = null;
   public lastVisualFireTime: number = 0;
@@ -16,12 +17,14 @@ export class RemotePlayer extends Component {
   constructor(
     clientId: string,
     nickname: string = '',
-    rank: string = 'Recruit'
+    rank: string = 'Recruit',
+    leaderboardPodiumRank: number = 0
   ) {
     super();
     this.clientId = clientId;
     this.nickname = nickname;
     this.rank = rank;
+    this.leaderboardPodiumRank = leaderboardPodiumRank;
     this.targetId = null;
     this.lastVisualFireTime = 0;
   }
@@ -29,8 +32,9 @@ export class RemotePlayer extends Component {
   /**
    * Aggiorna le informazioni del giocatore remoto
    */
-  updateInfo(nickname: string, rank: string): void {
+  updateInfo(nickname: string, rank: string, leaderboardPodiumRank: number = 0): void {
     this.nickname = nickname;
     this.rank = rank;
+    this.leaderboardPodiumRank = leaderboardPodiumRank;
   }
 }

@@ -865,6 +865,9 @@ export class UiSystem extends System {
   updatePlayerNicknameContent(nickname: string): void {
     this.nicknameManager.updatePlayerNicknameContent(nickname);
   }
+  setPlayerLeaderboardPodiumRank(rank: number): void {
+    this.nicknameManager.setPlayerLeaderboardPodiumRank(rank);
+  }
   updatePlayerNicknamePosition(worldX: number, worldY: number, camera: any, canvasSize: any, isZoomAnimating: boolean = false, isVisible: boolean = true): void {
     this.nicknameManager.updatePlayerNicknamePosition(worldX, worldY, camera, canvasSize, isZoomAnimating, isVisible);
   }
@@ -927,8 +930,8 @@ export class UiSystem extends System {
   }
 
   // ===== GESTIONE NICKNAME REMOTE PLAYER =====
-  ensureRemotePlayerNicknameElement(clientId: string, nickname: string, rank: string): void {
-    this.nicknameManager.ensureRemotePlayerNicknameElement(clientId, nickname, rank);
+  ensureRemotePlayerNicknameElement(clientId: string, nickname: string, rank: string, leaderboardPodiumRank?: number): void {
+    this.nicknameManager.ensureRemotePlayerNicknameElement(clientId, nickname, rank, leaderboardPodiumRank);
   }
   updateRemotePlayerNicknamePosition(clientId: string, screenX: number, screenY: number): void {
     this.nicknameManager.updateRemotePlayerNicknamePosition(clientId, screenX, screenY);

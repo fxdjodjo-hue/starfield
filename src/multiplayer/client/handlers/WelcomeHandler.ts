@@ -77,7 +77,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       const {
         position, health, maxHealth, shield, maxShield,
-        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank, shipSkins
+        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank, leaderboardPodiumRank, shipSkins
       } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
@@ -176,6 +176,10 @@ export class WelcomeHandler extends BaseMessageHandler {
             if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied rank: ${rank}`);
           }
         }
+      }
+
+      if (Number.isFinite(Number(leaderboardPodiumRank))) {
+        networkSystem.gameContext.playerLeaderboardPodiumRank = Number(leaderboardPodiumRank);
       }
 
       // 🔄 RICHIEDI DATI COMPLETI: Se il server ha indicato lazy loading, richiedi i dati completi

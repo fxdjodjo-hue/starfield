@@ -76,12 +76,17 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Imposta info nickname e rank per un remote player
    */
-  setRemotePlayerInfo(clientId: string, nickname: string, rank: string = 'Basic Space Pilot'): void {
+  setRemotePlayerInfo(
+    clientId: string,
+    nickname: string,
+    rank: string = 'Basic Space Pilot',
+    leaderboardPodiumRank: number = 0
+  ): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
       if (remotePlayerComponent) {
-        remotePlayerComponent.updateInfo(nickname, rank);
+        remotePlayerComponent.updateInfo(nickname, rank, leaderboardPodiumRank);
       }
     }
   }
@@ -89,14 +94,15 @@ export class RemotePlayerSystem extends BaseSystem {
   /**
    * Ottiene info di un remote player
    */
-  getRemotePlayerInfo(clientId: string): { nickname: string, rank: string } | undefined {
+  getRemotePlayerInfo(clientId: string): { nickname: string, rank: string, leaderboardPodiumRank: number } | undefined {
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
       if (remotePlayerComponent) {
         return {
           nickname: remotePlayerComponent.nickname,
-          rank: remotePlayerComponent.rank
+          rank: remotePlayerComponent.rank,
+          leaderboardPodiumRank: Number(remotePlayerComponent.leaderboardPodiumRank || 0)
         };
       }
     }

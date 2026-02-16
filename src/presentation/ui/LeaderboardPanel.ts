@@ -377,8 +377,25 @@ export class LeaderboardPanel extends BasePanel {
       rankCell.style.cssText = `padding: 12px 8px; text-align: center; font-weight: 700; width: 10%; box-sizing: border-box;`;
 
       if (entry.rank <= 3) {
-        rankCell.innerHTML = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : '🥉';
-        rankCell.style.fontSize = '18px';
+        const badgePath = this.getLeaderboardBadgePath(entry.rank);
+        if (badgePath) {
+          const podiumBadge = document.createElement('img');
+          podiumBadge.src = badgePath;
+          podiumBadge.alt = `Top ${entry.rank}`;
+          podiumBadge.style.cssText = `
+            width: 22px;
+            height: 22px;
+            object-fit: contain;
+            display: block;
+            margin: 0 auto;
+            filter: drop-shadow(0 1px 3px rgba(0,0,0,0.6));
+          `;
+          rankCell.appendChild(podiumBadge);
+        } else {
+          rankCell.textContent = `#${entry.rank}`;
+          rankCell.style.color = THEME.colors.text.secondary;
+          rankCell.style.fontSize = '13px';
+        }
       } else {
         rankCell.textContent = `#${entry.rank}`;
         rankCell.style.color = THEME.colors.text.secondary;
@@ -462,5 +479,13 @@ export class LeaderboardPanel extends BasePanel {
     return `assets/playerRanks/${fileName}`;
   }
 
+  private getLeaderboardBadgePath(rank: number): string | null {
+    if (rank === 1) return 'assets/badgeleaderboards/1nd.png';
+    if (rank === 2) return 'assets/badgeleaderboards/2nd.png';
+    if (rank === 3) return 'assets/badgeleaderboards/3nd.png';
+    return null;
+  }
+
   protected onHide(): void { }
 }
+

@@ -82,6 +82,10 @@ export class PlayStateResourceManager {
     const uiSystem = this.getUiSystem();
     if (!uiSystem) return;
 
+    if (typeof (uiSystem as any).setPlayerLeaderboardPodiumRank === 'function') {
+      (uiSystem as any).setPlayerLeaderboardPodiumRank(Number(this.context.playerLeaderboardPodiumRank || 0));
+    }
+
     // AUTO-RECOVERY: Se pensiamo di aver creato il nickname ma l'elemento è sparito (es. dopo cambio mappa o bug)
     // l'UiSystem dovrebbe idealmente dirci se l'elemento esiste. 
     // Per ora, se siamo qui e nicknameCreated è true, confidiamo nell'updatePosition che internamente controlla l'esistenza.
@@ -267,7 +271,12 @@ export class PlayStateResourceManager {
       // Assicura che esista l'elemento DOM per questo remote player
       const playerInfo = remotePlayerSystem.getRemotePlayerInfo(clientId);
       if (playerInfo) {
-        uiSystem.ensureRemotePlayerNicknameElement(clientId, playerInfo.nickname, playerInfo.rank);
+        uiSystem.ensureRemotePlayerNicknameElement(
+          clientId,
+          playerInfo.nickname,
+          playerInfo.rank,
+          playerInfo.leaderboardPodiumRank
+        );
         uiSystem.updateRemotePlayerNicknamePosition(clientId, screenPos.x, screenPos.y);
       }
     }

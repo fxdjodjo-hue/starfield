@@ -96,6 +96,7 @@ class MapManager {
             nickname: playerData.nickname,
             playerId: playerData.playerId,
             rank: playerData.rank || 'Basic Space Pilot',
+            leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
             position: {
                 x: targetPosition.x,
                 y: targetPosition.y,
@@ -140,6 +141,7 @@ class MapManager {
                     nickname: existingPlayerData.nickname,
                     playerId: existingPlayerData.playerId,
                     rank: existingPlayerData.rank,
+                    leaderboardPodiumRank: Number(existingPlayerData.leaderboardPodiumRank || 0),
                     health: existingPlayerData.health,
                     maxHealth: existingPlayerData.maxHealth,
                     shield: existingPlayerData.shield,

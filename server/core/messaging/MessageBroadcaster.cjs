@@ -55,6 +55,7 @@ class MessageBroadcaster {
         recentHonor: playerData.recentHonor || 0,
         isAdministrator: isAdministrator,
         rank: playerData.rank || 'Basic Space Pilot',
+        leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
         shipSkins: {
           selectedSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
           unlockedSkinIds: Array.isArray(playerData.shipSkins?.unlockedSkinIds)
@@ -96,6 +97,7 @@ class MessageBroadcaster {
    * @param {string} nickname - Nickname
    * @param {number} playerId - Player ID numerico
    * @param {string} rank - Player rank name
+   * @param {number} leaderboardPodiumRank - Posizione podium leaderboard (1-3, altrimenti 0)
    * @param {Object} position - Player position (x, y, rotation, velocityX, velocityY)
    * @param {number} health - Current health
    * @param {number} maxHealth - Max health
@@ -103,13 +105,14 @@ class MessageBroadcaster {
    * @param {number} maxShield - Max shield
    * @returns {Object} Player joined message
    */
-  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, position, health, maxHealth, shield, maxShield) {
+  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, leaderboardPodiumRank, position, health, maxHealth, shield, maxShield) {
     return {
       type: 'player_joined',
       clientId: clientId,
       nickname: nickname,
       playerId: playerId,
       rank: rank || 'Basic Space Pilot',
+      leaderboardPodiumRank: Number(leaderboardPodiumRank || 0),
       position: position,
       health: health,
       maxHealth: maxHealth,
