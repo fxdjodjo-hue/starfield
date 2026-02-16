@@ -41,7 +41,9 @@ export class RemoteProjectileSystem extends BaseSystem {
     isLocalPlayer: boolean = false,
     assetManager?: AssetManager,
     localClientId?: string | null,
-    localAuthId?: string | null
+    localAuthId?: string | null,
+    hitTime?: number | null,
+    isDeterministic: boolean = false
   ): number {
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
@@ -126,6 +128,39 @@ export class RemoteProjectileSystem extends BaseSystem {
       undefined,
       assetManager
     );
+
+    // Deterministic NPC beams have a server-defined hit time.
+    // Clamp local visual lifetime to remaining hit window to avoid end-of-flight linger.
+    if (isDeterministic && typeof hitTime === 'number' && Number.isFinite(hitTime)) {
+      const projectile = this.ecs.getComponent(entity, Projectile);
+      if (projectile) {
+        projectile.isDeterministic = true;
+        projectile.hitTime = hitTime;
+        const remainingMs = Math.max(120, hitTime - Date.now());
+        const bufferedLifetime = remainingMs + 40; // small jitter buffer
+        projectile.lifetime = Math.min(projectile.lifetime, bufferedLifetime);
+        projectile.maxLifetime = projectile.lifetime;
+      }
+
+      // Pure server-authoritative visual path:
+      // add interpolation so MovementSystem does not move this projectile locally.
+      if (!this.ecs.hasComponent(entity, InterpolationTarget)) {
+        const initialRotation = (velocity.x !== 0 || velocity.y !== 0)
+          ? Math.atan2(velocity.y, velocity.x)
+          : 0;
+        this.ecs.addComponent(
+          entity,
+          InterpolationTarget,
+          new InterpolationTarget(position.x, position.y, initialRotation)
+        );
+      }
+    } else {
+      const projectile = this.ecs.getComponent(entity, Projectile);
+      if (projectile) {
+        projectile.isDeterministic = false;
+        projectile.hitTime = undefined;
+      }
+    }
 
     // Registra il proiettile nella mappa per tracking
     this.remoteProjectiles.set(projectileId, {

@@ -115,11 +115,11 @@ class ServerProjectileManager {
       // Calcola deltaTime
       const deltaTime = (now - projectile.lastUpdate) / 1000; // secondi
 
-      // HOMING LOGIC: Solo per proiettili NON deterministici
-      // I proiettili deterministici fanno homing visivo ma non vengono distrutti per target mancante
-      if (projectile.targetId && projectile.targetId !== -1 && !projectile.isDeterministic) {
+      // HOMING LOGIC: applies to all target-tracking projectiles.
+      // Deterministic projectiles keep visual homing, but are not removed on missing target.
+      if (projectile.targetId && projectile.targetId !== -1) {
         const homingResult = this.homing.updateProjectileHoming(projectile, deltaTime);
-        if (!homingResult) {
+        if (!homingResult && !projectile.isDeterministic) {
           // Target non trovato - rimuovi proiettile immediatamente per prevenire memory leak
           projectilesToRemove.push({
             id: projectileId,
@@ -140,10 +140,9 @@ class ServerProjectileManager {
 
       // GESTIONE PROIETTILI DETERMINISTICI (MMO Style) - HIT SOLO BASATO SU TEMPO
       if (projectile.isDeterministic && projectile.hitTime) {
-        // PERFEZIONAMENTO: Aggiorna homing visivo anche per missili deterministici
+        // Deterministic visuals already received homing update above using real tick delta.
         let distanceToTarget = Infinity;
         if (projectile.targetId) {
-          this.homing.updateProjectileHoming(projectile);
           distanceToTarget = this.homing.getDistanceToTarget(projectile);
         }
 

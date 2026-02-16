@@ -346,6 +346,8 @@ export interface ProjectileFiredMessage {
   damage: number;
   projectileType: 'laser' | 'npc_laser' | 'missile' | 'repair';
   targetId?: string | null;
+  hitTime?: number;
+  isDeterministic?: boolean;
 }
 
 /**

@@ -19,6 +19,7 @@ import { MathUtils } from '../../core/utils/MathUtils';
 import { TimeManager } from '../../core/utils/TimeManager';
 import { ComponentHelper } from '../../core/data/ComponentHelper';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
+import { RenderSystem } from '../rendering/RenderSystem';
 
 /**
  * Sistema per gestire i proiettili: movimento, collisione e rimozione
@@ -90,10 +91,24 @@ export class ProjectileSystem extends BaseSystem {
     // 4. Riduci lifetime
     projectile.lifetime -= deltaTime;
 
+    // Deterministic NPC beams are server-authoritative:
+    // close them on hitTime window instead of allowing prolonged local chase.
+    if (this.isDeterministicNpcBeam(projectile) && typeof projectile.hitTime === 'number') {
+      if (Date.now() >= projectile.hitTime + 80) {
+        this.ecs.removeEntity(projectileEntity);
+        return true;
+      }
+    }
+
     // 5. Collisioni - Abilitate anche per proiettili remoti VISIVI (laser)
     const isVisualOnly = projectile.damage === 0 || projectile.projectileType === 'npc_laser';
-    if (!isRemote || isVisualOnly) {
-      this.checkCollisions(projectileEntity, transform, projectile);
+    const collisionProbePosition = (isRemote && isVisualOnly)
+      ? this.predictRemoteCollisionPosition(projectileEntity, transform, projectile, deltaTimeSeconds)
+      : undefined;
+
+    const shouldRunLocalVisualCollision = !this.isDeterministicNpcBeam(projectile);
+    if ((!isRemote || isVisualOnly) && shouldRunLocalVisualCollision) {
+      this.checkCollisions(projectileEntity, transform, projectile, collisionProbePosition);
     }
 
     // 6. Rimozione per lifetime scaduto
@@ -138,7 +153,19 @@ export class ProjectileSystem extends BaseSystem {
    * Identifica se un proiettile è homing (semplificato)
    */
   private isHomingProjectile(projectile: Projectile): boolean {
+    // Deterministic NPC beams are server-authoritative on path updates.
+    // Disable local chase to avoid orbit/jitter conflicts.
+    if (this.isDeterministicNpcBeam(projectile)) {
+      return false;
+    }
     return projectile.targetId !== -1 && projectile.targetId !== undefined && projectile.targetId !== null;
+  }
+
+  /**
+   * Identifies deterministic NPC beams (server-authoritative hit timing).
+   */
+  private isDeterministicNpcBeam(projectile: Projectile): boolean {
+    return projectile.projectileType === 'npc_laser' && projectile.isDeterministic === true;
   }
 
   /**
@@ -166,8 +193,10 @@ export class ProjectileSystem extends BaseSystem {
       return;
     }
 
+    const targetPosition = this.getVisualTargetPosition(targetEntity, targetTransform, projectile);
+
     // Homing target found - updating direction
-    this.calculateAndSetDirection(entity, projectileTransform, targetTransform, projectile);
+    this.calculateAndSetDirection(entity, projectileTransform, targetPosition, projectile);
   }
 
 
@@ -179,29 +208,98 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Calcola e imposta la direzione del proiettile verso il target (per laser)
    */
-  private calculateAndSetDirection(entity: Entity, projectileTransform: Transform, targetTransform: Transform, projectile: Projectile): void {
+  private calculateAndSetDirection(
+    entity: Entity,
+    projectileTransform: Transform,
+    targetPosition: { x: number; y: number },
+    projectile: Projectile
+  ): void {
     const { direction, distance } = MathUtils.calculateDirection(
       projectileTransform.x, projectileTransform.y,
-      targetTransform.x, targetTransform.y
+      targetPosition.x, targetPosition.y
     );
 
     if (distance > 0) {
-      projectile.directionX = direction.x;
-      projectile.directionY = direction.y;
+      // Direct guidance avoids orbiting behavior around moving targets.
+      const nextDirectionX = direction.x;
+      const nextDirectionY = direction.y;
+
+      projectile.directionX = nextDirectionX;
+      projectile.directionY = nextDirectionY;
 
       // CRITICO: Aggiorna anche il componente Velocity per il MovementSystem
       const velocity = this.ecs.getComponent(entity, Velocity);
       if (velocity) {
-        velocity.x = direction.x * projectile.speed;
-        velocity.y = direction.y * projectile.speed;
+        velocity.x = nextDirectionX * projectile.speed;
+        velocity.y = nextDirectionY * projectile.speed;
       }
     }
   }
 
   /**
+   * Returns the target position used by visual NPC beams.
+   * For local player targets, use the same smoothed render anchor to avoid
+   * end-of-flight jitter when the local ship is moving.
+   */
+  private getVisualTargetPosition(
+    targetEntity: Entity,
+    targetTransform: Transform,
+    projectile: Projectile
+  ): { x: number; y: number } {
+    if (projectile.projectileType !== 'npc_laser') {
+      return { x: targetTransform.x, y: targetTransform.y };
+    }
+
+    const localPlayer = this.playerSystem.getPlayerEntity();
+    if (
+      localPlayer &&
+      targetEntity.id === localPlayer.id &&
+      RenderSystem.smoothedLocalPlayerPos &&
+      RenderSystem.smoothedLocalPlayerId === localPlayer.id
+    ) {
+      return {
+        x: RenderSystem.smoothedLocalPlayerPos.x,
+        y: RenderSystem.smoothedLocalPlayerPos.y
+      };
+    }
+
+    return { x: targetTransform.x, y: targetTransform.y };
+  }
+
+  /**
+   * Predicts remote projectile position at end-of-tick.
+   * ProjectileSystem runs before MovementSystem, so using this probe avoids
+   * one-tick late visual destruction for fast visual beams.
+   */
+  private predictRemoteCollisionPosition(
+    projectileEntity: Entity,
+    projectileTransform: Transform,
+    projectile: Projectile,
+    deltaTimeSeconds: number
+  ): { x: number; y: number } {
+    const velocity = this.ecs.getComponent(projectileEntity, Velocity);
+    const velocityX = velocity ? velocity.x : projectile.directionX * projectile.speed;
+    const velocityY = velocity ? velocity.y : projectile.directionY * projectile.speed;
+
+    return {
+      x: projectileTransform.x + velocityX * deltaTimeSeconds,
+      y: projectileTransform.y + velocityY * deltaTimeSeconds
+    };
+  }
+
+  /**
    * Controlla collisioni tra proiettile e possibili bersagli
    */
-  private checkCollisions(projectileEntity: Entity, projectileTransform: Transform, projectile: Projectile): void {
+  private checkCollisions(
+    projectileEntity: Entity,
+    projectileTransform: Transform,
+    projectile: Projectile,
+    collisionProbePosition?: { x: number; y: number }
+  ): void {
+    const startX = projectileTransform.x;
+    const startY = projectileTransform.y;
+    const endX = collisionProbePosition ? collisionProbePosition.x : projectileTransform.x;
+    const endY = collisionProbePosition ? collisionProbePosition.y : projectileTransform.y;
 
     // Trova tutte le entità con Health (possibili bersagli)
     const targets = this.ecs.getEntitiesWithComponents(Transform, Health);
@@ -215,11 +313,24 @@ export class ProjectileSystem extends BaseSystem {
 
       if (!targetTransform || !targetHealth) continue;
 
-      // Calcola distanza tra proiettile e bersaglio
-      const distance = Math.sqrt(
-        Math.pow(projectileTransform.x - targetTransform.x, 2) +
-        Math.pow(projectileTransform.y - targetTransform.y, 2)
+      const visualTargetPosition = this.getVisualTargetPosition(targetEntity, targetTransform, projectile);
+
+      // Calcola distanza tra proiettile e bersaglio.
+      // For remote visual beams, use swept distance from segment start->end to avoid
+      // pass-through/overshoot jitter on moving targets.
+      const endDistance = Math.sqrt(
+        Math.pow(endX - visualTargetPosition.x, 2) +
+        Math.pow(endY - visualTargetPosition.y, 2)
       );
+      const sweptDistance = this.distancePointToSegment(
+        visualTargetPosition.x,
+        visualTargetPosition.y,
+        startX,
+        startY,
+        endX,
+        endY
+      );
+      const distance = collisionProbePosition ? Math.min(endDistance, sweptDistance) : endDistance;
 
       // Se la distanza è minore di una soglia (hitbox), colpisce
       let hitDistance: number = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
@@ -235,7 +346,34 @@ export class ProjectileSystem extends BaseSystem {
       // overshoot near moving targets. A wider local completion radius avoids
       // end-of-flight jitter before server destroy arrives.
       if (projectile.projectileType === 'npc_laser') {
-        hitDistance = Math.max(hitDistance, 50);
+        let npcHitDistance = 50;
+        const targetVelocity = this.ecs.getComponent(targetEntity, Velocity);
+        let targetSpeed = 0;
+        if (targetVelocity) {
+          targetSpeed = Math.sqrt(
+            targetVelocity.x * targetVelocity.x + targetVelocity.y * targetVelocity.y
+          );
+          // Increase completion radius when target moves fast to avoid final-frame wobble.
+          npcHitDistance += Math.min(45, targetSpeed * 0.12);
+        }
+        hitDistance = Math.max(hitDistance, npcHitDistance);
+
+        // Anti-orbit safeguard:
+        // if beam is already moving away from target but still close, complete it.
+        if (collisionProbePosition) {
+          const velocity = this.ecs.getComponent(projectileEntity, Velocity);
+          const velocityX = velocity ? velocity.x : projectile.directionX * projectile.speed;
+          const velocityY = velocity ? velocity.y : projectile.directionY * projectile.speed;
+          const toTargetX = visualTargetPosition.x - endX;
+          const toTargetY = visualTargetPosition.y - endY;
+          const movingAway = (velocityX * toTargetX + velocityY * toTargetY) < 0;
+          const escapeDistance = 140 + Math.min(60, targetSpeed * 0.1);
+
+          if (movingAway && distance < escapeDistance) {
+            this.ecs.removeEntity(projectileEntity);
+            return;
+          }
+        }
       }
 
       if (distance < hitDistance) {
@@ -275,6 +413,35 @@ export class ProjectileSystem extends BaseSystem {
         return;
       }
     }
+  }
+
+  /**
+   * Minimum distance between a point and a segment.
+   */
+  private distancePointToSegment(
+    px: number,
+    py: number,
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const lenSq = dx * dx + dy * dy;
+
+    if (lenSq <= 0.000001) {
+      const ddx = px - x1;
+      const ddy = py - y1;
+      return Math.sqrt(ddx * ddx + ddy * ddy);
+    }
+
+    const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+    const closestX = x1 + t * dx;
+    const closestY = y1 + t * dy;
+    const cdx = px - closestX;
+    const cdy = py - closestY;
+    return Math.sqrt(cdx * cdx + cdy * cdy);
   }
 
   /**

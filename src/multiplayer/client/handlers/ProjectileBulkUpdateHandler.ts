@@ -17,6 +17,7 @@ export class ProjectileBulkUpdateHandler extends BaseMessageHandler {
   handle(message: any, networkSystem: ClientNetworkSystem): void {
     const rawProjectiles = message.pr || message.projectiles;
     if (!rawProjectiles || !Array.isArray(rawProjectiles)) return;
+    const serverTimestamp = message.t || message.timestamp || Date.now();
 
     const remoteProjectileSystem = networkSystem.getRemoteProjectileSystem();
     if (!remoteProjectileSystem) return;
@@ -61,7 +62,7 @@ export class ProjectileBulkUpdateHandler extends BaseMessageHandler {
         if (vx !== undefined && vy !== undefined && (vx !== 0 || vy !== 0)) {
           rotation = Math.atan2(vy, vx);
         }
-        interpolation.updateTarget(x, y, rotation, message.timestamp || Date.now());
+        interpolation.updateTarget(x, y, rotation, serverTimestamp);
 
         // Update rotation for interpolation target too if supported, currently handled by visual update
       } else if (transform && x !== undefined && y !== undefined) {

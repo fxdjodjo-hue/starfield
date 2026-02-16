@@ -151,7 +151,9 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         isLocalPlayer,
         assetManager,
         networkSystem.getLocalClientId(),
-        networkSystem.gameContext.authId ? String(networkSystem.gameContext.authId) : null
+        networkSystem.gameContext.authId ? String(networkSystem.gameContext.authId) : null,
+        message.hitTime ?? null,
+        !!message.isDeterministic
       );
     } else {
       console.error('[ProjectileFiredHandler] RemoteProjectileSystem not found! Projectile will NOT be tracked.');

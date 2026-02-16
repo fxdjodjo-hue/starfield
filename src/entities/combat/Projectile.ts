@@ -9,14 +9,28 @@ export class Projectile extends Component {
   public speed: number;
   public directionX: number;
   public directionY: number;
-  public ownerId: number | string; // ID dell'entità che ha sparato il proiettile
-  public targetId: number | string; // ID dell'entità bersaglio (numero per locali, stringa per remoti)
+  public ownerId: number | string; // ID dell'entita che ha sparato il proiettile
+  public targetId: number | string; // ID dell'entita bersaglio (numero per locali, stringa per remoti)
   public lifetime: number; // Tempo di vita rimanente in millisecondi
   public maxLifetime: number; // Tempo di vita massimo
   public playerId?: string; // ID del giocatore/NPC che ha sparato (per rendering remoto)
   public projectileType?: 'laser' | 'npc_laser' | 'missile'; // Tipo di proiettile per rendering
+  public isDeterministic: boolean; // Proiettile con hit deciso server-side
+  public hitTime?: number; // Timestamp di hit server-side (se deterministico)
 
-  constructor(damage: number, speed: number, directionX: number, directionY: number, ownerId: number | string, targetId: number | string, lifetime: number = 5000, playerId?: string, projectileType: 'laser' | 'npc_laser' | 'missile' = 'laser') {
+  constructor(
+    damage: number,
+    speed: number,
+    directionX: number,
+    directionY: number,
+    ownerId: number | string,
+    targetId: number | string,
+    lifetime: number = 5000,
+    playerId?: string,
+    projectileType: 'laser' | 'npc_laser' | 'missile' = 'laser',
+    isDeterministic: boolean = false,
+    hitTime?: number
+  ) {
     super();
     this.damage = damage;
     this.speed = speed;
@@ -28,5 +42,7 @@ export class Projectile extends Component {
     this.maxLifetime = lifetime;
     this.playerId = playerId;
     this.projectileType = projectileType;
+    this.isDeterministic = isDeterministic;
+    this.hitTime = hitTime;
   }
 }

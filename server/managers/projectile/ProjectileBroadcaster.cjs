@@ -26,7 +26,9 @@ class ProjectileBroadcaster {
       velocity: projectile.velocity,
       damage: actualDamage !== null ? actualDamage : projectile.damage,
       projectileType: projectile.projectileType,
-      targetId: projectile.targetId
+      targetId: projectile.targetId,
+      hitTime: projectile.hitTime || undefined,
+      isDeterministic: !!projectile.isDeterministic
     };
 
     // Interest radius per proiettili
@@ -185,7 +187,13 @@ class ProjectileBroadcaster {
    */
   broadcastHomingProjectileUpdates(projectilesMap) {
     const homingProjectiles = Array.from(projectilesMap.values())
-      .filter(proj => proj.targetId && proj.targetId !== -1 && !proj.isDeterministic); // Include NPC and Player missiles
+      .filter((proj) => {
+        if (!proj.targetId || proj.targetId === -1) return false;
+        // Keep standard behavior for non-deterministic homing projectiles.
+        if (!proj.isDeterministic) return true;
+        // Also stream deterministic NPC lasers as server-authoritative visuals.
+        return proj.projectileType === 'npc_laser';
+      });
 
     if (homingProjectiles.length === 0) return;
 
