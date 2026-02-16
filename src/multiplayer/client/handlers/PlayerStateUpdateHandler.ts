@@ -80,8 +80,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
             if (typeof health === 'number' && typeof maxHealth === 'number' && ecs) {
               const healthComponent = ecs.getComponent(playerEntity, Health);
               if (healthComponent) {
-                healthComponent.current = health;
-                healthComponent.max = maxHealth;
+                // Avoid stale-max clamping by applying max/current in one call.
+                healthComponent.setHealth(health, maxHealth);
               }
             }
 
@@ -89,8 +89,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
             if (typeof shield === 'number' && typeof maxShield === 'number' && ecs) {
               const shieldComponent = ecs.getComponent(playerEntity, Shield);
               if (shieldComponent) {
-                shieldComponent.current = shield;
-                shieldComponent.max = maxShield;
+                // Avoid stale-max clamping by applying max/current in one call.
+                shieldComponent.setShield(shield, maxShield);
               }
             }
           }
@@ -110,8 +110,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           if (typeof health === 'number' && typeof maxHealth === 'number') {
             const healthComponent = ecs.getComponent(playerEntity, Health);
             if (healthComponent) {
-              healthComponent.current = health;
-              healthComponent.max = maxHealth;
+              // Avoid stale-max clamping by applying max/current in one call.
+              healthComponent.setHealth(health, maxHealth);
             }
           }
 
@@ -119,8 +119,8 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           if (typeof shield === 'number' && typeof maxShield === 'number') {
             const shieldComponent = ecs.getComponent(playerEntity, Shield);
             if (shieldComponent) {
-              shieldComponent.current = shield;
-              shieldComponent.max = maxShield;
+              // Avoid stale-max clamping by applying max/current in one call.
+              shieldComponent.setShield(shield, maxShield);
             }
           }
         }

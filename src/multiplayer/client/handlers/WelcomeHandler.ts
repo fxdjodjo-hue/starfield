@@ -101,8 +101,8 @@ export class WelcomeHandler extends BaseMessageHandler {
         const ecs = networkSystem.getECS();
         const healthComponent = ecs?.getComponent(playerEntity, Health);
         if (healthComponent) {
-          healthComponent.current = health;
-          healthComponent.max = maxHealth;
+          // Apply max + current atomically to avoid clamping current to stale max on login.
+          healthComponent.setHealth(health, maxHealth);
           if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied health: ${health}/${maxHealth}`);
         }
       }
@@ -111,8 +111,8 @@ export class WelcomeHandler extends BaseMessageHandler {
         const ecs = networkSystem.getECS();
         const shieldComponent = ecs?.getComponent(playerEntity, Shield);
         if (shieldComponent) {
-          shieldComponent.current = shield;
-          shieldComponent.max = maxShield;
+          // Apply max + current atomically to avoid clamping current to stale max on login.
+          shieldComponent.setShield(shield, maxShield);
           if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[WELCOME] Applied shield: ${shield}/${maxShield}`);
         }
       }
