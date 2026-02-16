@@ -40,7 +40,8 @@ export class RemoteProjectileSystem extends BaseSystem {
     targetId: string | number | null = null,
     isLocalPlayer: boolean = false,
     assetManager?: AssetManager,
-    localClientId?: string | null
+    localClientId?: string | null,
+    localAuthId?: string | null
   ): number {
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
@@ -58,10 +59,15 @@ export class RemoteProjectileSystem extends BaseSystem {
       ownerId = playerId;
 
       if (targetId !== null && targetId !== undefined) {
-        const normalizedTargetId = String(targetId);
+        const normalizedTargetId = this.normalizeNetworkPlayerId(targetId);
+        const normalizedLocalClientId = localClientId ? this.normalizeNetworkPlayerId(localClientId) : null;
+        const normalizedLocalAuthId = localAuthId ? this.normalizeNetworkPlayerId(localAuthId) : null;
 
         // 1) Target è il player locale: risolvi direttamente a entity.id locale
-        if (localClientId && normalizedTargetId === String(localClientId)) {
+        if (
+          (normalizedLocalClientId && normalizedTargetId === normalizedLocalClientId) ||
+          (normalizedLocalAuthId && normalizedTargetId === normalizedLocalAuthId)
+        ) {
           const localPlayerEntity = this.ecs.getPlayerEntity();
           if (localPlayerEntity) {
             actualTargetId = localPlayerEntity.id;
@@ -135,14 +141,24 @@ export class RemoteProjectileSystem extends BaseSystem {
    * Risolve l'entità ECS di un remote player tramite clientId server-side.
    */
   private findRemotePlayerEntityByClientId(clientId: string): number | null {
+    const normalizedClientId = this.normalizeNetworkPlayerId(clientId);
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
     for (const entity of remotePlayerEntities) {
       const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
-      if (remotePlayer && String(remotePlayer.clientId) === String(clientId)) {
+      if (remotePlayer && this.normalizeNetworkPlayerId(remotePlayer.clientId) === normalizedClientId) {
         return entity.id;
       }
     }
     return null;
+  }
+
+  /**
+   * Normalizes player identifiers used in network messages.
+   * Supports formats like "player_<id>", raw clientId, and numeric-like ids.
+   */
+  private normalizeNetworkPlayerId(id: string | number): string {
+    const value = String(id || '').trim();
+    return value.startsWith('player_') ? value.slice('player_'.length) : value;
   }
 
 
