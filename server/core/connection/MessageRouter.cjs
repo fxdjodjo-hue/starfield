@@ -1667,7 +1667,7 @@ function validatePlayerContext(type, data, context) {
   }
 
   // 🚫 SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
-  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon'];
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
     logger.warn('SECURITY', `🚫 BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
     return { valid: false, reason: 'PLAYER_DEAD' };
@@ -1717,7 +1717,7 @@ function validatePlayerContext(type, data, context) {
       }
       break;
 
-    case 'skill_upgrade':
+    case 'skill_upgrade_request':
       // Deve avere abbastanza crediti (server-authoritative)
       if (playerData.credits < data.cost) {
         logger.warn('SECURITY', `🚫 BLOCKED: Insufficient credits for upgrade from ${data.clientId} playerId:${playerData.playerId} (has: ${playerData.credits}, needs: ${data.cost})`);

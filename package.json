@@ -22,6 +22,9 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "quality:typecheck": "tsc --noEmit",
+    "quality:contracts": "node tools/quality/check-network-contracts.cjs",
+    "quality:ci": "npm run quality:contracts && npm run quality:typecheck",
     "gource": "gource --auto-skip-seconds 1 --seconds-per-day 1 --title \"Starfield Development Visualization\" --background-colour 000000 --font-size 24 --hide filenames,dirnames,usernames --ignore-files \".*kenney.*\"",
     "release": "npm version patch && git push --follow-tags"
   },

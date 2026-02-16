@@ -3,6 +3,8 @@
 // Questo file definisce cosa è PERMESSO e cosa è VIETATO
 // ======================================================================
 
+const { CLIENT_TO_SERVER_MESSAGE_TYPES } = require('./NetworkMessageCatalog.cjs');
+
 /**
  * Security Boundary - separa logica client da server
  * Il client NON deve mai avere accesso a metodi server-side
@@ -224,29 +226,8 @@ class BoundaryEnforcement {
       }
     }
 
-    // Whitelist dei tipi di messaggio permessi dal client al server
-    // NOTE: Keep in sync with server/router allowed message types.
-    const allowedClientMessageTypes = [
-      'join',
-      'position_update',
-      'heartbeat',
-      'projectile_fired',
-      'start_combat',
-      'stop_combat',
-      'request_player_data',
-      'chat_message',
-      'save_request',
-      'player_respawn_request',
-      'global_monitor_request',
-      'skill_upgrade_request',
-      'equp_item', // legacy typo kept for backward compatibility
-      'request_leaderboard',
-      'equip_item',
-      'portal_use',
-      'quest_progress_update',
-      'quest_accept',
-      'quest_abandon'
-    ];
+    // Whitelist dei tipi di messaggio permessi dal client al server.
+    const allowedClientMessageTypes = CLIENT_TO_SERVER_MESSAGE_TYPES;
 
     // Controlli specifici per tipo di messaggio
     switch (messageType) {
