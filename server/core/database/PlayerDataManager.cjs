@@ -73,6 +73,8 @@ class PlayerDataManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
     this.periodicSaveInterval = null;
+    this.playerResourcesTableUnavailable = false;
+    this.lastSavedResourceInventorySignatureByAuthId = new Map();
   }
 
   /**
@@ -175,6 +177,163 @@ class PlayerDataManager {
     }
   }
 
+  isMissingPlayerResourcesTableError(error) {
+    if (!error) return false;
+    if (String(error.code || '') === '42P01') return true;
+    const message = String(error.message || '').toLowerCase();
+    return message.includes('player_resources') && message.includes('does not exist');
+  }
+
+  markPlayerResourcesTableUnavailable(error, operation) {
+    if (this.playerResourcesTableUnavailable) return;
+    this.playerResourcesTableUnavailable = true;
+    ServerLoggerWrapper.warn(
+      'DATABASE',
+      `[PLAYER_RESOURCES] Table unavailable during ${operation}. Run latest migrations. ${error?.message || 'Unknown error'}`
+    );
+  }
+
+  normalizeResourceInventory(resourceInventory) {
+    if (!resourceInventory || typeof resourceInventory !== 'object') return {};
+
+    const normalized = {};
+    for (const [rawType, rawQuantity] of Object.entries(resourceInventory)) {
+      const resourceType = typeof rawType === 'string' ? rawType.trim() : '';
+      if (!resourceType) continue;
+
+      const quantity = Number(rawQuantity);
+      if (!Number.isFinite(quantity)) continue;
+
+      const safeQuantity = Math.max(0, Math.floor(quantity));
+      if (safeQuantity <= 0) continue;
+      normalized[resourceType] = safeQuantity;
+    }
+
+    return normalized;
+  }
+
+  buildResourceInventorySignature(resourceInventory) {
+    const normalizedInventory = this.normalizeResourceInventory(resourceInventory);
+    const orderedEntries = Object.keys(normalizedInventory)
+      .sort((a, b) => a.localeCompare(b))
+      .map((resourceType) => [resourceType, normalizedInventory[resourceType]]);
+    return JSON.stringify(orderedEntries);
+  }
+
+  async loadPlayerResourceInventory(authId) {
+    if (this.playerResourcesTableUnavailable) return {};
+
+    try {
+      const { data, error } = await supabase
+        .from('player_resources')
+        .select('resource_type, quantity')
+        .eq('auth_id', authId);
+
+      if (error) {
+        if (this.isMissingPlayerResourcesTableError(error)) {
+          this.markPlayerResourcesTableUnavailable(error, 'load');
+          return {};
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_RESOURCES] Failed to load inventory for ${authId}: ${error.message}`);
+        return {};
+      }
+
+      const inventory = {};
+      for (const row of data || []) {
+        const resourceType = String(row?.resource_type || '').trim();
+        if (!resourceType) continue;
+        const quantity = Math.max(0, Math.floor(Number(row?.quantity || 0)));
+        if (quantity <= 0) continue;
+        inventory[resourceType] = quantity;
+      }
+
+      return inventory;
+    } catch (error) {
+      if (this.isMissingPlayerResourcesTableError(error)) {
+        this.markPlayerResourcesTableUnavailable(error, 'load');
+        return {};
+      }
+      ServerLoggerWrapper.warn('DATABASE', `[PLAYER_RESOURCES] Unexpected load error for ${authId}: ${error.message}`);
+      return {};
+    }
+  }
+
+  async savePlayerResourceInventory(authId, resourceInventory) {
+    const normalizedInventory = this.normalizeResourceInventory(resourceInventory);
+    if (this.playerResourcesTableUnavailable) return normalizedInventory;
+
+    try {
+      const resourceTypes = Object.keys(normalizedInventory);
+      const { data: existingRows, error: loadError } = await supabase
+        .from('player_resources')
+        .select('resource_type')
+        .eq('auth_id', authId);
+
+      if (loadError) {
+        if (this.isMissingPlayerResourcesTableError(loadError)) {
+          this.markPlayerResourcesTableUnavailable(loadError, 'save');
+          return normalizedInventory;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_RESOURCES] Failed to load existing rows for ${authId}: ${loadError.message}`);
+        return normalizedInventory;
+      }
+
+      const existingTypes = (existingRows || [])
+        .map((row) => String(row?.resource_type || '').trim())
+        .filter((type) => type.length > 0);
+      const staleTypes = existingTypes.filter((type) => !resourceTypes.includes(type));
+
+      if (staleTypes.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('player_resources')
+          .delete()
+          .eq('auth_id', authId)
+          .in('resource_type', staleTypes);
+
+        if (deleteError) {
+          if (this.isMissingPlayerResourcesTableError(deleteError)) {
+            this.markPlayerResourcesTableUnavailable(deleteError, 'save');
+            return normalizedInventory;
+          }
+          ServerLoggerWrapper.warn('DATABASE', `[PLAYER_RESOURCES] Failed deleting stale rows for ${authId}: ${deleteError.message}`);
+          return normalizedInventory;
+        }
+      }
+
+      if (resourceTypes.length > 0) {
+        const nowIso = new Date().toISOString();
+        const upsertRows = resourceTypes.map((resourceType) => ({
+          auth_id: authId,
+          resource_type: resourceType,
+          quantity: normalizedInventory[resourceType],
+          updated_at: nowIso
+        }));
+
+        const { error: upsertError } = await supabase
+          .from('player_resources')
+          .upsert(upsertRows, { onConflict: 'auth_id,resource_type' });
+
+        if (upsertError) {
+          if (this.isMissingPlayerResourcesTableError(upsertError)) {
+            this.markPlayerResourcesTableUnavailable(upsertError, 'save');
+            return normalizedInventory;
+          }
+          ServerLoggerWrapper.warn('DATABASE', `[PLAYER_RESOURCES] Failed to upsert rows for ${authId}: ${upsertError.message}`);
+          return normalizedInventory;
+        }
+      }
+    } catch (error) {
+      if (this.isMissingPlayerResourcesTableError(error)) {
+        this.markPlayerResourcesTableUnavailable(error, 'save');
+        return normalizedInventory;
+      }
+      ServerLoggerWrapper.warn('DATABASE', `[PLAYER_RESOURCES] Unexpected save error for ${authId}: ${error.message}`);
+      return normalizedInventory;
+    }
+
+    return normalizedInventory;
+  }
+
   /**
    * Carica i dati del giocatore dal database Supabase
    * @param {string} userId - auth_id del giocatore
@@ -227,6 +386,11 @@ class PlayerDataManager {
       // Calcola RecentHonor (media mobile ultimi 30 giorni)
       const recentHonor = await this.getRecentHonorAverage(userId, 30);
       const shipSkinState = await this.loadPlayerShipSkinState(userId);
+      const resourceInventory = await this.loadPlayerResourceInventory(userId);
+      this.lastSavedResourceInventorySignatureByAuthId.set(
+        userId,
+        this.buildResourceInventorySignature(resourceInventory)
+      );
 
       // Costruisci playerData con i dati reali del database
       const playerData = {
@@ -365,6 +529,7 @@ class PlayerDataManager {
           return null;
         })(),
         rank: playerDataRaw.current_rank_name || 'Basic Space Pilot',
+        resourceInventory: resourceInventory,
         stats: (() => {
           try {
             const stats = playerDataRaw.stats_data ? JSON.parse(playerDataRaw.stats_data) : null;
@@ -441,6 +606,11 @@ class PlayerDataManager {
       // authId = auth_id UUID (chiave persistente). playerId = player_id numerico (solo display/HUD).
       const authId = playerData.userId;
       auditIdentityConsistency(playerData, 'save');
+
+      if (!playerData.resourceInventory || typeof playerData.resourceInventory !== 'object') {
+        playerData.resourceInventory = {};
+      }
+      playerData.resourceInventory = this.normalizeResourceInventory(playerData.resourceInventory);
 
       // 🔴 CRITICAL: Verifica che inventory esista prima di salvare
       // Se inventory è null/undefined, NON salvare per evitare di sovrascrivere i valori esistenti nel database
@@ -558,6 +728,17 @@ class PlayerDataManager {
       }
 
       ServerLoggerWrapper.database(`Player data saved successfully for ${authId}`);
+
+      // Persist world resource inventory only when it changes.
+      const nextResourceInventorySignature = this.buildResourceInventorySignature(playerData.resourceInventory);
+      const lastSavedResourceInventorySignature = this.lastSavedResourceInventorySignatureByAuthId.get(authId) || null;
+      if (nextResourceInventorySignature !== lastSavedResourceInventorySignature) {
+        playerData.resourceInventory = await this.savePlayerResourceInventory(authId, playerData.resourceInventory);
+        this.lastSavedResourceInventorySignatureByAuthId.set(
+          authId,
+          this.buildResourceInventorySignature(playerData.resourceInventory)
+        );
+      }
 
       // Persist ship skin ownership/equip state (non-blocking helper handles its own errors).
       await this.savePlayerShipSkinState(authId, playerData.shipSkins);
@@ -770,6 +951,7 @@ class PlayerDataManager {
         selectedSkinId: DEFAULT_PLAYER_SHIP_SKIN_ID,
         unlockedSkinIds: [DEFAULT_PLAYER_SHIP_SKIN_ID]
       },
+      resourceInventory: {},
       quests: []
     };
   }

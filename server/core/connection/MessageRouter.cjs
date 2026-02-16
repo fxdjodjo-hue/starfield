@@ -282,6 +282,7 @@ async function handleJoin(data, sanitizedData, context) {
     joinTime: Date.now(), // Timestamp quando ha fatto join
     isFullyLoaded: false, // ðŸš« Blocca auto-repair finchÃ© non Ã¨ true
     inventory: loadedData.inventory,
+    resourceInventory: loadedData.resourceInventory || {},
     quests: loadedData.quests || [],
     items: loadedData.items || [],
     shipSkins: normalizePlayerShipSkinState(loadedData.shipSkins)

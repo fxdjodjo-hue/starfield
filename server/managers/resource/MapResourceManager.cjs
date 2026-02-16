@@ -23,6 +23,7 @@ class MapResourceManager {
     this.COLLECT_START_GRACE_MS = 350;
     this.COLLECT_START_DRIFT_PX = 70;
     this.COLLECT_ANCHOR_SYNC_TIMEOUT_MS = 250;
+    this.RESOURCE_INVENTORY_SAVE_THROTTLE_MS = 1800;
   }
 
   initializeResources() {
@@ -227,6 +228,7 @@ class MapResourceManager {
       }
       const currentCount = Number(playerData.resourceInventory[node.resourceType] || 0);
       playerData.resourceInventory[node.resourceType] = Math.max(0, Math.floor(currentCount + 1));
+      this.persistCollectedResourceInventory(playerData, now);
 
       this.sendCollectionStatus(playerData, {
         status: 'completed',
@@ -361,6 +363,20 @@ class MapResourceManager {
     } catch (error) {
       ServerLoggerWrapper.warn('RESOURCE', `Failed to send resource collection status: ${error.message}`);
     }
+  }
+
+  persistCollectedResourceInventory(playerData, now = Date.now()) {
+    const websocketManager = this.mapServer?.websocketManager;
+    if (!websocketManager || typeof websocketManager.savePlayerData !== 'function') return;
+
+    const lastSaveAt = Number(playerData?.lastResourceInventorySaveAt || 0);
+    const elapsedSinceLastSave = Number.isFinite(lastSaveAt) ? now - lastSaveAt : Number.POSITIVE_INFINITY;
+    if (elapsedSinceLastSave < this.RESOURCE_INVENTORY_SAVE_THROTTLE_MS) return;
+
+    playerData.lastResourceInventorySaveAt = now;
+    websocketManager.savePlayerData(playerData).catch((error) => {
+      ServerLoggerWrapper.warn('RESOURCE', `Failed to persist collected resource inventory for ${playerData?.userId || 'unknown'}: ${error.message}`);
+    });
   }
 
   distanceSq(x1, y1, x2, y2) {
