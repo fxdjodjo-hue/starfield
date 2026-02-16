@@ -123,10 +123,12 @@ export class SystemFactory {
     const kronosDef = getNpcDefinition('Kronos');
     const guardDef = getNpcDefinition('Guard');
     const pyramidDef = getNpcDefinition('Pyramid');
+    const arxDroneDef = getNpcDefinition('ARX-DRONE');
     const scouterAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/scouter/alien120', scouterDef?.spriteScale || 0.8);
     const kronosAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/kronos/alien90', kronosDef?.spriteScale || 0.16);
     const guardAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/guard/alien60', guardDef?.spriteScale || 0.8);
     const pyramidAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/pyramid/alien90', pyramidDef?.spriteScale || 1.5);
+    const arxDroneAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/npc_ships/arxdrone/alien120', arxDroneDef?.spriteScale || 1.1);
     const teleportAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/teleport/teleport', 1.0);
     if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] Creating engflames AnimatedSprite...`);
     const engflamesAnimatedSprite = await context.assetManager.createAnimatedSprite('assets/engflames/engflames', 0.5);
@@ -203,7 +205,7 @@ export class SystemFactory {
     const npcSprites = new Map<string, HTMLImageElement>();
     const remoteNpcSystem = new RemoteNpcSystem(ecs, npcSprites, context.assetManager);
 
-    // Registra AnimatedSprite per Scouter, Kronos, Guard e Pyramid
+    // Registra AnimatedSprite per i tipi NPC supportati
     if (scouterAnimatedSprite) {
       remoteNpcSystem.registerNpcAnimatedSprite('Scouter', scouterAnimatedSprite);
     }
@@ -215,6 +217,9 @@ export class SystemFactory {
     }
     if (pyramidAnimatedSprite) {
       remoteNpcSystem.registerNpcAnimatedSprite('Pyramid', pyramidAnimatedSprite);
+    }
+    if (arxDroneAnimatedSprite) {
+      remoteNpcSystem.registerNpcAnimatedSprite('ARX-DRONE', arxDroneAnimatedSprite);
     }
 
     // Sistema proiettili remoti per multiplayer

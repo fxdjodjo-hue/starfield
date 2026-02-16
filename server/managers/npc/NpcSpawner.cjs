@@ -40,9 +40,17 @@ class NpcSpawner {
   createNpc(type, x, y, silent = false) {
     const npcId = `npc_${this.npcIdCounter.value++}`;
 
-    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos, Guard, Pyramid)
-    const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' || normalizedType === 'Guard' || normalizedType === 'Pyramid' ? normalizedType : type;
+    // Normalizza il tipo: assicura formato canonico per i tipi noti
+    const typeAliases = {
+      scouter: 'Scouter',
+      kronos: 'Kronos',
+      guard: 'Guard',
+      pyramid: 'Pyramid',
+      'arx-drone': 'ARX-DRONE',
+      arxdrone: 'ARX-DRONE'
+    };
+    const normalizedType = String(type || '').trim().toLowerCase();
+    const validType = typeAliases[normalizedType] || type;
 
     // Se non specificate, genera posizioni casuali ENTRO i confini del mondo
     const bounds = this.getWorldBounds();

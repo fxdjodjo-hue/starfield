@@ -25,6 +25,7 @@ export class RemoteNpcSystem extends BaseSystem {
   private npcSprites: Map<string, Sprite> = new Map();
   private npcAnimatedSprites: Map<string, AnimatedSprite> = new Map();
   private assetManager: any = null; // AssetManager per caricare spritesheet
+  private readonly supportedNpcTypes: Set<string> = new Set(['Scouter', 'Kronos', 'Guard', 'Pyramid', 'ARX-DRONE']);
 
   // Tracking per logging ridotto
   private lastBulkUpdateLog = 0;
@@ -72,6 +73,14 @@ export class RemoteNpcSystem extends BaseSystem {
       const scale = pyramidDef?.spriteScale || 1.5;
       this.npcSprites.set('Pyramid', new Sprite(pyramidImage, pyramidImage.width * scale, pyramidImage.height * scale));
     }
+
+    // ARX-DRONE sprite - usa scala dal config
+    const arxDroneDef = getNpcDefinition('ARX-DRONE');
+    const arxDroneImage = sprites.get('arxdrone') || sprites.get('arx-drone');
+    if (arxDroneImage) {
+      const scale = arxDroneDef?.spriteScale || 1.1;
+      this.npcSprites.set('ARX-DRONE', new Sprite(arxDroneImage, arxDroneImage.width * scale, arxDroneImage.height * scale));
+    }
   }
 
   /**
@@ -110,7 +119,7 @@ export class RemoteNpcSystem extends BaseSystem {
   /**
    * Crea un nuovo NPC remoto
    */
-  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise', timestamp?: number): number {
+  addRemoteNpc(npcId: string, type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid' | 'ARX-DRONE', x: number, y: number, rotation: number = 0, health: { current: number, max: number }, shield: { current: number, max: number }, behavior: string = 'cruise', timestamp?: number): number {
     // Verifica se l'NPC esiste già
     if (this.remoteNpcs && this.remoteNpcs.has(npcId)) {
       // NPC già esistente - aggiorna invece di creare duplicato
@@ -127,9 +136,9 @@ export class RemoteNpcSystem extends BaseSystem {
       return existingNpcData.entityId;
     }
 
-    // Normalizza il tipo: assicura che sia maiuscolo (Scouter, Kronos, Guard, Pyramid)
+    // Normalizza il tipo: assicura formato canonico (Scouter, Kronos, Guard, Pyramid, ARX-DRONE)
     const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
-    const validType = normalizedType === 'Scouter' || normalizedType === 'Kronos' || normalizedType === 'Guard' || normalizedType === 'Pyramid' ? normalizedType : type;
+    const validType = this.supportedNpcTypes.has(type) ? type : (this.supportedNpcTypes.has(normalizedType) ? normalizedType : type);
 
     // Ottieni lo sprite o animatedSprite per questo tipo di NPC
     const animatedSprite = this.npcAnimatedSprites.get(validType);
@@ -269,7 +278,7 @@ export class RemoteNpcSystem extends BaseSystem {
 
         if (!this.remoteNpcs.has(id)) {
           // AUTO-SPAWN: Se l'NPC entra nel raggio e non lo abbiamo, crealo
-          const npcType = type as 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
+          const npcType = type as 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid' | 'ARX-DRONE';
           this.addRemoteNpc(id, npcType, x, y, rotation, { current: hp, max: maxHp }, { current: sh, max: maxSh }, behavior, timestamp);
         } else {
           // UPDATE: Se esiste già, aggiorna posizione e timestamp

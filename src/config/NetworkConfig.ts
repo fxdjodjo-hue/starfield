@@ -117,6 +117,7 @@ export type ExplosionId = string & { readonly __brand: unique symbol };
  */
 export type PlayerUuid = string & { readonly __brand: unique symbol }; // UUID Supabase (auth)
 export type PlayerDbId = number & { readonly __brand: unique symbol }; // ID numerico database
+export type NetworkNpcType = 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid' | 'ARX-DRONE';
 
 /**
  * Network message types
@@ -183,6 +184,7 @@ export const MESSAGE_TYPES = {
   // Map messages
   PORTAL_USE: 'portal_use',
   MAP_CHANGE: 'map_change',
+  BOSS_EVENT: 'boss_event',
 
   // Quest messages
   QUEST_PROGRESS_UPDATE: 'quest_progress_update',
@@ -209,7 +211,7 @@ export function isValidMessageType(type: string): type is NetworkMessageType {
 export interface NpcJoinedMessage {
   type: typeof MESSAGE_TYPES.NPC_JOINED;
   npcId: NpcId;
-  npcType: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
+  npcType: NetworkNpcType;
   position: { x: number; y: number; rotation: number };
   health: { current: number; max: number };
   shield: { current: number; max: number };
@@ -223,7 +225,7 @@ export interface NpcSpawnMessage {
   type: typeof MESSAGE_TYPES.NPC_SPAWN;
   npc: {
     id: NpcId;
-    type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
+    type: NetworkNpcType;
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };
@@ -238,7 +240,7 @@ export interface InitialNpcsMessage {
   type: typeof MESSAGE_TYPES.INITIAL_NPCS;
   npcs: Array<{
     id: NpcId;
-    type: 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid';
+    type: NetworkNpcType;
     position: { x: number; y: number; rotation: number };
     health: { current: number; max: number };
     shield: { current: number; max: number };
@@ -663,12 +665,26 @@ export interface QuestAbandonMessage extends BaseMessage {
   questId: string;
 }
 
+/**
+ * Notifica evento boss lato server -> client
+ */
+export interface BossEventMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.BOSS_EVENT;
+  code?: string;
+  severity?: 'info' | 'mission' | 'warning' | 'danger' | 'success';
+  phase?: number | null;
+  content: string;
+  durationMs?: number;
+  timestamp?: number;
+}
+
 // Type union per tutti i messaggi di rete
 export type NetworkMessageUnion =
   | ConnectionMessage
   | PlayerMessage
   | NpcMessage
   | CombatMessage
+  | BossEventMessage
   | LeaderboardResponseMessage
   | QuestProgressUpdateMessage
   | QuestAcceptMessage

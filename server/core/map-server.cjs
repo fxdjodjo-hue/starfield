@@ -13,6 +13,7 @@ const PositionUpdateProcessor = require('./map/PositionUpdateProcessor.cjs');
 const RepairManager = require('../managers/repair-manager.cjs');
 const HazardManager = require('../managers/hazard-manager.cjs');
 const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
+const BossEncounterManager = require('../events/boss/BossEncounterManager.cjs');
 
 class MapServer {
   constructor(mapId, config = {}) {
@@ -31,6 +32,7 @@ class MapServer {
     this.repairManager = new RepairManager(this);
     this.hazardManager = new HazardManager(this);
     this.questManager = new ServerQuestManager(this);
+    this.bossEncounterManager = new BossEncounterManager(this);
 
     // Players connessi a questa mappa
     this.players = new Map();
@@ -93,6 +95,10 @@ class MapServer {
       const isThrottledTick = this.tickCounter % 2 === 0;
 
       // 1. Movimento NPC (Sempre a 20 Hz per precisione fisica server)
+      if (this.bossEncounterManager) {
+        this.bossEncounterManager.update(Date.now());
+      }
+
       const allNpcs = this.npcManager.getAllNpcs();
       NpcMovementSystem.updateMovements(allNpcs, this.players, this.npcManager);
 

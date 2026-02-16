@@ -16,7 +16,7 @@ class BossEncounterManager {
     this.mapServer = mapServer;
     this.config = config;
     this.activeEncounter = null;
-    this.nextEncounterAt = Date.now() + this.config.initialDelayMs;
+    this.nextEncounterAt = this.computeNextEncounterAt(Date.now(), true);
     this.encounterCounter = 0;
     this.isEndingEncounter = false;
     this.lastPreStartRemainingMs = null;
@@ -35,12 +35,9 @@ class BossEncounterManager {
     }
 
     if (now < this.nextEncounterAt) {
-      if (this.mapServer.players.size >= this.config.minPlayersToStart) {
-        this.emitPreStartAnnouncements(now);
-      }
+      this.emitPreStartAnnouncements(now);
       return;
     }
-    if (this.mapServer.players.size < this.config.minPlayersToStart) return;
 
     this.startEncounter(now);
   }
@@ -605,8 +602,28 @@ class BossEncounterManager {
   }
 
   scheduleNextEncounter(now) {
-    this.nextEncounterAt = now + this.config.intervalMs;
+    this.nextEncounterAt = this.computeNextEncounterAt(now, false);
     this.resetPreStartAnnouncements();
+  }
+
+  computeNextEncounterAt(now, isInitialSchedule = false) {
+    const baseNow = Math.max(0, Number(now) || Date.now());
+    const intervalMs = Math.max(60_000, Number(this.config.intervalMs) || 60 * 60 * 1000);
+    const alignToBoundary = this.config.alignToIntervalBoundary !== false;
+
+    if (alignToBoundary) {
+      const slotIndex = Math.floor(baseNow / intervalMs) + 1;
+      return slotIndex * intervalMs;
+    }
+
+    if (isInitialSchedule) {
+      const initialDelayMs = Math.max(0, Number(this.config.initialDelayMs) || 0);
+      if (initialDelayMs > 0) {
+        return baseNow + initialDelayMs;
+      }
+    }
+
+    return baseNow + intervalMs;
   }
 
   resetPreStartAnnouncements() {
@@ -690,7 +707,7 @@ class BossEncounterManager {
     content = '',
     phase = null
   } = {}) {
-    if (!content || this.mapServer.players.size === 0) return;
+    if (!content) return;
 
     this.mapServer.broadcastToMap({
       type: 'boss_event',

@@ -9,8 +9,9 @@ const BOSS_ENCOUNTER_CONFIG = {
   // Scheduling
   minPlayersToStart: 1,
   initialDelayMs: Number(process.env.BOSS_ENCOUNTER_INITIAL_DELAY_MS) || 90_000,
-  intervalMs: Number(process.env.BOSS_ENCOUNTER_INTERVAL_MS) || 15 * 60 * 1000,
-  maxDurationMs: Number(process.env.BOSS_ENCOUNTER_DURATION_MS) || 12 * 60 * 1000,
+  intervalMs: Number(process.env.BOSS_ENCOUNTER_INTERVAL_MS) || 60 * 60 * 1000, // every hour
+  maxDurationMs: Number(process.env.BOSS_ENCOUNTER_DURATION_MS) || 30 * 60 * 1000, // 30 minutes hard timeout
+  alignToIntervalBoundary: process.env.BOSS_ENCOUNTER_ALIGN_TO_INTERVAL !== 'false',
   preStartAnnouncementsMs: [60_000, 30_000, 10_000],
 
   // Boss base type (riusa pipeline esistente NPC/proiettili/client)

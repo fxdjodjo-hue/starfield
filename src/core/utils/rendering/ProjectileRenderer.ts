@@ -124,7 +124,7 @@ export class ProjectileRenderer {
     if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
       // È un proiettile NPC
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
-      if (npcType === 'Kronos') {
+      if (npcType === 'Kronos' || npcType === 'ARX-DRONE') {
         return this.assetManager.getOrLoadImage('assets/npc_ships/kronos/npc_frigate_projectile.png');
       } else {
         return this.assetManager.getOrLoadImage('assets/npc_ships/scouter/npc_scouter_projectile.png');
@@ -161,8 +161,8 @@ export class ProjectileRenderer {
   private getProjectileImageSize(projectile: Projectile): number {
     if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
       const npcType = this.getNpcTypeFromPlayerId(projectile.playerId);
-      // Kronos: proiettile più piccolo, Scouter: ancora più piccolo
-      return (npcType === 'Kronos') ? 24 : 18;
+      // Kronos/ARX-DRONE: proiettile più grande, Scouter: più piccolo
+      return (npcType === 'Kronos' || npcType === 'ARX-DRONE') ? 24 : 18;
     }
     return 36; // Default size
   }

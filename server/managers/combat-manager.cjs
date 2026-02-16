@@ -628,7 +628,10 @@ class ServerCombatManager {
 
     // Controlla cooldown attacco
     const lastAttack = this.npcAttackCooldowns.get(npc.id) || 0;
-    const cooldown = NPC_CONFIG[npc.type].stats.cooldown || 2000; // Fallback ragionevole per NPC
+    const configuredCooldown = NPC_CONFIG[npc.type].stats.cooldown || 2000;
+    const cooldown = (Number.isFinite(npc.attackCooldownOverride) && npc.attackCooldownOverride > 0)
+      ? npc.attackCooldownOverride
+      : configuredCooldown;
     if (now - lastAttack < cooldown) {
       if (process.env.DEBUG_COMBAT === 'true') {
         console.log(`[NPC ${npc.id}] Non attacca: cooldown attivo. lastAttack=${lastAttack}, cooldown=${cooldown}, now=${now}`);

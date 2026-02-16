@@ -24,6 +24,16 @@ class NpcDamageHandler {
   damageNpc(npcId, damage, attackerId) {
     const npc = this.npcs.get(npcId);
     if (!npc) return false;
+
+    // Gate evento boss: boss invulnerabile quando shield lock attivo.
+    if (this.mapServer.bossEncounterManager &&
+      typeof this.mapServer.bossEncounterManager.canNpcTakeDamage === 'function') {
+      const canTakeDamage = this.mapServer.bossEncounterManager.canNpcTakeDamage(npcId, attackerId, Date.now());
+      if (!canTakeDamage) {
+        return false;
+      }
+    }
+
     const rewardAttackerId = this.registerRewardParticipant(npc, attackerId);
 
     const rawDamage = damage;
@@ -57,6 +67,15 @@ class NpcDamageHandler {
 
     // Se morto, rimuovi l'NPC e assegna ricompense
     if (npc.health <= 0) {
+      // Hook evento: nelle fasi non finali il boss non muore, ma transiziona.
+      if (this.mapServer.bossEncounterManager &&
+        typeof this.mapServer.bossEncounterManager.onNpcHealthDepleted === 'function') {
+        const consumed = this.mapServer.bossEncounterManager.onNpcHealthDepleted(npc, attackerId, Date.now());
+        if (consumed) {
+          return false;
+        }
+      }
+
       const rewardParticipantIds = this.collectRewardParticipants(npc, attackerId);
       // 🚀 IMMEDIATE REMOVAL BROADCAST: Comunica subito la morte a tutti i client
       // Questo previene l'effetto "fermo per qualche secondo" (ghost corpse)
@@ -216,7 +235,7 @@ class NpcDamageHandler {
    * @param {string} npcId - ID dell'NPC
    * @returns {boolean} True se l'NPC esisteva ed è stato rimosso
    */
-  removeNpc(npcId) {
+  removeNpc(npcId, options = {}) {
     const npc = this.npcs.get(npcId);
     if (!npc) return false;
 
@@ -236,8 +255,18 @@ class NpcDamageHandler {
         this.mapServer.repairManager.removeNpc(npcId);
       }
 
-      // Pianifica automaticamente il respawn per mantenere la popolazione
-      this.respawnSystem.scheduleRespawn(npcType);
+      // Pianifica automaticamente il respawn per mantenere la popolazione.
+      // Gli NPC evento possono esplicitamente disabilitarlo.
+      const shouldSkipRespawn = options.skipRespawn === true || npc.skipRespawnOnDeath === true;
+      if (!shouldSkipRespawn) {
+        this.respawnSystem.scheduleRespawn(npcType);
+      }
+
+      // Hook evento per tracciare cleanup di boss/sgherri.
+      if (this.mapServer.bossEncounterManager &&
+        typeof this.mapServer.bossEncounterManager.onNpcRemoved === 'function') {
+        this.mapServer.bossEncounterManager.onNpcRemoved(npcId, npc);
+      }
     }
 
     return existed;

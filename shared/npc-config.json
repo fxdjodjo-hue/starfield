@@ -74,6 +74,43 @@
     },
     "description": "Nave da guerra di medie dimensioni"
   },
+  "ARX-DRONE": {
+    "type": "ARX-DRONE",
+    "defaultBehavior": "aggressive",
+    "spriteScale": 0.8,
+    "stats": {
+      "health": 1200000,
+      "shield": 600000,
+      "damage": 8500,
+      "range": 750,
+      "cooldown": 1700,
+      "speed": 320
+    },
+    "rewards": {
+      "credits": 2500000,
+      "cosmos": 15000,
+      "experience": 1500000,
+      "honor": 10000
+    },
+    "possibleDrops": [
+      "hull_titanium_rare",
+      "shield_aegis_rare",
+      "laser_pulse_rare",
+      "engine_fusion_rare",
+      "missile_stingray_rare",
+      "hull_titanium_epic",
+      "shield_aegis_epic",
+      "laser_pulse_epic",
+      "engine_fusion_epic",
+      "missile_stingray_epic"
+    ],
+    "ai": {
+      "aggressionLevel": "high",
+      "targetPriority": "players",
+      "formation": "solo"
+    },
+    "description": "Boss d'assalto ad alta pressione con scudi rinforzati"
+  },
   "Guard": {
     "type": "Guard",
     "defaultBehavior": "cruise",

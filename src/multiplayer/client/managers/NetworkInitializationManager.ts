@@ -43,6 +43,7 @@ import { GlobalMonitorHandler } from '../handlers/GlobalMonitorHandler';
 import { MapChangeHandler } from '../handlers/MapChangeHandler';
 import { ErrorMessageHandler } from '../handlers/ErrorMessageHandler';
 import { QuestUpdateHandler } from '../handlers/QuestUpdateHandler';
+import { BossEventHandler } from '../handlers/BossEventHandler';
 
 /**
  * Interface for JWT authentication validation
@@ -142,6 +143,7 @@ export class NetworkInitializationManager {
         new GlobalMonitorHandler(),
         new MapChangeHandler(),
         new QuestUpdateHandler(),
+        new BossEventHandler(),
         new ErrorMessageHandler()
       );
       this.baseHandlersRegistered = true;

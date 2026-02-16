@@ -98,8 +98,8 @@ class ServerNpcManager {
    * @param {string} npcId - ID dell'NPC
    * @returns {boolean} True se l'NPC esisteva ed è stato rimosso
    */
-  removeNpc(npcId) {
-    return this.damageHandler.removeNpc(npcId);
+  removeNpc(npcId, options = {}) {
+    return this.damageHandler.removeNpc(npcId, options);
   }
 
   /**
