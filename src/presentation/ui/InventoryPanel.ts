@@ -8,7 +8,6 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { Inventory } from '../../entities/player/Inventory';
-import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { ITEM_REGISTRY, ItemSlot, getItem } from '../../config/ItemConfig';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
@@ -16,10 +15,16 @@ import {
   getPlayerShipSkinById,
   getSelectedPlayerShipSkinId,
   listPlayerShipSkins,
-  persistPlayerShipSkinSelection,
+  getUnlockedPlayerShipSkinIds,
   type PlayerShipSkinDefinition
 } from '../../config/ShipSkinConfig';
-import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSpriteFactory';
+
+type ShipSkinCurrency = 'credits' | 'cosmos';
+
+interface ShipSkinPriceInfo {
+  currency: ShipSkinCurrency;
+  amount: number;
+}
 
 /**
  * InventoryPanel - Pannello per la gestione dell'inventario e dell'equipaggiamento
@@ -55,6 +60,7 @@ export class InventoryPanel extends BasePanel {
   private shipSkinPopup: HTMLElement | null = null;
   private selectedShipSkinId: string = '';
   private currentShipSkin: PlayerShipSkinDefinition | null = null;
+  private renderedShipVisualSkinId: string = '';
   private availableShipSkins: PlayerShipSkinDefinition[] = [];
   private lastInventoryHash: string = '';
   private lastInventoryLayoutSignature: string = '';
@@ -78,6 +84,7 @@ export class InventoryPanel extends BasePanel {
     this.shipDragMoved = false;
     this.selectedShipSkinId = getSelectedPlayerShipSkinId();
     this.currentShipSkin = getPlayerShipSkinById(this.selectedShipSkinId);
+    this.renderedShipVisualSkinId = this.currentShipSkin.id;
     this.availableShipSkins = listPlayerShipSkins();
 
     // Recupero forzato riferimenti se persi durante la costruzione
@@ -615,6 +622,13 @@ export class InventoryPanel extends BasePanel {
     let playerEntity = this.playerSystem.getPlayerEntity() || this.ecs.getPlayerEntity();
     if (!playerEntity) return;
 
+    // Keep ship visual sprite/style synchronized with server-selected skin.
+    // This is required when purchase/equip responses arrive while panel is already open.
+    const skinVisualUpdated = this.syncShipVisualSkinStyle();
+    if (skinVisualUpdated) {
+      this.applyShipAnimationFrame(this.shipDragFrameAccumulator);
+    }
+
     const health = this.ecs.getComponent(playerEntity, Health);
     const shield = this.ecs.getComponent(playerEntity, Shield);
     const damage = this.ecs.getComponent(playerEntity, Damage);
@@ -808,12 +822,36 @@ export class InventoryPanel extends BasePanel {
     this.updateVisualSlots(inventory);
   }
 
-  private ensureShipSkinState(preferredSkinId?: string | null): void {
-    const resolvedSkinId = getSelectedPlayerShipSkinId(preferredSkinId || this.selectedShipSkinId || null);
-    this.selectedShipSkinId = resolvedSkinId;
+  private getServerShipSkinState(preferredSkinId?: string | null): {
+    selectedSkinId: string;
+    unlockedSkinIds: string[];
+  } {
+    const contextState = this.networkSystem?.gameContext;
+    const selectedSkinId = getSelectedPlayerShipSkinId(
+      preferredSkinId ||
+      contextState?.playerShipSkinId ||
+      this.selectedShipSkinId ||
+      null
+    );
+    const unlockedSkinIds = getUnlockedPlayerShipSkinIds(
+      contextState?.unlockedPlayerShipSkinIds || [],
+      selectedSkinId
+    );
 
-    if (!this.currentShipSkin || !this.currentShipSkin.preview || this.currentShipSkin.id !== resolvedSkinId) {
-      this.currentShipSkin = getPlayerShipSkinById(resolvedSkinId);
+    if (contextState) {
+      contextState.playerShipSkinId = selectedSkinId;
+      contextState.unlockedPlayerShipSkinIds = unlockedSkinIds;
+    }
+
+    return { selectedSkinId, unlockedSkinIds };
+  }
+
+  private ensureShipSkinState(preferredSkinId?: string | null): void {
+    const { selectedSkinId } = this.getServerShipSkinState(preferredSkinId);
+    this.selectedShipSkinId = selectedSkinId;
+
+    if (!this.currentShipSkin || !this.currentShipSkin.preview || this.currentShipSkin.id !== selectedSkinId) {
+      this.currentShipSkin = getPlayerShipSkinById(selectedSkinId);
     }
 
     if (!Array.isArray(this.availableShipSkins) || this.availableShipSkins.length === 0) {
@@ -824,6 +862,255 @@ export class InventoryPanel extends BasePanel {
   private getActiveShipSkin(): PlayerShipSkinDefinition {
     this.ensureShipSkinState();
     return this.currentShipSkin!;
+  }
+
+  private getPlayerCurrencyBalance(currency: ShipSkinCurrency): number {
+    const inventory = this.networkSystem?.gameContext?.playerInventory;
+    if (!inventory) return 0;
+    const rawValue = Number(currency === 'cosmos' ? inventory.cosmos : inventory.credits);
+    return Number.isFinite(rawValue) ? Math.max(0, Math.floor(rawValue)) : 0;
+  }
+
+  private resolveShipSkinPrice(skin: PlayerShipSkinDefinition): ShipSkinPriceInfo {
+    const cosmosAmount = Math.max(0, Math.floor(skin.priceCosmos || 0));
+    if (cosmosAmount > 0) {
+      return { currency: 'cosmos', amount: cosmosAmount };
+    }
+
+    const creditsAmount = Math.max(1, Math.floor(skin.priceCredits || 1));
+    return { currency: 'credits', amount: creditsAmount };
+  }
+
+  private formatShipSkinPrice(price: ShipSkinPriceInfo): string {
+    const label = price.currency === 'cosmos' ? 'Cosmos' : 'Credits';
+    return `${NumberFormatter.format(price.amount)} ${label}`;
+  }
+
+  private requestServerShipSkinAction(
+    skinId: string,
+    action: 'equip' | 'purchase' | 'purchase_and_equip'
+  ): boolean {
+    if (!this.networkSystem || typeof this.networkSystem.sendShipSkinActionRequest !== 'function') {
+      return false;
+    }
+
+    this.networkSystem.sendShipSkinActionRequest(skinId, action);
+    return true;
+  }
+
+  private confirmShipSkinAction(params: {
+    title: string;
+    description: string;
+    confirmText: string;
+    canConfirm: boolean;
+    balanceText?: string;
+    accent: ShipSkinCurrency | 'equip';
+    blockedConfirmText?: string;
+  }): Promise<boolean> {
+    return new Promise((resolve) => {
+      if (this.activePopup) {
+        this.activePopup.remove();
+        this.activePopup = null;
+      }
+
+      const overlay = document.createElement('div');
+      overlay.style.cssText = `
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.78);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 180;
+        padding: 20px;
+        box-sizing: border-box;
+        opacity: 0;
+        transition: opacity 0.16s ease;
+      `;
+
+      const card = document.createElement('div');
+      card.style.cssText = `
+        width: min(420px, 100%);
+        background: rgba(16, 21, 34, 0.96);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+        box-shadow: 0 22px 84px rgba(0, 0, 0, 0.58);
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        opacity: 0;
+        transform: translateY(10px) scale(0.985);
+        transition: transform 0.18s ease, opacity 0.18s ease;
+      `;
+
+      const title = document.createElement('div');
+      title.textContent = params.title;
+      title.style.cssText = `
+        color: #ffffff;
+        font-size: 14px;
+        font-weight: 900;
+        letter-spacing: 1.3px;
+        text-transform: uppercase;
+      `;
+
+      const description = document.createElement('div');
+      description.textContent = params.description;
+      description.style.cssText = `
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 13px;
+        line-height: 1.5;
+        letter-spacing: 0.3px;
+      `;
+
+      const balanceLabel = document.createElement('div');
+      balanceLabel.textContent = params.balanceText || '';
+      balanceLabel.style.cssText = `
+        color: ${params.canConfirm ? 'rgba(255, 255, 255, 0.74)' : 'rgba(248, 113, 113, 0.95)'};
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        display: ${params.balanceText ? 'block' : 'none'};
+      `;
+
+      const actions = document.createElement('div');
+      actions.style.cssText = `
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+      `;
+
+      const cancelBtn = document.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.style.cssText = `
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.85);
+        border-radius: 2px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+      `;
+
+      let borderColor = 'rgba(56, 189, 248, 0.7)';
+      let backgroundColor = 'rgba(56, 189, 248, 0.2)';
+      let textColor = '#7dd3fc';
+      if (params.accent === 'credits') {
+        borderColor = 'rgba(245, 158, 11, 0.65)';
+        backgroundColor = 'rgba(245, 158, 11, 0.2)';
+        textColor = '#fbbf24';
+      } else if (params.accent === 'cosmos') {
+        borderColor = 'rgba(34, 211, 238, 0.65)';
+        backgroundColor = 'rgba(34, 211, 238, 0.2)';
+        textColor = '#67e8f9';
+      }
+
+      const confirmBtn = document.createElement('button');
+      confirmBtn.type = 'button';
+      confirmBtn.textContent = params.canConfirm
+        ? params.confirmText
+        : (params.blockedConfirmText || 'Unavailable');
+      confirmBtn.style.cssText = `
+        border: 1px solid ${params.canConfirm ? borderColor : 'rgba(248, 113, 113, 0.55)'};
+        background: ${params.canConfirm ? backgroundColor : 'rgba(127, 29, 29, 0.26)'};
+        color: ${params.canConfirm ? textColor : '#fca5a5'};
+        border-radius: 2px;
+        padding: 8px 12px;
+        cursor: ${params.canConfirm ? 'pointer' : 'not-allowed'};
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        opacity: ${params.canConfirm ? '1' : '0.75'};
+      `;
+      confirmBtn.disabled = !params.canConfirm;
+
+      const closePopup = (confirmed: boolean) => {
+        if (this.activePopup === overlay) this.activePopup = null;
+        overlay.style.pointerEvents = 'none';
+        overlay.style.opacity = '0';
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(10px) scale(0.985)';
+        window.setTimeout(() => overlay.remove(), 180);
+        resolve(confirmed);
+      };
+
+      cancelBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closePopup(false);
+      });
+
+      confirmBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!params.canConfirm) return;
+        closePopup(true);
+      });
+
+      card.addEventListener('click', (event) => {
+        event.stopPropagation();
+      });
+      card.addEventListener('mousedown', (event) => {
+        event.stopPropagation();
+      });
+
+      overlay.addEventListener('click', (event) => {
+        event.stopPropagation();
+        if (event.target === overlay) closePopup(false);
+      });
+      overlay.addEventListener('mousedown', (event) => {
+        event.stopPropagation();
+      });
+
+      actions.appendChild(cancelBtn);
+      actions.appendChild(confirmBtn);
+      card.appendChild(title);
+      card.appendChild(description);
+      card.appendChild(balanceLabel);
+      card.appendChild(actions);
+      overlay.appendChild(card);
+
+      this.activePopup = overlay;
+      this.container.appendChild(overlay);
+      requestAnimationFrame(() => {
+        overlay.style.opacity = '1';
+        card.style.opacity = '1';
+        card.style.transform = 'translateY(0) scale(1)';
+      });
+    });
+  }
+
+  private confirmShipSkinPurchase(skin: PlayerShipSkinDefinition): Promise<boolean> {
+    const price = this.resolveShipSkinPrice(skin);
+    const currencyLabel = price.currency === 'cosmos' ? 'Cosmos' : 'Credits';
+    const balance = this.getPlayerCurrencyBalance(price.currency);
+    const canAfford = balance >= price.amount;
+
+    return this.confirmShipSkinAction({
+      title: 'Unlock Ship Skin',
+      description: `Buy ${skin.displayName} for ${this.formatShipSkinPrice(price)}?`,
+      confirmText: 'Buy & Equip',
+      canConfirm: canAfford,
+      balanceText: `Balance: ${NumberFormatter.format(balance)} ${currencyLabel}`,
+      accent: price.currency,
+      blockedConfirmText: `Not Enough ${currencyLabel}`
+    });
+  }
+
+  private confirmShipSkinEquip(skin: PlayerShipSkinDefinition): Promise<boolean> {
+    return this.confirmShipSkinAction({
+      title: 'Equip Ship Skin',
+      description: `Equip ${skin.displayName}?`,
+      confirmText: 'Equip',
+      canConfirm: true,
+      accent: 'equip'
+    });
   }
 
   private getInventoryPlaceholderCount(cargoGrid: HTMLElement, usedRows: number): number {
@@ -964,7 +1251,9 @@ export class InventoryPanel extends BasePanel {
   }
 
   private applyShipAnimationFrame(frame: number): void {
-    const preview = this.getActiveShipSkin().preview;
+    const skin = this.getActiveShipSkin();
+    this.syncShipVisualSkinStyle(skin);
+    const preview = skin.preview;
     const totalFrames = Math.max(1, preview.totalFrames);
     const columns = Math.max(1, preview.columns);
     const normalized = ((Math.floor(frame) % totalFrames) + totalFrames) % totalFrames;
@@ -1002,6 +1291,13 @@ export class InventoryPanel extends BasePanel {
     if (!this.shipVisual) return;
 
     const skin = this.getActiveShipSkin();
+    this.applyShipVisualStyleForSkin(skin);
+    this.renderedShipVisualSkinId = skin.id;
+  }
+
+  private applyShipVisualStyleForSkin(skin: PlayerShipSkinDefinition): void {
+    if (!this.shipVisual) return;
+
     const preview = skin.preview;
     const { scale } = this.getShipVisualMetrics(preview);
     this.shipVisual.style.width = `${preview.frameWidth}px`;
@@ -1010,6 +1306,23 @@ export class InventoryPanel extends BasePanel {
     this.shipVisual.style.backgroundImage = `url('${skin.basePath}.png')`;
     this.shipVisual.style.backgroundSize = `${preview.sheetWidth}px ${preview.sheetHeight}px`;
     this.shipVisual.style.backgroundPosition = `${-preview.offsetX}px ${-preview.offsetY}px`;
+  }
+
+  private syncShipVisualSkinStyle(skin?: PlayerShipSkinDefinition): boolean {
+    if (!this.shipVisual) return false;
+
+    const activeSkin = skin || this.getActiveShipSkin();
+    if (this.renderedShipVisualSkinId === activeSkin.id) return false;
+
+    this.applyShipVisualStyleForSkin(activeSkin);
+    this.renderedShipVisualSkinId = activeSkin.id;
+
+    const totalFrames = Math.max(1, activeSkin.preview.totalFrames || 1);
+    const normalizedFrame =
+      ((Math.floor(this.shipDragFrameAccumulator) % totalFrames) + totalFrames) % totalFrames;
+    this.currentFrame = normalizedFrame;
+    this.shipDragFrameAccumulator = normalizedFrame;
+    return true;
   }
 
   private getShipVisualMetrics(preview: PlayerShipSkinDefinition['preview']): {
@@ -1028,14 +1341,31 @@ export class InventoryPanel extends BasePanel {
     };
   }
 
-  private closeShipSkinSelector(): void {
+  private closeShipSkinSelector(instant: boolean = false): void {
     if (!this.shipSkinPopup) return;
-    this.shipSkinPopup.remove();
+
+    const overlay = this.shipSkinPopup;
     this.shipSkinPopup = null;
+    if (instant) {
+      overlay.remove();
+      return;
+    }
+
+    const panel = overlay.firstElementChild as HTMLElement | null;
+    overlay.style.pointerEvents = 'none';
+    overlay.style.opacity = '0';
+    if (panel) {
+      panel.style.opacity = '0';
+      panel.style.transform = 'translateY(10px) scale(0.985)';
+    }
+
+    window.setTimeout(() => {
+      overlay.remove();
+    }, 180);
   }
 
   private openShipSkinSelector(): void {
-    this.closeShipSkinSelector();
+    this.closeShipSkinSelector(true);
     this.ensureShipSkinState();
 
     const overlay = document.createElement('div');
@@ -1053,6 +1383,8 @@ export class InventoryPanel extends BasePanel {
       z-index: 120;
       padding: 24px;
       box-sizing: border-box;
+      opacity: 0;
+      transition: opacity 0.2s ease;
     `;
 
     const panel = document.createElement('div');
@@ -1066,6 +1398,9 @@ export class InventoryPanel extends BasePanel {
       display: flex;
       flex-direction: column;
       gap: 14px;
+      transform: translateY(10px) scale(0.985);
+      opacity: 0;
+      transition: transform 0.22s ease, opacity 0.22s ease;
     `;
 
     const header = document.createElement('div');
@@ -1100,7 +1435,18 @@ export class InventoryPanel extends BasePanel {
       font-weight: 700;
       letter-spacing: 0.8px;
       text-transform: uppercase;
+      transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
     `;
+    closeButton.addEventListener('mouseenter', () => {
+      closeButton.style.borderColor = 'rgba(226, 232, 240, 0.42)';
+      closeButton.style.background = 'rgba(255, 255, 255, 0.14)';
+      closeButton.style.color = '#ffffff';
+    });
+    closeButton.addEventListener('mouseleave', () => {
+      closeButton.style.borderColor = 'rgba(255, 255, 255, 0.22)';
+      closeButton.style.background = 'rgba(255, 255, 255, 0.06)';
+      closeButton.style.color = 'rgba(255, 255, 255, 0.85)';
+    });
     closeButton.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -1110,6 +1456,9 @@ export class InventoryPanel extends BasePanel {
     header.appendChild(title);
     header.appendChild(closeButton);
 
+    const serverSkinState = this.getServerShipSkinState();
+    this.selectedShipSkinId = serverSkinState.selectedSkinId;
+
     const options = document.createElement('div');
     options.style.cssText = `
       display: grid;
@@ -1118,15 +1467,23 @@ export class InventoryPanel extends BasePanel {
     `;
 
     for (const skin of this.availableShipSkins) {
-      const isSelected = skin.id === this.selectedShipSkinId;
+      const isSelected = skin.id === serverSkinState.selectedSkinId;
+      const isUnlocked = serverSkinState.unlockedSkinIds.includes(skin.id);
       const skinPreview = skin.preview;
-      const previewScale = 0.34;
 
       const option = document.createElement('button');
       option.type = 'button';
       option.style.cssText = `
-        border: 1px solid ${isSelected ? 'rgba(56, 189, 248, 0.85)' : 'rgba(255, 255, 255, 0.16)'};
-        background: ${isSelected ? 'rgba(56, 189, 248, 0.16)' : 'rgba(255, 255, 255, 0.04)'};
+        border: 1px solid ${isSelected
+          ? 'rgba(56, 189, 248, 0.85)'
+          : isUnlocked
+            ? 'rgba(255, 255, 255, 0.16)'
+            : 'rgba(245, 158, 11, 0.45)'};
+        background: ${isSelected
+          ? 'rgba(56, 189, 248, 0.16)'
+          : isUnlocked
+            ? 'rgba(255, 255, 255, 0.04)'
+            : 'rgba(255, 255, 255, 0.025)'};
         border-radius: 3px;
         cursor: pointer;
         padding: 10px;
@@ -1135,9 +1492,10 @@ export class InventoryPanel extends BasePanel {
         align-items: center;
         gap: 10px;
         min-height: 120px;
+        transition: filter 0.2s ease, border-color 0.2s ease;
       `;
-
-      const spritePreview = document.createElement('div');
+      const spritePreview = document.createElement('div') as HTMLDivElement;
+      const previewScale = 0.34;
       spritePreview.style.cssText = `
         width: ${Math.round(skinPreview.frameWidth * previewScale)}px;
         height: ${Math.round(skinPreview.frameHeight * previewScale)}px;
@@ -1146,7 +1504,10 @@ export class InventoryPanel extends BasePanel {
         background-size: ${Math.round(skinPreview.sheetWidth * previewScale)}px ${Math.round(skinPreview.sheetHeight * previewScale)}px;
         background-position: ${-Math.round(skinPreview.offsetX * previewScale)}px ${-Math.round(skinPreview.offsetY * previewScale)}px;
         image-rendering: pixelated;
-        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.22));
+        opacity: ${isUnlocked ? '1' : '0.6'};
+        filter: drop-shadow(0 0 12px ${isUnlocked
+          ? 'rgba(255, 255, 255, 0.22)'
+          : 'rgba(245, 158, 11, 0.22)'});
       `;
 
       const label = document.createElement('div');
@@ -1163,10 +1524,35 @@ export class InventoryPanel extends BasePanel {
       option.appendChild(spritePreview);
       option.appendChild(label);
 
-      option.addEventListener('click', (event) => {
+      option.addEventListener('mouseenter', () => {
+        option.style.filter = 'brightness(1.06)';
+      });
+      option.addEventListener('mouseleave', () => {
+        option.style.filter = 'none';
+      });
+
+      option.addEventListener('click', async (event) => {
         event.preventDefault();
         event.stopPropagation();
-        void this.applyShipSkinSelection(skin.id).finally(() => this.closeShipSkinSelector());
+
+        if (isSelected) return;
+
+        if (!isUnlocked) {
+          const confirmedPurchase = await this.confirmShipSkinPurchase(skin);
+          if (!confirmedPurchase) return;
+        } else {
+          const confirmedEquip = await this.confirmShipSkinEquip(skin);
+          if (!confirmedEquip) return;
+        }
+
+        const action = isUnlocked ? 'equip' : 'purchase_and_equip';
+        const requestSent = this.requestServerShipSkinAction(skin.id, action);
+        if (!requestSent) {
+          option.style.borderColor = 'rgba(248, 113, 113, 0.92)';
+          return;
+        }
+
+        this.closeShipSkinSelector();
       });
 
       options.appendChild(option);
@@ -1194,38 +1580,11 @@ export class InventoryPanel extends BasePanel {
 
     this.shipSkinPopup = overlay;
     this.container.appendChild(overlay);
-  }
-
-  private async applyShipSkinSelection(skinId: string): Promise<void> {
-    const skin = getPlayerShipSkinById(skinId);
-    const persistedSkinId = persistPlayerShipSkinSelection(skin.id);
-    this.selectedShipSkinId = persistedSkinId;
-    this.currentShipSkin = getPlayerShipSkinById(persistedSkinId);
-
-    if (this.networkSystem?.gameContext) {
-      this.networkSystem.gameContext.playerShipSkinId = persistedSkinId;
-    }
-
-    this.currentFrame = -1;
-    this.shipDragFrameAccumulator = 0;
-    this.updateShipVisualStyle();
-    this.applyShipAnimationFrame(0);
-
-    const playerEntity = this.playerSystem?.getPlayerEntity();
-    const assetManager = this.networkSystem?.gameContext?.assetManager;
-    if (!playerEntity || !assetManager) return;
-
-    try {
-      const playerAnimatedSprite = await createPlayerShipAnimatedSprite(assetManager, persistedSkinId);
-      this.ecs.addComponent(playerEntity, AnimatedSprite, playerAnimatedSprite);
-
-      const remotePlayerSystem = this.networkSystem?.getRemotePlayerSystem?.();
-      if (remotePlayerSystem && typeof remotePlayerSystem.updateSharedAnimatedSprite === 'function') {
-        remotePlayerSystem.updateSharedAnimatedSprite(playerAnimatedSprite);
-      }
-    } catch (error) {
-      console.error(`[InventoryPanel] Failed to apply ship skin "${persistedSkinId}"`, error);
-    }
+    requestAnimationFrame(() => {
+      overlay.style.opacity = '1';
+      panel.style.opacity = '1';
+      panel.style.transform = 'translateY(0) scale(1)';
+    });
   }
 
   protected onShow(): void {
@@ -1259,7 +1618,7 @@ export class InventoryPanel extends BasePanel {
       this.activePopup.remove();
       this.activePopup = null;
     }
-    this.closeShipSkinSelector();
+    this.closeShipSkinSelector(true);
   }
 
   public invalidateInventoryCache(): void {
@@ -1653,3 +2012,4 @@ export class InventoryPanel extends BasePanel {
     });
   }
 }
+

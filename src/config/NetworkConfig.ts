@@ -176,6 +176,7 @@ export const MESSAGE_TYPES = {
   SAVE_REQUEST: 'save_request',
   SAVE_RESPONSE: 'save_response',
   SELL_ITEM: 'sell_item',
+  SHIP_SKIN_ACTION: 'ship_skin_action',
 
   // Leaderboard messages
   REQUEST_LEADERBOARD: 'request_leaderboard',
@@ -471,6 +472,12 @@ export interface PlayerStateUpdateMessage {
     amount: number;
     currency: 'credits';
   };
+  shipSkins?: {
+    selectedSkinId: string;
+    unlockedSkinIds: string[];
+    targetSkinId?: string;
+    lastAction?: 'equip' | 'purchase' | 'purchase_and_equip';
+  };
   items?: any[];
 }
 
@@ -492,6 +499,10 @@ export interface WelcomeMessage {
     maxShield: number;
     isAdministrator?: boolean;
     rank?: string;
+    shipSkins?: {
+      selectedSkinId: string;
+      unlockedSkinIds: string[];
+    };
 
     // Flag per lazy loading
     inventoryLazy?: boolean;
@@ -569,9 +580,21 @@ export interface PlayerDataResponseMessage extends BaseMessage {
   recentHonor?: number; // Media mobile honor ultimi 30 giorni (per calcolo rank)
   isAdministrator?: boolean; // Admin status
   rank?: string;
+  shipSkins?: {
+    selectedSkinId: string;
+    unlockedSkinIds: string[];
+  };
   quests: any[];
   items: any[];
   timestamp: number;
+}
+
+export interface ShipSkinActionMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.SHIP_SKIN_ACTION;
+  clientId: string;
+  skinId: string;
+  action: 'equip' | 'purchase' | 'purchase_and_equip';
+  timestamp?: number;
 }
 
 export interface SaveRequestMessage extends BaseMessage {

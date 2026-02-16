@@ -8,6 +8,9 @@ import { Shield } from '../../../entities/combat/Shield';
 import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { PLAYTEST_CONFIG } from '../../../config/GameConstants';
 import { EntityFactory } from '../../../systems/game/EntityFactory';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
+import { createPlayerShipAnimatedSprite } from '../../../core/services/PlayerShipSpriteFactory';
+import { getSelectedPlayerShipSkinId, getUnlockedPlayerShipSkinIds } from '../../../config/ShipSkinConfig';
 
 /**
  * Handles welcome messages from the server
@@ -74,7 +77,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       const {
         position, health, maxHealth, shield, maxShield,
-        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank
+        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank, shipSkins
       } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
@@ -83,8 +86,36 @@ export class WelcomeHandler extends BaseMessageHandler {
       // Applica posizione iniziale se necessario
       const playerSystem = networkSystem.getPlayerSystem();
       const playerEntity = playerSystem?.getPlayerEntity();
+      const resolvedSelectedSkinId = getSelectedPlayerShipSkinId(shipSkins?.selectedSkinId || null);
+      const resolvedUnlockedSkinIds = getUnlockedPlayerShipSkinIds(
+        shipSkins?.unlockedSkinIds || [],
+        resolvedSelectedSkinId
+      );
+
+      networkSystem.gameContext.playerShipSkinId = resolvedSelectedSkinId;
+      networkSystem.gameContext.unlockedPlayerShipSkinIds = resolvedUnlockedSkinIds;
 
       networkSystem.invalidatePositionCache();
+
+      if (playerEntity) {
+        const ecs = networkSystem.getECS();
+        const assetManager = networkSystem.gameContext.assetManager;
+        if (ecs && assetManager) {
+          try {
+            const playerAnimatedSprite = await createPlayerShipAnimatedSprite(assetManager, resolvedSelectedSkinId);
+            ecs.addComponent(playerEntity, AnimatedSprite, playerAnimatedSprite);
+
+            const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
+            if (remotePlayerSystem && typeof remotePlayerSystem.updateSharedAnimatedSprite === 'function') {
+              remotePlayerSystem.updateSharedAnimatedSprite(playerAnimatedSprite);
+            }
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.warn(`[WelcomeHandler] Failed to apply ship skin "${resolvedSelectedSkinId}"`, error);
+            }
+          }
+        }
+      }
 
       if (playerEntity && position) {
         const ecs = networkSystem.getECS();

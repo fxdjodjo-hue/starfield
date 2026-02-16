@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, mapServer
 
 const { logger } = require('../../logger.cjs');
+const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../../config/ShipSkinCatalog.cjs');
 
 /**
  * Utility per formattare e gestire messaggi di broadcast
@@ -53,7 +54,13 @@ class MessageBroadcaster {
         // RecentHonor calcolato dal server (non lazy perché serve per il ranking)
         recentHonor: playerData.recentHonor || 0,
         isAdministrator: isAdministrator,
-        rank: playerData.rank || 'Basic Space Pilot'
+        rank: playerData.rank || 'Basic Space Pilot',
+        shipSkins: {
+          selectedSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+          unlockedSkinIds: Array.isArray(playerData.shipSkins?.unlockedSkinIds)
+            ? playerData.shipSkins.unlockedSkinIds
+            : [DEFAULT_PLAYER_SHIP_SKIN_ID]
+        }
       }
     };
   }
@@ -195,7 +202,7 @@ class MessageBroadcaster {
    * @param {Array} items - Inventory items array
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = []) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null) {
     return {
       type: 'player_data_response',
       playerId: playerId,
@@ -206,6 +213,10 @@ class MessageBroadcaster {
       recentHonor: recentHonor,
       isAdministrator: isAdministrator,
       rank: rank || 'Basic Space Pilot',
+      shipSkins: shipSkins || {
+        selectedSkinId: DEFAULT_PLAYER_SHIP_SKIN_ID,
+        unlockedSkinIds: [DEFAULT_PLAYER_SHIP_SKIN_ID]
+      },
       timestamp: Date.now()
     };
   }

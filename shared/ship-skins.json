@@ -1,0 +1,21 @@
+{
+  "defaultSkinId": "ship50",
+  "skins": [
+    {
+      "id": "ship50",
+      "priceCredits": 0
+    },
+    {
+      "id": "ship106",
+      "priceCredits": 1
+    },
+    {
+      "id": "ship70",
+      "priceCredits": 1
+    },
+    {
+      "id": "ship102",
+      "priceCredits": 1
+    }
+  ]
+}

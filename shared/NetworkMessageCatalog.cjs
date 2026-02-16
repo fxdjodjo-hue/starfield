@@ -17,6 +17,7 @@ const CLIENT_TO_SERVER_MESSAGE_TYPES = Object.freeze([
   'request_leaderboard',
   'equip_item',
   'sell_item',
+  'ship_skin_action',
   'portal_use',
   'quest_progress_update',
   'quest_accept',

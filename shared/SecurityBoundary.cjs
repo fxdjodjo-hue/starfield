@@ -258,6 +258,8 @@ class BoundaryEnforcement {
       case 'sell_item':
         // Il client può richiedere la vendita di un item
         return { allowed: true };
+      case 'ship_skin_action':
+        return { allowed: true };
 
       case 'join':
       case 'heartbeat':

@@ -7,6 +7,9 @@ import { Shield } from '../../../entities/combat/Shield';
 import { Inventory } from '../../../entities/player/Inventory';
 import { DamageText } from '../../../entities/combat/DamageText';
 import { NumberFormatter } from '../../../core/utils/ui/NumberFormatter';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
+import { createPlayerShipAnimatedSprite } from '../../../core/services/PlayerShipSpriteFactory';
+import { getSelectedPlayerShipSkinId, getUnlockedPlayerShipSkinIds } from '../../../config/ShipSkinConfig';
 
 /**
  * Gestisce gli aggiornamenti completi dello stato del giocatore dal server
@@ -19,8 +22,9 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins } = message;
     const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);
+    const previousSelectedShipSkinId = networkSystem.gameContext?.playerShipSkinId || '';
 
     // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
     // Nota: inventory può essere undefined per messaggi di riparazione che aggiornano solo HP/shield
@@ -33,6 +37,16 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         honor: inventory.honor,
         recentHonor: recentHonor // Includi RecentHonor se disponibile
       };
+    }
+
+    if (networkSystem.gameContext && shipSkins) {
+      const selectedSkinId = getSelectedPlayerShipSkinId(shipSkins.selectedSkinId || null);
+      const unlockedSkinIds = getUnlockedPlayerShipSkinIds(
+        shipSkins.unlockedSkinIds || [],
+        selectedSkinId
+      );
+      networkSystem.gameContext.playerShipSkinId = selectedSkinId;
+      networkSystem.gameContext.unlockedPlayerShipSkinIds = unlockedSkinIds;
     }
 
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (server authoritative)
@@ -192,6 +206,31 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
     if (inventory) {
       this.forceHudResourceRefresh(inventory);
+    }
+
+    if (shipSkins) {
+      const selectedSkinId = getSelectedPlayerShipSkinId(shipSkins.selectedSkinId || null);
+      if (selectedSkinId && selectedSkinId !== previousSelectedShipSkinId) {
+        const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+        const ecs = networkSystem.getECS();
+        const assetManager = networkSystem.gameContext.assetManager;
+
+        if (playerEntity && ecs && assetManager) {
+          createPlayerShipAnimatedSprite(assetManager, selectedSkinId)
+            .then((playerAnimatedSprite) => {
+              ecs.addComponent(playerEntity, AnimatedSprite, playerAnimatedSprite);
+              const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
+              if (remotePlayerSystem && typeof remotePlayerSystem.updateSharedAnimatedSprite === 'function') {
+                remotePlayerSystem.updateSharedAnimatedSprite(playerAnimatedSprite);
+              }
+            })
+            .catch((error) => {
+              if (import.meta.env.DEV) {
+                console.warn(`[PlayerStateUpdateHandler] Failed to apply ship skin "${selectedSkinId}"`, error);
+              }
+            });
+        }
+      }
     }
 
     // Notifica esplicita vendite per feedback immediato all'utente

@@ -6,6 +6,11 @@ const { logger } = require('../../logger.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
 const { createSupabaseClient, getSupabaseConfig } = require('../../config/supabase.cjs');
 const playerConfig = require('../../../shared/player-config.json');
+const {
+  DEFAULT_PLAYER_SHIP_SKIN_ID,
+  normalizeUnlockedShipSkinIds,
+  resolveSelectedShipSkinId
+} = require('../../config/ShipSkinCatalog.cjs');
 
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
@@ -78,6 +83,98 @@ class PlayerDataManager {
     return supabase;
   }
 
+  normalizePlayerShipSkinState(shipSkinState) {
+    const selectedSkinId = resolveSelectedShipSkinId(
+      shipSkinState && typeof shipSkinState.selectedSkinId === 'string'
+        ? shipSkinState.selectedSkinId
+        : DEFAULT_PLAYER_SHIP_SKIN_ID
+    );
+
+    const unlockedSkinIds = normalizeUnlockedShipSkinIds(
+      shipSkinState && Array.isArray(shipSkinState.unlockedSkinIds)
+        ? shipSkinState.unlockedSkinIds
+        : [],
+      selectedSkinId
+    );
+
+    return {
+      selectedSkinId,
+      unlockedSkinIds
+    };
+  }
+
+  async loadPlayerShipSkinState(authId) {
+    const fallbackState = this.normalizePlayerShipSkinState({
+      selectedSkinId: DEFAULT_PLAYER_SHIP_SKIN_ID,
+      unlockedSkinIds: [DEFAULT_PLAYER_SHIP_SKIN_ID]
+    });
+
+    try {
+      const { data, error } = await supabase
+        .from('player_ship_skins')
+        .select('selected_skin_id, unlocked_skin_ids')
+        .eq('auth_id', authId)
+        .maybeSingle();
+
+      if (error) {
+        // Table may be missing if migration is not yet applied on environment.
+        ServerLoggerWrapper.warn('DATABASE', `[SHIP_SKINS] Failed to load state for ${authId}: ${error.message}`);
+        return fallbackState;
+      }
+
+      if (!data) {
+        return fallbackState;
+      }
+
+      let rawUnlockedSkinIds = [];
+      if (Array.isArray(data.unlocked_skin_ids)) {
+        rawUnlockedSkinIds = data.unlocked_skin_ids;
+      } else if (typeof data.unlocked_skin_ids === 'string') {
+        try {
+          const parsed = JSON.parse(data.unlocked_skin_ids);
+          if (Array.isArray(parsed)) rawUnlockedSkinIds = parsed;
+        } catch {
+          rawUnlockedSkinIds = [];
+        }
+      }
+
+      return this.normalizePlayerShipSkinState({
+        selectedSkinId: data.selected_skin_id,
+        unlockedSkinIds: rawUnlockedSkinIds
+      });
+    } catch (error) {
+      ServerLoggerWrapper.warn('DATABASE', `[SHIP_SKINS] Unexpected load error for ${authId}: ${error.message}`);
+      return fallbackState;
+    }
+  }
+
+  async savePlayerShipSkinState(authId, shipSkinState) {
+    const normalizedState = this.normalizePlayerShipSkinState(shipSkinState);
+
+    try {
+      const { error } = await supabase
+        .from('player_ship_skins')
+        .upsert(
+          {
+            auth_id: authId,
+            selected_skin_id: normalizedState.selectedSkinId,
+            unlocked_skin_ids: normalizedState.unlockedSkinIds,
+            updated_at: new Date().toISOString()
+          },
+          {
+            onConflict: 'auth_id'
+          }
+        );
+
+      if (error) {
+        // Non-blocking: keep core save path alive even if ship skin persistence is unavailable.
+        ServerLoggerWrapper.warn('DATABASE', `[SHIP_SKINS] Failed to save state for ${authId}: ${error.message}`);
+      }
+    } catch (error) {
+      ServerLoggerWrapper.warn('DATABASE', `[SHIP_SKINS] Unexpected save error for ${authId}: ${error.message}`);
+    }
+  }
+
   /**
    * Carica i dati del giocatore dal database Supabase
    * @param {string} userId - auth_id del giocatore
@@ -129,6 +226,7 @@ class PlayerDataManager {
 
       // Calcola RecentHonor (media mobile ultimi 30 giorni)
       const recentHonor = await this.getRecentHonorAverage(userId, 30);
+      const shipSkinState = await this.loadPlayerShipSkinState(userId);
 
       // Costruisci playerData con i dati reali del database
       const playerData = {
@@ -282,6 +380,7 @@ class PlayerDataManager {
           }
           return { kills: 0, deaths: 0, rankingPoints: 0 };
         })(),
+        shipSkins: shipSkinState,
         items: (() => {
           try {
             const rawItems = playerDataRaw.items_data ? JSON.parse(playerDataRaw.items_data) : [];
@@ -459,6 +558,9 @@ class PlayerDataManager {
       }
 
       ServerLoggerWrapper.database(`Player data saved successfully for ${authId}`);
+
+      // Persist ship skin ownership/equip state (non-blocking helper handles its own errors).
+      await this.savePlayerShipSkinState(authId, playerData.shipSkins);
 
       // Salva quest progress separatamente se presente
       if (playerData.quests && Array.isArray(playerData.quests)) {
@@ -663,6 +765,10 @@ class PlayerDataManager {
         cosmos: playerConfig.startingResources.cosmos || 5000,
         experience: playerConfig.startingResources.experience || 0,
         honor: playerConfig.startingResources.honor || 0
+      },
+      shipSkins: {
+        selectedSkinId: DEFAULT_PLAYER_SHIP_SKIN_ID,
+        unlockedSkinIds: [DEFAULT_PLAYER_SHIP_SKIN_ID]
       },
       quests: []
     };

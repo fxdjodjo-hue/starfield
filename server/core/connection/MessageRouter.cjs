@@ -10,6 +10,13 @@ const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs')
 const playerConfig = require('../../../shared/player-config.json');
 const itemConfig = require('../../../shared/item-config.json');
 const { MAP_CONFIGS } = require('../../config/MapConfigs.cjs');
+const {
+  DEFAULT_PLAYER_SHIP_SKIN_ID,
+  isValidShipSkinId,
+  normalizeUnlockedShipSkinIds,
+  resolveSelectedShipSkinId,
+  resolveShipSkinPurchaseCost
+} = require('../../config/ShipSkinCatalog.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
@@ -32,6 +39,26 @@ function getItemSellValue(itemId) {
 
   const rarity = String(itemDef.rarity || 'COMMON').toUpperCase();
   return DEFAULT_SELL_VALUES_BY_RARITY[rarity] || DEFAULT_SELL_VALUES_BY_RARITY.COMMON;
+}
+
+function normalizePlayerShipSkinState(shipSkins) {
+  const selectedSkinId = resolveSelectedShipSkinId(
+    shipSkins && typeof shipSkins.selectedSkinId === 'string'
+      ? shipSkins.selectedSkinId
+      : DEFAULT_PLAYER_SHIP_SKIN_ID
+  );
+
+  const unlockedSkinIds = normalizeUnlockedShipSkinIds(
+    shipSkins && Array.isArray(shipSkins.unlockedSkinIds)
+      ? shipSkins.unlockedSkinIds
+      : [],
+    selectedSkinId
+  );
+
+  return {
+    selectedSkinId,
+    unlockedSkinIds
+  };
 }
 
 async function verifyJoinAuthToken(data, context) {
@@ -214,7 +241,8 @@ async function handleJoin(data, sanitizedData, context) {
     isFullyLoaded: false, // ðŸš« Blocca auto-repair finchÃ© non Ã¨ true
     inventory: loadedData.inventory,
     quests: loadedData.quests || [],
-    items: loadedData.items || []
+    items: loadedData.items || [],
+    shipSkins: normalizePlayerShipSkinState(loadedData.shipSkins)
   };
 
   // Verifica che inventory sia presente
@@ -1115,7 +1143,8 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     recentHonor,
     playerData.isAdministrator,
     playerData.rank,
-    playerData.items
+    playerData.items,
+    normalizePlayerShipSkinState(playerData.shipSkins)
   );
   ws.send(JSON.stringify(responseMessage));
 }
@@ -1622,6 +1651,127 @@ async function handleSellItem(data, sanitizedData, context) {
 }
 
 /**
+ * Handler per messaggio 'ship_skin_action'
+ * Server-authoritative acquisto/equip skin nave.
+ */
+async function handleShipSkinAction(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid client ID for ship skin action.',
+      code: 'INVALID_CLIENT_ID'
+    }));
+    return;
+  }
+
+  const action = typeof sanitizedData?.action === 'string' ? sanitizedData.action : data.action;
+  const skinId = typeof sanitizedData?.skinId === 'string' ? sanitizedData.skinId : data.skinId;
+
+  if (!['equip', 'purchase', 'purchase_and_equip'].includes(action)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid ship skin action.',
+      code: 'INVALID_SHIP_SKIN_ACTION'
+    }));
+    return;
+  }
+
+  if (!isValidShipSkinId(skinId)) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Unknown ship skin.',
+      code: 'UNKNOWN_SHIP_SKIN'
+    }));
+    return;
+  }
+
+  if (!playerData.inventory) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Inventory not available.',
+      code: 'INVENTORY_UNAVAILABLE'
+    }));
+    return;
+  }
+
+  playerData.shipSkins = normalizePlayerShipSkinState(playerData.shipSkins);
+  let shipSkins = {
+    ...playerData.shipSkins,
+    unlockedSkinIds: [...playerData.shipSkins.unlockedSkinIds]
+  };
+
+  const isUnlocked = shipSkins.unlockedSkinIds.includes(skinId);
+  if ((action === 'purchase' || action === 'purchase_and_equip') && !isUnlocked) {
+    const cost = resolveShipSkinPurchaseCost(skinId);
+    if (!cost) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Invalid skin price configuration.',
+        code: 'INVALID_SHIP_SKIN_PRICE'
+      }));
+      return;
+    }
+
+    const currentBalance = Number(playerData.inventory[cost.currency] || 0);
+    if (!Number.isFinite(currentBalance) || currentBalance < cost.amount) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: cost.currency === 'cosmos'
+          ? 'Not enough Cosmos for this skin.'
+          : 'Not enough Credits for this skin.',
+        code: 'INSUFFICIENT_SKIN_CURRENCY'
+      }));
+      return;
+    }
+
+    playerData.inventory[cost.currency] = currentBalance - cost.amount;
+    shipSkins.unlockedSkinIds = normalizeUnlockedShipSkinIds(
+      shipSkins.unlockedSkinIds.concat([skinId]),
+      shipSkins.selectedSkinId
+    );
+  }
+
+  if (action === 'equip' || action === 'purchase_and_equip') {
+    if (!shipSkins.unlockedSkinIds.includes(skinId)) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Ship skin is locked.',
+        code: 'SHIP_SKIN_LOCKED'
+      }));
+      return;
+    }
+    shipSkins.selectedSkinId = resolveSelectedShipSkinId(skinId);
+  }
+
+  playerData.shipSkins = normalizePlayerShipSkinState(shipSkins);
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    inventory: { ...playerData.inventory },
+    upgrades: { ...playerData.upgrades },
+    shipSkins: {
+      ...playerData.shipSkins,
+      targetSkinId: skinId,
+      lastAction: action
+    },
+    source: `ship_skin_${action}`
+  }));
+
+  try {
+    playerDataManager.savePlayerData(playerData).catch(error => {
+      logger.error('DATABASE', `Failed to persist ship skin action for ${playerData.userId}: ${error.message}`);
+    });
+  } catch (error) {
+    logger.error('DATABASE', `Error triggering ship skin save for ${playerData.userId}: ${error.message}`);
+  }
+}
+
+/**
  * Handler per messaggio 'global_monitor_request'
  */
 function handleGlobalMonitorRequest(data, sanitizedData, context) {
@@ -1755,6 +1905,7 @@ const handlers = {
   save_request: handleSaveRequest,
   equip_item: handleEquipItem,
   sell_item: handleSellItem,
+  ship_skin_action: handleShipSkinAction,
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest,
   portal_use: handlePortalUse,

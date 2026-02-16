@@ -69,9 +69,12 @@ export class EngineFlamesRenderer {
     const shipScreenScale = this.getShipScreenScale(transform, camera, shipSprite);
     const adaptiveBackwardOffset = referenceFrameSize * this.DEFAULT_BASE_OFFSET_RATIO;
 
-    // Keep a skin-specific override only when it increases the separation.
-    // This avoids large skins covering flames with too-short fixed offsets.
-    const baseBackwardOffset = Math.max(adaptiveBackwardOffset, skinFlame?.backwardOffset ?? 0);
+    // If a skin defines backwardOffset, use it exactly.
+    // Otherwise fallback to the adaptive value based on frame size.
+    const hasExplicitBackwardOffset = Number.isFinite(skinFlame?.backwardOffset);
+    const baseBackwardOffset = hasExplicitBackwardOffset
+      ? Number(skinFlame?.backwardOffset || 0)
+      : adaptiveBackwardOffset;
     const extraBackwardOffset =
       skinFlame?.horizontalOffsetBonus ?? (referenceFrameSize * this.DEFAULT_HORIZONTAL_OFFSET_BONUS_RATIO);
     const lateralOffset = skinFlame?.lateralOffset ?? 0;

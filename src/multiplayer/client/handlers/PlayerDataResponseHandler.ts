@@ -9,6 +9,9 @@ import { Shield } from '../../../entities/combat/Shield';
 import { ActiveQuest } from '../../../entities/quest/ActiveQuest';
 import { Inventory } from '../../../entities/player/Inventory';
 import { getPlayerDefinition } from '../../../config/PlayerConfig';
+import { AnimatedSprite } from '../../../entities/AnimatedSprite';
+import { createPlayerShipAnimatedSprite } from '../../../core/services/PlayerShipSpriteFactory';
+import { getSelectedPlayerShipSkinId, getUnlockedPlayerShipSkinIds } from '../../../config/ShipSkinConfig';
 
 /**
  * Handles player data response messages from the server
@@ -33,6 +36,16 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       // Aggiorna upgrades
       if (message.upgrades) {
         networkSystem.gameContext.playerUpgrades = message.upgrades;
+      }
+
+      if (message.shipSkins) {
+        const selectedSkinId = getSelectedPlayerShipSkinId(message.shipSkins.selectedSkinId || null);
+        const unlockedSkinIds = getUnlockedPlayerShipSkinIds(
+          message.shipSkins.unlockedSkinIds || [],
+          selectedSkinId
+        );
+        networkSystem.gameContext.playerShipSkinId = selectedSkinId;
+        networkSystem.gameContext.unlockedPlayerShipSkinIds = unlockedSkinIds;
       }
 
       // Aggiorna quests
@@ -179,5 +192,27 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     }
 
     // Gli altri sistemi vengono aggiornati sopra con i dati economici
+    if (message.shipSkins) {
+      const selectedSkinId = getSelectedPlayerShipSkinId(message.shipSkins.selectedSkinId || null);
+      const playerEntity = networkSystem.getPlayerSystem()?.getPlayerEntity();
+      const ecs = networkSystem.getECS();
+      const assetManager = networkSystem.gameContext.assetManager;
+
+      if (playerEntity && ecs && assetManager) {
+        createPlayerShipAnimatedSprite(assetManager, selectedSkinId)
+          .then((playerAnimatedSprite) => {
+            ecs.addComponent(playerEntity, AnimatedSprite, playerAnimatedSprite);
+            const remotePlayerSystem = networkSystem.getRemotePlayerSystem();
+            if (remotePlayerSystem && typeof remotePlayerSystem.updateSharedAnimatedSprite === 'function') {
+              remotePlayerSystem.updateSharedAnimatedSprite(playerAnimatedSprite);
+            }
+          })
+          .catch((error) => {
+            if (import.meta.env.DEV) {
+              console.warn(`[PlayerDataResponseHandler] Failed to apply ship skin "${selectedSkinId}"`, error);
+            }
+          });
+      }
+    }
   }
 }

@@ -517,6 +517,26 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 
+  /**
+   * Sends a server-authoritative ship skin action request (equip/purchase).
+   */
+  sendShipSkinActionRequest(
+    skinId: string,
+    action: 'equip' | 'purchase' | 'purchase_and_equip'
+  ): void {
+    if (!this.connectionManager.isConnectionActive()) {
+      return;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.SHIP_SKIN_ACTION,
+      clientId: this.clientId,
+      skinId,
+      action,
+      timestamp: Date.now()
+    });
+  }
+
 
   isConnected(): boolean {
     return this.stateManager.isConnected();

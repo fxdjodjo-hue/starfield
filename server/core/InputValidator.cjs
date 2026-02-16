@@ -572,6 +572,37 @@ class ServerInputValidator {
             }
           };
 
+        case 'ship_skin_action':
+          // Valida richiesta acquisto/equip skin nave
+          const shipSkinErrors = [];
+          const allowedSkinActions = ['equip', 'purchase', 'purchase_and_equip'];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            shipSkinErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            shipSkinErrors.push('Client ID too long');
+          }
+
+          if (!data.skinId || typeof data.skinId !== 'string') {
+            shipSkinErrors.push('Invalid or missing skinId');
+          } else if (data.skinId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            shipSkinErrors.push('Skin ID too long');
+          }
+
+          if (!data.action || typeof data.action !== 'string' || !allowedSkinActions.includes(data.action)) {
+            shipSkinErrors.push('Invalid action (must be equip, purchase, or purchase_and_equip)');
+          }
+
+          return {
+            isValid: shipSkinErrors.length === 0,
+            errors: shipSkinErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              skinId: data.skinId,
+              action: data.action
+            }
+          };
+
         case 'portal_use':
           // Valida richiesta utilizzo portale
           const portalErrors = [];
