@@ -1,0 +1,19 @@
+{
+  "defaultPetId": "ship50",
+  "pets": [
+    {
+      "id": "ship50",
+      "displayName": "Sentinel 50",
+      "assetBasePath": "assets/pet/ship50",
+      "spriteScale": 1,
+      "followDistance": 172,
+      "lateralOffset": 92,
+      "stopDistance": 26,
+      "catchUpDistance": 760,
+      "maxFollowSpeed": 920,
+      "rotationFollowSpeed": 8,
+      "hoverAmplitude": 14,
+      "hoverFrequency": 2.8
+    }
+  ]
+}

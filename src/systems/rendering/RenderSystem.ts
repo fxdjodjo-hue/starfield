@@ -15,6 +15,7 @@ import { Explosion } from '../../entities/combat/Explosion';
 import { RepairEffect } from '../../entities/combat/RepairEffect';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
+import { Pet } from '../../entities/player/Pet';
 import { Camera } from '../../entities/spatial/Camera';
 import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
@@ -260,6 +261,7 @@ export class RenderSystem extends BaseSystem {
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isPlayerEntity = playerEntity && entity && playerEntity.id === entity.id;
     const isRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
+    const isPet = this.ecs.hasComponent(entity, Pet);
     const isSpaceStation = this.ecs.hasComponent(entity, SpaceStation);
     const isAsteroid = this.ecs.hasComponent(entity, Asteroid);
     const isPortal = this.ecs.hasComponent(entity, Portal);
@@ -311,6 +313,25 @@ export class RenderSystem extends BaseSystem {
       const zoom = camera?.zoom || 1;
       const renderTransform = {
         x: screenX, y: screenY + floatOffsetY, rotation: transform.rotation,
+        scaleX: (transform.scaleX || 1) * zoom,
+        scaleY: (transform.scaleY || 1) * zoom
+      };
+
+      if (entityAnimatedSprite) {
+        const img = entityAnimatedSprite.spritesheet?.image;
+        if (img && img.naturalWidth > 0 && img.naturalHeight > 0) {
+          SpritesheetRenderer.render(ctx, renderTransform, entityAnimatedSprite);
+        }
+      } else if (entitySprite && entitySprite.isLoaded()) {
+        SpriteRenderer.render(ctx, renderTransform, entitySprite);
+      }
+    } else if (isPet) {
+      const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
+      const entitySprite = this.ecs.getComponent(entity, Sprite);
+      const petFloatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime + entity.id * 157);
+      const zoom = camera?.zoom || 1;
+      const renderTransform = {
+        x: screenX, y: screenY + petFloatOffsetY, rotation: transform.rotation,
         scaleX: (transform.scaleX || 1) * zoom,
         scaleY: (transform.scaleY || 1) * zoom
       };
@@ -529,6 +550,16 @@ export class RenderSystem extends BaseSystem {
       playerEntity = this.findPlayerByComponents();
     }
 
+    const localPlayerTransform = playerEntity
+      ? this.ecs.getComponent(playerEntity, Transform)
+      : null;
+    const localPlayerVisualOffsetX = (localPlayerTransform && this.localPlayerSmoothedPos)
+      ? this.localPlayerSmoothedPos.x - localPlayerTransform.x
+      : 0;
+    const localPlayerVisualOffsetY = (localPlayerTransform && this.localPlayerSmoothedPos)
+      ? this.localPlayerSmoothedPos.y - localPlayerTransform.y
+      : 0;
+
     // Rimuovi il player dalla lista per evitare doppio rendering (confronto per ID)
     const entitiesWithoutPlayer = playerEntity
       ? entities.filter(entity => !entity || entity.id !== playerEntity.id)
@@ -603,6 +634,12 @@ export class RenderSystem extends BaseSystem {
           components.repairEffect.targetEntityId === RenderSystem.smoothedLocalPlayerId) {
           renderX = RenderSystem.smoothedLocalPlayerPos.x;
           renderY = RenderSystem.smoothedLocalPlayerPos.y;
+        }
+
+        // Keep pet visual movement aligned with local-player render smoothing.
+        if (this.ecs.hasComponent(entity, Pet)) {
+          renderX += localPlayerVisualOffsetX;
+          renderY += localPlayerVisualOffsetY;
         }
 
         const screenPos = camera.worldToScreen(renderX, renderY, width, height);

@@ -1,0 +1,230 @@
+
+ship50.png
+size: 2048, 1024
+format: RGBA8888
+filter: Linear, Linear
+repeat: none
+000
+  rotate: false
+  xy: 56, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+001
+  rotate: false
+  xy: 267, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+002
+  rotate: false
+  xy: 478, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+003
+  rotate: false
+  xy: 689, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+004
+  rotate: false
+  xy: 900, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+005
+  rotate: false
+  xy: 1111, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+006
+  rotate: false
+  xy: 1322, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+007
+  rotate: false
+  xy: 1533, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+008
+  rotate: false
+  xy: 1744, 112
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+009
+  rotate: false
+  xy: 56, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+010
+  rotate: false
+  xy: 267, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+011
+  rotate: false
+  xy: 478, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+012
+  rotate: false
+  xy: 689, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+013
+  rotate: false
+  xy: 900, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+014
+  rotate: false
+  xy: 1111, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+015
+  rotate: false
+  xy: 1322, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+016
+  rotate: false
+  xy: 1533, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+017
+  rotate: false
+  xy: 1744, 306
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+018
+  rotate: false
+  xy: 56, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+019
+  rotate: false
+  xy: 267, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+020
+  rotate: false
+  xy: 478, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+021
+  rotate: false
+  xy: 689, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+022
+  rotate: false
+  xy: 900, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+023
+  rotate: false
+  xy: 1111, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+024
+  rotate: false
+  xy: 1322, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+025
+  rotate: false
+  xy: 1533, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+026
+  rotate: false
+  xy: 1744, 500
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+027
+  rotate: false
+  xy: 56, 694
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+028
+  rotate: false
+  xy: 267, 694
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+029
+  rotate: false
+  xy: 478, 694
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+030
+  rotate: false
+  xy: 689, 694
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1
+031
+  rotate: false
+  xy: 900, 694
+  size: 155, 138
+  orig: 155, 138
+  offset: 0, 0
+  index: -1

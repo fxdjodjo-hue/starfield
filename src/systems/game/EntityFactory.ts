@@ -15,8 +15,10 @@ import { SpaceStation } from '../../entities/spatial/SpaceStation';
 import { Asteroid } from '../../entities/spatial/Asteroid';
 import { ResourceNode } from '../../entities/spatial/ResourceNode';
 import { PlayerRole } from '../../entities/player/PlayerRole';
+import { Pet } from '../../entities/player/Pet';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 import asteroidConfig from '../../../shared/asteroid-config.json';
+import { getDefaultPlayerPet } from '../../config/PetConfig';
 
 export interface EntityFactoryDependencies {
   ecs: ECS;
@@ -58,6 +60,7 @@ export class EntityFactory {
       ecs.removeComponent(playerEntity, Sprite);
     }
     ecs.addComponent(playerEntity, AnimatedSprite, assets.playerSprite);
+    EntityFactory.createPlayerPetEntity(ecs, playerEntity, assets.petAnimatedSprite);
 
     // Crea il background della mappa come entità parallax
     await EntityFactory.createMapBackground(ecs, context);
@@ -66,6 +69,49 @@ export class EntityFactory {
     EntityFactory.createMapEntities(ecs, assets, context.currentMapId);
 
     return playerEntity;
+  }
+
+  /**
+   * Crea il pet locale associato al player.
+   */
+  static createPlayerPetEntity(ecs: ECS, playerEntity: any, petAnimatedSprite: AnimatedSprite | null): any {
+    if (!petAnimatedSprite) return null;
+
+    const petDefinition = getDefaultPlayerPet();
+    if (!petDefinition) return null;
+
+    const playerTransform = ecs.getComponent(playerEntity, Transform);
+    if (!playerTransform) return null;
+
+    const ownerRotation = Number.isFinite(playerTransform.rotation) ? playerTransform.rotation : 0;
+    const forwardX = Math.cos(ownerRotation);
+    const forwardY = Math.sin(ownerRotation);
+    const rightX = -forwardY;
+    const rightY = forwardX;
+
+    const spawnX = playerTransform.x - forwardX * petDefinition.followDistance + rightX * petDefinition.lateralOffset;
+    const spawnY = playerTransform.y - forwardY * petDefinition.followDistance + rightY * petDefinition.lateralOffset;
+
+    const petEntity = ecs.createEntity();
+    ecs.addComponent(petEntity, Transform, new Transform(spawnX, spawnY, ownerRotation, 1, 1));
+    ecs.addComponent(petEntity, AnimatedSprite, petAnimatedSprite);
+    ecs.addComponent(
+      petEntity,
+      Pet,
+      new Pet({
+        petId: petDefinition.id,
+        followDistance: petDefinition.followDistance,
+        lateralOffset: petDefinition.lateralOffset,
+        stopDistance: petDefinition.stopDistance,
+        catchUpDistance: petDefinition.catchUpDistance,
+        maxFollowSpeed: petDefinition.maxFollowSpeed,
+        rotationFollowSpeed: petDefinition.rotationFollowSpeed,
+        hoverAmplitude: petDefinition.hoverAmplitude,
+        hoverFrequency: petDefinition.hoverFrequency
+      })
+    );
+
+    return petEntity;
   }
 
   /**

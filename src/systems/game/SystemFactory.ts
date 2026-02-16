@@ -45,11 +45,13 @@ import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { AsteroidSystem } from '../environment/AsteroidSystem';
 import { SafeZoneSystem } from './SafeZoneSystem';
 import { ResourceInteractionSystem } from './ResourceInteractionSystem';
+import { PetFollowSystem } from './PetFollowSystem';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Sprite } from '../../entities/Sprite';
 import { getSelectedPlayerShipSkinId } from '../../config/ShipSkinConfig';
 import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSpriteFactory';
 import { listResourceDefinitions } from '../../config/ResourceConfig';
+import { DEFAULT_PLAYER_PET_ID, getPlayerPetById } from '../../config/PetConfig';
 
 export interface SystemFactoryDependencies {
   ecs: ECS;
@@ -92,6 +94,7 @@ export interface CreatedSystems {
   uiSystem: UiSystem | null;
   playerStatusDisplaySystem: PlayerStatusDisplaySystem;
   playerSystem: PlayerSystem;
+  petFollowSystem: PetFollowSystem;
   audioSystem: AudioSystem;
   portalSystem: PortalSystem;
   resourceInteractionSystem: ResourceInteractionSystem;
@@ -108,6 +111,7 @@ export interface CreatedSystems {
     pyramidAnimatedSprite: AnimatedSprite;
     teleportAnimatedSprite: AnimatedSprite;
     engflamesAnimatedSprite: AnimatedSprite;
+    petAnimatedSprite: AnimatedSprite | null;
     spaceStationSprite: Sprite;
     asteroidSprite: Sprite;
   };
@@ -142,6 +146,20 @@ export class SystemFactory {
     if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] engflames AnimatedSprite created:`, engflamesAnimatedSprite ? 'SUCCESS' : 'FAILED');
     const spaceStationSprite = await context.assetManager.createSprite('assets/spacestation/spacestation.png');
     const asteroidSprite = await context.assetManager.createSprite('assets/asteroid/asteroid.png');
+    const defaultPetDefinition = getPlayerPetById(DEFAULT_PLAYER_PET_ID);
+    let petAnimatedSprite: AnimatedSprite | null = null;
+    if (defaultPetDefinition?.assetBasePath) {
+      try {
+        petAnimatedSprite = await context.assetManager.createAnimatedSprite(
+          defaultPetDefinition.assetBasePath,
+          defaultPetDefinition.spriteScale
+        );
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn(`[SystemFactory] Failed to load pet sprite "${defaultPetDefinition.id}"`, error);
+        }
+      }
+    }
 
     // Crea sistemi
     const audioSystem = new AudioSystem(ecs, AUDIO_CONFIG);
@@ -167,6 +185,7 @@ export class SystemFactory {
     const questDiscoverySystem = new QuestDiscoverySystem(ecs, questTrackingSystem);
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs, context);
     const playerSystem = new PlayerSystem(ecs);
+    const petFollowSystem = new PetFollowSystem(ecs, playerSystem);
     const portalSystem = new PortalSystem(ecs, playerSystem);
     const resourceInteractionSystem = new ResourceInteractionSystem(ecs);
     const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);
@@ -323,6 +342,7 @@ export class SystemFactory {
       uiSystem,
       playerStatusDisplaySystem,
       playerSystem,
+      petFollowSystem,
       audioSystem,
       portalSystem,
       resourceInteractionSystem,
@@ -339,6 +359,7 @@ export class SystemFactory {
         pyramidAnimatedSprite,
         teleportAnimatedSprite,
         engflamesAnimatedSprite,
+        petAnimatedSprite,
         spaceStationSprite,
         asteroidSprite
       }
