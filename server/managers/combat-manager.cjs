@@ -453,7 +453,7 @@ class ServerCombatManager {
    * @param {string} projectileType - Tipo di proiettile
    * @returns {string|null} ID del proiettile creato
    */
-  performDeterministicAttack(ownerId, ownerPosition, target, damage, hitTime, projectileType = 'scouter_laser') {
+  performDeterministicAttack(ownerId, ownerPosition, target, damage, hitTime, projectileType = 'npc_laser') {
     // Crea proiettile homing VISUALE (non fisico)
     const projectileId = `${ownerId}_proj_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -490,7 +490,6 @@ class ServerCombatManager {
         position: projectilePos,
         velocity: velocity,
         damage: damage,
-        damage: damage,
         projectileType: projectileType,
         targetId: target.clientId || target.id, // Target per homing visivo (supporta sia Player che NPC)
         hitTime: hitTime, // Quando applicare il danno (deterministico)
@@ -501,9 +500,8 @@ class ServerCombatManager {
 
       this.mapServer.projectileManager.projectiles.set(projectileId, projectileData);
 
-      // Broadcast ai client (NPC projectiles are excluded from sender)
-      const excludeSender = true; // NPC projectiles not visible to themselves
-      this.mapServer.projectileManager.broadcaster.broadcastProjectileFired(projectileData, excludeSender, damage);
+      // Broadcast ai client (nessun exclude necessario: gli NPC non hanno un WebSocket client).
+      this.mapServer.projectileManager.broadcaster.broadcastProjectileFired(projectileData, null, damage);
 
       return projectileId;
     } catch (error) {
@@ -751,7 +749,7 @@ class ServerCombatManager {
       targetPlayer,
       damage,
       hitTime,
-      'scouter_laser'
+      'npc_laser'
     );
 
     // Aggiorna cooldown sempre quando l'NPC prova ad attaccare (indipendentemente dal successo)
