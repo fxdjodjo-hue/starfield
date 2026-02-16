@@ -3,6 +3,9 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Npc } from '../../entities/ai/Npc';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Portal } from '../../entities/spatial/Portal';
+import { SpaceStation } from '../../entities/spatial/SpaceStation';
+import { Sprite } from '../../entities/Sprite';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Minimap } from '../../presentation/ui/Minimap';
 import { Camera } from '../../entities/spatial/Camera';
 import { CONFIG } from '../../core/utils/config/GameConfig';
@@ -27,6 +30,8 @@ export class MinimapSystem extends BaseSystem {
   private fadeDuration: number = 600; // millisecondi, sincronizzato con altri elementi UI
   private currentMapId: string;
   private currentMapName: string = '';
+  private portalAnimationTime: number = 0;
+  private readonly PORTAL_ANIMATION_FRAME_DURATION = 16.67; // ms per frame (~60fps)
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -194,8 +199,12 @@ export class MinimapSystem extends BaseSystem {
    * Aggiorna il sistema (chiamato dal loop di gioco)
    */
   update(deltaTime: number): void {
-    // La minimappa non ha logica di update complessa
-    // Potrebbe essere usata per animazioni future o aggiornamenti dinamici
+    this.portalAnimationTime += deltaTime;
+
+    // Evita crescita infinita del timer mantenendo la precisione
+    if (this.portalAnimationTime > 60_000) {
+      this.portalAnimationTime %= 60_000;
+    }
   }
 
   /**
@@ -319,20 +328,8 @@ export class MinimapSystem extends BaseSystem {
     // Renderizza il nome della mappa sopra la minimappa nel pannello glass
     this.renderMapName(ctx, bgX, bgY, bgW, headerHeight);
 
-    // Indicatore centro mondo con glow (dimensioni compensate)
-    const centerX = x + w / 2;
-    const centerY = y + h / 2;
-    const crossSize = Math.round(6 * c);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
-    ctx.lineWidth = 1;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
-    ctx.shadowBlur = Math.round(3 * c);
-    ctx.beginPath();
-    ctx.moveTo(centerX - crossSize, centerY);
-    ctx.lineTo(centerX + crossSize, centerY);
-    ctx.moveTo(centerX, centerY - crossSize);
-    ctx.lineTo(centerX, centerY + crossSize);
-    ctx.stroke();
+    // Marker centro mondo: usa icona station, fallback a croce
+    this.renderWorldCenterMarker(ctx);
 
     // Coordinate del player nell'header
     const headerY = bgY + Math.round(8 * c);
@@ -411,19 +408,29 @@ export class MinimapSystem extends BaseSystem {
     const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE
 
     npcEntities.forEach(entityId => {
+      const npc = this.ecs.getComponent(entityId, Npc);
       const transform = this.ecs.getComponent(entityId, Transform);
-      if (transform) {
+      if (transform && npc) {
+        const isBossNpc = npc.npcType === 'ARX-DRONE';
+
         // Calcola distanza al quadrato per evitare sqrt costosa
         const dx = transform.x - this.camera!.x;
         const dy = transform.y - this.camera!.y;
         const distSq = dx * dx + dy * dy;
 
-        // Renderizza solo se entro il raggio radar
-        if (distSq <= RADAR_RANGE_SQ) {
-          const isSelected = selectedNpcs.includes(entityId);
-          const color = isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor;
-          this.renderEntityDot(ctx, transform.x, transform.y, color);
+        // Boss sempre visibile, NPC normali solo entro il raggio radar
+        if (!isBossNpc && distSq > RADAR_RANGE_SQ) {
+          return;
         }
+
+        const isSelected = selectedNpcs.includes(entityId);
+        if (isBossNpc) {
+          this.renderBossDot(ctx, transform.x, transform.y, isSelected);
+          return;
+        }
+
+        const color = isSelected ? this.minimap.selectedNpcColor : this.minimap.npcColor;
+        this.renderEntityDot(ctx, transform.x, transform.y, color);
       }
     });
   }
@@ -436,10 +443,152 @@ export class MinimapSystem extends BaseSystem {
 
     portalEntities.forEach(entityId => {
       const transform = this.ecs.getComponent(entityId, Transform);
+      const animatedSprite = this.ecs.getComponent(entityId, AnimatedSprite);
       if (transform) {
-        this.renderPortalDot(ctx, transform.x, transform.y);
+        if (animatedSprite) {
+          this.renderPortalAnimatedIcon(ctx, transform.x, transform.y, animatedSprite);
+        } else {
+          this.renderPortalDot(ctx, transform.x, transform.y);
+        }
       }
     });
+  }
+
+  /**
+   * Render center-of-world marker as Space Station icon.
+   * Falls back to legacy cross marker if sprite is unavailable.
+   */
+  private renderWorldCenterMarker(ctx: CanvasRenderingContext2D): void {
+    const stations = this.ecs.getEntitiesWithComponents(SpaceStation);
+    const stationEntity = stations.length > 0 ? stations[0] : null;
+    if (!stationEntity) {
+      this.renderLegacyCenterCross(ctx);
+      return;
+    }
+
+    const transform = this.ecs.getComponent(stationEntity, Transform);
+    const sprite = this.ecs.getComponent(stationEntity, Sprite);
+    if (!transform || !sprite || !sprite.isLoaded() || !sprite.image) {
+      this.renderLegacyCenterCross(ctx);
+      return;
+    }
+
+    const pos = this.minimap.worldToMinimap(transform.x, transform.y);
+    const c = this.minimap.getDprCompensation();
+    const targetSize = Math.max(30, Math.round(56 * c));
+    const aspect = sprite.width > 0 && sprite.height > 0 ? sprite.width / sprite.height : 1;
+
+    let drawWidth = targetSize;
+    let drawHeight = targetSize;
+    if (aspect > 1) {
+      drawHeight = targetSize / aspect;
+    } else if (aspect > 0 && aspect < 1) {
+      drawWidth = targetSize * aspect;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = 0.98;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.filter = 'brightness(1.35) contrast(1.25) saturate(1.30)';
+    ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
+    ctx.shadowBlur = Math.round(6 * c);
+    ctx.drawImage(
+      sprite.image,
+      pos.x - drawWidth / 2,
+      pos.y - drawHeight / 2,
+      drawWidth,
+      drawHeight
+    );
+    ctx.restore();
+  }
+
+  /**
+   * Legacy center marker used as fallback when station icon is unavailable.
+   */
+  private renderLegacyCenterCross(ctx: CanvasRenderingContext2D): void {
+    const center = this.minimap.worldToMinimap(0, 0);
+    const c = this.minimap.getDprCompensation();
+    const crossSize = Math.round(6 * c);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.3)';
+    ctx.shadowBlur = Math.round(3 * c);
+    ctx.beginPath();
+    ctx.moveTo(center.x - crossSize, center.y);
+    ctx.lineTo(center.x + crossSize, center.y);
+    ctx.moveTo(center.x, center.y - crossSize);
+    ctx.lineTo(center.x, center.y + crossSize);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * Render portal using its animated spritesheet on minimap.
+   * Falls back to dot marker if frame data is not available.
+   */
+  private renderPortalAnimatedIcon(
+    ctx: CanvasRenderingContext2D,
+    worldX: number,
+    worldY: number,
+    animatedSprite: AnimatedSprite
+  ): void {
+    const image = animatedSprite?.spritesheet?.image;
+    if (!image || !animatedSprite.hasValidFrames()) {
+      this.renderPortalDot(ctx, worldX, worldY);
+      return;
+    }
+
+    const isImageReady = animatedSprite.isLoaded() || (image.naturalWidth > 0 && image.naturalHeight > 0);
+    if (!isImageReady) {
+      this.renderPortalDot(ctx, worldX, worldY);
+      return;
+    }
+
+    const totalFrames = animatedSprite.frameCount;
+    if (totalFrames <= 0) {
+      this.renderPortalDot(ctx, worldX, worldY);
+      return;
+    }
+
+    const frameIndex = Math.floor((this.portalAnimationTime / this.PORTAL_ANIMATION_FRAME_DURATION) % totalFrames);
+    const frame = animatedSprite.getFrame(frameIndex);
+    if (!frame || frame.width <= 0 || frame.height <= 0) {
+      this.renderPortalDot(ctx, worldX, worldY);
+      return;
+    }
+
+    const pos = this.minimap.worldToMinimap(worldX, worldY);
+    const c = this.minimap.getDprCompensation();
+    const iconSize = Math.max(14, Math.round(27 * c));
+    const aspect = frame.width / frame.height;
+
+    let drawWidth = iconSize;
+    let drawHeight = iconSize;
+    if (aspect > 1) {
+      drawHeight = iconSize / aspect;
+    } else if (aspect > 0 && aspect < 1) {
+      drawWidth = iconSize * aspect;
+    }
+
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.shadowColor = 'rgba(130, 210, 255, 0.7)';
+    ctx.shadowBlur = Math.round(6 * c);
+    ctx.drawImage(
+      image,
+      frame.x,
+      frame.y,
+      frame.width,
+      frame.height,
+      pos.x - drawWidth / 2,
+      pos.y - drawHeight / 2,
+      drawWidth,
+      drawHeight
+    );
+    ctx.restore();
   }
 
   /**
@@ -527,6 +676,44 @@ export class MinimapSystem extends BaseSystem {
     ctx.stroke();
 
     // Ripristina stato
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza marker boss sempre visibile e facilmente distinguibile.
+   */
+  private renderBossDot(ctx: CanvasRenderingContext2D, worldX: number, worldY: number, isSelected: boolean): void {
+    const pos = this.minimap.worldToMinimap(worldX, worldY);
+    const c = this.minimap.getDprCompensation();
+    const innerRadius = Math.max(3, Math.round(4 * c));
+    const outerRadius = Math.max(6, Math.round(8 * c));
+
+    ctx.save();
+
+    // Anello esterno
+    ctx.shadowColor = isSelected ? 'rgba(255, 255, 120, 0.9)' : 'rgba(255, 60, 60, 0.9)';
+    ctx.shadowBlur = Math.round(8 * c);
+    ctx.strokeStyle = isSelected ? 'rgba(255, 255, 120, 1)' : 'rgba(255, 80, 80, 1)';
+    ctx.lineWidth = Math.max(1, Math.round(2 * c));
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, outerRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Nucleo interno
+    ctx.shadowBlur = Math.round(5 * c);
+    ctx.fillStyle = isSelected ? 'rgba(255, 255, 120, 1)' : 'rgba(255, 80, 80, 1)';
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, innerRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Etichetta BOSS
+    ctx.shadowBlur = 0;
+    ctx.font = `bold ${Math.max(8, Math.round(10 * c))}px Arial`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillText('BOSS', pos.x, pos.y - outerRadius - Math.max(2, Math.round(2 * c)));
+
     ctx.restore();
   }
 

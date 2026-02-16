@@ -29,7 +29,10 @@ class NpcMovementSystem {
       const now = Date.now();
       const npcConfig = NPC_CONFIG[npc.type];
       const attackRange = npcConfig.stats.range;
-      const speed = npcConfig.stats.speed;
+      const configuredSpeed = npcConfig.stats.speed;
+      const speed = (Number.isFinite(npc.speedOverride) && npc.speedOverride > 0)
+        ? npc.speedOverride
+        : configuredSpeed;
       const combatParticipantIds = combatParticipantsByNpc.get(npc.id) || emptyParticipants;
       const hasCombatParticipants = combatParticipantIds.size > 0;
 
@@ -114,6 +117,9 @@ class NpcMovementSystem {
         }
       }
 
+      // Confinamento opzionale: sgherri liberi ma entro area del boss.
+      this.enforceBossConfinement(npc, npcManager, speed, deltaTime, now);
+
       // Rotazione per stati non combattivi
       if (behavior === 'cruise' || behavior === 'idle') {
         if (npc.velocity.x !== 0 || npc.velocity.y !== 0) {
@@ -131,11 +137,42 @@ class NpcMovementSystem {
   static calculateBehavior(npc, now, closestPlayer, attackRange, npcConfig) {
     const healthPercent = npc.maxHealth > 0 ? npc.health / npc.maxHealth : 1;
 
+    if (npc.bossEncounterRole === 'boss' &&
+      npc.bossPhaseTransition &&
+      Number.isFinite(npc.bossPhaseTransition.targetX) &&
+      Number.isFinite(npc.bossPhaseTransition.targetY)) {
+      return 'phase_transition';
+    }
+
+    // Boss evento: roaming libero, auto-aggro solo in prossimità.
+    if (npc.bossEncounterRole === 'boss') {
+      if (npc.lastAttackerId) return 'aggressive';
+
+      const autoAggroRange = Number(npc.bossAutoAggroRange) > 0
+        ? Number(npc.bossAutoAggroRange)
+        : Math.max(800, attackRange * 3);
+
+      if (closestPlayer && closestPlayer.distSq <= (autoAggroRange * autoAggroRange)) {
+        npc.lastAttackerId = closestPlayer.id;
+        npc.lastDamage = now;
+        return 'aggressive';
+      }
+
+      return 'cruise';
+    }
+
     // 1. Fuga se salute bassa
-    if (healthPercent < 0.5) return 'flee';
+    if (!npc.disableFlee && healthPercent < 0.5) return 'flee';
 
     // 2. Aggressività per danno ricevuto (Combat Lock)
     if (npc.lastAttackerId) return 'aggressive';
+
+    if (npc.forceAggressive) {
+      if (!npc.lastAttackerId && closestPlayer) {
+        npc.lastAttackerId = closestPlayer.id;
+      }
+      if (npc.lastAttackerId) return 'aggressive';
+    }
 
     // 3. 🚀 PROACTIVE AGGRO: Aggressività per prossimità (Attack on Sight)
     const detectionRange = npcConfig.ai?.detectionRange || 0;
@@ -157,11 +194,16 @@ class NpcMovementSystem {
    */
   static calculateMovement(npc, closestPlayer, players, speed, deltaTime, attackRange, behavior) {
     switch (behavior) {
+      case 'phase_transition':
+        return this.applyBossPhaseTransitionMovement(npc, speed, deltaTime);
       case 'aggressive':
         return this.applyAggressiveMovement(npc, players, speed, deltaTime, attackRange);
       case 'flee':
         return this.applyFleeMovement(npc, closestPlayer, speed, deltaTime, attackRange);
       case 'cruise':
+        if (npc.bossEncounterRole === 'boss') {
+          return this.applyBossCruiseMovement(npc, speed, deltaTime);
+        }
         return this.applyCruiseMovement(npc, speed, deltaTime);
       default:
         return {
@@ -224,6 +266,85 @@ class NpcMovementSystem {
     const finalLen = Math.sqrt(finalDirX * finalDirX + finalDirY * finalDirY) || 1;
     npc.velocity.x = (finalDirX / finalLen) * speed;
     npc.velocity.y = (finalDirY / finalLen) * speed;
+
+    return {
+      deltaX: npc.velocity.x * dtSec,
+      deltaY: npc.velocity.y * dtSec
+    };
+  }
+
+  /**
+   * Movimento cruise del boss evento: roaming libero con evitamento centro mappa.
+   */
+  static applyBossCruiseMovement(npc, speed, deltaTime) {
+    const now = Date.now();
+    const dtSec = deltaTime / 1000;
+    const cruiseSpeed = Math.max(90, speed * 0.5);
+    const velocitySq = (npc.velocity.x * npc.velocity.x) + (npc.velocity.y * npc.velocity.y);
+    const isNearlyStopped = velocitySq < 25;
+
+    // Cambia direzione periodicamente e riparte subito se quasi fermo.
+    if (!npc._bossNextTurnAt || now >= npc._bossNextTurnAt || isNearlyStopped) {
+      const angle = Math.random() * Math.PI * 2;
+      npc.velocity.x = Math.cos(angle) * cruiseSpeed;
+      npc.velocity.y = Math.sin(angle) * cruiseSpeed;
+      npc._bossNextTurnAt = now + 1200 + Math.floor(Math.random() * 1800);
+    }
+
+    // Evita il centro mondo (0,0), tipicamente area stazione/safe-zone.
+    const avoidCenterRadius = Number(npc.bossAvoidCenterRadius) > 0
+      ? Number(npc.bossAvoidCenterRadius)
+      : 2000;
+    const dxCenter = npc.position.x;
+    const dyCenter = npc.position.y;
+    const distToCenter = Math.sqrt(dxCenter * dxCenter + dyCenter * dyCenter) || 1;
+
+    if (distToCenter < avoidCenterRadius) {
+      const repelFactor = (avoidCenterRadius - distToCenter) / avoidCenterRadius;
+      npc.velocity.x += (dxCenter / distToCenter) * cruiseSpeed * Math.max(0.25, repelFactor);
+      npc.velocity.y += (dyCenter / distToCenter) * cruiseSpeed * Math.max(0.25, repelFactor);
+    }
+
+    // Normalizza velocità finale.
+    const finalLen = Math.sqrt(npc.velocity.x * npc.velocity.x + npc.velocity.y * npc.velocity.y) || 1;
+    npc.velocity.x = (npc.velocity.x / finalLen) * cruiseSpeed;
+    npc.velocity.y = (npc.velocity.y / finalLen) * cruiseSpeed;
+    npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
+
+    return {
+      deltaX: npc.velocity.x * dtSec,
+      deltaY: npc.velocity.y * dtSec
+    };
+  }
+  /**
+   * Movimento diretto verso target fase boss (dash di riposizionamento).
+   */
+  static applyBossPhaseTransitionMovement(npc, speed, deltaTime) {
+    const transition = npc.bossPhaseTransition || {};
+    const targetX = Number(transition.targetX);
+    const targetY = Number(transition.targetY);
+    if (!Number.isFinite(targetX) || !Number.isFinite(targetY)) {
+      return this.applyBossCruiseMovement(npc, speed, deltaTime);
+    }
+
+    const arrivalRadius = Math.max(30, Number(transition.arrivalRadius) || 140);
+    const dashSpeed = Math.max(160, Number(transition.speed) || speed);
+    const dx = targetX - npc.position.x;
+    const dy = targetY - npc.position.y;
+    const dist = Math.sqrt(dx * dx + dy * dy) || 0;
+    const dtSec = deltaTime / 1000;
+
+    if (dist <= arrivalRadius) {
+      npc.velocity.x = 0;
+      npc.velocity.y = 0;
+      return { deltaX: 0, deltaY: 0 };
+    }
+
+    const dirX = dx / dist;
+    const dirY = dy / dist;
+    npc.velocity.x = dirX * dashSpeed;
+    npc.velocity.y = dirY * dashSpeed;
+    npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
 
     return {
       deltaX: npc.velocity.x * dtSec,
@@ -333,6 +454,64 @@ class NpcMovementSystem {
     }
 
     return true;
+  }
+
+  /**
+   * Mantiene un NPC entro un'area di difesa dinamica attorno al boss.
+   * Nessuna orbita forzata: il minion resta libero finche non supera il limite.
+   */
+  static enforceBossConfinement(npc, npcManager, speed, deltaTime, now) {
+    const guardCfg = npc.bossGuard;
+    if (!guardCfg || !guardCfg.anchorBossId) return;
+
+    const bossNpc = npcManager.getNpc(guardCfg.anchorBossId);
+    if (!bossNpc || !bossNpc.position) {
+      npc.bossGuard = null;
+      return;
+    }
+
+    const softLimit = Number(guardCfg.softLimit) || 700;
+    const hardLimit = Number(guardCfg.hardLimit) || 900;
+    const failSafeLimit = Number(guardCfg.failSafeLimit) || 1100;
+
+    const dx = npc.position.x - bossNpc.position.x;
+    const dy = npc.position.y - bossNpc.position.y;
+    const distSq = dx * dx + dy * dy;
+    const hardLimitSq = hardLimit * hardLimit;
+
+    if (distSq <= hardLimitSq) return;
+
+    const dist = Math.sqrt(distSq) || 1;
+    const worldBounds = npcManager.getWorldBounds();
+
+    // Fail-safe: se troppo lontano, riallinea vicino al boss.
+    if (dist > failSafeLimit) {
+      const angle = Math.random() * Math.PI * 2;
+      const safeRadius = Math.max(120, softLimit * 0.45);
+      npc.position.x = bossNpc.position.x + Math.cos(angle) * safeRadius;
+      npc.position.y = bossNpc.position.y + Math.sin(angle) * safeRadius;
+      npc.position.x = Math.max(worldBounds.WORLD_LEFT, Math.min(worldBounds.WORLD_RIGHT, npc.position.x));
+      npc.position.y = Math.max(worldBounds.WORLD_TOP, Math.min(worldBounds.WORLD_BOTTOM, npc.position.y));
+      npc.velocity.x = 0;
+      npc.velocity.y = 0;
+      npc.lastSignificantMove = now;
+      return;
+    }
+
+    // Pull-back morbido verso il boss quando supera hardLimit.
+    const pullDirX = (bossNpc.position.x - npc.position.x) / dist;
+    const pullDirY = (bossNpc.position.y - npc.position.y) / dist;
+    const pullSpeed = Math.max(120, speed * 1.2);
+    const dtSec = deltaTime / 1000;
+
+    npc.velocity.x = pullDirX * pullSpeed;
+    npc.velocity.y = pullDirY * pullSpeed;
+    npc.position.x += npc.velocity.x * dtSec;
+    npc.position.y += npc.velocity.y * dtSec;
+    npc.position.x = Math.max(worldBounds.WORLD_LEFT, Math.min(worldBounds.WORLD_RIGHT, npc.position.x));
+    npc.position.y = Math.max(worldBounds.WORLD_TOP, Math.min(worldBounds.WORLD_BOTTOM, npc.position.y));
+    npc.position.rotation = Math.atan2(npc.velocity.y, npc.velocity.x);
+    npc.lastSignificantMove = now;
   }
 
   /**
