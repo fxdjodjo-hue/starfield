@@ -96,10 +96,11 @@ class MapServer {
       // Incrementa counter per throttling
       this.tickCounter = (this.tickCounter || 0) + 1;
       const isThrottledTick = this.tickCounter % 2 === 0;
+      const tickNow = Date.now();
 
       // 1. Movimento NPC (Sempre a 20 Hz per precisione fisica server)
       if (this.bossEncounterManager) {
-        this.bossEncounterManager.update(Date.now());
+        this.bossEncounterManager.update(tickNow);
       }
 
       const allNpcs = this.npcManager.getAllNpcs();
@@ -125,15 +126,20 @@ class MapServer {
       // 5. Processa aggiornamenti posizione giocatori (20Hz per massima fluidità)
       PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
 
+      // 5.5. Processa raccolta risorse server-authoritative
+      if (this.resourceManager) {
+        this.resourceManager.updateCollections(tickNow);
+      }
+
       // 6. Processa riparazioni
       if (this.repairManager) {
-        this.repairManager.updateRepairs(Date.now());
-        this.repairManager.updateNpcRepairs(Date.now());
+        this.repairManager.updateRepairs(tickNow);
+        this.repairManager.updateNpcRepairs(tickNow);
       }
 
       // 7. Processa hazard ambientali (radiazioni)
       if (this.hazardManager) {
-        this.hazardManager.updateHazards(Date.now());
+        this.hazardManager.updateHazards(tickNow);
       }
 
     } catch (error) {

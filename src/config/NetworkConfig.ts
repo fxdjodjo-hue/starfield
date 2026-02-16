@@ -179,6 +179,7 @@ export const MESSAGE_TYPES = {
   SHIP_SKIN_ACTION: 'ship_skin_action',
   RESOURCE_COLLECT: 'resource_collect',
   RESOURCE_NODE_REMOVED: 'resource_node_removed',
+  RESOURCE_COLLECT_STATUS: 'resource_collect_status',
 
   // Leaderboard messages
   REQUEST_LEADERBOARD: 'request_leaderboard',
@@ -622,6 +623,17 @@ export interface ResourceNodeRemovedMessage extends BaseMessage {
   collectedBy?: string;
   x?: number;
   y?: number;
+  timestamp?: number;
+}
+
+export interface ResourceCollectStatusMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.RESOURCE_COLLECT_STATUS;
+  status: 'started' | 'in_progress' | 'interrupted' | 'completed';
+  resourceId: string;
+  resourceType?: string | null;
+  resourceName?: string | null;
+  reason?: string;
+  remainingMs?: number;
   timestamp?: number;
 }
 

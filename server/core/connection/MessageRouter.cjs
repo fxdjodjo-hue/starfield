@@ -1872,19 +1872,29 @@ function handleResourceCollect(data, sanitizedData, context) {
         message: 'Resource is too far away.',
         code: 'RESOURCE_TOO_FAR'
       }));
+    } else if (result.code === 'RESOURCE_BUSY') {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Resource is already being collected.',
+        code: 'RESOURCE_BUSY'
+      }));
     }
     return;
   }
 
-  mapServer.broadcastToMap({
-    type: 'resource_node_removed',
-    resourceId: result.node.id,
-    resourceType: result.node.resourceType,
-    collectedBy: playerData.clientId,
-    x: Math.round(Number(result.node.x || 0)),
-    y: Math.round(Number(result.node.y || 0)),
-    timestamp: Date.now()
-  });
+  if (result.code === 'COLLECTION_STARTED' && ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({
+      type: 'resource_collect_status',
+      status: 'started',
+      resourceId: result.resourceId || resourceId,
+      resourceType: result.resourceType || null,
+      resourceName: result.resourceName || result.resourceType || 'Resource',
+      remainingMs: Number.isFinite(Number(result.remainingMs))
+        ? Math.max(0, Math.floor(Number(result.remainingMs)))
+        : 0,
+      timestamp: Date.now()
+    }));
+  }
 }
 
 /**

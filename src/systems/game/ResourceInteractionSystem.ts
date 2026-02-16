@@ -37,6 +37,7 @@ export class ResourceInteractionSystem extends BaseSystem {
   private readonly pendingCollectRequests: Map<string, number> = new Map();
   private readonly activeCollectEffects: Map<number, ResourceCollectEffectState> = new Map();
   private readonly collectEffectByResourceId: Map<string, number> = new Map();
+  private readonly completedCollectionResourceIds: Set<string> = new Set();
   private readonly pendingResourceRemovals: Map<string, PendingResourceRemovalState> = new Map();
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private movePlayerToCallback: ((worldX: number, worldY: number, stopDistancePx?: number) => void) | null = null;
@@ -123,6 +124,7 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.resourceEntities.clear();
     this.pendingResourceRemovals.clear();
     this.pendingCollectRequests.clear();
+    this.completedCollectionResourceIds.clear();
     this.activeCollectTargetResourceId = null;
     this.collectMovementLockResourceId = null;
     this.collectMovementLockUntilMs = 0;
@@ -132,10 +134,16 @@ export class ResourceInteractionSystem extends BaseSystem {
     if (this.pendingResourceRemovals.has(resourceId)) {
       this.resourceEntities.delete(resourceId);
       this.pendingCollectRequests.delete(resourceId);
+      this.completedCollectionResourceIds.delete(resourceId);
       if (this.activeCollectTargetResourceId === resourceId) {
         this.activeCollectTargetResourceId = null;
       }
       return;
+    }
+
+    const suppressRemovalEffect = this.completedCollectionResourceIds.has(resourceId);
+    if (suppressRemovalEffect) {
+      this.completedCollectionResourceIds.delete(resourceId);
     }
 
     const hadCollectChannelEffect = this.collectEffectByResourceId.has(resourceId);
@@ -166,6 +174,13 @@ export class ResourceInteractionSystem extends BaseSystem {
 
     this.resourceEntities.delete(resourceId);
     this.pendingCollectRequests.delete(resourceId);
+
+    if (suppressRemovalEffect) {
+      if (entity && this.ecs.entityExists(entity.id)) {
+        this.ecs.removeEntity(entity);
+      }
+      return;
+    }
 
     if (hadCollectChannelEffect) {
       if (entity && this.ecs.entityExists(entity.id)) {
@@ -199,6 +214,7 @@ export class ResourceInteractionSystem extends BaseSystem {
     if (!status) return;
 
     if (status === 'started' || status === 'in_progress') {
+      this.completedCollectionResourceIds.delete(resourceId);
       const resourceTransform = this.getResourceTransform(resourceId);
       if (!resourceTransform) return;
 
@@ -215,6 +231,7 @@ export class ResourceInteractionSystem extends BaseSystem {
     }
 
     if (status === 'interrupted') {
+      this.completedCollectionResourceIds.delete(resourceId);
       this.pendingCollectRequests.delete(resourceId);
       if (this.activeCollectTargetResourceId === resourceId) {
         this.activeCollectTargetResourceId = null;
@@ -228,6 +245,7 @@ export class ResourceInteractionSystem extends BaseSystem {
     }
 
     if (status === 'completed') {
+      this.completedCollectionResourceIds.add(resourceId);
       this.pendingCollectRequests.delete(resourceId);
       if (this.activeCollectTargetResourceId === resourceId) {
         this.activeCollectTargetResourceId = null;
