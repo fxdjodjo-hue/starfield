@@ -25,6 +25,10 @@ export class InventoryPanel extends BasePanel {
   private currentFrame: number = -1;
   private animationRequestId: number | null = null;
   private lastTimestamp: number = 0;
+  private isShipHorizontalControlActive: boolean = false;
+  private isShipHorizontalDragActive: boolean = false;
+  private lastShipDragClientX: number | null = null;
+  private shipDragFrameAccumulator: number = 0;
   private networkSystem: any = null;
   private activePopup: HTMLElement | null = null;
   private lastInventoryHash: string = '';
@@ -40,6 +44,10 @@ export class InventoryPanel extends BasePanel {
     this.currentFrame = -1;
     this.animationRequestId = null;
     this.lastTimestamp = 0;
+    this.isShipHorizontalControlActive = false;
+    this.isShipHorizontalDragActive = false;
+    this.lastShipDragClientX = null;
+    this.shipDragFrameAccumulator = 0;
 
     // Recupero forzato riferimenti se persi durante la costruzione
     this.recoverElements();
@@ -327,7 +335,71 @@ export class InventoryPanel extends BasePanel {
       background-position: -2px -2px;
       background-repeat: no-repeat;
       image-rendering: pixelated;
+      cursor: ew-resize;
+      user-select: none;
+      touch-action: none;
     `;
+    const pixelsPerFrame = 3;
+
+    const beginShipHorizontalDrag = (clientX: number) => {
+      this.isShipHorizontalDragActive = true;
+      this.isShipHorizontalControlActive = true;
+      this.lastShipDragClientX = clientX;
+      this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
+    };
+
+    const updateShipFrameFromHorizontalDrag = (clientX: number) => {
+      if (!this.isShipHorizontalDragActive) return;
+
+      if (this.lastShipDragClientX === null) {
+        this.lastShipDragClientX = clientX;
+        return;
+      }
+
+      const deltaX = clientX - this.lastShipDragClientX;
+      this.lastShipDragClientX = clientX;
+      if (deltaX === 0) return;
+
+      this.shipDragFrameAccumulator += deltaX / pixelsPerFrame;
+      this.applyShipAnimationFrame(this.shipDragFrameAccumulator);
+    };
+
+    shipDisplay.addEventListener('pointerleave', () => {
+      if (!this.isShipHorizontalDragActive) {
+        this.isShipHorizontalControlActive = false;
+        this.lastShipDragClientX = null;
+      }
+    });
+
+    shipDisplay.addEventListener('pointerdown', (event: PointerEvent) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      beginShipHorizontalDrag(event.clientX);
+      if (shipDisplay.setPointerCapture) shipDisplay.setPointerCapture(event.pointerId);
+    });
+
+    shipDisplay.addEventListener('pointermove', (event: PointerEvent) => {
+      updateShipFrameFromHorizontalDrag(event.clientX);
+    });
+
+    const stopShipHorizontalControl = (event?: PointerEvent) => {
+      this.isShipHorizontalDragActive = false;
+      this.isShipHorizontalControlActive = false;
+      this.lastShipDragClientX = null;
+      this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
+      if (event && shipDisplay.hasPointerCapture && shipDisplay.hasPointerCapture(event.pointerId)) {
+        shipDisplay.releasePointerCapture(event.pointerId);
+      }
+    };
+
+    shipDisplay.addEventListener('pointerup', stopShipHorizontalControl);
+    shipDisplay.addEventListener('pointercancel', stopShipHorizontalControl);
+    shipDisplay.addEventListener('lostpointercapture', () => {
+      this.isShipHorizontalDragActive = false;
+      this.isShipHorizontalControlActive = false;
+      this.lastShipDragClientX = null;
+      this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
+    });
+
     this.shipVisual = shipDisplay;
     shipContainer.appendChild(shipDisplay);
 
@@ -771,27 +843,34 @@ export class InventoryPanel extends BasePanel {
 
       if (!this.isVisible) return;
 
-      // Senso orario: decrementiamo il frame
-      if (this.currentFrame <= 0) {
-        this.currentFrame = 71;
-      } else {
-        this.currentFrame--;
+      if (!this.isShipHorizontalControlActive) {
+        // Senso orario: decrementiamo il frame
+        const nextFrame = this.currentFrame <= 0 ? 71 : this.currentFrame - 1;
+        this.applyShipAnimationFrame(nextFrame);
       }
-
-      const row = Math.floor(this.currentFrame / 10);
-      const col = this.currentFrame % 10;
-      const spacing = 191;
-
-      const posX = -(col * spacing + 2);
-      const posY = -(row * spacing + 2);
-
-      this.shipVisual.style.backgroundPosition = `${posX}px ${posY}px`;
 
       // Aggiorna dati ogni 10 step
       if (this.currentFrame % 10 === 0) {
         try { this.update(); } catch (e) { }
       }
     }, 50) as any;
+  }
+
+  private applyShipAnimationFrame(frame: number): void {
+    const totalFrames = 72;
+    const normalized = ((Math.floor(frame) % totalFrames) + totalFrames) % totalFrames;
+    this.currentFrame = normalized;
+
+    const row = Math.floor(normalized / 10);
+    const col = normalized % 10;
+    const spacing = 191;
+
+    const posX = -(col * spacing + 2);
+    const posY = -(row * spacing + 2);
+
+    if (this.shipVisual) {
+      this.shipVisual.style.backgroundPosition = `${posX}px ${posY}px`;
+    }
   }
 
   private stopShipAnimation(): void {
@@ -814,6 +893,10 @@ export class InventoryPanel extends BasePanel {
     this.recoverElements();
     this.lastInventoryHash = ''; // Force fresh render on first show
     this.lastInventoryLayoutSignature = '';
+    this.isShipHorizontalControlActive = false;
+    this.isShipHorizontalDragActive = false;
+    this.lastShipDragClientX = null;
+    this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
     this.update();
     setTimeout(() => {
       if (this.isVisible) this.startShipAnimation();
@@ -822,6 +905,10 @@ export class InventoryPanel extends BasePanel {
 
   protected onHide(): void {
     this.stopShipAnimation();
+    this.isShipHorizontalControlActive = false;
+    this.isShipHorizontalDragActive = false;
+    this.lastShipDragClientX = null;
+    this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
     if (this.activePopup) {
       this.activePopup.remove();
       this.activePopup = null;
