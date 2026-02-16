@@ -7,15 +7,15 @@
     },
     {
       "id": "ship106",
-      "priceCredits": 1
+      "priceCredits": 1000000
     },
     {
       "id": "ship70",
-      "priceCredits": 1
+      "priceCredits": 1500000
     },
     {
       "id": "ship102",
-      "priceCredits": 1
+      "priceCredits": 4000000
     }
   ]
 }

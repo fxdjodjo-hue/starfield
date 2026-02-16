@@ -24,6 +24,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
     const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins } = message;
     const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);
+    const previousCosmos = Number(networkSystem.gameContext?.playerInventory?.cosmos || 0);
     const previousSelectedShipSkinId = networkSystem.gameContext?.playerShipSkinId || '';
 
     // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
@@ -236,15 +237,22 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     // Notifica esplicita vendite per feedback immediato all'utente
     if (source === 'item_sold' && typeof document !== 'undefined') {
       const sale = (message as any).sale;
-      const currentCredits = Number(inventory?.credits ?? previousCredits);
-      const fallbackDelta = Math.max(0, currentCredits - previousCredits);
+      const saleCurrency = sale?.currency === 'cosmos' ? 'cosmos' : 'credits';
+      const previousBalance = saleCurrency === 'cosmos' ? previousCosmos : previousCredits;
+      const currentBalance = Number(
+        saleCurrency === 'cosmos'
+          ? (inventory?.cosmos ?? previousCosmos)
+          : (inventory?.credits ?? previousCredits)
+      );
+      const fallbackDelta = Math.max(0, currentBalance - previousBalance);
       const soldAmount = Number(sale?.amount ?? fallbackDelta);
       const parsedQuantity = Number(sale?.quantity ?? 1);
       const soldQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0
         ? Math.floor(parsedQuantity)
         : 1;
+      const currencyLabel = saleCurrency === 'cosmos' ? 'cosmos' : 'crediti';
       const content = soldAmount > 0
-        ? `Venduto x${soldQuantity}: +${soldAmount} crediti (Totale: ${currentCredits})`
+        ? `Venduto x${soldQuantity}: +${soldAmount} ${currencyLabel} (Totale: ${currentBalance})`
         : 'Vendita completata';
 
       document.dispatchEvent(new CustomEvent('ui:system-message', { detail: { content } }));

@@ -84,7 +84,7 @@ function resolveSharedShipSkinPrice(skinId: string, fallbackCredits: number): {
 const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
   {
     id: 'ship50',
-    displayName: 'Ship 50',
+    displayName: 'Pathfinder',
     basePath: 'assets/ships/ship50/ship50',
     ...resolveSharedShipSkinPrice('ship50', 0),
     inGameScale: 1.2,
@@ -113,7 +113,7 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
     id: 'ship106',
     displayName: 'Interceptor Mk I',
     basePath: 'assets/ships/ship106/ship106',
-    ...resolveSharedShipSkinPrice('ship106', 1),
+    ...resolveSharedShipSkinPrice('ship106', 0),
     inGameScale: 0.8,
     rotationFrameCount: 72,
     engineFlame: {
@@ -140,7 +140,7 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
     id: 'ship70',
     displayName: 'Aegis Prototype',
     basePath: 'assets/ships/ship70/ship70',
-    ...resolveSharedShipSkinPrice('ship70', 1),
+    ...resolveSharedShipSkinPrice('ship70', 0),
     inGameScale: 0.8,
     rotationFrameCount: 32,
     engineFlame: {
@@ -165,11 +165,11 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
   },
   {
     id: 'ship102',
-    displayName: 'Goliath',
+    displayName: 'Colossus',
     basePath: 'assets/ships/ship102/ship102',
-    ...resolveSharedShipSkinPrice('ship102', 1),
+    ...resolveSharedShipSkinPrice('ship102', 0),
     inGameScale: 0.9,
-    rotationFrameCount: 32,
+    rotationFrameCount: 73,
     engineFlame: {
       backwardOffset: 98,
       horizontalOffsetBonus: 0,
@@ -177,16 +177,16 @@ const PLAYER_SHIP_SKINS: PlayerShipSkinDefinition[] = [
       lateralOffset: 0
     },
     preview: {
-      frameWidth: 214,
-      frameHeight: 166,
-      sheetWidth: 2048,
-      sheetHeight: 1024,
-      totalFrames: 32,
-      columns: 9,
-      spacingX: 216,
-      spacingY: 168,
+      frameWidth: 250,
+      frameHeight: 250,
+      sheetWidth: 4096,
+      sheetHeight: 2048,
+      totalFrames: 73,
+      columns: 16,
+      spacingX: 252,
+      spacingY: 252,
       offsetX: 2,
-      offsetY: 4,
+      offsetY: 2,
       displayScale: 0.82
     }
   }

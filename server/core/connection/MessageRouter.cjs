@@ -21,24 +21,35 @@ const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
 const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY || {};
-const DEFAULT_SELL_VALUES_BY_RARITY = Object.freeze({
-  COMMON: 120,
-  UNCOMMON: 300,
-  RARE: 900,
-  EPIC: 2500
+const DEFAULT_SELL_REWARDS_BY_RARITY = Object.freeze({
+  COMMON: Object.freeze({ amount: 1200, currency: 'credits' }),
+  UNCOMMON: Object.freeze({ amount: 3000, currency: 'credits' }),
+  RARE: Object.freeze({ amount: 9000, currency: 'credits' }),
+  EPIC: Object.freeze({ amount: 2500, currency: 'cosmos' })
 });
 
-function getItemSellValue(itemId) {
+function normalizeSellCurrency(currency) {
+  return String(currency || '').toLowerCase() === 'cosmos' ? 'cosmos' : 'credits';
+}
+
+function getItemSellReward(itemId) {
   const itemDef = ITEM_REGISTRY[itemId];
-  if (!itemDef) return 0;
+  if (!itemDef) return null;
 
   const explicitSellValue = Number(itemDef.sellValue);
   if (Number.isFinite(explicitSellValue) && explicitSellValue > 0) {
-    return Math.floor(explicitSellValue);
+    return {
+      amount: Math.floor(explicitSellValue),
+      currency: normalizeSellCurrency(itemDef.sellCurrency)
+    };
   }
 
   const rarity = String(itemDef.rarity || 'COMMON').toUpperCase();
-  return DEFAULT_SELL_VALUES_BY_RARITY[rarity] || DEFAULT_SELL_VALUES_BY_RARITY.COMMON;
+  const fallback = DEFAULT_SELL_REWARDS_BY_RARITY[rarity] || DEFAULT_SELL_REWARDS_BY_RARITY.COMMON;
+  return {
+    amount: Math.floor(Number(fallback.amount || 0)),
+    currency: normalizeSellCurrency(fallback.currency)
+  };
 }
 
 function normalizePlayerShipSkinState(shipSkins) {
@@ -1631,8 +1642,8 @@ async function handleSellItem(data, sanitizedData, context) {
     return;
   }
 
-  const sellValue = getItemSellValue(itemId);
-  if (sellValue <= 0) {
+  const sellReward = getItemSellReward(itemId);
+  if (!sellReward || sellReward.amount <= 0) {
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Item cannot be sold.',
@@ -1654,8 +1665,10 @@ async function handleSellItem(data, sanitizedData, context) {
     }
   }
 
-  const totalSellValue = sellValue * itemsToSell.length;
-  playerData.inventory.credits = Number(playerData.inventory.credits || 0) + totalSellValue;
+  const unitSellValue = Math.floor(Number(sellReward.amount || 0));
+  const sellCurrency = sellReward.currency === 'cosmos' ? 'cosmos' : 'credits';
+  const totalSellValue = unitSellValue * itemsToSell.length;
+  playerData.inventory[sellCurrency] = Number(playerData.inventory[sellCurrency] || 0) + totalSellValue;
   for (const soldItem of itemsToSell) {
     playerData.recentlySoldItems[soldItem.instanceId] = now;
   }
@@ -1669,14 +1682,14 @@ async function handleSellItem(data, sanitizedData, context) {
       itemId: itemId,
       instanceId: itemsToSell[0].instanceId,
       quantity: itemsToSell.length,
-      unitPrice: sellValue,
+      unitPrice: unitSellValue,
       amount: totalSellValue,
-      currency: 'credits'
+      currency: sellCurrency
     },
     source: 'item_sold'
   }));
 
-  logger.info('INVENTORY', `Player ${data.clientId} sold x${itemsToSell.length} ${itemId} for ${totalSellValue} credits (${sellValue} each)`);
+  logger.info('INVENTORY', `Player ${data.clientId} sold x${itemsToSell.length} ${itemId} for ${totalSellValue} ${sellCurrency} (${unitSellValue} each)`);
 
   // Persistenza asincrona per evitare ritardo percepito su HUD/notifiche vendita.
   try {

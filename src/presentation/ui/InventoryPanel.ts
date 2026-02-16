@@ -886,7 +886,7 @@ export class InventoryPanel extends BasePanel {
       return { currency: 'cosmos', amount: cosmosAmount };
     }
 
-    const creditsAmount = Math.max(1, Math.floor(skin.priceCredits || 1));
+    const creditsAmount = Math.max(0, Math.floor(skin.priceCredits || 0));
     return { currency: 'credits', amount: creditsAmount };
   }
 

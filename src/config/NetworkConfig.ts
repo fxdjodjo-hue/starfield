@@ -470,7 +470,7 @@ export interface PlayerStateUpdateMessage {
     quantity?: number;
     unitPrice?: number;
     amount: number;
-    currency: 'credits';
+    currency: 'credits' | 'cosmos';
   };
   shipSkins?: {
     selectedSkinId: string;
