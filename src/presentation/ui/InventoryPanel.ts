@@ -565,9 +565,27 @@ export class InventoryPanel extends BasePanel {
     // Mostra gli item nell'inventario (FILTRATI: solo quelli non equipaggiati)
     const equippedInstanceIds = new Set(Object.values(inventory.equipped));
     const unequippedItems = inventory.items.filter(itemInfo => !equippedInstanceIds.has(itemInfo.instanceId));
+    const stackedItems = new Map<string, { itemId: string; instanceId: string; count: number }>();
 
     unequippedItems.forEach(itemInfo => {
       const itemDef = ITEM_REGISTRY[itemInfo.id];
+      if (!itemDef) return;
+
+      const existingStack = stackedItems.get(itemInfo.id);
+      if (existingStack) {
+        existingStack.count += 1;
+        return;
+      }
+
+      stackedItems.set(itemInfo.id, {
+        itemId: itemInfo.id,
+        instanceId: itemInfo.instanceId,
+        count: 1
+      });
+    });
+
+    stackedItems.forEach(stackedItem => {
+      const itemDef = ITEM_REGISTRY[stackedItem.itemId];
       if (!itemDef) return;
 
       const slot = document.createElement('div');
@@ -590,22 +608,22 @@ export class InventoryPanel extends BasePanel {
         <div style="width: 48px; display: flex; justify-content: center;">${this.renderIcon(itemDef.icon, '36px', itemDef.rarity !== 'COMMON' ? `drop-shadow(0 0 5px ${rarityBorder})` : '')}</div>
         <div style="flex: 1; min-width: 0;">
           <div style="color: ${itemDef.rarity !== 'COMMON' ? rarityBorder.replace('0.3', '1.0') : '#ffffff'}; font-size: 13px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase; letter-spacing: 1px;">${itemDef.name}</div>
-          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.rarity} ${itemDef.slot}</div>
+          <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 600; text-transform: uppercase;">${itemDef.rarity} ${itemDef.slot}  •  x${stackedItem.count}</div>
         </div>
       `;
 
-      slot.title = `${itemDef.name}\n${itemDef.description}\n(Click to Equip)`;
+      slot.title = `${itemDef.name} x${stackedItem.count}\n${itemDef.description}\n(Click to Equip)`;
 
       slot.onclick = (e) => {
         e.stopPropagation();
-        this.showItemDetails(itemDef, itemInfo.instanceId, false, inventory);
+        this.showItemDetails(itemDef, stackedItem.instanceId, false, inventory, stackedItem.count);
       };
 
       cargoGrid.appendChild(slot);
     });
 
-    // Riempi con slot vuoti se necessario (basato su unepuippedItems)
-    const emptySlots = Math.max(0, 8 - unequippedItems.length);
+    // Riempi con slot vuoti se necessario (basato sugli stack)
+    const emptySlots = Math.max(0, 8 - stackedItems.size);
     for (let i = 0; i < emptySlots; i++) {
       const slot = document.createElement('div');
       slot.style.cssText = `
@@ -748,7 +766,24 @@ export class InventoryPanel extends BasePanel {
     }
   }
 
-  private showItemDetails(item: any, instanceId: string, isEquipped: boolean, inventory: Inventory): void {
+  public invalidateInventoryCache(): void {
+    this.lastInventoryHash = '';
+  }
+
+  private getSellValue(item: any): number {
+    const explicitSellValue = Number(item?.sellValue);
+    if (Number.isFinite(explicitSellValue) && explicitSellValue > 0) {
+      return Math.floor(explicitSellValue);
+    }
+
+    const rarity = String(item?.rarity || 'COMMON').toUpperCase();
+    if (rarity === 'UNCOMMON') return 300;
+    if (rarity === 'RARE') return 900;
+    if (rarity === 'EPIC') return 2500;
+    return 120;
+  }
+
+  private showItemDetails(item: any, instanceId: string, isEquipped: boolean, inventory: Inventory, stackCount: number = 1): void {
     if (this.activePopup) {
       this.activePopup.remove();
     }
@@ -804,7 +839,7 @@ export class InventoryPanel extends BasePanel {
       ${this.renderIcon(item.icon, '32px', `drop-shadow(0 0 10px ${rarityColor}88)`)}
       <div>
         <div style="color: ${rarityColor}; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">${item.name}</div>
-        <div style="color: rgba(255, 255, 255, 0.4); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${item.rarity} ${item.slot} MODULE</div>
+        <div style="color: rgba(255, 255, 255, 0.4); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${item.rarity} ${item.slot} MODULE  •  x${Math.max(1, stackCount)}</div>
       </div>
     `;
 
@@ -894,9 +929,173 @@ export class InventoryPanel extends BasePanel {
       this.update();
     };
 
+    let sellBtn: HTMLButtonElement | null = null;
+    let quantityControls: HTMLDivElement | null = null;
+    if (!isEquipped) {
+      sellBtn = document.createElement('button');
+      let sellRequestInFlight = false;
+      const unitSellValue = this.getSellValue(item);
+      const maxSellQuantity = Math.max(1, stackCount);
+      let selectedSellQuantity = 1;
+      sellBtn.style.cssText = `
+        flex: 1;
+        padding: 14px;
+        background: rgba(245, 158, 11, 0.2);
+        border: 1px solid rgba(245, 158, 11, 0.45);
+        color: #fbbf24;
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-radius: 2px;
+      `;
+      const updateSellButtonLabel = () => {
+        const totalSellValue = unitSellValue * selectedSellQuantity;
+        sellBtn!.textContent = `SELL ${selectedSellQuantity} (+${NumberFormatter.format(totalSellValue)}c)`;
+      };
+
+      if (maxSellQuantity > 1) {
+        quantityControls = document.createElement('div');
+        quantityControls.style.cssText = `
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 10px;
+          padding: 12px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 2px;
+          margin-top: 6px;
+        `;
+
+        const quantityLabel = document.createElement('div');
+        quantityLabel.style.cssText = `
+          color: rgba(255, 255, 255, 0.65);
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+        `;
+        quantityLabel.textContent = 'Sell quantity';
+
+        const controls = document.createElement('div');
+        controls.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+        const qtyValue = document.createElement('div');
+        qtyValue.style.cssText = `
+          min-width: 72px;
+          text-align: center;
+          color: #f8fafc;
+          font-size: 12px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+        `;
+
+        const createQtyButton = (label: string) => {
+          const button = document.createElement('button');
+          button.style.cssText = `
+            width: 30px;
+            height: 30px;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            background: rgba(245, 158, 11, 0.14);
+            color: #fbbf24;
+            font-size: 14px;
+            font-weight: 800;
+            cursor: pointer;
+            border-radius: 2px;
+          `;
+          button.textContent = label;
+          return button;
+        };
+
+        const minusBtn = createQtyButton('-');
+        const plusBtn = createQtyButton('+');
+        const maxBtn = document.createElement('button');
+        maxBtn.style.cssText = `
+          height: 30px;
+          padding: 0 10px;
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          background: rgba(245, 158, 11, 0.14);
+          color: #fbbf24;
+          font-size: 11px;
+          font-weight: 800;
+          cursor: pointer;
+          border-radius: 2px;
+          letter-spacing: 0.8px;
+        `;
+        maxBtn.textContent = 'MAX';
+
+        const updateQuantityControls = () => {
+          qtyValue.textContent = `${selectedSellQuantity} / ${maxSellQuantity}`;
+          minusBtn.disabled = selectedSellQuantity <= 1;
+          plusBtn.disabled = selectedSellQuantity >= maxSellQuantity;
+          minusBtn.style.opacity = minusBtn.disabled ? '0.4' : '1';
+          plusBtn.style.opacity = plusBtn.disabled ? '0.4' : '1';
+          updateSellButtonLabel();
+        };
+
+        minusBtn.onclick = () => {
+          selectedSellQuantity = Math.max(1, selectedSellQuantity - 1);
+          updateQuantityControls();
+        };
+        plusBtn.onclick = () => {
+          selectedSellQuantity = Math.min(maxSellQuantity, selectedSellQuantity + 1);
+          updateQuantityControls();
+        };
+        maxBtn.onclick = () => {
+          selectedSellQuantity = maxSellQuantity;
+          updateQuantityControls();
+        };
+
+        controls.appendChild(minusBtn);
+        controls.appendChild(qtyValue);
+        controls.appendChild(plusBtn);
+        controls.appendChild(maxBtn);
+        quantityControls.appendChild(quantityLabel);
+        quantityControls.appendChild(controls);
+        updateQuantityControls();
+      } else {
+        updateSellButtonLabel();
+      }
+
+      sellBtn.onmouseenter = () => {
+        sellBtn!.style.background = 'rgba(245, 158, 11, 0.3)';
+      };
+      sellBtn.onmouseleave = () => {
+        sellBtn!.style.background = 'rgba(245, 158, 11, 0.2)';
+      };
+      sellBtn.onclick = () => {
+        if (sellRequestInFlight) {
+          return;
+        }
+        sellRequestInFlight = true;
+        sellBtn!.style.pointerEvents = 'none';
+        sellBtn!.style.opacity = '0.6';
+
+        if (this.networkSystem?.sendSellItemRequest) {
+          this.networkSystem.sendSellItemRequest(instanceId, item.id, selectedSellQuantity);
+        } else if (this.networkSystem?.sendMessage) {
+          this.networkSystem.sendMessage({
+            type: 'sell_item',
+            instanceId: instanceId,
+            itemId: item.id,
+            quantity: selectedSellQuantity,
+            timestamp: Date.now()
+          });
+        }
+
+        popup.style.opacity = '0';
+        setTimeout(() => popup.remove(), 200);
+        this.activePopup = null;
+      };
+    }
+
     const cancelBtn = document.createElement('button');
     cancelBtn.style.cssText = `
-      padding: 14px 24px;
+      padding: 14px 18px;
+      min-width: 96px;
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
       color: rgba(255, 255, 255, 0.6);
@@ -924,10 +1123,16 @@ export class InventoryPanel extends BasePanel {
     };
 
     actions.appendChild(actionBtn);
+    if (sellBtn) {
+      actions.appendChild(sellBtn);
+    }
     actions.appendChild(cancelBtn);
 
     body.appendChild(desc);
     body.appendChild(statsGrid);
+    if (quantityControls) {
+      body.appendChild(quantityControls);
+    }
     body.appendChild(actions);
 
     card.appendChild(header);

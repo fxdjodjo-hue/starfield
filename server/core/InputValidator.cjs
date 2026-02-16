@@ -525,6 +525,53 @@ class ServerInputValidator {
             }
           };
 
+        case 'sell_item':
+          // Valida richiesta vendita oggetto
+          const sellErrors = [];
+
+          if (data.instanceId !== undefined && data.instanceId !== null) {
+            if (typeof data.instanceId !== 'string') {
+              sellErrors.push('Invalid instanceId (must be a string)');
+            } else if (data.instanceId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+              sellErrors.push('Instance ID too long');
+            }
+          }
+
+          if (data.itemId !== undefined && data.itemId !== null) {
+            if (typeof data.itemId !== 'string') {
+              sellErrors.push('Invalid itemId (must be a string)');
+            } else if (data.itemId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+              sellErrors.push('Item ID too long');
+            }
+          }
+
+          // Deve esserci almeno un target di vendita (instanceId o itemId)
+          if ((!data.instanceId || typeof data.instanceId !== 'string') &&
+            (!data.itemId || typeof data.itemId !== 'string')) {
+            sellErrors.push('Missing sell target (instanceId or itemId required)');
+          }
+
+          let sanitizedQuantity = 1;
+          if (data.quantity !== undefined && data.quantity !== null) {
+            const qty = Number(data.quantity);
+            if (!Number.isFinite(qty) || qty <= 0) {
+              sellErrors.push('Invalid quantity (must be a positive number)');
+            } else {
+              // Cap di sicurezza lato validator; clamp finale lato business logic.
+              sanitizedQuantity = Math.max(1, Math.min(500, Math.floor(qty)));
+            }
+          }
+
+          return {
+            isValid: sellErrors.length === 0,
+            errors: sellErrors,
+            sanitizedData: {
+              instanceId: data.instanceId,
+              itemId: data.itemId,
+              quantity: sanitizedQuantity
+            }
+          };
+
         case 'portal_use':
           // Valida richiesta utilizzo portale
           const portalErrors = [];

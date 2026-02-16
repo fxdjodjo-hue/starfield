@@ -6,6 +6,7 @@ import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
 import { Inventory } from '../../../entities/player/Inventory';
 import { DamageText } from '../../../entities/combat/DamageText';
+import { NumberFormatter } from '../../../core/utils/ui/NumberFormatter';
 
 /**
  * Gestisce gli aggiornamenti completi dello stato del giocatore dal server
@@ -19,6 +20,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
     const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items } = message;
+    const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);
 
     // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
     // Nota: inventory può essere undefined per messaggi di riparazione che aggiornano solo HP/shield
@@ -162,6 +164,11 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     // 🔄 AGGIORNA LE UI IN TEMPO REALE DOPO TUTTI GLI AGGIORNAMENTI
     // Importante per riflettere immediatamente i cambiamenti di HP/Shield max dopo equipaggiamento
     if (uiSystem) {
+      // Forza aggiornamento immediato dati HUD (credits/cosmos in alto a sinistra)
+      if (inventory && typeof (uiSystem as any).updatePlayerData === 'function') {
+        (uiSystem as any).updatePlayerData({ inventory });
+      }
+
       const uiManager = uiSystem.getUIManager();
 
       // 1. Aggiorna l'HUD classico
@@ -176,8 +183,32 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       // 3. Aggiorna il pannello Ship Systems (InventoryPanel) se esiste
       const inventoryPanel = uiManager.getPanel('inventory-panel');
       if (inventoryPanel && typeof (inventoryPanel as any).update === 'function') {
+        if (source && source.startsWith('item_sell') && typeof (inventoryPanel as any).invalidateInventoryCache === 'function') {
+          (inventoryPanel as any).invalidateInventoryCache();
+        }
         (inventoryPanel as any).update();
       }
+    }
+
+    if (inventory) {
+      this.forceHudResourceRefresh(inventory);
+    }
+
+    // Notifica esplicita vendite per feedback immediato all'utente
+    if (source === 'item_sold' && typeof document !== 'undefined') {
+      const sale = (message as any).sale;
+      const currentCredits = Number(inventory?.credits ?? previousCredits);
+      const fallbackDelta = Math.max(0, currentCredits - previousCredits);
+      const soldAmount = Number(sale?.amount ?? fallbackDelta);
+      const parsedQuantity = Number(sale?.quantity ?? 1);
+      const soldQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0
+        ? Math.floor(parsedQuantity)
+        : 1;
+      const content = soldAmount > 0
+        ? `Venduto x${soldQuantity}: +${soldAmount} crediti (Totale: ${currentCredits})`
+        : 'Vendita completata';
+
+      document.dispatchEvent(new CustomEvent('ui:system-message', { detail: { content } }));
     }
 
     // Forza aggiornamento immediato di PlayerStatusDisplaySystem per messaggi di riparazione
@@ -199,6 +230,21 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     if ((healthRepaired && healthRepaired > 0) || (shieldRepaired && shieldRepaired > 0)) {
       this.createRepairText(networkSystem, healthRepaired || 0, shieldRepaired || 0);
     }
+  }
+
+  private forceHudResourceRefresh(inventory: { credits: number; cosmos: number; experience: number; honor: number }): void {
+    if (typeof document === 'undefined') return;
+
+    const hudContainer = document.getElementById('player-hud');
+    if (!hudContainer) return;
+
+    const statItems = hudContainer.querySelectorAll('.stat-item .stat-value');
+    if (statItems.length < 4) return;
+
+    (statItems[0] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.credits || 0));
+    (statItems[1] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.cosmos || 0));
+    (statItems[2] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.experience || 0));
+    (statItems[3] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.honor || 0));
   }
 
   /**

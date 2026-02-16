@@ -255,6 +255,9 @@ class BoundaryEnforcement {
       case 'equip_item':
         // Il client può richiedere di equipaggiare item
         return { allowed: true };
+      case 'sell_item':
+        // Il client può richiedere la vendita di un item
+        return { allowed: true };
 
       case 'join':
       case 'heartbeat':

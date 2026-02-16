@@ -486,6 +486,42 @@ class PlayerDataManager {
         // 1. Rimuovi items non più presenti (per gestire vendite/eliminazioni se implementate)
         // Per ora facciamo solo upsert di quelli esistenti
 
+        // Sincronizza eliminazioni: rimuove dal DB gli item non più presenti lato server.
+        const currentInstanceIds = Array.from(new Set(
+          playerData.items
+            .map(item => item && item.instanceId)
+            .filter(instanceId => typeof instanceId === 'string' && instanceId.length > 0)
+        ));
+
+        const { data: existingInventoryRows, error: existingInventoryError } = await supabase
+          .from('player_inventory')
+          .select('instance_id')
+          .eq('auth_id', authId);
+
+        if (existingInventoryError) {
+          ServerLoggerWrapper.database(`Error loading existing inventory rows for ${authId}: ${existingInventoryError.message}`);
+          throw existingInventoryError;
+        }
+
+        const staleInstanceIds = (existingInventoryRows || [])
+          .map(row => row.instance_id)
+          .filter(instanceId => !currentInstanceIds.includes(instanceId));
+
+        if (staleInstanceIds.length > 0) {
+          const { error: deleteStaleError } = await supabase
+            .from('player_inventory')
+            .delete()
+            .eq('auth_id', authId)
+            .in('instance_id', staleInstanceIds);
+
+          if (deleteStaleError) {
+            ServerLoggerWrapper.database(`Error deleting stale inventory rows for ${authId}: ${deleteStaleError.message}`);
+            throw deleteStaleError;
+          }
+
+          ServerLoggerWrapper.database(`Deleted ${staleInstanceIds.length} stale inventory rows for auth_id: ${authId}`);
+        }
+
         for (const item of playerData.items) {
           if (item.slot) {
             ServerLoggerWrapper.database(`Saving item ${item.id} (${item.instanceId}) in slot ${item.slot}`);

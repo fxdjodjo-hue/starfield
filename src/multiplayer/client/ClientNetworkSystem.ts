@@ -499,6 +499,24 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 
+  /**
+   * Sends a sell item request to the server
+   */
+  sendSellItemRequest(instanceId: string, itemId?: string, quantity: number = 1): void {
+    if (!this.connectionManager.isConnectionActive()) {
+      return;
+    }
+    const sanitizedQuantity = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+    this.sendMessage({
+      type: 'sell_item',
+      clientId: this.clientId,
+      instanceId: instanceId,
+      itemId: itemId,
+      quantity: sanitizedQuantity,
+      timestamp: Date.now()
+    });
+  }
+
 
   isConnected(): boolean {
     return this.stateManager.isConnected();

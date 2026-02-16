@@ -174,6 +174,7 @@ export const MESSAGE_TYPES = {
   ECONOMY_UPDATE: 'economy_update',
   SAVE_REQUEST: 'save_request',
   SAVE_RESPONSE: 'save_response',
+  SELL_ITEM: 'sell_item',
 
   // Leaderboard messages
   REQUEST_LEADERBOARD: 'request_leaderboard',
@@ -459,6 +460,14 @@ export interface PlayerStateUpdateMessage {
     honor: number;
     npcType: string;
     droppedItems?: any[];
+  };
+  sale?: {
+    itemId: string;
+    instanceId: string;
+    quantity?: number;
+    unitPrice?: number;
+    amount: number;
+    currency: 'credits';
   };
   items?: any[];
 }

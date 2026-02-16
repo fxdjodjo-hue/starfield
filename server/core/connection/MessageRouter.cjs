@@ -1,5 +1,5 @@
 // MessageRouter - Routing e gestione di tutti i tipi di messaggio WebSocket
-// Responsabilità: Gestisce tutti i tipi di messaggio (join, position, combat, chat, etc.)
+// ResponsabilitÃ : Gestisce tutti i tipi di messaggio (join, position, combat, chat, etc.)
 // Dipendenze: logger.cjs, mapServer, playerDataManager, authManager, messageBroadcaster, core/combat/DamageCalculationSystem.cjs
 
 const { logger } = require('../../logger.cjs');
@@ -8,10 +8,31 @@ const WebSocket = require('ws');
 const messageBroadcaster = require('../messaging/MessageBroadcaster.cjs');
 const DamageCalculationSystem = require('../combat/DamageCalculationSystem.cjs');
 const playerConfig = require('../../../shared/player-config.json');
+const itemConfig = require('../../../shared/item-config.json');
 const { MAP_CONFIGS } = require('../../config/MapConfigs.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
+const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY || {};
+const DEFAULT_SELL_VALUES_BY_RARITY = Object.freeze({
+  COMMON: 120,
+  UNCOMMON: 300,
+  RARE: 900,
+  EPIC: 2500
+});
+
+function getItemSellValue(itemId) {
+  const itemDef = ITEM_REGISTRY[itemId];
+  if (!itemDef) return 0;
+
+  const explicitSellValue = Number(itemDef.sellValue);
+  if (Number.isFinite(explicitSellValue) && explicitSellValue > 0) {
+    return Math.floor(explicitSellValue);
+  }
+
+  const rarity = String(itemDef.rarity || 'COMMON').toUpperCase();
+  return DEFAULT_SELL_VALUES_BY_RARITY[rarity] || DEFAULT_SELL_VALUES_BY_RARITY.COMMON;
+}
 
 async function verifyJoinAuthToken(data, context) {
   const ws = context?.ws;
@@ -150,17 +171,17 @@ async function handleJoin(data, sanitizedData, context) {
   const maxHealth = authManager.calculateMaxHealth(loadedData.upgrades.hpUpgrades, loadedData.items);
   const maxShield = authManager.calculateMaxShield(loadedData.upgrades.shieldUpgrades, loadedData.items);
 
-  // 🟢 MMO-CORRECT: Usa SEMPRE i valori salvati (NULL = errore critico, mai fallback)
-  // Se il player esiste, HP deve arrivare dal DB. Se manca → errore, non fallback silenzioso
+  // ðŸŸ¢ MMO-CORRECT: Usa SEMPRE i valori salvati (NULL = errore critico, mai fallback)
+  // Se il player esiste, HP deve arrivare dal DB. Se manca â†’ errore, non fallback silenzioso
 
   if (loadedData.health === null || loadedData.health === undefined) {
-    ServerLoggerWrapper.system(`🚨 CRITICAL: MISSING HEALTH DATA for existing player ${data.userId} (${loadedData.playerId})`);
+    ServerLoggerWrapper.system(`ðŸš¨ CRITICAL: MISSING HEALTH DATA for existing player ${data.userId} (${loadedData.playerId})`);
     ServerLoggerWrapper.system(`This should NEVER happen after DB migration. Check migration status and DB integrity.`);
     throw new Error(`DATABASE ERROR: Missing current_health for player ${loadedData.playerId}. DB migration may have failed.`);
   }
 
   if (loadedData.shield === null || loadedData.shield === undefined) {
-    ServerLoggerWrapper.system(`🚨 CRITICAL: MISSING SHIELD DATA for existing player ${data.userId} (${loadedData.playerId})`);
+    ServerLoggerWrapper.system(`ðŸš¨ CRITICAL: MISSING SHIELD DATA for existing player ${data.userId} (${loadedData.playerId})`);
     ServerLoggerWrapper.system(`This should NEVER happen after DB migration. Check migration status and DB integrity.`);
     throw new Error(`DATABASE ERROR: Missing current_shield for player ${loadedData.playerId}. DB migration may have failed.`);
   }
@@ -168,8 +189,8 @@ async function handleJoin(data, sanitizedData, context) {
   const savedHealth = Math.min(loadedData.health, maxHealth);
   const savedShield = Math.min(loadedData.shield, maxShield);
 
-  logger.info('CONNECTION', `🎯 APPLY Health: loaded=${loadedData.health}, max=${maxHealth}, applied=${savedHealth}`);
-  logger.info('CONNECTION', `🎯 APPLY Shield: loaded=${loadedData.shield}, max=${maxShield}, applied=${savedShield}`);
+  logger.info('CONNECTION', `ðŸŽ¯ APPLY Health: loaded=${loadedData.health}, max=${maxHealth}, applied=${savedHealth}`);
+  logger.info('CONNECTION', `ðŸŽ¯ APPLY Shield: loaded=${loadedData.shield}, max=${maxShield}, applied=${savedShield}`);
 
   const playerData = {
     clientId: data.clientId,
@@ -190,7 +211,7 @@ async function handleJoin(data, sanitizedData, context) {
     isDead: false,
     respawnTime: null,
     joinTime: Date.now(), // Timestamp quando ha fatto join
-    isFullyLoaded: false, // 🚫 Blocca auto-repair finché non è true
+    isFullyLoaded: false, // ðŸš« Blocca auto-repair finchÃ© non Ã¨ true
     inventory: loadedData.inventory,
     quests: loadedData.quests || [],
     items: loadedData.items || []
@@ -198,7 +219,7 @@ async function handleJoin(data, sanitizedData, context) {
 
   // Verifica che inventory sia presente
   if (!playerData.inventory) {
-    ServerLoggerWrapper.security(`🚨 CRITICAL: Player ${data.userId} joined with null inventory!`);
+    ServerLoggerWrapper.security(`ðŸš¨ CRITICAL: Player ${data.userId} joined with null inventory!`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Failed to load player inventory. Please contact support.',
@@ -208,15 +229,15 @@ async function handleJoin(data, sanitizedData, context) {
     return null;
   }
 
-  // 🔄 CRITICAL: Usa playerId come clientId per renderlo PERSISTENTE tra riconnessioni
+  // ðŸ”„ CRITICAL: Usa playerId come clientId per renderlo PERSISTENTE tra riconnessioni
   // Invece del clientId temporaneo inviato dal client, usa l'ID stabile del giocatore
   const persistentClientId = `${playerData.playerId}`;
 
-  // 🚨 CRITICAL: Prima di aggiungere il nuovo giocatore, rimuovi eventuali vecchi giocatori
+  // ðŸš¨ CRITICAL: Prima di aggiungere il nuovo giocatore, rimuovi eventuali vecchi giocatori
   // con lo stesso playerId ma clientId diverso (riconnessioni)
   for (const [existingClientId, existingPlayerData] of effectiveMapServer.players.entries()) {
     if (existingPlayerData.playerId === playerData.playerId && existingClientId !== persistentClientId) {
-      ServerLoggerWrapper.security(`🧹 CLEANUP: Removing old instance of player ${playerData.playerId} with clientId ${existingClientId} (reconnection)`);
+      ServerLoggerWrapper.security(`ðŸ§¹ CLEANUP: Removing old instance of player ${playerData.playerId} with clientId ${existingClientId} (reconnection)`);
 
       // Broadcast player left per il vecchio giocatore
       const playerLeftMsg = messageBroadcaster.formatPlayerLeftMessage(existingClientId);
@@ -238,7 +259,7 @@ async function handleJoin(data, sanitizedData, context) {
 
   console.log(`[SERVER_RANK_CALC] User ${data.nickname}: Honor=${loadedData.inventory?.honor}, Rank=${playerData.rank} (Calculated by Database)`);
 
-  // 🚨 CRITICAL: Inizializza coordinate del player usando la persistenza del DB o spawn come fallback
+  // ðŸš¨ CRITICAL: Inizializza coordinate del player usando la persistenza del DB o spawn come fallback
   // loadedData.position contiene i dati caricati dal DB in PlayerDataManager.loadPlayerData
   const spawnX = 200 + (Math.random() * 200);
   const spawnY = 200 + (Math.random() * 200);
@@ -263,7 +284,7 @@ async function handleJoin(data, sanitizedData, context) {
   ServerLoggerWrapper.info('PLAYER', `Player joined: ${data.nickname} (${playerData.playerId}) - Rank: ${playerData.rank}`);
 
   // TEMP: Enable repair system after initial sync (replace with explicit load completion)
-  // Questo timeout è un hack temporaneo - in futuro sostituire con:
+  // Questo timeout Ã¨ un hack temporaneo - in futuro sostituire con:
   // await loadHealth(); await loadShield(); await loadPosition(); await loadShipState();
   setTimeout(() => {
     playerData.isFullyLoaded = true;
@@ -370,11 +391,11 @@ async function handleJoin(data, sanitizedData, context) {
 function handlePositionUpdate(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
-  // 🔒 SECURITY: Rate limiting lato server per position_update
+  // ðŸ”’ SECURITY: Rate limiting lato server per position_update
   const now = Date.now();
   const rawClientTimestamp = Number.isFinite(data.t) ? data.t : null;
 
@@ -414,7 +435,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
     playerData.lastPositionUpdateTime = now;
   }
 
-  // Max 50 position updates al secondo (aumentato per fluidità nei combattimenti)
+  // Max 50 position updates al secondo (aumentato per fluiditÃ  nei combattimenti)
   const MAX_POSITION_UPDATES_PER_SECOND = 50;
   if (playerData.positionUpdateCount >= MAX_POSITION_UPDATES_PER_SECOND) {
     // Rate limit superato - ignora questo update
@@ -422,13 +443,13 @@ function handlePositionUpdate(data, sanitizedData, context) {
   }
   playerData.positionUpdateCount++;
 
-  // 🔒 SECURITY: Anti-teleport - verifica che il movimento sia fisicamente possibile
+  // ðŸ”’ SECURITY: Anti-teleport - verifica che il movimento sia fisicamente possibile
   const PLAYER_CONFIG = require('../../../shared/player-config.json');
-  const baseSpeed = PLAYER_CONFIG.stats.speed || 300; // 300 unità/secondo
+  const baseSpeed = PLAYER_CONFIG.stats.speed || 300; // 300 unitÃ /secondo
 
-  // Calcola velocità effettiva del giocatore basata sui suoi upgrade
+  // Calcola velocitÃ  effettiva del giocatore basata sui suoi upgrade
   const playerSpeedUpgrades = playerData.upgrades?.speedUpgrades || 0;
-  const speedMultiplier = 1.0 + (playerSpeedUpgrades * 0.005); // Ogni upgrade = +0.5% velocità
+  const speedMultiplier = 1.0 + (playerSpeedUpgrades * 0.005); // Ogni upgrade = +0.5% velocitÃ 
   const actualMaxSpeed = baseSpeed * speedMultiplier;
 
   // Calcola tempo effettivo dall'ultimo movimento (non dall'ultimo rate limit reset)
@@ -443,18 +464,18 @@ function handlePositionUpdate(data, sanitizedData, context) {
     const dy = sanitizedData.y - playerData.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
-    // Threshold più permissivo per compensare lag network e buffering client (15x per gestire burst posizioni)
+    // Threshold piÃ¹ permissivo per compensare lag network e buffering client (15x per gestire burst posizioni)
     const TELEPORT_THRESHOLD_MULTIPLIER = 15;
     const teleportThreshold = maxPossibleDistance * TELEPORT_THRESHOLD_MULTIPLIER;
 
-  // 🏳️ SKIP ANTI-TELEPORT CHECKS if player is migrating (allow immediate movement after map change)
+  // ðŸ³ï¸ SKIP ANTI-TELEPORT CHECKS if player is migrating (allow immediate movement after map change)
   if (playerData.isMigrating) {
     // Still accept and broadcast updates; only bypass anti-teleport validation.
   } else {
 
-    // Se la distanza è troppo grande, potrebbe essere un teleport hack
+    // Se la distanza Ã¨ troppo grande, potrebbe essere un teleport hack
     if (distance > teleportThreshold) {
-      ServerLoggerWrapper.security(`🚫 Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
+      ServerLoggerWrapper.security(`ðŸš« Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
         `distance ${distance.toFixed(2)} > threshold ${teleportThreshold.toFixed(2)} | ` +
         `actualMaxSpeed: ${actualMaxSpeed.toFixed(0)} u/s | ` +
         `speedUpgrades: ${playerSpeedUpgrades} | ` +
@@ -549,7 +570,7 @@ function handleHeartbeat(data, sanitizedData, context) {
 async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager, messageBroadcaster } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) {
     logger.warn('SKILL_UPGRADE', `Player data not found for clientId: ${data.clientId}`);
@@ -559,7 +580,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
   // Security check (server authoritative identity)
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
-    ServerLoggerWrapper.security(`🚫 BLOCKED: Skill upgrade attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+    ServerLoggerWrapper.security(`ðŸš« BLOCKED: Skill upgrade attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client ID for skill upgrade.',
@@ -695,7 +716,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
 function handleProjectileFired(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) {
     logger.warn('PROJECTILE', `Player data not found for clientId: ${data.clientId}`);
@@ -705,7 +726,7 @@ function handleProjectileFired(data, sanitizedData, context) {
   // Security check (server authoritative identity)
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
-    ServerLoggerWrapper.security(`🚫 BLOCKED: Projectile fire attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+    ServerLoggerWrapper.security(`ðŸš« BLOCKED: Projectile fire attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client ID for projectile action.',
@@ -733,8 +754,8 @@ function handleProjectileFired(data, sanitizedData, context) {
   );
 
   // Usa clientId per identificare il giocatore nel sistema di collisione
-  // data.playerId è l'authId (usato per security check)
-  // data.clientId è l'identificatore della connessione (usato per collisione)
+  // data.playerId Ã¨ l'authId (usato per security check)
+  // data.clientId Ã¨ l'identificatore della connessione (usato per collisione)
   mapServer.projectileManager.addProjectile(
     data.projectileId,
     data.clientId, // Usa clientId per identificare il giocatore nel sistema di collisione
@@ -770,7 +791,7 @@ function handleProjectileFired(data, sanitizedData, context) {
 function handleStartCombat(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) {
     ServerLoggerWrapper.system(`Player data not found for clientId: ${data.clientId}`);
@@ -783,7 +804,7 @@ function handleStartCombat(data, sanitizedData, context) {
   // Security check (server authoritative identity)
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Combat start attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+    logger.error('SECURITY', `ðŸš« BLOCKED: Combat start attempt with invalid clientId from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client ID for combat action.',
@@ -804,7 +825,7 @@ function handleStartCombat(data, sanitizedData, context) {
   if (combat) {
     mapServer.combatManager.processPlayerCombat(data.clientId, combat, Date.now());
 
-    // Broadcast solo se il combat è stato creato con successo
+    // Broadcast solo se il combat Ã¨ stato creato con successo
     const combatUpdate = messageBroadcaster.formatCombatUpdateMessage(
       playerData.userId,
       data.npcId,
@@ -824,7 +845,7 @@ function handleStartCombat(data, sanitizedData, context) {
 function handleStopCombat(data, sanitizedData, context) {
   const { playerData: contextPlayerData, mapServer, messageBroadcaster } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
@@ -832,8 +853,8 @@ function handleStopCombat(data, sanitizedData, context) {
     ServerLoggerWrapper.combat(`STOP_COMBAT: clientId=${data.clientId} userId=${playerData.userId} npcId=${data.npcId || 'unknown'}`);
   }
 
-  // ✅ ARCHITECTURAL CLEANUP: Chiudi completamente il combat invece di settare npcId=null
-  // Questo è più sicuro e consistente con la nuova architettura
+  // âœ… ARCHITECTURAL CLEANUP: Chiudi completamente il combat invece di settare npcId=null
+  // Questo Ã¨ piÃ¹ sicuro e consistente con la nuova architettura
   if (mapServer.combatManager.playerCombats.has(data.clientId)) {
     mapServer.combatManager.stopPlayerCombat(data.clientId);
     // Combat stop logging removed for production - too verbose
@@ -872,7 +893,7 @@ function handleExplosionCreated(data, sanitizedData, context) {
 async function handleRequestLeaderboard(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster, playerDataManager } = context;
 
-  // Fallback a mapServer se playerData non è nel context (leaderboard è pubblica, playerData può essere null)
+  // Fallback a mapServer se playerData non Ã¨ nel context (leaderboard Ã¨ pubblica, playerData puÃ² essere null)
   const playerData = contextPlayerData || (data.clientId ? mapServer.players.get(data.clientId) : null);
 
   try {
@@ -942,7 +963,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
         code: leaderboardError.code
       });
 
-      // Se la funzione non esiste o c'è un errore di rete, prova a ottenere i player direttamente
+      // Se la funzione non esiste o c'Ã¨ un errore di rete, prova a ottenere i player direttamente
       const isFunctionError = leaderboardError.message?.includes('does not exist') ||
         leaderboardError.code === '42883' ||
         leaderboardError.message?.includes('ENOTFOUND') ||
@@ -1022,7 +1043,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
 
     const entries = (leaderboardData || []).map((entry) => {
       const rankingPoints = parseFloat(entry.ranking_points) || 0;
-      // Usa il rank già calcolato dal database (Hybrid System)
+      // Usa il rank giÃ  calcolato dal database (Hybrid System)
       const rankName = entry.rank_name || 'Basic Space Pilot';
 
       return {
@@ -1068,7 +1089,7 @@ async function handleRequestLeaderboard(data, sanitizedData, context) {
 async function handleRequestPlayerData(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager, messageBroadcaster } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
@@ -1078,7 +1099,7 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.lastPlayerDataRequestAt = 0;
   }
   if (now - playerData.lastPlayerDataRequestAt < 1000) {
-    logger.warn('SECURITY', `🚫 BLOCKED: request_player_data rate limit from clientId:${data.clientId}`);
+    logger.warn('SECURITY', `ðŸš« BLOCKED: request_player_data rate limit from clientId:${data.clientId}`);
     return;
   }
   playerData.lastPlayerDataRequestAt = now;
@@ -1105,7 +1126,7 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
 function handleChatMessage(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, messageBroadcaster, filterChatMessage } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
 
   const now = Date.now();
@@ -1119,7 +1140,7 @@ function handleChatMessage(data, sanitizedData, context) {
   // Security check
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
-    logger.warn('SECURITY', `🚫 BLOCKED: Chat message with mismatched clientId. Received: ${data.clientId}, Expected: ${playerData?.clientId}, PlayerId: ${playerData?.playerId}`);
+    logger.warn('SECURITY', `ðŸš« BLOCKED: Chat message with mismatched clientId. Received: ${data.clientId}, Expected: ${playerData?.clientId}, PlayerId: ${playerData?.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client ID for chat message.',
@@ -1176,7 +1197,7 @@ function handlePlayerRespawnRequest(data, sanitizedData, context) {
     return undefined;
   }
 
-  // 🌍 FIX: Respawn Logic with MAP MIGRATION (Always respawn in 'palantir')
+  // ðŸŒ FIX: Respawn Logic with MAP MIGRATION (Always respawn in 'palantir')
   const TARGET_MAP_ID = 'palantir';
 
   // Se siamo nella mappa sbagliata (es. singularity), migriamo il player a palantir
@@ -1218,7 +1239,7 @@ function handlePlayerRespawnRequest(data, sanitizedData, context) {
     }
   }
 
-  // Respawna il player usando RespawnCoordinator (separazione responsabilità)
+  // Respawna il player usando RespawnCoordinator (separazione responsabilitÃ )
   const RespawnCoordinator = require('../RespawnCoordinator.cjs');
   const RespawnSystem = require('../RespawnSystem.cjs');
   const PlayerStatsSystem = require('../PlayerStatsSystem.cjs');
@@ -1241,7 +1262,7 @@ function handlePlayerRespawnRequest(data, sanitizedData, context) {
 async function handleSaveRequest(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
@@ -1251,7 +1272,7 @@ async function handleSaveRequest(data, sanitizedData, context) {
     playerData.lastSaveRequestAt = 0;
   }
   if (now - playerData.lastSaveRequestAt < 5000) {
-    logger.warn('SECURITY', `🚫 BLOCKED: save_request rate limit from clientId:${data.clientId}`);
+    logger.warn('SECURITY', `ðŸš« BLOCKED: save_request rate limit from clientId:${data.clientId}`);
     ws.send(JSON.stringify({
       type: 'save_response',
       success: false,
@@ -1266,7 +1287,7 @@ async function handleSaveRequest(data, sanitizedData, context) {
   // Security check
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Save request with invalid client ID from clientId:${data.clientId} playerId:${playerData.playerId}`);
+    logger.error('SECURITY', `ðŸš« BLOCKED: Save request with invalid client ID from clientId:${data.clientId} playerId:${playerData.playerId}`);
     ws.send(JSON.stringify({
       type: 'error',
       message: 'Invalid client ID for save request.',
@@ -1304,14 +1325,14 @@ async function handleSaveRequest(data, sanitizedData, context) {
 async function handleEquipItem(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
   if (!playerData) return;
 
   // Security check
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
   if (!clientIdValidation.valid) {
-    logger.error('SECURITY', `🚫 BLOCKED: Equip item request with invalid clientId from ${data.clientId}`);
+    logger.error('SECURITY', `ðŸš« BLOCKED: Equip item request with invalid clientId from ${data.clientId}`);
     return;
   }
 
@@ -1328,7 +1349,7 @@ async function handleEquipItem(data, sanitizedData, context) {
     return;
   }
 
-  // Se instanceId è null, stiamo disequipaggiando lo slot
+  // Se instanceId Ã¨ null, stiamo disequipaggiando lo slot
   if (instanceId === null) {
     // Rimuovi questo slot da tutti gli oggetti equipaggiati
     playerData.items.forEach(i => {
@@ -1346,11 +1367,11 @@ async function handleEquipItem(data, sanitizedData, context) {
     logger.info('INVENTORY', `Current items state: ${JSON.stringify(playerData.items.map(i => ({ id: i.id, slot: i.slot })))}`);
   }
 
-  // 🔄 RECALCULATE MAX STATS: Ensure server-side max values include item bonuses
+  // ðŸ”„ RECALCULATE MAX STATS: Ensure server-side max values include item bonuses
   playerData.maxHealth = authManager.calculateMaxHealth(playerData.upgrades.hpUpgrades, playerData.items);
   playerData.maxShield = authManager.calculateMaxShield(playerData.upgrades.shieldUpgrades, playerData.items);
 
-  // 🔒 STAT CAPPING: Ensure current stats don't exceed new max (e.g., when un-equipping hull/shield)
+  // ðŸ”’ STAT CAPPING: Ensure current stats don't exceed new max (e.g., when un-equipping hull/shield)
   playerData.health = Math.min(playerData.health, playerData.maxHealth);
   playerData.shield = Math.min(playerData.shield, playerData.maxShield);
 
@@ -1376,6 +1397,228 @@ async function handleEquipItem(data, sanitizedData, context) {
     maxShield: playerData.maxShield,
     source: 'equip_change'
   }));
+}
+
+/**
+ * Handler per messaggio 'sell_item'
+ */
+async function handleSellItem(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
+
+  // Fallback a mapServer se playerData non è nel context
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  // Rate limiting: evita spam di richieste vendita
+  const now = Date.now();
+  if (!playerData.recentlySoldItems || typeof playerData.recentlySoldItems !== 'object') {
+    playerData.recentlySoldItems = {};
+  }
+  // Mantieni piccola la cache idempotenza
+  const duplicateSellWindowMs = 120000;
+  for (const soldInstanceId of Object.keys(playerData.recentlySoldItems)) {
+    if (now - playerData.recentlySoldItems[soldInstanceId] > duplicateSellWindowMs) {
+      delete playerData.recentlySoldItems[soldInstanceId];
+    }
+  }
+
+  if (!playerData.lastSellRequestAt) {
+    playerData.lastSellRequestAt = 0;
+  }
+  if (now - playerData.lastSellRequestAt < 200) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Sell request rate limited',
+      code: 'RATE_LIMITED'
+    }));
+    return;
+  }
+  playerData.lastSellRequestAt = now;
+
+  // Security check
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    logger.error('SECURITY', `BLOCKED: Sell item request with invalid clientId from ${data.clientId}`);
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid client ID for sell request.',
+      code: 'INVALID_CLIENT_ID'
+    }));
+    return;
+  }
+
+  if (!playerData.inventory) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Inventory not available.',
+      code: 'INVENTORY_UNAVAILABLE'
+    }));
+    return;
+  }
+
+  if (!playerData.items) {
+    playerData.items = [];
+  }
+
+  const instanceId = (typeof sanitizedData?.instanceId === 'string' && sanitizedData.instanceId.length > 0)
+    ? sanitizedData.instanceId
+    : null;
+  let itemId = (typeof sanitizedData?.itemId === 'string' && sanitizedData.itemId.length > 0)
+    ? sanitizedData.itemId
+    : null;
+  const requestedQuantity = Math.max(1, Math.floor(Number(sanitizedData?.quantity || 1)));
+
+  if (!instanceId && !itemId) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid sell target.',
+      code: 'INVALID_SELL_TARGET'
+    }));
+    return;
+  }
+
+  const itemByInstance = instanceId
+    ? playerData.items.find(i => i.instanceId === instanceId)
+    : null;
+
+  if (itemByInstance && itemByInstance.slot && itemByInstance.slot !== 'NONE' && itemByInstance.slot !== 'null') {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Cannot sell equipped item. Unequip first.',
+      code: 'ITEM_EQUIPPED'
+    }));
+    return;
+  }
+
+  // Se l'istanza esiste, usa sempre l'itemId server-side.
+  if (itemByInstance) {
+    itemId = itemByInstance.id;
+  }
+
+  if (!itemId) {
+    const wasRecentlySold = instanceId ? Number(playerData.recentlySoldItems[instanceId] || 0) > 0 : false;
+    if (wasRecentlySold) {
+      ws.send(JSON.stringify({
+        type: 'player_state_update',
+        inventory: { ...playerData.inventory },
+        upgrades: { ...playerData.upgrades },
+        items: playerData.items,
+        source: 'item_sold_duplicate'
+      }));
+      return;
+    }
+
+    logger.info('INVENTORY', `Sell stale request ignored client=${data.clientId} instanceId=${instanceId || 'n/a'} itemId=n/a qty=${requestedQuantity} items=${playerData.items.length}`);
+    ws.send(JSON.stringify({
+      type: 'player_state_update',
+      inventory: { ...playerData.inventory },
+      upgrades: { ...playerData.upgrades },
+      items: playerData.items,
+      source: 'item_sell_stale'
+    }));
+    return;
+  }
+
+  const sellableItems = playerData.items.filter(i =>
+    i.id === itemId &&
+    (!i.slot || i.slot === 'NONE' || i.slot === 'null')
+  );
+
+  if (sellableItems.length === 0) {
+    const wasRecentlySold = instanceId ? Number(playerData.recentlySoldItems[instanceId] || 0) > 0 : false;
+    if (wasRecentlySold) {
+      ws.send(JSON.stringify({
+        type: 'player_state_update',
+        inventory: { ...playerData.inventory },
+        upgrades: { ...playerData.upgrades },
+        items: playerData.items,
+        source: 'item_sold_duplicate'
+      }));
+      return;
+    }
+
+    const hasMatchingEquippedItem = playerData.items.some(i =>
+      i.id === itemId &&
+      i.slot &&
+      i.slot !== 'NONE' &&
+      i.slot !== 'null'
+    );
+
+    if (hasMatchingEquippedItem) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Cannot sell equipped item. Unequip first.',
+        code: 'ITEM_EQUIPPED'
+      }));
+      return;
+    }
+
+    logger.info('INVENTORY', `Sell stale request ignored client=${data.clientId} instanceId=${instanceId || 'n/a'} itemId=${itemId} qty=${requestedQuantity} items=${playerData.items.length}`);
+    ws.send(JSON.stringify({
+      type: 'player_state_update',
+      inventory: { ...playerData.inventory },
+      upgrades: { ...playerData.upgrades },
+      items: playerData.items,
+      source: 'item_sell_stale'
+    }));
+    return;
+  }
+
+  const sellValue = getItemSellValue(itemId);
+  if (sellValue <= 0) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Item cannot be sold.',
+      code: 'ITEM_NOT_SELLABLE'
+    }));
+    return;
+  }
+
+  const quantityToSell = Math.max(1, Math.min(requestedQuantity, sellableItems.length));
+  const orderedSellableItems = itemByInstance
+    ? [itemByInstance, ...sellableItems.filter(i => i.instanceId !== itemByInstance.instanceId)]
+    : sellableItems;
+  const itemsToSell = orderedSellableItems.slice(0, quantityToSell);
+  const soldInstanceIds = new Set(itemsToSell.map(item => item.instanceId));
+
+  for (let i = playerData.items.length - 1; i >= 0; i -= 1) {
+    if (soldInstanceIds.has(playerData.items[i].instanceId)) {
+      playerData.items.splice(i, 1);
+    }
+  }
+
+  const totalSellValue = sellValue * itemsToSell.length;
+  playerData.inventory.credits = Number(playerData.inventory.credits || 0) + totalSellValue;
+  for (const soldItem of itemsToSell) {
+    playerData.recentlySoldItems[soldItem.instanceId] = now;
+  }
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    inventory: { ...playerData.inventory },
+    upgrades: { ...playerData.upgrades },
+    items: playerData.items,
+    sale: {
+      itemId: itemId,
+      instanceId: itemsToSell[0].instanceId,
+      quantity: itemsToSell.length,
+      unitPrice: sellValue,
+      amount: totalSellValue,
+      currency: 'credits'
+    },
+    source: 'item_sold'
+  }));
+
+  logger.info('INVENTORY', `Player ${data.clientId} sold x${itemsToSell.length} ${itemId} for ${totalSellValue} credits (${sellValue} each)`);
+
+  // Persistenza asincrona per evitare ritardo percepito su HUD/notifiche vendita.
+  try {
+    playerDataManager.savePlayerData(playerData).catch(error => {
+      logger.error('DATABASE', `Failed to persist sold item for ${playerData.userId}: ${error.message}`);
+    });
+  } catch (error) {
+    logger.error('DATABASE', `Error triggering sold item save for ${playerData.userId}: ${error.message}`);
+  }
 }
 
 /**
@@ -1447,7 +1690,7 @@ async function handlePortalUse(data, sanitizedData, context) {
   const mapConfig = MAP_CONFIGS[mapServer.mapId];
   if (!mapConfig || !mapConfig.portals) return;
 
-  // Trova il portale nel messaggio o il più vicino
+  // Trova il portale nel messaggio o il piÃ¹ vicino
   const portals = mapConfig.portals;
   let targetPortal = null;
 
@@ -1460,7 +1703,7 @@ async function handlePortalUse(data, sanitizedData, context) {
     targetPortal = portals.find(p => String(p.id) === String(data.portalId));
   }
 
-  // ⏳ COOLDOWN: 10 Seconds Map Switching Limit
+  // â³ COOLDOWN: 10 Seconds Map Switching Limit
   const now = Date.now();
 
   if (playerData.lastPortalUseTime && (now - playerData.lastPortalUseTime < 10000)) {
@@ -1474,7 +1717,7 @@ async function handlePortalUse(data, sanitizedData, context) {
     return;
   }
 
-  // Se non trovato per ID, cerca per prossimità (molto più affidabile)
+  // Se non trovato per ID, cerca per prossimitÃ  (molto piÃ¹ affidabile)
   if (!targetPortal) {
     for (const portal of portals) {
       const dx = portal.x - px;
@@ -1490,7 +1733,7 @@ async function handlePortalUse(data, sanitizedData, context) {
   if (targetPortal) {
     ServerLoggerWrapper.info('MAP', `Player ${playerData.clientId} using portal ${targetPortal.id} -> ${targetPortal.targetMap}`);
     playerData.lastPortalUseTime = Date.now(); // Set cooldown timestamp
-    playerData.isMigrating = true; // 🏳️ Flag to suppress teleport warnings
+    playerData.isMigrating = true; // ðŸ³ï¸ Flag to suppress teleport warnings
     setTimeout(() => { playerData.isMigrating = false; }, 2000); // Reset after 2s
     mapManager.migratePlayer(playerData.clientId, mapServer.mapId, targetPortal.targetMap, targetPortal.targetPosition);
   } else {
@@ -1511,6 +1754,7 @@ const handlers = {
   chat_message: handleChatMessage,
   save_request: handleSaveRequest,
   equip_item: handleEquipItem,
+  sell_item: handleSellItem,
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest,
   portal_use: handlePortalUse,
@@ -1549,7 +1793,7 @@ function handleQuestProgressUpdate(data, sanitizedData, context) {
     // Se la quest non esiste in memoria (es. appena accettata lato client ma non ancora syncata?),
     // potremmo doverla aggiungere, ma per ora ci concentriamo sull'aggiornamento di obiettivi esistenti.
     // Le nuove quest dovrebbero essere gestite da 'quest_accept' o ricaricate.
-    // Tuttavia, se il flusso di accettazione è client-side only e poi syncata, dovremmo gestirla qui.
+    // Tuttavia, se il flusso di accettazione Ã¨ client-side only e poi syncata, dovremmo gestirla qui.
     // MA: In questo sistema, accettazione quest sembra essere client-side logic + sync.
     // Se non troviamo la quest, loggiamo warning.
     logger.warn('QUEST', `Quest ${questId} not found in memory for player ${playerData.nickname} during update`);
@@ -1595,34 +1839,34 @@ async function handleQuestAbandon(data, sanitizedData, context) {
  * @param {Object} params.data - Dati del messaggio originali
  * @param {Object} params.sanitizedData - Dati sanitizzati
  * @param {Object} params.context - Context con tutte le dipendenze
- * @returns {Promise<*>} Risultato dell'handler (può essere playerData per join, undefined per altri)
+ * @returns {Promise<*>} Risultato dell'handler (puÃ² essere playerData per join, undefined per altri)
  */
 /**
  * Valida contesto e stato del giocatore prima di processare qualsiasi messaggio
  * CRITICAL SECURITY: Server-side validation totale - ogni messaggio deve essere:
  * 1. Atteso (messaggio conosciuto)
- * 2. Schema valido (già fatto dall'InputValidator)
+ * 2. Schema valido (giÃ  fatto dall'InputValidator)
  * 3. Coerente con stato server
  * 4. Permesso in quel momento
  *
- * NOTA: I messaggi 'join' e 'global_monitor_request' sono ESCLUSI da questa validazione perché:
+ * NOTA: I messaggi 'join' e 'global_monitor_request' sono ESCLUSI da questa validazione perchÃ©:
  * - 'join' crea il playerData
- * - 'global_monitor_request' è usato dalla dashboard di monitoraggio (client speciale)
+ * - 'global_monitor_request' Ã¨ usato dalla dashboard di monitoraggio (client speciale)
  */
 function validatePlayerContext(type, data, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager } = context;
 
-  // Fallback a mapServer se playerData non è nel context
+  // Fallback a mapServer se playerData non Ã¨ nel context
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
 
-  // 🚫 SECURITY: Giocatore deve esistere
+  // ðŸš« SECURITY: Giocatore deve esistere
   if (!playerData) {
-    logger.error('SECURITY', `🚫 BLOCKED: Message ${type} from non-existent player ${data.clientId}`);
+    logger.error('SECURITY', `ðŸš« BLOCKED: Message ${type} from non-existent player ${data.clientId}`);
     ws.close(1008, 'Player not found');
     return { valid: false, reason: 'PLAYER_NOT_FOUND' };
   }
 
-  // 🚫 SECURITY: Client ID deve corrispondere (accetta anche clientId persistente {playerId})
+  // ðŸš« SECURITY: Client ID deve corrispondere (accetta anche clientId persistente {playerId})
   const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
 
   // Controlla se il clientId inviato corrisponde al clientId persistente
@@ -1630,50 +1874,50 @@ function validatePlayerContext(type, data, context) {
   const isPersistentClientId = data.clientId === expectedPersistentClientId;
 
   // SOLUZIONE MIGLIORE: Niente eccezioni - il client deve aspettare il welcome
-  // Se riceve messaggi con vecchio clientId, è perché il client è malimplementato
+  // Se riceve messaggi con vecchio clientId, Ã¨ perchÃ© il client Ã¨ malimplementato
   const allowedWithOldClientId = []; // ZERO eccezioni - massima sicurezza
 
   if (!clientIdValidation.valid && !isPersistentClientId && !allowedWithOldClientId.includes(type)) {
-    // 🚫 SECURITY: Per messaggi critici, blocca e disconnetti
+    // ðŸš« SECURITY: Per messaggi critici, blocca e disconnetti
     if (type !== 'heartbeat') {
-      logger.error('SECURITY', `🚫 BLOCKED: Message ${type} with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (expected: ${playerData.clientId} or ${expectedPersistentClientId})`);
+      logger.error('SECURITY', `ðŸš« BLOCKED: Message ${type} with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (expected: ${playerData.clientId} or ${expectedPersistentClientId})`);
       ws.close(1008, 'Invalid client ID');
       return { valid: false, reason: 'INVALID_CLIENT_ID' };
     } else {
-      // ❤️ MMO-FRIENDLY: Per heartbeat, logga ma ignora (possono essere stale da riconnessioni)
-      logger.info('SECURITY', `❤️ IGNORED: Stale heartbeat with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (reconnection artifact)`);
+      // â¤ï¸ MMO-FRIENDLY: Per heartbeat, logga ma ignora (possono essere stale da riconnessioni)
+      logger.info('SECURITY', `â¤ï¸ IGNORED: Stale heartbeat with invalid clientId from ${data.clientId} playerId:${playerData.playerId} (reconnection artifact)`);
       return { valid: false, reason: 'STALE_HEARTBEAT_IGNORED' };
     }
   }
 
   // Per heartbeat con clientId vecchio (non persistente), logga ma permetti (riconnessioni)
   if (!clientIdValidation.valid && !isPersistentClientId && type === 'heartbeat') {
-    logger.info('SECURITY', `⚠️ ALLOWED: Stale heartbeat from ${data.clientId} playerId:${playerData.playerId} (old clientId, reconnection in progress)`);
+    logger.info('SECURITY', `âš ï¸ ALLOWED: Stale heartbeat from ${data.clientId} playerId:${playerData.playerId} (old clientId, reconnection in progress)`);
   }
 
   // Per messaggi permessi con vecchio clientId, logga ma permetti
   if (!clientIdValidation.valid && !isPersistentClientId && allowedWithOldClientId.includes(type)) {
-    logger.info('SECURITY', `⚠️ ALLOWED: ${type} with old clientId from ${data.clientId} playerId:${playerData.playerId} (sent before welcome)`);
+    logger.info('SECURITY', `âš ï¸ ALLOWED: ${type} with old clientId from ${data.clientId} playerId:${playerData.playerId} (sent before welcome)`);
   }
 
-  // 🚫 SECURITY: Player ID deve corrispondere (se presente nel messaggio)
+  // ðŸš« SECURITY: Player ID deve corrispondere (se presente nel messaggio)
   if (data.playerId) {
     const playerIdValidation = authManager.validatePlayerId(data.playerId, playerData);
     if (!playerIdValidation.valid) {
-      logger.error('SECURITY', `🚫 BLOCKED: Message ${type} with invalid playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
+      logger.error('SECURITY', `ðŸš« BLOCKED: Message ${type} with invalid playerId from clientId:${data.clientId} playerId:${playerData.playerId}`);
       ws.close(1008, 'Invalid player ID');
       return { valid: false, reason: 'INVALID_PLAYER_ID' };
     }
   }
 
-  // 🚫 SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
+  // ðŸš« SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
   const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
-    logger.warn('SECURITY', `🚫 BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
+    logger.warn('SECURITY', `ðŸš« BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
     return { valid: false, reason: 'PLAYER_DEAD' };
   }
 
-  // 🚫 SECURITY: Rate limiting contestuale
+  // ðŸš« SECURITY: Rate limiting contestuale
   const now = Date.now();
 
   // Inizializza rate limiting se necessario
@@ -1694,17 +1938,17 @@ function validatePlayerContext(type, data, context) {
   // Max 2000 messaggi al minuto per player (aumentato per gameplay fluido)
   playerData.messageRateLimit.messageCount++;
   if (playerData.messageRateLimit.messageCount > 2000) {
-    logger.error('SECURITY', `🚫 BLOCKED: Rate limit exceeded for ${data.clientId} playerId:${playerData.playerId} (${playerData.messageRateLimit.messageCount} messages/minute)`);
+    logger.error('SECURITY', `ðŸš« BLOCKED: Rate limit exceeded for ${data.clientId} playerId:${playerData.playerId} (${playerData.messageRateLimit.messageCount} messages/minute)`);
     ws.close(1008, 'Rate limit exceeded');
     return { valid: false, reason: 'RATE_LIMIT_EXCEEDED' };
   }
 
-  // 🚫 SECURITY: Validazione specifica per tipo di messaggio
+  // ðŸš« SECURITY: Validazione specifica per tipo di messaggio
   switch (type) {
     case 'position_update':
       // Deve essere in un'area valida della mappa (Map is 21k x 13k, security allows buffer)
       if (data.x < -12000 || data.x > 12000 || data.y < -10000 || data.y > 10000) {
-        logger.error('SECURITY', `🚫 BLOCKED: Invalid position (${data.x}, ${data.y}) from ${data.clientId} playerId:${playerData.playerId}`);
+        logger.error('SECURITY', `ðŸš« BLOCKED: Invalid position (${data.x}, ${data.y}) from ${data.clientId} playerId:${playerData.playerId}`);
         return { valid: false, reason: 'INVALID_POSITION' };
       }
       break;
@@ -1712,7 +1956,7 @@ function validatePlayerContext(type, data, context) {
     case 'projectile_fired':
       // Deve avere munizioni (server-authoritative)
       if (playerData.ammo <= 0) {
-        logger.warn('SECURITY', `🚫 BLOCKED: No ammo projectile attempt from ${data.clientId} playerId:${playerData.playerId} (ammo: ${playerData.ammo})`);
+        logger.warn('SECURITY', `ðŸš« BLOCKED: No ammo projectile attempt from ${data.clientId} playerId:${playerData.playerId} (ammo: ${playerData.ammo})`);
         return { valid: false, reason: 'NO_AMMO' };
       }
       break;
@@ -1720,15 +1964,15 @@ function validatePlayerContext(type, data, context) {
     case 'skill_upgrade_request':
       // Deve avere abbastanza crediti (server-authoritative)
       if (playerData.credits < data.cost) {
-        logger.warn('SECURITY', `🚫 BLOCKED: Insufficient credits for upgrade from ${data.clientId} playerId:${playerData.playerId} (has: ${playerData.credits}, needs: ${data.cost})`);
+        logger.warn('SECURITY', `ðŸš« BLOCKED: Insufficient credits for upgrade from ${data.clientId} playerId:${playerData.playerId} (has: ${playerData.credits}, needs: ${data.cost})`);
         return { valid: false, reason: 'INSUFFICIENT_CREDITS' };
       }
       break;
 
     case 'start_combat':
-      // Non deve già essere in combattimento
+      // Non deve giÃ  essere in combattimento
       if (playerData.inCombat) {
-        logger.warn('SECURITY', `🚫 BLOCKED: Already in combat attempt from ${data.clientId} playerId:${playerData.playerId}`);
+        logger.warn('SECURITY', `ðŸš« BLOCKED: Already in combat attempt from ${data.clientId} playerId:${playerData.playerId}`);
         return { valid: false, reason: 'ALREADY_IN_COMBAT' };
       }
       break;
@@ -1745,12 +1989,12 @@ async function routeMessage({ type, data, sanitizedData, context }) {
     return undefined;
   }
 
-  // 🔴 CRITICAL SECURITY: Validazione contestuale prima di ogni handler
+  // ðŸ”´ CRITICAL SECURITY: Validazione contestuale prima di ogni handler
   // ECCEZIONI: Questi messaggi non richiedono un playerData esistente
   if (type !== 'join' && type !== 'global_monitor_request') {
     const contextValidation = validatePlayerContext(type, data, context);
     if (!contextValidation.valid) {
-      // Messaggio già loggato e connessione chiusa se necessario
+      // Messaggio giÃ  loggato e connessione chiusa se necessario
       return undefined;
     }
   }
@@ -1777,3 +2021,5 @@ async function routeMessage({ type, data, sanitizedData, context }) {
 module.exports = {
   routeMessage
 };
+
+

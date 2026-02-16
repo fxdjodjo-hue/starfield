@@ -16,6 +16,7 @@ const CLIENT_TO_SERVER_MESSAGE_TYPES = Object.freeze([
   'skill_upgrade_request',
   'request_leaderboard',
   'equip_item',
+  'sell_item',
   'portal_use',
   'quest_progress_update',
   'quest_accept',

@@ -93,6 +93,7 @@ export class UiSystem extends System {
       const questTracker = new QuestTracker();
       this.weaponStatus = new WeaponStatus();
       this.hudManager = new UIHUDManager(playerHUD, questTracker, this.weaponStatus);
+      this.hudManager.setContext(this.context);
 
       // Initialize panel manager
       this.panelManager = new UIPanelManager(ecs, questSystem, playerSystem, clientNetworkSystem);
