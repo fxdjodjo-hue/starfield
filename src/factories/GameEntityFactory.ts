@@ -83,6 +83,7 @@ export interface RemotePlayerConfig {
   nickname?: string;
   rank?: string;
   leaderboardPodiumRank?: number;
+  shipSkinId?: string;
   position: SpatialConfig;
   animatedSprite?: AnimatedSprite | null;
   combat?: CombatConfig;
@@ -297,7 +298,8 @@ export class GameEntityFactory extends EntityFactory {
       config.clientId,
       config.nickname || '',
       config.rank || 'Recruit',
-      Number(config.leaderboardPodiumRank || 0)
+      Number(config.leaderboardPodiumRank || 0),
+      config.shipSkinId || ''
     ));
 
     return entity;

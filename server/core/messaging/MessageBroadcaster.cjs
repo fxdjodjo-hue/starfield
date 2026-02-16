@@ -103,9 +103,10 @@ class MessageBroadcaster {
    * @param {number} maxHealth - Max health
    * @param {number} shield - Current shield
    * @param {number} maxShield - Max shield
+   * @param {string} shipSkinId - Selected ship skin ID
    * @returns {Object} Player joined message
    */
-  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, leaderboardPodiumRank, position, health, maxHealth, shield, maxShield) {
+  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, leaderboardPodiumRank, position, health, maxHealth, shield, maxShield, shipSkinId) {
     return {
       type: 'player_joined',
       clientId: clientId,
@@ -118,6 +119,7 @@ class MessageBroadcaster {
       maxHealth: maxHealth,
       shield: shield,
       maxShield: maxShield,
+      shipSkinId: shipSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
       t: Date.now()
     };
   }

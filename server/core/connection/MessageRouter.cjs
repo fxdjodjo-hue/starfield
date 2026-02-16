@@ -365,7 +365,8 @@ async function handleJoin(data, sanitizedData, context) {
     playerData.health,
     playerData.maxHealth,
     playerData.shield,
-    playerData.maxShield
+    playerData.maxShield,
+    playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
   );
   effectiveMapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
 
@@ -385,7 +386,8 @@ async function handleJoin(data, sanitizedData, context) {
         health: existingPlayerData.health,
         maxHealth: existingPlayerData.maxHealth,
         shield: existingPlayerData.shield,
-        maxShield: existingPlayerData.maxShield
+        maxShield: existingPlayerData.maxShield,
+        shipSkinId: existingPlayerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
       };
       ws.send(JSON.stringify(existingPlayerBroadcast));
     }
@@ -406,7 +408,8 @@ async function handleJoin(data, sanitizedData, context) {
       health: playerData.health,
       maxHealth: playerData.maxHealth,
       shield: playerData.shield,
-      maxShield: playerData.maxShield
+      maxShield: playerData.maxShield,
+      shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
     };
     effectiveMapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
   }
@@ -1735,6 +1738,7 @@ async function handleShipSkinAction(data, sanitizedData, context) {
   }
 
   playerData.shipSkins = normalizePlayerShipSkinState(playerData.shipSkins);
+  const previousSelectedSkinId = playerData.shipSkins.selectedSkinId;
   let shipSkins = {
     ...playerData.shipSkins,
     unlockedSkinIds: [...playerData.shipSkins.unlockedSkinIds]
@@ -1784,6 +1788,27 @@ async function handleShipSkinAction(data, sanitizedData, context) {
   }
 
   playerData.shipSkins = normalizePlayerShipSkinState(shipSkins);
+  const selectedShipSkinChanged = previousSelectedSkinId !== playerData.shipSkins.selectedSkinId;
+
+  if (selectedShipSkinChanged && playerData.position) {
+    mapServer.broadcastToMap({
+      type: 'remote_player_update',
+      clientId: playerData.clientId,
+      position: playerData.position,
+      rotation: playerData.position.rotation || 0,
+      tick: 0,
+      nickname: playerData.nickname,
+      playerId: playerData.playerId,
+      rank: playerData.rank || 'Basic Space Pilot',
+      leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield,
+      shipSkinId: playerData.shipSkins.selectedSkinId,
+      t: Date.now()
+    }, playerData.clientId);
+  }
 
   ws.send(JSON.stringify({
     type: 'player_state_update',

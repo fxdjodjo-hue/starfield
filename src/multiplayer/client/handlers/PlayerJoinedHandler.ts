@@ -23,6 +23,7 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
       maxHealth,
       shield,
       maxShield,
+      shipSkinId,
       t
     } = message;
 
@@ -47,14 +48,16 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
           nickname,
           playerRank,
           Number(leaderboardPodiumRank || 0),
-          t || Date.now()
+          t || Date.now(),
+          shipSkinId
         );
       } else {
         networkSystem.remotePlayerManager.setPlayerInfo(
           clientId,
           nickname,
           playerRank,
-          Number(leaderboardPodiumRank || 0)
+          Number(leaderboardPodiumRank || 0),
+          shipSkinId
         );
       }
     }

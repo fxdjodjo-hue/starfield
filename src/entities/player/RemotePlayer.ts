@@ -9,6 +9,7 @@ export class RemotePlayer extends Component {
   public nickname: string;
   public rank: string;
   public leaderboardPodiumRank: number;
+  public shipSkinId: string;
 
   public targetId: string | null = null;
   public lastVisualFireTime: number = 0;
@@ -18,13 +19,15 @@ export class RemotePlayer extends Component {
     clientId: string,
     nickname: string = '',
     rank: string = 'Recruit',
-    leaderboardPodiumRank: number = 0
+    leaderboardPodiumRank: number = 0,
+    shipSkinId: string = ''
   ) {
     super();
     this.clientId = clientId;
     this.nickname = nickname;
     this.rank = rank;
     this.leaderboardPodiumRank = leaderboardPodiumRank;
+    this.shipSkinId = shipSkinId;
     this.targetId = null;
     this.lastVisualFireTime = 0;
   }
@@ -36,5 +39,9 @@ export class RemotePlayer extends Component {
     this.nickname = nickname;
     this.rank = rank;
     this.leaderboardPodiumRank = leaderboardPodiumRank;
+  }
+
+  updateShipSkin(shipSkinId: string): void {
+    this.shipSkinId = shipSkinId;
   }
 }

@@ -6,6 +6,7 @@
 
 const MapBroadcaster = require('./MapBroadcaster.cjs');
 const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs');
+const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../../config/ShipSkinCatalog.cjs');
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 
 class PositionUpdateProcessor {
@@ -33,7 +34,7 @@ class PositionUpdateProcessor {
 
       const positionBroadcast = {
         type: 'remote_player_update',
-        // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh, leaderboardPodiumRank]
+        // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh, leaderboardPodiumRank, shipSkinId]
         // Riduce drasticamente la dimensione del JSON evitando le chiavi per ogni giocatore
         p: [
           clientId,
@@ -52,7 +53,8 @@ class PositionUpdateProcessor {
           Math.round(playerData.maxHealth),
           Math.round(playerData.shield),
           Math.round(playerData.maxShield),
-          Number(latestUpdate.leaderboardPodiumRank || 0)
+          Number(latestUpdate.leaderboardPodiumRank || 0),
+          playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
         ],
         t: latestUpdate.clientTimestamp || Date.now()
       };

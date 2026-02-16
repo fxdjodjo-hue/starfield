@@ -6,6 +6,7 @@
 const MapServer = require('./map-server.cjs');
 const ServerLoggerWrapper = require('./infrastructure/ServerLoggerWrapper.cjs');
 const { MAP_CONFIGS } = require('../config/MapConfigs.cjs');
+const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../config/ShipSkinCatalog.cjs');
 
 class MapManager {
     constructor() {
@@ -108,6 +109,7 @@ class MapManager {
             maxHealth: playerData.maxHealth,
             shield: playerData.shield,
             maxShield: playerData.maxShield,
+            shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
             t: Date.now()
         };
         targetMap.broadcastToMap(playerJoinedMsg, clientId);
@@ -146,6 +148,7 @@ class MapManager {
                     maxHealth: existingPlayerData.maxHealth,
                     shield: existingPlayerData.shield,
                     maxShield: existingPlayerData.maxShield,
+                    shipSkinId: existingPlayerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
                     t: Date.now()
                 };
 

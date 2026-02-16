@@ -9,6 +9,9 @@ import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget'
 import { Health } from '../../entities/combat/Health';
 import { Shield } from '../../entities/combat/Shield';
 import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
+import type { AssetManager } from '../../core/services/AssetManager';
+import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSpriteFactory';
+import { getSelectedPlayerShipSkinId } from '../../config/ShipSkinConfig';
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
@@ -17,16 +20,24 @@ import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
 export class RemotePlayerSystem extends BaseSystem {
   // AnimatedSprite condiviso per tutti i remote player (più efficiente)
   private sharedAnimatedSprite: AnimatedSprite | null;
+  private assetManager: AssetManager | null;
+  private remoteShipSpriteCache: Map<string, AnimatedSprite> = new Map();
+  private pendingShipSpriteLoads: Map<string, Promise<AnimatedSprite | null>> = new Map();
   // Logging per evitare spam di aggiornamenti posizione
   private lastUpdateLog = new Map<string, number>();
   // Factory per creare entità
   private entityFactory: GameEntityFactory;
 
-  constructor(ecs: ECS, animatedSprite: AnimatedSprite | null = null) {
+  constructor(ecs: ECS, animatedSprite: AnimatedSprite | null = null, assetManager: AssetManager | null = null) {
     super(ecs);
-    // Usa AnimatedSprite condiviso per tutti i remote player
     this.sharedAnimatedSprite = animatedSprite;
+    this.assetManager = assetManager;
     this.entityFactory = new GameEntityFactory(ecs);
+
+    const initialSkinId = (animatedSprite as AnimatedSprite & { shipSkinId?: string } | null)?.shipSkinId;
+    if (animatedSprite && initialSkinId) {
+      this.remoteShipSpriteCache.set(getSelectedPlayerShipSkinId(initialSkinId), animatedSprite);
+    }
   }
 
   /**
@@ -34,6 +45,100 @@ export class RemotePlayerSystem extends BaseSystem {
    */
   updateSharedAnimatedSprite(animatedSprite: AnimatedSprite | null): void {
     this.sharedAnimatedSprite = animatedSprite;
+    const skinId = (animatedSprite as AnimatedSprite & { shipSkinId?: string } | null)?.shipSkinId;
+    if (animatedSprite && skinId) {
+      this.remoteShipSpriteCache.set(getSelectedPlayerShipSkinId(skinId), animatedSprite);
+    }
+  }
+
+  private resolveRemoteShipSkinId(shipSkinId?: string | null): string {
+    return getSelectedPlayerShipSkinId(shipSkinId || null);
+  }
+
+  private getCachedRemoteShipSprite(shipSkinId: string): AnimatedSprite | null {
+    return this.remoteShipSpriteCache.get(shipSkinId) || null;
+  }
+
+  private applyRemoteShipSprite(entity: Entity, shipSkinId: string, sprite: AnimatedSprite): void {
+    (sprite as AnimatedSprite & { shipSkinId?: string }).shipSkinId = shipSkinId;
+    this.ecs.addComponent(entity, AnimatedSprite, sprite);
+
+    const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
+    if (remotePlayer) {
+      remotePlayer.updateShipSkin(shipSkinId);
+    }
+  }
+
+  private async loadRemoteShipSprite(shipSkinId: string): Promise<AnimatedSprite | null> {
+    const cached = this.getCachedRemoteShipSprite(shipSkinId);
+    if (cached) {
+      return cached;
+    }
+
+    const pending = this.pendingShipSpriteLoads.get(shipSkinId);
+    if (pending) {
+      return pending;
+    }
+
+    if (!this.assetManager) {
+      return this.sharedAnimatedSprite;
+    }
+
+    const loadPromise = createPlayerShipAnimatedSprite(this.assetManager, shipSkinId)
+      .then((sprite) => {
+        this.remoteShipSpriteCache.set(shipSkinId, sprite);
+        return sprite;
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn(`[REMOTE_PLAYER] Failed to load ship skin "${shipSkinId}"`, error);
+        }
+        return this.sharedAnimatedSprite;
+      })
+      .finally(() => {
+        this.pendingShipSpriteLoads.delete(shipSkinId);
+      });
+
+    this.pendingShipSpriteLoads.set(shipSkinId, loadPromise);
+    return loadPromise;
+  }
+
+  updateRemotePlayerSkin(clientId: string, shipSkinId?: string | null): void {
+    const entity = this.findRemotePlayerEntity(clientId);
+    if (!entity) {
+      return;
+    }
+
+    const resolvedSkinId = this.resolveRemoteShipSkinId(shipSkinId);
+    const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
+    if (remotePlayer) {
+      remotePlayer.updateShipSkin(resolvedSkinId);
+    }
+
+    const cachedSprite = this.getCachedRemoteShipSprite(resolvedSkinId);
+    if (cachedSprite) {
+      this.applyRemoteShipSprite(entity, resolvedSkinId, cachedSprite);
+      return;
+    }
+
+    if (!this.ecs.hasComponent(entity, AnimatedSprite) && this.sharedAnimatedSprite) {
+      this.ecs.addComponent(entity, AnimatedSprite, this.sharedAnimatedSprite);
+    }
+
+    this.loadRemoteShipSprite(resolvedSkinId).then((loadedSprite) => {
+      if (!loadedSprite) return;
+
+      const currentEntity = this.findRemotePlayerEntity(clientId);
+      if (!currentEntity || currentEntity.id !== entity.id) return;
+
+      const currentRemotePlayer = this.ecs.getComponent(currentEntity, RemotePlayer);
+      if (!currentRemotePlayer) return;
+
+      const currentSkinId = this.resolveRemoteShipSkinId(currentRemotePlayer.shipSkinId);
+      if (currentSkinId !== resolvedSkinId) return;
+
+      this.applyRemoteShipSprite(currentEntity, resolvedSkinId, loadedSprite);
+    });
   }
 
 
@@ -80,7 +185,8 @@ export class RemotePlayerSystem extends BaseSystem {
     clientId: string,
     nickname: string,
     rank: string = 'Basic Space Pilot',
-    leaderboardPodiumRank: number = 0
+    leaderboardPodiumRank: number = 0,
+    shipSkinId?: string | null
   ): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
@@ -89,12 +195,16 @@ export class RemotePlayerSystem extends BaseSystem {
         remotePlayerComponent.updateInfo(nickname, rank, leaderboardPodiumRank);
       }
     }
+
+    if (shipSkinId) {
+      this.updateRemotePlayerSkin(clientId, shipSkinId);
+    }
   }
 
   /**
    * Ottiene info di un remote player
    */
-  getRemotePlayerInfo(clientId: string): { nickname: string, rank: string, leaderboardPodiumRank: number } | undefined {
+  getRemotePlayerInfo(clientId: string): { nickname: string, rank: string, leaderboardPodiumRank: number, shipSkinId: string } | undefined {
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
@@ -102,7 +212,8 @@ export class RemotePlayerSystem extends BaseSystem {
         return {
           nickname: remotePlayerComponent.nickname,
           rank: remotePlayerComponent.rank,
-          leaderboardPodiumRank: Number(remotePlayerComponent.leaderboardPodiumRank || 0)
+          leaderboardPodiumRank: Number(remotePlayerComponent.leaderboardPodiumRank || 0),
+          shipSkinId: remotePlayerComponent.shipSkinId
         };
       }
     }
@@ -121,13 +232,14 @@ export class RemotePlayerSystem extends BaseSystem {
     maxHealth?: number,
     shield?: number,
     maxShield?: number,
-    serverTimestamp?: number
+    serverTimestamp?: number,
+    shipSkinId?: string | null
   ): number {
     // Verifica se il giocatore remoto esiste già
     const existingEntity = this.findRemotePlayerEntity(clientId);
     if (existingEntity) {
       // Aggiorna posizione del giocatore esistente
-      this.updateRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield, serverTimestamp);
+      this.updateRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield, serverTimestamp, undefined, undefined, shipSkinId);
 
       // Update stats if provided
       if (health !== undefined || shield !== undefined) {
@@ -138,16 +250,19 @@ export class RemotePlayerSystem extends BaseSystem {
     }
 
     // Usa EntityFactory per creare il remote player
+    const resolvedSkinId = this.resolveRemoteShipSkinId(shipSkinId);
+    const initialRemoteSprite = this.getCachedRemoteShipSprite(resolvedSkinId) || this.sharedAnimatedSprite;
     let entity;
     try {
       entity = this.entityFactory.createRemotePlayer({
         clientId,
+        shipSkinId: resolvedSkinId,
         position: {
           x,
           y,
           rotation
         },
-        animatedSprite: this.sharedAnimatedSprite,
+        animatedSprite: initialRemoteSprite,
         combat: {
           health: {
             current: health !== undefined ? health : 100,
@@ -169,6 +284,7 @@ export class RemotePlayerSystem extends BaseSystem {
       return -1;
     }
 
+    this.updateRemotePlayerSkin(clientId, resolvedSkinId);
     return entity.id;
   }
 
@@ -186,7 +302,8 @@ export class RemotePlayerSystem extends BaseSystem {
     maxShield?: number,
     serverTimestamp?: number,
     velocityX?: number,
-    velocityY?: number
+    velocityY?: number,
+    shipSkinId?: string | null
   ): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (!entity) {
@@ -218,6 +335,10 @@ export class RemotePlayerSystem extends BaseSystem {
     // Aggiorna anche le statistiche se fornite (per sync in tempo reale)
     if (health !== undefined || shield !== undefined) {
       this.updatePlayerStats(clientId, health || 0, maxHealth, shield || 0, maxShield);
+    }
+
+    if (shipSkinId) {
+      this.updateRemotePlayerSkin(clientId, shipSkinId);
     }
   }
 

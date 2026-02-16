@@ -15,10 +15,10 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
   }
 
   handle(message: any, networkSystem: ClientNetworkSystem): void {
-    let clientId, position, rotation, tick, nickname, rank, leaderboardPodiumRank, health, maxHealth, shield, maxShield;
+    let clientId, position, rotation, tick, nickname, rank, leaderboardPodiumRank, health, maxHealth, shield, maxShield, shipSkinId;
 
     if (message.p && Array.isArray(message.p)) {
-      // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh, leaderboardPodiumRank]
+      // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh, leaderboardPodiumRank, shipSkinId]
       const p = message.p;
       clientId = p[0];
       position = { x: p[1], y: p[2], velocityX: p[3], velocityY: p[4] };
@@ -36,9 +36,10 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
       shield = p[11];
       maxShield = p[12];
       leaderboardPodiumRank = p[13];
+      shipSkinId = typeof p[14] === 'string' ? p[14] : undefined;
     } else {
       // Formato vecchio (fallback)
-      ({ clientId, position, rotation, nickname, rank, leaderboardPodiumRank, health, maxHealth, shield, maxShield } = message);
+      ({ clientId, position, rotation, nickname, rank, leaderboardPodiumRank, health, maxHealth, shield, maxShield, shipSkinId } = message);
       tick = message.t; // Fallback to message.t for old format too
     }
 
@@ -66,7 +67,8 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
         nickname,
         rank,
         Number(leaderboardPodiumRank || 0),
-        tick
+        tick,
+        shipSkinId
       );
     } else {
       console.warn('[RemotePlayerUpdateHandler] No RemotePlayerManager available');

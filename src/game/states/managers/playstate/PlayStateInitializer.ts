@@ -252,7 +252,7 @@ export class PlayStateInitializer {
     const remotePlayerSprite = await createPlayerShipAnimatedSprite(this.context.assetManager, selectedShipSkinId);
 
     // Crea sistema remote player
-    const remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), remotePlayerSprite);
+    const remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), remotePlayerSprite, this.context.assetManager);
     this.world.getECS().addSystem(remotePlayerSystem);
     this.setRemotePlayerSystem(remotePlayerSystem);
 
