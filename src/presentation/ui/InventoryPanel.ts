@@ -26,6 +26,15 @@ import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSp
  * Layout a tre colonne: Stats, Ship Visualization, Cargo
  */
 export class InventoryPanel extends BasePanel {
+  private static readonly SHIP_VISUAL_FIXED_WIDTH = 220;
+  private static readonly SHIP_VISUAL_FIXED_HEIGHT = 220;
+  private static readonly SHIP_VISUAL_FILL_RATIO = 0.82;
+  private static readonly SHIP_VISUAL_ROTATION_DEGREES_PER_SECOND = 180;
+  private static readonly SHIP_VISUAL_TICK_MS = 50;
+  private static readonly SHIP_VISUAL_AUTO_ROTATION_SLOW_TICK_MS = 85;
+  private static readonly SHIP_VISUAL_AUTO_ROTATION_SLOW_TICK_LIMIT = 8;
+  private static readonly SHIP_VISUAL_DRAG_DEGREES_PER_PIXEL = 1.8;
+
   private ecs!: ECS;
   private playerSystem: PlayerSystem | null = null;
   private statsElements!: { [key: string]: HTMLElement };
@@ -34,6 +43,8 @@ export class InventoryPanel extends BasePanel {
   private currentFrame: number = -1;
   private animationRequestId: number | null = null;
   private lastTimestamp: number = 0;
+  private autoRotationSlowTickCount: number = 0;
+  private autoRotationDisabledForSession: boolean = false;
   private isShipHorizontalControlActive: boolean = false;
   private isShipHorizontalDragActive: boolean = false;
   private lastShipDragClientX: number | null = null;
@@ -58,6 +69,8 @@ export class InventoryPanel extends BasePanel {
     this.currentFrame = -1;
     this.animationRequestId = null;
     this.lastTimestamp = 0;
+    this.autoRotationSlowTickCount = 0;
+    this.autoRotationDisabledForSession = false;
     this.isShipHorizontalControlActive = false;
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
@@ -353,8 +366,6 @@ export class InventoryPanel extends BasePanel {
       touch-action: none;
       transition: box-shadow 0.2s ease, transform 0.2s ease;
     `;
-    const pixelsPerFrame = 3;
-
     const beginShipHorizontalDrag = (clientX: number) => {
       this.isShipHorizontalDragActive = true;
       this.isShipHorizontalControlActive = true;
@@ -376,7 +387,10 @@ export class InventoryPanel extends BasePanel {
       if (deltaX === 0) return;
       if (Math.abs(deltaX) >= 1) this.shipDragMoved = true;
 
-      this.shipDragFrameAccumulator += deltaX / pixelsPerFrame;
+      const totalFrames = Math.max(1, this.getActiveShipSkin().preview.totalFrames || 1);
+      const deltaFrames =
+        (deltaX * InventoryPanel.SHIP_VISUAL_DRAG_DEGREES_PER_PIXEL / 360) * totalFrames;
+      this.shipDragFrameAccumulator += deltaFrames;
       this.applyShipAnimationFrame(this.shipDragFrameAccumulator);
     };
 
@@ -887,30 +901,66 @@ export class InventoryPanel extends BasePanel {
     this.recoverElements();
 
     this.currentFrame = -1;
+    this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
+    if (this.autoRotationDisabledForSession) {
+      this.applyShipAnimationFrame(this.shipDragFrameAccumulator);
+      return;
+    }
+
+    this.autoRotationSlowTickCount = 0;
+    this.lastTimestamp = performance.now();
 
     this.animationRequestId = setInterval(() => {
       // Recupero forzato se null (safety check estremo)
       if (!this.shipVisual) this.recoverElements();
 
+      const now = performance.now();
       if (!this.shipVisual || !document.body.contains(this.shipVisual)) {
+        this.lastTimestamp = now;
         return;
       }
 
-      if (!this.isVisible) return;
+      if (!this.isVisible) {
+        this.lastTimestamp = now;
+        return;
+      }
+
+      if (document.hidden) {
+        this.lastTimestamp = now;
+        return;
+      }
+
+      const deltaMs = Math.min(100, Math.max(0, now - this.lastTimestamp));
+      this.lastTimestamp = now;
+      if (deltaMs >= InventoryPanel.SHIP_VISUAL_AUTO_ROTATION_SLOW_TICK_MS) {
+        this.autoRotationSlowTickCount += 1;
+      } else {
+        this.autoRotationSlowTickCount = Math.max(0, this.autoRotationSlowTickCount - 1);
+      }
+
+      if (this.autoRotationSlowTickCount >= InventoryPanel.SHIP_VISUAL_AUTO_ROTATION_SLOW_TICK_LIMIT) {
+        this.autoRotationDisabledForSession = true;
+        this.stopShipAnimation();
+        return;
+      }
 
       if (!this.isShipHorizontalControlActive) {
         const skin = this.getActiveShipSkin();
-        const totalFrames = skin.preview.totalFrames || 1;
-        // Clockwise animation: decrement frame
-        const nextFrame = this.currentFrame <= 0 ? totalFrames - 1 : this.currentFrame - 1;
-        this.applyShipAnimationFrame(nextFrame);
+        const totalFrames = Math.max(1, skin.preview.totalFrames || 1);
+        const framesPerSecond =
+          (InventoryPanel.SHIP_VISUAL_ROTATION_DEGREES_PER_SECOND / 360) * totalFrames;
+
+        this.shipDragFrameAccumulator -= framesPerSecond * (deltaMs / 1000);
+        this.applyShipAnimationFrame(this.shipDragFrameAccumulator);
+      } else {
+        this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
       }
 
       // Aggiorna dati ogni 10 step
       if (this.currentFrame % 10 === 0) {
         try { this.update(); } catch (e) { }
       }
-    }, 50) as any;
+    }, InventoryPanel.SHIP_VISUAL_TICK_MS) as any;
   }
 
   private applyShipAnimationFrame(frame: number): void {
@@ -953,12 +1003,29 @@ export class InventoryPanel extends BasePanel {
 
     const skin = this.getActiveShipSkin();
     const preview = skin.preview;
+    const { scale } = this.getShipVisualMetrics(preview);
     this.shipVisual.style.width = `${preview.frameWidth}px`;
     this.shipVisual.style.height = `${preview.frameHeight}px`;
-    this.shipVisual.style.transform = `scale(${preview.displayScale})`;
+    this.shipVisual.style.transform = `scale(${scale})`;
     this.shipVisual.style.backgroundImage = `url('${skin.basePath}.png')`;
     this.shipVisual.style.backgroundSize = `${preview.sheetWidth}px ${preview.sheetHeight}px`;
     this.shipVisual.style.backgroundPosition = `${-preview.offsetX}px ${-preview.offsetY}px`;
+  }
+
+  private getShipVisualMetrics(preview: PlayerShipSkinDefinition['preview']): {
+    scale: number;
+  } {
+    const safeFrameWidth = Math.max(1, preview.frameWidth);
+    const safeFrameHeight = Math.max(1, preview.frameHeight);
+    const fitScale = Math.min(
+      InventoryPanel.SHIP_VISUAL_FIXED_WIDTH / safeFrameWidth,
+      InventoryPanel.SHIP_VISUAL_FIXED_HEIGHT / safeFrameHeight
+    );
+    const scale = fitScale * InventoryPanel.SHIP_VISUAL_FILL_RATIO;
+
+    return {
+      scale
+    };
   }
 
   private closeShipSkinSelector(): void {
@@ -1034,7 +1101,11 @@ export class InventoryPanel extends BasePanel {
       letter-spacing: 0.8px;
       text-transform: uppercase;
     `;
-    closeButton.addEventListener('click', () => this.closeShipSkinSelector());
+    closeButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      this.closeShipSkinSelector();
+    });
 
     header.appendChild(title);
     header.appendChild(closeButton);
@@ -1092,7 +1163,9 @@ export class InventoryPanel extends BasePanel {
       option.appendChild(spritePreview);
       option.appendChild(label);
 
-      option.addEventListener('click', () => {
+      option.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
         void this.applyShipSkinSelection(skin.id).finally(() => this.closeShipSkinSelector());
       });
 
@@ -1103,8 +1176,20 @@ export class InventoryPanel extends BasePanel {
     panel.appendChild(options);
     overlay.appendChild(panel);
 
+    // Prevent global "click outside panel" handlers from receiving skin selector clicks.
+    panel.addEventListener('click', (event) => {
+      event.stopPropagation();
+    });
+    panel.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
+    });
+
     overlay.addEventListener('click', (event) => {
+      event.stopPropagation();
       if (event.target === overlay) this.closeShipSkinSelector();
+    });
+    overlay.addEventListener('mousedown', (event) => {
+      event.stopPropagation();
     });
 
     this.shipSkinPopup = overlay;
@@ -1153,6 +1238,8 @@ export class InventoryPanel extends BasePanel {
     this.isShipHorizontalControlActive = false;
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
+    this.autoRotationDisabledForSession = false;
+    this.autoRotationSlowTickCount = 0;
     this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
     this.shipDragMoved = false;
     this.update();

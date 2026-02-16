@@ -657,19 +657,18 @@ export class RenderSystem extends BaseSystem {
           (components.animatedSprite && (components.animatedSprite as any).visible !== false);
 
         if (playerVelocity && this.engflamesSprite && this.engflamesOpacity > 0 && isVisible) {
-          const isMoving = Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.y) > 0.1;
-          if (isMoving) {
-            const params = EngineFlamesRenderer.getRenderParams(
-              playerTransform,
-              screenPos.x,
-              screenPos.y,
-              this.engflamesAnimationTime,
-              this.engflamesOpacity,
-              camera
-            );
-            if (params) {
-              EngineFlamesRenderer.render(ctx, this.engflamesSprite, params);
-            }
+          // Keep flames locked to the same floating motion applied to the ship render.
+          const playerFloatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime);
+          const params = EngineFlamesRenderer.getRenderParams(
+            playerTransform,
+            screenPos.x,
+            screenPos.y + playerFloatOffsetY,
+            this.engflamesAnimationTime,
+            this.engflamesOpacity,
+            camera
+          );
+          if (params) {
+            EngineFlamesRenderer.render(ctx, this.engflamesSprite, params);
           }
         }
 
