@@ -39,6 +39,7 @@ export class InventoryPanel extends BasePanel {
   private static readonly SHIP_VISUAL_AUTO_ROTATION_SLOW_TICK_MS = 85;
   private static readonly SHIP_VISUAL_AUTO_ROTATION_SLOW_TICK_LIMIT = 8;
   private static readonly SHIP_VISUAL_DRAG_DEGREES_PER_PIXEL = 1.8;
+  private static readonly SHIP_VISUAL_DRAG_CLICK_TOLERANCE_PX = 4;
 
   private ecs!: ECS;
   private playerSystem: PlayerSystem | null = null;
@@ -53,6 +54,7 @@ export class InventoryPanel extends BasePanel {
   private isShipHorizontalControlActive: boolean = false;
   private isShipHorizontalDragActive: boolean = false;
   private lastShipDragClientX: number | null = null;
+  private shipDragDistancePx: number = 0;
   private shipDragFrameAccumulator: number = 0;
   private shipDragMoved: boolean = false;
   private networkSystem: any = null;
@@ -80,6 +82,7 @@ export class InventoryPanel extends BasePanel {
     this.isShipHorizontalControlActive = false;
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
+    this.shipDragDistancePx = 0;
     this.shipDragFrameAccumulator = 0;
     this.shipDragMoved = false;
     this.selectedShipSkinId = getSelectedPlayerShipSkinId();
@@ -368,7 +371,7 @@ export class InventoryPanel extends BasePanel {
       filter: drop-shadow(0 0 50px rgba(255, 255, 255, 0.15));
       background-repeat: no-repeat;
       image-rendering: pixelated;
-      cursor: ew-resize;
+      cursor: pointer;
       user-select: none;
       touch-action: none;
       transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -377,6 +380,7 @@ export class InventoryPanel extends BasePanel {
       this.isShipHorizontalDragActive = true;
       this.isShipHorizontalControlActive = true;
       this.lastShipDragClientX = clientX;
+      this.shipDragDistancePx = 0;
       this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
       this.shipDragMoved = false;
     };
@@ -392,7 +396,10 @@ export class InventoryPanel extends BasePanel {
       const deltaX = clientX - this.lastShipDragClientX;
       this.lastShipDragClientX = clientX;
       if (deltaX === 0) return;
-      if (Math.abs(deltaX) >= 1) this.shipDragMoved = true;
+      this.shipDragDistancePx += Math.abs(deltaX);
+      if (this.shipDragDistancePx >= InventoryPanel.SHIP_VISUAL_DRAG_CLICK_TOLERANCE_PX) {
+        this.shipDragMoved = true;
+      }
 
       const totalFrames = Math.max(1, this.getActiveShipSkin().preview.totalFrames || 1);
       const deltaFrames =
@@ -422,6 +429,7 @@ export class InventoryPanel extends BasePanel {
       this.isShipHorizontalDragActive = false;
       this.isShipHorizontalControlActive = false;
       this.lastShipDragClientX = null;
+      this.shipDragDistancePx = 0;
       this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
       if (event && shipDisplay.hasPointerCapture && shipDisplay.hasPointerCapture(event.pointerId)) {
         shipDisplay.releasePointerCapture(event.pointerId);
@@ -434,6 +442,7 @@ export class InventoryPanel extends BasePanel {
       this.isShipHorizontalDragActive = false;
       this.isShipHorizontalControlActive = false;
       this.lastShipDragClientX = null;
+      this.shipDragDistancePx = 0;
       this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
     });
     shipDisplay.addEventListener('click', () => {
@@ -1469,6 +1478,9 @@ export class InventoryPanel extends BasePanel {
     for (const skin of this.availableShipSkins) {
       const isSelected = skin.id === serverSkinState.selectedSkinId;
       const isUnlocked = serverSkinState.unlockedSkinIds.includes(skin.id);
+      const price = this.resolveShipSkinPrice(skin);
+      const isCosmosPrice = price.currency === 'cosmos';
+      const canAfford = this.getPlayerCurrencyBalance(price.currency) >= price.amount;
       const skinPreview = skin.preview;
 
       const option = document.createElement('button');
@@ -1521,8 +1533,70 @@ export class InventoryPanel extends BasePanel {
         text-align: center;
       `;
 
+      const statusBadge = document.createElement('div');
+      const statusText = isSelected
+        ? 'EQUIPPED'
+        : isUnlocked
+          ? 'OWNED'
+          : this.formatShipSkinPrice(price).toUpperCase();
+      statusBadge.textContent = statusText;
+      statusBadge.style.cssText = `
+        color: ${isSelected
+          ? 'rgba(56, 189, 248, 0.96)'
+          : isUnlocked
+            ? 'rgba(226, 232, 240, 0.9)'
+            : canAfford
+              ? (isCosmosPrice ? 'rgba(103, 232, 249, 0.95)' : 'rgba(245, 158, 11, 0.95)')
+              : 'rgba(248, 113, 113, 0.96)'};
+        border: 1px solid ${isSelected
+          ? 'rgba(56, 189, 248, 0.6)'
+          : isUnlocked
+            ? 'rgba(226, 232, 240, 0.35)'
+            : canAfford
+              ? (isCosmosPrice ? 'rgba(103, 232, 249, 0.45)' : 'rgba(245, 158, 11, 0.45)')
+              : 'rgba(248, 113, 113, 0.45)'};
+        background: ${isSelected
+          ? 'rgba(56, 189, 248, 0.14)'
+          : isUnlocked
+            ? 'rgba(148, 163, 184, 0.12)'
+            : canAfford
+              ? (isCosmosPrice ? 'rgba(34, 211, 238, 0.12)' : 'rgba(245, 158, 11, 0.12)')
+              : 'rgba(127, 29, 29, 0.22)'};
+        border-radius: 999px;
+        padding: 3px 10px;
+        min-height: 20px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.9px;
+        text-transform: uppercase;
+      `;
+
+      const actionHint = document.createElement('div');
+      actionHint.textContent = isSelected
+        ? 'Current Skin'
+        : isUnlocked
+          ? 'Click To Equip'
+          : canAfford
+            ? 'Click To Unlock'
+            : `Not Enough ${isCosmosPrice ? 'Cosmos' : 'Credits'}`;
+      actionHint.style.cssText = `
+        color: ${(!isUnlocked && !canAfford)
+          ? 'rgba(248, 113, 113, 0.82)'
+          : 'rgba(255, 255, 255, 0.56)'};
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.7px;
+        text-transform: uppercase;
+        text-align: center;
+      `;
+
       option.appendChild(spritePreview);
       option.appendChild(label);
+      option.appendChild(statusBadge);
+      option.appendChild(actionHint);
 
       option.addEventListener('mouseenter', () => {
         option.style.filter = 'brightness(1.06)';
@@ -1549,6 +1623,12 @@ export class InventoryPanel extends BasePanel {
         const requestSent = this.requestServerShipSkinAction(skin.id, action);
         if (!requestSent) {
           option.style.borderColor = 'rgba(248, 113, 113, 0.92)';
+          statusBadge.textContent = 'SERVER OFFLINE';
+          statusBadge.style.color = 'rgba(248, 113, 113, 0.98)';
+          statusBadge.style.borderColor = 'rgba(248, 113, 113, 0.62)';
+          statusBadge.style.background = 'rgba(127, 29, 29, 0.28)';
+          actionHint.textContent = 'Try Again';
+          actionHint.style.color = 'rgba(248, 113, 113, 0.85)';
           return;
         }
 
@@ -1597,6 +1677,7 @@ export class InventoryPanel extends BasePanel {
     this.isShipHorizontalControlActive = false;
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
+    this.shipDragDistancePx = 0;
     this.autoRotationDisabledForSession = false;
     this.autoRotationSlowTickCount = 0;
     this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
@@ -1612,6 +1693,7 @@ export class InventoryPanel extends BasePanel {
     this.isShipHorizontalControlActive = false;
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
+    this.shipDragDistancePx = 0;
     this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
     this.shipDragMoved = false;
     if (this.activePopup) {
