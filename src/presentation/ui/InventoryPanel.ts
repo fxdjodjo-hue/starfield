@@ -8,9 +8,18 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { Inventory } from '../../entities/player/Inventory';
+import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { ITEM_REGISTRY, ItemSlot, getItem } from '../../config/ItemConfig';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
+import {
+  getPlayerShipSkinById,
+  getSelectedPlayerShipSkinId,
+  listPlayerShipSkins,
+  persistPlayerShipSkinSelection,
+  type PlayerShipSkinDefinition
+} from '../../config/ShipSkinConfig';
+import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSpriteFactory';
 
 /**
  * InventoryPanel - Pannello per la gestione dell'inventario e dell'equipaggiamento
@@ -29,8 +38,13 @@ export class InventoryPanel extends BasePanel {
   private isShipHorizontalDragActive: boolean = false;
   private lastShipDragClientX: number | null = null;
   private shipDragFrameAccumulator: number = 0;
+  private shipDragMoved: boolean = false;
   private networkSystem: any = null;
   private activePopup: HTMLElement | null = null;
+  private shipSkinPopup: HTMLElement | null = null;
+  private selectedShipSkinId: string = '';
+  private currentShipSkin: PlayerShipSkinDefinition | null = null;
+  private availableShipSkins: PlayerShipSkinDefinition[] = [];
   private lastInventoryHash: string = '';
   private lastInventoryLayoutSignature: string = '';
 
@@ -48,6 +62,10 @@ export class InventoryPanel extends BasePanel {
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
     this.shipDragFrameAccumulator = 0;
+    this.shipDragMoved = false;
+    this.selectedShipSkinId = getSelectedPlayerShipSkinId();
+    this.currentShipSkin = getPlayerShipSkinById(this.selectedShipSkinId);
+    this.availableShipSkins = listPlayerShipSkins();
 
     // Recupero forzato riferimenti se persi durante la costruzione
     this.recoverElements();
@@ -324,20 +342,16 @@ export class InventoryPanel extends BasePanel {
     const shipDisplay = document.createElement('div');
     shipDisplay.id = 'inventory-ship-visual';
     shipDisplay.style.cssText = `
-      width: 189px;
-      height: 189px;
       position: relative;
       overflow: hidden;
-      transform: scale(0.95);
+      border-radius: 2px;
       filter: drop-shadow(0 0 50px rgba(255, 255, 255, 0.15));
-      background-image: url('assets/ships/ship106/ship106.png');
-      background-size: 1914px 1532px;
-      background-position: -2px -2px;
       background-repeat: no-repeat;
       image-rendering: pixelated;
       cursor: ew-resize;
       user-select: none;
       touch-action: none;
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
     `;
     const pixelsPerFrame = 3;
 
@@ -346,6 +360,7 @@ export class InventoryPanel extends BasePanel {
       this.isShipHorizontalControlActive = true;
       this.lastShipDragClientX = clientX;
       this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
+      this.shipDragMoved = false;
     };
 
     const updateShipFrameFromHorizontalDrag = (clientX: number) => {
@@ -359,6 +374,7 @@ export class InventoryPanel extends BasePanel {
       const deltaX = clientX - this.lastShipDragClientX;
       this.lastShipDragClientX = clientX;
       if (deltaX === 0) return;
+      if (Math.abs(deltaX) >= 1) this.shipDragMoved = true;
 
       this.shipDragFrameAccumulator += deltaX / pixelsPerFrame;
       this.applyShipAnimationFrame(this.shipDragFrameAccumulator);
@@ -399,8 +415,17 @@ export class InventoryPanel extends BasePanel {
       this.lastShipDragClientX = null;
       this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
     });
+    shipDisplay.addEventListener('click', () => {
+      if (this.shipDragMoved) {
+        this.shipDragMoved = false;
+        return;
+      }
+      this.openShipSkinSelector();
+    });
 
     this.shipVisual = shipDisplay;
+    this.updateShipVisualStyle();
+    this.applyShipAnimationFrame(0);
     shipContainer.appendChild(shipDisplay);
 
     // Equipment Slots
@@ -462,6 +487,18 @@ export class InventoryPanel extends BasePanel {
     shipContainer.appendChild(createEquipmentSlot('Missile', { bottom: '0', right: '60px', dataSlot: ItemSlot.MISSILE } as any));
 
     visualColumn.appendChild(shipContainer);
+
+    const shipHint = document.createElement('div');
+    shipHint.textContent = 'Drag to rotate - click to change skin';
+    shipHint.style.cssText = `
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-top: -4px;
+    `;
+    visualColumn.appendChild(shipHint);
 
     // --- COLUMN 3: CARGO HOLD (Grid) ---
     const cargoColumn = document.createElement('div');
@@ -757,6 +794,24 @@ export class InventoryPanel extends BasePanel {
     this.updateVisualSlots(inventory);
   }
 
+  private ensureShipSkinState(preferredSkinId?: string | null): void {
+    const resolvedSkinId = getSelectedPlayerShipSkinId(preferredSkinId || this.selectedShipSkinId || null);
+    this.selectedShipSkinId = resolvedSkinId;
+
+    if (!this.currentShipSkin || !this.currentShipSkin.preview || this.currentShipSkin.id !== resolvedSkinId) {
+      this.currentShipSkin = getPlayerShipSkinById(resolvedSkinId);
+    }
+
+    if (!Array.isArray(this.availableShipSkins) || this.availableShipSkins.length === 0) {
+      this.availableShipSkins = listPlayerShipSkins();
+    }
+  }
+
+  private getActiveShipSkin(): PlayerShipSkinDefinition {
+    this.ensureShipSkinState();
+    return this.currentShipSkin!;
+  }
+
   private getInventoryPlaceholderCount(cargoGrid: HTMLElement, usedRows: number): number {
     const fallbackRows = 10;
     const minRows = 8;
@@ -844,8 +899,10 @@ export class InventoryPanel extends BasePanel {
       if (!this.isVisible) return;
 
       if (!this.isShipHorizontalControlActive) {
-        // Senso orario: decrementiamo il frame
-        const nextFrame = this.currentFrame <= 0 ? 71 : this.currentFrame - 1;
+        const skin = this.getActiveShipSkin();
+        const totalFrames = skin.preview.totalFrames || 1;
+        // Clockwise animation: decrement frame
+        const nextFrame = this.currentFrame <= 0 ? totalFrames - 1 : this.currentFrame - 1;
         this.applyShipAnimationFrame(nextFrame);
       }
 
@@ -857,18 +914,18 @@ export class InventoryPanel extends BasePanel {
   }
 
   private applyShipAnimationFrame(frame: number): void {
-    const totalFrames = 72;
+    const preview = this.getActiveShipSkin().preview;
+    const totalFrames = Math.max(1, preview.totalFrames);
+    const columns = Math.max(1, preview.columns);
     const normalized = ((Math.floor(frame) % totalFrames) + totalFrames) % totalFrames;
     this.currentFrame = normalized;
 
-    const row = Math.floor(normalized / 10);
-    const col = normalized % 10;
-    const spacing = 191;
+    const row = Math.floor(normalized / columns);
+    const col = normalized % columns;
+    const posX = -(col * preview.spacingX + preview.offsetX);
+    const posY = -(row * preview.spacingY + preview.offsetY);
 
-    const posX = -(col * spacing + 2);
-    const posY = -(row * spacing + 2);
-
-    if (this.shipVisual) {
+    if (this.shipVisual && document.body.contains(this.shipVisual)) {
       this.shipVisual.style.backgroundPosition = `${posX}px ${posY}px`;
     }
   }
@@ -887,16 +944,217 @@ export class InventoryPanel extends BasePanel {
 
   public setClientNetworkSystem(networkSystem: any): void {
     this.networkSystem = networkSystem;
+    this.ensureShipSkinState(this.networkSystem?.gameContext?.playerShipSkinId || this.selectedShipSkinId);
+    this.updateShipVisualStyle();
+  }
+
+  private updateShipVisualStyle(): void {
+    if (!this.shipVisual) return;
+
+    const skin = this.getActiveShipSkin();
+    const preview = skin.preview;
+    this.shipVisual.style.width = `${preview.frameWidth}px`;
+    this.shipVisual.style.height = `${preview.frameHeight}px`;
+    this.shipVisual.style.transform = `scale(${preview.displayScale})`;
+    this.shipVisual.style.backgroundImage = `url('${skin.basePath}.png')`;
+    this.shipVisual.style.backgroundSize = `${preview.sheetWidth}px ${preview.sheetHeight}px`;
+    this.shipVisual.style.backgroundPosition = `${-preview.offsetX}px ${-preview.offsetY}px`;
+  }
+
+  private closeShipSkinSelector(): void {
+    if (!this.shipSkinPopup) return;
+    this.shipSkinPopup.remove();
+    this.shipSkinPopup = null;
+  }
+
+  private openShipSkinSelector(): void {
+    this.closeShipSkinSelector();
+    this.ensureShipSkinState();
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 120;
+      padding: 24px;
+      box-sizing: border-box;
+    `;
+
+    const panel = document.createElement('div');
+    panel.style.cssText = `
+      width: min(560px, 100%);
+      background: rgba(14, 18, 28, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      border-radius: 4px;
+      box-shadow: 0 20px 80px rgba(0, 0, 0, 0.55);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    `;
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    `;
+
+    const title = document.createElement('div');
+    title.textContent = 'Select Ship Skin';
+    title.style.cssText = `
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+    `;
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.textContent = 'Close';
+    closeButton.style.cssText = `
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.85);
+      border-radius: 2px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    `;
+    closeButton.addEventListener('click', () => this.closeShipSkinSelector());
+
+    header.appendChild(title);
+    header.appendChild(closeButton);
+
+    const options = document.createElement('div');
+    options.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    `;
+
+    for (const skin of this.availableShipSkins) {
+      const isSelected = skin.id === this.selectedShipSkinId;
+      const skinPreview = skin.preview;
+      const previewScale = 0.34;
+
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.style.cssText = `
+        border: 1px solid ${isSelected ? 'rgba(56, 189, 248, 0.85)' : 'rgba(255, 255, 255, 0.16)'};
+        background: ${isSelected ? 'rgba(56, 189, 248, 0.16)' : 'rgba(255, 255, 255, 0.04)'};
+        border-radius: 3px;
+        cursor: pointer;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        min-height: 120px;
+      `;
+
+      const spritePreview = document.createElement('div');
+      spritePreview.style.cssText = `
+        width: ${Math.round(skinPreview.frameWidth * previewScale)}px;
+        height: ${Math.round(skinPreview.frameHeight * previewScale)}px;
+        background-image: url('${skin.basePath}.png');
+        background-repeat: no-repeat;
+        background-size: ${Math.round(skinPreview.sheetWidth * previewScale)}px ${Math.round(skinPreview.sheetHeight * previewScale)}px;
+        background-position: ${-Math.round(skinPreview.offsetX * previewScale)}px ${-Math.round(skinPreview.offsetY * previewScale)}px;
+        image-rendering: pixelated;
+        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.22));
+      `;
+
+      const label = document.createElement('div');
+      label.textContent = skin.displayName;
+      label.style.cssText = `
+        color: #ffffff;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        text-align: center;
+      `;
+
+      option.appendChild(spritePreview);
+      option.appendChild(label);
+
+      option.addEventListener('click', () => {
+        void this.applyShipSkinSelection(skin.id).finally(() => this.closeShipSkinSelector());
+      });
+
+      options.appendChild(option);
+    }
+
+    panel.appendChild(header);
+    panel.appendChild(options);
+    overlay.appendChild(panel);
+
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) this.closeShipSkinSelector();
+    });
+
+    this.shipSkinPopup = overlay;
+    this.container.appendChild(overlay);
+  }
+
+  private async applyShipSkinSelection(skinId: string): Promise<void> {
+    const skin = getPlayerShipSkinById(skinId);
+    const persistedSkinId = persistPlayerShipSkinSelection(skin.id);
+    this.selectedShipSkinId = persistedSkinId;
+    this.currentShipSkin = getPlayerShipSkinById(persistedSkinId);
+
+    if (this.networkSystem?.gameContext) {
+      this.networkSystem.gameContext.playerShipSkinId = persistedSkinId;
+    }
+
+    this.currentFrame = -1;
+    this.shipDragFrameAccumulator = 0;
+    this.updateShipVisualStyle();
+    this.applyShipAnimationFrame(0);
+
+    const playerEntity = this.playerSystem?.getPlayerEntity();
+    const assetManager = this.networkSystem?.gameContext?.assetManager;
+    if (!playerEntity || !assetManager) return;
+
+    try {
+      const playerAnimatedSprite = await createPlayerShipAnimatedSprite(assetManager, persistedSkinId);
+      this.ecs.addComponent(playerEntity, AnimatedSprite, playerAnimatedSprite);
+
+      const remotePlayerSystem = this.networkSystem?.getRemotePlayerSystem?.();
+      if (remotePlayerSystem && typeof remotePlayerSystem.updateSharedAnimatedSprite === 'function') {
+        remotePlayerSystem.updateSharedAnimatedSprite(playerAnimatedSprite);
+      }
+    } catch (error) {
+      console.error(`[InventoryPanel] Failed to apply ship skin "${persistedSkinId}"`, error);
+    }
   }
 
   protected onShow(): void {
     this.recoverElements();
+
+    this.ensureShipSkinState(this.networkSystem?.gameContext?.playerShipSkinId || this.selectedShipSkinId);
+    this.updateShipVisualStyle();
     this.lastInventoryHash = ''; // Force fresh render on first show
     this.lastInventoryLayoutSignature = '';
     this.isShipHorizontalControlActive = false;
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
     this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
+    this.shipDragMoved = false;
     this.update();
     setTimeout(() => {
       if (this.isVisible) this.startShipAnimation();
@@ -909,10 +1167,12 @@ export class InventoryPanel extends BasePanel {
     this.isShipHorizontalDragActive = false;
     this.lastShipDragClientX = null;
     this.shipDragFrameAccumulator = this.currentFrame >= 0 ? this.currentFrame : 0;
+    this.shipDragMoved = false;
     if (this.activePopup) {
       this.activePopup.remove();
       this.activePopup = null;
     }
+    this.closeShipSkinSelector();
   }
 
   public invalidateInventoryCache(): void {

@@ -87,6 +87,7 @@ export class GameContext {
   // Stato stanza
   public currentRoom: GameRoom | null = null;
   public currentMapId: string = 'palantir'; // Mappa corrente
+  public playerShipSkinId: string = ''; // Selected local ship skin
 
   // Timing e sincronizzazione
   public serverTick: number = 0;

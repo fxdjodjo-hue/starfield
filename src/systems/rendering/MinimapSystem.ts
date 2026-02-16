@@ -490,9 +490,9 @@ export class MinimapSystem extends BaseSystem {
     ctx.globalAlpha = 0.98;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.filter = 'brightness(1.35) contrast(1.25) saturate(1.30)';
-    ctx.shadowColor = 'rgba(0, 255, 200, 0.4)';
-    ctx.shadowBlur = Math.round(6 * c);
+    ctx.filter = 'brightness(1.25) contrast(1.2)';
+    ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
     ctx.drawImage(
       sprite.image,
       pos.x - drawWidth / 2,

@@ -12,6 +12,8 @@ import { InterpolationSystem } from '../../../../systems/physics/InterpolationSy
 import { Transform } from '../../../../entities/spatial/Transform';
 import { AssetLoader } from '../../../../core/services/AssetLoader';
 import { PLAYTEST_CONFIG } from '../../../../config/GameConstants';
+import { getSelectedPlayerShipSkinId } from '../../../../config/ShipSkinConfig';
+import { createPlayerShipAnimatedSprite } from '../../../../core/services/PlayerShipSpriteFactory';
 
 /**
  * Manages PlayState initialization, setup, and resource loading
@@ -244,8 +246,10 @@ export class PlayStateInitializer {
    * Initializes multiplayer systems before game initialization
    */
   async initializeMultiplayerSystems(): Promise<void> {
-    // Carica AnimatedSprite per i remote player (stesso del player normale)
-    const remotePlayerSprite = await this.context.assetManager.createAnimatedSprite('assets/ships/ship106/ship106', 0.8);
+    // Carica AnimatedSprite per i remote player (stessa skin del player locale)
+    const selectedShipSkinId = getSelectedPlayerShipSkinId(this.context.playerShipSkinId);
+    this.context.playerShipSkinId = selectedShipSkinId;
+    const remotePlayerSprite = await createPlayerShipAnimatedSprite(this.context.assetManager, selectedShipSkinId);
 
     // Crea sistema remote player
     const remotePlayerSystem = new RemotePlayerSystem(this.world.getECS(), remotePlayerSprite);

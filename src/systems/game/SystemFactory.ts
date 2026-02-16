@@ -46,6 +46,8 @@ import { AsteroidSystem } from '../environment/AsteroidSystem';
 import { SafeZoneSystem } from './SafeZoneSystem';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Sprite } from '../../entities/Sprite';
+import { getSelectedPlayerShipSkinId } from '../../config/ShipSkinConfig';
+import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSpriteFactory';
 
 export interface SystemFactoryDependencies {
   ecs: ECS;
@@ -115,8 +117,10 @@ export class SystemFactory {
   static async createSystems(deps: SystemFactoryDependencies): Promise<CreatedSystems> {
     const { ecs, context, world, questManager, questSystem, uiSystem, playState, clientNetworkSystem } = deps;
 
-    // Load assets - use spritesheet for player ship
-    const playerSprite = await context.assetManager.createAnimatedSprite('assets/ships/ship106/ship106', 0.8);
+    // Load assets - use selected ship skin for local player
+    const selectedShipSkinId = getSelectedPlayerShipSkinId(context.playerShipSkinId);
+    context.playerShipSkinId = selectedShipSkinId;
+    const playerSprite = await createPlayerShipAnimatedSprite(context.assetManager, selectedShipSkinId);
 
     // Carica sprite NPC usando scala dal config (single source of truth)
     const scouterDef = getNpcDefinition('Scouter');
