@@ -387,6 +387,15 @@ export class ProjectileSystem extends BaseSystem {
         }
         return null;
       } else {
+        // Raw clientId (senza prefisso): cerca prima tra i remote players.
+        const remotePlayers = this.ecs.getEntitiesWithComponents(RemotePlayer);
+        for (const remoteEntity of remotePlayers) {
+          const remote = this.ecs.getComponent(remoteEntity, RemotePlayer);
+          if (remote && String(remote.clientId) === String(targetId)) {
+            return remoteEntity;
+          }
+        }
+
         // Prova a convertire in numero (fallback)
         const parsed = parseInt(targetId, 10);
         if (!isNaN(parsed)) {

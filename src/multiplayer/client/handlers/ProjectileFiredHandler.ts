@@ -149,7 +149,8 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         message.projectileType,
         message.targetId || undefined,
         isLocalPlayer,
-        assetManager
+        assetManager,
+        networkSystem.getLocalClientId()
       );
     } else {
       console.error('[ProjectileFiredHandler] RemoteProjectileSystem not found! Projectile will NOT be tracked.');

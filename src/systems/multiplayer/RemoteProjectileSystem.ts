@@ -4,6 +4,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { Projectile } from '../../entities/combat/Projectile';
 import { Npc } from '../../entities/ai/Npc';
+import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { LoggerWrapper } from '../../core/data/LoggerWrapper';
@@ -38,7 +39,8 @@ export class RemoteProjectileSystem extends BaseSystem {
     projectileType: string = 'laser',
     targetId: string | number | null = null,
     isLocalPlayer: boolean = false,
-    assetManager?: AssetManager
+    assetManager?: AssetManager,
+    localClientId?: string | null
   ): number {
     // Verifica se il proiettile esiste già
     if (this.remoteProjectiles.has(projectileId)) {
@@ -55,11 +57,29 @@ export class RemoteProjectileSystem extends BaseSystem {
       // Proiettile NPC: owner è l'NPC, target è il player
       ownerId = playerId;
 
-      // Trova l'entità player locale come target
-      if (targetId) {
-        const playerEntity = this.ecs.getPlayerEntity();
-        if (playerEntity) {
-          actualTargetId = playerEntity.id;
+      if (targetId !== null && targetId !== undefined) {
+        const normalizedTargetId = String(targetId);
+
+        // 1) Target è il player locale: risolvi direttamente a entity.id locale
+        if (localClientId && normalizedTargetId === String(localClientId)) {
+          const localPlayerEntity = this.ecs.getPlayerEntity();
+          if (localPlayerEntity) {
+            actualTargetId = localPlayerEntity.id;
+          }
+        }
+
+        // 2) Target è un remote player: risolvi a entity.id remoto
+        if (actualTargetId === undefined) {
+          const remoteTargetEntityId = this.findRemotePlayerEntityByClientId(normalizedTargetId);
+          if (remoteTargetEntityId !== null) {
+            actualTargetId = remoteTargetEntityId;
+          }
+        }
+
+        // 3) Fallback: conserva il target server-side (clientId string),
+        // senza forzare il player locale come bersaglio visivo.
+        if (actualTargetId === undefined) {
+          actualTargetId = normalizedTargetId;
         }
       }
     } else {
@@ -109,6 +129,20 @@ export class RemoteProjectileSystem extends BaseSystem {
     });
 
     return entity.id;
+  }
+
+  /**
+   * Risolve l'entità ECS di un remote player tramite clientId server-side.
+   */
+  private findRemotePlayerEntityByClientId(clientId: string): number | null {
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
+    for (const entity of remotePlayerEntities) {
+      const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
+      if (remotePlayer && String(remotePlayer.clientId) === String(clientId)) {
+        return entity.id;
+      }
+    }
+    return null;
   }
 
 
