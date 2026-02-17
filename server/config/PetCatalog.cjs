@@ -6,11 +6,24 @@ const PET_IDS = RAW_PETS
   .filter((petId) => petId.length > 0);
 
 const PET_ID_SET = new Set(PET_IDS);
+const PET_DISPLAY_NAME_BY_ID = RAW_PETS.reduce((accumulator, pet) => {
+  const petId = String(pet?.id || '').trim();
+  if (!petId) return accumulator;
+
+  const displayName = String(pet?.displayName || petId).trim();
+  accumulator[petId] = displayName || petId;
+  return accumulator;
+}, {});
 
 const DEFAULT_PLAYER_PET_ID =
   typeof sharedPetConfig.defaultPetId === 'string' && PET_ID_SET.has(sharedPetConfig.defaultPetId)
     ? sharedPetConfig.defaultPetId
     : (PET_IDS[0] || 'ship50');
+
+const MAX_PET_NICKNAME_LENGTH = Math.max(
+  4,
+  Math.min(64, Math.floor(Number(sharedPetConfig.petNicknameMaxLength || 24)))
+);
 
 const RAW_PROGRESSION = sharedPetConfig.progression && typeof sharedPetConfig.progression === 'object'
   ? sharedPetConfig.progression
@@ -81,6 +94,28 @@ function resolvePlayerPetId(preferredPetId) {
   return DEFAULT_PLAYER_PET_ID;
 }
 
+function getDefaultPetNicknameForId(petId) {
+  const safePetId = resolvePlayerPetId(petId);
+  return String(PET_DISPLAY_NAME_BY_ID[safePetId] || safePetId || 'Pet').trim() || 'Pet';
+}
+
+function sanitizePetNickname(rawNickname, fallbackPetId = DEFAULT_PLAYER_PET_ID) {
+  const fallbackNickname = getDefaultPetNicknameForId(fallbackPetId);
+
+  if (rawNickname === undefined || rawNickname === null) {
+    return fallbackNickname;
+  }
+
+  const normalizedNickname = String(rawNickname)
+    .replace(/[\x00-\x1F\x7F]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, MAX_PET_NICKNAME_LENGTH)
+    .trim();
+
+  return normalizedNickname || fallbackNickname;
+}
+
 function getPetExperienceRequirement(level) {
   const safeLevel = clampInteger(level, 1, MAX_PET_LEVEL);
   if (safeLevel <= 1) return 0;
@@ -126,9 +161,11 @@ function getPetStatsForLevel(level) {
 function createDefaultPlayerPetState(preferredPetId) {
   const petId = resolvePlayerPetId(preferredPetId);
   const stats = getPetStatsForLevel(1);
+  const petNickname = sanitizePetNickname(undefined, petId);
 
   return {
     petId,
+    petNickname,
     level: 1,
     experience: 0,
     maxLevel: MAX_PET_LEVEL,
@@ -147,6 +184,10 @@ function normalizePlayerPetState(rawState, options = {}) {
 
   const petId = resolvePlayerPetId(
     rawState.petId || rawState.pet_id || options.preferredPetId
+  );
+  const petNickname = sanitizePetNickname(
+    rawState.petNickname ?? rawState.pet_nickname,
+    petId
   );
   const experience = clampInteger(
     Number(rawState.experience ?? rawState.exp ?? 0),
@@ -168,6 +209,7 @@ function normalizePlayerPetState(rawState, options = {}) {
 
   return {
     petId,
+    petNickname,
     level,
     experience,
     maxLevel: MAX_PET_LEVEL,
@@ -183,6 +225,7 @@ function buildPetStateSignature(petState) {
   const normalizedState = normalizePlayerPetState(petState);
   return JSON.stringify([
     normalizedState.petId,
+    normalizedState.petNickname,
     normalizedState.level,
     normalizedState.experience,
     normalizedState.maxLevel,
@@ -197,12 +240,14 @@ function buildPetStateSignature(petState) {
 module.exports = {
   DEFAULT_PLAYER_PET_ID,
   MAX_PET_LEVEL,
+  MAX_PET_NICKNAME_LENGTH,
   PET_XP_SHARE_FROM_PLAYER,
   getPetExperienceRequirement,
   getPetExperienceCap,
   resolvePetLevelFromExperience,
   getPetStatsForLevel,
   resolvePlayerPetId,
+  sanitizePetNickname,
   createDefaultPlayerPetState,
   normalizePlayerPetState,
   buildPetStateSignature

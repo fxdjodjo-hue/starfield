@@ -2,6 +2,7 @@ import { Component } from '../../infrastructure/ecs/Component';
 
 export interface PetBehaviorOptions {
   petId: string;
+  nickname?: string;
   followDistance: number;
   lateralOffset: number;
   stopDistance: number;
@@ -15,6 +16,7 @@ export interface PetBehaviorOptions {
 
 export class Pet extends Component {
   public readonly petId: string;
+  public nickname: string;
   public readonly followDistance: number;
   public readonly lateralOffset: number;
   public readonly stopDistance: number;
@@ -28,6 +30,8 @@ export class Pet extends Component {
   constructor(options: PetBehaviorOptions) {
     super();
     this.petId = String(options.petId || 'pet').trim();
+    const initialNickname = String(options.nickname || '').replace(/\s+/g, ' ').trim();
+    this.nickname = initialNickname || this.petId;
     this.followDistance = Math.max(0, Number(options.followDistance || 0));
     this.lateralOffset = Number(options.lateralOffset || 0);
     this.stopDistance = Math.max(0, Number(options.stopDistance || 0));
@@ -39,5 +43,14 @@ export class Pet extends Component {
     this.phaseOffset = Number.isFinite(Number(options.phaseOffset))
       ? Number(options.phaseOffset)
       : Math.random() * Math.PI * 2;
+  }
+
+  setNickname(nextNickname: string): void {
+    const normalizedNickname = String(nextNickname || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24)
+      .trim();
+    this.nickname = normalizedNickname || this.petId;
   }
 }

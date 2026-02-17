@@ -16,6 +16,9 @@ import { Asteroid } from '../../entities/spatial/Asteroid';
 import { ResourceNode } from '../../entities/spatial/ResourceNode';
 import { PlayerRole } from '../../entities/player/PlayerRole';
 import { Pet } from '../../entities/player/Pet';
+import { Health } from '../../entities/combat/Health';
+import { Shield } from '../../entities/combat/Shield';
+import type { PetStatePayload } from '../../config/NetworkConfig';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 import asteroidConfig from '../../../shared/asteroid-config.json';
 import { getDefaultPlayerPet } from '../../config/PetConfig';
@@ -60,7 +63,7 @@ export class EntityFactory {
       ecs.removeComponent(playerEntity, Sprite);
     }
     ecs.addComponent(playerEntity, AnimatedSprite, assets.playerSprite);
-    EntityFactory.createPlayerPetEntity(ecs, playerEntity, assets.petAnimatedSprite);
+    EntityFactory.createPlayerPetEntity(ecs, playerEntity, assets.petAnimatedSprite, context.playerPetState);
 
     // Crea il background della mappa come entità parallax
     await EntityFactory.createMapBackground(ecs, context);
@@ -74,7 +77,12 @@ export class EntityFactory {
   /**
    * Crea il pet locale associato al player.
    */
-  static createPlayerPetEntity(ecs: ECS, playerEntity: any, petAnimatedSprite: AnimatedSprite | null): any {
+  static createPlayerPetEntity(
+    ecs: ECS,
+    playerEntity: any,
+    petAnimatedSprite: AnimatedSprite | null,
+    initialPetState: PetStatePayload | null = null
+  ): any {
     if (!petAnimatedSprite) return null;
 
     const petDefinition = getDefaultPlayerPet();
@@ -100,6 +108,7 @@ export class EntityFactory {
       Pet,
       new Pet({
         petId: petDefinition.id,
+        nickname: String(initialPetState?.petNickname || petDefinition.displayName || petDefinition.id).trim(),
         followDistance: petDefinition.followDistance,
         lateralOffset: petDefinition.lateralOffset,
         stopDistance: petDefinition.stopDistance,
@@ -110,8 +119,52 @@ export class EntityFactory {
         hoverFrequency: petDefinition.hoverFrequency
       })
     );
+    const initialCombatStats = EntityFactory.resolveInitialPetCombatStats(initialPetState);
+    ecs.addComponent(
+      petEntity,
+      Health,
+      new Health(initialCombatStats.currentHealth, initialCombatStats.maxHealth)
+    );
+    ecs.addComponent(
+      petEntity,
+      Shield,
+      new Shield(initialCombatStats.currentShield, initialCombatStats.maxShield)
+    );
 
     return petEntity;
+  }
+
+  private static resolveInitialPetCombatStats(
+    petState: PetStatePayload | null
+  ): { currentHealth: number; maxHealth: number; currentShield: number; maxShield: number } {
+    const fallbackMaxHealth = 6000;
+    const fallbackMaxShield = 3000;
+
+    const maxHealth = Math.max(
+      1,
+      Math.floor(Number(petState?.maxHealth ?? fallbackMaxHealth))
+    );
+    const currentHealth = Math.max(
+      0,
+      Math.min(maxHealth, Math.floor(Number(petState?.currentHealth ?? maxHealth)))
+    );
+
+    // Keep shield max >= 1 to avoid NaN in HUD percentage rendering.
+    const maxShield = Math.max(
+      1,
+      Math.floor(Number(petState?.maxShield ?? fallbackMaxShield))
+    );
+    const currentShield = Math.max(
+      0,
+      Math.min(maxShield, Math.floor(Number(petState?.currentShield ?? maxShield)))
+    );
+
+    return {
+      currentHealth,
+      maxHealth,
+      currentShield,
+      maxShield
+    };
   }
 
   /**

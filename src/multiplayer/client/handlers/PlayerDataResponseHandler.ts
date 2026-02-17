@@ -12,6 +12,7 @@ import { getPlayerDefinition } from '../../../config/PlayerConfig';
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { createPlayerShipAnimatedSprite } from '../../../core/services/PlayerShipSpriteFactory';
 import { getSelectedPlayerShipSkinId, getUnlockedPlayerShipSkinIds } from '../../../config/ShipSkinConfig';
+import { syncLocalPetCombatStats } from './utils/PetStateSync';
 
 /**
  * Handles player data response messages from the server
@@ -58,6 +59,7 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       if (normalizedPetState) {
         networkSystem.gameContext.playerPetState = normalizedPetState;
         this.notifyPetStateUpdated(normalizedPetState);
+        syncLocalPetCombatStats(networkSystem.getECS(), normalizedPetState);
       }
 
       // Aggiorna quests
@@ -285,9 +287,15 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     const maxShield = Math.max(0, Math.floor(Number(source.maxShield || 0)));
     const currentHealth = Math.max(0, Math.min(maxHealth, Math.floor(Number(source.currentHealth ?? maxHealth))));
     const currentShield = Math.max(0, Math.min(maxShield, Math.floor(Number(source.currentShield ?? maxShield))));
+    const petNickname = String(source.petNickname ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24)
+      .trim();
 
     return {
       petId,
+      petNickname: petNickname || petId,
       level,
       experience,
       maxLevel,

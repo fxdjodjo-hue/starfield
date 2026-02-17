@@ -3,6 +3,7 @@ import type { PanelConfig } from './PanelConfig';
 import type { PetStatePayload } from '../../config/NetworkConfig';
 
 interface NormalizedPetState extends PetStatePayload {
+  petNickname: string;
   experienceForNextLevel: number;
   experienceAtCurrentLevel: number;
   experienceProgressInLevel: number;
@@ -10,10 +11,21 @@ interface NormalizedPetState extends PetStatePayload {
 
 export class PetPanel extends BasePanel {
   private readonly petStateProvider: (() => PetStatePayload | null) | null;
+  private readonly petNicknameSubmitter: ((petNickname: string) => boolean) | null;
+  private nicknameInputElement: HTMLInputElement | null = null;
+  private nicknameFeedbackElement: HTMLElement | null = null;
+  private lastPetNickname: string = '';
 
-  constructor(config: PanelConfig, petStateProvider?: (() => PetStatePayload | null)) {
+  constructor(
+    config: PanelConfig,
+    petStateProvider?: (() => PetStatePayload | null),
+    petNicknameSubmitter?: ((petNickname: string) => boolean)
+  ) {
     super(config);
     this.petStateProvider = typeof petStateProvider === 'function' ? petStateProvider : null;
+    this.petNicknameSubmitter = typeof petNicknameSubmitter === 'function' ? petNicknameSubmitter : null;
+    this.nicknameInputElement = this.content.querySelector<HTMLInputElement>('[data-pet-nickname-input]');
+    this.nicknameFeedbackElement = this.content.querySelector<HTMLElement>('[data-pet-nickname-feedback]');
   }
 
   protected createPanelContent(): HTMLElement {
@@ -37,14 +49,115 @@ export class PetPanel extends BasePanel {
     `;
 
     const header = this.createHeader();
+    const nicknameEditor = this.createNicknameEditor();
     const summaryCard = this.createSummaryCard();
     const statsBlock = this.createStatsBlock();
 
     content.appendChild(header);
+    content.appendChild(nicknameEditor);
     content.appendChild(summaryCard);
     content.appendChild(statsBlock);
 
     return content;
+  }
+
+  private createNicknameEditor(): HTMLElement {
+    const section = document.createElement('section');
+    section.style.cssText = `
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    `;
+
+    const title = document.createElement('div');
+    title.textContent = 'Pet Nickname';
+    title.style.cssText = `
+      margin: 0;
+      color: rgba(255, 255, 255, 0.9);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    `;
+
+    const row = document.createElement('div');
+    row.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    `;
+
+    const input = document.createElement('input');
+    input.dataset.petNicknameInput = 'true';
+    input.type = 'text';
+    input.placeholder = 'Insert pet nickname';
+    input.maxLength = 24;
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    input.style.cssText = `
+      flex: 1;
+      min-width: 0;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(0, 0, 0, 0.35);
+      color: rgba(255, 255, 255, 0.96);
+      padding: 0 10px;
+      font-size: 14px;
+      font-weight: 600;
+      outline: none;
+    `;
+
+    const submitButton = document.createElement('button');
+    submitButton.dataset.petNicknameSave = 'true';
+    submitButton.type = 'button';
+    submitButton.textContent = 'Save';
+    submitButton.style.cssText = `
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(56, 189, 248, 0.45);
+      background: linear-gradient(135deg, rgba(14, 116, 144, 0.65), rgba(2, 132, 199, 0.45));
+      color: #e0f2fe;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      padding: 0 14px;
+      cursor: pointer;
+      text-transform: uppercase;
+      white-space: nowrap;
+    `;
+    submitButton.addEventListener('click', () => this.submitNickname());
+    input.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      this.submitNickname();
+    });
+
+    row.appendChild(input);
+    row.appendChild(submitButton);
+
+    const feedback = document.createElement('div');
+    feedback.dataset.petNicknameFeedback = 'true';
+    feedback.style.cssText = `
+      min-height: 16px;
+      color: rgba(186, 230, 253, 0.9);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    `;
+
+    section.appendChild(title);
+    section.appendChild(row);
+    section.appendChild(feedback);
+
+    this.nicknameInputElement = input;
+    this.nicknameFeedbackElement = feedback;
+
+    return section;
   }
 
   private createHeader(): HTMLElement {
@@ -135,12 +248,24 @@ export class PetPanel extends BasePanel {
       gap: 4px;
     `;
 
+    const nicknameLabel = document.createElement('div');
+    nicknameLabel.style.cssText = `
+      font-size: 16px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.98);
+      letter-spacing: 0.4px;
+      text-transform: none;
+    `;
+    nicknameLabel.dataset.petField = 'petNickname';
+    nicknameLabel.textContent = 'Sentinel';
+
     const modelLabel = document.createElement('div');
     modelLabel.style.cssText = `
-      font-size: 14px;
+      font-size: 12px;
       font-weight: 700;
-      color: rgba(255, 255, 255, 0.95);
-      letter-spacing: 0.4px;
+      color: rgba(255, 255, 255, 0.68);
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
     `;
     modelLabel.dataset.petField = 'petId';
     modelLabel.textContent = 'ship50';
@@ -156,6 +281,7 @@ export class PetPanel extends BasePanel {
     statusLabel.dataset.petField = 'activeStatus';
     statusLabel.textContent = 'active';
 
+    left.appendChild(nicknameLabel);
     left.appendChild(modelLabel);
     left.appendChild(statusLabel);
 
@@ -257,6 +383,15 @@ export class PetPanel extends BasePanel {
     const normalizedState = this.normalizePetState(data?.petState);
     if (!normalizedState) return;
 
+    this.lastPetNickname = normalizedState.petNickname;
+    const inputHasFocus = this.nicknameInputElement
+      ? document.activeElement === this.nicknameInputElement
+      : false;
+    if (this.nicknameInputElement && (!inputHasFocus || !this.nicknameInputElement.value.trim())) {
+      this.nicknameInputElement.value = normalizedState.petNickname;
+    }
+
+    this.updateField('petNickname', normalizedState.petNickname);
     this.updateField('petId', normalizedState.petId);
     this.updateField('activeStatus', normalizedState.isActive ? 'active' : 'inactive');
     this.updateField('levelBadge', `LV ${normalizedState.level}`);
@@ -290,6 +425,7 @@ export class PetPanel extends BasePanel {
     const maxShield = Math.max(0, Math.floor(Number(source.maxShield || 0)));
     const currentHealth = Math.max(0, Math.min(maxHealth, Math.floor(Number(source.currentHealth ?? maxHealth))));
     const currentShield = Math.max(0, Math.min(maxShield, Math.floor(Number(source.currentShield ?? maxShield))));
+    const petNickname = this.normalizeNickname(source.petNickname);
 
     const experienceAtCurrentLevel = Math.max(0, this.getExperienceRequiredForLevel(level));
     const experienceForNextLevelRaw = this.getExperienceRequiredForLevel(Math.min(maxLevel, level + 1));
@@ -301,6 +437,7 @@ export class PetPanel extends BasePanel {
 
     return {
       petId,
+      petNickname: petNickname || petId,
       level,
       experience,
       maxLevel,
@@ -313,6 +450,51 @@ export class PetPanel extends BasePanel {
       experienceAtCurrentLevel,
       experienceProgressInLevel
     };
+  }
+
+  private submitNickname(): void {
+    const normalizedNickname = this.normalizeNickname(this.nicknameInputElement?.value);
+    if (!normalizedNickname) {
+      this.showNicknameFeedback('Invalid nickname', true);
+      return;
+    }
+
+    if (normalizedNickname === this.lastPetNickname) {
+      this.showNicknameFeedback('Already set');
+      return;
+    }
+
+    if (!this.petNicknameSubmitter) {
+      this.showNicknameFeedback('Network unavailable', true);
+      return;
+    }
+
+    const sent = this.petNicknameSubmitter(normalizedNickname);
+    if (!sent) {
+      this.showNicknameFeedback('Send failed', true);
+      return;
+    }
+
+    if (this.nicknameInputElement) {
+      this.nicknameInputElement.value = normalizedNickname;
+    }
+    this.showNicknameFeedback('Update requested');
+  }
+
+  private normalizeNickname(rawNickname: unknown): string {
+    return String(rawNickname ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24)
+      .trim();
+  }
+
+  private showNicknameFeedback(message: string, isError: boolean = false): void {
+    if (!this.nicknameFeedbackElement) return;
+    this.nicknameFeedbackElement.textContent = message;
+    this.nicknameFeedbackElement.style.color = isError
+      ? 'rgba(248, 113, 113, 0.95)'
+      : 'rgba(186, 230, 253, 0.9)';
   }
 
   private getExperienceRequiredForLevel(level: number): number {

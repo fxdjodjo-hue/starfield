@@ -11,8 +11,10 @@ import { AnimatedSprite } from '../../../../entities/AnimatedSprite';
 import { Npc } from '../../../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
 import { PlayerRole } from '../../../../entities/player/PlayerRole';
+import { Pet } from '../../../../entities/player/Pet';
 import { Health } from '../../../../entities/combat/Health';
 import { RenderSystem } from '../../../../systems/rendering/RenderSystem';
+import { PlayerRenderer } from '../../../../core/utils/rendering/PlayerRenderer';
 
 /**
  * Manages PlayState resources: nicknames, entities, cleanup
@@ -286,6 +288,75 @@ export class PlayStateResourceManager {
     for (const clientId of activeClientIds) {
       if (!remotePlayerSystem.isRemotePlayer(clientId)) {
         uiSystem.removeRemotePlayerNicknameElement(clientId);
+      }
+    }
+  }
+
+  /**
+   * Updates positions and contents of local pet nicknames
+   */
+  updatePetNicknames(): void {
+    const uiSystem = this.getUiSystem();
+    const cameraSystem = this.getCameraSystem();
+    if (!uiSystem || !cameraSystem) return;
+
+    const camera = cameraSystem.getCamera();
+    const canvasSize = this.world.getCanvasSize();
+    const ecs = this.world.getECS();
+    const frameTime = performance.now();
+
+    let localPlayerVisualOffsetX = 0;
+    let localPlayerVisualOffsetY = 0;
+    const localPlayerEntity = this.getPlayerEntity();
+    if (localPlayerEntity && RenderSystem.smoothedLocalPlayerPos) {
+      const localPlayerTransform = ecs.getComponent(localPlayerEntity, Transform);
+      if (localPlayerTransform) {
+        localPlayerVisualOffsetX = RenderSystem.smoothedLocalPlayerPos.x - localPlayerTransform.x;
+        localPlayerVisualOffsetY = RenderSystem.smoothedLocalPlayerPos.y - localPlayerTransform.y;
+      }
+    }
+
+    const petEntities = ecs.getEntitiesWithComponents(Pet, Transform);
+    const visiblePetIds = new Set<number>();
+
+    for (const entity of petEntities) {
+      const pet = ecs.getComponent(entity, Pet);
+      const transform = ecs.getComponent(entity, Transform);
+      if (!pet || !transform) continue;
+
+      const sprite = ecs.getComponent(entity, Sprite);
+      const animatedSprite = ecs.getComponent(entity, AnimatedSprite);
+      const isRenderable = (sprite && (sprite as any).visible !== false)
+        || (animatedSprite && (animatedSprite as any).visible !== false);
+      if (!isRenderable) continue;
+
+      const interpolation = ecs.getComponent(entity, InterpolationTarget);
+      let renderX = interpolation ? interpolation.renderX : transform.x;
+      let renderY = interpolation ? interpolation.renderY : transform.y;
+
+      // Keep pet nickname anchored to the same visual-space smoothing used by render.
+      renderX += localPlayerVisualOffsetX;
+      renderY += localPlayerVisualOffsetY;
+
+      const screenPos = camera.worldToScreen(renderX, renderY, canvasSize.width, canvasSize.height);
+      const petFloatOffsetY = PlayerRenderer.getFloatOffset(frameTime + entity.id * 157);
+      const petScreenY = screenPos.y + petFloatOffsetY;
+      const isVisible = screenPos.x >= -120 && screenPos.x <= canvasSize.width + 120
+        && petScreenY >= -120 && petScreenY <= canvasSize.height + 120;
+      if (!isVisible) continue;
+
+      const petNickname = String((pet as any).nickname || pet.petId || 'Pet').trim() || 'Pet';
+      visiblePetIds.add(entity.id);
+
+      uiSystem.ensurePetNicknameElement(entity.id, petNickname);
+      uiSystem.updatePetNicknameContent(entity.id, petNickname);
+      uiSystem.updatePetNicknamePosition(entity.id, screenPos.x, petScreenY);
+    }
+
+    const activePetIds = uiSystem.getPetNicknameEntityIds();
+    for (const entityId of activePetIds) {
+      if (!visiblePetIds.has(entityId)) {
+        uiSystem.removePetNicknameElement(entityId);
       }
     }
   }

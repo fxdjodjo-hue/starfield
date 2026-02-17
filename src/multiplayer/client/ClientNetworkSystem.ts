@@ -539,6 +539,29 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 
+  sendPetNicknameUpdateRequest(petNickname: string): boolean {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return false;
+    }
+
+    const normalizedNickname = String(petNickname ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24)
+      .trim();
+    if (!normalizedNickname) {
+      return false;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.SET_PET_NICKNAME,
+      clientId: this.clientId,
+      petNickname: normalizedNickname,
+      timestamp: Date.now()
+    });
+    return true;
+  }
+
   sendResourceCollectRequest(resourceId: string): void {
     if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
       return;

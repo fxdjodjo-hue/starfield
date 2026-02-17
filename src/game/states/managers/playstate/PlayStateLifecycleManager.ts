@@ -14,7 +14,8 @@ export class PlayStateLifecycleManager {
     private readonly getPlayerEntity: () => Entity | null,
     private readonly updateNicknamePosition: () => void,
     private readonly updateNpcNicknames: () => void,
-    private readonly updateRemotePlayerNicknames: () => void
+    private readonly updateRemotePlayerNicknames: () => void,
+    private readonly updatePetNicknames: () => void
   ) { }
 
   /**
@@ -44,6 +45,7 @@ export class PlayStateLifecycleManager {
     this.updateNicknamePosition();
     this.updateNpcNicknames();
     this.updateRemotePlayerNicknames();
+    this.updatePetNicknames();
   }
 
   /**

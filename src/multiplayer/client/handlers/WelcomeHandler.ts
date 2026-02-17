@@ -11,6 +11,7 @@ import { EntityFactory } from '../../../systems/game/EntityFactory';
 import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { createPlayerShipAnimatedSprite } from '../../../core/services/PlayerShipSpriteFactory';
 import { getSelectedPlayerShipSkinId, getUnlockedPlayerShipSkinIds } from '../../../config/ShipSkinConfig';
+import { syncLocalPetCombatStats } from './utils/PetStateSync';
 
 /**
  * Handles welcome messages from the server
@@ -105,6 +106,7 @@ export class WelcomeHandler extends BaseMessageHandler {
         networkSystem.gameContext.playerPetState = normalizedPetState;
         this.notifyPetStateUpdated(normalizedPetState);
         this.updatePetPanel(networkSystem, normalizedPetState);
+        syncLocalPetCombatStats(networkSystem.getECS(), normalizedPetState);
       }
 
       networkSystem.invalidatePositionCache();
@@ -320,9 +322,15 @@ export class WelcomeHandler extends BaseMessageHandler {
     const maxShield = Math.max(0, Math.floor(Number(source.maxShield || 0)));
     const currentHealth = Math.max(0, Math.min(maxHealth, Math.floor(Number(source.currentHealth ?? maxHealth))));
     const currentShield = Math.max(0, Math.min(maxShield, Math.floor(Number(source.currentShield ?? maxShield))));
+    const petNickname = String(source.petNickname ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24)
+      .trim();
 
     return {
       petId,
+      petNickname: petNickname || petId,
       level,
       experience,
       maxLevel,

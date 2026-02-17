@@ -177,6 +177,7 @@ export const MESSAGE_TYPES = {
   SAVE_RESPONSE: 'save_response',
   SELL_ITEM: 'sell_item',
   SHIP_SKIN_ACTION: 'ship_skin_action',
+  SET_PET_NICKNAME: 'set_pet_nickname',
   RESOURCE_COLLECT: 'resource_collect',
   RESOURCE_NODE_REMOVED: 'resource_node_removed',
   RESOURCE_COLLECT_STATUS: 'resource_collect_status',
@@ -435,6 +436,7 @@ export interface PlayerRespawnMessage {
 
 export interface PetStatePayload {
   petId: string;
+  petNickname?: string;
   level: number;
   experience: number;
   maxLevel: number;
@@ -624,6 +626,13 @@ export interface ShipSkinActionMessage extends BaseMessage {
   clientId: string;
   skinId: string;
   action: 'equip' | 'purchase' | 'purchase_and_equip';
+  timestamp?: number;
+}
+
+export interface SetPetNicknameMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.SET_PET_NICKNAME;
+  clientId: string;
+  petNickname: string;
   timestamp?: number;
 }
 

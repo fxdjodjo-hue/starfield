@@ -946,6 +946,26 @@ export class UiSystem extends System {
     return this.nicknameManager.getRemotePlayerNicknameClientIds();
   }
 
+  // ===== GESTIONE NICKNAME PET =====
+  ensurePetNicknameElement(entityId: number, petNickname: string): void {
+    this.nicknameManager.ensurePetNicknameElement(entityId, petNickname);
+  }
+  updatePetNicknameContent(entityId: number, petNickname: string): void {
+    this.nicknameManager.updatePetNicknameContent(entityId, petNickname);
+  }
+  updatePetNicknamePosition(entityId: number, screenX: number, screenY: number): void {
+    this.nicknameManager.updatePetNicknamePosition(entityId, screenX, screenY);
+  }
+  removePetNicknameElement(entityId: number): void {
+    this.nicknameManager.removePetNicknameElement(entityId);
+  }
+  removeAllPetNicknameElements(): void {
+    this.nicknameManager.removeAllPetNicknameElements();
+  }
+  getPetNicknameEntityIds(): number[] {
+    return this.nicknameManager.getPetNicknameEntityIds();
+  }
+
   update(deltaTime: number): void {
     this.panelManager.updateRealtimePanels(deltaTime);
 
@@ -998,6 +1018,7 @@ export class UiSystem extends System {
     this.nicknameManager.removePlayerNicknameElement();
     this.nicknameManager.removeAllNpcNicknameElements();
     this.nicknameManager.removeAllRemotePlayerNicknameElements();
+    this.nicknameManager.removeAllPetNicknameElements();
     this.showMainTitle();
     if (this.hudToggleListener) {
       document.removeEventListener('keydown', this.hudToggleListener);

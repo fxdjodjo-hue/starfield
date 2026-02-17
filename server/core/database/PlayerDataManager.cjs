@@ -409,7 +409,7 @@ class PlayerDataManager {
     try {
       const { data, error } = await supabase
         .from('player_pets')
-        .select('pet_id, level, experience, current_health, max_health, current_shield, max_shield, is_active, updated_at')
+        .select('pet_id, pet_nickname, level, experience, current_health, max_health, current_shield, max_shield, is_active, updated_at')
         .eq('auth_id', authId)
         .order('is_active', { ascending: false })
         .order('updated_at', { ascending: false })
@@ -434,6 +434,7 @@ class PlayerDataManager {
       const activeRow = rows.find((row) => row && row.is_active === true) || rows[0];
       const normalizedState = this.normalizePetState({
         pet_id: activeRow?.pet_id,
+        pet_nickname: activeRow?.pet_nickname,
         level: activeRow?.level,
         experience: activeRow?.experience,
         current_health: activeRow?.current_health,
@@ -482,6 +483,7 @@ class PlayerDataManager {
       const upsertPayload = {
         auth_id: authId,
         pet_id: normalizedState.petId,
+        pet_nickname: normalizedState.petNickname,
         level: normalizedState.level,
         experience: normalizedState.experience,
         current_health: normalizedState.currentHealth,

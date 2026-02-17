@@ -120,7 +120,8 @@ export class PlayState extends GameState {
       () => this.playerEntity,
       () => this.resourceManager.updateNicknamePosition(),
       () => this.resourceManager.updateNpcNicknames(),
-      () => this.resourceManager.updateRemotePlayerNicknames()
+      () => this.resourceManager.updateRemotePlayerNicknames(),
+      () => this.resourceManager.updatePetNicknames()
     );
 
     // Initialize initializer (most complex, depends on other managers)

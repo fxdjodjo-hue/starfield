@@ -149,9 +149,10 @@ export class RenderSystem extends BaseSystem {
       const hasTransform = this.ecs.hasComponent(entity, Transform);
       const hasNpc = this.ecs.hasComponent(entity, Npc);
       const hasRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
+      const hasPet = this.ecs.hasComponent(entity, Pet);
 
       // Il player ha Transform ma non è NPC né remote player
-      if (hasTransform && !hasNpc && !hasRemotePlayer) {
+      if (hasTransform && !hasNpc && !hasRemotePlayer && !hasPet) {
         // Verifica aggiuntiva: dovrebbe avere componenti specifici del player
         const hasHealth = this.ecs.hasComponent(entity, Health);
         const hasShield = this.ecs.hasComponent(entity, Shield);

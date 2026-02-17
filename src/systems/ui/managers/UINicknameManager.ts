@@ -7,11 +7,13 @@ export class UINicknameManager {
   private playerNicknameElement: HTMLElement | null = null;
   private npcNicknameElements: Map<number, HTMLElement> = new Map();
   private remotePlayerNicknameElements: Map<string, HTMLElement> = new Map();
+  private petNicknameElements: Map<number, HTMLElement> = new Map();
 
   // Cache delle posizioni precedenti per ridurre tremolio
   private npcNicknameLastPositions: Map<number, { x: number, y: number }> = new Map();
   private playerNicknameLastPosition: { x: number, y: number } | null = null;
   private remotePlayerNicknameLastPositions: Map<string, { x: number, y: number }> = new Map();
+  private petNicknameLastPositions: Map<number, { x: number, y: number }> = new Map();
 
   // Cache stato contenuto remote player per evitare redraw
   private remotePlayerLastState: Map<string, { nickname: string, rank: string, leaderboardPodiumRank: number }> = new Map();
@@ -390,6 +392,86 @@ export class UINicknameManager {
    */
   getRemotePlayerNicknameClientIds(): string[] {
     return Array.from(this.remotePlayerNicknameElements.keys());
+  }
+
+  // ===== GESTIONE NICKNAME PET =====
+
+  ensurePetNicknameElement(entityId: number, petNickname: string): void {
+    const normalizedNickname = this.normalizeSimpleNickname(petNickname);
+
+    if (!this.petNicknameElements.has(entityId)) {
+      const element = document.createElement('div');
+      element.id = `pet-nickname-${entityId}`;
+      element.style.cssText = this.SHARED_NICKNAME_STYLE;
+      element.style.zIndex = '46';
+      this.setPetNicknameHTML(element, normalizedNickname);
+      document.body.appendChild(element);
+      this.petNicknameElements.set(entityId, element);
+      return;
+    }
+
+    this.updatePetNicknameContent(entityId, normalizedNickname);
+  }
+
+  updatePetNicknameContent(entityId: number, petNickname: string): void {
+    const element = this.petNicknameElements.get(entityId);
+    if (!element) return;
+
+    const normalizedNickname = this.normalizeSimpleNickname(petNickname);
+    if ((element.dataset.nickname || '') === normalizedNickname) return;
+    this.setPetNicknameHTML(element, normalizedNickname);
+  }
+
+  updatePetNicknamePosition(entityId: number, screenX: number, screenY: number): void {
+    const element = this.petNicknameElements.get(entityId);
+    if (!element) return;
+
+    const lastPos = this.petNicknameLastPositions.get(entityId);
+    if (lastPos && Math.abs(lastPos.x - screenX) < 0.05 && Math.abs(lastPos.y - screenY) < 0.05) {
+      return;
+    }
+
+    element.style.left = `${screenX}px`;
+    element.style.top = `${screenY + 72}px`;
+    element.style.transform = 'translateX(-50%)';
+    element.style.display = 'block';
+    this.petNicknameLastPositions.set(entityId, { x: screenX, y: screenY });
+  }
+
+  removePetNicknameElement(entityId: number): void {
+    const element = this.petNicknameElements.get(entityId);
+    if (element) {
+      document.body.removeChild(element);
+      this.petNicknameElements.delete(entityId);
+    }
+    this.petNicknameLastPositions.delete(entityId);
+  }
+
+  removeAllPetNicknameElements(): void {
+    for (const element of this.petNicknameElements.values()) {
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    }
+    this.petNicknameElements.clear();
+    this.petNicknameLastPositions.clear();
+  }
+
+  getPetNicknameEntityIds(): number[] {
+    return Array.from(this.petNicknameElements.keys());
+  }
+
+  private setPetNicknameHTML(element: HTMLElement, petNickname: string): void {
+    element.dataset.nickname = petNickname;
+    const label = document.createElement('div');
+    label.style.cssText = `font-size: 15px; font-weight: 700; color: #6dff8a; text-shadow: -0.75px 0 0 rgba(0,0,0,0.85), 0.75px 0 0 rgba(0,0,0,0.85), 0 -0.75px 0 rgba(0,0,0,0.85), 0 0.75px 0 rgba(0,0,0,0.85), -0.75px -0.75px 0 rgba(0,0,0,0.85), 0.75px -0.75px 0 rgba(0,0,0,0.85), -0.75px 0.75px 0 rgba(0,0,0,0.85), 0.75px 0.75px 0 rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.5); letter-spacing: 0.5px; white-space: nowrap;`;
+    label.textContent = petNickname;
+    element.replaceChildren(label);
+  }
+
+  private normalizeSimpleNickname(rawNickname: string): string {
+    const normalized = String(rawNickname || '').replace(/\s+/g, ' ').trim();
+    return normalized || 'Pet';
   }
 }
 

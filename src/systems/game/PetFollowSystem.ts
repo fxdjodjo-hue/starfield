@@ -55,6 +55,10 @@ export class PetFollowSystem extends BaseSystem {
   private readonly FOLLOW_TARGET_SNAP_DISTANCE = 900;
   private readonly PET_ROTATION_MOVE_SPEED_THRESHOLD = 14;
   private readonly ROTATION_HEADING_FILTER = 12;
+  private readonly ROTATION_HEADING_FILTER_CATCHUP = 24;
+  private readonly PET_ROTATION_CATCHUP_LERP_MULTIPLIER = 2.2;
+  private readonly PET_ROTATION_CATCHUP_BLEND_THRESHOLD = 0.28;
+  private readonly PET_ROTATION_MOONWALK_DOT_THRESHOLD = -0.12;
 
   private readonly FOLLOW_DISTANCE_EXTRA = 24;
   private readonly LATERAL_OFFSET_MULTIPLIER = 1.1;
@@ -179,6 +183,8 @@ export class PetFollowSystem extends BaseSystem {
 
     if (!Number.isFinite(distance)) return;
 
+    let catchUpBlendForRotation = 0;
+
     if (distance > this.SNAP_DISTANCE_PX) {
       petTransform.x = smoothedTarget.x;
       petTransform.y = smoothedTarget.y;
@@ -199,6 +205,7 @@ export class PetFollowSystem extends BaseSystem {
         const catchUpBlend = this.clamp01(
           (distance - catchUpStartDistance) / Math.max(1, catchUpFullDistance - catchUpStartDistance)
         );
+        catchUpBlendForRotation = catchUpBlend;
         const targetMoveSpeed = this.lerp(
           this.PET_BASE_SPEED_PX_PER_SECOND,
           this.PET_CATCHUP_SPEED_PX_PER_SECOND,
@@ -233,10 +240,30 @@ export class PetFollowSystem extends BaseSystem {
       pet.stopDistance
     );
 
-    this.smoothRotationHeading(runtimeState, desiredHeading, dtSeconds);
+    this.smoothRotationHeading(runtimeState, desiredHeading, dtSeconds, catchUpBlendForRotation);
+
+    const isCatchUpRotation = catchUpBlendForRotation >= this.PET_ROTATION_CATCHUP_BLEND_THRESHOLD
+      && frameMoveSpeed > this.PET_ROTATION_MOVE_SPEED_THRESHOLD
+      && frameMoveDistance > 0.001;
+    let forceRotationSnap = false;
+    if (isCatchUpRotation) {
+      const moveHeadingX = frameMoveX / frameMoveDistance;
+      const moveHeadingY = frameMoveY / frameMoveDistance;
+      const facingX = Math.cos(petTransform.rotation);
+      const facingY = Math.sin(petTransform.rotation);
+      const facingDotMove = facingX * moveHeadingX + facingY * moveHeadingY;
+      if (facingDotMove <= this.PET_ROTATION_MOONWALK_DOT_THRESHOLD) {
+        runtimeState.rotationHeadingX = moveHeadingX;
+        runtimeState.rotationHeadingY = moveHeadingY;
+        forceRotationSnap = true;
+      }
+    }
 
     const targetRotation = Math.atan2(runtimeState.rotationHeadingY, runtimeState.rotationHeadingX);
-    const rotationLerpFactor = Math.min(1, dtSeconds * pet.rotationFollowSpeed);
+    const catchUpRotationMultiplier = this.lerp(1, this.PET_ROTATION_CATCHUP_LERP_MULTIPLIER, catchUpBlendForRotation);
+    const rotationLerpFactor = forceRotationSnap
+      ? 1
+      : Math.min(1, dtSeconds * pet.rotationFollowSpeed * catchUpRotationMultiplier);
     petTransform.rotation = this.lerpAngle(petTransform.rotation, targetRotation, rotationLerpFactor);
   }
 
@@ -486,9 +513,11 @@ export class PetFollowSystem extends BaseSystem {
   private smoothRotationHeading(
     runtimeState: PetRuntimeState,
     desiredHeading: Point2D,
-    dtSeconds: number
+    dtSeconds: number,
+    catchUpBlend: number
   ): void {
-    const alpha = this.clamp01(1 - Math.exp(-this.ROTATION_HEADING_FILTER * dtSeconds));
+    const filterRate = this.lerp(this.ROTATION_HEADING_FILTER, this.ROTATION_HEADING_FILTER_CATCHUP, catchUpBlend);
+    const alpha = this.clamp01(1 - Math.exp(-filterRate * dtSeconds));
     runtimeState.rotationHeadingX = this.lerp(runtimeState.rotationHeadingX, desiredHeading.x, alpha);
     runtimeState.rotationHeadingY = this.lerp(runtimeState.rotationHeadingY, desiredHeading.y, alpha);
 

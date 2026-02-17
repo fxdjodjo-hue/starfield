@@ -93,7 +93,8 @@ export class UIPanelManager {
     const petConfig = getPanelConfig('pet');
     const petPanel = new PetPanel(
       petConfig,
-      () => this.resolvePetState()
+      () => this.resolvePetState(),
+      (petNickname: string) => this.submitPetNicknameUpdate(petNickname)
     );
     this.uiManager.registerPanel(petPanel);
     this.syncPetPanelState(true);
@@ -305,7 +306,8 @@ export class UIPanelManager {
       petState.maxHealth,
       petState.currentShield,
       petState.maxShield,
-      petState.isActive
+      petState.isActive,
+      String(petState.petNickname || '').trim()
     ]);
   }
 
@@ -413,9 +415,15 @@ export class UIPanelManager {
     const maxShield = Math.max(0, Math.floor(Number(source.maxShield || 0)));
     const currentHealth = Math.max(0, Math.min(maxHealth, Math.floor(Number(source.currentHealth ?? maxHealth))));
     const currentShield = Math.max(0, Math.min(maxShield, Math.floor(Number(source.currentShield ?? maxShield))));
+    const petNickname = String(source.petNickname ?? '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24)
+      .trim();
 
     return {
       petId,
+      petNickname: petNickname || petId,
       level,
       experience,
       maxLevel,
@@ -425,6 +433,15 @@ export class UIPanelManager {
       maxShield,
       isActive: source.isActive === undefined ? true : Boolean(source.isActive)
     };
+  }
+
+  private submitPetNicknameUpdate(petNickname: string): boolean {
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem || typeof networkSystem.sendPetNicknameUpdateRequest !== 'function') {
+      return false;
+    }
+
+    return networkSystem.sendPetNicknameUpdateRequest(petNickname);
   }
 
   private setupCraftingPanelVisibilityListener(): void {

@@ -26,6 +26,9 @@ class ServerInputValidator {
         MAX_LENGTH: 200,
         MIN_LENGTH: 1
       },
+      PET_NICKNAME: {
+        MAX_LENGTH: 24
+      },
       IDENTIFIERS: {
         MAX_ID_LENGTH: 100,
         UUID_PATTERN: /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
@@ -637,6 +640,31 @@ class ServerInputValidator {
               clientId: data.clientId,
               skinId: data.skinId,
               action: data.action
+            }
+          };
+
+        case 'set_pet_nickname':
+          const petNicknameErrors = [];
+          const rawPetNickname = String(data.petNickname ?? '').trim();
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            petNicknameErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            petNicknameErrors.push('Client ID too long');
+          }
+
+          if (!rawPetNickname) {
+            petNicknameErrors.push('Invalid or missing petNickname');
+          } else if (rawPetNickname.length > this.LIMITS.PET_NICKNAME.MAX_LENGTH) {
+            petNicknameErrors.push(`petNickname too long (max ${this.LIMITS.PET_NICKNAME.MAX_LENGTH})`);
+          }
+
+          return {
+            isValid: petNicknameErrors.length === 0,
+            errors: petNicknameErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              petNickname: rawPetNickname
             }
           };
 

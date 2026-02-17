@@ -17,7 +17,7 @@ const {
   resolveSelectedShipSkinId,
   resolveShipSkinPurchaseCost
 } = require('../../config/ShipSkinCatalog.cjs');
-const { normalizePlayerPetState } = require('../../config/PetCatalog.cjs');
+const { normalizePlayerPetState, sanitizePetNickname } = require('../../config/PetCatalog.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
@@ -1903,6 +1903,56 @@ async function handleShipSkinAction(data, sanitizedData, context) {
   }
 }
 
+async function handleSetPetNickname(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid client ID for pet nickname update.',
+      code: 'INVALID_CLIENT_ID'
+    }));
+    return;
+  }
+
+  const currentPetState = normalizePetStatePayload(playerData.petState);
+  const rawPetNickname = typeof sanitizedData?.petNickname === 'string'
+    ? sanitizedData.petNickname
+    : data.petNickname;
+  const nextPetNickname = sanitizePetNickname(rawPetNickname, currentPetState.petId);
+
+  if (currentPetState.petNickname === nextPetNickname) {
+    ws.send(JSON.stringify({
+      type: 'player_state_update',
+      petState: currentPetState,
+      source: 'pet_nickname_noop'
+    }));
+    return;
+  }
+
+  playerData.petState = normalizePetStatePayload({
+    ...currentPetState,
+    petNickname: nextPetNickname
+  });
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    petState: normalizePetStatePayload(playerData.petState),
+    source: 'pet_nickname_updated'
+  }));
+
+  try {
+    playerDataManager.savePlayerData(playerData).catch(error => {
+      logger.error('DATABASE', `Failed to persist pet nickname for ${playerData.userId}: ${error.message}`);
+    });
+  } catch (error) {
+    logger.error('DATABASE', `Error triggering pet nickname save for ${playerData.userId}: ${error.message}`);
+  }
+}
+
 function handleResourceCollect(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer } = context;
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
@@ -2092,6 +2142,7 @@ const handlers = {
   equip_item: handleEquipItem,
   sell_item: handleSellItem,
   ship_skin_action: handleShipSkinAction,
+  set_pet_nickname: handleSetPetNickname,
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest,
   portal_use: handlePortalUse,
