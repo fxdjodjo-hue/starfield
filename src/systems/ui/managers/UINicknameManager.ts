@@ -19,6 +19,8 @@ export class UINicknameManager {
   private remotePlayerLastState: Map<string, { nickname: string, rank: string, leaderboardPodiumRank: number }> = new Map();
   private playerNicknameRawContent: string = '';
   private playerLeaderboardPodiumRank: number = 0;
+  // Keep nickname above the resource collection anchor (~+100px from ship center).
+  private readonly PLAYER_NICKNAME_VERTICAL_OFFSET_PX = 68;
 
   // Stile condiviso per tutti i nickname (giocatore locale e remoti)
   private readonly SHARED_NICKNAME_STYLE = `
@@ -124,7 +126,7 @@ export class UINicknameManager {
 
     // Posiziona il nickname centrato orizzontalmente usando trasformazione CSS (più robusto di offsetWidth)
     this.playerNicknameElement.style.left = `${screenPos.x}px`;
-    this.playerNicknameElement.style.top = `${screenPos.y + 80}px`;
+    this.playerNicknameElement.style.top = `${screenPos.y + this.PLAYER_NICKNAME_VERTICAL_OFFSET_PX}px`;
     this.playerNicknameElement.style.transform = 'translateX(-50%)';
     this.playerNicknameElement.style.display = 'block';
 
@@ -350,7 +352,7 @@ export class UINicknameManager {
 
       // Posiziona il nickname centrato orizzontalmente usando trasformazione CSS
       element.style.left = `${screenX}px`;
-      element.style.top = `${screenY + 80}px`;
+      element.style.top = `${screenY + this.PLAYER_NICKNAME_VERTICAL_OFFSET_PX}px`;
       element.style.transform = 'translateX(-50%)';
       element.style.display = 'block';
 

@@ -89,6 +89,7 @@ const PANEL_CONFIGS_BASE = {
   crafting: {
     id: 'crafting-panel',
     icon: '🛠️',
+    svgPath: 'assets/svg/gameUi/craft-float-icon.png',
     title: 'Crafting',
     position: 'center-left-col2' as const,
     size: { ...LARGE_PANEL_SIZE }
@@ -96,7 +97,7 @@ const PANEL_CONFIGS_BASE = {
   pet: {
     id: 'pet-panel',
     icon: 'P',
-    svgPath: 'assets/svg/gameUi/spaceship-svgrepo-com.svg',
+    svgPath: 'assets/svg/gameUi/pet-float-icon.png',
     title: 'Pet',
     position: 'center-left-col2-below' as const,
     size: { ...LARGE_PANEL_SIZE }
