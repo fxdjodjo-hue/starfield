@@ -1,5 +1,33 @@
 {
   "defaultPetId": "ship50",
+  "progression": {
+    "maxLevel": 15,
+    "xpShareFromPlayer": 0.2,
+    "levelRequirements": {
+      "2": 2000,
+      "3": 6000,
+      "4": 14000,
+      "5": 30000,
+      "6": 62000,
+      "7": 126000,
+      "8": 254000,
+      "9": 510000,
+      "10": 1022000,
+      "11": 2046000,
+      "12": 4094000,
+      "13": 8190000,
+      "14": 16382000,
+      "15": 32782000
+    },
+    "baseStats": {
+      "health": 6000,
+      "shield": 3000
+    },
+    "growth": {
+      "healthMultiplierPerLevel": 1.11,
+      "shieldMultiplierPerLevel": 1.1
+    }
+  },
   "pets": [
     {
       "id": "ship50",

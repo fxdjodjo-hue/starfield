@@ -17,6 +17,7 @@ const {
   resolveSelectedShipSkinId,
   resolveShipSkinPurchaseCost
 } = require('../../config/ShipSkinCatalog.cjs');
+const { normalizePlayerPetState } = require('../../config/PetCatalog.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
@@ -89,6 +90,10 @@ function normalizeResourceInventoryPayload(resourceInventory) {
   }
 
   return normalizedResourceInventory;
+}
+
+function normalizePetStatePayload(petState) {
+  return normalizePlayerPetState(petState);
 }
 
 async function resolveLeaderboardPodiumRank(supabase, playerDbId) {
@@ -302,6 +307,7 @@ async function handleJoin(data, sanitizedData, context) {
     isFullyLoaded: false, // ðŸš« Blocca auto-repair finchÃ© non Ã¨ true
     inventory: loadedData.inventory,
     resourceInventory: loadedData.resourceInventory || {},
+    petState: loadedData.petState || null,
     quests: loadedData.quests || [],
     items: loadedData.items || [],
     shipSkins: normalizePlayerShipSkinState(loadedData.shipSkins)
@@ -488,6 +494,7 @@ async function handleJoin(data, sanitizedData, context) {
     ws.send(JSON.stringify({
       type: 'player_state_update',
       resourceInventory: normalizeResourceInventoryPayload(playerData.resourceInventory),
+      petState: normalizePetStatePayload(playerData.petState),
       source: 'resource_inventory_sync'
     }));
   } catch (error) {
@@ -819,6 +826,7 @@ async function handleSkillUpgradeRequest(data, sanitizedData, context) {
     shield: playerData.shield,
     maxShield: playerData.maxShield,
     recentHonor: recentHonor,
+    petState: normalizePetStatePayload(playerData.petState),
     source: `skill_upgrade_${data.upgradeType}`
   }));
 }
@@ -1230,7 +1238,8 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.rank,
     playerData.items,
     normalizePlayerShipSkinState(playerData.shipSkins),
-    playerData.resourceInventory
+    playerData.resourceInventory,
+    playerData.petState
   );
   ServerLoggerWrapper.debug(
     'RESOURCE',
@@ -1516,6 +1525,7 @@ async function handleEquipItem(data, sanitizedData, context) {
     maxHealth: playerData.maxHealth,
     shield: playerData.shield,
     maxShield: playerData.maxShield,
+    petState: normalizePetStatePayload(playerData.petState),
     source: 'equip_change'
   }));
 }
@@ -1624,6 +1634,7 @@ async function handleSellItem(data, sanitizedData, context) {
         inventory: { ...playerData.inventory },
         upgrades: { ...playerData.upgrades },
         items: playerData.items,
+        petState: normalizePetStatePayload(playerData.petState),
         source: 'item_sold_duplicate'
       }));
       return;
@@ -1635,6 +1646,7 @@ async function handleSellItem(data, sanitizedData, context) {
       inventory: { ...playerData.inventory },
       upgrades: { ...playerData.upgrades },
       items: playerData.items,
+      petState: normalizePetStatePayload(playerData.petState),
       source: 'item_sell_stale'
     }));
     return;
@@ -1653,6 +1665,7 @@ async function handleSellItem(data, sanitizedData, context) {
         inventory: { ...playerData.inventory },
         upgrades: { ...playerData.upgrades },
         items: playerData.items,
+        petState: normalizePetStatePayload(playerData.petState),
         source: 'item_sold_duplicate'
       }));
       return;
@@ -1680,6 +1693,7 @@ async function handleSellItem(data, sanitizedData, context) {
       inventory: { ...playerData.inventory },
       upgrades: { ...playerData.upgrades },
       items: playerData.items,
+      petState: normalizePetStatePayload(playerData.petState),
       source: 'item_sell_stale'
     }));
     return;
@@ -1721,6 +1735,7 @@ async function handleSellItem(data, sanitizedData, context) {
     inventory: { ...playerData.inventory },
     upgrades: { ...playerData.upgrades },
     items: playerData.items,
+    petState: normalizePetStatePayload(playerData.petState),
     sale: {
       itemId: itemId,
       instanceId: itemsToSell[0].instanceId,
@@ -1875,6 +1890,7 @@ async function handleShipSkinAction(data, sanitizedData, context) {
       targetSkinId: skinId,
       lastAction: action
     },
+    petState: normalizePetStatePayload(playerData.petState),
     source: `ship_skin_${action}`
   }));
 

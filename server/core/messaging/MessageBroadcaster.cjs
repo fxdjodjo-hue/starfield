@@ -4,6 +4,7 @@
 
 const { logger } = require('../../logger.cjs');
 const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../../config/ShipSkinCatalog.cjs');
+const { normalizePlayerPetState } = require('../../config/PetCatalog.cjs');
 
 function normalizeResourceInventory(resourceInventory) {
   const normalizedResourceInventory = {};
@@ -22,6 +23,10 @@ function normalizeResourceInventory(resourceInventory) {
   }
 
   return normalizedResourceInventory;
+}
+
+function normalizePetState(petState) {
+  return normalizePlayerPetState(petState);
 }
 
 /**
@@ -48,6 +53,7 @@ class MessageBroadcaster {
    */
   formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false, mapId = 'palantir') {
     const normalizedResourceInventory = normalizeResourceInventory(playerData?.resourceInventory);
+    const normalizedPetState = normalizePetState(playerData?.petState);
 
     return {
       type: 'welcome',
@@ -83,7 +89,8 @@ class MessageBroadcaster {
             ? playerData.shipSkins.unlockedSkinIds
             : [DEFAULT_PLAYER_SHIP_SKIN_ID]
         },
-        resourceInventory: normalizedResourceInventory
+        resourceInventory: normalizedResourceInventory,
+        petState: normalizedPetState
       }
     };
   }
@@ -229,8 +236,9 @@ class MessageBroadcaster {
    * @param {Array} items - Inventory items array
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null, resourceInventory = null) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null, resourceInventory = null, petState = null) {
     const normalizedResourceInventory = normalizeResourceInventory(resourceInventory);
+    const normalizedPetState = normalizePetState(petState);
 
     return {
       type: 'player_data_response',
@@ -240,6 +248,7 @@ class MessageBroadcaster {
       quests: quests || [],
       items: items || [],
       resourceInventory: normalizedResourceInventory,
+      petState: normalizedPetState,
       recentHonor: recentHonor,
       isAdministrator: isAdministrator,
       rank: rank || 'Basic Space Pilot',

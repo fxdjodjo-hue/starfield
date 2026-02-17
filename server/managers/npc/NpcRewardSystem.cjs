@@ -35,6 +35,13 @@ class NpcRewardSystem {
     const oldExp = Number(playerData.inventory.experience || 0);
     const newExp = oldExp + (rewards.experience || 0);
     playerData.inventory.experience = newExp;
+    if (this.mapServer.petProgressionManager && typeof this.mapServer.petProgressionManager.applyPlayerExperienceGain === 'function') {
+      this.mapServer.petProgressionManager.applyPlayerExperienceGain(
+        playerData,
+        rewards.experience || 0,
+        'npc_kill_reward'
+      );
+    }
     const oldHonor = Number(playerData.inventory.honor || 0);
     const newHonor = oldHonor + (rewards.honor || 0);
     playerData.inventory.honor = newHonor;
@@ -168,6 +175,7 @@ class NpcRewardSystem {
       inventory: { ...playerData.inventory },
       upgrades: { ...playerData.upgrades },
       items: playerData.items || [],
+      petState: playerData.petState || null,
       recentHonor: recentHonor,
       source: `killed_${npcType}`,
       rewardsEarned: {

@@ -92,6 +92,14 @@ const PANEL_CONFIGS_BASE = {
     title: 'Crafting',
     position: 'center-left-col2' as const,
     size: { ...LARGE_PANEL_SIZE }
+  },
+  pet: {
+    id: 'pet-panel',
+    icon: 'P',
+    svgPath: 'assets/svg/gameUi/spaceship-svgrepo-com.svg',
+    title: 'Pet',
+    position: 'center-left-col2-below' as const,
+    size: { ...LARGE_PANEL_SIZE }
   }
 } as const;
 

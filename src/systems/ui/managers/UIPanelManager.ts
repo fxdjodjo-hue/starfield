@@ -5,11 +5,13 @@ import { UpgradePanel } from '../../../presentation/ui/UpgradePanel';
 import { SettingsPanel } from '../../../presentation/ui/SettingsPanel';
 import { InventoryPanel } from '../../../presentation/ui/InventoryPanel';
 import { CraftingPanel } from '../../../presentation/ui/CraftingPanel';
+import { PetPanel } from '../../../presentation/ui/PetPanel';
 import { getPanelConfig } from '../../../presentation/ui/PanelConfig';
 import type { QuestSystem } from '../../quest/QuestSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
+import type { PetStatePayload } from '../../../config/NetworkConfig';
 
 /**
  * Manages UI panels (opening, closing, layering, content updates)
@@ -23,9 +25,13 @@ export class UIPanelManager {
   private clientNetworkSystem: ClientNetworkSystem | null = null;
   private lastCraftingResourceInventorySignature: string = '';
   private cachedCraftingResourceInventory: Record<string, number> = {};
+  private lastPetStateSignature: string = '';
+  private cachedPetState: PetStatePayload | null = null;
   private resourceInventoryUpdateListener: ((event: Event) => void) | null = null;
+  private petStateUpdateListener: ((event: Event) => void) | null = null;
   private panelVisibilityListener: ((event: Event) => void) | null = null;
   private lastCraftingDataRefreshRequestAt: number = 0;
+  private lastPetDataRefreshRequestAt: number = 0;
 
   constructor(
     ecs: ECS,
@@ -39,6 +45,7 @@ export class UIPanelManager {
     this.playerSystem = playerSystem;
     this.clientNetworkSystem = clientNetworkSystem;
     this.setupResourceInventorySyncListener();
+    this.setupPetStateSyncListener();
     this.setupCraftingPanelVisibilityListener();
   }
 
@@ -82,6 +89,14 @@ export class UIPanelManager {
     );
     this.uiManager.registerPanel(craftingPanel);
     this.syncCraftingPanelResourceInventory(true);
+
+    const petConfig = getPanelConfig('pet');
+    const petPanel = new PetPanel(
+      petConfig,
+      () => this.resolvePetState()
+    );
+    this.uiManager.registerPanel(petPanel);
+    this.syncPetPanelState(true);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
@@ -129,6 +144,11 @@ export class UIPanelManager {
     if (craftingPanel && craftingPanel.isPanelVisible()) {
       this.syncCraftingPanelResourceInventory();
     }
+
+    const petPanel = this.uiManager.getPanel('pet-panel');
+    if (petPanel && petPanel.isPanelVisible()) {
+      this.syncPetPanelState();
+    }
   }
 
   /**
@@ -159,8 +179,14 @@ export class UIPanelManager {
     const normalizedNetworkInventory = this.normalizeResourceInventory(
       clientNetworkSystem?.gameContext?.playerResourceInventory
     );
+    const normalizedPetState = this.normalizePetState(
+      clientNetworkSystem?.gameContext?.playerPetState
+    );
     if (normalizedNetworkInventory) {
       this.cachedCraftingResourceInventory = normalizedNetworkInventory;
+    }
+    if (normalizedPetState) {
+      this.cachedPetState = normalizedPetState;
     }
 
     // Aggiorna anche i pannelli che ne hanno bisogno
@@ -181,6 +207,7 @@ export class UIPanelManager {
     }
 
     this.syncCraftingPanelResourceInventory(true);
+    this.syncPetPanelState(true);
   }
 
   /**
@@ -219,6 +246,7 @@ export class UIPanelManager {
 
   destroy(): void {
     this.teardownResourceInventorySyncListener();
+    this.teardownPetStateSyncListener();
     this.teardownCraftingPanelVisibilityListener();
     this.uiManager.destroy();
   }
@@ -239,6 +267,22 @@ export class UIPanelManager {
     (craftingPanel as any).update({ resourceInventory });
   }
 
+  private syncPetPanelState(force: boolean = false): void {
+    const petPanel = this.uiManager.getPanel('pet-panel');
+    if (!petPanel || typeof (petPanel as any).update !== 'function') return;
+
+    const petState = this.resolvePetState();
+    if (!petState) return;
+
+    const signature = this.buildPetStateSignature(petState);
+    if (!force && signature === this.lastPetStateSignature) {
+      return;
+    }
+    this.lastPetStateSignature = signature;
+
+    (petPanel as any).update({ petState });
+  }
+
   private buildCraftingResourceInventorySignature(resourceInventory: Record<string, number>): string {
     const entries = Object.entries(resourceInventory)
       .map(([resourceType, quantity]) => [
@@ -249,6 +293,20 @@ export class UIPanelManager {
       .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
 
     return JSON.stringify(entries);
+  }
+
+  private buildPetStateSignature(petState: PetStatePayload): string {
+    return JSON.stringify([
+      petState.petId,
+      petState.level,
+      petState.experience,
+      petState.maxLevel,
+      petState.currentHealth,
+      petState.maxHealth,
+      petState.currentShield,
+      petState.maxShield,
+      petState.isActive
+    ]);
   }
 
   private setupResourceInventorySyncListener(): void {
@@ -266,10 +324,31 @@ export class UIPanelManager {
     document.addEventListener('playerResourceInventoryUpdated', this.resourceInventoryUpdateListener);
   }
 
+  private setupPetStateSyncListener(): void {
+    if (typeof document === 'undefined' || this.petStateUpdateListener) return;
+
+    this.petStateUpdateListener = (event: Event) => {
+      const customEvent = event as CustomEvent<{ petState?: PetStatePayload }>;
+      const normalizedPetState = this.normalizePetState(customEvent?.detail?.petState);
+      if (!normalizedPetState) return;
+
+      this.cachedPetState = normalizedPetState;
+      this.syncPetPanelState(true);
+    };
+
+    document.addEventListener('playerPetStateUpdated', this.petStateUpdateListener);
+  }
+
   private teardownResourceInventorySyncListener(): void {
     if (typeof document === 'undefined' || !this.resourceInventoryUpdateListener) return;
     document.removeEventListener('playerResourceInventoryUpdated', this.resourceInventoryUpdateListener);
     this.resourceInventoryUpdateListener = null;
+  }
+
+  private teardownPetStateSyncListener(): void {
+    if (typeof document === 'undefined' || !this.petStateUpdateListener) return;
+    document.removeEventListener('playerPetStateUpdated', this.petStateUpdateListener);
+    this.petStateUpdateListener = null;
   }
 
   private resolveCraftingResourceInventory(): Record<string, number> | null {
@@ -285,6 +364,17 @@ export class UIPanelManager {
     if (hasCachedData) return cachedInventory;
     if (networkInventory) return networkInventory;
     if (cachedInventory) return cachedInventory;
+    return null;
+  }
+
+  private resolvePetState(): PetStatePayload | null {
+    const networkPetState = this.normalizePetState(
+      this.clientNetworkSystem?.gameContext?.playerPetState
+    );
+    const cachedPetState = this.normalizePetState(this.cachedPetState);
+
+    if (networkPetState) return networkPetState;
+    if (cachedPetState) return cachedPetState;
     return null;
   }
 
@@ -309,6 +399,34 @@ export class UIPanelManager {
     return normalizedInventory;
   }
 
+  private normalizePetState(rawPetState: unknown): PetStatePayload | null {
+    if (!rawPetState || typeof rawPetState !== 'object') return null;
+
+    const source = rawPetState as Record<string, unknown>;
+    const petId = String(source.petId || '').trim();
+    if (!petId) return null;
+
+    const level = Math.max(1, Math.floor(Number(source.level || 1)));
+    const maxLevel = Math.max(level, Math.floor(Number(source.maxLevel || level)));
+    const experience = Math.max(0, Math.floor(Number(source.experience || 0)));
+    const maxHealth = Math.max(1, Math.floor(Number(source.maxHealth || 1)));
+    const maxShield = Math.max(0, Math.floor(Number(source.maxShield || 0)));
+    const currentHealth = Math.max(0, Math.min(maxHealth, Math.floor(Number(source.currentHealth ?? maxHealth))));
+    const currentShield = Math.max(0, Math.min(maxShield, Math.floor(Number(source.currentShield ?? maxShield))));
+
+    return {
+      petId,
+      level,
+      experience,
+      maxLevel,
+      currentHealth,
+      maxHealth,
+      currentShield,
+      maxShield,
+      isActive: source.isActive === undefined ? true : Boolean(source.isActive)
+    };
+  }
+
   private setupCraftingPanelVisibilityListener(): void {
     if (typeof document === 'undefined' || this.panelVisibilityListener) return;
 
@@ -316,10 +434,15 @@ export class UIPanelManager {
       const customEvent = event as CustomEvent<{ panelId?: string; isVisible?: boolean }>;
       const panelId = String(customEvent?.detail?.panelId || '');
       const isVisible = Boolean(customEvent?.detail?.isVisible);
-      if (panelId !== 'crafting-panel' || !isVisible) return;
+      if (!isVisible) return;
 
-      this.syncCraftingPanelResourceInventory(true);
-      this.requestCraftingDataRefreshFromServer();
+      if (panelId === 'crafting-panel') {
+        this.syncCraftingPanelResourceInventory(true);
+        this.requestCraftingDataRefreshFromServer();
+      } else if (panelId === 'pet-panel') {
+        this.syncPetPanelState(true);
+        this.requestPetDataRefreshFromServer();
+      }
     };
 
     document.addEventListener('panelVisibilityChanged', this.panelVisibilityListener);
@@ -342,6 +465,20 @@ export class UIPanelManager {
     if (!authId) return;
 
     this.lastCraftingDataRefreshRequestAt = now;
+    networkSystem.requestPlayerData(authId as any);
+  }
+
+  private requestPetDataRefreshFromServer(): void {
+    const now = Date.now();
+    if (now - this.lastPetDataRefreshRequestAt < 1500) return;
+
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem || typeof networkSystem.requestPlayerData !== 'function') return;
+
+    const authId = String(networkSystem.gameContext?.authId || '').trim();
+    if (!authId) return;
+
+    this.lastPetDataRefreshRequestAt = now;
     networkSystem.requestPlayerData(authId as any);
   }
 }

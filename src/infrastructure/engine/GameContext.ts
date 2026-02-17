@@ -1,6 +1,6 @@
 import { AssetManager } from '../../core/services/AssetManager';
 import { NETWORK_CONFIG } from '../../config/NetworkConfig';
-import { type PlayerUuid, type PlayerDbId, type ClientId } from '../../config/NetworkConfig';
+import { type PlayerUuid, type PlayerDbId, type ClientId, type PetStatePayload } from '../../config/NetworkConfig';
 import { ConnectionState } from '../../multiplayer/client/managers/NetworkStateManager';
 
 /**
@@ -77,6 +77,7 @@ export class GameContext {
 
   public playerQuests: any[] = [];             // Lista quest del giocatore
   public playerResourceInventory: Record<string, number> = {};
+  public playerPetState: PetStatePayload | null = null;
 
   // Stato connessione
   public connectionState: ConnectionState = ConnectionState.DISCONNECTED;

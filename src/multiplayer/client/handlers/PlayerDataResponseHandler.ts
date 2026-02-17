@@ -1,7 +1,7 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
-import type { PlayerDataResponseMessage } from '../../../config/NetworkConfig';
+import type { PlayerDataResponseMessage, PetStatePayload } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { PlayerRole } from '../../../entities/player/PlayerRole';
 import { Health } from '../../../entities/combat/Health';
@@ -24,6 +24,7 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
 
   handle(message: PlayerDataResponseMessage, networkSystem: ClientNetworkSystem): void {
     const normalizedResourceInventory = this.normalizeResourceInventory(message.resourceInventory);
+    const normalizedPetState = this.normalizePetState(message.petState);
 
     // Aggiorna i dati del giocatore nel game context
     if (networkSystem.gameContext) {
@@ -53,6 +54,10 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       if (normalizedResourceInventory) {
         networkSystem.gameContext.playerResourceInventory = normalizedResourceInventory;
         this.notifyResourceInventoryUpdated(normalizedResourceInventory);
+      }
+      if (normalizedPetState) {
+        networkSystem.gameContext.playerPetState = normalizedPetState;
+        this.notifyPetStateUpdated(normalizedPetState);
       }
 
       // Aggiorna quests
@@ -225,6 +230,10 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     if (normalizedResourceInventory) {
       this.updateCraftingPanel(networkSystem, normalizedResourceInventory);
     }
+
+    if (normalizedPetState) {
+      this.updatePetPanel(networkSystem, normalizedPetState);
+    }
   }
 
   private normalizeResourceInventory(rawInventory: unknown): Record<string, number> | null {
@@ -259,6 +268,52 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     if (typeof document === 'undefined') return;
     document.dispatchEvent(new CustomEvent('playerResourceInventoryUpdated', {
       detail: { resourceInventory }
+    }));
+  }
+
+  private normalizePetState(rawPetState: unknown): PetStatePayload | null {
+    if (!rawPetState || typeof rawPetState !== 'object') return null;
+
+    const source = rawPetState as Record<string, unknown>;
+    const petId = String(source.petId || '').trim();
+    if (!petId) return null;
+
+    const level = Math.max(1, Math.floor(Number(source.level || 1)));
+    const maxLevel = Math.max(level, Math.floor(Number(source.maxLevel || level)));
+    const experience = Math.max(0, Math.floor(Number(source.experience || 0)));
+    const maxHealth = Math.max(1, Math.floor(Number(source.maxHealth || 1)));
+    const maxShield = Math.max(0, Math.floor(Number(source.maxShield || 0)));
+    const currentHealth = Math.max(0, Math.min(maxHealth, Math.floor(Number(source.currentHealth ?? maxHealth))));
+    const currentShield = Math.max(0, Math.min(maxShield, Math.floor(Number(source.currentShield ?? maxShield))));
+
+    return {
+      petId,
+      level,
+      experience,
+      maxLevel,
+      currentHealth,
+      maxHealth,
+      currentShield,
+      maxShield,
+      isActive: source.isActive === undefined ? true : Boolean(source.isActive)
+    };
+  }
+
+  private updatePetPanel(networkSystem: ClientNetworkSystem, petState: PetStatePayload): void {
+    const uiSystem = networkSystem.getUiSystem();
+    if (!uiSystem || typeof uiSystem.getUIManager !== 'function') return;
+
+    const uiManager = uiSystem.getUIManager();
+    const petPanel = uiManager?.getPanel?.('pet-panel');
+    if (petPanel && typeof (petPanel as any).update === 'function') {
+      (petPanel as any).update({ petState });
+    }
+  }
+
+  private notifyPetStateUpdated(petState: PetStatePayload): void {
+    if (typeof document === 'undefined') return;
+    document.dispatchEvent(new CustomEvent('playerPetStateUpdated', {
+      detail: { petState }
     }));
   }
 }

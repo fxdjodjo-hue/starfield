@@ -207,6 +207,7 @@ class ServerQuestManager {
         if (!questConfig.rewards) return;
 
         let rewardsAssigned = false;
+        let totalExperienceGranted = 0;
 
         questConfig.rewards.forEach(reward => {
             const amount = Number(reward.amount) || 0;
@@ -221,6 +222,7 @@ class ServerQuestManager {
                     break;
                 case 'experience':
                     player.inventory.experience = (Number(player.inventory.experience) || 0) + amount;
+                    totalExperienceGranted += amount;
                     rewardsAssigned = true;
                     break;
                 case 'honor':
@@ -231,6 +233,14 @@ class ServerQuestManager {
             }
         });
 
+        if (totalExperienceGranted > 0 && this.mapServer.petProgressionManager && typeof this.mapServer.petProgressionManager.applyPlayerExperienceGain === 'function') {
+            this.mapServer.petProgressionManager.applyPlayerExperienceGain(
+                player,
+                totalExperienceGranted,
+                `quest_reward_${questConfig.id || 'unknown'}`
+            );
+        }
+
         if (rewardsAssigned) {
             ServerLoggerWrapper.info('QUEST', `Player ${player.nickname} awarded for quest ${questConfig.id}: ${questConfig.rewards.map(r => `${r.amount} ${r.type}`).join(', ')}`);
 
@@ -239,6 +249,7 @@ class ServerQuestManager {
                 player.ws.send(JSON.stringify({
                     type: 'player_state_update',
                     inventory: player.inventory,
+                    petState: player.petState || null,
                     source: `quest_reward_${questConfig.id}`
                 }));
             }

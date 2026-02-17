@@ -11,6 +11,12 @@ const {
   normalizeUnlockedShipSkinIds,
   resolveSelectedShipSkinId
 } = require('../../config/ShipSkinCatalog.cjs');
+const {
+  DEFAULT_PLAYER_PET_ID,
+  createDefaultPlayerPetState,
+  normalizePlayerPetState,
+  buildPetStateSignature
+} = require('../../config/PetCatalog.cjs');
 
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
@@ -77,6 +83,10 @@ class PlayerDataManager {
     this.playerResourcesTableUnavailableMarkedAt = 0;
     this.playerResourcesTableRetryIntervalMs = 60000;
     this.lastSavedResourceInventorySignatureByAuthId = new Map();
+    this.playerPetsTableUnavailable = false;
+    this.playerPetsTableUnavailableMarkedAt = 0;
+    this.playerPetsTableRetryIntervalMs = 60000;
+    this.lastSavedPetStateSignatureByAuthId = new Map();
   }
 
   /**
@@ -357,6 +367,157 @@ class PlayerDataManager {
     return normalizedInventory;
   }
 
+  isMissingPlayerPetsTableError(error) {
+    if (!error) return false;
+    if (String(error.code || '') === '42P01') return true;
+    const message = String(error.message || '').toLowerCase();
+    return message.includes('player_pets') && message.includes('does not exist');
+  }
+
+  markPlayerPetsTableUnavailable(error, operation) {
+    if (this.playerPetsTableUnavailable) return;
+    this.playerPetsTableUnavailable = true;
+    this.playerPetsTableUnavailableMarkedAt = Date.now();
+    ServerLoggerWrapper.warn(
+      'DATABASE',
+      `[PLAYER_PETS] Table unavailable during ${operation}. Run latest migrations. ${error?.message || 'Unknown error'}`
+    );
+  }
+
+  shouldSkipPlayerPetsTableAccess() {
+    if (!this.playerPetsTableUnavailable) return false;
+
+    const markedAt = Number(this.playerPetsTableUnavailableMarkedAt || 0);
+    const elapsed = Date.now() - markedAt;
+    if (elapsed < this.playerPetsTableRetryIntervalMs) {
+      return true;
+    }
+
+    this.playerPetsTableUnavailable = false;
+    this.playerPetsTableUnavailableMarkedAt = 0;
+    return false;
+  }
+
+  normalizePetState(petState) {
+    return normalizePlayerPetState(petState, { preferredPetId: DEFAULT_PLAYER_PET_ID });
+  }
+
+  async loadPlayerPetState(authId) {
+    const fallbackState = createDefaultPlayerPetState(DEFAULT_PLAYER_PET_ID);
+    if (this.shouldSkipPlayerPetsTableAccess()) return fallbackState;
+
+    try {
+      const { data, error } = await supabase
+        .from('player_pets')
+        .select('pet_id, level, experience, current_health, max_health, current_shield, max_shield, is_active, updated_at')
+        .eq('auth_id', authId)
+        .order('is_active', { ascending: false })
+        .order('updated_at', { ascending: false })
+        .limit(5);
+
+      if (error) {
+        if (this.isMissingPlayerPetsTableError(error)) {
+          this.markPlayerPetsTableUnavailable(error, 'load');
+          return fallbackState;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_PETS] Failed to load pet state for ${authId}: ${error.message}`);
+        return fallbackState;
+      }
+
+      const rows = Array.isArray(data) ? data : [];
+      if (rows.length === 0) {
+        this.playerPetsTableUnavailable = false;
+        this.playerPetsTableUnavailableMarkedAt = 0;
+        return fallbackState;
+      }
+
+      const activeRow = rows.find((row) => row && row.is_active === true) || rows[0];
+      const normalizedState = this.normalizePetState({
+        pet_id: activeRow?.pet_id,
+        level: activeRow?.level,
+        experience: activeRow?.experience,
+        current_health: activeRow?.current_health,
+        max_health: activeRow?.max_health,
+        current_shield: activeRow?.current_shield,
+        max_shield: activeRow?.max_shield,
+        isActive: activeRow?.is_active
+      });
+
+      this.playerPetsTableUnavailable = false;
+      this.playerPetsTableUnavailableMarkedAt = 0;
+      return normalizedState;
+    } catch (error) {
+      if (this.isMissingPlayerPetsTableError(error)) {
+        this.markPlayerPetsTableUnavailable(error, 'load');
+        return fallbackState;
+      }
+      ServerLoggerWrapper.warn('DATABASE', `[PLAYER_PETS] Unexpected load error for ${authId}: ${error.message}`);
+      return fallbackState;
+    }
+  }
+
+  async savePlayerPetState(authId, petState) {
+    const normalizedState = this.normalizePetState(petState);
+    if (this.shouldSkipPlayerPetsTableAccess()) return normalizedState;
+
+    const nowIso = new Date().toISOString();
+
+    try {
+      const { error: deactivateError } = await supabase
+        .from('player_pets')
+        .update({ is_active: false, updated_at: nowIso })
+        .eq('auth_id', authId)
+        .neq('pet_id', normalizedState.petId)
+        .eq('is_active', true);
+
+      if (deactivateError) {
+        if (this.isMissingPlayerPetsTableError(deactivateError)) {
+          this.markPlayerPetsTableUnavailable(deactivateError, 'save');
+          return normalizedState;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_PETS] Failed to deactivate old pets for ${authId}: ${deactivateError.message}`);
+        return normalizedState;
+      }
+
+      const upsertPayload = {
+        auth_id: authId,
+        pet_id: normalizedState.petId,
+        level: normalizedState.level,
+        experience: normalizedState.experience,
+        current_health: normalizedState.currentHealth,
+        max_health: normalizedState.maxHealth,
+        current_shield: normalizedState.currentShield,
+        max_shield: normalizedState.maxShield,
+        is_active: true,
+        updated_at: nowIso
+      };
+
+      const { error: upsertError } = await supabase
+        .from('player_pets')
+        .upsert(upsertPayload, { onConflict: 'auth_id,pet_id' });
+
+      if (upsertError) {
+        if (this.isMissingPlayerPetsTableError(upsertError)) {
+          this.markPlayerPetsTableUnavailable(upsertError, 'save');
+          return normalizedState;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_PETS] Failed to upsert pet state for ${authId}: ${upsertError.message}`);
+        return normalizedState;
+      }
+
+      this.playerPetsTableUnavailable = false;
+      this.playerPetsTableUnavailableMarkedAt = 0;
+      return normalizedState;
+    } catch (error) {
+      if (this.isMissingPlayerPetsTableError(error)) {
+        this.markPlayerPetsTableUnavailable(error, 'save');
+        return normalizedState;
+      }
+      ServerLoggerWrapper.warn('DATABASE', `[PLAYER_PETS] Unexpected save error for ${authId}: ${error.message}`);
+      return normalizedState;
+    }
+  }
+
   /**
    * Carica i dati del giocatore dal database Supabase
    * @param {string} userId - auth_id del giocatore
@@ -410,9 +571,14 @@ class PlayerDataManager {
       const recentHonor = await this.getRecentHonorAverage(userId, 30);
       const shipSkinState = await this.loadPlayerShipSkinState(userId);
       const resourceInventory = await this.loadPlayerResourceInventory(userId);
+      const petState = await this.loadPlayerPetState(userId);
       this.lastSavedResourceInventorySignatureByAuthId.set(
         userId,
         this.buildResourceInventorySignature(resourceInventory)
+      );
+      this.lastSavedPetStateSignatureByAuthId.set(
+        userId,
+        buildPetStateSignature(petState)
       );
 
       // Costruisci playerData con i dati reali del database
@@ -553,6 +719,7 @@ class PlayerDataManager {
         })(),
         rank: playerDataRaw.current_rank_name || 'Basic Space Pilot',
         resourceInventory: resourceInventory,
+        petState: petState,
         stats: (() => {
           try {
             const stats = playerDataRaw.stats_data ? JSON.parse(playerDataRaw.stats_data) : null;
@@ -634,6 +801,7 @@ class PlayerDataManager {
         playerData.resourceInventory = {};
       }
       playerData.resourceInventory = this.normalizeResourceInventory(playerData.resourceInventory);
+      playerData.petState = this.normalizePetState(playerData.petState);
 
       // 🔴 CRITICAL: Verifica che inventory esista prima di salvare
       // Se inventory è null/undefined, NON salvare per evitare di sovrascrivere i valori esistenti nel database
@@ -761,6 +929,13 @@ class PlayerDataManager {
           authId,
           this.buildResourceInventorySignature(playerData.resourceInventory)
         );
+      }
+
+      const nextPetStateSignature = buildPetStateSignature(playerData.petState);
+      const lastSavedPetStateSignature = this.lastSavedPetStateSignatureByAuthId.get(authId) || null;
+      if (nextPetStateSignature !== lastSavedPetStateSignature) {
+        playerData.petState = await this.savePlayerPetState(authId, playerData.petState);
+        this.lastSavedPetStateSignatureByAuthId.set(authId, buildPetStateSignature(playerData.petState));
       }
 
       // Persist ship skin ownership/equip state (non-blocking helper handles its own errors).
@@ -975,6 +1150,7 @@ class PlayerDataManager {
         unlockedSkinIds: [DEFAULT_PLAYER_SHIP_SKIN_ID]
       },
       resourceInventory: {},
+      petState: createDefaultPlayerPetState(DEFAULT_PLAYER_PET_ID),
       quests: []
     };
   }

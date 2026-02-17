@@ -433,6 +433,18 @@ export interface PlayerRespawnMessage {
   maxShield: number;
 }
 
+export interface PetStatePayload {
+  petId: string;
+  level: number;
+  experience: number;
+  maxLevel: number;
+  currentHealth: number;
+  maxHealth: number;
+  currentShield: number;
+  maxShield: number;
+  isActive: boolean;
+}
+
 /**
  * Aggiornamento completo dello stato del player (inventory, upgrades, stats)
  */
@@ -483,6 +495,7 @@ export interface PlayerStateUpdateMessage {
   };
   items?: any[];
   resourceInventory?: Record<string, number>;
+  petState?: PetStatePayload;
 }
 
 /**
@@ -517,6 +530,7 @@ export interface WelcomeMessage {
       scale?: number;
     }>;
     resourceInventory?: Record<string, number>;
+    petState?: PetStatePayload;
 
     // Flag per lazy loading
     inventoryLazy?: boolean;
@@ -601,6 +615,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
   quests: any[];
   items: any[];
   resourceInventory?: Record<string, number>;
+  petState?: PetStatePayload;
   timestamp: number;
 }
 

@@ -1,6 +1,6 @@
 import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
-import type { PlayerStateUpdateMessage } from '../../../config/NetworkConfig';
+import type { PlayerStateUpdateMessage, PetStatePayload } from '../../../config/NetworkConfig';
 import { PlayerUpgrades } from '../../../entities/player/PlayerUpgrades';
 import { Health } from '../../../entities/combat/Health';
 import { Shield } from '../../../entities/combat/Shield';
@@ -22,8 +22,9 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState } = message;
     const normalizedResourceInventory = this.normalizeResourceInventory(resourceInventory);
+    const normalizedPetState = this.normalizePetState(petState);
     const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);
     const previousCosmos = Number(networkSystem.gameContext?.playerInventory?.cosmos || 0);
     const previousSelectedShipSkinId = networkSystem.gameContext?.playerShipSkinId || '';
@@ -54,6 +55,11 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     if (networkSystem.gameContext && normalizedResourceInventory) {
       networkSystem.gameContext.playerResourceInventory = normalizedResourceInventory;
       this.notifyResourceInventoryUpdated(normalizedResourceInventory);
+    }
+
+    if (networkSystem.gameContext && normalizedPetState) {
+      networkSystem.gameContext.playerPetState = normalizedPetState;
+      this.notifyPetStateUpdated(normalizedPetState);
     }
 
     // AGGIORNA L'ECONOMY SYSTEM CON STATO COMPLETO (server authoritative)
@@ -216,6 +222,13 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
           (craftingPanel as any).update({ resourceInventory: normalizedResourceInventory });
         }
       }
+
+      if (normalizedPetState) {
+        const petPanel = uiManager.getPanel('pet-panel');
+        if (petPanel && typeof (petPanel as any).update === 'function') {
+          (petPanel as any).update({ petState: normalizedPetState });
+        }
+      }
     }
 
     if (inventory) {
@@ -328,6 +341,41 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     if (typeof document === 'undefined') return;
     document.dispatchEvent(new CustomEvent('playerResourceInventoryUpdated', {
       detail: { resourceInventory }
+    }));
+  }
+
+  private normalizePetState(rawPetState: unknown): PetStatePayload | null {
+    if (!rawPetState || typeof rawPetState !== 'object') return null;
+
+    const source = rawPetState as Record<string, unknown>;
+    const petId = String(source.petId || '').trim();
+    if (!petId) return null;
+
+    const level = Math.max(1, Math.floor(Number(source.level || 1)));
+    const maxLevel = Math.max(level, Math.floor(Number(source.maxLevel || level)));
+    const experience = Math.max(0, Math.floor(Number(source.experience || 0)));
+    const maxHealth = Math.max(1, Math.floor(Number(source.maxHealth || 1)));
+    const maxShield = Math.max(0, Math.floor(Number(source.maxShield || 0)));
+    const currentHealth = Math.max(0, Math.min(maxHealth, Math.floor(Number(source.currentHealth ?? maxHealth))));
+    const currentShield = Math.max(0, Math.min(maxShield, Math.floor(Number(source.currentShield ?? maxShield))));
+
+    return {
+      petId,
+      level,
+      experience,
+      maxLevel,
+      currentHealth,
+      maxHealth,
+      currentShield,
+      maxShield,
+      isActive: source.isActive === undefined ? true : Boolean(source.isActive)
+    };
+  }
+
+  private notifyPetStateUpdated(petState: PetStatePayload): void {
+    if (typeof document === 'undefined') return;
+    document.dispatchEvent(new CustomEvent('playerPetStateUpdated', {
+      detail: { petState }
     }));
   }
 
