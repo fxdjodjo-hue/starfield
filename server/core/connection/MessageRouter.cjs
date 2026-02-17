@@ -2211,6 +2211,81 @@ async function handleSetPetNickname(data, sanitizedData, context) {
   }
 }
 
+async function handleSetPetActive(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid client ID for pet active update.',
+      code: 'INVALID_CLIENT_ID'
+    }));
+    return;
+  }
+
+  const currentPetState = normalizePetStatePayload(playerData.petState);
+  const nextPetActiveState = typeof sanitizedData?.isActive === 'boolean'
+    ? sanitizedData.isActive
+    : Boolean(data.isActive);
+
+  if (currentPetState.isActive === nextPetActiveState) {
+    ws.send(JSON.stringify({
+      type: 'player_state_update',
+      petState: currentPetState,
+      source: 'pet_active_noop'
+    }));
+    return;
+  }
+
+  playerData.petState = normalizePetStatePayload({
+    ...currentPetState,
+    isActive: nextPetActiveState
+  });
+
+  if (!nextPetActiveState && mapServer?.petModuleManager && typeof mapServer.petModuleManager.removePlayer === 'function') {
+    mapServer.petModuleManager.removePlayer(playerData.clientId);
+  }
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    petState: normalizePetStatePayload(playerData.petState),
+    source: 'pet_active_updated'
+  }));
+
+  if (playerData.position) {
+    mapServer.broadcastToMap({
+      type: 'remote_player_update',
+      clientId: playerData.clientId,
+      position: playerData.position,
+      rotation: playerData.position.rotation || 0,
+      tick: 0,
+      nickname: playerData.nickname,
+      playerId: playerData.playerId,
+      rank: playerData.rank || 'Basic Space Pilot',
+      leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield,
+      shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+      petState: normalizeRemotePetStatePayload(playerData.petState),
+      petPosition: normalizeRemotePetPositionPayload(playerData.petPosition, playerData.position),
+      t: Date.now()
+    }, playerData.clientId);
+  }
+
+  try {
+    playerDataManager.savePlayerData(playerData).catch(error => {
+      logger.error('DATABASE', `Failed to persist pet active state for ${playerData.userId}: ${error.message}`);
+    });
+  } catch (error) {
+    logger.error('DATABASE', `Error triggering pet active save for ${playerData.userId}: ${error.message}`);
+  }
+}
+
 async function handleCraftItem(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
@@ -2491,6 +2566,7 @@ const handlers = {
   sell_item: handleSellItem,
   ship_skin_action: handleShipSkinAction,
   set_pet_nickname: handleSetPetNickname,
+  set_pet_active: handleSetPetActive,
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest,
   portal_use: handlePortalUse,

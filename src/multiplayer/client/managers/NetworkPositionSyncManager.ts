@@ -105,6 +105,11 @@ export class NetworkPositionSyncManager {
         return null;
       }
 
+      const petComponent = this.ecs.getComponent(petEntity, Pet);
+      if (petComponent && petComponent.isActive === false) {
+        return null;
+      }
+
       const petTransform = this.ecs.getComponent(petEntity, Transform);
       if (!petTransform) {
         return null;

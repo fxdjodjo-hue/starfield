@@ -95,7 +95,8 @@ export class UIPanelManager {
     const petPanel = new PetPanel(
       petConfig,
       () => this.resolvePetState(),
-      (petNickname: string) => this.submitPetNicknameUpdate(petNickname)
+      (petNickname: string) => this.submitPetNicknameUpdate(petNickname),
+      (isActive: boolean) => this.submitPetActiveToggle(isActive)
     );
     this.uiManager.registerPanel(petPanel);
     this.syncPetPanelState(true);
@@ -514,6 +515,33 @@ export class UIPanelManager {
     }
 
     return networkSystem.sendPetNicknameUpdateRequest(petNickname);
+  }
+
+  private submitPetActiveToggle(isActive: boolean): boolean {
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem || typeof networkSystem.sendPetActiveUpdateRequest !== 'function') {
+      return false;
+    }
+
+    const sent = networkSystem.sendPetActiveUpdateRequest(isActive);
+    if (!sent) {
+      return false;
+    }
+
+    const currentPetState = this.resolvePetState();
+    if (currentPetState) {
+      const optimisticPetState: PetStatePayload = {
+        ...currentPetState,
+        isActive
+      };
+      this.cachedPetState = optimisticPetState;
+      if (networkSystem.gameContext) {
+        networkSystem.gameContext.playerPetState = optimisticPetState;
+      }
+      this.syncPetPanelState(true);
+    }
+
+    return true;
   }
 
   private submitCraftItemRequest(recipeId: string): boolean {

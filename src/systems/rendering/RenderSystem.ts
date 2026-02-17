@@ -329,6 +329,15 @@ export class RenderSystem extends BaseSystem {
         SpriteRenderer.render(ctx, renderTransform, entitySprite);
       }
     } else if (isPet) {
+      const localPet = this.ecs.getComponent(entity, Pet);
+      const isLocalPet = !!localPet && !this.ecs.hasComponent(entity, RemotePet);
+      if (isLocalPet && localPet.isActive === false) {
+        if (shouldApplyAlpha) {
+          ctx.restore();
+        }
+        return;
+      }
+
       const entityAnimatedSprite = this.ecs.getComponent(entity, AnimatedSprite);
       const entitySprite = this.ecs.getComponent(entity, Sprite);
       const petFloatOffsetY = PlayerRenderer.getFloatOffset(this.frameTime + entity.id * 157);
@@ -641,6 +650,10 @@ export class RenderSystem extends BaseSystem {
 
         // Keep only local-pet visual movement aligned with local-player render smoothing.
         if (this.ecs.hasComponent(entity, Pet) && !this.ecs.hasComponent(entity, RemotePet)) {
+          const localPet = this.ecs.getComponent(entity, Pet);
+          if (localPet && localPet.isActive === false) {
+            continue;
+          }
           renderX += localPlayerVisualOffsetX;
           renderY += localPlayerVisualOffsetY;
         }

@@ -752,6 +752,28 @@ class ServerInputValidator {
             }
           };
 
+        case 'set_pet_active':
+          const petActiveErrors = [];
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            petActiveErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            petActiveErrors.push('Client ID too long');
+          }
+
+          if (typeof data.isActive !== 'boolean') {
+            petActiveErrors.push('Invalid or missing isActive (must be boolean)');
+          }
+
+          return {
+            isValid: petActiveErrors.length === 0,
+            errors: petActiveErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              isActive: Boolean(data.isActive)
+            }
+          };
+
         case 'craft_item':
           return this.validateCraftItem(data);
 

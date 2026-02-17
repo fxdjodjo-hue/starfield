@@ -109,6 +109,7 @@ export class EntityFactory {
       new Pet({
         petId: petDefinition.id,
         nickname: String(initialPetState?.petNickname || petDefinition.displayName || petDefinition.id).trim(),
+        isActive: initialPetState?.isActive !== false,
         followDistance: petDefinition.followDistance,
         lateralOffset: petDefinition.lateralOffset,
         stopDistance: petDefinition.stopDistance,

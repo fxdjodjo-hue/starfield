@@ -152,6 +152,13 @@ export class PetFollowSystem extends BaseSystem {
       const petTransform = this.ecs.getComponent(petEntity, Transform);
       if (!pet || !petTransform) continue;
 
+      if (pet.isActive === false) {
+        const runtimeState = this.getOrCreateRuntimeState(petEntity.id, petTransform);
+        runtimeState.collectAnimationRemainingSeconds = 0;
+        runtimeState.currentMoveSpeed = this.PET_BASE_SPEED_PX_PER_SECOND;
+        continue;
+      }
+
       const runtimeState = this.getOrCreateRuntimeState(petEntity.id, petTransform);
       if (pendingCollectCommand?.stop) {
         runtimeState.collectAnimationRemainingSeconds = 0;

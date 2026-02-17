@@ -8,6 +8,7 @@ import type { PetStatePayload } from '../../../../config/NetworkConfig';
 interface NormalizedPetCombatState {
   petId: string;
   petNickname: string;
+  isActive: boolean;
   currentHealth: number;
   maxHealth: number;
   currentShield: number;
@@ -41,6 +42,7 @@ function normalizePetCombatState(petState: PetStatePayload): NormalizedPetCombat
   return {
     petId,
     petNickname: petNickname || petId,
+    isActive: petState.isActive !== false,
     currentHealth,
     maxHealth,
     currentShield,
@@ -75,6 +77,11 @@ export function syncLocalPetCombatStats(ecs: ECS | null, petState: PetStatePaylo
   const petComponent = ecs.getComponent(petEntity, Pet);
   if (petComponent && typeof petComponent.setNickname === 'function') {
     petComponent.setNickname(normalizedState.petNickname);
+    if (typeof petComponent.setActiveState === 'function') {
+      petComponent.setActiveState(normalizedState.isActive);
+    } else {
+      (petComponent as any).isActive = normalizedState.isActive;
+    }
   }
 
   const healthComponent = ecs.getComponent(petEntity, Health);

@@ -3,6 +3,7 @@ import { Component } from '../../infrastructure/ecs/Component';
 export interface PetBehaviorOptions {
   petId: string;
   nickname?: string;
+  isActive?: boolean;
   followDistance: number;
   lateralOffset: number;
   stopDistance: number;
@@ -17,6 +18,7 @@ export interface PetBehaviorOptions {
 export class Pet extends Component {
   public readonly petId: string;
   public nickname: string;
+  public isActive: boolean;
   public readonly followDistance: number;
   public readonly lateralOffset: number;
   public readonly stopDistance: number;
@@ -32,6 +34,7 @@ export class Pet extends Component {
     this.petId = String(options.petId || 'pet').trim();
     const initialNickname = String(options.nickname || '').replace(/\s+/g, ' ').trim();
     this.nickname = initialNickname || this.petId;
+    this.isActive = options.isActive !== false;
     this.followDistance = Math.max(0, Number(options.followDistance || 0));
     this.lateralOffset = Number(options.lateralOffset || 0);
     this.stopDistance = Math.max(0, Number(options.stopDistance || 0));
@@ -52,5 +55,9 @@ export class Pet extends Component {
       .slice(0, 24)
       .trim();
     this.nickname = normalizedNickname || this.petId;
+  }
+
+  setActiveState(nextIsActive: boolean): void {
+    this.isActive = nextIsActive !== false;
   }
 }

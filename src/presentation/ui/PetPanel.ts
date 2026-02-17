@@ -46,6 +46,7 @@ export class PetPanel extends BasePanel {
   private static readonly COMPANION_PREVIEW_TICK_MS = 80;
   private readonly petStateProvider: (() => PetStatePayload | null) | null;
   private readonly petNicknameSubmitter: ((petNickname: string) => boolean) | null;
+  private readonly petActiveSubmitter: ((isActive: boolean) => boolean) | null;
   private nicknameModalElement: HTMLElement | null = null;
   private nicknameNoticeElement: HTMLElement | null = null;
   private nicknameNoticeTimeoutId: number | null = null;
@@ -55,6 +56,7 @@ export class PetPanel extends BasePanel {
   private moduleSlotNameElement: HTMLElement | null = null;
   private moduleSlotMetaElement: HTMLElement | null = null;
   private moduleSlotRarityElement: HTMLElement | null = null;
+  private activeToggleButtonElement: HTMLButtonElement | null = null;
   private petInventoryGridElement: HTMLElement | null = null;
   private petInventoryCountElement: HTMLElement | null = null;
   private currentPreviewPetId: string = '';
@@ -64,15 +66,18 @@ export class PetPanel extends BasePanel {
   private previewAnimationFrameIndex = 0;
   private previewAnimationIntervalId: number | null = null;
   private lastPetNickname: string = '';
+  private lastPetIsActive: boolean = true;
 
   constructor(
     config: PanelConfig,
     petStateProvider?: (() => PetStatePayload | null),
-    petNicknameSubmitter?: ((petNickname: string) => boolean)
+    petNicknameSubmitter?: ((petNickname: string) => boolean),
+    petActiveSubmitter?: ((isActive: boolean) => boolean)
   ) {
     super(config);
     this.petStateProvider = typeof petStateProvider === 'function' ? petStateProvider : null;
     this.petNicknameSubmitter = typeof petNicknameSubmitter === 'function' ? petNicknameSubmitter : null;
+    this.petActiveSubmitter = typeof petActiveSubmitter === 'function' ? petActiveSubmitter : null;
     this.nicknameModalElement = this.content.querySelector<HTMLElement>('[data-pet-nickname-modal]');
     this.nicknameNoticeElement = this.content.querySelector<HTMLElement>('[data-pet-nickname-notice]');
     this.nicknameInputElement = this.content.querySelector<HTMLInputElement>('[data-pet-nickname-input]');
@@ -81,6 +86,7 @@ export class PetPanel extends BasePanel {
     this.moduleSlotNameElement = this.content.querySelector<HTMLElement>('[data-pet-module-name]');
     this.moduleSlotMetaElement = this.content.querySelector<HTMLElement>('[data-pet-module-meta]');
     this.moduleSlotRarityElement = this.content.querySelector<HTMLElement>('[data-pet-module-rarity]');
+    this.activeToggleButtonElement = this.content.querySelector<HTMLButtonElement>('[data-pet-active-toggle]');
     this.petInventoryGridElement = this.content.querySelector<HTMLElement>('[data-pet-inventory-grid]');
     this.petInventoryCountElement = this.content.querySelector<HTMLElement>('[data-pet-inventory-count]');
   }
@@ -529,12 +535,46 @@ export class PetPanel extends BasePanel {
     statusLabel.dataset.petField = 'activeStatus';
     statusLabel.textContent = 'active';
 
+    const controls = document.createElement('div');
+    controls.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 8px;
+      flex-shrink: 0;
+    `;
+
+    const activeToggleButton = document.createElement('button');
+    activeToggleButton.type = 'button';
+    activeToggleButton.dataset.petActiveToggle = 'true';
+    activeToggleButton.style.cssText = `
+      min-width: 92px;
+      height: 30px;
+      border-radius: 2px;
+      border: 1px solid rgba(109, 255, 138, 0.55);
+      background: linear-gradient(135deg, rgba(8, 33, 19, 0.8), rgba(4, 20, 13, 0.86));
+      color: rgba(163, 255, 192, 0.98);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      padding: 0 12px;
+      transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, opacity 0.18s ease;
+    `;
+    activeToggleButton.addEventListener('click', () => this.togglePetActiveState());
+
     nicknameRow.appendChild(nicknameLabel);
     nicknameRow.appendChild(nicknameEditButton);
     left.appendChild(nicknameRow);
     left.appendChild(statusLabel);
+    controls.appendChild(activeToggleButton);
+    this.activeToggleButtonElement = activeToggleButton;
+    this.updateActiveToggleButton(true);
 
     infoRow.appendChild(left);
+    infoRow.appendChild(controls);
     card.appendChild(visual);
     card.appendChild(infoRow);
 
@@ -812,6 +852,7 @@ export class PetPanel extends BasePanel {
     if (!normalizedState) return;
 
     this.lastPetNickname = normalizedState.petNickname;
+    this.lastPetIsActive = normalizedState.isActive !== false;
     const inputHasFocus = this.nicknameInputElement
       ? document.activeElement === this.nicknameInputElement
       : false;
@@ -820,7 +861,8 @@ export class PetPanel extends BasePanel {
     }
 
     this.updateField('petNickname', normalizedState.petNickname);
-    this.updateField('activeStatus', normalizedState.isActive ? 'active' : 'inactive');
+    this.updateActiveStatusField(this.lastPetIsActive);
+    this.updateActiveToggleButton(this.lastPetIsActive);
     this.updateField(
       'experience',
       `${normalizedState.experienceProgressInLevel}/${normalizedState.experienceForNextLevel}`
@@ -1194,6 +1236,67 @@ export class PetPanel extends BasePanel {
     }
     this.closeNicknameModal();
     this.showNicknameNotice('Nickname saved');
+  }
+
+  private togglePetActiveState(): void {
+    if (!this.petActiveSubmitter) {
+      this.showNicknameNotice('Network unavailable');
+      return;
+    }
+
+    const nextActiveState = !this.lastPetIsActive;
+    const sent = this.petActiveSubmitter(nextActiveState);
+    if (!sent) {
+      this.showNicknameNotice('Toggle failed');
+      return;
+    }
+
+    this.lastPetIsActive = nextActiveState;
+    this.updateActiveStatusField(nextActiveState);
+    this.updateActiveToggleButton(nextActiveState);
+    this.showNicknameNotice(nextActiveState ? 'Pet resumed' : 'Pet paused');
+  }
+
+  private updateActiveStatusField(isActive: boolean): void {
+    const field = this.content.querySelector<HTMLElement>('[data-pet-field="activeStatus"]');
+    if (!field) return;
+
+    field.textContent = isActive ? 'active' : 'paused';
+    field.style.color = isActive
+      ? 'rgba(109, 255, 138, 0.95)'
+      : 'rgba(248, 113, 113, 0.95)';
+  }
+
+  private updateActiveToggleButton(isActive: boolean): void {
+    const activeToggleButton = this.resolveActiveToggleButton();
+    if (!activeToggleButton) return;
+
+    if (isActive) {
+      activeToggleButton.textContent = 'Pause';
+      activeToggleButton.style.borderColor = 'rgba(248, 113, 113, 0.58)';
+      activeToggleButton.style.background = 'linear-gradient(135deg, rgba(52, 12, 12, 0.8), rgba(26, 8, 8, 0.86))';
+      activeToggleButton.style.color = 'rgba(254, 202, 202, 0.98)';
+      return;
+    }
+
+    activeToggleButton.textContent = 'Play';
+    activeToggleButton.style.borderColor = 'rgba(109, 255, 138, 0.55)';
+    activeToggleButton.style.background = 'linear-gradient(135deg, rgba(8, 33, 19, 0.8), rgba(4, 20, 13, 0.86))';
+    activeToggleButton.style.color = 'rgba(163, 255, 192, 0.98)';
+  }
+
+  private resolveActiveToggleButton(): HTMLButtonElement | null {
+    const contentRoot = this.content;
+    if (!contentRoot) {
+      return this.activeToggleButtonElement;
+    }
+
+    if (this.activeToggleButtonElement && contentRoot.contains(this.activeToggleButtonElement)) {
+      return this.activeToggleButtonElement;
+    }
+
+    this.activeToggleButtonElement = contentRoot.querySelector<HTMLButtonElement>('[data-pet-active-toggle]');
+    return this.activeToggleButtonElement;
   }
 
   private normalizeNickname(rawNickname: unknown): string {

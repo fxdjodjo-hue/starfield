@@ -580,6 +580,24 @@ export class ClientNetworkSystem extends BaseSystem {
     return true;
   }
 
+  sendPetActiveUpdateRequest(isActive: boolean): boolean {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return false;
+    }
+
+    if (typeof isActive !== 'boolean') {
+      return false;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.SET_PET_ACTIVE,
+      clientId: this.clientId,
+      isActive,
+      timestamp: Date.now()
+    });
+    return true;
+  }
+
   sendCraftItemRequest(recipeId: string): boolean {
     if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
       return false;

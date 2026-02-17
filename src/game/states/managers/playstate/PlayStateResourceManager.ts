@@ -327,6 +327,7 @@ export class PlayStateResourceManager {
       const remotePet = ecs.getComponent(entity, RemotePet);
       const transform = ecs.getComponent(entity, Transform);
       if ((!localPet && !remotePet) || !transform) continue;
+      if (localPet && !remotePet && localPet.isActive === false) continue;
 
       const sprite = ecs.getComponent(entity, Sprite);
       const animatedSprite = ecs.getComponent(entity, AnimatedSprite);
