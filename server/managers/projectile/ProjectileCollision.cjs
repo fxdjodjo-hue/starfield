@@ -3,6 +3,7 @@
 // Dipendenze: logger.cjs, mapServer
 
 const { logger } = require('../../logger.cjs');
+const PLAYER_HITBOX_RADIUS = 30;
 
 class ProjectileCollision {
   constructor(mapServer) {
@@ -91,32 +92,7 @@ class ProjectileCollision {
         Math.pow(projectile.position.x - playerData.position.x, 2) +
         Math.pow(projectile.position.y - playerData.position.y, 2)
       );
-
-      // Distanza di collisione dinamica basata sulla velocità relativa
-      const isNpcProjectile = projectile.playerId && typeof projectile.playerId === 'string' && projectile.playerId.startsWith('npc_');
-
-      // Calcola velocità del player
-      const playerVelX = playerData.position.velocityX || 0;
-      const playerVelY = playerData.position.velocityY || 0;
-      const playerSpeed = Math.sqrt(playerVelX * playerVelX + playerVelY * playerVelY);
-
-      // Velocità del proiettile
-      const projVelX = projectile.velocity.x || 0;
-      const projVelY = projectile.velocity.y || 0;
-      const projSpeed = Math.sqrt(projVelX * projVelX + projVelY * projVelY);
-
-      // Velocità relativa
-      const relativeSpeed = Math.max(playerSpeed, projSpeed);
-
-      // Raggio dinamico per player (aumenta con velocità alta)
-      let collisionRadius = 80;
-
-      // Aumenta raggio dinamicamente se player si muove velocemente
-      // Per ogni 100 px/s di velocità relativa, aggiungi 10px al raggio (max +80px)
-      if (relativeSpeed > 200) {
-        const speedBonus = Math.min(80, (relativeSpeed - 200) / 100 * 10);
-        collisionRadius += speedBonus;
-      }
+      const collisionRadius = PLAYER_HITBOX_RADIUS;
 
       if (distance < collisionRadius) {
         return { playerData, clientId };
@@ -204,30 +180,7 @@ class ProjectileCollision {
             Math.pow(projectile.position.x - playerData.position.x, 2) +
             Math.pow(projectile.position.y - playerData.position.y, 2)
           );
-
-          // Distanza di collisione dinamica basata sulla velocità relativa
-          // Calcola velocità del player per aumentare raggio se si muove velocemente
-          const playerVelX = playerData.position.velocityX || 0;
-          const playerVelY = playerData.position.velocityY || 0;
-          const playerSpeed = Math.sqrt(playerVelX * playerVelX + playerVelY * playerVelY);
-
-          // Velocità del proiettile
-          const projVelX = projectile.velocity.x || 0;
-          const projVelY = projectile.velocity.y || 0;
-          const projSpeed = Math.sqrt(projVelX * projVelX + projVelY * projVelY);
-
-          // Velocità relativa (quanto velocemente si avvicinano)
-          const relativeSpeed = Math.max(playerSpeed, projSpeed);
-
-          // Raggio dinamico per player target (aumenta con velocità alta)
-          let collisionRadius = 120; // AUMENTATO da 80 a 120 per player
-
-          // Aumenta raggio dinamicamente se player si muove velocemente
-          // Per ogni 100 px/s di velocità relativa, aggiungi 15px al raggio (max +120px)
-          if (relativeSpeed > 200) {
-            const speedBonus = Math.min(120, (relativeSpeed - 200) / 100 * 15);
-            collisionRadius += speedBonus;
-          }
+          const collisionRadius = PLAYER_HITBOX_RADIUS;
 
           if (distance < collisionRadius) {
             return { entity: playerData, type: 'player' };
