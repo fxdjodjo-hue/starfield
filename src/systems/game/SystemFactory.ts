@@ -205,7 +205,7 @@ export class SystemFactory {
     // Carica explosion frames
     let explosionFrames: any[] = [];
     try {
-      const explosionAtlasData = await AtlasParser.parseAtlas('assets/explosions/explosions_npc/explosion.atlas');
+      const explosionAtlasData = await AtlasParser.parseAtlas('assets/explosions/explosion.atlas');
       explosionFrames = await AtlasParser.extractFrames(explosionAtlasData);
 
       // Explosion frames sono gestiti dal ClientNetworkSystem per sincronizzazione

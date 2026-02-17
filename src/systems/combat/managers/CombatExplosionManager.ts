@@ -116,7 +116,7 @@ export class CombatExplosionManager {
    */
   async loadExplosionFrames(explosionType?: string): Promise<HTMLImageElement[]> {
     try {
-      const atlasPath = `assets/explosions/explosions_npc/explosion.atlas`;
+      const atlasPath = `assets/explosions/explosion.atlas`;
       const atlasData = await AtlasParser.parseAtlas(atlasPath);
       const frames = await AtlasParser.extractFrames(atlasData);
       return frames;

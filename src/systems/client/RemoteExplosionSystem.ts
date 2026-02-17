@@ -203,7 +203,7 @@ export class RemoteExplosionSystem extends BaseSystem {
       if (explosionType === 'projectile_impact') {
         atlasPath = `assets/missiles/rocketexplosion/rocketexp.atlas`;
       } else {
-        atlasPath = `assets/explosions/explosions_npc/explosion.atlas`;
+        atlasPath = `assets/explosions/explosion.atlas`;
       }
 
       const atlasData = await AtlasParser.parseAtlas(atlasPath);

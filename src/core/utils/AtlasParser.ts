@@ -17,6 +17,11 @@ export interface AtlasFrame {
 export interface AtlasData {
   image: HTMLImageElement;
   frames: AtlasFrame[];
+  pages?: Array<{
+    imagePath: string;
+    image: HTMLImageElement;
+    frames: AtlasFrame[];
+  }>;
 }
 
 export class AtlasParser {
@@ -61,24 +66,45 @@ export class AtlasParser {
       // Parsea tutte le sezioni dell'atlas
       const atlasSections = this.parseAtlasTextAll(atlasText);
 
-      // Trova la sezione richiesta (o usa la prima se non specificata)
-      const targetSection = targetImageName
-        ? atlasSections.find(section => section.imagePath === targetImageName)
-        : atlasSections[0];
-
-      if (!targetSection) {
-        throw new Error(`Target image "${targetImageName}" not found in atlas ${atlasPath}. Available: ${atlasSections.map(s => s.imagePath).join(', ')}`);
-      }
-
       // Costruisci il path dell'immagine basandosi sulla directory dell'atlas
       // Estrai la directory base dall'atlasPath (es. /assets/repair/hprestore/hprestore.atlas -> /assets/repair/hprestore/)
       const atlasDir = atlasPath.substring(0, atlasPath.lastIndexOf('/') + 1);
-      const fullImagePath = `${atlasDir}${targetSection.imagePath}`;
 
-      // Carica l'immagine atlas
-      const image = await this.loadImage(fullImagePath);
+      // Se richiesta una pagina specifica, comportamento legacy
+      if (targetImageName) {
+        const targetSection = atlasSections.find(section => section.imagePath === targetImageName);
+        if (!targetSection) {
+          throw new Error(`Target image "${targetImageName}" not found in atlas ${atlasPath}. Available: ${atlasSections.map(s => s.imagePath).join(', ')}`);
+        }
 
-      return { image, frames: targetSection.frames };
+        const fullImagePath = `${atlasDir}${targetSection.imagePath}`;
+        const image = await this.loadImage(fullImagePath);
+        return { image, frames: targetSection.frames };
+      }
+
+      // Multi-page atlas: carica tutte le pagine in ordine
+      const pages = await Promise.all(
+        atlasSections.map(async (section) => {
+          const fullImagePath = `${atlasDir}${section.imagePath}`;
+          const image = await this.loadImage(fullImagePath);
+          return {
+            imagePath: section.imagePath,
+            image,
+            frames: section.frames
+          };
+        })
+      );
+
+      if (pages.length === 0) {
+        throw new Error(`No sections found in atlas ${atlasPath}`);
+      }
+
+      // Mantieni campi legacy per compatibilità, aggiungendo supporto multi-page in "pages"
+      return {
+        image: pages[0].image,
+        frames: pages[0].frames,
+        pages
+      };
     } catch (error) {
       console.error('Error parsing atlas:', error);
       throw error;
@@ -303,6 +329,13 @@ export class AtlasParser {
    * Estrae tutti i frame dall'atlas
    */
   static async extractFrames(atlasData: AtlasData): Promise<HTMLImageElement[]> {
+    if (atlasData.pages && atlasData.pages.length > 0) {
+      const pageFramePromises = atlasData.pages.flatMap(page =>
+        page.frames.map(frame => this.extractFrame(page.image, frame))
+      );
+      return await Promise.all(pageFramePromises);
+    }
+
     const framePromises = atlasData.frames.map(frame => this.extractFrame(atlasData.image, frame));
     return await Promise.all(framePromises);
   }
