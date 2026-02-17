@@ -5,6 +5,7 @@ import { Transform } from '../../entities/spatial/Transform';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { ResourceNode } from '../../entities/spatial/ResourceNode';
 import { ResourceCollectEffect } from '../../entities/spatial/ResourceCollectEffect';
+import { ProjectileVisualState } from '../../entities/combat/ProjectileVisualState';
 import { getResourceDefinition } from '../../config/ResourceConfig';
 import type { ClientNetworkSystem } from '../../multiplayer/client/ClientNetworkSystem';
 
@@ -60,6 +61,7 @@ export class ResourceInteractionSystem extends BaseSystem {
   private readonly RESOURCE_COLLECT_CHANNEL_EFFECT_SCALE = 1.6;
   private readonly RESOURCE_COLLECT_CHANNEL_EFFECT_MIDPOINT_RATIO = 0.5;
   private readonly COLLECT_MOVEMENT_LOCK_DURATION_MS = 2400;
+  private readonly RESOURCE_REMOVAL_FADE_DURATION_MS = 260;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -177,30 +179,17 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.resourceEntities.delete(resourceId);
     this.pendingCollectRequests.delete(resourceId);
 
-    if (suppressRemovalEffect) {
-      if (entity && this.ecs.entityExists(entity.id)) {
-        this.ecs.removeEntity(entity);
-      }
-      return;
-    }
-
-    if (hadCollectChannelEffect) {
-      if (entity && this.ecs.entityExists(entity.id)) {
-        this.ecs.removeEntity(entity);
-      }
-      return;
-    }
-
-    const effectDurationMs = Number.isFinite(effectX) && Number.isFinite(effectY)
+    const shouldSpawnRemovalEffect = !suppressRemovalEffect && !hadCollectChannelEffect;
+    const effectDurationMs = shouldSpawnRemovalEffect && Number.isFinite(effectX) && Number.isFinite(effectY)
       ? this.spawnCollectEffect(effectX, effectY)
       : null;
 
     if (entity && this.ecs.entityExists(entity.id)) {
-      this.pendingResourceRemovals.set(resourceId, {
+      this.startPendingResourceRemoval(
+        resourceId,
         entity,
-        elapsedMs: 0,
-        durationMs: effectDurationMs ?? 260
-      });
+        effectDurationMs ?? this.RESOURCE_REMOVAL_FADE_DURATION_MS
+      );
     }
   }
 
@@ -637,6 +626,38 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.collectEffectByResourceId.clear();
   }
 
+  private startPendingResourceRemoval(
+    resourceId: string,
+    entity: Entity,
+    durationMs: number
+  ): void {
+    const normalizedDurationMs = Math.max(
+      16,
+      Math.floor(
+        Number.isFinite(Number(durationMs))
+          ? Number(durationMs)
+          : this.RESOURCE_REMOVAL_FADE_DURATION_MS
+      )
+    );
+
+    let visualState = this.ecs.getComponent(entity, ProjectileVisualState);
+    if (!visualState) {
+      visualState = new ProjectileVisualState(true, true);
+      this.ecs.addComponent(entity, ProjectileVisualState, visualState);
+    }
+
+    visualState.active = true;
+    visualState.visible = true;
+    visualState.markedForRemoval = false;
+    visualState.setAlpha(1);
+
+    this.pendingResourceRemovals.set(resourceId, {
+      entity,
+      elapsedMs: 0,
+      durationMs: normalizedDurationMs
+    });
+  }
+
   private processPendingResourceRemovals(deltaTime: number): void {
     const stepMs = Number.isFinite(deltaTime) && deltaTime > 0 ? deltaTime : 16;
 
@@ -647,7 +668,20 @@ export class ResourceInteractionSystem extends BaseSystem {
       }
 
       removalState.elapsedMs += stepMs;
-      if (removalState.elapsedMs >= removalState.durationMs) {
+      const durationMs = Math.max(
+        1,
+        Number.isFinite(Number(removalState.durationMs))
+          ? Number(removalState.durationMs)
+          : this.RESOURCE_REMOVAL_FADE_DURATION_MS
+      );
+
+      const fadeProgress = Math.max(0, Math.min(1, removalState.elapsedMs / durationMs));
+      const visualState = this.ecs.getComponent(removalState.entity, ProjectileVisualState);
+      if (visualState) {
+        visualState.setAlpha(1 - fadeProgress);
+      }
+
+      if (removalState.elapsedMs >= durationMs) {
         if (this.ecs.entityExists(removalState.entity.id)) {
           this.ecs.removeEntity(removalState.entity);
         }

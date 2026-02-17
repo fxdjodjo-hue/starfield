@@ -222,7 +222,7 @@ export class RenderSystem extends BaseSystem {
     camera?: Camera
   ): void {
     // CONTROLLA STATO VISIVO PRIMA DI OGNI RENDERING
-    const visualState = components.projectile ? this.ecs.getComponent(entity, ProjectileVisualState) : null;
+    const visualState = components.projectileVisualState || null;
     if (visualState && !visualState.shouldRender()) {
       return;
     }
