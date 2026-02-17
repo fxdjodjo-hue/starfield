@@ -1,8 +1,16 @@
 import { BasePanel } from './FloatingIcon';
 import type { PanelConfig } from './PanelConfig';
+import { getResourceDefinition, listResourceDefinitions } from '../../config/ResourceConfig';
+
+const RESOURCE_SLOT_CAPACITY = 8;
+const RESOURCE_DESCRIPTIONS: Record<string, string> = {
+  cuprite: 'Raw crystal ore used for crafting modules and ship components.'
+};
 
 export class CraftingPanel extends BasePanel {
   private readonly resourceInventoryProvider: (() => Record<string, number> | null) | null;
+  private resourceTooltip: HTMLElement | null = null;
+  private hoveredResourceSlot: HTMLElement | null = null;
 
   constructor(config: PanelConfig, resourceInventoryProvider?: (() => Record<string, number> | null)) {
     const normalizedProvider = typeof resourceInventoryProvider === 'function'
@@ -33,14 +41,10 @@ export class CraftingPanel extends BasePanel {
     `;
 
     const header = this.createHeader();
-    const statusCard = this.createStatusCard();
-    const resourcesBlock = this.createResourceBlock();
-    const recipesBlock = this.createRecipesBlock();
+    const body = this.createBodyLayout();
 
     content.appendChild(header);
-    content.appendChild(statusCard);
-    content.appendChild(resourcesBlock);
-    content.appendChild(recipesBlock);
+    content.appendChild(body);
 
     return content;
   }
@@ -113,47 +117,51 @@ export class CraftingPanel extends BasePanel {
     return header;
   }
 
-  private createStatusCard(): HTMLElement {
-    const card = document.createElement('div');
-    card.style.cssText = `
-      border: 1px solid rgba(56, 189, 248, 0.35);
-      background: linear-gradient(135deg, rgba(14, 116, 144, 0.35), rgba(2, 6, 23, 0.3));
+  private createBodyLayout(): HTMLElement {
+    const body = document.createElement('div');
+    body.style.cssText = `
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 14px;
+      min-height: 0;
+      flex: 1;
+    `;
+
+    body.appendChild(this.createWorkbenchPane());
+    body.appendChild(this.createResourceInventoryPane());
+    return body;
+  }
+
+  private createWorkbenchPane(): HTMLElement {
+    const pane = document.createElement('section');
+    pane.style.cssText = `
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 12px;
-      padding: 12px 14px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 12px;
+      background: linear-gradient(145deg, rgba(2, 6, 23, 0.5), rgba(0, 0, 0, 0.25));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
     `;
 
     const label = document.createElement('div');
+    label.textContent = 'WORK AREA';
     label.style.cssText = `
-      font-size: 12px;
-      letter-spacing: 0.8px;
+      position: absolute;
+      top: 12px;
+      left: 14px;
+      font-size: 10px;
+      letter-spacing: 1.1px;
       text-transform: uppercase;
-      color: rgba(186, 230, 253, 0.95);
+      color: rgba(186, 230, 253, 0.72);
       font-weight: 700;
     `;
-    label.textContent = 'Crafting system ready for recipes wiring';
 
-    const state = document.createElement('div');
-    state.style.cssText = `
-      font-size: 11px;
-      font-weight: 700;
-      color: rgba(255, 255, 255, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 6px 10px;
-      border-radius: 999px;
-      white-space: nowrap;
-    `;
-    state.textContent = 'WIP';
-
-    card.appendChild(label);
-    card.appendChild(state);
-    return card;
+    pane.appendChild(label);
+    return pane;
   }
 
-  private createResourceBlock(): HTMLElement {
+  private createResourceInventoryPane(): HTMLElement {
     const block = document.createElement('section');
     block.style.cssText = `
       border: 1px solid rgba(255, 255, 255, 0.1);
@@ -162,11 +170,12 @@ export class CraftingPanel extends BasePanel {
       background: rgba(0, 0, 0, 0.2);
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
+      min-height: 0;
     `;
 
     const title = document.createElement('h3');
-    title.textContent = 'Resource Bank';
+    title.textContent = 'Resource Inventory';
     title.style.cssText = `
       margin: 0;
       font-size: 13px;
@@ -176,123 +185,244 @@ export class CraftingPanel extends BasePanel {
       font-weight: 700;
     `;
 
+    const cards = document.createElement('div');
+    cards.style.cssText = `
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 6px;
+      align-items: stretch;
+      overflow-y: auto;
+      padding-right: 2px;
+    `;
+
+    const resourceTypes = listResourceDefinitions().map((resource) => resource.id);
+    for (let slotIndex = 0; slotIndex < RESOURCE_SLOT_CAPACITY; slotIndex++) {
+      const resourceType = slotIndex < resourceTypes.length ? resourceTypes[slotIndex] : null;
+      cards.appendChild(this.createResourceSlot(resourceType));
+    }
+
     block.appendChild(title);
-    block.appendChild(this.createResourceRow('cuprite', 'Cuprite'));
+    block.appendChild(cards);
 
     return block;
   }
 
-  private createResourceRow(resourceType: string, label: string): HTMLElement {
-    const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
-    const row = document.createElement('div');
-    row.dataset.resourceType = normalizedResourceType;
-    row.style.cssText = `
+  private createResourceSlot(resourceType: string | null): HTMLElement {
+    const slot = document.createElement('div');
+    slot.style.cssText = `
       display: flex;
+      flex-direction: column;
       justify-content: space-between;
       align-items: center;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 10px;
-      padding: 10px 12px;
+      gap: 4px;
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 7px;
+      padding: 6px 5px;
+      box-sizing: border-box;
+      transition: border-color 0.18s ease, background 0.18s ease;
     `;
+
+    if (!resourceType) {
+      slot.style.background = 'rgba(255, 255, 255, 0.02)';
+      slot.style.border = '1px dashed rgba(255, 255, 255, 0.14)';
+      const empty = document.createElement('div');
+      empty.textContent = 'Empty Slot';
+      empty.style.cssText = `
+        margin-top: auto;
+        margin-bottom: auto;
+        font-size: 8px;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.36);
+        font-weight: 700;
+        line-height: 1.1;
+        text-align: center;
+      `;
+      slot.appendChild(empty);
+      return slot;
+    }
+
+    const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
+    const definition = getResourceDefinition(normalizedResourceType);
+    const label = definition?.displayName || normalizedResourceType;
+    slot.dataset.resourceType = normalizedResourceType;
+    slot.style.cursor = 'help';
+    slot.dataset.resourceTooltip = this.buildResourceTooltip(normalizedResourceType, 0);
+    slot.style.background = 'linear-gradient(160deg, rgba(14, 116, 144, 0.24), rgba(2, 6, 23, 0.46))';
+    slot.style.border = '1px solid rgba(125, 211, 252, 0.24)';
+    slot.onmouseenter = (event: MouseEvent) => {
+      slot.style.borderColor = 'rgba(186, 230, 253, 0.45)';
+      slot.style.background = 'linear-gradient(160deg, rgba(14, 116, 144, 0.3), rgba(2, 6, 23, 0.5))';
+      this.hoveredResourceSlot = slot;
+      this.showResourceTooltip(slot.dataset.resourceTooltip || '', event);
+    };
+    slot.onmousemove = (event: MouseEvent) => {
+      if (this.hoveredResourceSlot === slot) {
+        this.positionResourceTooltip(event);
+      }
+    };
+    slot.onmouseleave = () => {
+      slot.style.borderColor = 'rgba(125, 211, 252, 0.24)';
+      slot.style.background = 'linear-gradient(160deg, rgba(14, 116, 144, 0.24), rgba(2, 6, 23, 0.46))';
+      if (this.hoveredResourceSlot === slot) {
+        this.hoveredResourceSlot = null;
+      }
+      this.hideResourceTooltip();
+    };
+
+    const previewPath = this.getResourcePreviewPath(normalizedResourceType);
+    if (previewPath) {
+      const preview = document.createElement('img');
+      preview.src = previewPath;
+      preview.alt = `${label} preview`;
+      preview.style.cssText = `
+        width: 19px;
+        height: 19px;
+        object-fit: contain;
+        filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+        margin-top: 1px;
+      `;
+      slot.appendChild(preview);
+    }
 
     const name = document.createElement('div');
     name.style.cssText = `
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.9);
-      font-weight: 600;
-      letter-spacing: 0.3px;
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 700;
+      letter-spacing: 0.2px;
+      text-align: center;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     `;
     name.textContent = label;
+    slot.appendChild(name);
 
     const value = document.createElement('div');
     value.style.cssText = `
-      font-size: 15px;
-      color: #ffffff;
-      font-weight: 800;
+      margin-top: auto;
+      min-width: 0;
+      text-align: center;
+      padding: 0;
+      border: none;
+      background: transparent;
+      font-size: 11px;
+      color: rgba(186, 230, 253, 0.96);
+      font-weight: 700;
       font-family: 'Consolas', 'Courier New', monospace;
+      line-height: 1;
+      text-shadow: none;
     `;
     value.dataset.resourceValue = normalizedResourceType;
     value.textContent = '0';
 
-    row.appendChild(name);
-    row.appendChild(value);
-    return row;
+    slot.appendChild(value);
+    return slot;
   }
 
-  private createRecipesBlock(): HTMLElement {
-    const block = document.createElement('section');
-    block.style.cssText = `
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 12px;
-      background: rgba(0, 0, 0, 0.2);
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
-      flex: 1;
-      min-height: 0;
-    `;
-
-    block.appendChild(this.createRecipeCard('Hull Plating Mk1', 'Need recipe data'));
-    block.appendChild(this.createRecipeCard('Shield Core Mk1', 'Need recipe data'));
-    block.appendChild(this.createRecipeCard('Engine Coil Mk1', 'Need recipe data'));
-
-    return block;
+  private getResourcePreviewPath(resourceType: string): string | null {
+    if (resourceType === 'cuprite') {
+      return 'assets/resources/previews/resource_2.png';
+    }
+    return null;
   }
 
-  private createRecipeCard(titleText: string, helperText: string): HTMLElement {
-    const card = document.createElement('div');
-    card.style.cssText = `
-      border: 1px solid rgba(255, 255, 255, 0.09);
-      border-radius: 10px;
-      padding: 12px;
-      background: rgba(255, 255, 255, 0.03);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      gap: 10px;
-      min-height: 130px;
-    `;
+  private getResourceDescription(resourceType: string): string {
+    const normalized = String(resourceType || '').trim().toLowerCase();
+    return RESOURCE_DESCRIPTIONS[normalized] || 'Crafting resource';
+  }
 
-    const title = document.createElement('div');
-    title.style.cssText = `
-      font-size: 13px;
-      font-weight: 700;
-      color: rgba(255, 255, 255, 0.92);
-      line-height: 1.3;
-    `;
-    title.textContent = titleText;
+  private buildResourceTooltip(resourceType: string, quantity: number): string {
+    const definition = getResourceDefinition(resourceType);
+    const label = definition?.displayName || resourceType;
+    const description = this.getResourceDescription(resourceType);
+    return `${label}\n${description}\nOwned: ${Math.max(0, Math.floor(Number(quantity) || 0))}`;
+  }
 
-    const helper = document.createElement('div');
-    helper.style.cssText = `
-      font-size: 12px;
-      color: rgba(255, 255, 255, 0.6);
-      line-height: 1.35;
-    `;
-    helper.textContent = helperText;
+  private ensureResourceTooltipElement(): HTMLElement {
+    if (this.resourceTooltip && document.body.contains(this.resourceTooltip)) {
+      return this.resourceTooltip;
+    }
 
-    const button = document.createElement('button');
-    button.textContent = 'Unavailable';
-    button.disabled = true;
-    button.style.cssText = `
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      background: rgba(255, 255, 255, 0.08);
-      color: rgba(255, 255, 255, 0.55);
+    const tooltip = document.createElement('div');
+    tooltip.style.cssText = `
+      position: fixed;
+      left: 0;
+      top: 0;
+      max-width: 280px;
+      padding: 9px 11px;
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid rgba(125, 211, 252, 0.36);
       border-radius: 8px;
-      height: 32px;
+      color: rgba(255, 255, 255, 0.95);
       font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
-      text-transform: uppercase;
-      cursor: not-allowed;
+      line-height: 1.45;
+      letter-spacing: 0.25px;
+      white-space: pre-line;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.12s ease, transform 0.12s ease;
+      z-index: 2600;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      box-sizing: border-box;
     `;
 
-    card.appendChild(title);
-    card.appendChild(helper);
-    card.appendChild(button);
+    document.body.appendChild(tooltip);
+    this.resourceTooltip = tooltip;
+    return tooltip;
+  }
 
-    return card;
+  private showResourceTooltip(text: string, event: MouseEvent): void {
+    const tooltipText = String(text || '').trim();
+    if (!tooltipText) return;
+
+    const tooltip = this.ensureResourceTooltipElement();
+    tooltip.textContent = tooltipText;
+    tooltip.style.opacity = '1';
+    tooltip.style.transform = 'translateY(0)';
+    this.positionResourceTooltip(event);
+  }
+
+  private positionResourceTooltip(event: MouseEvent): void {
+    if (!this.resourceTooltip) return;
+
+    const offsetX = 14;
+    const offsetY = 18;
+    const margin = 10;
+    let left = event.clientX + offsetX;
+    let top = event.clientY + offsetY;
+
+    const rect = this.resourceTooltip.getBoundingClientRect();
+    if (left + rect.width + margin > window.innerWidth) {
+      left = event.clientX - rect.width - offsetX;
+    }
+    if (top + rect.height + margin > window.innerHeight) {
+      top = window.innerHeight - rect.height - margin;
+    }
+
+    left = Math.max(margin, left);
+    top = Math.max(margin, top);
+
+    this.resourceTooltip.style.left = `${Math.round(left)}px`;
+    this.resourceTooltip.style.top = `${Math.round(top)}px`;
+  }
+
+  private hideResourceTooltip(): void {
+    if (!this.resourceTooltip) return;
+    this.resourceTooltip.style.opacity = '0';
+    this.resourceTooltip.style.transform = 'translateY(4px)';
+  }
+
+  private removeResourceTooltip(): void {
+    if (!this.resourceTooltip) return;
+    if (this.resourceTooltip.parentNode) {
+      this.resourceTooltip.parentNode.removeChild(this.resourceTooltip);
+    }
+    this.resourceTooltip = null;
   }
 
   override update(data: any): void {
@@ -311,16 +441,20 @@ export class CraftingPanel extends BasePanel {
         : 0;
     }
 
-    const resourceRows = this.content.querySelectorAll<HTMLElement>('[data-resource-type]');
-    for (const row of resourceRows) {
-      const normalizedType = String(row.dataset.resourceType || '').trim().toLowerCase();
+    const valueElements = this.content.querySelectorAll<HTMLElement>('[data-resource-value]');
+    for (const valueElement of valueElements) {
+      const normalizedType = String(valueElement.dataset.resourceValue || '').trim().toLowerCase();
       if (!normalizedType) continue;
-
       const quantity = Math.max(0, Math.floor(Number(normalizedInventory[normalizedType] || 0)));
-      const valueElement = row.querySelector<HTMLElement>('[data-resource-value]');
-      if (!valueElement) continue;
-
       valueElement.textContent = String(quantity);
+      const slot = valueElement.closest<HTMLElement>('[data-resource-type]');
+      if (slot) {
+        const tooltipText = this.buildResourceTooltip(normalizedType, quantity);
+        slot.dataset.resourceTooltip = tooltipText;
+        if (this.hoveredResourceSlot === slot && this.resourceTooltip) {
+          this.resourceTooltip.textContent = tooltipText;
+        }
+      }
     }
   }
 
@@ -329,5 +463,16 @@ export class CraftingPanel extends BasePanel {
     const resourceInventory = this.resourceInventoryProvider();
     if (!resourceInventory || typeof resourceInventory !== 'object') return;
     this.update({ resourceInventory });
+  }
+
+  protected override onHide(): void {
+    this.hoveredResourceSlot = null;
+    this.hideResourceTooltip();
+  }
+
+  override destroy(): void {
+    this.hoveredResourceSlot = null;
+    this.removeResourceTooltip();
+    super.destroy();
   }
 }
