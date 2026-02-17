@@ -72,7 +72,13 @@ class NpcSpawner {
     }
 
     // Statistiche base per tipo dal config condiviso
-    const stats = NPC_CONFIG[validType].stats;
+    const npcTypeConfig = NPC_CONFIG[validType];
+    if (!npcTypeConfig || !npcTypeConfig.stats) {
+      logger.error('NPC', `Invalid NPC type "${validType}" requested for spawn (${npcId})`);
+      return null;
+    }
+
+    const stats = npcTypeConfig.stats;
 
     // Velocità iniziale basata sulla configurazione NPC (direzione casuale, velocità dalla config)
     const initialSpeed = stats.speed; // Usa velocità massima - poi regolata dal sistema di movimento
@@ -92,7 +98,7 @@ class NpcSpawner {
       maxShield: stats.shield,
       damage: stats.damage, // Aggiungi danno per combat
       lastBounce: 0, // Timestamp dell'ultimo rimbalzo ai confini
-      behavior: NPC_CONFIG[validType].defaultBehavior || 'cruise',
+      behavior: npcTypeConfig.defaultBehavior || 'cruise',
       lastUpdate: Date.now(),
       lastSignificantMove: 0, // Non è stato ancora trasmesso, impostiamo a 0
       lastDamage: null, // Non danneggiato ancora

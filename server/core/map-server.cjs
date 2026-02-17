@@ -30,7 +30,6 @@ class MapServer {
     this.npcManager = new ServerNpcManager(this);
     this.projectileManager = new ServerProjectileManager(this);
     this.combatManager = new ServerCombatManager(this);
-    this.combatManager = new ServerCombatManager(this);
     this.repairManager = new RepairManager(this);
     this.hazardManager = new HazardManager(this);
     this.resourceManager = new MapResourceManager(this);
@@ -102,7 +101,17 @@ class MapServer {
 
       // 1. Movimento NPC (Sempre a 20 Hz per precisione fisica server)
       if (this.bossEncounterManager) {
-        this.bossEncounterManager.update(tickNow);
+        try {
+          this.bossEncounterManager.update(tickNow);
+        } catch (bossError) {
+          ServerLoggerWrapper.error(
+            'BOSS_EVENT',
+            `Boss update failed in map ${this.mapId}: ${bossError.message}`
+          );
+          if (bossError && bossError.stack) {
+            ServerLoggerWrapper.error('BOSS_EVENT', bossError.stack);
+          }
+        }
       }
 
       const allNpcs = this.npcManager.getAllNpcs();
@@ -146,6 +155,9 @@ class MapServer {
 
     } catch (error) {
       ServerLoggerWrapper.error('MAP', `Error in tick for map ${this.mapId}: ${error.message}`);
+      if (error && error.stack) {
+        ServerLoggerWrapper.error('MAP', error.stack);
+      }
     }
   }
 

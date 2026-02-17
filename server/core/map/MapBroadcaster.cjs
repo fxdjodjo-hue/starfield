@@ -63,7 +63,7 @@ class MapBroadcaster {
 
     for (const [clientId, playerData] of players.entries()) {
       if (excludeClientId && clientId === excludeClientId) continue;
-      if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
+      if (!playerData.position || !playerData.ws || playerData.ws.readyState !== WebSocket.OPEN) continue;
 
       // Calcola distanza quadrata
       const dx = playerData.position.x - position.x;
@@ -72,7 +72,11 @@ class MapBroadcaster {
 
       // Invia solo se entro il raggio
       if (distSq <= radiusSq) {
-        playerData.ws.send(payload);
+        try {
+          playerData.ws.send(payload);
+        } catch (error) {
+          ServerLoggerWrapper.error('NETWORK', `Error sending near-broadcast to ${clientId}: ${error.message}`);
+        }
       }
     }
   }
@@ -91,7 +95,7 @@ class MapBroadcaster {
 
     // Per ogni giocatore connesso, invia NPC nel suo raggio di interesse
     for (const [clientId, playerData] of players.entries()) {
-      if (!playerData.position || playerData.ws.readyState !== WebSocket.OPEN) continue;
+      if (!playerData.position || !playerData.ws || playerData.ws.readyState !== WebSocket.OPEN) continue;
 
       // Filtra NPC entro il raggio
       const relevantNpcs = [];
@@ -126,7 +130,11 @@ class MapBroadcaster {
         t: Date.now()    // 't' invece di 'timestamp'
       };
 
-      playerData.ws.send(JSON.stringify(message));
+      try {
+        playerData.ws.send(JSON.stringify(message));
+      } catch (error) {
+        ServerLoggerWrapper.error('NETWORK', `Error sending npc_bulk_update to ${clientId}: ${error.message}`);
+      }
     }
   }
 }

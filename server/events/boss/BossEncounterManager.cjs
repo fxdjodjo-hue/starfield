@@ -28,6 +28,9 @@ class BossEncounterManager {
    */
   update(now = Date.now()) {
     if (!this.config.enabled) return;
+    if (!Array.isArray(this.config.phases) || this.config.phases.length === 0) {
+      return;
+    }
 
     if (this.activeEncounter) {
       this.updateActiveEncounter(now);
@@ -201,6 +204,7 @@ class BossEncounterManager {
     const encounter = this.activeEncounter;
     if (!encounter || !bossNpc) return;
     if (encounter.phaseTransition) return;
+    if (!Array.isArray(this.config.phases) || this.config.phases.length === 0) return;
 
     const isLastPhase = encounter.phaseIndex >= this.config.phases.length - 1;
     if (isLastPhase) return;
@@ -215,6 +219,10 @@ class BossEncounterManager {
     const encounter = this.activeEncounter;
     if (!encounter || !bossNpc) return;
     if (encounter.phaseTransition) return;
+    if (!Array.isArray(this.config.phases) || this.config.phases.length === 0) {
+      this.endEncounter('invalid_phase_config', now);
+      return;
+    }
 
     const nextPhaseIndex = encounter.phaseIndex + 1;
     const nextPhaseConfig = this.config.phases[nextPhaseIndex];
