@@ -240,45 +240,67 @@ class WebSocketConnectionManager {
         }
       });
 
-      ws.on('close', async () => {
-        if (playerData) {
-          ServerLoggerWrapper.info('PLAYER', `Player left: ${playerData.playerId}`);
+      ws.on('close', async (code, reasonBuffer) => {
+        const closeReason = Buffer.isBuffer(reasonBuffer) && reasonBuffer.length > 0
+          ? reasonBuffer.toString('utf8')
+          : (typeof reasonBuffer === 'string' && reasonBuffer.length > 0 ? reasonBuffer : 'no_reason');
+        const safeCloseReason = String(closeReason).slice(0, 200);
 
-          // Salva i dati del giocatore prima della disconnessione
+        if (!playerData) {
+          ServerLoggerWrapper.warn('PLAYER', `Unknown client disconnected (code=${code}, reason=${safeCloseReason})`);
+          return;
+        }
+
+        const clientId = playerData.clientId;
+        const playerMapInfo = clientId ? this.mapManager.findPlayerMap(clientId) : null;
+        const mapServer = playerMapInfo?.mapInstance || null;
+        const activePlayerData = mapServer ? mapServer.players.get(clientId) : null;
+
+        // Reconnection race guard:
+        // if this close belongs to an old socket, do not remove/save the active player session.
+        if (activePlayerData && activePlayerData.ws && activePlayerData.ws !== ws) {
+          ServerLoggerWrapper.info(
+            'PLAYER',
+            `Ignoring stale socket close for player ${playerData.playerId} (clientId=${clientId}, code=${code}, reason=${safeCloseReason})`
+          );
+          return;
+        }
+
+        const sessionPlayerData = activePlayerData || playerData;
+        ServerLoggerWrapper.info(
+          'PLAYER',
+          `Player left: ${sessionPlayerData.playerId} (clientId=${sessionPlayerData.clientId}, code=${code}, reason=${safeCloseReason})`
+        );
+
+        // CLEANUP IMMEDIATO: evita che combat/repair continuino durante save DB.
+        if (mapServer && activePlayerData) {
           try {
-            ServerLoggerWrapper.database(`Saving player data on disconnect for ${playerData.userId}`);
-            await this.playerDataManager.savePlayerData(playerData);
-          } catch (saveError) {
-            ServerLoggerWrapper.error('DATABASE', `Failed to save player data on disconnect: ${saveError.message}`);
+            const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(sessionPlayerData.clientId);
+            mapServer.broadcastToMap(playerLeftMsg);
+          } catch (broadcastError) {
+            ServerLoggerWrapper.error('WEBSOCKET', `Failed to broadcast player left: ${broadcastError.message}`);
           }
 
-          // CLEANUP: Rimuovi SEMPRE il giocatore dalla mappa, anche se il salvataggio fallisce
-          const playerMapInfo = this.mapManager.findPlayerMap(playerData.clientId);
-          if (playerMapInfo) {
-            const mapServer = playerMapInfo.mapInstance;
-
-            // Broadcast player left
-            try {
-              const playerLeftMsg = this.messageBroadcaster.formatPlayerLeftMessage(playerData.clientId);
-              mapServer.broadcastToMap(playerLeftMsg);
-            } catch (broadcastError) {
-              ServerLoggerWrapper.error('WEBSOCKET', `Failed to broadcast player left: ${broadcastError.message}`);
-            }
-
-            mapServer.removePlayer(playerData.clientId);
-
-            // Rimuovi anche dalla queue degli aggiornamenti posizione
-            mapServer.positionUpdateQueue.delete(playerData.clientId);
-
-            // Rimuovi stato riparazione
-            if (mapServer.repairManager) {
-              mapServer.repairManager.removePlayer(playerData.clientId);
-            }
-
-            ServerLoggerWrapper.debug('SERVER', `Remaining players in ${playerMapInfo.mapId}: ${mapServer.players.size}`);
+          if (mapServer.combatManager && typeof mapServer.combatManager.stopPlayerCombat === 'function') {
+            mapServer.combatManager.stopPlayerCombat(sessionPlayerData.clientId);
           }
-        } else {
-          ServerLoggerWrapper.warn('PLAYER', 'Unknown client disconnected');
+
+          mapServer.positionUpdateQueue.delete(sessionPlayerData.clientId);
+
+          if (mapServer.repairManager) {
+            mapServer.repairManager.removePlayer(sessionPlayerData.clientId);
+          }
+
+          mapServer.removePlayer(sessionPlayerData.clientId);
+          ServerLoggerWrapper.debug('SERVER', `Remaining players in ${playerMapInfo.mapId}: ${mapServer.players.size}`);
+        }
+
+        // Salvataggio dati dopo cleanup per evitare side-effect durante la disconnessione.
+        try {
+          ServerLoggerWrapper.database(`Saving player data on disconnect for ${sessionPlayerData.userId}`);
+          await this.playerDataManager.savePlayerData(sessionPlayerData);
+        } catch (saveError) {
+          ServerLoggerWrapper.error('DATABASE', `Failed to save player data on disconnect: ${saveError.message}`);
         }
       });
 
