@@ -149,22 +149,9 @@ class CraftingManager {
         });
       }
 
-      const currentModuleSlot = previousPetState.moduleSlot && typeof previousPetState.moduleSlot === 'object'
-        ? previousPetState.moduleSlot
-        : null;
-      const currentSlotItemId = String(currentModuleSlot?.itemId || currentModuleSlot?.itemName || '').trim();
-      const shouldAutoEquip = currentSlotItemId.length === 0;
-
       nextPetState = normalizePlayerPetState({
         ...previousPetState,
-        moduleSlot: shouldAutoEquip
-          ? {
-            itemId: moduleEntry.itemId,
-            itemName: moduleEntry.itemName,
-            rarity: moduleEntry.rarity,
-            level: moduleEntry.level
-          }
-          : previousPetState.moduleSlot,
+        moduleSlot: previousPetState.moduleSlot,
         inventory: currentInventory,
         inventoryCapacity: Math.max(
           currentInventory.length,

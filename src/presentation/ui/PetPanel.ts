@@ -47,6 +47,7 @@ export class PetPanel extends BasePanel {
   private readonly petStateProvider: (() => PetStatePayload | null) | null;
   private readonly petNicknameSubmitter: ((petNickname: string) => boolean) | null;
   private readonly petActiveSubmitter: ((isActive: boolean) => boolean) | null;
+  private readonly petModuleSubmitter: ((moduleItemId: string | null) => boolean) | null;
   private nicknameModalElement: HTMLElement | null = null;
   private nicknameNoticeElement: HTMLElement | null = null;
   private nicknameNoticeTimeoutId: number | null = null;
@@ -56,6 +57,9 @@ export class PetPanel extends BasePanel {
   private moduleSlotNameElement: HTMLElement | null = null;
   private moduleSlotMetaElement: HTMLElement | null = null;
   private moduleSlotRarityElement: HTMLElement | null = null;
+  private moduleSlotCardElement: HTMLElement | null = null;
+  private moduleSlotIconElement: HTMLElement | null = null;
+  private moduleSlotStatusElement: HTMLElement | null = null;
   private activeToggleButtonElement: HTMLButtonElement | null = null;
   private petInventoryGridElement: HTMLElement | null = null;
   private petInventoryCountElement: HTMLElement | null = null;
@@ -67,17 +71,22 @@ export class PetPanel extends BasePanel {
   private previewAnimationIntervalId: number | null = null;
   private lastPetNickname: string = '';
   private lastPetIsActive: boolean = true;
+  private lastEquippedModuleItemId: string = '';
+  private lastInventoryItems: NormalizedPetInventoryItem[] = [];
+  private lastInventoryCapacity: number = 8;
 
   constructor(
     config: PanelConfig,
     petStateProvider?: (() => PetStatePayload | null),
     petNicknameSubmitter?: ((petNickname: string) => boolean),
-    petActiveSubmitter?: ((isActive: boolean) => boolean)
+    petActiveSubmitter?: ((isActive: boolean) => boolean),
+    petModuleSubmitter?: ((moduleItemId: string | null) => boolean)
   ) {
     super(config);
     this.petStateProvider = typeof petStateProvider === 'function' ? petStateProvider : null;
     this.petNicknameSubmitter = typeof petNicknameSubmitter === 'function' ? petNicknameSubmitter : null;
     this.petActiveSubmitter = typeof petActiveSubmitter === 'function' ? petActiveSubmitter : null;
+    this.petModuleSubmitter = typeof petModuleSubmitter === 'function' ? petModuleSubmitter : null;
     this.nicknameModalElement = this.content.querySelector<HTMLElement>('[data-pet-nickname-modal]');
     this.nicknameNoticeElement = this.content.querySelector<HTMLElement>('[data-pet-nickname-notice]');
     this.nicknameInputElement = this.content.querySelector<HTMLInputElement>('[data-pet-nickname-input]');
@@ -86,6 +95,9 @@ export class PetPanel extends BasePanel {
     this.moduleSlotNameElement = this.content.querySelector<HTMLElement>('[data-pet-module-name]');
     this.moduleSlotMetaElement = this.content.querySelector<HTMLElement>('[data-pet-module-meta]');
     this.moduleSlotRarityElement = this.content.querySelector<HTMLElement>('[data-pet-module-rarity]');
+    this.moduleSlotCardElement = this.content.querySelector<HTMLElement>('[data-pet-module-slot-card]');
+    this.moduleSlotIconElement = this.content.querySelector<HTMLElement>('[data-pet-module-icon]');
+    this.moduleSlotStatusElement = this.content.querySelector<HTMLElement>('[data-pet-module-status]');
     this.activeToggleButtonElement = this.content.querySelector<HTMLButtonElement>('[data-pet-active-toggle]');
     this.petInventoryGridElement = this.content.querySelector<HTMLElement>('[data-pet-inventory-grid]');
     this.petInventoryCountElement = this.content.querySelector<HTMLElement>('[data-pet-inventory-count]');
@@ -665,7 +677,7 @@ export class PetPanel extends BasePanel {
       background: rgba(11, 14, 22, 0.58);
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       flex: 1;
       min-height: 0;
     `;
@@ -683,14 +695,74 @@ export class PetPanel extends BasePanel {
     block.appendChild(title);
 
     const moduleSlot = document.createElement('div');
+    moduleSlot.dataset.petModuleSlotCard = 'true';
     moduleSlot.style.cssText = `
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      min-height: 78px;
+      background: linear-gradient(135deg, rgba(148, 163, 184, 0.08), rgba(15, 23, 42, 0.58));
+      border: 1px solid rgba(148, 163, 184, 0.28);
       border-radius: 2px;
-      background: linear-gradient(90deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.018));
-      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      box-sizing: border-box;
+      flex-shrink: 0;
+      cursor: default;
+      user-select: none;
+    `;
+    moduleSlot.title = 'Equip a module from inventory';
+    moduleSlot.addEventListener('click', () => this.handleModuleSlotClick());
+
+    const moduleIcon = document.createElement('div');
+    moduleIcon.dataset.petModuleIcon = 'true';
+    moduleIcon.style.cssText = `
+      width: 52px;
+      height: 52px;
+      border-radius: 2px;
+      border: 1px solid rgba(148, 163, 184, 0.34);
+      background: rgba(30, 41, 59, 0.4);
+      color: rgba(203, 213, 225, 0.72);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      flex-shrink: 0;
+      box-sizing: border-box;
+    `;
+    moduleIcon.textContent = '+';
+
+    const moduleInfo = document.createElement('div');
+    moduleInfo.style.cssText = `
+      flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
+    `;
+
+    const moduleSlotStatus = document.createElement('div');
+    moduleSlotStatus.dataset.petModuleStatus = 'true';
+    moduleSlotStatus.style.cssText = `
+      border-radius: 999px;
+      border: 1px solid rgba(248, 113, 113, 0.55);
+      color: rgba(254, 202, 202, 0.96);
+      background: rgba(69, 10, 10, 0.52);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+      padding: 2px 8px;
+      line-height: 1.4;
+    `;
+    moduleSlotStatus.textContent = 'Offline';
+
+    const moduleTopRow = document.createElement('div');
+    moduleTopRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
     `;
 
     const moduleSlotLabel = document.createElement('div');
@@ -706,22 +778,33 @@ export class PetPanel extends BasePanel {
     const moduleSlotName = document.createElement('div');
     moduleSlotName.dataset.petModuleName = 'true';
     moduleSlotName.style.cssText = `
+      color: #ffffff;
       font-size: 15px;
-      color: rgba(255, 255, 255, 0.95);
-      font-weight: 800;
-      letter-spacing: 0.4px;
-      text-transform: none;
+      font-weight: 900;
+      letter-spacing: 0.95px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
     `;
     moduleSlotName.textContent = 'Empty Slot';
+
+    const moduleMetaRow = document.createElement('div');
+    moduleMetaRow.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    `;
 
     const moduleSlotMeta = document.createElement('div');
     moduleSlotMeta.dataset.petModuleMeta = 'true';
     moduleSlotMeta.style.cssText = `
       font-size: 11px;
-      color: rgba(255, 255, 255, 0.64);
+      color: rgba(255, 255, 255, 0.74);
       font-weight: 700;
-      letter-spacing: 0.8px;
       text-transform: uppercase;
+      letter-spacing: 0.7px;
     `;
     moduleSlotMeta.textContent = 'No module equipped';
 
@@ -731,17 +814,30 @@ export class PetPanel extends BasePanel {
       font-size: 10px;
       color: rgba(148, 163, 184, 0.9);
       font-weight: 800;
-      letter-spacing: 1px;
+      letter-spacing: 0.8px;
       text-transform: uppercase;
+      border: 1px solid rgba(148, 163, 184, 0.36);
+      border-radius: 999px;
+      padding: 1px 6px;
+      line-height: 1.35;
+      background: rgba(30, 41, 59, 0.36);
     `;
-    moduleSlotRarity.textContent = 'COMMON';
+    moduleSlotRarity.textContent = 'Empty';
 
-    moduleSlot.appendChild(moduleSlotLabel);
-    moduleSlot.appendChild(moduleSlotName);
-    moduleSlot.appendChild(moduleSlotMeta);
-    moduleSlot.appendChild(moduleSlotRarity);
+    moduleTopRow.appendChild(moduleSlotLabel);
+    moduleTopRow.appendChild(moduleSlotStatus);
+    moduleMetaRow.appendChild(moduleSlotMeta);
+    moduleMetaRow.appendChild(moduleSlotRarity);
+    moduleInfo.appendChild(moduleTopRow);
+    moduleInfo.appendChild(moduleSlotName);
+    moduleInfo.appendChild(moduleMetaRow);
+    moduleSlot.appendChild(moduleIcon);
+    moduleSlot.appendChild(moduleInfo);
     block.appendChild(moduleSlot);
 
+    this.moduleSlotCardElement = moduleSlot;
+    this.moduleSlotIconElement = moduleIcon;
+    this.moduleSlotStatusElement = moduleSlotStatus;
     this.moduleSlotNameElement = moduleSlotName;
     this.moduleSlotMetaElement = moduleSlotMeta;
     this.moduleSlotRarityElement = moduleSlotRarity;
@@ -758,10 +854,10 @@ export class PetPanel extends BasePanel {
     const inventoryTitle = document.createElement('div');
     inventoryTitle.textContent = 'Pet Inventory';
     inventoryTitle.style.cssText = `
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.9);
-      font-weight: 800;
-      letter-spacing: 1px;
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.95);
+      font-weight: 900;
+      letter-spacing: 0.9px;
       text-transform: uppercase;
     `;
 
@@ -770,10 +866,14 @@ export class PetPanel extends BasePanel {
     inventoryCount.style.cssText = `
       font-size: 11px;
       color: rgba(186, 230, 253, 0.9);
-      font-weight: 800;
-      letter-spacing: 0.8px;
+      font-weight: 900;
+      letter-spacing: 0.7px;
       text-transform: uppercase;
       font-family: 'Consolas', 'Courier New', monospace;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 999px;
+      background: rgba(12, 74, 110, 0.35);
+      padding: 2px 8px;
     `;
     inventoryCount.textContent = '0/8';
 
@@ -785,11 +885,18 @@ export class PetPanel extends BasePanel {
     inventoryGrid.dataset.petInventoryGrid = 'true';
     inventoryGrid.style.cssText = `
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+      gap: 10px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+      padding-bottom: 4px;
+      flex: 1;
       min-height: 0;
-      overflow: auto;
-      padding-right: 2px;
+      width: 100%;
+      box-sizing: border-box;
+      align-content: flex-start;
+      align-items: stretch;
     `;
 
     this.petInventoryGridElement = inventoryGrid;
@@ -801,50 +908,286 @@ export class PetPanel extends BasePanel {
   }
 
   private createInventorySlotCell(
-    item: NormalizedPetInventoryItem | null,
-    slotIndex: number
+    item: NormalizedPetInventoryItem,
+    itemIndex: number,
+    isEquipped: boolean
   ): HTMLElement {
-    const cell = document.createElement('div');
-    const rarityColor = item ? this.getRarityColor(item.rarity) : 'rgba(148, 163, 184, 0.35)';
-    cell.style.cssText = `
-      border: 1px solid ${rarityColor};
+    const slot = document.createElement('div');
+    const normalizedRarity = String(item.rarity || 'common').trim().toLowerCase();
+    const rarityBorder = this.getRarityBorderColor(normalizedRarity, 0.3);
+    const rarityHoverBorder = this.getRarityBorderColor(normalizedRarity, 0.55);
+    const raritySurface = this.getRaritySurfaceColor(normalizedRarity, 0.1);
+    const baseBackground = normalizedRarity === 'common'
+      ? 'rgba(30, 41, 59, 0.24)'
+      : raritySurface;
+    const titleColor = this.getRarityBorderColor(normalizedRarity, 1);
+    const iconToken = this.resolveSlotToken(item.itemName, item.itemId);
+    const itemTypeLabel = item.itemId.includes('module') ? 'Pet Module' : 'Pet Item';
+    const canEquip = this.isPetModuleItem(item.itemId);
+    const baseBorderColor = isEquipped ? rarityHoverBorder : rarityBorder;
+    const equipHint = isEquipped ? 'Click to unequip' : 'Click to equip';
+
+    slot.style.cssText = `
+      min-height: 156px;
+      background: linear-gradient(135deg, ${baseBackground}, rgba(8, 12, 20, 0.78));
+      border: 1px solid ${baseBorderColor};
       border-radius: 2px;
-      background: rgba(5, 10, 19, 0.72);
-      min-height: 68px;
-      padding: 8px 9px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      gap: 6px;
+      gap: 10px;
+      padding: 12px;
+      box-sizing: border-box;
+      transition: filter 0.2s ease, border-color 0.2s ease;
+      cursor: ${canEquip ? 'pointer' : 'default'};
+      user-select: none;
+    `;
+    slot.title = canEquip
+      ? `${item.itemName} x${item.quantity}\n${equipHint}`
+      : `${item.itemName} x${item.quantity}`;
+
+    const headerRow = document.createElement('div');
+    headerRow.style.cssText = `
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
     `;
 
-    const name = document.createElement('div');
-    name.style.cssText = `
-      font-size: 11px;
-      color: ${item ? 'rgba(255, 255, 255, 0.94)' : 'rgba(148, 163, 184, 0.86)'};
-      font-weight: 700;
-      letter-spacing: 0.4px;
+    const iconBox = document.createElement('div');
+    iconBox.style.cssText = `
+      width: 46px;
+      height: 46px;
+      border-radius: 2px;
+      border: 1px solid ${this.getRarityBorderColor(normalizedRarity, 0.4)};
+      background: rgba(2, 6, 23, 0.62);
+      color: ${titleColor};
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
       text-transform: uppercase;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+      flex-shrink: 0;
+      box-sizing: border-box;
     `;
-    name.textContent = item ? item.itemName : `Empty ${slotIndex + 1}`;
+    iconBox.textContent = iconToken;
 
-    const meta = document.createElement('div');
-    meta.style.cssText = `
+    const stateBadge = document.createElement('div');
+    stateBadge.style.cssText = `
+      border: 1px solid ${isEquipped ? this.getRarityBorderColor(normalizedRarity, 0.62) : 'rgba(148, 163, 184, 0.34)'};
+      background: ${isEquipped ? this.getRaritySurfaceColor(normalizedRarity, 0.34) : 'rgba(15, 23, 42, 0.5)'};
+      color: ${isEquipped ? titleColor : 'rgba(203, 213, 225, 0.92)'};
+      border-radius: 999px;
+      padding: 2px 8px;
       font-size: 10px;
-      color: ${item ? 'rgba(186, 230, 253, 0.9)' : 'rgba(148, 163, 184, 0.72)'};
-      font-weight: 800;
+      font-weight: 900;
       letter-spacing: 0.8px;
       text-transform: uppercase;
-      font-family: 'Consolas', 'Courier New', monospace;
+      line-height: 1.3;
+      white-space: nowrap;
     `;
-    meta.textContent = item ? `x${item.quantity} | ${item.rarity.toUpperCase()}` : '--';
+    stateBadge.textContent = isEquipped ? 'Equipped' : normalizedRarity.toUpperCase();
 
-    cell.appendChild(name);
-    cell.appendChild(meta);
-    return cell;
+    headerRow.appendChild(iconBox);
+    headerRow.appendChild(stateBadge);
+
+    const bodyColumn = document.createElement('div');
+    bodyColumn.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 6px;
+      min-height: 0;
+    `;
+
+    const itemTitle = document.createElement('div');
+    itemTitle.style.cssText = `
+      color: ${normalizedRarity === 'common' ? '#ffffff' : titleColor};
+      font-size: 14px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.85px;
+      line-height: 1.15;
+      word-break: break-word;
+    `;
+    itemTitle.textContent = item.itemName || `Item ${itemIndex + 1}`;
+
+    const itemMeta = document.createElement('div');
+    itemMeta.style.cssText = `
+      color: rgba(255, 255, 255, 0.75);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+    `;
+    itemMeta.textContent = `${itemTypeLabel} | x${item.quantity}`;
+
+    const itemHint = document.createElement('div');
+    itemHint.style.cssText = `
+      color: ${canEquip ? 'rgba(186, 230, 253, 0.9)' : 'rgba(148, 163, 184, 0.82)'};
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.75px;
+      line-height: 1.3;
+      min-height: 14px;
+    `;
+    itemHint.textContent = canEquip ? equipHint.toUpperCase() : 'Stored item';
+
+    bodyColumn.appendChild(itemTitle);
+    bodyColumn.appendChild(itemMeta);
+    bodyColumn.appendChild(itemHint);
+
+    slot.appendChild(headerRow);
+    slot.appendChild(bodyColumn);
+
+    if (isEquipped) {
+      slot.style.boxShadow = `inset 0 0 0 1px ${this.getRarityBorderColor(normalizedRarity, 0.28)}`;
+    }
+
+    if (canEquip) {
+      slot.onmouseenter = () => {
+        slot.style.filter = 'brightness(1.08)';
+        slot.style.borderColor = normalizedRarity === 'common'
+          ? 'rgba(226, 232, 240, 0.48)'
+          : rarityHoverBorder;
+      };
+      slot.onmouseleave = () => {
+        slot.style.filter = 'none';
+        slot.style.borderColor = baseBorderColor;
+      };
+      slot.onclick = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const nextModuleItemId = isEquipped ? null : item.itemId;
+        this.submitPetModuleUpdate(nextModuleItemId);
+      };
+    } else {
+      slot.onmouseenter = null;
+      slot.onmouseleave = null;
+      slot.onclick = null;
+    }
+
+    return slot;
+  }
+
+  private createInventoryPlaceholderCell(slotIndex: number): HTMLElement {
+    const slot = document.createElement('div');
+    slot.style.cssText = `
+      min-height: 156px;
+      background: linear-gradient(135deg, rgba(148, 163, 184, 0.06), rgba(15, 23, 42, 0.32));
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 2px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: rgba(203, 213, 225, 0.52);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    `;
+
+    const placeholderToken = document.createElement('div');
+    placeholderToken.style.cssText = `
+      width: 42px;
+      height: 42px;
+      border-radius: 2px;
+      border: 1px dashed rgba(148, 163, 184, 0.38);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 300;
+      color: rgba(148, 163, 184, 0.62);
+    `;
+    placeholderToken.textContent = '+';
+
+    const placeholderText = document.createElement('div');
+    placeholderText.textContent = `Empty Slot ${slotIndex + 1}`;
+
+    slot.appendChild(placeholderToken);
+    slot.appendChild(placeholderText);
+    return slot;
+  }
+
+  private isPetModuleItem(itemId: string): boolean {
+    const normalizedItemId = String(itemId || '').trim().toLowerCase();
+    return normalizedItemId.startsWith('pet_module_');
+  }
+
+  private handleModuleSlotClick(): void {
+    if (!this.lastEquippedModuleItemId) return;
+    this.submitPetModuleUpdate(null);
+  }
+
+  private submitPetModuleUpdate(moduleItemId: string | null): boolean {
+    if (!this.petModuleSubmitter) {
+      this.showNicknameNotice('Network unavailable');
+      return false;
+    }
+
+    const normalizedModuleItemId = typeof moduleItemId === 'string'
+      ? moduleItemId.trim().toLowerCase()
+      : '';
+    if (normalizedModuleItemId && !this.isPetModuleItem(normalizedModuleItemId)) {
+      this.showNicknameNotice('Invalid module');
+      return false;
+    }
+
+    const sent = this.petModuleSubmitter(normalizedModuleItemId || null);
+    if (!sent) {
+      this.showNicknameNotice('Module update failed');
+      return false;
+    }
+
+    this.applyOptimisticPetModuleSelection(normalizedModuleItemId || null);
+    return true;
+  }
+
+  private applyOptimisticPetModuleSelection(moduleItemId: string | null): void {
+    const normalizedModuleItemId = typeof moduleItemId === 'string'
+      ? moduleItemId.trim().toLowerCase()
+      : '';
+
+    if (!normalizedModuleItemId) {
+      this.lastEquippedModuleItemId = '';
+      this.updatePetModuleSlot({
+        itemId: '',
+        itemName: 'Empty Slot',
+        rarity: 'common',
+        level: 1,
+        isEmpty: true
+      });
+      this.renderPetInventory(this.lastInventoryItems, this.lastInventoryCapacity);
+      this.showNicknameNotice('Module unequipped');
+      return;
+    }
+
+    const inventoryEntry = this.lastInventoryItems.find((item) => (
+      String(item.itemId || '').trim().toLowerCase() === normalizedModuleItemId
+      && Math.max(0, Math.floor(Number(item.quantity || 0))) > 0
+    ));
+    if (!inventoryEntry) {
+      return;
+    }
+
+    this.lastEquippedModuleItemId = normalizedModuleItemId;
+    this.updatePetModuleSlot({
+      itemId: inventoryEntry.itemId,
+      itemName: inventoryEntry.itemName,
+      rarity: inventoryEntry.rarity,
+      level: 1,
+      isEmpty: false
+    });
+    this.renderPetInventory(this.lastInventoryItems, this.lastInventoryCapacity);
+    this.showNicknameNotice(`Module equipped: ${inventoryEntry.itemName}`);
   }
 
   override update(data: any): void {
@@ -859,6 +1202,15 @@ export class PetPanel extends BasePanel {
     if (this.nicknameInputElement && (!inputHasFocus || !this.nicknameInputElement.value.trim())) {
       this.nicknameInputElement.value = normalizedState.petNickname;
     }
+
+    this.lastInventoryItems = normalizedState.inventory.map((item) => ({ ...item }));
+    this.lastInventoryCapacity = Math.max(
+      normalizedState.inventory.length,
+      Math.max(4, Math.floor(Number(normalizedState.inventoryCapacity || 8)))
+    );
+    this.lastEquippedModuleItemId = normalizedState.moduleSlot.isEmpty
+      ? ''
+      : String(normalizedState.moduleSlot.itemId || '').trim().toLowerCase();
 
     this.updateField('petNickname', normalizedState.petNickname);
     this.updateActiveStatusField(this.lastPetIsActive);
@@ -1033,14 +1385,89 @@ export class PetPanel extends BasePanel {
   private updatePetModuleSlot(moduleSlot: NormalizedPetModuleSlot): void {
     if (!this.moduleSlotNameElement || !this.moduleSlotMetaElement || !this.moduleSlotRarityElement) return;
 
+    const isEmpty = moduleSlot.isEmpty;
+    const normalizedRarity = String(moduleSlot.rarity || 'common').trim().toLowerCase();
+    const rarityBorder = this.getRarityBorderColor(normalizedRarity, 0.3);
+    const rarityHover = this.getRarityBorderColor(normalizedRarity, 0.55);
+    const rarityTitle = this.getRarityBorderColor(normalizedRarity, 1);
+    const raritySurface = this.getRaritySurfaceColor(normalizedRarity, 0.1);
+
+    if (isEmpty) {
+      this.moduleSlotNameElement.textContent = 'Empty Slot';
+      this.moduleSlotMetaElement.textContent = 'No module equipped';
+      this.moduleSlotRarityElement.textContent = 'EMPTY';
+      this.moduleSlotRarityElement.style.color = 'rgba(148, 163, 184, 0.9)';
+      this.moduleSlotRarityElement.style.borderColor = 'rgba(148, 163, 184, 0.36)';
+      this.moduleSlotRarityElement.style.background = 'rgba(30, 41, 59, 0.36)';
+
+      if (this.moduleSlotIconElement) {
+        this.moduleSlotIconElement.textContent = '+';
+        this.moduleSlotIconElement.style.color = 'rgba(203, 213, 225, 0.72)';
+        this.moduleSlotIconElement.style.borderColor = 'rgba(148, 163, 184, 0.34)';
+        this.moduleSlotIconElement.style.background = 'rgba(30, 41, 59, 0.4)';
+      }
+
+      if (this.moduleSlotStatusElement) {
+        this.moduleSlotStatusElement.textContent = 'Offline';
+        this.moduleSlotStatusElement.style.borderColor = 'rgba(248, 113, 113, 0.55)';
+        this.moduleSlotStatusElement.style.color = 'rgba(254, 202, 202, 0.96)';
+        this.moduleSlotStatusElement.style.background = 'rgba(69, 10, 10, 0.52)';
+      }
+
+      if (this.moduleSlotCardElement) {
+        this.moduleSlotCardElement.style.borderColor = 'rgba(148, 163, 184, 0.28)';
+        this.moduleSlotCardElement.style.background =
+          'linear-gradient(135deg, rgba(148, 163, 184, 0.08), rgba(15, 23, 42, 0.58))';
+        this.moduleSlotCardElement.style.filter = 'none';
+        this.moduleSlotCardElement.style.cursor = 'default';
+        this.moduleSlotCardElement.title = 'Equip a module from inventory';
+        this.moduleSlotCardElement.onmouseenter = null;
+        this.moduleSlotCardElement.onmouseleave = null;
+      }
+      return;
+    }
+
     this.moduleSlotNameElement.textContent = moduleSlot.itemName;
-    this.moduleSlotMetaElement.textContent = moduleSlot.isEmpty
-      ? 'No module equipped'
-      : `LV ${moduleSlot.level} | READY`;
-    this.moduleSlotRarityElement.textContent = moduleSlot.isEmpty
-      ? 'EMPTY'
-      : moduleSlot.rarity.toUpperCase();
-    this.moduleSlotRarityElement.style.color = this.getRarityColor(moduleSlot.rarity);
+    this.moduleSlotMetaElement.textContent = `LV ${moduleSlot.level} | READY | CLICK TO UNEQUIP`;
+    this.moduleSlotRarityElement.textContent = normalizedRarity.toUpperCase();
+    this.moduleSlotRarityElement.style.color = rarityTitle;
+    this.moduleSlotRarityElement.style.borderColor = this.getRarityBorderColor(normalizedRarity, 0.58);
+    this.moduleSlotRarityElement.style.background = this.getRaritySurfaceColor(normalizedRarity, 0.34);
+
+    if (this.moduleSlotIconElement) {
+      this.moduleSlotIconElement.textContent = this.resolveSlotToken(moduleSlot.itemName, moduleSlot.itemId);
+      this.moduleSlotIconElement.style.color = rarityTitle;
+      this.moduleSlotIconElement.style.borderColor = this.getRarityBorderColor(normalizedRarity, 0.4);
+      this.moduleSlotIconElement.style.background = 'rgba(2, 6, 23, 0.62)';
+    }
+
+    if (this.moduleSlotStatusElement) {
+      this.moduleSlotStatusElement.textContent = 'Ready';
+      this.moduleSlotStatusElement.style.borderColor = 'rgba(109, 255, 138, 0.55)';
+      this.moduleSlotStatusElement.style.color = 'rgba(187, 247, 208, 0.98)';
+      this.moduleSlotStatusElement.style.background = 'rgba(6, 78, 59, 0.5)';
+    }
+
+    if (this.moduleSlotCardElement) {
+      const baseBackground = normalizedRarity === 'common'
+        ? 'rgba(30, 41, 59, 0.24)'
+        : raritySurface;
+      this.moduleSlotCardElement.style.borderColor = rarityBorder;
+      this.moduleSlotCardElement.style.background =
+        `linear-gradient(135deg, ${baseBackground}, rgba(8, 12, 20, 0.78))`;
+      this.moduleSlotCardElement.style.cursor = 'pointer';
+      this.moduleSlotCardElement.title = 'Click to unequip module';
+      this.moduleSlotCardElement.onmouseenter = () => {
+        this.moduleSlotCardElement!.style.filter = 'brightness(1.08)';
+        this.moduleSlotCardElement!.style.borderColor = normalizedRarity === 'common'
+          ? 'rgba(226, 232, 240, 0.48)'
+          : rarityHover;
+      };
+      this.moduleSlotCardElement.onmouseleave = () => {
+        this.moduleSlotCardElement!.style.filter = 'none';
+        this.moduleSlotCardElement!.style.borderColor = rarityBorder;
+      };
+    }
   }
 
   private renderPetInventory(items: NormalizedPetInventoryItem[], capacity: number): void {
@@ -1050,23 +1477,74 @@ export class PetPanel extends BasePanel {
     const occupiedCount = Math.min(items.length, safeCapacity);
     if (this.petInventoryCountElement) {
       this.petInventoryCountElement.textContent = `${occupiedCount}/${safeCapacity}`;
+      const isFull = occupiedCount >= safeCapacity && safeCapacity > 0;
+      const hasItems = occupiedCount > 0;
+      this.petInventoryCountElement.style.borderColor = isFull
+        ? 'rgba(248, 113, 113, 0.5)'
+        : hasItems
+          ? 'rgba(109, 255, 138, 0.45)'
+          : 'rgba(56, 189, 248, 0.4)';
+      this.petInventoryCountElement.style.color = isFull
+        ? 'rgba(254, 202, 202, 0.96)'
+        : hasItems
+          ? 'rgba(187, 247, 208, 0.96)'
+          : 'rgba(186, 230, 253, 0.9)';
+      this.petInventoryCountElement.style.background = isFull
+        ? 'rgba(69, 10, 10, 0.52)'
+        : hasItems
+          ? 'rgba(6, 78, 59, 0.45)'
+          : 'rgba(12, 74, 110, 0.35)';
     }
 
     this.petInventoryGridElement.replaceChildren();
-    for (let slotIndex = 0; slotIndex < safeCapacity; slotIndex++) {
-      const item = slotIndex < items.length ? items[slotIndex] : null;
-      const slotCell = this.createInventorySlotCell(item, slotIndex);
+    for (let itemIndex = 0; itemIndex < occupiedCount; itemIndex++) {
+      const currentItem = items[itemIndex];
+      const isEquipped = this.lastEquippedModuleItemId.length > 0
+        && String(currentItem.itemId || '').trim().toLowerCase() === this.lastEquippedModuleItemId;
+      const slotCell = this.createInventorySlotCell(currentItem, itemIndex, isEquipped);
       this.petInventoryGridElement.appendChild(slotCell);
+    }
+
+    for (let slotIndex = occupiedCount; slotIndex < safeCapacity; slotIndex++) {
+      const placeholderCell = this.createInventoryPlaceholderCell(slotIndex);
+      this.petInventoryGridElement.appendChild(placeholderCell);
     }
   }
 
-  private getRarityColor(rarity: string): string {
+  private resolveSlotToken(itemName: string, itemId: string): string {
+    const normalizedName = String(itemName || '').trim();
+    if (normalizedName.length > 0) {
+      const words = normalizedName.split(/\s+/).filter((word) => word.length > 0);
+      if (words.length >= 2) {
+        return `${words[0].charAt(0)}${words[1].charAt(0)}`.toUpperCase();
+      }
+      return normalizedName.slice(0, 2).toUpperCase();
+    }
+
+    const normalizedId = String(itemId || '').trim().replace(/[_-]+/g, ' ');
+    if (normalizedId.length > 0) {
+      return normalizedId.slice(0, 2).toUpperCase();
+    }
+
+    return 'IT';
+  }
+
+  private getRarityBorderColor(rarity: string, alpha: number = 0.5): string {
     const normalized = String(rarity || 'common').trim().toLowerCase();
-    if (normalized === 'uncommon') return 'rgba(109, 255, 138, 0.95)';
-    if (normalized === 'rare') return 'rgba(96, 165, 250, 0.95)';
-    if (normalized === 'epic') return 'rgba(196, 181, 253, 0.95)';
-    if (normalized === 'legendary') return 'rgba(251, 191, 36, 0.95)';
-    return 'rgba(186, 230, 253, 0.9)';
+    if (normalized === 'uncommon') return `rgba(109, 255, 138, ${alpha})`;
+    if (normalized === 'rare') return `rgba(96, 165, 250, ${alpha})`;
+    if (normalized === 'epic') return `rgba(196, 181, 253, ${alpha})`;
+    if (normalized === 'legendary') return `rgba(251, 191, 36, ${alpha})`;
+    return `rgba(186, 230, 253, ${alpha})`;
+  }
+
+  private getRaritySurfaceColor(rarity: string, alpha: number = 0.2): string {
+    const normalized = String(rarity || 'common').trim().toLowerCase();
+    if (normalized === 'uncommon') return `rgba(34, 197, 94, ${alpha})`;
+    if (normalized === 'rare') return `rgba(37, 99, 235, ${alpha})`;
+    if (normalized === 'epic') return `rgba(139, 92, 246, ${alpha})`;
+    if (normalized === 'legendary') return `rgba(245, 158, 11, ${alpha})`;
+    return `rgba(56, 189, 248, ${alpha})`;
   }
 
   private sanitizePetIdForAssetPath(rawPetId: string): string {

@@ -774,6 +774,39 @@ class ServerInputValidator {
             }
           };
 
+        case 'set_pet_module':
+          const petModuleErrors = [];
+          let sanitizedModuleItemId = null;
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            petModuleErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            petModuleErrors.push('Client ID too long');
+          }
+
+          if (data.moduleItemId !== undefined && data.moduleItemId !== null && typeof data.moduleItemId !== 'string') {
+            petModuleErrors.push('Invalid moduleItemId (must be string or null)');
+          }
+
+          if (typeof data.moduleItemId === 'string') {
+            sanitizedModuleItemId = data.moduleItemId.trim();
+            if (sanitizedModuleItemId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+              petModuleErrors.push('moduleItemId too long');
+            }
+            if (sanitizedModuleItemId.length === 0) {
+              sanitizedModuleItemId = null;
+            }
+          }
+
+          return {
+            isValid: petModuleErrors.length === 0,
+            errors: petModuleErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              moduleItemId: sanitizedModuleItemId
+            }
+          };
+
         case 'craft_item':
           return this.validateCraftItem(data);
 

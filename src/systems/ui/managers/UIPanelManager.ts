@@ -96,7 +96,8 @@ export class UIPanelManager {
       petConfig,
       () => this.resolvePetState(),
       (petNickname: string) => this.submitPetNicknameUpdate(petNickname),
-      (isActive: boolean) => this.submitPetActiveToggle(isActive)
+      (isActive: boolean) => this.submitPetActiveToggle(isActive),
+      (moduleItemId: string | null) => this.submitPetModuleUpdate(moduleItemId)
     );
     this.uiManager.registerPanel(petPanel);
     this.syncPetPanelState(true);
@@ -533,6 +534,61 @@ export class UIPanelManager {
       const optimisticPetState: PetStatePayload = {
         ...currentPetState,
         isActive
+      };
+      this.cachedPetState = optimisticPetState;
+      if (networkSystem.gameContext) {
+        networkSystem.gameContext.playerPetState = optimisticPetState;
+      }
+      this.syncPetPanelState(true);
+    }
+
+    return true;
+  }
+
+  private submitPetModuleUpdate(moduleItemId: string | null): boolean {
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem || typeof networkSystem.sendPetModuleUpdateRequest !== 'function') {
+      return false;
+    }
+
+    const sent = networkSystem.sendPetModuleUpdateRequest(moduleItemId);
+    if (!sent) {
+      return false;
+    }
+
+    const currentPetState = this.resolvePetState();
+    if (currentPetState) {
+      const normalizedModuleItemId = typeof moduleItemId === 'string'
+        ? moduleItemId.trim().toLowerCase()
+        : '';
+
+      let nextModuleSlot = currentPetState.moduleSlot;
+      if (!normalizedModuleItemId) {
+        nextModuleSlot = undefined;
+      } else {
+        const inventoryEntry = Array.isArray(currentPetState.inventory)
+          ? currentPetState.inventory.find((item) => {
+            const itemId = String(item?.itemId || '').trim().toLowerCase();
+            const quantity = Math.max(0, Math.floor(Number(item?.quantity || 0)));
+            return itemId === normalizedModuleItemId && quantity > 0;
+          })
+          : undefined;
+
+        if (inventoryEntry) {
+          const previousModuleItemId = String(currentPetState.moduleSlot?.itemId || '').trim().toLowerCase();
+          const previousModuleLevel = Math.max(1, Math.floor(Number(currentPetState.moduleSlot?.level || 1)));
+          nextModuleSlot = {
+            itemId: String(inventoryEntry.itemId || normalizedModuleItemId).trim(),
+            itemName: String(inventoryEntry.itemName || inventoryEntry.itemId || normalizedModuleItemId).trim(),
+            rarity: String(inventoryEntry.rarity || 'common').trim().toLowerCase(),
+            level: previousModuleItemId === normalizedModuleItemId ? previousModuleLevel : 1
+          };
+        }
+      }
+
+      const optimisticPetState: PetStatePayload = {
+        ...currentPetState,
+        moduleSlot: nextModuleSlot
       };
       this.cachedPetState = optimisticPetState;
       if (networkSystem.gameContext) {

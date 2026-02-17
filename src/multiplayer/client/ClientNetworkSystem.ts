@@ -598,6 +598,28 @@ export class ClientNetworkSystem extends BaseSystem {
     return true;
   }
 
+  sendPetModuleUpdateRequest(moduleItemId: string | null): boolean {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return false;
+    }
+
+    let normalizedModuleItemId: string | null = null;
+    if (typeof moduleItemId === 'string') {
+      const trimmedModuleItemId = moduleItemId.trim();
+      if (trimmedModuleItemId.length > 0) {
+        normalizedModuleItemId = trimmedModuleItemId;
+      }
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.SET_PET_MODULE,
+      clientId: this.clientId,
+      moduleItemId: normalizedModuleItemId,
+      timestamp: Date.now()
+    });
+    return true;
+  }
+
   sendCraftItemRequest(recipeId: string): boolean {
     if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
       return false;

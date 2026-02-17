@@ -144,6 +144,30 @@ function normalizeRemotePetPositionPayload(petPosition, fallbackPosition) {
   };
 }
 
+function findPetModuleInventoryEntry(petState, moduleItemId) {
+  const normalizedModuleItemId = String(moduleItemId || '').trim().toLowerCase();
+  if (!normalizedModuleItemId) return null;
+
+  const inventory = Array.isArray(petState?.inventory) ? petState.inventory : [];
+  for (const rawEntry of inventory) {
+    if (!rawEntry || typeof rawEntry !== 'object') continue;
+    const entryItemId = String(rawEntry.itemId || '').trim().toLowerCase();
+    const quantity = Math.max(0, Math.floor(Number(rawEntry.quantity || 0)));
+    if (!entryItemId || quantity <= 0) continue;
+    if (entryItemId !== normalizedModuleItemId) continue;
+
+    const itemName = String(rawEntry.itemName || rawEntry.itemId || '').trim();
+    const rarity = String(rawEntry.rarity || 'common').trim().toLowerCase() || 'common';
+    return {
+      itemId: entryItemId,
+      itemName: itemName || entryItemId,
+      rarity
+    };
+  }
+
+  return null;
+}
+
 async function resolveLeaderboardPodiumRank(supabase, playerDbId) {
   if (!supabase || !Number.isFinite(Number(playerDbId))) return 0;
 
@@ -2286,6 +2310,116 @@ async function handleSetPetActive(data, sanitizedData, context) {
   }
 }
 
+async function handleSetPetModule(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid client ID for pet module update.',
+      code: 'INVALID_CLIENT_ID'
+    }));
+    return;
+  }
+
+  const currentPetState = normalizePetStatePayload(playerData.petState);
+  const currentModuleItemId = String(currentPetState?.moduleSlot?.itemId || '').trim().toLowerCase();
+
+  const requestedModuleItemIdRaw = typeof sanitizedData?.moduleItemId === 'string'
+    ? sanitizedData.moduleItemId
+    : (typeof data.moduleItemId === 'string' ? data.moduleItemId.trim() : '');
+  const requestedModuleItemId = String(requestedModuleItemIdRaw || '').trim().toLowerCase();
+  const isUnequipRequest = requestedModuleItemId.length === 0;
+
+  if (isUnequipRequest) {
+    if (!currentModuleItemId) {
+      ws.send(JSON.stringify({
+        type: 'player_state_update',
+        petState: currentPetState,
+        source: 'pet_module_noop'
+      }));
+      return;
+    }
+
+    playerData.petState = normalizePetStatePayload({
+      ...currentPetState,
+      moduleSlot: undefined
+    });
+  } else {
+    if (currentModuleItemId === requestedModuleItemId) {
+      ws.send(JSON.stringify({
+        type: 'player_state_update',
+        petState: currentPetState,
+        source: 'pet_module_noop'
+      }));
+      return;
+    }
+
+    const inventoryModuleEntry = findPetModuleInventoryEntry(currentPetState, requestedModuleItemId);
+    if (!inventoryModuleEntry) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Module not found in pet inventory.',
+        code: 'PET_MODULE_NOT_OWNED'
+      }));
+      return;
+    }
+
+    playerData.petState = normalizePetStatePayload({
+      ...currentPetState,
+      moduleSlot: {
+        itemId: inventoryModuleEntry.itemId,
+        itemName: inventoryModuleEntry.itemName,
+        rarity: inventoryModuleEntry.rarity,
+        level: 1
+      }
+    });
+  }
+
+  if (mapServer?.petModuleManager && typeof mapServer.petModuleManager.removePlayer === 'function') {
+    mapServer.petModuleManager.removePlayer(playerData.clientId);
+  }
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    petState: normalizePetStatePayload(playerData.petState),
+    source: 'pet_module_updated'
+  }));
+
+  if (playerData.position) {
+    mapServer.broadcastToMap({
+      type: 'remote_player_update',
+      clientId: playerData.clientId,
+      position: playerData.position,
+      rotation: playerData.position.rotation || 0,
+      tick: 0,
+      nickname: playerData.nickname,
+      playerId: playerData.playerId,
+      rank: playerData.rank || 'Basic Space Pilot',
+      leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield,
+      shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+      petState: normalizeRemotePetStatePayload(playerData.petState),
+      petPosition: normalizeRemotePetPositionPayload(playerData.petPosition, playerData.position),
+      t: Date.now()
+    }, playerData.clientId);
+  }
+
+  try {
+    playerDataManager.savePlayerData(playerData).catch(error => {
+      logger.error('DATABASE', `Failed to persist pet module state for ${playerData.userId}: ${error.message}`);
+    });
+  } catch (error) {
+    logger.error('DATABASE', `Error triggering pet module save for ${playerData.userId}: ${error.message}`);
+  }
+}
+
 async function handleCraftItem(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
@@ -2329,6 +2463,13 @@ async function handleCraftItem(data, sanitizedData, context) {
       code: craftResult.code || 'CRAFT_FAILED'
     }));
     return;
+  }
+
+  const craftedEffectType = String(craftResult?.recipe?.effect?.type || '').trim().toLowerCase();
+  if (craftedEffectType === 'add_pet_module') {
+    if (mapServer?.petModuleManager && typeof mapServer.petModuleManager.removePlayer === 'function') {
+      mapServer.petModuleManager.removePlayer(playerData.clientId);
+    }
   }
 
   ws.send(JSON.stringify({
@@ -2567,6 +2708,7 @@ const handlers = {
   ship_skin_action: handleShipSkinAction,
   set_pet_nickname: handleSetPetNickname,
   set_pet_active: handleSetPetActive,
+  set_pet_module: handleSetPetModule,
   player_respawn_request: handlePlayerRespawnRequest,
   global_monitor_request: handleGlobalMonitorRequest,
   portal_use: handlePortalUse,

@@ -179,6 +179,7 @@ export const MESSAGE_TYPES = {
   SHIP_SKIN_ACTION: 'ship_skin_action',
   SET_PET_NICKNAME: 'set_pet_nickname',
   SET_PET_ACTIVE: 'set_pet_active',
+  SET_PET_MODULE: 'set_pet_module',
   CRAFT_ITEM: 'craft_item',
   RESOURCE_COLLECT: 'resource_collect',
   RESOURCE_NODE_REMOVED: 'resource_node_removed',
@@ -661,6 +662,13 @@ export interface SetPetActiveMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.SET_PET_ACTIVE;
   clientId: string;
   isActive: boolean;
+  timestamp?: number;
+}
+
+export interface SetPetModuleMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.SET_PET_MODULE;
+  clientId: string;
+  moduleItemId?: string | null;
   timestamp?: number;
 }
 

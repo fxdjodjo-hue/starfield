@@ -209,11 +209,16 @@ class PetModuleManager {
 
     const petState = normalizePlayerPetState(rawPetState);
     const equippedModuleId = String(petState?.moduleSlot?.itemId || '').trim().toLowerCase();
-    if (equippedModuleId === normalizedModuleId) {
-      return true;
+    if (equippedModuleId !== normalizedModuleId) {
+      return false;
     }
 
     const petInventory = Array.isArray(petState?.inventory) ? petState.inventory : [];
+    if (!petInventory.length) {
+      // Backward compatibility with legacy states where modules were tracked only in moduleSlot.
+      return true;
+    }
+
     return petInventory.some((item) => {
       const itemId = String(item?.itemId || '').trim().toLowerCase();
       const quantity = Math.max(0, Math.floor(Number(item?.quantity || 0)));
@@ -236,4 +241,3 @@ class PetModuleManager {
 }
 
 module.exports = PetModuleManager;
-
