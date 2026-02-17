@@ -4,10 +4,11 @@ import { LogType } from './LogMessage';
 import {
   LOG_EVENT_ENTRY_ADDED,
   LOG_EVENT_HISTORY_CLEARED,
+  type LogCategory,
   type LogHistoryEntry
 } from '../../systems/rendering/LogSystem';
 
-const MAX_RENDERED_ENTRIES = 300;
+const MAX_RENDERED_ENTRIES = 150;
 
 /**
  * LogPanel - Pannello dedicato allo storico dei log di gioco.
@@ -17,9 +18,28 @@ export class LogPanel extends BasePanel {
   private clearHistoryEntries: (() => void) | null = null;
   private messagesContainer: HTMLElement | null = null;
   private entryCountElement: HTMLElement | null = null;
+  private dragHandleElement: HTMLElement | null = null;
   private autoScrollEnabled: boolean = true;
   private logEntryListener: ((event: Event) => void) | null = null;
   private historyClearedListener: ((event: Event) => void) | null = null;
+  private isDragging: boolean = false;
+  private hasManualPosition: boolean = false;
+  private hasManualSize: boolean = false;
+  private dragStartPointerX: number = 0;
+  private dragStartPointerY: number = 0;
+  private dragStartLeft: number = 0;
+  private dragStartTop: number = 0;
+  private manualLeft: number = 0;
+  private manualTop: number = 0;
+  private manualWidth: number = 0;
+  private manualHeight: number = 0;
+  private dragPreviousTransition: string = '';
+  private readonly minWidth: number = 360;
+  private readonly minHeight: number = 220;
+  private readonly dragMoveHandler = (event: MouseEvent) => this.handleDragMove(event);
+  private readonly dragEndHandler = () => this.handleDragEnd();
+  private readonly dragStartHandler = (event: MouseEvent) => this.handleDragStart(event);
+  private readonly resizeSyncHandler = () => this.syncNativeResizedDimensions();
 
   constructor(
     config: PanelConfig,
@@ -33,11 +53,22 @@ export class LogPanel extends BasePanel {
     // quindi i riferimenti assegnati durante createPanelContent vanno ricollegati qui.
     this.messagesContainer = this.container.querySelector<HTMLElement>('.log-panel-messages');
     this.entryCountElement = this.container.querySelector<HTMLElement>('.log-panel-entry-count');
+    this.dragHandleElement = this.container.querySelector<HTMLElement>('.log-panel-drag-handle');
 
     this.getHistoryEntries = getHistoryEntries;
     this.clearHistoryEntries = clearHistoryEntries || null;
 
+    // Performance profile for frequent resizing:
+    // avoid expensive backdrop filters and avoid width/height transitions.
+    this.container.style.backdropFilter = 'none';
+    this.container.style.setProperty('-webkit-backdrop-filter', 'none');
+    this.container.style.boxShadow = '0 4px 14px rgba(0, 0, 0, 0.35)';
+    this.container.style.transition = 'opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
+    this.container.style.contain = 'layout paint style';
+
     this.setupLogEventListeners();
+    this.setupDragBehavior();
+    this.setupNativeResizeBehavior();
     this.renderHistory(this.getHistoryEntries());
   }
 
@@ -51,14 +82,14 @@ export class LogPanel extends BasePanel {
       flex-direction: column;
       gap: 16px;
       box-sizing: border-box;
-      background: rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(20px) saturate(160%);
-      -webkit-backdrop-filter: blur(20px) saturate(160%);
+      position: relative;
+      background: rgba(8, 10, 14, 0.82);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 25px;
-      box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
+      border-radius: 18px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.24);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       color: rgba(255, 255, 255, 0.9);
+      contain: layout paint;
     `;
 
     const style = document.createElement('style');
@@ -81,12 +112,15 @@ export class LogPanel extends BasePanel {
     content.appendChild(style);
 
     const headerSection = document.createElement('div');
+    headerSection.className = 'log-panel-drag-handle';
     headerSection.style.cssText = `
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       padding-bottom: 14px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      cursor: move;
+      user-select: none;
     `;
 
     const titleGroup = document.createElement('div');
@@ -185,6 +219,7 @@ export class LogPanel extends BasePanel {
       flex-direction: column;
       gap: 8px;
       padding-right: 4px;
+      contain: content;
     `;
 
     messagesContainer.addEventListener('scroll', () => {
@@ -200,10 +235,21 @@ export class LogPanel extends BasePanel {
   protected onShow(): void {
     this.autoScrollEnabled = true;
     this.renderHistory(this.getHistoryEntries());
+    this.applyStoredManualSize();
+    this.applyStoredManualPosition();
     this.scrollToBottom(true);
   }
 
+  updatePosition(): void {
+    super.updatePosition();
+    this.applyStoredManualSize();
+    this.applyStoredManualPosition();
+    this.ensureContainerWithinViewport();
+  }
+
   destroy(): void {
+    this.teardownNativeResizeBehavior();
+    this.teardownDragBehavior();
     this.teardownLogEventListeners();
     super.destroy();
   }
@@ -280,6 +326,151 @@ export class LogPanel extends BasePanel {
     }
   }
 
+  private setupDragBehavior(): void {
+    if (!this.dragHandleElement) return;
+    this.dragHandleElement.addEventListener('mousedown', this.dragStartHandler);
+  }
+
+  private setupNativeResizeBehavior(): void {
+    this.container.style.resize = 'both';
+    this.container.style.overflow = 'hidden';
+    this.container.style.minWidth = `${this.minWidth}px`;
+    this.container.style.minHeight = `${this.minHeight}px`;
+    document.addEventListener('mouseup', this.resizeSyncHandler);
+  }
+
+  private teardownDragBehavior(): void {
+    if (this.dragHandleElement) {
+      this.dragHandleElement.removeEventListener('mousedown', this.dragStartHandler);
+    }
+    this.handleDragEnd();
+  }
+
+  private teardownNativeResizeBehavior(): void {
+    document.removeEventListener('mouseup', this.resizeSyncHandler);
+  }
+
+  private handleDragStart(event: MouseEvent): void {
+    if (event.button !== 0) return;
+
+    const target = event.target as HTMLElement | null;
+    if (target?.closest('button, input, textarea, select, a')) return;
+
+    const rect = this.container.getBoundingClientRect();
+    this.isDragging = true;
+    this.dragStartPointerX = event.clientX;
+    this.dragStartPointerY = event.clientY;
+    this.dragStartLeft = rect.left;
+    this.dragStartTop = rect.top;
+    this.dragPreviousTransition = this.container.style.transition;
+    this.container.style.transition = 'none';
+
+    document.addEventListener('mousemove', this.dragMoveHandler);
+    document.addEventListener('mouseup', this.dragEndHandler);
+    document.body.style.userSelect = 'none';
+    event.preventDefault();
+  }
+
+  private handleDragMove(event: MouseEvent): void {
+    if (!this.isDragging) return;
+
+    const offsetX = event.clientX - this.dragStartPointerX;
+    const offsetY = event.clientY - this.dragStartPointerY;
+    const nextLeft = this.dragStartLeft + offsetX;
+    const nextTop = this.dragStartTop + offsetY;
+
+    this.setManualPosition(nextLeft, nextTop);
+  }
+
+  private handleDragEnd(): void {
+    if (!this.isDragging) return;
+    this.isDragging = false;
+    document.removeEventListener('mousemove', this.dragMoveHandler);
+    document.removeEventListener('mouseup', this.dragEndHandler);
+    document.body.style.userSelect = '';
+    this.container.style.transition = this.dragPreviousTransition;
+  }
+
+  private setManualPosition(left: number, top: number): void {
+    const { clampedLeft, clampedTop } = this.clampToViewport(left, top);
+    this.manualLeft = clampedLeft;
+    this.manualTop = clampedTop;
+    this.hasManualPosition = true;
+    this.container.style.left = `${clampedLeft}px`;
+    this.container.style.top = `${clampedTop}px`;
+  }
+
+  private syncNativeResizedDimensions(): void {
+    if (!this.isPanelVisible() || this.isDragging) return;
+
+    const rect = this.container.getBoundingClientRect();
+    if (rect.width < 10 || rect.height < 10) return;
+
+    const nextWidth = Math.max(this.minWidth, Math.round(this.container.offsetWidth));
+    const nextHeight = Math.max(this.minHeight, Math.round(this.container.offsetHeight));
+    const hasChanged = !this.hasManualSize
+      || this.manualWidth !== nextWidth
+      || this.manualHeight !== nextHeight;
+
+    if (!hasChanged) return;
+
+    this.manualWidth = nextWidth;
+    this.manualHeight = nextHeight;
+    this.hasManualSize = true;
+    this.container.style.width = `${nextWidth}px`;
+    this.container.style.height = `${nextHeight}px`;
+
+    if (!this.hasManualPosition) {
+      this.manualLeft = rect.left;
+      this.manualTop = rect.top;
+      this.hasManualPosition = true;
+    }
+
+    this.ensureContainerWithinViewport();
+  }
+
+  private applyStoredManualPosition(): void {
+    if (!this.hasManualPosition) return;
+    this.setManualPosition(this.manualLeft, this.manualTop);
+  }
+
+  private applyStoredManualSize(): void {
+    if (!this.hasManualSize) return;
+    this.container.style.width = `${this.manualWidth}px`;
+    this.container.style.height = `${this.manualHeight}px`;
+    this.ensureContainerWithinViewport();
+  }
+
+  private ensureContainerWithinViewport(): void {
+    const rect = this.container.getBoundingClientRect();
+    const maxLeft = Math.max(0, window.innerWidth - rect.width);
+    const maxTop = Math.max(0, window.innerHeight - rect.height);
+
+    const clampedLeft = Math.min(Math.max(0, rect.left), maxLeft);
+    const clampedTop = Math.min(Math.max(0, rect.top), maxTop);
+
+    if (clampedLeft !== rect.left || clampedTop !== rect.top) {
+      this.manualLeft = clampedLeft;
+      this.manualTop = clampedTop;
+      this.hasManualPosition = true;
+      this.container.style.left = `${clampedLeft}px`;
+      this.container.style.top = `${clampedTop}px`;
+    }
+  }
+
+  private clampToViewport(left: number, top: number): { clampedLeft: number; clampedTop: number } {
+    const panelRect = this.container.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const maxLeft = Math.max(0, viewportWidth - panelRect.width);
+    const maxTop = Math.max(0, viewportHeight - panelRect.height);
+
+    return {
+      clampedLeft: Math.min(Math.max(0, left), maxLeft),
+      clampedTop: Math.min(Math.max(0, top), maxTop)
+    };
+  }
+
   private renderHistory(entries: LogHistoryEntry[]): void {
     if (!this.messagesContainer) return;
 
@@ -331,17 +522,16 @@ export class LogPanel extends BasePanel {
   }
 
   private createEntryElement(entry: LogHistoryEntry): HTMLElement {
-    const color = this.resolveEntryColor(entry.type);
+    const color = this.resolveEntryColor(entry);
     const row = document.createElement('div');
     row.style.cssText = `
       border-left: 3px solid ${color};
       background: rgba(255, 255, 255, 0.04);
-      border-radius: 8px;
+      border-radius: 6px;
       padding: 10px 12px;
       display: flex;
       flex-direction: column;
       gap: 6px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
     `;
 
     const metaRow = document.createElement('div');
@@ -361,23 +551,25 @@ export class LogPanel extends BasePanel {
       font-family: Consolas, 'Courier New', monospace;
     `;
 
-    const typeBadge = document.createElement('span');
-    typeBadge.textContent = String(entry.type || LogType.INFO).replace(/_/g, ' ').toUpperCase();
-    typeBadge.style.cssText = `
-      color: ${color};
-      border: 1px solid ${color}55;
-      background: ${color}22;
-      border-radius: 6px;
-      padding: 2px 7px;
-      font-size: 10px;
-      font-weight: 800;
-      letter-spacing: 0.7px;
-      text-transform: uppercase;
-      white-space: nowrap;
-    `;
-
     metaRow.appendChild(time);
-    metaRow.appendChild(typeBadge);
+
+    if (entry.category) {
+      const categoryBadge = document.createElement('span');
+      categoryBadge.textContent = this.formatCategoryLabel(entry.category);
+      categoryBadge.style.cssText = `
+        color: ${color};
+        border: 1px solid ${color}55;
+        background: ${color}22;
+        border-radius: 6px;
+        padding: 2px 7px;
+        font-size: 10px;
+        font-weight: 800;
+        letter-spacing: 0.7px;
+        text-transform: uppercase;
+        white-space: nowrap;
+      `;
+      metaRow.appendChild(categoryBadge);
+    }
 
     const text = document.createElement('div');
     text.textContent = entry.text;
@@ -395,7 +587,38 @@ export class LogPanel extends BasePanel {
     return row;
   }
 
-  private resolveEntryColor(type: LogType): string {
+  private resolveEntryColor(entry: LogHistoryEntry): string {
+    if (entry.category) {
+      return this.resolveColorByCategory(entry.category);
+    }
+
+    return this.resolveColorByType(entry.type);
+  }
+
+  private resolveColorByCategory(category: LogCategory): string {
+    switch (category) {
+      case 'safezone':
+        return '#4dd39b';
+      case 'combat':
+        return '#ff6363';
+      case 'rewards':
+        return '#ffd54f';
+      case 'missions':
+        return '#4da4ff';
+      case 'error':
+        return '#ff4d6d';
+      case 'item':
+        return '#a89bff';
+      case 'resources':
+        return '#55d6ff';
+      case 'events':
+        return '#ffb86b';
+      default:
+        return '#e7edf7';
+    }
+  }
+
+  private resolveColorByType(type: LogType): string {
     switch (type) {
       case LogType.ATTACK_FAILED:
       case LogType.NPC_KILLED:
@@ -418,6 +641,13 @@ export class LogPanel extends BasePanel {
       default:
         return '#e7edf7';
     }
+  }
+
+  private formatCategoryLabel(category: LogCategory): string {
+    return String(category || '')
+      .replace(/_/g, ' ')
+      .trim()
+      .toUpperCase();
   }
 
   private formatTimestamp(timestamp: number): string {

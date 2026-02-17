@@ -109,7 +109,7 @@ export class NetworkAuthenticationManager {
 
     if (this.jwtRetryCount >= this.maxJwtRetries) {
       secureLogger.security(`Max JWT retry attempts (${this.maxJwtRetries}) exceeded - disconnecting`);
-      this.eventSystem.showAuthenticationError('Sessione scaduta. Ricarica la pagina per accedere nuovamente.', () => {
+      this.eventSystem.showAuthenticationError('Session expired. Reload the page to sign in again.', () => {
         this.connectionManager.disconnect();
       });
       return;

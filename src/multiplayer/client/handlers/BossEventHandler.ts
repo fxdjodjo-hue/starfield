@@ -2,6 +2,7 @@ import { BaseMessageHandler } from './MessageHandler';
 import { ClientNetworkSystem } from '../ClientNetworkSystem';
 import { MESSAGE_TYPES } from '../../../config/NetworkConfig';
 import { LogType } from '../../../presentation/ui/LogMessage';
+import type { LogCategory } from '../../../systems/rendering/LogSystem';
 
 /**
  * Gestisce i messaggi evento boss e li inoltra al LogSystem in-game.
@@ -22,7 +23,12 @@ export class BossEventHandler extends BaseMessageHandler {
       ? Math.max(2000, Math.min(12000, Math.floor(Number(message.durationMs))))
       : 5000;
 
-    logSystem.addLogMessage(content, this.resolveLogType(message?.severity), durationMs);
+    logSystem.addLogMessage(
+      content,
+      this.resolveLogType(message?.severity),
+      durationMs,
+      this.resolveLogCategory()
+    );
   }
 
   private resolveLogType(severity: string): LogType {
@@ -38,5 +44,8 @@ export class BossEventHandler extends BaseMessageHandler {
         return LogType.MISSION;
     }
   }
-}
 
+  private resolveLogCategory(): LogCategory {
+    return 'events';
+  }
+}

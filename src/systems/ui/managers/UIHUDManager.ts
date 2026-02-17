@@ -12,10 +12,13 @@ export class UIHUDManager {
   private playerHUD: PlayerHUD;
   private questTracker: QuestTracker;
   private weaponStatus: WeaponStatus;
+  private playerSystem: PlayerSystem | null = null;
   private playerId: number | null = null;
   private economyData: any = null;
   private economySystem: any = null;
   private context: any = null;
+  private lastCombatStatusSyncAt: number = 0;
+  private readonly COMBAT_STATUS_SYNC_INTERVAL_MS = 100;
 
   constructor(playerHUD: PlayerHUD, questTracker: QuestTracker, weaponStatus: WeaponStatus) {
     this.playerHUD = playerHUD;
@@ -97,6 +100,10 @@ export class UIHUDManager {
     this.context = context;
   }
 
+  setPlayerSystem(playerSystem: PlayerSystem | null): void {
+    this.playerSystem = playerSystem;
+  }
+
   /**
    * Mostra le informazioni del giocatore
    */
@@ -175,8 +182,13 @@ export class UIHUDManager {
       };
     }
 
+    const combatStatus = this.getCurrentCombatStatus();
+
     // Aggiorna sempre l'HUD con i dati disponibili
-    this.playerHUD.updateData(hudData);
+    this.playerHUD.updateData({
+      ...hudData,
+      ...combatStatus
+    });
     // NON mostrare weaponStatus qui - verrà mostrato da showHud() dopo l'animazione camera
     // NON mostrare automaticamente - viene mostrato da hideLoadingScreen() quando la schermata di autenticazione è nascosta
     // this.playerHUD.show();
@@ -280,6 +292,16 @@ export class UIHUDManager {
     this.weaponStatus.update(laserProgress, missileProgress, laserRemaining, missileRemaining);
   }
 
+  updatePlayerCombatStatus(force: boolean = false): void {
+    const now = Date.now();
+    if (!force && now - this.lastCombatStatusSyncAt < this.COMBAT_STATUS_SYNC_INTERVAL_MS) {
+      return;
+    }
+
+    this.lastCombatStatusSyncAt = now;
+    this.playerHUD.updateCombatStatus(this.getCurrentCombatStatus());
+  }
+
 
   /**
    * Imposta il listener per il toggle dell'HUD
@@ -311,5 +333,24 @@ export class UIHUDManager {
 
   getQuestTracker(): QuestTracker {
     return this.questTracker;
+  }
+
+  private getCurrentCombatStatus(): {
+    currentHealth: number;
+    maxHealth: number;
+    currentShield: number;
+    maxShield: number;
+  } {
+    const combatStatus = this.playerSystem?.getPlayerCombatStatus?.();
+    if (combatStatus) {
+      return combatStatus;
+    }
+
+    return {
+      currentHealth: 0,
+      maxHealth: 1,
+      currentShield: 0,
+      maxShield: 1
+    };
   }
 }

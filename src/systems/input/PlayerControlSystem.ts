@@ -147,6 +147,12 @@ export class PlayerControlSystem extends BaseSystem {
    */
   handleKeyPress(key: string): void {
     this.initializeManagers();
+    if (/^[1-9]$/.test(key)) {
+      const slot = Number(key);
+      document.dispatchEvent(new CustomEvent('skillbar:activate', { detail: { slot } }));
+      return;
+    }
+
     if (key === 'Space') {
       this.attackManager.handleKeyPress(key);
     } else {

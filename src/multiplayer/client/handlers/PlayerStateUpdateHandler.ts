@@ -278,10 +278,10 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       const soldQuantity = Number.isFinite(parsedQuantity) && parsedQuantity > 0
         ? Math.floor(parsedQuantity)
         : 1;
-      const currencyLabel = saleCurrency === 'cosmos' ? 'cosmos' : 'crediti';
+      const currencyLabel = saleCurrency === 'cosmos' ? 'cosmos' : 'credits';
       const content = soldAmount > 0
-        ? `Venduto x${soldQuantity}: +${soldAmount} ${currencyLabel} (Totale: ${currentBalance})`
-        : 'Vendita completata';
+        ? `Sold x${soldQuantity}: +${soldAmount} ${currencyLabel} (Total: ${currentBalance})`
+        : 'Sale completed';
 
       document.dispatchEvent(new CustomEvent('ui:system-message', { detail: { content } }));
     }
@@ -320,13 +320,17 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     const hudContainer = document.getElementById('player-hud');
     if (!hudContainer) return;
 
-    const statItems = hudContainer.querySelectorAll('.stat-item .stat-value');
-    if (statItems.length < 4) return;
+    const updateStat = (stat: 'credits' | 'cosmos' | 'experience' | 'honor', value: number): void => {
+      const element = hudContainer.querySelector<HTMLElement>(`.stat-item[data-stat="${stat}"] .stat-value`);
+      if (element) {
+        element.textContent = NumberFormatter.format(Number(value || 0));
+      }
+    };
 
-    (statItems[0] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.credits || 0));
-    (statItems[1] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.cosmos || 0));
-    (statItems[2] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.experience || 0));
-    (statItems[3] as HTMLElement).textContent = NumberFormatter.format(Number(inventory.honor || 0));
+    updateStat('credits', inventory.credits);
+    updateStat('cosmos', inventory.cosmos);
+    updateStat('experience', inventory.experience);
+    updateStat('honor', inventory.honor);
   }
 
   private normalizeResourceInventory(rawInventory: unknown): Record<string, number> | null {

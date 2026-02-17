@@ -30,6 +30,11 @@ const LARGE_PANEL_SIZE = {
   height: 1000, // 150px più alto per mostrare più righe leaderboard
 } as const;
 
+const LOG_PANEL_SIZE = {
+  width: 900,
+  height: 560,
+} as const;
+
 export interface PanelConfig {
   id: string;
   icon: string; // Unicode icon or CSS class (fallback)
@@ -107,7 +112,7 @@ const PANEL_CONFIGS_BASE = {
     icon: 'L',
     title: 'Logs',
     position: 'center-left-col2-below2' as const,
-    size: { ...BASE_PANEL_SIZE }
+    size: { ...LOG_PANEL_SIZE }
   }
 } as const;
 
@@ -207,3 +212,4 @@ export const ICON_POSITIONS = {
 } as const;
 
 export type IconPosition = typeof ICON_POSITIONS[keyof typeof ICON_POSITIONS];
+

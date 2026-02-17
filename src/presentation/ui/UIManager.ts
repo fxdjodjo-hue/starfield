@@ -27,6 +27,20 @@ export class UIManager {
   private documentKeydownHandler: ((e: Event) => void) | null = null;
   private panelJustOpened: boolean = false;
 
+  private isStickyPanel(panelId: string): boolean {
+    return panelId === 'log-panel';
+  }
+
+  private isBlockingPanel(panelId: string): boolean {
+    return !this.isStickyPanel(panelId);
+  }
+
+  private hasBlockingOpenPanels(): boolean {
+    return Array.from(this.panels.values()).some(
+      (panel) => panel.isPanelVisible() && this.isBlockingPanel(panel.getConfig().id)
+    );
+  }
+
   constructor() {
     this.logoutModal = new ConfirmationModal();
     this.setupResizeHandler();
@@ -49,7 +63,7 @@ export class UIManager {
         // Usa un piccolo timeout per permettere l'aggiornamento dello stato isVisible del pannello
         // (anche se l'evento viene emesso dopo l'aggiornamento della flag, è più sicuro)
         setTimeout(() => {
-          if (!this.hasOpenPanels()) {
+          if (!this.hasBlockingOpenPanels()) {
             // console.log('[UIManager] All panels closed, emitting uiPanelClosed');
             document.dispatchEvent(new CustomEvent('uiPanelClosed'));
           }
@@ -61,27 +75,25 @@ export class UIManager {
     this.documentClickHandler = (e: Event) => {
       const target = e.target as HTMLElement;
 
-      // Trova il pannello attualmente aperto (se esiste)
-      const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
+      if (this.panelJustOpened) return;
+      if (target.closest('.ui-floating-icon') || target.closest('.ui-panel')) return;
 
-      if (openPanel && !this.panelJustOpened) {
-        // Usa la proprietà container del pannello
-        const panelContainer = (openPanel as any).container;
+      const visiblePanels = Array.from(this.panels.values()).filter((panel) => panel.isPanelVisible());
+      if (visiblePanels.length === 0) return;
 
-        // Chiudi il pannello se il click è fuori da esso e non su elementi UI
-        if (panelContainer && !panelContainer.contains(target) &&
-          !target.closest('.ui-floating-icon') &&
-          !target.closest('.ui-panel')) {
-          openPanel.hide();
-          // Notifica che i controlli del player possono essere riabilitati
-          // console.log('[UIManager] Emitting uiPanelClosed event (click outside)');
-          document.dispatchEvent(new CustomEvent('uiPanelClosed'));
-          // Ferma completamente l'evento per evitare che muova il player
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-        }
+      // Chiudi solo i pannelli non sticky (il log resta aperto)
+      const panelsToClose = visiblePanels.filter((panel) => !this.isStickyPanel(panel.getConfig().id));
+      if (panelsToClose.length === 0) return;
+
+      panelsToClose.forEach((panel) => panel.hide());
+      if (!this.hasBlockingOpenPanels()) {
+        document.dispatchEvent(new CustomEvent('uiPanelClosed'));
       }
+
+      // Ferma l'evento solo se e stato chiuso almeno un pannello.
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
     };
 
     document.addEventListener('click', this.documentClickHandler);
@@ -96,12 +108,21 @@ export class UIManager {
           return;
         }
 
-        // 2. If a Panel is open, close it
-        const openPanel = Array.from(this.panels.values()).find(panel => panel.isPanelVisible());
+        // 2. If a blocking panel is open, close it first.
+        // If none is blocking, close any visible sticky panel (e.g. log panel).
+        const openBlockingPanel = Array.from(this.panels.values()).find(
+          (panel) => panel.isPanelVisible() && this.isBlockingPanel(panel.getConfig().id)
+        );
+        const openStickyPanel = Array.from(this.panels.values()).find(
+          (panel) => panel.isPanelVisible() && this.isStickyPanel(panel.getConfig().id)
+        );
+        const openPanel = openBlockingPanel || openStickyPanel;
         if (openPanel) {
           openPanel.hide();
-          // Notifica che i controlli del player possono essere riabilitati
-          document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+          if (this.isBlockingPanel(openPanel.getConfig().id) && !this.hasBlockingOpenPanels()) {
+            // Notifica che i controlli del player possono essere riabilitati
+            document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+          }
         } else {
           // 3. If nothing is open, show Logout/Exit Confirmation
           this.logoutModal.show(
@@ -245,7 +266,8 @@ export class UIManager {
    */
   closeAllPanelsExcept(exceptPanelId: string): void {
     this.panels.forEach((panel, panelId) => {
-      if (panelId !== exceptPanelId) {
+      const keepStickyLogOpen = panelId !== exceptPanelId && this.isStickyPanel(panelId) && exceptPanelId !== 'log-panel';
+      if (panelId !== exceptPanelId && !keepStickyLogOpen) {
         panel.hide();
       }
     });
@@ -259,17 +281,22 @@ export class UIManager {
   openPanel(panelId: string): void {
     const panel = this.panels.get(panelId);
     if (!panel) return;
+    const isBlockingPanel = this.isBlockingPanel(panelId);
 
     // Se il pannello è già aperto, chiudilo (toggle behavior)
     if (panel.isPanelVisible()) {
       panel.hide();
-      // Notifica che i controlli del player possono essere riabilitati
-      document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+      if (isBlockingPanel && !this.hasBlockingOpenPanels()) {
+        // Notifica che i controlli del player possono essere riabilitati
+        document.dispatchEvent(new CustomEvent('uiPanelClosed'));
+      }
       return;
     }
 
     // Notifica che i controlli del player dovrebbero essere disabilitati
-    document.dispatchEvent(new CustomEvent('uiPanelOpened'));
+    if (isBlockingPanel && !this.hasBlockingOpenPanels()) {
+      document.dispatchEvent(new CustomEvent('uiPanelOpened'));
+    }
 
     // Altrimenti chiudi tutti i pannelli tranne quello specifico e apri quello specifico
     this.closeAllPanelsExcept(panelId);
@@ -332,3 +359,4 @@ export class UIManager {
     this.icons.clear();
   }
 }
+

@@ -22,7 +22,6 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     if (resourceInteractionSystem && typeof resourceInteractionSystem.handleCollectionStatus === 'function') {
       resourceInteractionSystem.handleCollectionStatus(message);
     }
-    this.handlePetAutoCollectMovement(status, message);
 
     const resourceInventory = this.normalizeResourceInventory(message?.resourceInventory);
     if (resourceInventory) {
@@ -50,47 +49,18 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     if (!logSystem || typeof logSystem.addLogMessage !== 'function') return;
 
     if (status === 'started') {
-      logSystem.addLogMessage(`Raccolta ${resourceName} iniziata`, LogType.MISSION, 2600);
+      logSystem.addLogMessage(`Collection of ${resourceName} started`, LogType.MISSION, 2600);
       return;
     }
 
     if (status === 'interrupted') {
       const reason = this.resolveInterruptReason(message?.reason);
-      logSystem.addLogMessage(`Raccolta ${resourceName} interrotta${reason}`, LogType.ATTACK_FAILED, 2800);
+      logSystem.addLogMessage(`Collection of ${resourceName} interrupted${reason}`, LogType.ATTACK_FAILED, 2800);
       return;
     }
 
     if (status === 'completed') {
-      logSystem.addLogMessage(`${resourceName} raccolta`, LogType.REWARD, 2600);
-    }
-  }
-
-  private handlePetAutoCollectMovement(status: string, message: ResourceCollectStatusMessage): void {
-    if (typeof document === 'undefined') return;
-
-    const reason = String(message?.reason || '').toLowerCase().trim();
-    if (reason !== 'pet_auto_collect') return;
-
-    if (status === 'started' || status === 'in_progress' || status === 'approaching') {
-      const x = Number(message?.resourceX);
-      const y = Number(message?.resourceY);
-      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
-
-      const parsedRemainingMs = Number(message?.remainingMs);
-      const durationMs = Number.isFinite(parsedRemainingMs)
-        ? Math.max(220, Math.floor(parsedRemainingMs))
-        : undefined;
-
-      document.dispatchEvent(new CustomEvent('pet:auto-collect', {
-        detail: { x, y, durationMs }
-      }));
-      return;
-    }
-
-    if (status === 'completed' || status === 'interrupted') {
-      document.dispatchEvent(new CustomEvent('pet:auto-collect', {
-        detail: { stop: true }
-      }));
+      logSystem.addLogMessage(`${resourceName} collected`, LogType.REWARD, 2600);
     }
   }
 
@@ -133,14 +103,14 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
       : '';
     if (typeName.length > 0) return typeName;
 
-    return 'risorsa';
+    return 'resource';
   }
 
   private resolveInterruptReason(reason: unknown): string {
     const normalized = String(reason || '').toLowerCase();
-    if (normalized === 'player_moved') return ' (ti sei mosso)';
-    if (normalized === 'out_of_range') return ' (fuori raggio)';
-    if (normalized === 'resource_unavailable') return ' (non disponibile)';
+    if (normalized === 'player_moved') return ' (you moved)';
+    if (normalized === 'out_of_range') return ' (out of range)';
+    if (normalized === 'resource_unavailable') return ' (unavailable)';
     return '';
   }
 

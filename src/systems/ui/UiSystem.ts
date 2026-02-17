@@ -79,6 +79,7 @@ export class UiSystem extends System {
       if (this.managersInitialized) {
         // Update existing managers if systems change
         if (playerSystem) {
+          this.hudManager.setPlayerSystem(playerSystem);
           this.panelManager.setPlayerSystem(playerSystem);
           this.chatManager.setPlayerSystem(playerSystem);
         }
@@ -98,6 +99,7 @@ export class UiSystem extends System {
       this.weaponStatus = new WeaponStatus();
       this.hudManager = new UIHUDManager(playerHUD, questTracker, this.weaponStatus);
       this.hudManager.setContext(this.context);
+      this.hudManager.setPlayerSystem(playerSystem);
 
       // Initialize panel manager
       this.panelManager = new UIPanelManager(ecs, questSystem, playerSystem, clientNetworkSystem);
@@ -272,6 +274,7 @@ export class UiSystem extends System {
   setPlayerSystem(playerSystem: PlayerSystem): void {
     this.playerSystem = playerSystem;
     this.initializeManagers(this.ecs, this.questSystem, playerSystem, null);
+    this.hudManager.setPlayerSystem(playerSystem);
     this.panelManager.setPlayerSystem(playerSystem);
     this.chatManager.setPlayerSystem(playerSystem);
   }
@@ -968,6 +971,7 @@ export class UiSystem extends System {
 
   update(deltaTime: number): void {
     this.panelManager.updateRealtimePanels(deltaTime);
+    this.hudManager.updatePlayerCombatStatus();
 
     // Aggiorna progress cooldown armi nell'HUD
     const playerEntity = this.playerSystem?.getPlayerEntity();

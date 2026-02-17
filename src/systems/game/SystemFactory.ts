@@ -45,7 +45,6 @@ import { RemoteProjectileSystem } from '../multiplayer/RemoteProjectileSystem';
 import { AsteroidSystem } from '../environment/AsteroidSystem';
 import { SafeZoneSystem } from './SafeZoneSystem';
 import { ResourceInteractionSystem } from './ResourceInteractionSystem';
-import { PetFollowSystem } from './PetFollowSystem';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Sprite } from '../../entities/Sprite';
 import { getSelectedPlayerShipSkinId } from '../../config/ShipSkinConfig';
@@ -94,7 +93,6 @@ export interface CreatedSystems {
   uiSystem: UiSystem | null;
   playerStatusDisplaySystem: PlayerStatusDisplaySystem;
   playerSystem: PlayerSystem;
-  petFollowSystem: PetFollowSystem;
   audioSystem: AudioSystem;
   portalSystem: PortalSystem;
   resourceInteractionSystem: ResourceInteractionSystem;
@@ -185,7 +183,6 @@ export class SystemFactory {
     const questDiscoverySystem = new QuestDiscoverySystem(ecs, questTrackingSystem);
     const playerStatusDisplaySystem = new PlayerStatusDisplaySystem(ecs, context);
     const playerSystem = new PlayerSystem(ecs);
-    const petFollowSystem = new PetFollowSystem(ecs, playerSystem);
     const portalSystem = new PortalSystem(ecs, playerSystem);
     const resourceInteractionSystem = new ResourceInteractionSystem(ecs);
     const renderSystem = new RenderSystem(ecs, cameraSystem, playerSystem, context.assetManager);
@@ -342,7 +339,6 @@ export class SystemFactory {
       uiSystem,
       playerStatusDisplaySystem,
       playerSystem,
-      petFollowSystem,
       audioSystem,
       portalSystem,
       resourceInteractionSystem,

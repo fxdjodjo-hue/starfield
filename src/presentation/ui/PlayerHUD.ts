@@ -14,6 +14,10 @@ export interface PlayerHUDData {
   experience: number;
   expForNextLevel: number;
   honor: number;
+  currentHealth?: number;
+  maxHealth?: number;
+  currentShield?: number;
+  maxShield?: number;
 }
 
 /**
@@ -43,7 +47,8 @@ export class PlayerHUD {
 
     // Dimensioni compensate per DPR
     const c = this.dprCompensation;
-    const margin = Math.round(15 * c); // Moved more into the corner (from 20)
+    const margin = Math.round(15 * c);
+    const edgeOverlap = Math.max(4, Math.round(10 * c));
     // Arrotondamento degli angoli come gli altri pannelli (compensato)
     // The following lines appear to be a mix of canvas drawing code and variable declarations.
     // Assuming the intent was to ensure borderRadius is 25px scaled, which is already present.
@@ -53,14 +58,21 @@ export class PlayerHUD {
     // Since 'const borderRadius = Math.round(25 * c);' already exists, I will ensure it's there.
     // The instruction's provided snippet seems to have extraneous code.
     const gap = Math.round(30 * c); // Increased from 15
-    const borderRadius = Math.round(30 * c); // More rounded
+    const borderRadius = Math.round(12 * c);
+    const cornerCut = Math.max(8, Math.round(18 * c));
     const paddingV = Math.round(15 * c); // Increased from 12
     const paddingH = Math.round(40 * c); // Increased from 30 (more width)
 
     container.style.cssText = `
       position: fixed;
-      top: ${margin}px;
-      left: ${margin}px;
+      top: -${edgeOverlap}px;
+      left: 0;
+      right: 0;
+      width: fit-content;
+      max-width: calc(100vw - ${margin * 2}px);
+      margin-left: auto;
+      margin-right: auto;
+      box-sizing: border-box;
       display: none;
       align-items: center;
       gap: ${gap}px;
@@ -69,42 +81,75 @@ export class PlayerHUD {
       -webkit-backdrop-filter: blur(20px) saturate(160%);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: ${borderRadius}px;
+      clip-path: polygon(
+        ${cornerCut}px 0,
+        calc(100% - ${cornerCut}px) 0,
+        100% ${cornerCut}px,
+        100% calc(100% - ${cornerCut}px),
+        calc(100% - ${cornerCut}px) 100%,
+        ${cornerCut}px 100%,
+        0 calc(100% - ${cornerCut}px),
+        0 ${cornerCut}px
+      );
       padding: ${paddingV}px ${paddingH}px;
       box-shadow:
         0 12px 48px rgba(0, 0, 0, 0.5),
         inset 0 1px 1px rgba(255, 255, 255, 0.05);
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       z-index: 1000;
+      overflow: hidden;
+      pointer-events: none;
     `;
 
     // Struttura HTML pulita
     container.innerHTML = `
-      <div class="level-indicator">
-        <div class="level-circle">
-          <span class="level-number">1</span>
-        </div>
-        <div class="player-id">ID: 0</div>
-      </div>
-
-      <div class="stats-row">
-        <div class="stat-item">
-          <div class="stat-label">CREDITS</div>
-          <div class="stat-value">0</div>
-        </div>
-        <div class="stat-item">
-          <div class="stat-label">COSMOS</div>
-          <div class="stat-value">0</div>
-        </div>
-        <div class="stat-item">
+      <div class="stats-side stats-side-left">
+        <div class="stat-item" data-stat="experience">
           <div class="stat-label">EXPERIENCE</div>
           <div class="stat-value">0</div>
         </div>
-        <div class="stat-item">
+        <div class="stat-item" data-stat="honor">
           <div class="stat-label">HONOR</div>
           <div class="stat-value">0</div>
         </div>
       </div>
 
+      <div class="level-indicator">
+        <div class="level-circle">
+          <span class="level-number">1</span>
+        </div>
+        <div class="player-id">ID: 0</div>
+        <div class="center-vitals">
+          <div class="vital-row" data-vital="health">
+            <div class="vital-header">
+              <span class="vital-label">HITPOINTS</span>
+              <span class="vital-value">0 / 1</span>
+            </div>
+            <div class="vital-track">
+              <div class="vital-fill"></div>
+            </div>
+          </div>
+          <div class="vital-row" data-vital="shield">
+            <div class="vital-header">
+              <span class="vital-label">SHIELD</span>
+              <span class="vital-value">0 / 1</span>
+            </div>
+            <div class="vital-track">
+              <div class="vital-fill"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats-side stats-side-right">
+        <div class="stat-item" data-stat="credits">
+          <div class="stat-label">CREDITS</div>
+          <div class="stat-value">0</div>
+        </div>
+        <div class="stat-item" data-stat="cosmos">
+          <div class="stat-label">COSMOS</div>
+          <div class="stat-value">0</div>
+        </div>
       </div>
     `;
 
@@ -132,20 +177,38 @@ export class PlayerHUD {
     const labelFontSize = Math.round(9 * c);
     const valueFontSize = Math.round(12 * c);
     const gap4 = Math.round(4 * c);
-    const gap24 = Math.round(50 * c); // Increased from 40 (more width)
-    const marginLeft8 = Math.round(20 * c); // Increased from 15
-    const minWidth90 = Math.round(120 * c); // Increased from 110
+    const statsGap = Math.round(28 * c);
+    const vitalContainerWidth = Math.round(420 * c);
+    const vitalTrackHeight = Math.max(5, Math.round(6 * c));
+    const vitalLabelFontSize = Math.round(8 * c);
+    const vitalValueFontSize = Math.round(9 * c);
+    const hudRadius = Math.round(12 * c);
+    const hudCornerCut = Math.max(8, Math.round(18 * c));
 
     style.textContent = `
       /* Container principale con effetto glassmorphism */
       #player-hud {
-        background: rgba(0, 0, 0, 0.45);
+        background:
+          linear-gradient(130deg, rgba(37, 99, 235, 0.12) 0%, rgba(255, 255, 255, 0.03) 42%, rgba(14, 165, 233, 0.08) 100%),
+          rgba(0, 0, 0, 0.45);
         backdrop-filter: blur(20px) saturate(160%);
         -webkit-backdrop-filter: blur(20px) saturate(160%);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: ${Math.round(25 * c)}px;
+        border-radius: ${hudRadius}px;
+        clip-path: polygon(
+          ${hudCornerCut}px 0,
+          calc(100% - ${hudCornerCut}px) 0,
+          100% ${hudCornerCut}px,
+          100% calc(100% - ${hudCornerCut}px),
+          calc(100% - ${hudCornerCut}px) 100%,
+          ${hudCornerCut}px 100%,
+          0 calc(100% - ${hudCornerCut}px),
+          0 ${hudCornerCut}px
+        );
         box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
         cursor: default;
+        pointer-events: none;
+        overflow: hidden;
         user-select: none;
         -webkit-user-select: none;
         -moz-user-select: none;
@@ -198,13 +261,91 @@ export class PlayerHUD {
         letter-spacing: 0.5px;
       }
 
+      .center-vitals {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        column-gap: ${Math.round(14 * c)}px;
+        row-gap: 0;
+        width: ${vitalContainerWidth}px;
+        margin-top: ${Math.round(8 * c)}px;
+      }
 
-      /* Riga statistiche orizzontale */
-      .stats-row {
+      .vital-row {
         display: flex;
-        gap: ${gap24}px;
+        flex-direction: column;
+        gap: ${Math.round(2 * c)}px;
+      }
+
+      .vital-header {
+        display: flex;
         align-items: center;
-        margin-left: ${marginLeft8}px;
+        justify-content: space-between;
+        gap: ${Math.round(8 * c)}px;
+      }
+
+      .vital-label {
+        color: rgba(255, 255, 255, 0.78);
+        font-size: ${vitalLabelFontSize}px;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+      }
+
+      .vital-value {
+        color: rgba(255, 255, 255, 0.95);
+        font-size: ${vitalValueFontSize}px;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .vital-track {
+        width: 100%;
+        height: ${vitalTrackHeight}px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        overflow: hidden;
+      }
+
+      .vital-fill {
+        width: 0%;
+        height: 100%;
+        transition: width 0.25s ease-out;
+      }
+
+      .vital-row[data-vital="health"] .vital-fill {
+        background: linear-gradient(90deg, #16a34a, #4ade80);
+      }
+
+      .vital-row[data-vital="shield"] .vital-fill {
+        background: linear-gradient(90deg, #2563eb, #60a5fa);
+      }
+
+
+      .stats-side {
+        display: flex;
+        gap: ${statsGap}px;
+        align-items: center;
+        width: max-content;
+      }
+
+      .stats-side-left {
+        justify-content: flex-end;
+      }
+
+      .stats-side-right {
+        justify-content: flex-start;
+      }
+
+      .stat-item {
+        min-width: max-content;
+      }
+
+      .stats-side-left .stat-item {
+        text-align: right;
+      }
+
+      .stats-side-right .stat-item {
+        text-align: left;
       }
 
 
@@ -234,10 +375,6 @@ export class PlayerHUD {
       }
 
 
-        }
-      }
-
-
 
       /* Responsive design - dimensioni già compensate per DPR */
       @media (max-width: 1400px) {
@@ -259,35 +396,37 @@ export class PlayerHUD {
           font-size: ${Math.round(9 * c)}px;
         }
 
+        .center-vitals {
+          width: ${Math.round(340 * c)}px;
+        }
 
-        .stats-row {
+
+        .stats-side {
           gap: ${Math.round(20 * c)}px;
-          margin-left: ${Math.round(6 * c)}px;
         }
 
-        .stat-item {
-          min-width: ${Math.round(80 * c)}px;
-        }
       }
 
       @media (max-width: 1200px) {
-        .stats-row {
+        .center-vitals {
+          width: ${Math.round(290 * c)}px;
+        }
+
+        .stats-side {
           gap: ${Math.round(16 * c)}px;
         }
 
-        .stat-item {
-          min-width: ${Math.round(70 * c)}px;
-        }
       }
 
       @media (max-width: 1000px) {
-        .stats-row {
+        .center-vitals {
+          width: ${Math.round(240 * c)}px;
+        }
+
+        .stats-side {
           gap: ${Math.round(12 * c)}px;
         }
 
-        .stat-item {
-          min-width: ${Math.round(65 * c)}px;
-        }
       }
     `;
 
@@ -338,17 +477,59 @@ export class PlayerHUD {
       playerIdElement.textContent = `ID: ${data.playerId}`;
     }
 
-    // Aggiorna risorse - usa gli indici di posizione dato che non abbiamo data-stat
-    const statItems = this.container.querySelectorAll('.stat-item .stat-value');
-    if (statItems.length >= 4) {
-      // CR (Credits) - primo elemento
-      (statItems[0] as HTMLElement).textContent = this.formatNumber(data.credits);
-      // CO (Cosmos) - secondo elemento
-      (statItems[1] as HTMLElement).textContent = this.formatNumber(data.cosmos);
-      // XP (Experience) - terzo elemento
-      (statItems[2] as HTMLElement).textContent = this.formatNumber(data.experience);
-      // HN (Honor) - quarto elemento
-      (statItems[3] as HTMLElement).textContent = this.formatNumber(data.honor);
+    const setStatValue = (stat: 'credits' | 'cosmos' | 'experience' | 'honor', value: number): void => {
+      const valueElement = this.container.querySelector<HTMLElement>(
+        `.stat-item[data-stat="${stat}"] .stat-value`
+      );
+      if (valueElement) {
+        valueElement.textContent = this.formatNumber(value);
+      }
+    };
+
+    setStatValue('credits', data.credits);
+    setStatValue('cosmos', data.cosmos);
+    setStatValue('experience', data.experience);
+    setStatValue('honor', data.honor);
+
+    this.updateCombatStatus({
+      currentHealth: data.currentHealth ?? 0,
+      maxHealth: data.maxHealth ?? 1,
+      currentShield: data.currentShield ?? 0,
+      maxShield: data.maxShield ?? 1
+    });
+  }
+
+  /**
+   * Aggiorna HP e Shield nel blocco centrale dell'HUD
+   */
+  updateCombatStatus(data: {
+    currentHealth: number;
+    maxHealth: number;
+    currentShield: number;
+    maxShield: number;
+  }): void {
+    this.updateVitalRow('health', data.currentHealth, data.maxHealth);
+    this.updateVitalRow('shield', data.currentShield, data.maxShield);
+  }
+
+  private updateVitalRow(vital: 'health' | 'shield', currentRaw: number, maxRaw: number): void {
+    const current = Math.max(0, Math.floor(Number(currentRaw || 0)));
+    const max = Math.max(1, Math.floor(Number(maxRaw || 1)));
+    const safeCurrent = Math.min(current, max);
+    const percent = Math.max(0, Math.min(100, Math.round((safeCurrent / max) * 100)));
+
+    const valueElement = this.container.querySelector<HTMLElement>(
+      `.vital-row[data-vital="${vital}"] .vital-value`
+    );
+    if (valueElement) {
+      valueElement.textContent = `${this.formatNumber(safeCurrent)} / ${this.formatNumber(max)}`;
+    }
+
+    const fillElement = this.container.querySelector<HTMLElement>(
+      `.vital-row[data-vital="${vital}"] .vital-fill`
+    );
+    if (fillElement) {
+      fillElement.style.width = `${percent}%`;
     }
   }
 

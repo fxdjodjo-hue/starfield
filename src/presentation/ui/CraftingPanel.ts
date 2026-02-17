@@ -310,14 +310,49 @@ export class CraftingPanel extends BasePanel {
         border: 1px solid rgba(148, 163, 184, 0.42);
         border-radius: 6px;
         padding: 3px 6px;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        background: rgba(15, 23, 42, 0.4);
+      `;
+      const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
+      const definition = getResourceDefinition(normalizedResourceType);
+      const label = definition?.displayName || normalizedResourceType || 'Resource';
+      const safeQuantity = Math.max(0, Math.floor(Number(quantity || 0)));
+      chip.title = `${label} x${safeQuantity}`;
+
+      const previewPath = this.getResourcePreviewPath(normalizedResourceType);
+      if (previewPath) {
+        const icon = document.createElement('img');
+        icon.src = previewPath;
+        icon.alt = label;
+        icon.style.cssText = `
+          width: 13px;
+          height: 13px;
+          object-fit: contain;
+          filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+        `;
+        chip.appendChild(icon);
+      } else {
+        const fallback = document.createElement('span');
+        fallback.textContent = '•';
+        fallback.style.cssText = `
+          color: rgba(203, 213, 225, 0.8);
+          font-size: 12px;
+          line-height: 1;
+        `;
+        chip.appendChild(fallback);
+      }
+
+      const quantityLabel = document.createElement('span');
+      quantityLabel.textContent = `x${safeQuantity}`;
+      quantityLabel.style.cssText = `
         font-size: 10px;
         font-weight: 700;
         color: rgba(203, 213, 225, 0.95);
         letter-spacing: 0.5px;
-        text-transform: uppercase;
-        background: rgba(15, 23, 42, 0.4);
       `;
-      chip.textContent = `${resourceType} x${quantity}`;
+      chip.appendChild(quantityLabel);
       costWrap.appendChild(chip);
     }
     card.appendChild(costWrap);
@@ -640,8 +675,21 @@ export class CraftingPanel extends BasePanel {
   }
 
   private getResourcePreviewPath(resourceType: string): string | null {
-    if (resourceType === 'cuprite') {
+    const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
+    if (!normalizedResourceType) return null;
+
+    // Prefer dedicated preview sprites for compact UI chips.
+    if (normalizedResourceType === 'cuprite') {
       return 'assets/resources/previews/resource_2.png';
+    }
+
+    const definition = getResourceDefinition(normalizedResourceType);
+    const assetBasePath = String(definition?.assetBasePath || '').trim();
+    if (assetBasePath) {
+      const normalizedPath = assetBasePath.replace(/^\//, '');
+      return normalizedPath.toLowerCase().endsWith('.png')
+        ? normalizedPath
+        : `${normalizedPath}.png`;
     }
     return null;
   }

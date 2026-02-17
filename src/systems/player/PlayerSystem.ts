@@ -70,6 +70,30 @@ export class PlayerSystem extends System {
   }
 
   /**
+   * Restituisce lo stato combattimento corrente del player (HP/Shield)
+   */
+  getPlayerCombatStatus():
+    | { currentHealth: number; maxHealth: number; currentShield: number; maxShield: number }
+    | null {
+    if (!this.playerEntity) {
+      return null;
+    }
+
+    const health = this.ecs.getComponent(this.playerEntity, Health);
+    const shield = this.ecs.getComponent(this.playerEntity, Shield);
+    if (!health || !shield) {
+      return null;
+    }
+
+    return {
+      currentHealth: Math.max(0, Math.floor(Number(health.current || 0))),
+      maxHealth: Math.max(1, Math.floor(Number(health.max || 1))),
+      currentShield: Math.max(0, Math.floor(Number(shield.current || 0))),
+      maxShield: Math.max(1, Math.floor(Number(shield.max || 1)))
+    };
+  }
+
+  /**
    * Verifica se il giocatore esiste
    */
   hasPlayer(): boolean {

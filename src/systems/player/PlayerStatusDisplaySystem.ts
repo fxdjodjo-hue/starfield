@@ -22,6 +22,7 @@ export class PlayerStatusDisplaySystem extends System {
   private npcDebugElement: HTMLElement | null = null;
   private gameContext: GameContext;
   private dprCompensation: number;
+  private readonly isLegacyStatusPanelEnabled: boolean = false;
 
   constructor(ecs: ECS, context: GameContext) {
     super(ecs);
@@ -42,6 +43,18 @@ export class PlayerStatusDisplaySystem extends System {
    * Crea l'elemento di display per HP e Shield con dimensioni compensate per DPR
    */
   private createStatusDisplay(): void {
+    if (!this.isLegacyStatusPanelEnabled) {
+      if (this.statusElement) {
+        this.statusElement.remove();
+        this.statusElement = null;
+      }
+      if (this.npcDebugElement) {
+        this.npcDebugElement.remove();
+        this.npcDebugElement = null;
+      }
+      return;
+    }
+
     if (this.statusElement) {
       this.statusElement.remove();
     }
@@ -120,6 +133,7 @@ export class PlayerStatusDisplaySystem extends System {
    * Metodo pubblico per permettere aggiornamenti forzati da altri sistemi
    */
   public updateDisplay(): void {
+    if (!this.isLegacyStatusPanelEnabled) return;
     if (!this.statusElement || !this.playerEntity) return;
 
     const health = this.ecs.getComponent(this.playerEntity, Health);
@@ -265,6 +279,7 @@ export class PlayerStatusDisplaySystem extends System {
    * Aggiorna il sistema (chiamato ogni frame)
    */
   update(deltaTime: number): void {
+    if (!this.isLegacyStatusPanelEnabled) return;
     if (this.statusElement) {
       const now = Date.now();
       if (now - this.lastUpdateTime >= this.UPDATE_INTERVAL) {
@@ -285,7 +300,9 @@ export class PlayerStatusDisplaySystem extends System {
    * Verifica se un click è dentro l'area dell'HUD del player status
    */
   isClickInHUD(screenX: number, screenY: number): boolean {
+    if (!this.isLegacyStatusPanelEnabled) return false;
     if (!this.statusElement || !this.statusElement.parentElement) return false;
+    if (this.statusElement.style.display === 'none') return false;
 
     const rect = this.statusElement.getBoundingClientRect();
     return screenX >= rect.left && screenX <= rect.right &&
@@ -296,6 +313,7 @@ export class PlayerStatusDisplaySystem extends System {
    * Mostra il display HP/Shield
    */
   show(): void {
+    if (!this.isLegacyStatusPanelEnabled) return;
     if (this.statusElement) {
       this.statusElement.style.display = 'flex';
       // Usa fade-in sincronizzato (mantiene translateX(-50%) per centrare)

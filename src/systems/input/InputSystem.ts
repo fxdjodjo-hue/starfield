@@ -158,6 +158,9 @@ export class InputSystem extends BaseSystem {
       } else if (event.code === 'KeyT') {
         event.preventDefault();
         this.onKeyPress?.('t');
+      } else if (/^Digit[1-9]$/.test(event.code)) {
+        event.preventDefault();
+        this.onKeyPress?.(event.code.replace('Digit', ''));
       } else if (event.code === 'KeyW' || event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD') {
         event.preventDefault();
         const key = event.code.toLowerCase().replace('key', ''); // 'w', 'a', 's', 'd'
@@ -177,6 +180,9 @@ export class InputSystem extends BaseSystem {
       if (event.code === 'Space') {
         event.preventDefault();
         this.onKeyRelease?.('Space');
+      } else if (/^Digit[1-9]$/.test(event.code)) {
+        event.preventDefault();
+        this.onKeyRelease?.(event.code.replace('Digit', ''));
       } else if (event.code === 'KeyW' || event.code === 'KeyA' || event.code === 'KeyS' || event.code === 'KeyD') {
         event.preventDefault();
         const key = event.code.toLowerCase().replace('key', ''); // 'w', 'a', 's', 'd'

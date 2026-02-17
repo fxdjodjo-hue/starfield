@@ -66,8 +66,6 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
       // Suono laser player gestito lato client nei laser visivi per responsivit� immediata
     }
 
-    this.handlePetDefenseTarget(message, isLocalPlayer);
-
     // ✅ OTTIMIZZAZIONE: Per i laser del giocatore locale, ignoriamo il messaggio di ritorno dal server
     // perché abbiamo già creato il laser locale per responsività immediata in CombatStateSystem.
     // MA per i MISSILI (che sono auto-fire dal server), dobbiamo processarli anche per il player locale!
@@ -104,19 +102,6 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
 
     // Mostra proiettile per gli altri casi (NPC o proiettili non-laser)
     this.showProjectile(message, networkSystem, isLocalPlayer);
-  }
-
-  private handlePetDefenseTarget(message: ProjectileFiredMessage, isLocalPlayer: boolean): void {
-    if (typeof document === 'undefined') return;
-    if (!isLocalPlayer) return;
-    if (message.projectileType !== 'pet_laser') return;
-
-    const targetNpcId = String(message.targetId || '').trim();
-    if (!targetNpcId) return;
-
-    document.dispatchEvent(new CustomEvent('pet:defense-target', {
-      detail: { targetNpcId }
-    }));
   }
 
   private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {
@@ -197,3 +182,4 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
 
 
 }
+

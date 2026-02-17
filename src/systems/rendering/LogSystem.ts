@@ -4,10 +4,21 @@ import { LogMessage, LogType } from '../../presentation/ui/LogMessage';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import { DisplayManager } from '../../infrastructure/display';
 
+export type LogCategory =
+  | 'safezone'
+  | 'combat'
+  | 'rewards'
+  | 'missions'
+  | 'error'
+  | 'item'
+  | 'resources'
+  | 'events';
+
 export interface LogHistoryEntry {
   id: number;
   text: string;
   type: LogType;
+  category: LogCategory | null;
   timestamp: number;
   duration: number;
 }
@@ -155,7 +166,12 @@ export class LogSystem extends BaseSystem {
   /**
    * Aggiunge un nuovo messaggio di log
    */
-  addLogMessage(text: string, type: LogType = LogType.INFO, duration: number = 3000): void {
+  addLogMessage(
+    text: string,
+    type: LogType = LogType.INFO,
+    duration: number = 3000,
+    categoryOverride?: LogCategory | null
+  ): void {
     const normalizedText = typeof text === 'string' ? text.replace(/\r\n/g, '\n').trim() : '';
 
     // Evita messaggi vuoti o solo spazi
@@ -163,7 +179,7 @@ export class LogSystem extends BaseSystem {
       return;
     }
 
-    const historyEntry = this.addHistoryEntry(normalizedText, type, duration);
+    const historyEntry = this.addHistoryEntry(normalizedText, type, duration, categoryOverride);
     this.emitLogEntryAdded(historyEntry);
 
     // Mantiene compatibilita con eventuale rendering legacy su canvas.
@@ -270,11 +286,19 @@ export class LogSystem extends BaseSystem {
     this.addLogMessage(text, LogType.MISSION, duration);
   }
 
-  private addHistoryEntry(text: string, type: LogType, duration: number): LogHistoryEntry {
+  private addHistoryEntry(
+    text: string,
+    type: LogType,
+    duration: number,
+    categoryOverride?: LogCategory | null
+  ): LogHistoryEntry {
     const entry: LogHistoryEntry = {
       id: this.nextEntryId++,
       text,
       type,
+      category: categoryOverride !== undefined
+        ? categoryOverride
+        : this.resolveLogCategory(text, type),
       timestamp: Date.now(),
       duration
     };
@@ -308,5 +332,93 @@ export class LogSystem extends BaseSystem {
   private emitHistoryCleared(): void {
     if (typeof document === 'undefined') return;
     document.dispatchEvent(new CustomEvent(LOG_EVENT_HISTORY_CLEARED));
+  }
+
+  private resolveLogCategory(text: string, type: LogType): LogCategory | null {
+    if (text.startsWith('Welcome back ')) {
+      return null;
+    }
+
+    if (text === 'Combat disabled in Safe Zone!') {
+      return 'safezone';
+    }
+
+    if (text === 'Select a target first!') {
+      return 'combat';
+    }
+
+    if (text.startsWith('Target out of range!')) {
+      return 'combat';
+    }
+
+    if (text.startsWith('Attack failed against ')) {
+      return 'combat';
+    }
+
+    if (/^[^\n]+ defeated!$/i.test(text)) {
+      return 'combat';
+    }
+
+    if (text.includes('DEFEATED!') && text.includes('\nRewards: ')) {
+      return 'rewards';
+    }
+
+    if (text.startsWith('Rewards: ')) {
+      return 'rewards';
+    }
+
+    if (text.startsWith('MISSION COMPLETED: ')) {
+      return 'missions';
+    }
+
+    if (text.startsWith('Progress [')) {
+      return 'missions';
+    }
+
+    if (text.startsWith('System: ')) {
+      return 'error';
+    }
+
+    if (text.startsWith('DROPPED: ')) {
+      return 'item';
+    }
+
+    if (text.startsWith('Collection of ') && text.endsWith(' started')) {
+      return 'resources';
+    }
+
+    if (text.startsWith('Collection of ') && text.includes(' interrupted')) {
+      return 'resources';
+    }
+
+    if (text.endsWith(' collected')) {
+      return 'resources';
+    }
+
+    return this.resolveCategoryFromLogType(type);
+  }
+
+  private resolveCategoryFromLogType(type: LogType): LogCategory | null {
+    switch (type) {
+      case LogType.MISSION:
+        return 'missions';
+      case LogType.REWARD:
+        return 'rewards';
+      case LogType.RARITY_COMMON:
+      case LogType.RARITY_UNCOMMON:
+      case LogType.RARITY_RARE:
+      case LogType.RARITY_EPIC:
+      case LogType.GIFT:
+        return 'item';
+      case LogType.ATTACK_FAILED:
+      case LogType.ATTACK_START:
+      case LogType.ATTACK_END:
+      case LogType.NPC_KILLED:
+        return 'combat';
+      case LogType.WELCOME:
+      case LogType.INFO:
+      default:
+        return null;
+    }
   }
 }
