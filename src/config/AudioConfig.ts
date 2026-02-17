@@ -26,7 +26,7 @@ export const AUDIO_ASSETS = {
     collect: 'collecting/collecting.mp3',
     upgrade: 'effects/upgrade.wav',
     damage: 'effects/damage.wav',
-    engine: 'effects/engine/enginesoundeffect.mp3',
+    engine: 'effects/engine/enginesoundeffect.wav',
     playerLogin: 'effects/playerlogin/bubbleSounds.mp3',
     portalBassdrop: 'effects/portal/bassdrop.mp3',
     missile: 'rocket/rocketStart.wav',

@@ -2,6 +2,7 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Camera } from '../../entities/spatial/Camera';
 import { Transform } from '../../entities/spatial/Transform';
+import { Velocity } from '../../entities/spatial/Velocity';
 import { LogSystem } from '../rendering/LogSystem';
 import { CameraSystem } from '../rendering/CameraSystem';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
@@ -28,6 +29,9 @@ export class PlayerControlSystem extends BaseSystem {
   private attackActivated = false;
   private deathPopupManager: DeathPopupManager | null = null;
   private forceInputDisabled: boolean = false;
+  private engineStopRequestedAt: number | null = null;
+  private readonly ENGINE_STOP_GRACE_MS = 250;
+  private readonly ENGINE_MIN_SPEED_FOR_AUDIO = 1;
 
   // Modular architecture managers (lazy initialization)
   private audioManager!: PlayerAudioManager;
@@ -281,19 +285,6 @@ export class PlayerControlSystem extends BaseSystem {
       this.inputManager.isKeyboardMoving() ||
       isMouseMoving;
 
-    // Gestisci suono del motore - evita chiamate multiple rapide
-    if (isMoving && !this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
-      const promise = this.audioManager.start().finally(() => {
-        this.audioManager.setEngineSoundPromise(null);
-      });
-      this.audioManager.setEngineSoundPromise(promise);
-    } else if (!isMoving && this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
-      const promise = this.audioManager.stop().finally(() => {
-        this.audioManager.setEngineSoundPromise(null);
-      });
-      this.audioManager.setEngineSoundPromise(promise);
-    }
-
     // Priorità: movimento minimappa > movimento tastiera > movimento mouse > fermo
     if (this.movementManager.hasMinimapTarget()) {
       this.movementManager.movePlayerTowardsMinimapTarget(deltaTime);
@@ -303,6 +294,35 @@ export class PlayerControlSystem extends BaseSystem {
       this.movementManager.movePlayerTowardsMouse(deltaTime);
     } else {
       this.movementManager.stopPlayerMovement(deltaTime);
+    }
+
+    // Gestisci suono motore con una breve isteresi per evitare stop/start rapidi.
+    const now = Date.now();
+    const velocity = this.ecs.getComponent(this.playerEntity, Velocity);
+    const currentSpeedSquared = velocity
+      ? (velocity.x * velocity.x + velocity.y * velocity.y)
+      : 0;
+    const shouldEngineBeOn = isMoving || currentSpeedSquared > (this.ENGINE_MIN_SPEED_FOR_AUDIO * this.ENGINE_MIN_SPEED_FOR_AUDIO);
+
+    if (shouldEngineBeOn) {
+      this.engineStopRequestedAt = null;
+      if (!this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
+        const promise = this.audioManager.start().finally(() => {
+          this.audioManager.setEngineSoundPromise(null);
+        });
+        this.audioManager.setEngineSoundPromise(promise);
+      }
+    } else {
+      if (this.engineStopRequestedAt === null) {
+        this.engineStopRequestedAt = now;
+      }
+      const canStopEngine = now - this.engineStopRequestedAt >= this.ENGINE_STOP_GRACE_MS;
+      if (canStopEngine && this.audioManager.isPlaying() && !this.audioManager.getEngineSoundPromise()) {
+        const promise = this.audioManager.stop().finally(() => {
+          this.audioManager.setEngineSoundPromise(null);
+        });
+        this.audioManager.setEngineSoundPromise(promise);
+      }
     }
 
     // Ruota verso l'NPC selezionato durante combattimento attivo

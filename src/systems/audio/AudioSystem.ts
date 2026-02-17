@@ -15,25 +15,58 @@ export interface SoundAsset {
   loop?: boolean;
 }
 
+interface WebAudioActiveSound {
+  source: AudioBufferSourceNode;
+  gainNode: GainNode;
+  category: keyof typeof AUDIO_ASSETS;
+  baseVolume: number;
+}
+
 export default class AudioSystem extends System {
   private config: AudioConfig;
   private audioContext: AudioContext | null = null;
+
+  // HTMLAudio backend (fallback + music + ambience)
   private sounds: Map<string, HTMLAudioElement> = new Map();
   private musicInstance: HTMLAudioElement | null = null;
+  private currentMusicKey: string | null = null;
 
-  // Cache per suoni precaricati (per sincronizzazione perfetta)
+  // Preloaded HTMLAudio pools for quick fallback playback
   private preloadedSounds: Map<string, HTMLAudioElement> = new Map();
-  // Pool di istanze audio precaricate per riproduzioni multiple istantanee
   private audioPool: Map<string, HTMLAudioElement[]> = new Map();
-  private readonly POOL_SIZE = 3; // Numero di istanze nel pool per ogni suono
+  private readonly POOL_SIZE = 3;
 
-  // Debouncing system to prevent sound duplication
+  // WebAudio backend (primary for non-music categories)
+  private webAudioSounds: Map<string, WebAudioActiveSound> = new Map();
+  private webAudioBufferCache: Map<string, AudioBuffer> = new Map();
+  private webAudioBufferPromises: Map<string, Promise<AudioBuffer | null>> = new Map();
+  private webAudioStartTokens: Map<string, number> = new Map();
+
+  // Debouncing for short one-shot sounds
   private lastPlayedTimes: Map<string, number> = new Map();
   private debounceTimeouts: Map<string, number> = new Map();
+
+  // Settings listeners
   private settingsListenersRegistered = false;
   private masterVolumeListener: ((e: any) => void) | null = null;
   private effectsVolumeListener: ((e: any) => void) | null = null;
   private musicVolumeListener: ((e: any) => void) | null = null;
+
+  // Track metadata for all active sounds, independent from backend
+  private activeSoundCategories: Map<string, keyof typeof AUDIO_ASSETS> = new Map();
+  private activeSoundBaseVolumes: Map<string, number> = new Map();
+
+  // Precision loop windows for assets that are not seamless on full-file loops
+  private readonly loopWindows: Record<string, { start: number; end: number }> = {
+    engine: { start: 0.34, end: 1.54 }
+  };
+
+  private readonly webAudioCategories = new Set<keyof typeof AUDIO_ASSETS>(['effects', 'ui', 'voice']);
+  private readonly HTML_READY_TIMEOUT_MS = 3000;
+  private readonly HTML_CLEANUP_FALLBACK_MS = 8000;
+  private readonly WEB_STOP_PAD_SECONDS = 0.03;
+  private readonly LOOP_ZERO_CROSS_SEARCH_SECONDS = 0.03;
+  private readonly LOOP_MIN_DURATION_SECONDS = 0.18;
 
   constructor(ecs: ECS, config: Partial<AudioConfig> = {}) {
     super(ecs);
@@ -48,15 +81,10 @@ export default class AudioSystem extends System {
   }
 
   init(): void {
-    // Inizializzazione sistema audio
     this.setupAudio();
-    // Precariare suoni importanti per sincronizzazione perfetta
-    this.preloadImportantSounds();
-
-    // Setup listener per impostazioni
+    void this.preloadImportantSounds();
     this.setupSettingsListeners();
 
-    // Apply saved settings
     const settings = GameSettings.getInstance();
     this.setMasterVolume(settings.audio.master / 100);
     this.setEffectsVolume(settings.audio.sfx / 100);
@@ -106,112 +134,163 @@ export default class AudioSystem extends System {
   }
 
   /**
-   * Precariare suoni importanti per evitare delay di caricamento
+   * Preload key effects for lower start latency.
+   * We warm both HTML fallback pools and WebAudio decode cache.
    */
   private async preloadImportantSounds(): Promise<void> {
-    const importantSounds = ['explosion'];
+    const importantEffects = ['explosion', 'engine', 'collect'];
 
-    for (const soundKey of importantSounds) {
+    for (const soundKey of importantEffects) {
       const assetPath = this.getAssetPath(soundKey, 'effects');
       if (!assetPath) continue;
 
       const audioUrl = `assets/audio/${assetPath}`;
 
-      // Crea pool di istanze precaricate per riproduzioni multiple istantanee
+      // Warm WebAudio decode cache (non-blocking fallback if unavailable).
+      if (this.shouldUseWebAudio('effects')) {
+        void this.getDecodedBuffer(audioUrl);
+      }
+
+      // Warm HTML fallback pool.
       const pool: HTMLAudioElement[] = [];
       for (let i = 0; i < this.POOL_SIZE; i++) {
         const audio = new Audio(audioUrl);
-        audio.volume = 0; // Volume 0 durante il precaricamento
+        audio.volume = 0;
         audio.preload = 'auto';
 
-        try {
-          await audio.load();
+        const ready = await this.waitForAudioReady(audio, this.HTML_READY_TIMEOUT_MS);
+        if (ready) {
           pool.push(audio);
-        } catch (error) {
-          if (import.meta.env.DEV) {
-            console.warn(`[AudioSystem] Failed to preload sound ${soundKey} instance ${i}:`, error);
-          }
+        } else if (import.meta.env.DEV) {
+          console.warn(`[AudioSystem] Failed to preload sound ${soundKey} instance ${i}`);
         }
       }
 
       if (pool.length > 0) {
         this.audioPool.set(soundKey, pool);
-        this.preloadedSounds.set(soundKey, pool[0]); // Mantieni anche la prima istanza per compatibilità
+        this.preloadedSounds.set(soundKey, pool[0]);
       }
     }
   }
 
-  /**
-   * Ottiene un'istanza audio dal pool (per riproduzione istantanea)
-   */
+  private waitForAudioReady(audio: HTMLAudioElement, timeoutMs: number): Promise<boolean> {
+    return new Promise((resolve) => {
+      let settled = false;
+
+      const finish = (ok: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeoutId);
+        audio.removeEventListener('canplaythrough', onReady);
+        audio.removeEventListener('error', onError);
+        resolve(ok);
+      };
+
+      const onReady = () => finish(true);
+      const onError = () => finish(false);
+
+      const timeoutId = setTimeout(() => {
+        finish(audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA);
+      }, timeoutMs);
+
+      audio.addEventListener('canplaythrough', onReady, { once: true });
+      audio.addEventListener('error', onError, { once: true });
+
+      try {
+        audio.load();
+      } catch {
+        finish(false);
+      }
+    });
+  }
+
   private getAudioFromPool(key: string): HTMLAudioElement | null {
     const pool = this.audioPool.get(key);
     if (!pool || pool.length === 0) return null;
 
-    // Trova un'istanza non in riproduzione
     for (const audio of pool) {
       if (audio.paused || audio.ended) {
-        audio.currentTime = 0; // Reset al tempo 0
+        audio.currentTime = 0;
         return audio;
       }
     }
 
-    // Se tutte le istanze sono in riproduzione, usa la prima (per allowMultiple)
     return pool[0];
   }
 
-  update(deltaTime: number): void {
-    // Aggiornamenti periodici se necessari
+  update(_deltaTime: number): void {
+    // No periodic update required currently.
   }
 
   destroy(): void {
-    // Cleanup risorse audio
-    this.sounds.forEach(audio => {
-      audio.pause();
-      audio.currentTime = 0;
-    });
-    this.sounds.clear();
-    this.activeSoundCategories.clear();
-    this.activeSoundBaseVolumes.clear();
+    this.stopAllSounds();
+    this.clearDebounceTimeouts();
 
-    if (this.musicInstance) {
-      this.musicInstance.pause();
-      this.musicInstance.currentTime = 0;
-      this.musicInstance = null;
-    }
-
-    // Cancella tutti i timeout di debouncing
-    this.debounceTimeouts.forEach(timeout => clearTimeout(timeout));
-    this.debounceTimeouts.clear();
-    this.lastPlayedTimes.clear();
     this.audioPool.clear();
     this.preloadedSounds.clear();
+    this.webAudioBufferCache.clear();
+    this.webAudioBufferPromises.clear();
+    this.webAudioStartTokens.clear();
+    this.lastPlayedTimes.clear();
+
     this.teardownSettingsListeners();
 
     if (this.audioContext && this.audioContext.state !== 'closed') {
-      this.audioContext.close();
+      void this.audioContext.close();
     }
     this.audioContext = null;
   }
 
   private setupAudio(): void {
     try {
-      // Inizializza AudioContext per Web Audio API
       this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    } catch (error) {
-      console.warn('Audio system: Web Audio API not supported, falling back to HTML Audio');
+      this.installAudioContextUnlockHandlers();
+    } catch {
+      console.warn('Audio system: Web Audio API not supported, using HTML Audio fallback');
+      this.audioContext = null;
     }
   }
 
-  // Metodi pubblici per gestione audio
+  private installAudioContextUnlockHandlers(): void {
+    if (!this.audioContext || typeof document === 'undefined') return;
+
+    const context = this.audioContext;
+
+    const cleanup = () => {
+      document.removeEventListener('pointerdown', unlock);
+      document.removeEventListener('keydown', unlock);
+      document.removeEventListener('touchstart', unlock);
+    };
+
+    const unlock = () => {
+      if (context.state === 'running') {
+        cleanup();
+        return;
+      }
+      void context.resume().finally(cleanup);
+    };
+
+    document.addEventListener('pointerdown', unlock, { once: true, passive: true });
+    document.addEventListener('keydown', unlock, { once: true });
+    document.addEventListener('touchstart', unlock, { once: true, passive: true });
+  }
+
+  private async ensureAudioContextRunning(): Promise<boolean> {
+    if (!this.audioContext) return false;
+    if (this.audioContext.state === 'running') return true;
+
+    try {
+      await this.audioContext.resume();
+    } catch {
+      return false;
+    }
+
+    const stateAfterResume = this.audioContext.state as AudioContextState;
+    return stateAfterResume === 'running';
+  }
 
   /**
-   * Riproduce un suono in una posizione specifica (Positional Audio)
-   * Il volume viene attenuato in base alla distanza dal centro della camera
-   * @param key Chiave del suono
-   * @param x Coordinata X del mondo
-   * @param y Coordinata Y del mondo
-   * @param options Opzioni extra (volume base, loop, etc.)
+   * Positional sound wrapper.
    */
   playSoundAt(
     key: string,
@@ -228,49 +307,33 @@ export default class AudioSystem extends System {
   ): void {
     if (!this.config.enabled) return;
 
-    // Distanza massima di default (2000 unità)
     const maxDistance = options.maxDistance || 2000;
-
-    // Volume base fornito o default per la categoria
-    // NOTA: Non usiamo CategoryVolume qui perché playSound lo riapplicherà internamente
     const baseVolume = options.volume !== undefined ? options.volume : 1.0;
     let distanceAttenuation = 1.0;
 
     try {
-      // 🚀 FIX ROBUSTO: Usa getName() invece di constructor.name per trovare la camera (funziona dopo minificazione)
       const cameraSystem = this.ecs.getSystems().find(s => s.getName() === 'CameraSystem') as any;
 
       if (cameraSystem) {
         const camera = cameraSystem.getCamera();
-        // La camera usa x/y come centro del mondo direttamente.
-        const cameraX = camera.x;
-        const cameraY = camera.y;
-
-        const dx = x - cameraX;
-        const dy = y - cameraY;
+        const dx = x - camera.x;
+        const dy = y - camera.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         if (distance > maxDistance) {
-          // Suono troppo lontano, non riprodurre nulla
           return;
         }
 
-        // Calcola attenuazione lineare: 1.0 (vicino) -> 0.0 (maxDistance)
         const attenuation = 1 - (distance / maxDistance);
-
-        // Applica curva quadratica per una caduta del suono più naturale
         distanceAttenuation = attenuation * attenuation;
       }
-    } catch (err) {
-      // In caso di errore nel calcolo della distanza, non applichiamo attenuazione (volume pieno)
+    } catch {
+      // Keep full volume on positioning errors.
     }
 
     const finalVolume = baseVolume * distanceAttenuation;
-
-    // Se il volume è trascurabile, ignora
     if (finalVolume < 0.001) return;
 
-    // Riproduci il suono con il volume attenuato
     this.playSound(
       key,
       finalVolume,
@@ -281,15 +344,20 @@ export default class AudioSystem extends System {
     );
   }
 
-  playSound(key: string, volume: number = this.config.effectsVolume, loop: boolean = false, allowMultiple: boolean = false, category: keyof typeof AUDIO_ASSETS = 'effects', debounceMs: number = 50): void {
+  playSound(
+    key: string,
+    volume: number = this.config.effectsVolume,
+    loop: boolean = false,
+    allowMultiple: boolean = false,
+    category: keyof typeof AUDIO_ASSETS = 'effects',
+    debounceMs: number = 50
+  ): void {
     if (!this.config.enabled) return;
 
     const now = Date.now();
     const lastPlayed = this.lastPlayedTimes.get(key) || 0;
 
-    // Per suoni non-loop senza allowMultiple, applica debouncing
     if (!loop && !allowMultiple && (now - lastPlayed) < debounceMs) {
-      // Cancella eventuali timeout precedenti e schedula una nuova riproduzione
       const existingTimeout = this.debounceTimeouts.get(key);
       if (existingTimeout) {
         clearTimeout(existingTimeout);
@@ -304,144 +372,503 @@ export default class AudioSystem extends System {
       return;
     }
 
-    // Riproduzione immediata
     this._playSoundInternal(key, volume, loop, allowMultiple, category);
     this.lastPlayedTimes.set(key, now);
   }
 
-  private _playSoundInternal(key: string, volume: number, loop: boolean, allowMultiple: boolean, category: keyof typeof AUDIO_ASSETS): void {
+  private _playSoundInternal(
+    key: string,
+    volume: number,
+    loop: boolean,
+    allowMultiple: boolean,
+    category: keyof typeof AUDIO_ASSETS
+  ): void {
     try {
-      // Crea una chiave unica per suoni multipli ravvicinati
       const soundKey = allowMultiple ? `${key}_${Date.now()}_${Math.random()}` : key;
 
-      // Per suoni loop, ferma quello precedente se esiste
-      if (loop && this.sounds.has(key)) {
+      if (loop) {
         this.stopSound(key);
-      } else if (this.sounds.has(soundKey) && !loop && !allowMultiple) {
-        // Per suoni non loop, se già presente non riavviarlo (a meno che allowMultiple)
+      } else if (!allowMultiple && (this.sounds.has(soundKey) || this.webAudioSounds.has(soundKey))) {
         return;
       }
 
-      // Cerca il path nell'AUDIO_ASSETS nella categoria specificata
       const assetPath = this.getAssetPath(key, category);
       if (!assetPath) {
         console.warn(`Audio system: Asset '${key}' not found in AUDIO_ASSETS.${category}`);
         return;
       }
 
-      // Usa suono precaricato se disponibile (per sincronizzazione perfetta)
-      let audio: HTMLAudioElement;
       const audioUrl = `assets/audio/${assetPath}`;
 
-      // Prova a ottenere un'istanza dal pool (più veloce)
-      const pooledAudio = this.getAudioFromPool(key);
-      if (pooledAudio) {
-        audio = pooledAudio;
-      } else if (this.preloadedSounds.has(key)) {
-        // Fallback: usa l'istanza precaricata se il pool non è disponibile
-        audio = this.preloadedSounds.get(key)!;
-        audio.currentTime = 0;
-      } else {
-        // Fallback: carica normalmente se non precaricato
-        audio = new Audio(audioUrl);
-      }
-
-      // Salva metadati per il ricalcolo del volume
+      // Track metadata regardless of backend.
       this.activeSoundCategories.set(soundKey, category);
       this.activeSoundBaseVolumes.set(soundKey, volume);
 
-      // Calcola volume iniziale: Master * Category * Instance(volume argument)
-      let categoryVolume = 1.0;
-      if (category === 'music') categoryVolume = this.config.musicVolume;
-      else if (category === 'effects') categoryVolume = this.config.effectsVolume;
-      else if (category === 'ui') categoryVolume = this.config.uiVolume;
-
-      const finalVolume = this.config.masterVolume * categoryVolume * volume;
-
-      if (Number.isFinite(finalVolume)) {
-        audio.volume = Math.max(0, Math.min(1, finalVolume));
-      } else {
-        audio.volume = 0;
-      }
-
-      audio.loop = loop;
-
-      // Aggiungi listener per errori di caricamento
-
-      // Gestisci la riproduzione con retry per superare blocchi del browser
-      // Per suoni precaricati, la riproduzione dovrebbe essere istantanea
-      const playAudio = async (retryCount = 0) => {
-        try {
-          // Per suoni precaricati, assicurati che siano pronti prima di riprodurre
-          if (this.preloadedSounds.has(key) && audio.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
-            // Attendi che il suono precaricato sia pronto (dovrebbe essere già pronto)
-            await new Promise((resolve) => {
-              if (audio.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
-                resolve(undefined);
-              } else {
-                audio.addEventListener('canplaythrough', () => resolve(undefined), { once: true });
-              }
-            });
-          }
-
-          await audio.play();
-        } catch (error) {
-          if (retryCount < 2) {
-            console.warn(`Audio system: Failed to play '${key}' (attempt ${retryCount + 1}), retrying...`);
-            // Riprova dopo un delay crescente
-            setTimeout(() => playAudio(retryCount + 1), 50 * (retryCount + 1));
-          } else {
-            console.warn(`Audio system: Failed to play '${key}' after ${retryCount + 1} attempts:`, error);
-            this.sounds.delete(soundKey);
-            this.activeSoundCategories.delete(soundKey);
-            this.activeSoundBaseVolumes.delete(soundKey);
-          }
-          return;
-        }
-      };
-
-      playAudio();
-      this.sounds.set(soundKey, audio);
-
-      // Per suoni non loop, rimuovi dalla mappa quando finisce
-      if (!loop) {
-        audio.addEventListener('ended', () => {
-          this.sounds.delete(soundKey);
-          this.activeSoundCategories.delete(soundKey);
-          this.activeSoundBaseVolumes.delete(soundKey);
+      if (this.shouldUseWebAudio(category)) {
+        const scheduled = this.playWebAudioSound(key, soundKey, audioUrl, volume, loop, category, () => {
+          this.playHtmlSound(key, soundKey, audioUrl, volume, loop, allowMultiple, category);
         });
 
-        // Safety timeout per suoni che potrebbero non finire correttamente
-        setTimeout(() => {
-          if (this.sounds.has(soundKey)) {
-            this.sounds.delete(soundKey);
-            this.activeSoundCategories.delete(soundKey);
-            this.activeSoundBaseVolumes.delete(soundKey);
-          }
-        }, 5000); // 5 secondi massimo per suoni laser
+        if (scheduled) {
+          return;
+        }
       }
+
+      this.playHtmlSound(key, soundKey, audioUrl, volume, loop, allowMultiple, category);
     } catch (error) {
       console.warn(`Audio system: Failed to create sound '${key}':`, error);
     }
+  }
+
+  private shouldUseWebAudio(category: keyof typeof AUDIO_ASSETS): boolean {
+    return !!this.audioContext && this.webAudioCategories.has(category);
+  }
+
+  private playWebAudioSound(
+    key: string,
+    soundKey: string,
+    audioUrl: string,
+    volume: number,
+    loop: boolean,
+    category: keyof typeof AUDIO_ASSETS,
+    fallbackToHtml: () => void
+  ): boolean {
+    if (!this.audioContext) return false;
+
+    const token = this.createWebAudioStartToken(soundKey);
+
+    void this.startWebAudioSound(key, soundKey, audioUrl, volume, loop, category, token)
+      .then((started) => {
+        if (!started && this.isWebAudioTokenCurrent(soundKey, token)) {
+          this.clearWebAudioStartToken(soundKey, token);
+          fallbackToHtml();
+        }
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn(`[AudioSystem] WebAudio playback failed for '${soundKey}', fallback to HTMLAudio`, error);
+        }
+
+        if (this.isWebAudioTokenCurrent(soundKey, token)) {
+          this.clearWebAudioStartToken(soundKey, token);
+          fallbackToHtml();
+        }
+      });
+
+    return true;
+  }
+
+  private async startWebAudioSound(
+    key: string,
+    soundKey: string,
+    audioUrl: string,
+    baseVolume: number,
+    loop: boolean,
+    category: keyof typeof AUDIO_ASSETS,
+    token: number
+  ): Promise<boolean> {
+    const context = this.audioContext;
+    if (!context) return false;
+
+    const unlocked = await this.ensureAudioContextRunning();
+    if (!unlocked) return false;
+    if (!this.isWebAudioTokenCurrent(soundKey, token) || !this.config.enabled) return false;
+
+    const buffer = await this.getDecodedBuffer(audioUrl);
+    if (!buffer) return false;
+    if (!this.isWebAudioTokenCurrent(soundKey, token) || !this.config.enabled) return false;
+
+    const source = context.createBufferSource();
+    source.buffer = buffer;
+
+    const resolvedBaseVolume = this.activeSoundBaseVolumes.get(soundKey) ?? baseVolume;
+    const gainNode = context.createGain();
+    gainNode.gain.value = this.toFinalVolume(resolvedBaseVolume, category);
+
+    source.connect(gainNode);
+    gainNode.connect(context.destination);
+
+    let startOffset = 0;
+    if (loop) {
+      source.loop = true;
+
+      const loopWindow = this.getLoopWindowForBuffer(key, buffer);
+      if (loopWindow) {
+        source.loopStart = loopWindow.start;
+        source.loopEnd = loopWindow.end;
+        startOffset = loopWindow.start;
+      }
+    }
+
+    const activeSound: WebAudioActiveSound = {
+      source,
+      gainNode,
+      category,
+      baseVolume: resolvedBaseVolume
+    };
+
+    this.webAudioSounds.set(soundKey, activeSound);
+
+    source.onended = () => {
+      const tracked = this.webAudioSounds.get(soundKey);
+      if (!tracked || tracked.source !== source) return;
+      this.cleanupWebAudioSound(soundKey, tracked);
+    };
+
+    source.start(0, startOffset);
+    this.clearWebAudioStartToken(soundKey, token);
+
+    return true;
+  }
+
+  private async getDecodedBuffer(audioUrl: string): Promise<AudioBuffer | null> {
+    if (!this.audioContext) return null;
+
+    const cached = this.webAudioBufferCache.get(audioUrl);
+    if (cached) return cached;
+
+    const pending = this.webAudioBufferPromises.get(audioUrl);
+    if (pending) return pending;
+
+    const loadPromise = (async () => {
+      try {
+        const response = await fetch(audioUrl);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.arrayBuffer();
+        const context = this.audioContext;
+        if (!context) return null;
+
+        const decoded = await context.decodeAudioData(data.slice(0));
+        this.webAudioBufferCache.set(audioUrl, decoded);
+        return decoded;
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn(`[AudioSystem] Failed to decode audio buffer '${audioUrl}'`, error);
+        }
+        return null;
+      } finally {
+        this.webAudioBufferPromises.delete(audioUrl);
+      }
+    })();
+
+    this.webAudioBufferPromises.set(audioUrl, loadPromise);
+    return loadPromise;
+  }
+
+  private getLoopWindowForBuffer(key: string, buffer: AudioBuffer): { start: number; end: number } | null {
+    const configured = this.loopWindows[key];
+    if (!configured) return null;
+
+    const duration = Number(buffer.duration || 0);
+    if (!Number.isFinite(duration) || duration <= 0.05) return null;
+
+    const sampleRate = buffer.sampleRate;
+    const maxSample = Math.max(1, buffer.length - 2);
+
+    let startSample = Math.max(0, Math.min(Math.round(configured.start * sampleRate), maxSample));
+    let endSample = Math.max(startSample + 1, Math.min(Math.round(configured.end * sampleRate), maxSample));
+
+    const minLoopSamples = Math.max(32, Math.floor(sampleRate * this.LOOP_MIN_DURATION_SECONDS));
+    const searchRadius = Math.max(8, Math.floor(sampleRate * this.LOOP_ZERO_CROSS_SEARCH_SECONDS));
+    const channelData = buffer.getChannelData(0);
+
+    const alignedStart = this.findNearestZeroCrossingSample(
+      channelData,
+      startSample,
+      searchRadius,
+      null,
+      0,
+      maxSample
+    );
+    if (alignedStart !== null) {
+      startSample = alignedStart;
+    }
+
+    const preferredDirection = this.getZeroCrossingDirection(channelData, startSample);
+
+    let alignedEnd = this.findBestLoopEndSample(
+      channelData,
+      startSample,
+      endSample,
+      searchRadius,
+      preferredDirection,
+      Math.min(maxSample, startSample + 1),
+      maxSample
+    );
+
+    if (alignedEnd !== null) {
+      endSample = alignedEnd;
+    }
+
+    if (endSample - startSample < minLoopSamples) {
+      const desiredEnd = Math.min(maxSample, startSample + minLoopSamples);
+      const expandedEnd = this.findBestLoopEndSample(
+        channelData,
+        startSample,
+        desiredEnd,
+        searchRadius,
+        preferredDirection,
+        Math.min(maxSample, startSample + 1),
+        maxSample
+      );
+      if (expandedEnd !== null && expandedEnd > startSample + 1) {
+        endSample = expandedEnd;
+      } else {
+        endSample = Math.max(startSample + 1, desiredEnd);
+      }
+    }
+
+    if (endSample <= startSample + 1) return null;
+
+    const loopStart = startSample / sampleRate;
+    const loopEnd = endSample / sampleRate;
+    if (!(loopEnd > loopStart)) return null;
+
+    return { start: loopStart, end: loopEnd };
+  }
+
+  private findNearestZeroCrossingSample(
+    samples: Float32Array,
+    targetSample: number,
+    searchRadius: number,
+    preferredDirection: 1 | -1 | null,
+    minSample: number,
+    maxSample: number
+  ): number | null {
+    const lowerBound = Math.max(0, minSample);
+    const upperBound = Math.min(samples.length - 2, maxSample);
+    if (upperBound <= lowerBound) return null;
+
+    const clampedTarget = Math.max(lowerBound, Math.min(targetSample, upperBound));
+
+    for (let offset = 0; offset <= searchRadius; offset++) {
+      const left = clampedTarget - offset;
+      if (left >= lowerBound) {
+        const leftDirection = this.getZeroCrossingDirection(samples, left);
+        if (leftDirection !== null && (preferredDirection === null || leftDirection === preferredDirection)) {
+          return left;
+        }
+      }
+
+      if (offset === 0) continue;
+
+      const right = clampedTarget + offset;
+      if (right <= upperBound) {
+        const rightDirection = this.getZeroCrossingDirection(samples, right);
+        if (rightDirection !== null && (preferredDirection === null || rightDirection === preferredDirection)) {
+          return right;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private findBestLoopEndSample(
+    samples: Float32Array,
+    loopStartSample: number,
+    targetSample: number,
+    searchRadius: number,
+    preferredDirection: 1 | -1 | null,
+    minSample: number,
+    maxSample: number
+  ): number | null {
+    const tryFind = (direction: 1 | -1 | null): number | null => {
+      const lowerBound = Math.max(0, minSample, targetSample - searchRadius);
+      const upperBound = Math.min(samples.length - 2, maxSample, targetSample + searchRadius);
+      if (upperBound <= lowerBound) return null;
+
+      const startA = samples[loopStartSample];
+      const startB = samples[Math.min(samples.length - 1, loopStartSample + 1)];
+
+      let bestIndex: number | null = null;
+      let bestScore = Number.POSITIVE_INFINITY;
+
+      for (let i = lowerBound; i <= upperBound; i++) {
+        const crossingDir = this.getZeroCrossingDirection(samples, i);
+        if (crossingDir === null) continue;
+        if (direction !== null && crossingDir !== direction) continue;
+
+        const endA = samples[i];
+        const endB = samples[i + 1];
+        const continuityScore = Math.abs(endA - startA) + Math.abs(endB - startB);
+        const distancePenalty = Math.abs(i - targetSample) * 0.0002;
+        const score = continuityScore + distancePenalty;
+
+        if (score < bestScore) {
+          bestScore = score;
+          bestIndex = i;
+        }
+      }
+
+      return bestIndex;
+    };
+
+    const bestWithDirection = tryFind(preferredDirection);
+    if (bestWithDirection !== null) return bestWithDirection;
+    return tryFind(null);
+  }
+
+  private getZeroCrossingDirection(samples: Float32Array, index: number): 1 | -1 | null {
+    if (index < 0 || index + 1 >= samples.length) return null;
+    const a = samples[index];
+    const b = samples[index + 1];
+
+    if (a <= 0 && b > 0) return 1;
+    if (a >= 0 && b < 0) return -1;
+    return null;
+  }
+
+  private playHtmlSound(
+    key: string,
+    soundKey: string,
+    audioUrl: string,
+    volume: number,
+    loop: boolean,
+    allowMultiple: boolean,
+    category: keyof typeof AUDIO_ASSETS
+  ): void {
+    let audio: HTMLAudioElement;
+
+    const pooledAudio = !loop && !allowMultiple ? this.getAudioFromPool(key) : null;
+    if (pooledAudio) {
+      audio = pooledAudio;
+    } else if (!loop && !allowMultiple && this.preloadedSounds.has(key)) {
+      audio = this.preloadedSounds.get(key)!;
+      audio.currentTime = 0;
+    } else {
+      audio = new Audio(audioUrl);
+    }
+
+    const resolvedBaseVolume = this.activeSoundBaseVolumes.get(soundKey) ?? volume;
+    audio.loop = loop;
+    audio.volume = this.toFinalVolume(resolvedBaseVolume, category);
+    this.activeSoundBaseVolumes.set(soundKey, resolvedBaseVolume);
+
+    this.sounds.set(soundKey, audio);
+
+    const cleanup = () => {
+      this.cleanupHtmlSound(soundKey, audio);
+    };
+
+    if (!loop) {
+      audio.addEventListener('ended', cleanup, { once: true });
+
+      setTimeout(() => {
+        if (this.sounds.get(soundKey) === audio && (audio.ended || audio.paused)) {
+          cleanup();
+        }
+      }, this.HTML_CLEANUP_FALLBACK_MS);
+    }
+
+    const playAudio = async (retryCount = 0) => {
+      try {
+        await audio.play();
+      } catch (error) {
+        if (retryCount < 2) {
+          setTimeout(() => {
+            void playAudio(retryCount + 1);
+          }, 50 * (retryCount + 1));
+        } else {
+          if (import.meta.env.DEV) {
+            console.warn(`Audio system: Failed to play '${soundKey}' after retries`, error);
+          }
+          cleanup();
+        }
+      }
+    };
+
+    void playAudio();
+  }
+
+  private cleanupHtmlSound(soundKey: string, expectedAudio?: HTMLAudioElement): void {
+    const current = this.sounds.get(soundKey);
+    if (!current) return;
+    if (expectedAudio && current !== expectedAudio) return;
+
+    current.pause();
+    current.currentTime = 0;
+
+    this.sounds.delete(soundKey);
+    this.activeSoundCategories.delete(soundKey);
+    this.activeSoundBaseVolumes.delete(soundKey);
+  }
+
+  private cleanupWebAudioSound(soundKey: string, expectedSound?: WebAudioActiveSound): void {
+    const tracked = this.webAudioSounds.get(soundKey);
+    if (!tracked) return;
+    if (expectedSound && tracked !== expectedSound) return;
+
+    tracked.source.onended = null;
+
+    try {
+      tracked.source.disconnect();
+    } catch {
+      // no-op
+    }
+
+    try {
+      tracked.gainNode.disconnect();
+    } catch {
+      // no-op
+    }
+
+    this.webAudioSounds.delete(soundKey);
+    this.activeSoundCategories.delete(soundKey);
+    this.activeSoundBaseVolumes.delete(soundKey);
+  }
+
+  private stopWebAudioSound(soundKey: string): void {
+    const tracked = this.webAudioSounds.get(soundKey);
+    if (!tracked) return;
+
+    tracked.source.onended = null;
+
+    try {
+      tracked.source.stop();
+    } catch {
+      // already stopped
+    }
+
+    this.cleanupWebAudioSound(soundKey, tracked);
+  }
+
+  private createWebAudioStartToken(soundKey: string): number {
+    const next = (this.webAudioStartTokens.get(soundKey) || 0) + 1;
+    this.webAudioStartTokens.set(soundKey, next);
+    return next;
+  }
+
+  private isWebAudioTokenCurrent(soundKey: string, token: number): boolean {
+    return this.webAudioStartTokens.get(soundKey) === token;
+  }
+
+  private clearWebAudioStartToken(soundKey: string, token: number): void {
+    if (this.webAudioStartTokens.get(soundKey) === token) {
+      this.webAudioStartTokens.delete(soundKey);
+    }
+  }
+
+  private invalidateWebAudioStart(soundKey: string): void {
+    this.createWebAudioStartToken(soundKey);
   }
 
   playMusic(key: string, volume: number = this.config.musicVolume): void {
     if (!this.config.enabled) return;
 
     try {
-      // Ferma musica precedente se presente (solo se è una chiave diversa)
-      if (this.musicInstance && this.musicInstance.src) {
-        const currentKey = this.musicInstance.src.split('/').pop()?.replace('.mp3', '') || '';
-        if (currentKey !== key) {
-          this.musicInstance.pause();
-          this.musicInstance.currentTime = 0;
-        } else {
-          // Stessa musica, non fare nulla
-          return;
-        }
+      if (this.musicInstance && this.currentMusicKey === key) {
+        return;
       }
 
-      // Cerca il path nell'AUDIO_ASSETS
+      if (this.musicInstance) {
+        this.musicInstance.pause();
+        this.musicInstance.currentTime = 0;
+      }
+
       const assetPath = this.getAssetPath(key, 'music');
       if (!assetPath) {
         console.warn(`Audio system: Asset '${key}' not found in AUDIO_ASSETS.music`);
@@ -451,43 +878,34 @@ export default class AudioSystem extends System {
       const audioUrl = `assets/audio/${assetPath}`;
 
       this.musicInstance = new Audio(audioUrl);
-      this.musicInstance.volume = 0; // Start at 0 for fade-in
+      this.currentMusicKey = key;
+      this.musicInstance.volume = 0;
       this.musicInstance.loop = true;
 
-      // Verifica errori di caricamento
       this.musicInstance.addEventListener('error', (e) => {
-        console.error(`Audio system: Error loading music '${key}':`, e);
-        if (this.musicInstance?.error) {
-          console.error(`Audio system: Error code: ${this.musicInstance.error.code}, message: ${this.musicInstance.error.message}`);
+        if (import.meta.env.DEV) {
+          console.error(`Audio system: Error loading music '${key}':`, e);
         }
       });
 
-      // Target volume calculation
-      const targetVolume = this.config.masterVolume * volume;
+      const targetVolume = this.clamp01(this.config.masterVolume * volume);
 
-      // Stesso approccio semplice dei suoni normali
       const playMusic = async (retryCount = 0) => {
         try {
           await this.musicInstance!.play();
 
-          // FADE IN LOGIC
-          const duration = 2000; // 2 seconds fade in
+          const duration = 2000;
           const startTime = Date.now();
 
           const fadeStep = () => {
-            // Check if music instance changed or was stopped
-            if (!this.musicInstance || !this.musicInstance.src.includes(assetPath)) return;
+            if (!this.musicInstance || this.currentMusicKey !== key) return;
 
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
-
-            // Ease-in curve
             const easedProgress = progress * progress;
             const newVolume = targetVolume * easedProgress;
 
-            if (Number.isFinite(newVolume)) {
-              this.musicInstance.volume = Math.max(0, Math.min(1, newVolume));
-            }
+            this.musicInstance.volume = this.clamp01(newVolume);
 
             if (progress < 1) {
               requestAnimationFrame(fadeStep);
@@ -495,28 +913,25 @@ export default class AudioSystem extends System {
           };
 
           fadeStep();
-
         } catch (error) {
           if (retryCount < 2) {
-            console.warn(`Audio system: Failed to play music '${key}' (attempt ${retryCount + 1}), retrying...`, error);
-            setTimeout(() => playMusic(retryCount + 1), 50 * (retryCount + 1));
-          } else {
-            console.warn(`Audio system: Failed to play music '${key}' after ${retryCount + 1} attempts:`, error);
+            setTimeout(() => {
+              void playMusic(retryCount + 1);
+            }, 50 * (retryCount + 1));
+          } else if (import.meta.env.DEV) {
+            console.warn(`Audio system: Failed to play music '${key}' after retries`, error);
           }
         }
       };
 
-      playMusic();
+      void playMusic();
     } catch (error) {
       console.warn(`Audio system: Failed to create music '${key}':`, error);
     }
   }
 
   /**
-   * Riproduce un suono ambientale in loop con volume dinamico
-   * @param key Chiave dell'asset (es. 'spaceStation')
-   * @param volume Volume target (0.0 - 1.0)
-   * @param category Categoria per il controllo volume (default: 'effects')
+   * Ambient loop with dynamic volume updates.
    */
   playAmbience(key: string, volume: number, category: keyof typeof AUDIO_ASSETS = 'effects'): void {
     if (!this.config.enabled) return;
@@ -524,20 +939,12 @@ export default class AudioSystem extends System {
     const soundKey = `ambience_${key}`;
     let audio = this.sounds.get(soundKey);
 
-    // Se volume basso, ferma e rimuovi per risparmiare risorse
     if (volume <= 0.01) {
-      if (audio) {
-        audio.pause();
-        this.sounds.delete(soundKey);
-        this.activeSoundCategories.delete(soundKey);
-        this.activeSoundBaseVolumes.delete(soundKey);
-      }
+      this.stopSound(soundKey);
       return;
     }
 
-    // Se non esiste, crea nuova istanza
     if (!audio) {
-      // Cerca in 'music' perché l'abbiamo messo lì nel config, ma permetti override
       const assetPath = this.getAssetPath(key, 'music') || this.getAssetPath(key, 'effects');
       if (!assetPath) return;
 
@@ -546,19 +953,15 @@ export default class AudioSystem extends System {
       this.sounds.set(soundKey, audio);
       this.activeSoundCategories.set(soundKey, category);
 
-      audio.play().catch(e => console.warn(`[AudioSystem] Failed to play ambience ${key}`, e));
+      void audio.play().catch((e) => {
+        if (import.meta.env.DEV) {
+          console.warn(`[AudioSystem] Failed to play ambience ${key}`, e);
+        }
+      });
     }
 
-    // Aggiorna volume base
     this.activeSoundBaseVolumes.set(soundKey, volume);
-
-    // Applica volume immediato
-    const master = this.config.masterVolume;
-    const catVol = category === 'music' ? this.config.musicVolume :
-      category === 'effects' ? this.config.effectsVolume :
-        category === 'ui' ? this.config.uiVolume : 1.0;
-
-    audio.volume = Math.max(0, Math.min(1, master * catVol * volume));
+    audio.volume = this.toFinalVolume(volume, category);
   }
 
   stopMusic(): void {
@@ -566,6 +969,8 @@ export default class AudioSystem extends System {
       this.musicInstance.pause();
       this.musicInstance.currentTime = 0;
     }
+    this.musicInstance = null;
+    this.currentMusicKey = null;
   }
 
   pauseMusic(): void {
@@ -576,29 +981,28 @@ export default class AudioSystem extends System {
 
   resumeMusic(): void {
     if (this.musicInstance) {
-      this.musicInstance.play();
+      void this.musicInstance.play();
     }
   }
 
-  // Controlli volume
+  // Volume controls
   setMasterVolume(volume: number): void {
-    const oldMasterVolume = this.config.masterVolume;
-    this.config.masterVolume = Math.max(0, Math.min(1, volume));
-    this.updateAllVolumes(oldMasterVolume);
+    this.config.masterVolume = this.clamp01(volume);
+    this.updateAllVolumes();
   }
 
   setMusicVolume(volume: number): void {
-    this.config.musicVolume = Math.max(0, Math.min(1, volume));
+    this.config.musicVolume = this.clamp01(volume);
     this.updateAllVolumes();
   }
 
   setEffectsVolume(volume: number): void {
-    this.config.effectsVolume = Math.max(0, Math.min(1, volume));
+    this.config.effectsVolume = this.clamp01(volume);
     this.updateAllVolumes();
   }
 
   setUIVolume(volume: number): void {
-    this.config.uiVolume = Math.max(0, Math.min(1, volume));
+    this.config.uiVolume = this.clamp01(volume);
     this.updateAllVolumes();
   }
 
@@ -608,43 +1012,66 @@ export default class AudioSystem extends System {
     this.config.enabled = !this.config.enabled;
 
     if (oldStatus && !this.config.enabled) {
-      // Disabilitato: ferma tutto
       this.stopAllSounds();
+      this.clearDebounceTimeouts();
     }
   }
 
   stopSound(key: string): void {
-    const audio = this.sounds.get(key);
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-      this.sounds.delete(key);
-      this.activeSoundCategories.delete(key);
-      this.activeSoundBaseVolumes.delete(key);
+    this.invalidateWebAudioStart(key);
+
+    const webSound = this.webAudioSounds.get(key);
+    if (webSound) {
+      this.stopWebAudioSound(key);
     }
+
+    const htmlAudio = this.sounds.get(key);
+    if (htmlAudio) {
+      htmlAudio.pause();
+      htmlAudio.currentTime = 0;
+      this.sounds.delete(key);
+    }
+
+    this.activeSoundCategories.delete(key);
+    this.activeSoundBaseVolumes.delete(key);
   }
 
   /**
-   * Fade in del suono (graduale aumento volume)
+   * Fade in active sound to target base volume.
    */
   fadeInSound(key: string, duration: number = 500, targetVolume: number = this.config.effectsVolume): void {
+    const targetBase = Math.max(0, targetVolume);
+    this.activeSoundBaseVolumes.set(key, targetBase);
+
+    const webSound = this.webAudioSounds.get(key);
+    if (webSound && this.audioContext) {
+      const now = this.audioContext.currentTime;
+      const currentGain = webSound.gainNode.gain.value;
+      const targetGain = this.toFinalVolume(targetBase, webSound.category);
+
+      webSound.baseVolume = targetBase;
+
+      webSound.gainNode.gain.cancelScheduledValues(now);
+      webSound.gainNode.gain.setValueAtTime(currentGain, now);
+      webSound.gainNode.gain.linearRampToValueAtTime(targetGain, now + duration / 1000);
+      return;
+    }
+
     const audio = this.sounds.get(key);
     if (!audio) return;
 
-    const startVolume = 0;
+    const category = this.activeSoundCategories.get(key) || 'effects';
+    const startVolume = this.clamp01(audio.volume);
+    const targetAbsolute = this.toFinalVolume(targetBase, category);
     const startTime = Date.now();
 
     const fadeStep = () => {
       const elapsed = Date.now() - startTime;
       const progress = Math.min(elapsed / duration, 1);
-
-      // Curva ease-in per fade più naturale
       const easedProgress = progress * progress;
-      const newVolume = this.config.masterVolume * startVolume + (this.config.masterVolume * targetVolume - this.config.masterVolume * startVolume) * easedProgress;
+      const newVolume = startVolume + (targetAbsolute - startVolume) * easedProgress;
 
-      if (Number.isFinite(newVolume)) {
-        audio.volume = Math.max(0, Math.min(1, newVolume));
-      }
+      audio.volume = this.clamp01(newVolume);
 
       if (progress < 1) {
         requestAnimationFrame(fadeStep);
@@ -655,9 +1082,14 @@ export default class AudioSystem extends System {
   }
 
   /**
-   * Fade out del suono (graduale diminuzione volume)
+   * Fade out sound and stop it.
    */
   fadeOutSound(key: string, duration: number = 300): Promise<void> {
+    const webSound = this.webAudioSounds.get(key);
+    if (webSound) {
+      return this.fadeOutWebAudioSound(key, duration);
+    }
+
     return new Promise((resolve) => {
       const audio = this.sounds.get(key);
       if (!audio) {
@@ -665,30 +1097,22 @@ export default class AudioSystem extends System {
         return;
       }
 
-      // Calcola volume relativo di partenza in modo sicuro
-      let startRelativeVolume = 0;
-      if (this.config.masterVolume > 0.0001) {
-        startRelativeVolume = audio.volume / this.config.masterVolume;
-      }
+      this.invalidateWebAudioStart(key);
 
+      const startVolume = this.clamp01(audio.volume);
       const startTime = Date.now();
 
       const fadeStep = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
-
-        // Curva ease-out per fade più naturale
         const easedProgress = 1 - Math.pow(1 - progress, 2);
-        const newVolume = this.config.masterVolume * (startRelativeVolume * (1 - easedProgress));
+        const newVolume = startVolume * (1 - easedProgress);
 
-        if (Number.isFinite(newVolume)) {
-          audio.volume = Math.max(0, Math.min(1, newVolume));
-        }
+        audio.volume = this.clamp01(newVolume);
 
         if (progress < 1) {
           requestAnimationFrame(fadeStep);
         } else {
-          // Fade completato, ferma il suono
           audio.pause();
           audio.currentTime = 0;
           this.sounds.delete(key);
@@ -702,56 +1126,119 @@ export default class AudioSystem extends System {
     });
   }
 
+  private fadeOutWebAudioSound(key: string, duration: number): Promise<void> {
+    return new Promise((resolve) => {
+      const sound = this.webAudioSounds.get(key);
+      const context = this.audioContext;
+
+      if (!sound || !context) {
+        resolve();
+        return;
+      }
+
+      this.invalidateWebAudioStart(key);
+
+      const now = context.currentTime;
+      const endTime = now + duration / 1000;
+      const startGain = this.clamp01(sound.gainNode.gain.value);
+
+      sound.gainNode.gain.cancelScheduledValues(now);
+      sound.gainNode.gain.setValueAtTime(startGain, now);
+      sound.gainNode.gain.linearRampToValueAtTime(0, endTime);
+
+      const tracked = sound;
+
+      tracked.source.onended = () => {
+        this.cleanupWebAudioSound(key, tracked);
+        resolve();
+      };
+
+      try {
+        tracked.source.stop(endTime + this.WEB_STOP_PAD_SECONDS);
+      } catch {
+        this.cleanupWebAudioSound(key, tracked);
+        resolve();
+      }
+
+      setTimeout(() => {
+        if (this.webAudioSounds.get(key) === tracked) {
+          this.cleanupWebAudioSound(key, tracked);
+        }
+        resolve();
+      }, duration + 120);
+    });
+  }
+
   private stopAllSounds(): void {
-    this.sounds.forEach(audio => {
+    this.webAudioStartTokens.clear();
+
+    for (const soundKey of Array.from(this.webAudioSounds.keys())) {
+      this.stopWebAudioSound(soundKey);
+    }
+
+    this.sounds.forEach((audio) => {
       audio.pause();
       audio.currentTime = 0;
     });
     this.sounds.clear();
+
     this.activeSoundCategories.clear();
     this.activeSoundBaseVolumes.clear();
+
     this.stopMusic();
   }
 
-  // Mappa per tenere traccia della categoria di ogni suono attivo
-  private activeSoundCategories: Map<string, keyof typeof AUDIO_ASSETS> = new Map();
-  // Mappa per tenere traccia del volume base (instance volume) di ogni suono attivo
-  private activeSoundBaseVolumes: Map<string, number> = new Map();
+  private clearDebounceTimeouts(): void {
+    this.debounceTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+    this.debounceTimeouts.clear();
+  }
 
-  private updateAllVolumes(oldMasterVolume?: number): void {
-    // Aggiorna volume di tutti gli audio attivi
+  private getCategoryVolume(category: keyof typeof AUDIO_ASSETS): number {
+    if (category === 'music') return this.config.musicVolume;
+    if (category === 'ui') return this.config.uiVolume;
+    // Voice currently follows effects volume bucket.
+    return this.config.effectsVolume;
+  }
+
+  private toFinalVolume(baseVolume: number, category: keyof typeof AUDIO_ASSETS): number {
+    return this.clamp01(this.config.masterVolume * this.getCategoryVolume(category) * baseVolume);
+  }
+
+  private clamp01(value: number): number {
+    if (!Number.isFinite(value)) return 0;
+    return Math.max(0, Math.min(1, value));
+  }
+
+  private updateAllVolumes(): void {
     this.sounds.forEach((audio, key) => {
       const category = this.activeSoundCategories.get(key) || 'effects';
-      const instanceVolume = this.activeSoundBaseVolumes.get(key) || 1.0;
+      const baseVolume = this.activeSoundBaseVolumes.get(key) || 1.0;
+      audio.volume = this.toFinalVolume(baseVolume, category);
+    });
 
-      let categoryVolume = 1.0;
-      if (category === 'music') {
-        categoryVolume = this.config.musicVolume;
-      } else if (category === 'effects') {
-        categoryVolume = this.config.effectsVolume;
-      } else if (category === 'ui') {
-        categoryVolume = this.config.uiVolume;
-      }
+    this.webAudioSounds.forEach((sound, key) => {
+      const category = this.activeSoundCategories.get(key) || sound.category;
+      const baseVolume = this.activeSoundBaseVolumes.get(key) ?? sound.baseVolume;
+      sound.baseVolume = baseVolume;
 
-      // Calcola nuovo volume: Master * Category * Instance
-      const newVolume = this.config.masterVolume * categoryVolume * instanceVolume;
-
-      // Applica solo se finito
-      if (Number.isFinite(newVolume)) {
-        audio.volume = Math.max(0, Math.min(1, newVolume));
+      if (this.audioContext) {
+        sound.gainNode.gain.setValueAtTime(this.toFinalVolume(baseVolume, category), this.audioContext.currentTime);
+      } else {
+        sound.gainNode.gain.value = this.toFinalVolume(baseVolume, category);
       }
     });
 
     if (this.musicInstance) {
-      const newMusicVolume = this.config.masterVolume * this.config.musicVolume;
-      if (Number.isFinite(newMusicVolume)) {
-        this.musicInstance.volume = Math.max(0, Math.min(1, newMusicVolume));
-      }
+      this.musicInstance.volume = this.clamp01(this.config.masterVolume * this.config.musicVolume);
     }
   }
 
   // Utility methods
   isSoundPlaying(key: string): boolean {
+    if (this.webAudioSounds.has(key)) {
+      return true;
+    }
+
     const audio = this.sounds.get(key);
     return audio ? !audio.paused && !audio.ended : false;
   }
@@ -765,13 +1252,8 @@ export default class AudioSystem extends System {
   }
 
   updateConfig(newConfig: Partial<AudioConfig>): void {
-    const oldMasterVolume = this.config.masterVolume;
     this.config = { ...this.config, ...newConfig };
-    this.applyConfigChanges(oldMasterVolume);
-  }
-
-  private applyConfigChanges(oldMasterVolume?: number): void {
-    this.updateAllVolumes(oldMasterVolume);
+    this.updateAllVolumes();
   }
 
   private getAssetPath(key: string, category: keyof typeof AUDIO_ASSETS): string | null {
@@ -781,5 +1263,4 @@ export default class AudioSystem extends System {
     }
     return null;
   }
-
 }
