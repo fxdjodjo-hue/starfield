@@ -23,7 +23,7 @@ export const AUDIO_ASSETS = {
     explosion: 'effects/explosions/explosion.mp3',
     hit: 'effects/hit.wav',
     shieldHit: 'effects/shield_hit.wav',
-    collect: 'effects/collect.wav',
+    collect: 'collecting/collecting.mp3',
     upgrade: 'effects/upgrade.wav',
     damage: 'effects/damage.wav',
     engine: 'effects/engine/enginesoundeffect.mp3',

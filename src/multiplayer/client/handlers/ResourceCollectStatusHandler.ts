@@ -4,6 +4,10 @@ import { MESSAGE_TYPES, type ResourceCollectStatusMessage } from '../../../confi
 import { LogType } from '../../../presentation/ui/LogMessage';
 
 export class ResourceCollectStatusHandler extends BaseMessageHandler {
+  private readonly COLLECT_AUDIO_START_DELAY_MS = 220;
+  private collectAudioStartTimer: number | null = null;
+  private collectAudioShouldBeActive = false;
+
   constructor() {
     super(MESSAGE_TYPES.RESOURCE_COLLECT_STATUS);
   }
@@ -12,6 +16,7 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     const status = String(message?.status || '').toLowerCase();
     const resourceId = typeof message?.resourceId === 'string' ? message.resourceId : '';
     const resourceName = this.resolveResourceName(message);
+    const audioSystem = networkSystem.getAudioSystem?.();
 
     const resourceInteractionSystem = networkSystem.getResourceInteractionSystem();
     if (resourceInteractionSystem && typeof resourceInteractionSystem.handleCollectionStatus === 'function') {
@@ -23,6 +28,21 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
       networkSystem.gameContext.playerResourceInventory = resourceInventory;
       this.notifyResourceInventoryUpdated(resourceInventory);
       this.updateCraftingPanel(networkSystem, resourceInventory);
+    }
+
+    if (status === 'started' || status === 'in_progress') {
+      this.collectAudioShouldBeActive = true;
+      if (audioSystem) {
+        this.scheduleCollectAudioStart(audioSystem);
+      }
+    }
+
+    if (status === 'interrupted' || status === 'completed') {
+      this.collectAudioShouldBeActive = false;
+      this.clearCollectAudioStartTimer();
+      if (audioSystem && typeof audioSystem.stopSound === 'function') {
+        audioSystem.stopSound('collect');
+      }
     }
 
     const logSystem = networkSystem.getLogSystem();
@@ -42,6 +62,34 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     if (status === 'completed') {
       logSystem.addLogMessage(`${resourceName} raccolta`, LogType.REWARD, 2600);
     }
+  }
+
+  private scheduleCollectAudioStart(audioSystem: any): void {
+    const isAlreadyPlaying = typeof audioSystem.isSoundPlaying === 'function'
+      ? audioSystem.isSoundPlaying('collect')
+      : false;
+
+    if (isAlreadyPlaying || this.collectAudioStartTimer !== null) return;
+    if (typeof audioSystem.playSound !== 'function') return;
+
+    this.collectAudioStartTimer = window.setTimeout(() => {
+      this.collectAudioStartTimer = null;
+      if (!this.collectAudioShouldBeActive) return;
+
+      const stillNotPlaying = typeof audioSystem.isSoundPlaying === 'function'
+        ? !audioSystem.isSoundPlaying('collect')
+        : true;
+
+      if (stillNotPlaying) {
+        audioSystem.playSound('collect', 0.35, true, false, 'effects');
+      }
+    }, this.COLLECT_AUDIO_START_DELAY_MS);
+  }
+
+  private clearCollectAudioStartTimer(): void {
+    if (this.collectAudioStartTimer === null) return;
+    window.clearTimeout(this.collectAudioStartTimer);
+    this.collectAudioStartTimer = null;
   }
 
   private resolveResourceName(message: ResourceCollectStatusMessage): string {
