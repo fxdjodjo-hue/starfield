@@ -101,7 +101,9 @@ export class ProjectileSystem extends BaseSystem {
     }
 
     // 5. Collisioni - Abilitate anche per proiettili remoti VISIVI (laser)
-    const isVisualOnly = projectile.damage === 0 || projectile.projectileType === 'npc_laser';
+    const isVisualOnly = projectile.damage === 0
+      || projectile.projectileType === 'npc_laser'
+      || projectile.projectileType === 'pet_laser';
     const collisionProbePosition = (isRemote && isVisualOnly)
       ? this.predictRemoteCollisionPosition(projectileEntity, transform, projectile, deltaTimeSeconds)
       : undefined;
@@ -338,7 +340,7 @@ export class ProjectileSystem extends BaseSystem {
       // I proiettili visivi (laser) hanno un raggio di collisione maggiore per evitare
       // che "orbitino" attorno al target a causa della loro velocità ridotta o 
       // di scatti nel movimento.
-      if (projectile.damage === 0 || projectile.projectileType === 'npc_laser') {
+      if (projectile.damage === 0 || projectile.projectileType === 'npc_laser' || projectile.projectileType === 'pet_laser') {
         hitDistance *= 1.5; // +50% raggio per visual lasers
       }
 

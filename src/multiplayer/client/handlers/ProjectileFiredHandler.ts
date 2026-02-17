@@ -55,14 +55,23 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
           message.position.y,
           { volume: 0.1, allowMultiple: true, category: 'effects' }
         );
+      } else if (message.projectileType === 'pet_laser') {
+        audioSystem.playSoundAt(
+          'laser',
+          message.position.x,
+          message.position.y,
+          { volume: 0.05, allowMultiple: true, category: 'effects' }
+        );
       }
-      // Suono laser player gestito lato client nei laser visivi per responsività immediata
+      // Suono laser player gestito lato client nei laser visivi per responsivit� immediata
     }
+
+    this.handlePetDefenseTarget(message, isLocalPlayer);
 
     // ✅ OTTIMIZZAZIONE: Per i laser del giocatore locale, ignoriamo il messaggio di ritorno dal server
     // perché abbiamo già creato il laser locale per responsività immediata in CombatStateSystem.
     // MA per i MISSILI (che sono auto-fire dal server), dobbiamo processarli anche per il player locale!
-    if (isLocalPlayer && message.projectileType !== 'missile') {
+    if (isLocalPlayer && message.projectileType === 'laser') {
       // Skip self-broadcast to avoid duplication - local laser already created
       return;
     }
@@ -97,6 +106,19 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     this.showProjectile(message, networkSystem, isLocalPlayer);
   }
 
+  private handlePetDefenseTarget(message: ProjectileFiredMessage, isLocalPlayer: boolean): void {
+    if (typeof document === 'undefined') return;
+    if (!isLocalPlayer) return;
+    if (message.projectileType !== 'pet_laser') return;
+
+    const targetNpcId = String(message.targetId || '').trim();
+    if (!targetNpcId) return;
+
+    document.dispatchEvent(new CustomEvent('pet:defense-target', {
+      detail: { targetNpcId }
+    }));
+  }
+
   private showProjectile(message: ProjectileFiredMessage, networkSystem: ClientNetworkSystem, isLocalPlayer: boolean): void {
     /*
     console.log('[DEBUG_PROJECTILE] showProjectile called for:', {
@@ -120,7 +142,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
     // per evitare disallineamenti dovuti alla latenza di rete
     let projectilePosition = message.position;
 
-    if (isLocalPlayer) {
+    if (isLocalPlayer && message.projectileType === 'missile') {
       // Usa posizione del player locale invece di quella del server
       const localPlayerPos = networkSystem.getLocalPlayerPosition();
       projectilePosition = {

@@ -32,7 +32,7 @@ export interface ProjectileConfig {
   playerId?: string;
   animatedSprite?: AnimatedSprite;
   shipRotation?: number;
-  projectileType?: 'laser' | 'npc_laser' | 'missile';
+  projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile';
   isRemote?: boolean; // Per proiettili ricevuti dal server
   velocity?: { x: number; y: number }; // Per remote projectiles
   speed?: number; // Override velocità
@@ -97,7 +97,7 @@ export class ProjectileFactory {
       } else {
         const projectileSpeed = config.speed ||
           (config.projectileType === 'missile' ? GAME_CONSTANTS.PROJECTILE.MISSILE_SPEED :
-            config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED : // Laser visivi
+            (config.projectileType === 'laser' || config.projectileType === 'pet_laser') ? GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED : // Laser visivi
               GAME_CONSTANTS.PROJECTILE.SPEED);
         ecs.addComponent(entity, Velocity, new Velocity(
           direction.x * projectileSpeed,
@@ -140,12 +140,17 @@ export class ProjectileFactory {
       // nel MovementSystem.
 
       // Per proiettili remoti laser, aggiungi componente Sprite per rendering visivo
-      if (config.isRemote && (config.projectileType === 'laser' || config.projectileType === 'npc_laser' || config.projectileType === 'missile')) {
+      if (config.isRemote && (
+        config.projectileType === 'laser'
+        || config.projectileType === 'pet_laser'
+        || config.projectileType === 'npc_laser'
+        || config.projectileType === 'missile'
+      )) {
         let image: HTMLImageElement | null = null;
 
         if (assetManager) {
           // Usa AssetManager per caricare l'immagine
-          if (config.projectileType === 'laser') {
+          if (config.projectileType === 'laser' || config.projectileType === 'pet_laser') {
             // Laser del player
             image = assetManager.getOrLoadImage('assets/laser/laser1/laser1.png');
           } else if (config.projectileType === 'missile') {
@@ -173,8 +178,13 @@ export class ProjectileFactory {
         // Missili molto più grandi per visibilità (era 48x12 laser)
         // 🚀 FIX: Dimensions set to 12x54 as requested (thin missile)
         // With 90 deg rotation offset, it moves forward correctly
-        const width = config.projectileType === 'missile' ? 12 : (config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_WIDTH : 48);
-        const height = config.projectileType === 'missile' ? 54 : (config.projectileType === 'laser' ? GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_HEIGHT : 12);
+        const isPlayerStyleLaser = config.projectileType === 'laser' || config.projectileType === 'pet_laser';
+        const width = config.projectileType === 'missile'
+          ? 12
+          : (isPlayerStyleLaser ? GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_WIDTH : 48);
+        const height = config.projectileType === 'missile'
+          ? 54
+          : (isPlayerStyleLaser ? GAME_CONSTANTS.PROJECTILE.PLAYER_LASER_HEIGHT : 12);
         const rotationOffset = config.projectileType === 'missile' ? Math.PI / 2 : 0;
 
         const sprite = new Sprite(image, width, height, 0, 0, rotationOffset);
@@ -295,7 +305,7 @@ export class ProjectileFactory {
       actualTargetId || -1,
       GAME_CONSTANTS.PROJECTILE.LIFETIME,
       playerId,
-      projectileType as 'laser' | 'npc_laser' | 'missile'
+      projectileType as 'laser' | 'pet_laser' | 'npc_laser' | 'missile'
     );
     ecs.addComponent(entity, Projectile, projectile);
 
@@ -357,7 +367,7 @@ export class ProjectileFactory {
       ownerId: ownerId || 0,
       targetId: numericTargetId,
       playerId,
-      projectileType: projectileType as 'laser' | 'npc_laser' | 'missile',
+      projectileType: projectileType as 'laser' | 'pet_laser' | 'npc_laser' | 'missile',
       isRemote: true,
       velocity,
       speed,
@@ -380,7 +390,7 @@ export class ProjectileFactory {
     ownerId: number,
     targetId: number,
     playerId?: string,
-    projectileType: 'laser' | 'npc_laser' | 'missile' = 'laser'
+    projectileType: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' = 'laser'
   ): Entity {
     const projectileId = IDGenerator.generateProjectileId(String(ownerId));
 

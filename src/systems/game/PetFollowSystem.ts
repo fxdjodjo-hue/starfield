@@ -2,6 +2,8 @@ import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
+import { Health } from '../../entities/combat/Health';
+import { Npc } from '../../entities/ai/Npc';
 import { Pet } from '../../entities/player/Pet';
 import { PlayerSystem } from '../player/PlayerSystem';
 import { getPlayerRangeHeight, getPlayerRangeWidth } from '../../config/PlayerConfig';
@@ -37,11 +39,18 @@ interface PetRuntimeState {
   collectAnimationTargetX: number;
   collectAnimationTargetY: number;
   collectAnimationRemainingSeconds: number;
+  defenseTargetNpcId: string;
+  defenseTargetLockUntilMs: number;
 }
 
 interface PetCollectAnimationCommand {
   target: Point2D | null;
   durationSeconds: number;
+  stop: boolean;
+}
+
+interface PetDefenseCommand {
+  targetNpcId: string | null;
   stop: boolean;
 }
 
@@ -51,7 +60,9 @@ export class PetFollowSystem extends BaseSystem {
   private readonly playerSystem: PlayerSystem;
   private readonly runtimeStateByEntityId: Map<number, PetRuntimeState> = new Map();
   private pendingCollectAnimationCommand: PetCollectAnimationCommand | null = null;
+  private pendingDefenseCommand: PetDefenseCommand | null = null;
   private petAutoCollectListener: ((event: Event) => void) | null = null;
+  private petDefenseListener: ((event: Event) => void) | null = null;
 
   private readonly SNAP_DISTANCE_PX = 1600;
   private readonly PET_BASE_SPEED_PX_PER_SECOND = 270;
@@ -69,7 +80,9 @@ export class PetFollowSystem extends BaseSystem {
   private readonly ROTATION_HEADING_FILTER_CATCHUP = 24;
   private readonly PET_ROTATION_CATCHUP_LERP_MULTIPLIER = 2.2;
   private readonly PET_ROTATION_CATCHUP_BLEND_THRESHOLD = 0.28;
-  private readonly PET_ROTATION_MOONWALK_DOT_THRESHOLD = -0.12;
+  private readonly PET_ROTATION_MOONWALK_DOT_THRESHOLD = -0.01;
+  private readonly PET_ROTATION_RECOVERY_DOT_THRESHOLD = 0.42;
+  private readonly PET_ROTATION_RECOVERY_LERP_MULTIPLIER = 2.4;
 
   private readonly FOLLOW_DISTANCE_EXTRA = 24;
   private readonly LATERAL_OFFSET_MULTIPLIER = 1.1;
@@ -102,6 +115,11 @@ export class PetFollowSystem extends BaseSystem {
   private readonly OWNER_TURN_RATE_SNAP_THRESHOLD = 0.03;
   private readonly PET_COLLECT_ANIMATION_DURATION_SECONDS = 0.36;
   private readonly PET_COLLECT_SPEED_BOOST = 1;
+  private readonly PET_DEFENSE_SPEED_BOOST = 1.28;
+  private readonly PET_DEFENSE_TARGET_FILTER = 26;
+  private readonly PET_DEFENSE_SLOWDOWN_DISTANCE = 92;
+  private readonly PET_DEFENSE_TARGET_LOCK_MS = 6500;
+  private readonly PET_DEFENSE_ORBIT_RADIUS = 260;
 
   private previousOwnerX: number | null = null;
   private previousOwnerY: number | null = null;
@@ -126,11 +144,13 @@ export class PetFollowSystem extends BaseSystem {
     );
 
     this.setupPetAutoCollectListener();
+    this.setupPetDefenseListener();
   }
 
   update(deltaTime: number): void {
     const dtSeconds = Math.max(0, Math.min(0.1, deltaTime / 1000));
     if (dtSeconds <= 0) return;
+    const nowMs = Date.now();
 
     const playerEntity = this.playerSystem.getPlayerEntity();
     if (!playerEntity) return;
@@ -141,6 +161,7 @@ export class PetFollowSystem extends BaseSystem {
     const playerVelocity = this.ecs.getComponent(playerEntity, Velocity) || null;
     const ownerKinematics = this.buildOwnerKinematics(playerTransform, playerVelocity, dtSeconds);
     const pendingCollectCommand = this.consumePendingCollectAnimationCommand();
+    const pendingDefenseCommand = this.consumePendingDefenseCommand();
 
     const petEntities = this.ecs.getEntitiesWithComponents(Pet, Transform);
     const activePetEntityIds = new Set<number>();
@@ -155,6 +176,7 @@ export class PetFollowSystem extends BaseSystem {
       if (pet.isActive === false) {
         const runtimeState = this.getOrCreateRuntimeState(petEntity.id, petTransform);
         runtimeState.collectAnimationRemainingSeconds = 0;
+        this.clearDefenseTarget(runtimeState);
         runtimeState.currentMoveSpeed = this.PET_BASE_SPEED_PX_PER_SECOND;
         continue;
       }
@@ -171,7 +193,25 @@ export class PetFollowSystem extends BaseSystem {
           pendingCollectCommand.durationSeconds
         );
       }
-      this.updatePetTransform(pet, runtimeState, petTransform, playerTransform, ownerKinematics, dtSeconds);
+
+      if (pendingDefenseCommand?.stop) {
+        this.clearDefenseTarget(runtimeState);
+      } else if (pendingDefenseCommand?.targetNpcId) {
+        runtimeState.collectAnimationRemainingSeconds = 0;
+        runtimeState.defenseTargetNpcId = pendingDefenseCommand.targetNpcId;
+        runtimeState.defenseTargetLockUntilMs = nowMs + this.PET_DEFENSE_TARGET_LOCK_MS;
+        this.resetStationaryWanderState(runtimeState);
+      }
+
+      this.updatePetTransform(
+        pet,
+        runtimeState,
+        petTransform,
+        playerTransform,
+        ownerKinematics,
+        dtSeconds,
+        nowMs
+      );
     }
 
     for (const entityId of this.runtimeStateByEntityId.keys()) {
@@ -187,17 +227,33 @@ export class PetFollowSystem extends BaseSystem {
     petTransform: Transform,
     ownerTransform: Transform,
     ownerKinematics: OwnerKinematics,
-    dtSeconds: number
+    dtSeconds: number,
+    nowMs: number
   ): void {
     const ownerRotation = Number.isFinite(ownerTransform.rotation) ? ownerTransform.rotation : 0;
     const isOwnerStationary = this.isOwnerStationary(ownerKinematics);
-    const collectAnimationTarget = this.updateCollectAnimation(runtimeState, dtSeconds);
+    const defenseTarget = this.resolveDefenseTarget(runtimeState, ownerTransform, petTransform, nowMs);
+    const hasDefenseTarget = !!defenseTarget;
+    const collectAnimationTarget = hasDefenseTarget
+      ? null
+      : this.updateCollectAnimation(runtimeState, dtSeconds);
     const hasCollectAnimationTarget = !!collectAnimationTarget;
 
-    const formationAnchor = hasCollectAnimationTarget
-      ? collectAnimationTarget
-      : this.calculateFormationAnchor(ownerTransform, pet, ownerKinematics, ownerRotation, isOwnerStationary);
-    const stationaryWanderOffset = hasCollectAnimationTarget
+    let formationAnchor: Point2D;
+    if (hasDefenseTarget && defenseTarget) {
+      formationAnchor = defenseTarget;
+    } else if (hasCollectAnimationTarget && collectAnimationTarget) {
+      formationAnchor = collectAnimationTarget;
+    } else {
+      formationAnchor = this.calculateFormationAnchor(
+        ownerTransform,
+        pet,
+        ownerKinematics,
+        ownerRotation,
+        isOwnerStationary
+      );
+    }
+    const stationaryWanderOffset = hasCollectAnimationTarget || hasDefenseTarget
       ? { x: 0, y: 0 }
       : this.updateStationaryWander(runtimeState, isOwnerStationary, dtSeconds);
 
@@ -205,7 +261,7 @@ export class PetFollowSystem extends BaseSystem {
     const rawTargetY = formationAnchor.y + stationaryWanderOffset.y;
 
     const ownerClearanceRadius = this.computeOwnerClearanceRadius(pet, ownerKinematics.speed);
-    const target = hasCollectAnimationTarget
+    const target = hasCollectAnimationTarget || hasDefenseTarget
       ? { x: rawTargetX, y: rawTargetY }
       : this.constrainPointOutsideOwner(
         rawTargetX,
@@ -214,7 +270,13 @@ export class PetFollowSystem extends BaseSystem {
         ownerClearanceRadius,
         petTransform
       );
-    const smoothedTarget = this.updateSmoothedFollowTarget(runtimeState, target, isOwnerStationary, dtSeconds);
+    const smoothedTarget = this.updateSmoothedFollowTarget(
+      runtimeState,
+      target,
+      isOwnerStationary,
+      dtSeconds,
+      hasDefenseTarget
+    );
 
     const previousX = petTransform.x;
     const previousY = petTransform.y;
@@ -247,16 +309,22 @@ export class PetFollowSystem extends BaseSystem {
         const catchUpBlend = this.clamp01(
           (distance - catchUpStartDistance) / Math.max(1, catchUpFullDistance - catchUpStartDistance)
         );
-        catchUpBlendForRotation = hasCollectAnimationTarget ? 1 : catchUpBlend;
+        catchUpBlendForRotation = (hasCollectAnimationTarget || hasDefenseTarget) ? 1 : catchUpBlend;
+        const moveSpeedBoost = hasDefenseTarget
+          ? this.PET_DEFENSE_SPEED_BOOST
+          : (hasCollectAnimationTarget ? this.PET_COLLECT_SPEED_BOOST : 1);
         const targetMoveSpeed = this.lerp(
           this.PET_BASE_SPEED_PX_PER_SECOND,
           this.PET_CATCHUP_SPEED_PX_PER_SECOND,
           catchUpBlend
-        ) * (hasCollectAnimationTarget ? this.PET_COLLECT_SPEED_BOOST : 1);
+        ) * moveSpeedBoost;
         const speedRampAlpha = this.clamp01(1 - Math.exp(-this.PET_SPEED_RAMP_RATE * dtSeconds));
         runtimeState.currentMoveSpeed = this.lerp(runtimeState.currentMoveSpeed, targetMoveSpeed, speedRampAlpha);
 
-        const slowdownFactor = this.clamp01(distance / this.PET_SLOWDOWN_DISTANCE);
+        const slowdownDistance = hasDefenseTarget
+          ? this.PET_DEFENSE_SLOWDOWN_DISTANCE
+          : this.PET_SLOWDOWN_DISTANCE;
+        const slowdownFactor = this.clamp01(distance / slowdownDistance);
         const speedScale = this.lerp(0.35, 1, slowdownFactor);
         const maxStep = runtimeState.currentMoveSpeed * speedScale * dtSeconds;
         const step = Math.min(distance, maxStep);
@@ -271,6 +339,27 @@ export class PetFollowSystem extends BaseSystem {
     const frameMoveDistance = this.getMagnitude(frameMoveX, frameMoveY);
     const frameMoveSpeed = dtSeconds > 0 ? frameMoveDistance / dtSeconds : 0;
 
+    if (hasDefenseTarget) {
+      const defenseLookAtPoint = this.resolveDefenseLookAtPoint(runtimeState);
+      if (defenseLookAtPoint) {
+        const lookAngle = Math.atan2(
+          defenseLookAtPoint.y - petTransform.y,
+          defenseLookAtPoint.x - petTransform.x
+        );
+        petTransform.rotation = this.rotateTowardsLikePlayer(
+          petTransform.rotation,
+          lookAngle,
+          pet.rotationFollowSpeed,
+          dtSeconds
+        );
+
+        // Keep heading coherent with the final rendered rotation to avoid post-defense snaps.
+        runtimeState.rotationHeadingX = Math.cos(petTransform.rotation);
+        runtimeState.rotationHeadingY = Math.sin(petTransform.rotation);
+        return;
+      }
+    }
+
     const desiredHeading = this.resolveDesiredHeading(
       runtimeState,
       petTransform,
@@ -279,21 +368,20 @@ export class PetFollowSystem extends BaseSystem {
       frameMoveY,
       frameMoveSpeed,
       isOwnerStationary,
-      pet.stopDistance
+      pet.stopDistance,
+      hasDefenseTarget
     );
 
     this.smoothRotationHeading(runtimeState, desiredHeading, dtSeconds, catchUpBlendForRotation);
 
-    const isCatchUpRotation = catchUpBlendForRotation >= this.PET_ROTATION_CATCHUP_BLEND_THRESHOLD
-      && frameMoveSpeed > this.PET_ROTATION_MOVE_SPEED_THRESHOLD
-      && frameMoveDistance > 0.001;
     let forceRotationSnap = false;
-    if (isCatchUpRotation) {
+    let facingDotMove: number | null = null;
+    if (!hasDefenseTarget && frameMoveSpeed > this.PET_ROTATION_MOVE_SPEED_THRESHOLD && frameMoveDistance > 0.001) {
       const moveHeadingX = frameMoveX / frameMoveDistance;
       const moveHeadingY = frameMoveY / frameMoveDistance;
       const facingX = Math.cos(petTransform.rotation);
       const facingY = Math.sin(petTransform.rotation);
-      const facingDotMove = facingX * moveHeadingX + facingY * moveHeadingY;
+      facingDotMove = facingX * moveHeadingX + facingY * moveHeadingY;
       if (facingDotMove <= this.PET_ROTATION_MOONWALK_DOT_THRESHOLD) {
         runtimeState.rotationHeadingX = moveHeadingX;
         runtimeState.rotationHeadingY = moveHeadingY;
@@ -303,9 +391,20 @@ export class PetFollowSystem extends BaseSystem {
 
     const targetRotation = Math.atan2(runtimeState.rotationHeadingY, runtimeState.rotationHeadingX);
     const catchUpRotationMultiplier = this.lerp(1, this.PET_ROTATION_CATCHUP_LERP_MULTIPLIER, catchUpBlendForRotation);
-    const rotationLerpFactor = forceRotationSnap
+    let rotationLerpFactor = forceRotationSnap
       ? 1
       : Math.min(1, dtSeconds * pet.rotationFollowSpeed * catchUpRotationMultiplier);
+    if (!hasDefenseTarget && !forceRotationSnap && facingDotMove !== null && facingDotMove < this.PET_ROTATION_RECOVERY_DOT_THRESHOLD) {
+      const denominator = Math.max(
+        0.0001,
+        this.PET_ROTATION_RECOVERY_DOT_THRESHOLD - this.PET_ROTATION_MOONWALK_DOT_THRESHOLD
+      );
+      const recoveryBlend = this.clamp01(
+        (this.PET_ROTATION_RECOVERY_DOT_THRESHOLD - facingDotMove) / denominator
+      );
+      const recoveryMultiplier = this.lerp(1, this.PET_ROTATION_RECOVERY_LERP_MULTIPLIER, recoveryBlend);
+      rotationLerpFactor = Math.min(1, rotationLerpFactor * recoveryMultiplier);
+    }
     petTransform.rotation = this.lerpAngle(petTransform.rotation, targetRotation, rotationLerpFactor);
   }
 
@@ -486,7 +585,8 @@ export class PetFollowSystem extends BaseSystem {
     runtimeState: PetRuntimeState,
     target: Point2D,
     isOwnerStationary: boolean,
-    dtSeconds: number
+    dtSeconds: number,
+    isDefenseTarget: boolean = false
   ): Point2D {
     const dx = target.x - runtimeState.followTargetX;
     const dy = target.y - runtimeState.followTargetY;
@@ -503,9 +603,13 @@ export class PetFollowSystem extends BaseSystem {
       return { x: target.x, y: target.y };
     }
 
-    const filterRate = isOwnerStationary
-      ? this.FOLLOW_TARGET_FILTER_STATIONARY
-      : this.FOLLOW_TARGET_FILTER_MOVING;
+    const filterRate = isDefenseTarget
+      ? this.PET_DEFENSE_TARGET_FILTER
+      : (
+        isOwnerStationary
+          ? this.FOLLOW_TARGET_FILTER_STATIONARY
+          : this.FOLLOW_TARGET_FILTER_MOVING
+      );
     const alpha = this.clamp01(1 - Math.exp(-filterRate * dtSeconds));
     runtimeState.followTargetX = this.lerp(runtimeState.followTargetX, target.x, alpha);
     runtimeState.followTargetY = this.lerp(runtimeState.followTargetY, target.y, alpha);
@@ -524,8 +628,19 @@ export class PetFollowSystem extends BaseSystem {
     frameMoveY: number,
     frameMoveSpeed: number,
     isOwnerStationary: boolean,
-    stopDistance: number
+    stopDistance: number,
+    forceTargetHeading: boolean = false
   ): Point2D {
+    const toTargetX = target.x - petTransform.x;
+    const toTargetY = target.y - petTransform.y;
+    const toTargetDistance = this.getMagnitude(toTargetX, toTargetY);
+    if (forceTargetHeading && toTargetDistance > 0.001) {
+      return {
+        x: toTargetX / Math.max(0.001, toTargetDistance),
+        y: toTargetY / Math.max(0.001, toTargetDistance)
+      };
+    }
+
     if (frameMoveSpeed > this.PET_ROTATION_MOVE_SPEED_THRESHOLD) {
       const moveLength = this.getMagnitude(frameMoveX, frameMoveY);
       if (moveLength > 0.001) {
@@ -536,9 +651,6 @@ export class PetFollowSystem extends BaseSystem {
       }
     }
 
-    const toTargetX = target.x - petTransform.x;
-    const toTargetY = target.y - petTransform.y;
-    const toTargetDistance = this.getMagnitude(toTargetX, toTargetY);
     if (!isOwnerStationary && toTargetDistance > stopDistance + 22) {
       return {
         x: toTargetX / Math.max(0.001, toTargetDistance),
@@ -642,6 +754,133 @@ export class PetFollowSystem extends BaseSystem {
     document.addEventListener('pet:auto-collect', this.petAutoCollectListener);
   }
 
+  private setupPetDefenseListener(): void {
+    if (typeof document === 'undefined' || this.petDefenseListener) return;
+
+    this.petDefenseListener = (event: Event) => {
+      const customEvent = event as CustomEvent<{ targetNpcId?: unknown; stop?: boolean }>;
+      const detail = customEvent?.detail;
+
+      if (detail?.stop === true) {
+        this.pendingDefenseCommand = {
+          targetNpcId: null,
+          stop: true
+        };
+        return;
+      }
+
+      const targetNpcId = this.parseDefenseTargetNpcId(detail);
+      if (!targetNpcId) return;
+
+      this.pendingDefenseCommand = {
+        targetNpcId,
+        stop: false
+      };
+    };
+
+    document.addEventListener('pet:defense-target', this.petDefenseListener);
+  }
+
+  private parseDefenseTargetNpcId(rawDetail: unknown): string | null {
+    if (!rawDetail || typeof rawDetail !== 'object') return null;
+    const source = rawDetail as Record<string, unknown>;
+    const targetNpcId = String(source.targetNpcId || '').trim();
+    if (!targetNpcId) return null;
+    return targetNpcId;
+  }
+
+  private resolveDefenseTarget(
+    runtimeState: PetRuntimeState,
+    ownerTransform: Transform,
+    petTransform: Transform,
+    nowMs: number
+  ): Point2D | null {
+    const targetNpcId = String(runtimeState.defenseTargetNpcId || '').trim();
+    if (!targetNpcId) return null;
+
+    if (nowMs > runtimeState.defenseTargetLockUntilMs) {
+      this.clearDefenseTarget(runtimeState);
+      return null;
+    }
+
+    const npcEntity = this.findNpcEntityByServerId(targetNpcId);
+    if (!npcEntity) {
+      this.clearDefenseTarget(runtimeState);
+      return null;
+    }
+
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+    if (!npcTransform) {
+      this.clearDefenseTarget(runtimeState);
+      return null;
+    }
+
+    const npcHealth = this.ecs.getComponent(npcEntity, Health);
+    if (npcHealth && npcHealth.current <= 0) {
+      this.clearDefenseTarget(runtimeState);
+      return null;
+    }
+
+    let awayX = ownerTransform.x - npcTransform.x;
+    let awayY = ownerTransform.y - npcTransform.y;
+    let awayLength = this.getMagnitude(awayX, awayY);
+
+    if (!Number.isFinite(awayLength) || awayLength <= 0.001) {
+      awayX = petTransform.x - npcTransform.x;
+      awayY = petTransform.y - npcTransform.y;
+      awayLength = this.getMagnitude(awayX, awayY);
+    }
+
+    if (!Number.isFinite(awayLength) || awayLength <= 0.001) {
+      return {
+        x: npcTransform.x,
+        y: npcTransform.y
+      };
+    }
+
+    const normalizedAwayX = awayX / awayLength;
+    const normalizedAwayY = awayY / awayLength;
+    return {
+      x: npcTransform.x + normalizedAwayX * this.PET_DEFENSE_ORBIT_RADIUS,
+      y: npcTransform.y + normalizedAwayY * this.PET_DEFENSE_ORBIT_RADIUS
+    };
+  }
+
+  private resolveDefenseLookAtPoint(runtimeState: PetRuntimeState): Point2D | null {
+    const targetNpcId = String(runtimeState.defenseTargetNpcId || '').trim();
+    if (!targetNpcId) return null;
+
+    const npcEntity = this.findNpcEntityByServerId(targetNpcId);
+    if (!npcEntity) return null;
+
+    const npcTransform = this.ecs.getComponent(npcEntity, Transform);
+    if (!npcTransform) return null;
+
+    const npcHealth = this.ecs.getComponent(npcEntity, Health);
+    if (npcHealth && npcHealth.current <= 0) return null;
+
+    return {
+      x: npcTransform.x,
+      y: npcTransform.y
+    };
+  }
+
+  private findNpcEntityByServerId(targetNpcId: string): any | null {
+    const normalizedTargetNpcId = String(targetNpcId || '').trim();
+    if (!normalizedTargetNpcId) return null;
+
+    const npcEntities = this.ecs.getEntitiesWithComponents(Npc, Transform);
+    for (const npcEntity of npcEntities) {
+      const npc = this.ecs.getComponent(npcEntity, Npc);
+      if (!npc) continue;
+      if (String(npc.serverId || '').trim() === normalizedTargetNpcId) {
+        return npcEntity;
+      }
+    }
+
+    return null;
+  }
+
   private parseCollectTargetPoint(rawPoint: unknown): Point2D | null {
     if (!rawPoint || typeof rawPoint !== 'object') return null;
     const source = rawPoint as Record<string, unknown>;
@@ -663,6 +902,17 @@ export class PetFollowSystem extends BaseSystem {
     const command = this.pendingCollectAnimationCommand;
     this.pendingCollectAnimationCommand = null;
     return command;
+  }
+
+  private consumePendingDefenseCommand(): PetDefenseCommand | null {
+    const command = this.pendingDefenseCommand;
+    this.pendingDefenseCommand = null;
+    return command;
+  }
+
+  private clearDefenseTarget(runtimeState: PetRuntimeState): void {
+    runtimeState.defenseTargetNpcId = '';
+    runtimeState.defenseTargetLockUntilMs = 0;
   }
 
   private getOrCreateRuntimeState(entityId: number, petTransform: Transform): PetRuntimeState {
@@ -690,7 +940,9 @@ export class PetFollowSystem extends BaseSystem {
       rotationHeadingY: Math.sin(initialRotation),
       collectAnimationTargetX: petTransform.x,
       collectAnimationTargetY: petTransform.y,
-      collectAnimationRemainingSeconds: 0
+      collectAnimationRemainingSeconds: 0,
+      defenseTargetNpcId: '',
+      defenseTargetLockUntilMs: 0
     };
 
     this.runtimeStateByEntityId.set(entityId, initialState);
@@ -796,6 +1048,30 @@ export class PetFollowSystem extends BaseSystem {
     return normalizedCurrent + wrappedDelta * this.clamp01(factor);
   }
 
+  private rotateTowardsLikePlayer(
+    currentAngle: number,
+    targetAngle: number,
+    rotationSpeed: number,
+    dtSeconds: number
+  ): number {
+    const safeCurrentAngle = Number.isFinite(currentAngle) ? currentAngle : 0;
+    const safeTargetAngle = Number.isFinite(targetAngle) ? targetAngle : safeCurrentAngle;
+    const safeRotationSpeed = Number.isFinite(rotationSpeed) ? rotationSpeed : 5;
+
+    // Match player behavior: high rotation speed means immediate snap to target.
+    if (safeRotationSpeed > 20) {
+      return safeTargetAngle;
+    }
+
+    const t = Math.max(0, safeRotationSpeed * dtSeconds);
+    const nextAngle = this.lerpAngle(safeCurrentAngle, safeTargetAngle, t);
+    const remainingDelta = this.normalizeAngle(safeTargetAngle - nextAngle);
+    if (Math.abs(remainingDelta) < 0.05) {
+      return safeTargetAngle;
+    }
+    return nextAngle;
+  }
+
   private normalizeAngle(angle: number): number {
     const twoPi = Math.PI * 2;
     let normalized = angle % twoPi;
@@ -808,8 +1084,13 @@ export class PetFollowSystem extends BaseSystem {
     if (typeof document !== 'undefined' && this.petAutoCollectListener) {
       document.removeEventListener('pet:auto-collect', this.petAutoCollectListener);
     }
+    if (typeof document !== 'undefined' && this.petDefenseListener) {
+      document.removeEventListener('pet:defense-target', this.petDefenseListener);
+    }
     this.petAutoCollectListener = null;
+    this.petDefenseListener = null;
     this.pendingCollectAnimationCommand = null;
+    this.pendingDefenseCommand = null;
     this.runtimeStateByEntityId.clear();
   }
 }

@@ -1,27 +1,73 @@
 import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
-import { Transform } from '../../entities/spatial/Transform';
 import { LogMessage, LogType } from '../../presentation/ui/LogMessage';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
 import { DisplayManager } from '../../infrastructure/display';
 
+export interface LogHistoryEntry {
+  id: number;
+  text: string;
+  type: LogType;
+  timestamp: number;
+  duration: number;
+}
+
+export const LOG_EVENT_ENTRY_ADDED = 'starfield:log-entry-added';
+export const LOG_EVENT_HISTORY_CLEARED = 'starfield:log-history-cleared';
+
 /**
- * Sistema per gestire e renderizzare i messaggi di log centrati in alto
- * Mostra informazioni importanti del gameplay con animazioni e styling
+ * Sistema per gestire i messaggi di log in-game.
+ * Mantiene uno storico consultabile via UI panel e supporta overlay canvas opzionale.
  */
 export class LogSystem extends BaseSystem {
   private maxMessages: number = 3; // Numero massimo di messaggi visibili contemporaneamente
   private messageSpacing: number = 8; // Spazio tra i messaggi
   private topMargin: number = 50; // Margine dall'alto dello schermo
+  private canvasOverlayEnabled: boolean = false;
+  private historyEntries: LogHistoryEntry[] = [];
+  private readonly maxHistoryEntries: number = 250;
+  private nextEntryId: number = 1;
 
   constructor(ecs: ECS) {
     super(ecs);
   }
 
   /**
+   * Abilita/disabilita il rendering legacy dei log su canvas (alto/centro).
+   */
+  setCanvasOverlayEnabled(enabled: boolean): void {
+    this.canvasOverlayEnabled = Boolean(enabled);
+    if (!this.canvasOverlayEnabled) {
+      this.clearTransientCanvasMessages();
+    }
+  }
+
+  /**
+   * Restituisce una copia dello storico log (ordinato dal piu vecchio al piu recente).
+   */
+  getHistoryEntries(limit?: number): LogHistoryEntry[] {
+    const source = this.historyEntries;
+    if (typeof limit === 'number' && limit > 0) {
+      return source.slice(-Math.floor(limit)).map(entry => ({ ...entry }));
+    }
+    return source.map(entry => ({ ...entry }));
+  }
+
+  /**
+   * Svuota lo storico log e notifica i listener UI.
+   */
+  clearHistory(): void {
+    if (this.historyEntries.length === 0) return;
+    this.historyEntries = [];
+    this.emitHistoryCleared();
+  }
+
+  /**
    * Aggiorna i messaggi di log (lifetime e rimozione scaduti)
    */
   update(deltaTime: number): void {
+    if (!this.canvasOverlayEnabled) return;
+
     const logMessages = this.ecs.getEntitiesWithComponents(LogMessage);
 
     for (const entity of logMessages) {
@@ -39,12 +85,14 @@ export class LogSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza i messaggi di log centrati in alto
+   * Renderizza i messaggi di log centrati in alto (legacy canvas overlay).
    */
   render(ctx: CanvasRenderingContext2D): void {
+    if (!this.canvasOverlayEnabled) return;
+
     const logMessages = this.ecs.getEntitiesWithComponents(LogMessage);
 
-    // Ordina per timestamp (più recenti in basso)
+    // Ordina per timestamp (piu recenti in basso)
     const sortedMessages = logMessages
       .map(entity => this.ecs.getComponent(entity, LogMessage))
       .filter(msg => msg !== null)
@@ -70,19 +118,17 @@ export class LogSystem extends BaseSystem {
     const { width: canvasWidth } = DisplayManager.getInstance().getLogicalSize();
     const alpha = message.getAlpha();
 
-    // Usa la posizione Y fornita come punto di partenza per le righe
-
     // Salva contesto per applicare alpha
     ctx.save();
     ctx.globalAlpha = alpha;
 
     // Imposta stile del testo premium (Look PALANTIR: 200 weight, 4px spacing)
-    ctx.font = '200 15px \"Segoe UI\", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif';
+    ctx.font = '200 15px "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.letterSpacing = '4px'; // Ridotto per risparmiare spazio (da 6.8px)
 
-    // Aggiungi leggera ombra per leggibilità
+    // Aggiungi leggera ombra per leggibilita
     ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
     ctx.shadowBlur = 4;
     ctx.shadowOffsetX = 1;
@@ -110,14 +156,22 @@ export class LogSystem extends BaseSystem {
    * Aggiunge un nuovo messaggio di log
    */
   addLogMessage(text: string, type: LogType = LogType.INFO, duration: number = 3000): void {
+    const normalizedText = typeof text === 'string' ? text.replace(/\r\n/g, '\n').trim() : '';
+
     // Evita messaggi vuoti o solo spazi
-    if (!text || text.trim().length === 0) {
+    if (!normalizedText) {
       return;
     }
 
-    const logEntity = this.ecs.createEntity();
-    const logMessage = new LogMessage(text, type, duration);
-    this.ecs.addComponent(logEntity, LogMessage, logMessage);
+    const historyEntry = this.addHistoryEntry(normalizedText, type, duration);
+    this.emitLogEntryAdded(historyEntry);
+
+    // Mantiene compatibilita con eventuale rendering legacy su canvas.
+    if (this.canvasOverlayEnabled) {
+      const logEntity = this.ecs.createEntity();
+      const logMessage = new LogMessage(normalizedText, type, duration);
+      this.ecs.addComponent(logEntity, LogMessage, logMessage);
+    }
   }
 
   /**
@@ -214,5 +268,45 @@ export class LogSystem extends BaseSystem {
   logMissionCompletion(title: string, rewards: string, duration: number = 6000): void {
     const text = rewards ? `MISSION COMPLETED: ${title}\n${rewards}` : `MISSION COMPLETED: ${title}`;
     this.addLogMessage(text, LogType.MISSION, duration);
+  }
+
+  private addHistoryEntry(text: string, type: LogType, duration: number): LogHistoryEntry {
+    const entry: LogHistoryEntry = {
+      id: this.nextEntryId++,
+      text,
+      type,
+      timestamp: Date.now(),
+      duration
+    };
+
+    this.historyEntries.push(entry);
+    this.trimHistoryEntries();
+    return entry;
+  }
+
+  private trimHistoryEntries(): void {
+    if (this.historyEntries.length <= this.maxHistoryEntries) return;
+    const overflow = this.historyEntries.length - this.maxHistoryEntries;
+    this.historyEntries.splice(0, overflow);
+  }
+
+  private clearTransientCanvasMessages(): void {
+    const logMessages = this.ecs.getEntitiesWithComponents(LogMessage);
+    for (const entity of logMessages) {
+      this.ecs.removeEntity(entity);
+    }
+  }
+
+  private emitLogEntryAdded(entry: LogHistoryEntry): void {
+    if (typeof document === 'undefined') return;
+    const payload: LogHistoryEntry = { ...entry };
+    document.dispatchEvent(new CustomEvent<{ entry: LogHistoryEntry }>(LOG_EVENT_ENTRY_ADDED, {
+      detail: { entry: payload }
+    }));
+  }
+
+  private emitHistoryCleared(): void {
+    if (typeof document === 'undefined') return;
+    document.dispatchEvent(new CustomEvent(LOG_EVENT_HISTORY_CLEARED));
   }
 }

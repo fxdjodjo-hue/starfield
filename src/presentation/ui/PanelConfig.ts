@@ -101,6 +101,13 @@ const PANEL_CONFIGS_BASE = {
     title: 'Pet',
     position: 'center-left-col2-below' as const,
     size: { ...LARGE_PANEL_SIZE }
+  },
+  logs: {
+    id: 'log-panel',
+    icon: 'L',
+    title: 'Logs',
+    position: 'center-left-col2-below2' as const,
+    size: { ...BASE_PANEL_SIZE }
   }
 } as const;
 

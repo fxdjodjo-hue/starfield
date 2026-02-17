@@ -25,7 +25,7 @@ Ogni sistema è:
 
 ### 🎨 Rendering Systems
 - **DamageTextSystem**: Animazione testi danno fluttuanti
-- **LogSystem**: Messaggi di log centrati in alto
+- **LogSystem**: Storico log in-game con supporto pannello UI
 - **MinimapSystem**: Rendering e interazione minimappa
 - **ParallaxSystem**: Sfondo parallax con stelle
 

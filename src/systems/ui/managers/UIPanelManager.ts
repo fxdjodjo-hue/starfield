@@ -6,12 +6,14 @@ import { SettingsPanel } from '../../../presentation/ui/SettingsPanel';
 import { InventoryPanel } from '../../../presentation/ui/InventoryPanel';
 import { CraftingPanel } from '../../../presentation/ui/CraftingPanel';
 import { PetPanel } from '../../../presentation/ui/PetPanel';
+import { LogPanel } from '../../../presentation/ui/LogPanel';
 import { getPanelConfig } from '../../../presentation/ui/PanelConfig';
 import type { QuestSystem } from '../../quest/QuestSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
 import type { PetStatePayload } from '../../../config/NetworkConfig';
+import { LogSystem, type LogHistoryEntry } from '../../rendering/LogSystem';
 
 /**
  * Manages UI panels (opening, closing, layering, content updates)
@@ -32,6 +34,7 @@ export class UIPanelManager {
   private panelVisibilityListener: ((event: Event) => void) | null = null;
   private lastCraftingDataRefreshRequestAt: number = 0;
   private lastPetDataRefreshRequestAt: number = 0;
+  private cachedLogSystem: LogSystem | null = null;
 
   constructor(
     ecs: ECS,
@@ -101,6 +104,14 @@ export class UIPanelManager {
     );
     this.uiManager.registerPanel(petPanel);
     this.syncPetPanelState(true);
+
+    const logConfig = getPanelConfig('logs');
+    const logPanel = new LogPanel(
+      logConfig,
+      () => this.resolveLogSystemHistory(),
+      () => this.clearLogSystemHistory()
+    );
+    this.uiManager.registerPanel(logPanel);
 
     // Collega il pannello quest al sistema quest
     this.questSystem.setQuestPanel(questPanel);
@@ -384,6 +395,48 @@ export class UIPanelManager {
     if (networkPetState) return networkPetState;
     if (cachedPetState) return cachedPetState;
     return null;
+  }
+
+  private resolveLogSystem(): LogSystem | null {
+    if (this.cachedLogSystem && this.ecs.getSystems().includes(this.cachedLogSystem)) {
+      return this.cachedLogSystem;
+    }
+
+    const systems = this.ecs.getSystems();
+    const typed = systems.find((candidate): candidate is LogSystem => candidate instanceof LogSystem);
+    if (typed) {
+      this.cachedLogSystem = typed;
+      return typed;
+    }
+
+    // Fallback difensivo per build/transpilazioni dove instanceof potrebbe non essere affidabile.
+    const structural = systems.find((candidate: any) => {
+      return !!candidate
+        && typeof candidate.getHistoryEntries === 'function'
+        && typeof candidate.clearHistory === 'function'
+        && typeof candidate.addLogMessage === 'function';
+    }) as LogSystem | undefined;
+
+    this.cachedLogSystem = structural || null;
+    return this.cachedLogSystem;
+  }
+
+  private resolveLogSystemHistory(): LogHistoryEntry[] {
+    const logSystem = this.resolveLogSystem();
+    if (!logSystem || typeof logSystem.getHistoryEntries !== 'function') {
+      return [];
+    }
+
+    return logSystem.getHistoryEntries();
+  }
+
+  private clearLogSystemHistory(): void {
+    const logSystem = this.resolveLogSystem();
+    if (!logSystem || typeof logSystem.clearHistory !== 'function') {
+      return;
+    }
+
+    logSystem.clearHistory();
   }
 
   private hasInventoryEntries(resourceInventory: Record<string, number> | null): boolean {
