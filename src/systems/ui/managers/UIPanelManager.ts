@@ -307,7 +307,10 @@ export class UIPanelManager {
       petState.currentShield,
       petState.maxShield,
       petState.isActive,
-      String(petState.petNickname || '').trim()
+      String(petState.petNickname || '').trim(),
+      JSON.stringify(petState.moduleSlot || null),
+      JSON.stringify(petState.inventory || []),
+      Math.max(0, Math.floor(Number(petState.inventoryCapacity || 0)))
     ]);
   }
 
@@ -421,6 +424,17 @@ export class UIPanelManager {
       .slice(0, 24)
       .trim();
 
+    const moduleSlot = this.normalizePetModuleSlot(
+      source.moduleSlot ?? source.petModuleSlot ?? source.module ?? source.module_slot
+    );
+    const inventory = this.normalizePetInventory(
+      source.inventory ?? source.petInventory ?? source.cargo ?? source.pet_inventory
+    );
+    const inventoryCapacity = Math.max(
+      inventory.length,
+      Math.floor(Number(source.inventoryCapacity ?? source.petInventoryCapacity ?? 8))
+    );
+
     return {
       petId,
       petNickname: petNickname || petId,
@@ -431,8 +445,65 @@ export class UIPanelManager {
       maxHealth,
       currentShield,
       maxShield,
-      isActive: source.isActive === undefined ? true : Boolean(source.isActive)
+      isActive: source.isActive === undefined ? true : Boolean(source.isActive),
+      moduleSlot,
+      inventory,
+      inventoryCapacity
     };
+  }
+
+  private normalizePetModuleSlot(rawSlot: unknown): PetStatePayload['moduleSlot'] {
+    if (!rawSlot || typeof rawSlot !== 'object') return undefined;
+    const source = rawSlot as Record<string, unknown>;
+    const itemId = String(source.itemId ?? source.id ?? source.moduleId ?? '').trim();
+    const itemName = String(source.itemName ?? source.name ?? '').trim();
+    if (!itemId && !itemName) return undefined;
+
+    const rarity = String(source.rarity ?? source.grade ?? 'common').trim().toLowerCase();
+    const level = Math.max(1, Math.floor(Number(source.level ?? source.tier ?? 1)));
+
+    return {
+      itemId: itemId || itemName.toLowerCase().replace(/\s+/g, '_'),
+      itemName: itemName || itemId,
+      rarity,
+      level
+    };
+  }
+
+  private normalizePetInventory(rawInventory: unknown): Array<{
+    itemId?: string;
+    itemName?: string;
+    quantity?: number;
+    rarity?: string;
+  }> {
+    if (!Array.isArray(rawInventory)) return [];
+
+    const normalizedItems: Array<{
+      itemId?: string;
+      itemName?: string;
+      quantity?: number;
+      rarity?: string;
+    }> = [];
+
+    for (const rawItem of rawInventory) {
+      if (!rawItem || typeof rawItem !== 'object') continue;
+      const source = rawItem as Record<string, unknown>;
+      const itemId = String(source.itemId ?? source.id ?? '').trim();
+      const itemName = String(source.itemName ?? source.name ?? '').trim();
+      if (!itemId && !itemName) continue;
+
+      const quantity = Math.max(1, Math.floor(Number(source.quantity ?? source.count ?? 1)));
+      const rarity = String(source.rarity ?? source.grade ?? 'common').trim().toLowerCase();
+
+      normalizedItems.push({
+        itemId: itemId || itemName.toLowerCase().replace(/\s+/g, '_'),
+        itemName: itemName || itemId,
+        quantity,
+        rarity
+      });
+    }
+
+    return normalizedItems;
   }
 
   private submitPetNicknameUpdate(petNickname: string): boolean {

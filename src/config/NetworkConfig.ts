@@ -435,6 +435,19 @@ export interface PlayerRespawnMessage {
 }
 
 export interface PetStatePayload {
+  moduleSlot?: {
+    itemId?: string;
+    itemName?: string;
+    rarity?: string;
+    level?: number;
+  };
+  inventory?: Array<{
+    itemId?: string;
+    itemName?: string;
+    quantity?: number;
+    rarity?: string;
+  }>;
+  inventoryCapacity?: number;
   petId: string;
   petNickname?: string;
   level: number;

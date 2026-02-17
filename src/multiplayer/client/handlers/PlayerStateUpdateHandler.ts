@@ -365,6 +365,47 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       .trim()
       .slice(0, 24)
       .trim();
+    const rawModuleSlot = source.moduleSlot ?? source.petModuleSlot ?? source.module ?? source.module_slot;
+    const rawInventory = source.inventory ?? source.petInventory ?? source.cargo ?? source.pet_inventory;
+
+    const moduleSlot = rawModuleSlot && typeof rawModuleSlot === 'object'
+      ? (() => {
+        const slotSource = rawModuleSlot as Record<string, unknown>;
+        const itemId = String(slotSource.itemId ?? slotSource.id ?? slotSource.moduleId ?? '').trim();
+        const itemName = String(slotSource.itemName ?? slotSource.name ?? '').trim();
+        if (!itemId && !itemName) return undefined;
+
+        return {
+          itemId: itemId || itemName.toLowerCase().replace(/\s+/g, '_'),
+          itemName: itemName || itemId,
+          rarity: String(slotSource.rarity ?? slotSource.grade ?? 'common').trim().toLowerCase(),
+          level: Math.max(1, Math.floor(Number(slotSource.level ?? slotSource.tier ?? 1)))
+        };
+      })()
+      : undefined;
+
+    const inventory: PetStatePayload['inventory'] = [];
+    if (Array.isArray(rawInventory)) {
+      for (const rawItem of rawInventory) {
+        if (!rawItem || typeof rawItem !== 'object') continue;
+        const itemSource = rawItem as Record<string, unknown>;
+        const itemId = String(itemSource.itemId ?? itemSource.id ?? '').trim();
+        const itemName = String(itemSource.itemName ?? itemSource.name ?? '').trim();
+        if (!itemId && !itemName) continue;
+
+        inventory.push({
+          itemId: itemId || itemName.toLowerCase().replace(/\s+/g, '_'),
+          itemName: itemName || itemId,
+          quantity: Math.max(1, Math.floor(Number(itemSource.quantity ?? itemSource.count ?? 1))),
+          rarity: String(itemSource.rarity ?? itemSource.grade ?? 'common').trim().toLowerCase()
+        });
+      }
+    }
+
+    const inventoryCapacity = Math.max(
+      inventory.length,
+      Math.floor(Number(source.inventoryCapacity ?? source.petInventoryCapacity ?? 8))
+    );
 
     return {
       petId,
@@ -376,7 +417,10 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       maxHealth,
       currentShield,
       maxShield,
-      isActive: source.isActive === undefined ? true : Boolean(source.isActive)
+      isActive: source.isActive === undefined ? true : Boolean(source.isActive),
+      moduleSlot,
+      inventory,
+      inventoryCapacity
     };
   }
 
