@@ -262,6 +262,8 @@ class BoundaryEnforcement {
         return { allowed: true };
       case 'set_pet_nickname':
         return { allowed: true };
+      case 'craft_item':
+        return { allowed: true };
       case 'resource_collect':
         return { allowed: true };
 

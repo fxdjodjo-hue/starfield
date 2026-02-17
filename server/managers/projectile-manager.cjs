@@ -187,14 +187,9 @@ class ServerProjectileManager {
               }
             } else {
               // Target è NPC
-              const npcDead = this.damageHandler.handleNpcDamage(targetEntity.id, actualDamage, projectile.playerId);
+              this.damageHandler.handleNpcDamage(targetEntity.id, actualDamage, projectile.playerId);
               // Usa 'npc' come tipo entità
               this.broadcaster.broadcastEntityDamaged(targetEntity, projectile, 'npc', actualDamage);
-
-              if (npcDead) {
-                const rewards = this.damageHandler.calculateRewards(targetEntity);
-                this.broadcaster.broadcastEntityDestroyed(targetEntity, projectile.playerId, 'npc', rewards);
-              }
             }
           }
 
@@ -223,13 +218,8 @@ class ServerProjectileManager {
           if (targetHit.type === 'npc') {
             // Applica danno all'NPC target
             const actualDamage = this.calculateProjectileDamage(projectile);
-            const npcDead = this.damageHandler.handleNpcDamage(targetHit.entity.id, actualDamage, projectile.playerId);
+            this.damageHandler.handleNpcDamage(targetHit.entity.id, actualDamage, projectile.playerId);
             this.broadcaster.broadcastEntityDamaged(targetHit.entity, projectile, 'npc', actualDamage);
-
-            if (npcDead) {
-              const rewards = this.damageHandler.calculateRewards(targetHit.entity);
-              this.broadcaster.broadcastEntityDestroyed(targetHit.entity, projectile.playerId, 'npc', rewards);
-            }
 
           } else if (targetHit.type === 'player') {
             // Applica danno al giocatore target
@@ -422,3 +412,4 @@ class ServerProjectileManager {
 }
 
 module.exports = ServerProjectileManager;
+

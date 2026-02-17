@@ -138,6 +138,11 @@ export class RemoteExplosionSystem extends BaseSystem {
   private scheduleMissileSound(position: { x: number, y: number }): void {
     const key = this.getSpatialKey(position);
 
+    // If an entity death explosion just happened in this cell, suppress missile impact sound.
+    if (this.pendingExplosions.has(key)) {
+      return;
+    }
+
     // Cancella precedente se esiste (debounce spaziale implicito)
     if (this.pendingMissileSounds.has(key)) {
       clearTimeout(this.pendingMissileSounds.get(key));

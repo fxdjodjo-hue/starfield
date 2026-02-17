@@ -402,8 +402,9 @@ export class ClientNetworkSystem extends BaseSystem {
       // Instead of sampling every frame (60Hz), sample at the sync interval (20Hz)
       if (now - this.lastBufferedTime >= NETWORK_CONFIG.POSITION_SYNC_INTERVAL) {
         const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
+        const currentPetPosition = this.positionSyncManager.getLocalPetPosition();
 
-        const hasMoved = this.shouldSendPositionUpdate(currentPosition);
+        const hasMoved = this.shouldSendPositionUpdate(currentPosition, currentPetPosition);
         // FIX: Keep-alive mechanism
         // Invia aggiornamenti ogni 500ms anche senza movimento per garantire
         // interpolazione fluida sui client degli altri giocatori
@@ -415,9 +416,10 @@ export class ClientNetworkSystem extends BaseSystem {
           // Keep-alive packets now send actual position - server should handle duplicates gracefully.
           const positionToSend = { ...currentPosition };
 
-          // Passiamo keepAliveNeeded come secondo parametro (forceUpdate)
-          this.tickManager.bufferPositionUpdate(positionToSend, keepAliveNeeded);
+          // Force update when movement exists to avoid secondary drop-threshold in tick manager.
+          this.tickManager.bufferPositionUpdate(positionToSend, keepAliveNeeded || hasMoved);
           this.lastSentPosition = { ...currentPosition };
+          this.lastSentPetPosition = currentPetPosition ? { ...currentPetPosition } : null;
           this.lastBufferedTime = now;
           this.lastSentTime = now;
         }
@@ -428,6 +430,7 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
+  private lastSentPetPosition: { x: number; y: number; rotation: number } | null = null;
   private lastBufferedTime: number = 0;
   private lastSentTime: number = 0;
   private positionUpdatePausedUntil: number = 0; // Timestamp fino al quale gli update sono in pausa
@@ -441,21 +444,36 @@ export class ClientNetworkSystem extends BaseSystem {
     this.positionUpdatePausedUntil = Date.now() + duration;
   }
 
-  private shouldSendPositionUpdate(currentPosition: { x: number; y: number; rotation: number }): boolean {
+  private shouldSendPositionUpdate(
+    currentPosition: { x: number; y: number; rotation: number },
+    currentPetPosition: { x: number; y: number; rotation: number } | null
+  ): boolean {
     if (!this.lastSentPosition) {
-      return true; // Prima volta, invia sempre
+      return true;
     }
 
     const dx = Math.abs(currentPosition.x - this.lastSentPosition.x);
     const dy = Math.abs(currentPosition.y - this.lastSentPosition.y);
     const dr = Math.abs(currentPosition.rotation - this.lastSentPosition.rotation);
 
-    // Invia solo se si è mossi di almeno 1 unità o ruotati di almeno 0.05 radianti
-    // Reduced threshold for smoother remote player movement
     const MOVEMENT_THRESHOLD = 1;
     const ROTATION_THRESHOLD = 0.05;
+    const playerMoved = dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD || dr > ROTATION_THRESHOLD;
+    if (playerMoved) return true;
 
-    return dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD || dr > ROTATION_THRESHOLD;
+    if (!currentPetPosition || !this.lastSentPetPosition) {
+      return false;
+    }
+
+    const petDx = Math.abs(currentPetPosition.x - this.lastSentPetPosition.x);
+    const petDy = Math.abs(currentPetPosition.y - this.lastSentPetPosition.y);
+    const petDr = Math.abs(currentPetPosition.rotation - this.lastSentPetPosition.rotation);
+    const PET_MOVEMENT_THRESHOLD = 0.6;
+    const PET_ROTATION_THRESHOLD = 0.05;
+
+    return petDx > PET_MOVEMENT_THRESHOLD
+      || petDy > PET_MOVEMENT_THRESHOLD
+      || petDr > PET_ROTATION_THRESHOLD;
   }
 
   public sendMessage(message: NetMessage): void {
@@ -559,6 +577,26 @@ export class ClientNetworkSystem extends BaseSystem {
       petNickname: normalizedNickname,
       timestamp: Date.now()
     });
+    return true;
+  }
+
+  sendCraftItemRequest(recipeId: string): boolean {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return false;
+    }
+
+    const normalizedRecipeId = String(recipeId ?? '').trim();
+    if (!normalizedRecipeId) {
+      return false;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.CRAFT_ITEM,
+      clientId: this.clientId,
+      recipeId: normalizedRecipeId,
+      timestamp: Date.now()
+    });
+
     return true;
   }
 
@@ -1117,3 +1155,4 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 }
+

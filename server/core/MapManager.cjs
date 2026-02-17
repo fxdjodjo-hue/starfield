@@ -7,6 +7,48 @@ const MapServer = require('./map-server.cjs');
 const ServerLoggerWrapper = require('./infrastructure/ServerLoggerWrapper.cjs');
 const { MAP_CONFIGS } = require('../config/MapConfigs.cjs');
 const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../config/ShipSkinCatalog.cjs');
+const { normalizePlayerPetState } = require('../config/PetCatalog.cjs');
+
+function normalizeRemotePetState(petState) {
+    const normalizedPetState = normalizePlayerPetState(petState);
+    const petId = String(normalizedPetState?.petId || '').trim();
+    if (!petId) {
+        return null;
+    }
+
+    const petNickname = String(normalizedPetState.petNickname || petId)
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 24)
+        .trim();
+
+    return {
+        petId,
+        petNickname: petNickname || petId,
+        isActive: normalizedPetState.isActive !== false
+    };
+}
+
+function normalizeRemotePetPosition(petPosition, fallbackPosition) {
+    if (!petPosition || typeof petPosition !== 'object') {
+        return null;
+    }
+
+    const x = Number(petPosition.x);
+    const y = Number(petPosition.y);
+    const fallbackRotation = Number.isFinite(Number(fallbackPosition?.rotation))
+        ? Number(fallbackPosition.rotation)
+        : 0;
+    const rotation = Number.isFinite(Number(petPosition.rotation))
+        ? Number(petPosition.rotation)
+        : fallbackRotation;
+
+    if (!Number.isFinite(x) || !Number.isFinite(y)) {
+        return null;
+    }
+
+    return { x, y, rotation };
+}
 
 class MapManager {
     constructor() {
@@ -110,6 +152,8 @@ class MapManager {
             shield: playerData.shield,
             maxShield: playerData.maxShield,
             shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+            petState: normalizeRemotePetState(playerData.petState),
+            petPosition: normalizeRemotePetPosition(playerData.petPosition, playerData.position),
             t: Date.now()
         };
         targetMap.broadcastToMap(playerJoinedMsg, clientId);
@@ -152,6 +196,8 @@ class MapManager {
                     shield: existingPlayerData.shield,
                     maxShield: existingPlayerData.maxShield,
                     shipSkinId: existingPlayerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+                    petState: normalizeRemotePetState(existingPlayerData.petState),
+                    petPosition: normalizeRemotePetPosition(existingPlayerData.petPosition, existingPlayerData.position),
                     t: Date.now()
                 };
 

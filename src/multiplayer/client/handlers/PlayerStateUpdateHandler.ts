@@ -23,7 +23,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState, crafting } = message;
     const normalizedResourceInventory = this.normalizeResourceInventory(resourceInventory);
     const normalizedPetState = this.normalizePetState(petState);
     const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);
@@ -284,6 +284,13 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         : 'Vendita completata';
 
       document.dispatchEvent(new CustomEvent('ui:system-message', { detail: { content } }));
+    }
+
+    if (source === 'craft_item_success' && typeof document !== 'undefined') {
+      const craftedName = String(crafting?.displayName || crafting?.itemId || crafting?.recipeId || 'Item').trim();
+      document.dispatchEvent(new CustomEvent('ui:system-message', {
+        detail: { content: `Craft completed: ${craftedName}` }
+      }));
     }
 
     // Forza aggiornamento immediato di PlayerStatusDisplaySystem per messaggi di riparazione

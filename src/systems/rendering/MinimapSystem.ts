@@ -4,6 +4,8 @@ import { Npc } from '../../entities/ai/Npc';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { Portal } from '../../entities/spatial/Portal';
 import { SpaceStation } from '../../entities/spatial/SpaceStation';
+import { Pet } from '../../entities/player/Pet';
+import { RemotePet } from '../../entities/player/RemotePet';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Minimap } from '../../presentation/ui/Minimap';
@@ -243,6 +245,7 @@ export class MinimapSystem extends BaseSystem {
     this.renderEntities(ctx);
     this.renderPortals(ctx);
     this.renderRemotePlayers(ctx);
+    this.renderPetIndicators(ctx);
     this.renderPlayerIndicator(ctx);
 
     ctx.restore();
@@ -681,6 +684,21 @@ export class MinimapSystem extends BaseSystem {
   }
 
   /**
+   * Renderizza i pet locali sulla minimappa.
+   * Marker verde, leggermente piu piccolo rispetto al player.
+   */
+  private renderPetIndicators(ctx: CanvasRenderingContext2D): void {
+    const petEntities = this.ecs.getEntitiesWithComponents(Pet, Transform);
+
+    petEntities.forEach((entityId: any) => {
+      if (this.ecs.hasComponent(entityId, RemotePet)) return;
+      const transform = this.ecs.getComponent(entityId, Transform);
+      if (!transform) return;
+      this.renderPetDot(ctx, transform.x, transform.y);
+    });
+  }
+
+  /**
    * Renderizza marker boss sempre visibile e facilmente distinguibile.
    */
   private renderBossDot(ctx: CanvasRenderingContext2D, worldX: number, worldY: number, isSelected: boolean): void {
@@ -809,6 +827,32 @@ export class MinimapSystem extends BaseSystem {
     ctx.fill();
 
     // Ripristina stato
+    ctx.restore();
+  }
+
+  /**
+   * Renderizza il pet come pallino verde, piu piccolo del marker player.
+   */
+  private renderPetDot(ctx: CanvasRenderingContext2D, worldX: number, worldY: number): void {
+    const pos = this.minimap.worldToMinimap(worldX, worldY);
+    const c = this.minimap.getDprCompensation();
+    const playerRadius = Math.max(2, Math.round(4 * c));
+    const radius = Math.max(1, playerRadius - 1);
+
+    ctx.save();
+
+    ctx.shadowColor = 'rgba(80, 255, 140, 0.85)';
+    ctx.shadowBlur = Math.round(4 * c);
+    ctx.fillStyle = 'rgba(80, 255, 140, 0.95)';
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
     ctx.restore();
   }
 

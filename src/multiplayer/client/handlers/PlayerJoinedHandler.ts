@@ -24,6 +24,8 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
       shield,
       maxShield,
       shipSkinId,
+      petState,
+      petPosition,
       t
     } = message;
 
@@ -49,7 +51,9 @@ export class PlayerJoinedHandler extends BaseMessageHandler {
           playerRank,
           Number(leaderboardPodiumRank || 0),
           t || Date.now(),
-          shipSkinId
+          shipSkinId,
+          petState,
+          petPosition
         );
       } else {
         networkSystem.remotePlayerManager.setPlayerInfo(

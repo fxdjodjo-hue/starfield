@@ -4,6 +4,7 @@ import { Entity } from '../../infrastructure/ecs/Entity';
 import { Transform } from '../../entities/spatial/Transform';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
+import { RemotePet } from '../../entities/player/RemotePet';
 import { GameEntityFactory } from '../../factories/GameEntityFactory';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 import { Health } from '../../entities/combat/Health';
@@ -12,6 +13,19 @@ import { EntityStateSystem } from '../../core/domain/EntityStateSystem';
 import type { AssetManager } from '../../core/services/AssetManager';
 import { createPlayerShipAnimatedSprite } from '../../core/services/PlayerShipSpriteFactory';
 import { getSelectedPlayerShipSkinId } from '../../config/ShipSkinConfig';
+import { getDefaultPlayerPet, getPlayerPetById, type PlayerPetDefinition } from '../../config/PetConfig';
+
+export interface RemotePetStatePayload {
+  petId?: string;
+  petNickname?: string;
+  isActive?: boolean;
+}
+
+export interface RemotePetTransformPayload {
+  x?: number;
+  y?: number;
+  rotation?: number;
+}
 
 /**
  * Sistema per la gestione dei giocatori remoti in multiplayer
@@ -23,6 +37,9 @@ export class RemotePlayerSystem extends BaseSystem {
   private assetManager: AssetManager | null;
   private remoteShipSpriteCache: Map<string, AnimatedSprite> = new Map();
   private pendingShipSpriteLoads: Map<string, Promise<AnimatedSprite | null>> = new Map();
+  private remotePetEntityByClientId: Map<string, number> = new Map();
+  private remotePetSpriteCache: Map<string, AnimatedSprite> = new Map();
+  private pendingPetSpriteLoads: Map<string, Promise<AnimatedSprite | null>> = new Map();
   // Logging per evitare spam di aggiornamenti posizione
   private lastUpdateLog = new Map<string, number>();
   // Factory per creare entità
@@ -103,6 +120,292 @@ export class RemotePlayerSystem extends BaseSystem {
     return loadPromise;
   }
 
+  private normalizeRemotePetState(
+    remotePetState?: RemotePetStatePayload | null
+  ): { petId: string; petNickname: string; isActive: boolean } | null {
+    if (!remotePetState || typeof remotePetState !== 'object') {
+      return null;
+    }
+
+    const fallbackPetDefinition = getDefaultPlayerPet();
+    const requestedPetId = String(remotePetState.petId || '').trim();
+    const petDefinition = getPlayerPetById(requestedPetId) || fallbackPetDefinition;
+    const petId = String(petDefinition?.id || requestedPetId || '').trim();
+    if (!petId) {
+      return null;
+    }
+
+    const normalizedNickname = String(remotePetState.petNickname || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 24)
+      .trim();
+
+    return {
+      petId,
+      petNickname: normalizedNickname || petDefinition?.displayName || petId,
+      isActive: remotePetState.isActive !== false
+    };
+  }
+
+  private getRemotePetDefinition(petId: string): PlayerPetDefinition | null {
+    return getPlayerPetById(petId) || getDefaultPlayerPet();
+  }
+
+  private findRemotePetEntity(ownerClientId: string): Entity | null {
+    const cachedEntityId = this.remotePetEntityByClientId.get(ownerClientId);
+    if (cachedEntityId !== undefined) {
+      const cachedEntity = this.ecs.getEntity(cachedEntityId);
+      if (cachedEntity && this.ecs.hasComponent(cachedEntity, RemotePet)) {
+        return cachedEntity;
+      }
+      this.remotePetEntityByClientId.delete(ownerClientId);
+    }
+
+    const remotePetEntities = this.ecs.getEntitiesWithComponents(RemotePet);
+    for (const entity of remotePetEntities) {
+      const remotePet = this.ecs.getComponent(entity, RemotePet);
+      if (remotePet && remotePet.ownerClientId.toString() === ownerClientId.toString()) {
+        this.remotePetEntityByClientId.set(ownerClientId, entity.id);
+        return entity;
+      }
+    }
+
+    return null;
+  }
+
+  private removeRemotePetEntity(ownerClientId: string): void {
+    const entity = this.findRemotePetEntity(ownerClientId);
+    if (entity) {
+      this.ecs.removeEntity(entity);
+    }
+    this.remotePetEntityByClientId.delete(ownerClientId);
+  }
+
+  private calculateRemotePetAnchor(
+    ownerX: number,
+    ownerY: number,
+    ownerRotation: number,
+    petDefinition: PlayerPetDefinition
+  ): { x: number; y: number } {
+    const safeRotation = Number.isFinite(ownerRotation) ? ownerRotation : 0;
+    const forwardX = Math.cos(safeRotation);
+    const forwardY = Math.sin(safeRotation);
+    const rightX = -forwardY;
+    const rightY = forwardX;
+
+    return {
+      x: ownerX - forwardX * petDefinition.followDistance + rightX * petDefinition.lateralOffset,
+      y: ownerY - forwardY * petDefinition.followDistance + rightY * petDefinition.lateralOffset
+    };
+  }
+
+  private getCachedRemotePetSprite(petId: string): AnimatedSprite | null {
+    return this.remotePetSpriteCache.get(petId) || null;
+  }
+
+  private applyRemotePetSprite(entity: Entity, petId: string, sprite: AnimatedSprite): void {
+    (sprite as AnimatedSprite & { petId?: string }).petId = petId;
+    this.ecs.addComponent(entity, AnimatedSprite, sprite);
+  }
+
+  private async loadRemotePetSprite(petId: string): Promise<AnimatedSprite | null> {
+    const cached = this.getCachedRemotePetSprite(petId);
+    if (cached) {
+      return cached;
+    }
+
+    const pending = this.pendingPetSpriteLoads.get(petId);
+    if (pending) {
+      return pending;
+    }
+
+    const petDefinition = this.getRemotePetDefinition(petId);
+    if (!this.assetManager || !petDefinition?.assetBasePath) {
+      return null;
+    }
+
+    const loadPromise = this.assetManager.createAnimatedSprite(
+      petDefinition.assetBasePath,
+      petDefinition.spriteScale
+    )
+      .then((sprite) => {
+        this.remotePetSpriteCache.set(petId, sprite);
+        return sprite;
+      })
+      .catch((error) => {
+        if (import.meta.env.DEV) {
+          console.warn(`[REMOTE_PET] Failed to load pet sprite "${petId}"`, error);
+        }
+        return null;
+      })
+      .finally(() => {
+        this.pendingPetSpriteLoads.delete(petId);
+      });
+
+    this.pendingPetSpriteLoads.set(petId, loadPromise);
+    return loadPromise;
+  }
+
+  private createRemotePetEntity(
+    ownerClientId: string,
+    ownerX: number,
+    ownerY: number,
+    ownerRotation: number,
+    normalizedPetState: { petId: string; petNickname: string; isActive: boolean },
+    petDefinition: PlayerPetDefinition,
+    remotePetPosition?: RemotePetTransformPayload | null
+  ): Entity {
+    const anchor = this.calculateRemotePetAnchor(ownerX, ownerY, ownerRotation, petDefinition);
+    const initialX = Number.isFinite(Number(remotePetPosition?.x))
+      ? Number(remotePetPosition?.x)
+      : anchor.x;
+    const initialY = Number.isFinite(Number(remotePetPosition?.y))
+      ? Number(remotePetPosition?.y)
+      : anchor.y;
+    const initialRotation = Number.isFinite(Number(remotePetPosition?.rotation))
+      ? Number(remotePetPosition?.rotation)
+      : ownerRotation;
+    const remotePetEntity = this.ecs.createEntity();
+    this.remotePetEntityByClientId.set(ownerClientId, remotePetEntity.id);
+
+    this.ecs.addComponent(
+      remotePetEntity,
+      Transform,
+      new Transform(initialX, initialY, initialRotation, 1, 1)
+    );
+    this.ecs.addComponent(
+      remotePetEntity,
+      InterpolationTarget,
+      new InterpolationTarget(initialX, initialY, initialRotation)
+    );
+    this.ecs.addComponent(
+      remotePetEntity,
+      RemotePet,
+      new RemotePet(ownerClientId, normalizedPetState.petId, normalizedPetState.petNickname, true)
+    );
+
+    return remotePetEntity;
+  }
+
+  private ensureRemotePetForPlayer(
+    ownerClientId: string,
+    ownerX: number,
+    ownerY: number,
+    ownerRotation: number,
+    serverTimestamp?: number,
+    remotePetState?: RemotePetStatePayload | null,
+    remotePetPosition?: RemotePetTransformPayload | null
+  ): void {
+    const normalizedPetState = this.normalizeRemotePetState(remotePetState);
+    if (!normalizedPetState) {
+      return;
+    }
+
+    if (!normalizedPetState.isActive) {
+      this.removeRemotePetEntity(ownerClientId);
+      return;
+    }
+
+    const petDefinition = this.getRemotePetDefinition(normalizedPetState.petId);
+    if (!petDefinition) {
+      return;
+    }
+
+    let remotePetEntity = this.findRemotePetEntity(ownerClientId);
+    let createdRemotePetEntity = false;
+    if (remotePetEntity) {
+      const remotePet = this.ecs.getComponent(remotePetEntity, RemotePet);
+      const requiresRecreate = !remotePet || remotePet.petId !== normalizedPetState.petId;
+      if (requiresRecreate) {
+        this.removeRemotePetEntity(ownerClientId);
+        remotePetEntity = null;
+      }
+    }
+
+    if (!remotePetEntity) {
+      remotePetEntity = this.createRemotePetEntity(
+        ownerClientId,
+        ownerX,
+        ownerY,
+        ownerRotation,
+        normalizedPetState,
+        petDefinition,
+        remotePetPosition
+      );
+      createdRemotePetEntity = true;
+    }
+
+    const remotePet = this.ecs.getComponent(remotePetEntity, RemotePet);
+    if (remotePet) {
+      remotePet.updateState(
+        normalizedPetState.petId,
+        normalizedPetState.petNickname,
+        normalizedPetState.isActive
+      );
+    }
+
+    const anchor = this.calculateRemotePetAnchor(ownerX, ownerY, ownerRotation, petDefinition);
+    const hasNetworkPetPosition = Number.isFinite(Number(remotePetPosition?.x))
+      && Number.isFinite(Number(remotePetPosition?.y));
+    const targetX = hasNetworkPetPosition ? Number(remotePetPosition?.x) : anchor.x;
+    const targetY = hasNetworkPetPosition ? Number(remotePetPosition?.y) : anchor.y;
+    const targetRotation = Number.isFinite(Number(remotePetPosition?.rotation))
+      ? Number(remotePetPosition?.rotation)
+      : ownerRotation;
+    // Use local receipt time to stabilize remote-pet interpolation timeline.
+    const effectiveServerTime = Date.now();
+
+    let interpolation = this.ecs.getComponent(remotePetEntity, InterpolationTarget);
+    const transform = this.ecs.getComponent(remotePetEntity, Transform);
+    if (transform && !interpolation) {
+      this.ecs.addComponent(
+        remotePetEntity,
+        InterpolationTarget,
+        new InterpolationTarget(transform.x, transform.y, transform.rotation)
+      );
+      interpolation = this.ecs.getComponent(remotePetEntity, InterpolationTarget);
+    }
+
+    if (hasNetworkPetPosition || createdRemotePetEntity) {
+      if (interpolation) {
+        interpolation.updateTarget(targetX, targetY, targetRotation, effectiveServerTime);
+      } else if (transform) {
+        transform.x = targetX;
+        transform.y = targetY;
+        transform.rotation = targetRotation;
+      }
+    }
+
+    const currentSprite = this.ecs.getComponent(
+      remotePetEntity,
+      AnimatedSprite
+    ) as (AnimatedSprite & { petId?: string }) | undefined;
+    if (currentSprite?.petId === normalizedPetState.petId) {
+      return;
+    }
+
+    const cachedSprite = this.getCachedRemotePetSprite(normalizedPetState.petId);
+    if (cachedSprite) {
+      this.applyRemotePetSprite(remotePetEntity, normalizedPetState.petId, cachedSprite);
+      return;
+    }
+
+    this.loadRemotePetSprite(normalizedPetState.petId).then((loadedSprite) => {
+      if (!loadedSprite) return;
+
+      const currentEntity = this.findRemotePetEntity(ownerClientId);
+      if (!currentEntity || currentEntity.id !== remotePetEntity.id) return;
+
+      const currentRemotePet = this.ecs.getComponent(currentEntity, RemotePet);
+      if (!currentRemotePet) return;
+
+      if (currentRemotePet.petId !== normalizedPetState.petId) return;
+
+      this.applyRemotePetSprite(currentEntity, normalizedPetState.petId, loadedSprite);
+    });
+  }
+
   updateRemotePlayerSkin(clientId: string, shipSkinId?: string | null): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (!entity) {
@@ -151,7 +454,7 @@ export class RemotePlayerSystem extends BaseSystem {
     for (const entity of remotePlayerEntities) {
       const remotePlayer = this.ecs.getComponent(entity, RemotePlayer);
       if (remotePlayer && (now - remotePlayer.lastSeen > 5000)) {
-        this.ecs.removeEntity(entity);
+        this.removeRemotePlayer(remotePlayer.clientId);
       }
     }
 
@@ -233,13 +536,30 @@ export class RemotePlayerSystem extends BaseSystem {
     shield?: number,
     maxShield?: number,
     serverTimestamp?: number,
-    shipSkinId?: string | null
+    shipSkinId?: string | null,
+    remotePetState?: RemotePetStatePayload | null,
+    remotePetPosition?: RemotePetTransformPayload | null
   ): number {
     // Verifica se il giocatore remoto esiste già
     const existingEntity = this.findRemotePlayerEntity(clientId);
     if (existingEntity) {
       // Aggiorna posizione del giocatore esistente
-      this.updateRemotePlayer(clientId, x, y, rotation, health, maxHealth, shield, maxShield, serverTimestamp, undefined, undefined, shipSkinId);
+      this.updateRemotePlayer(
+        clientId,
+        x,
+        y,
+        rotation,
+        health,
+        maxHealth,
+        shield,
+        maxShield,
+        serverTimestamp,
+        undefined,
+        undefined,
+        shipSkinId,
+        remotePetState,
+        remotePetPosition
+      );
 
       // Update stats if provided
       if (health !== undefined || shield !== undefined) {
@@ -285,6 +605,7 @@ export class RemotePlayerSystem extends BaseSystem {
     }
 
     this.updateRemotePlayerSkin(clientId, resolvedSkinId);
+    this.ensureRemotePetForPlayer(clientId, x, y, rotation, serverTimestamp, remotePetState, remotePetPosition);
     return entity.id;
   }
 
@@ -303,7 +624,9 @@ export class RemotePlayerSystem extends BaseSystem {
     serverTimestamp?: number,
     velocityX?: number,
     velocityY?: number,
-    shipSkinId?: string | null
+    shipSkinId?: string | null,
+    remotePetState?: RemotePetStatePayload | null,
+    remotePetPosition?: RemotePetTransformPayload | null
   ): void {
     const entity = this.findRemotePlayerEntity(clientId);
     if (!entity) {
@@ -340,12 +663,17 @@ export class RemotePlayerSystem extends BaseSystem {
     if (shipSkinId) {
       this.updateRemotePlayerSkin(clientId, shipSkinId);
     }
+
+    if (remotePetState !== undefined || remotePetPosition !== undefined) {
+      this.ensureRemotePetForPlayer(clientId, x, y, rotation, serverTimestamp, remotePetState, remotePetPosition);
+    }
   }
 
   /**
    * Rimuove un giocatore remoto
    */
   removeRemotePlayer(clientId: string): void {
+    this.removeRemotePetEntity(clientId);
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       this.ecs.removeEntity(entity);
@@ -356,13 +684,19 @@ export class RemotePlayerSystem extends BaseSystem {
    * Rimuove tutti i giocatori remoti
    */
   removeAllRemotePlayers(): void {
+    this.remotePetEntityByClientId.clear();
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
+    const remotePetEntities = this.ecs.getEntitiesWithComponents(RemotePet);
 
     for (const entity of remotePlayerEntities) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
       if (remotePlayerComponent) {
         this.ecs.removeEntity(entity);
       }
+    }
+
+    for (const entity of remotePetEntities) {
+      this.ecs.removeEntity(entity);
     }
   }
 

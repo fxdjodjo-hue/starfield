@@ -11,6 +11,7 @@ class MapResourceManager {
     this.mapServer = mapServer;
     this.resources = new Map();
     this.activeCollections = new Map();
+    this.activeAutoCollections = new Map();
     this.resourceIdCounter = 0;
 
     this.SPAWN_PADDING = 420;
@@ -24,11 +25,15 @@ class MapResourceManager {
     this.COLLECT_START_DRIFT_PX = 70;
     this.COLLECT_ANCHOR_SYNC_TIMEOUT_MS = 250;
     this.RESOURCE_INVENTORY_SAVE_THROTTLE_MS = 1800;
+    this.AUTO_COLLECT_ANCHOR_OFFSET_Y = 100;
+    this.AUTO_COLLECT_START_DISTANCE_PX = 30;
+    this.AUTO_COLLECT_APPROACH_TIMEOUT_MS = 6000;
   }
 
   initializeResources() {
     this.resources.clear();
     this.activeCollections.clear();
+    this.activeAutoCollections.clear();
 
     const spawnPlans = listMapResourceSpawns(this.mapServer.mapId);
     let spawnedCount = 0;
@@ -154,6 +159,24 @@ class MapResourceManager {
       };
     }
 
+    const existingAutoCollection = this.activeAutoCollections.get(resourceId);
+    if (existingAutoCollection) {
+      if (existingAutoCollection.playerClientId !== playerData.clientId) {
+        return { ok: false, code: 'RESOURCE_BUSY' };
+      }
+      const remainingMs = this.parseFiniteNumber(existingAutoCollection.completeAt);
+      return {
+        ok: true,
+        code: 'COLLECTION_IN_PROGRESS',
+        remainingMs: remainingMs !== null
+          ? Math.max(0, remainingMs - now)
+          : this.COLLECT_CHANNEL_DURATION_MS,
+        resourceId: node.id,
+        resourceType: node.resourceType,
+        resourceName: this.resolveResourceDisplayName(node)
+      };
+    }
+
     this.activeCollections.set(resourceId, {
       resourceId,
       resourceType: node.resourceType,
@@ -178,7 +201,103 @@ class MapResourceManager {
     };
   }
 
+  autoCollectNearestResource(playerData, collectorPosition, collectDistance, options = {}) {
+    const now = Date.now();
+    if (!playerData || typeof playerData !== 'object') {
+      return { ok: false, code: 'INVALID_PLAYER' };
+    }
+    const playerClientId = String(playerData.clientId || '').trim();
+    if (!playerClientId) {
+      return { ok: false, code: 'INVALID_PLAYER_CLIENT_ID' };
+    }
+
+    for (const collection of this.activeAutoCollections.values()) {
+      if (String(collection?.playerClientId || '').trim() === playerClientId) {
+        return { ok: false, code: 'AUTO_COLLECTION_IN_PROGRESS' };
+      }
+    }
+
+    const point = collectorPosition && typeof collectorPosition === 'object'
+      ? {
+        x: Number(collectorPosition.x),
+        y: Number(collectorPosition.y)
+      }
+      : null;
+    if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+      return { ok: false, code: 'INVALID_COLLECTOR_POSITION' };
+    }
+
+    const maxDistance = Math.max(
+      60,
+      Number.isFinite(Number(collectDistance)) ? Number(collectDistance) : this.resolveCollectDistance('')
+    );
+    const maxDistanceSq = maxDistance * maxDistance;
+
+    let selectedNode = null;
+    let selectedDistanceSq = Number.POSITIVE_INFINITY;
+    for (const node of this.resources.values()) {
+      if (!node) continue;
+      if (this.activeCollections.has(node.id)) continue;
+      if (this.activeAutoCollections.has(node.id)) continue;
+
+      const distanceSq = this.distanceSq(point.x, point.y, node.x, node.y);
+      if (distanceSq > maxDistanceSq) continue;
+      if (distanceSq >= selectedDistanceSq) continue;
+
+      selectedNode = node;
+      selectedDistanceSq = distanceSq;
+    }
+
+    if (!selectedNode) {
+      return { ok: false, code: 'NO_RESOURCE_IN_RANGE' };
+    }
+
+    const statusReason = String(options?.reason || 'pet_auto_collect').trim() || 'pet_auto_collect';
+    const collectorType = String(options?.collectorType || '').trim().toLowerCase() || 'unknown';
+    const isPetCollector = collectorType === 'pet';
+    const collectAnchor = this.getAutoCollectionAnchor(selectedNode, collectorType);
+    this.activeAutoCollections.set(selectedNode.id, {
+      resourceId: selectedNode.id,
+      resourceType: selectedNode.resourceType,
+      playerClientId,
+      startedAt: now,
+      completeAt: isPetCollector ? undefined : (now + this.COLLECT_CHANNEL_DURATION_MS),
+      channelStartedAt: isPetCollector ? undefined : now,
+      approachDeadlineAt: isPetCollector ? (now + this.AUTO_COLLECT_APPROACH_TIMEOUT_MS) : undefined,
+      reason: statusReason,
+      collectorType
+    });
+
+    this.sendCollectionStatus(playerData, {
+      status: isPetCollector ? 'approaching' : 'started',
+      resourceId: selectedNode.id,
+      resourceType: selectedNode.resourceType,
+      resourceName: this.resolveResourceDisplayName(selectedNode),
+      resourceX: Math.round(Number(collectAnchor.x || 0)),
+      resourceY: Math.round(Number(collectAnchor.y || 0)),
+      reason: statusReason,
+      remainingMs: isPetCollector
+        ? this.AUTO_COLLECT_APPROACH_TIMEOUT_MS
+        : this.COLLECT_CHANNEL_DURATION_MS,
+      timestamp: now
+    });
+
+    return {
+      ok: true,
+      code: 'AUTO_COLLECTION_STARTED',
+      resourceId: selectedNode.id,
+      resourceType: selectedNode.resourceType,
+      resourceName: this.resolveResourceDisplayName(selectedNode),
+      collectorType: String(options?.collectorType || '').trim() || 'unknown'
+    };
+  }
+
   updateCollections(now = Date.now()) {
+    this.processManualCollections(now);
+    this.processAutoCollections(now);
+  }
+
+  processManualCollections(now = Date.now()) {
     if (this.activeCollections.size === 0) return;
 
     for (const [resourceId, collection] of this.activeCollections.entries()) {
@@ -253,6 +372,99 @@ class MapResourceManager {
     }
   }
 
+  processAutoCollections(now = Date.now()) {
+    if (this.activeAutoCollections.size === 0) return;
+
+    for (const [resourceId, collection] of this.activeAutoCollections.entries()) {
+      const node = this.resources.get(resourceId);
+      if (!node) {
+        this.cancelAutoCollection(resourceId, collection, null, 'resource_unavailable');
+        continue;
+      }
+
+      const playerData = this.mapServer.players.get(collection.playerClientId);
+      if (!playerData) {
+        this.cancelAutoCollection(resourceId, collection, null, 'player_unavailable');
+        continue;
+      }
+
+      if (playerData.isDead) {
+        this.cancelAutoCollection(resourceId, collection, playerData, 'player_dead');
+        continue;
+      }
+
+      const collectorType = String(collection?.collectorType || '').trim().toLowerCase();
+      const channelStartedAt = this.parseFiniteNumber(collection?.channelStartedAt);
+      if (collectorType === 'pet' && channelStartedAt === null) {
+        const collectorPosition = this.getAutoCollectorPosition(playerData, collection);
+        if (!collectorPosition) {
+          this.cancelAutoCollection(resourceId, collection, playerData, 'collector_unavailable');
+          continue;
+        }
+
+        const collectAnchor = this.getAutoCollectionAnchor(node, collectorType);
+        if (!this.isPointWithinRange(collectorPosition, collectAnchor, this.AUTO_COLLECT_START_DISTANCE_PX)) {
+          const approachDeadlineAt = this.parseFiniteNumber(collection?.approachDeadlineAt);
+          if (approachDeadlineAt !== null && now >= approachDeadlineAt) {
+            this.cancelAutoCollection(resourceId, collection, playerData, 'collector_timeout');
+          }
+          continue;
+        }
+
+        collection.channelStartedAt = now;
+        collection.completeAt = now + this.COLLECT_CHANNEL_DURATION_MS;
+
+        this.sendCollectionStatus(playerData, {
+          status: 'started',
+          resourceId: node.id,
+          resourceType: node.resourceType,
+          resourceName: this.resolveResourceDisplayName(node),
+          resourceX: Math.round(Number(collectAnchor.x || 0)),
+          resourceY: Math.round(Number(collectAnchor.y || 0)),
+          reason: String(collection.reason || 'pet_auto_collect').trim() || 'pet_auto_collect',
+          remainingMs: this.COLLECT_CHANNEL_DURATION_MS,
+          timestamp: now
+        });
+
+        continue;
+      }
+
+      const completeAt = this.parseFiniteNumber(collection?.completeAt);
+      if (completeAt === null || now < completeAt) continue;
+
+      this.resources.delete(resourceId);
+      this.activeAutoCollections.delete(resourceId);
+
+      if (!playerData.resourceInventory || typeof playerData.resourceInventory !== 'object') {
+        playerData.resourceInventory = {};
+      }
+      const currentCount = Number(playerData.resourceInventory[node.resourceType] || 0);
+      playerData.resourceInventory[node.resourceType] = Math.max(0, Math.floor(currentCount + 1));
+      this.persistCollectedResourceInventory(playerData, now);
+
+      this.sendCollectionStatus(playerData, {
+        status: 'completed',
+        resourceId: node.id,
+        resourceType: node.resourceType,
+        resourceName: this.resolveResourceDisplayName(node),
+        resourceX: Math.round(Number(node.x || 0)),
+        resourceY: Math.round(Number(node.y || 0)),
+        reason: String(collection.reason || 'pet_auto_collect').trim() || 'pet_auto_collect',
+        timestamp: now
+      });
+
+      this.mapServer.broadcastToMap({
+        type: 'resource_node_removed',
+        resourceId: node.id,
+        resourceType: node.resourceType,
+        collectedBy: playerData.clientId,
+        x: Math.round(Number(node.x || 0)),
+        y: Math.round(Number(node.y || 0)),
+        timestamp: now
+      });
+    }
+  }
+
   resolveCollectDistance(resourceType) {
     const definition = getResourceDefinition(resourceType);
     return Math.max(
@@ -274,6 +486,50 @@ class MapResourceManager {
     if (!Number.isFinite(playerX) || !Number.isFinite(playerY)) return null;
 
     return { x: playerX, y: playerY };
+  }
+
+  getAutoCollectorPosition(playerData, collection) {
+    const collectorType = String(collection?.collectorType || '').trim().toLowerCase();
+    if (collectorType !== 'pet') {
+      return this.getPlayerPosition(playerData);
+    }
+
+    const petX = Number(playerData?.petPosition?.x);
+    const petY = Number(playerData?.petPosition?.y);
+    if (Number.isFinite(petX) && Number.isFinite(petY)) {
+      return { x: petX, y: petY };
+    }
+
+    const playerPosition = this.getPlayerPosition(playerData);
+    if (!playerPosition) return null;
+
+    const playerRotation = Number(playerData?.position?.rotation ?? playerData?.rotation);
+    const fallbackRotation = Number.isFinite(playerRotation) ? playerRotation : 0;
+    const fallbackOffset = 80;
+    const fallbackAngle = fallbackRotation + Math.PI;
+
+    return {
+      x: playerPosition.x + (Math.cos(fallbackAngle) * fallbackOffset),
+      y: playerPosition.y + (Math.sin(fallbackAngle) * fallbackOffset)
+    };
+  }
+
+  getAutoCollectionAnchor(node, collectorType) {
+    const resourceX = Number(node?.x);
+    const resourceY = Number(node?.y);
+    if (!Number.isFinite(resourceX) || !Number.isFinite(resourceY)) {
+      return { x: 0, y: 0 };
+    }
+
+    const normalizedCollectorType = String(collectorType || '').trim().toLowerCase();
+    if (normalizedCollectorType === 'pet') {
+      return {
+        x: resourceX,
+        y: resourceY - this.AUTO_COLLECT_ANCHOR_OFFSET_Y
+      };
+    }
+
+    return { x: resourceX, y: resourceY };
   }
 
   getPlayerMovementTimestamp(playerData) {
@@ -353,6 +609,25 @@ class MapResourceManager {
     });
   }
 
+  cancelAutoCollection(resourceId, collection, playerData, reason) {
+    this.activeAutoCollections.delete(resourceId);
+    if (!playerData) return;
+
+    const node = this.resources.get(resourceId);
+    const statusReason = String(collection?.reason || 'pet_auto_collect').trim() || 'pet_auto_collect';
+    this.sendCollectionStatus(playerData, {
+      status: 'interrupted',
+      resourceId: node?.id || resourceId,
+      resourceType: node?.resourceType || collection?.resourceType || null,
+      resourceName: this.resolveResourceDisplayName(node || collection || null),
+      resourceX: Math.round(Number(node?.x || 0)),
+      resourceY: Math.round(Number(node?.y || 0)),
+      reason: statusReason,
+      interruptReason: reason || 'interrupted',
+      timestamp: Date.now()
+    });
+  }
+
   sendCollectionStatus(playerData, payload) {
     const ws = playerData?.ws;
     if (!ws || ws.readyState !== 1) return;
@@ -393,6 +668,19 @@ class MapResourceManager {
     websocketManager.savePlayerData(playerData).catch((error) => {
       ServerLoggerWrapper.warn('RESOURCE', `Failed to persist collected resource inventory for ${playerData?.userId || 'unknown'}: ${error.message}`);
     });
+  }
+
+  parseFiniteNumber(rawValue) {
+    if (rawValue === null || rawValue === undefined || rawValue === '') {
+      return null;
+    }
+
+    const parsedValue = Number(rawValue);
+    if (!Number.isFinite(parsedValue)) {
+      return null;
+    }
+
+    return parsedValue;
   }
 
   distanceSq(x1, y1, x2, y2) {

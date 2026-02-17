@@ -85,7 +85,8 @@ export class UIPanelManager {
     const craftingConfig = getPanelConfig('crafting');
     const craftingPanel = new CraftingPanel(
       craftingConfig,
-      () => this.resolveCraftingResourceInventory()
+      () => this.resolveCraftingResourceInventory(),
+      (recipeId: string) => this.submitCraftItemRequest(recipeId)
     );
     this.uiManager.registerPanel(craftingPanel);
     this.syncCraftingPanelResourceInventory(true);
@@ -513,6 +514,15 @@ export class UIPanelManager {
     }
 
     return networkSystem.sendPetNicknameUpdateRequest(petNickname);
+  }
+
+  private submitCraftItemRequest(recipeId: string): boolean {
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem || typeof networkSystem.sendCraftItemRequest !== 'function') {
+      return false;
+    }
+
+    return networkSystem.sendCraftItemRequest(recipeId);
   }
 
   private setupCraftingPanelVisibilityListener(): void {

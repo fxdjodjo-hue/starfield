@@ -29,6 +29,45 @@ function normalizePetState(petState) {
   return normalizePlayerPetState(petState);
 }
 
+function normalizeRemotePetState(petState) {
+  const normalizedPetState = normalizePetState(petState);
+  const petId = String(normalizedPetState?.petId || '').trim();
+  if (!petId) return null;
+
+  const petNickname = String(normalizedPetState.petNickname || petId)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 24)
+    .trim();
+
+  return {
+    petId,
+    petNickname: petNickname || petId,
+    isActive: normalizedPetState.isActive !== false
+  };
+}
+
+function normalizeRemotePetPosition(petPosition, fallbackPosition) {
+  if (!petPosition || typeof petPosition !== 'object') return null;
+
+  const x = Number(petPosition.x);
+  const y = Number(petPosition.y);
+  const fallbackRotation = Number.isFinite(Number(fallbackPosition?.rotation))
+    ? Number(fallbackPosition.rotation)
+    : 0;
+  const rotation = Number.isFinite(Number(petPosition.rotation))
+    ? Number(petPosition.rotation)
+    : fallbackRotation;
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+  return {
+    x,
+    y,
+    rotation
+  };
+}
+
 /**
  * Utility per formattare e gestire messaggi di broadcast
  * TODO: Valutare se necessario o se può essere parte di WebSocketConnectionManager
@@ -133,9 +172,11 @@ class MessageBroadcaster {
    * @param {number} shield - Current shield
    * @param {number} maxShield - Max shield
    * @param {string} shipSkinId - Selected ship skin ID
+   * @param {Object|null} petState - Normalized pet payload for remote visibility
+   * @param {Object|null} petPosition - Last known pet position payload for remote visibility
    * @returns {Object} Player joined message
    */
-  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, leaderboardPodiumRank, position, health, maxHealth, shield, maxShield, shipSkinId) {
+  formatPlayerJoinedMessage(clientId, nickname, playerId, rank, leaderboardPodiumRank, position, health, maxHealth, shield, maxShield, shipSkinId, petState = null, petPosition = null) {
     return {
       type: 'player_joined',
       clientId: clientId,
@@ -149,6 +190,8 @@ class MessageBroadcaster {
       shield: shield,
       maxShield: maxShield,
       shipSkinId: shipSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+      petState: normalizeRemotePetState(petState),
+      petPosition: normalizeRemotePetPosition(petPosition, position),
       t: Date.now()
     };
   }

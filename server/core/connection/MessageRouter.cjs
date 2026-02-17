@@ -18,6 +18,7 @@ const {
   resolveShipSkinPurchaseCost
 } = require('../../config/ShipSkinCatalog.cjs');
 const { normalizePlayerPetState, sanitizePetNickname } = require('../../config/PetCatalog.cjs');
+const CraftingManager = require('../../managers/crafting/CraftingManager.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
@@ -28,6 +29,7 @@ const DEFAULT_SELL_REWARDS_BY_RARITY = Object.freeze({
   RARE: Object.freeze({ amount: 9000, currency: 'credits' }),
   EPIC: Object.freeze({ amount: 2500, currency: 'cosmos' })
 });
+const craftingManager = new CraftingManager();
 
 function normalizeSellCurrency(currency) {
   return String(currency || '').toLowerCase() === 'cosmos' ? 'cosmos' : 'credits';
@@ -96,6 +98,52 @@ function normalizePetStatePayload(petState) {
   return normalizePlayerPetState(petState);
 }
 
+function normalizeRemotePetStatePayload(petState) {
+  const normalizedPetState = normalizePetStatePayload(petState);
+  const petId = String(normalizedPetState?.petId || '').trim();
+  if (!petId) return null;
+
+  const petNickname = String(normalizedPetState.petNickname || petId)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 24)
+    .trim();
+
+  return {
+    petId,
+    petNickname: petNickname || petId,
+    isActive: normalizedPetState.isActive !== false
+  };
+}
+
+function normalizeRemotePetPositionPayload(petPosition, fallbackPosition) {
+  const fallbackRotation = Number.isFinite(Number(fallbackPosition?.rotation)) ? Number(fallbackPosition.rotation) : 0;
+
+  if (!petPosition || typeof petPosition !== 'object') {
+    return null;
+  }
+
+  const x = Number(petPosition.x);
+  const y = Number(petPosition.y);
+  const rawRotation = Number.isFinite(Number(petPosition.rotation))
+    ? Number(petPosition.rotation)
+    : fallbackRotation;
+
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+
+  let rotation = rawRotation;
+  while (rotation > Math.PI) rotation -= 2 * Math.PI;
+  while (rotation < -Math.PI) rotation += 2 * Math.PI;
+
+  return {
+    x,
+    y,
+    rotation
+  };
+}
+
 async function resolveLeaderboardPodiumRank(supabase, playerDbId) {
   if (!supabase || !Number.isFinite(Number(playerDbId))) return 0;
 
@@ -119,6 +167,121 @@ async function resolveLeaderboardPodiumRank(supabase, playerDbId) {
   }
 
   return 0;
+}
+
+function sleep(ms) {
+  const safeDelay = Math.max(0, Math.floor(Number(ms) || 0));
+  return new Promise((resolve) => setTimeout(resolve, safeDelay));
+}
+
+function summarizeError(error, maxDepth = 4) {
+  const segments = [];
+  let current = error;
+
+  for (let depth = 0; depth < maxDepth && current; depth++) {
+    const code = String(current?.code || '').trim();
+    const message = String(current?.message || current?.name || '').trim();
+
+    if (code || message) {
+      segments.push(code ? `${code}: ${message || 'error'}` : message);
+    }
+
+    current = current?.cause;
+  }
+
+  return segments.join(' | ') || 'unknown';
+}
+
+function collectErrorSignals(error, maxDepth = 4) {
+  const signals = [];
+  let current = error;
+
+  for (let depth = 0; depth < maxDepth && current; depth++) {
+    const code = String(current?.code || '').trim().toLowerCase();
+    const name = String(current?.name || '').trim().toLowerCase();
+    const message = String(current?.message || '').trim().toLowerCase();
+    const status = Number(current?.status);
+
+    if (code) signals.push(code);
+    if (name) signals.push(name);
+    if (message) signals.push(message);
+    if (Number.isFinite(status) && status > 0) signals.push(`status:${Math.floor(status)}`);
+
+    current = current?.cause;
+  }
+
+  return signals;
+}
+
+function isAuthServiceUnavailableError(error) {
+  if (!error) return false;
+
+  const signals = collectErrorSignals(error);
+  if (signals.length === 0) return false;
+  const signalText = signals.join(' ');
+
+  const transientCodes = [
+    'und_err_connect_timeout',
+    'und_err_headers_timeout',
+    'und_err_socket',
+    'enotfound',
+    'eai_again',
+    'etimedout',
+    'econnreset',
+    'econnrefused',
+    'econnaborted',
+    'ecanceled'
+  ];
+
+  if (transientCodes.some((code) => signalText.includes(code))) {
+    return true;
+  }
+
+  if (
+    signalText.includes('fetch failed')
+    || signalText.includes('connect timeout')
+    || signalText.includes('network error')
+    || signalText.includes('service unavailable')
+    || signalText.includes('gateway timeout')
+  ) {
+    return true;
+  }
+
+  // HTTP 5xx returned by auth backend.
+  if (signals.some((signal) => /^status:5\d\d$/.test(signal))) {
+    return true;
+  }
+
+  return false;
+}
+
+async function getSupabaseUserWithRetry(supabase, authToken) {
+  const maxAttempts = 2;
+  let lastResult = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await supabase.auth.getUser(authToken);
+      lastResult = result;
+
+      if (!result?.error) {
+        return result;
+      }
+
+      if (!isAuthServiceUnavailableError(result.error) || attempt === maxAttempts) {
+        return result;
+      }
+    } catch (error) {
+      if (!isAuthServiceUnavailableError(error) || attempt === maxAttempts) {
+        throw error;
+      }
+      lastResult = { data: { user: null }, error };
+    }
+
+    await sleep(250 * attempt);
+  }
+
+  return lastResult || { data: { user: null }, error: null };
 }
 
 async function verifyJoinAuthToken(data, context) {
@@ -156,10 +319,34 @@ async function verifyJoinAuthToken(data, context) {
   }
 
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(authToken);
-    if (error || !user) {
+    const authResult = await getSupabaseUserWithRetry(supabase, authToken);
+    const user = authResult?.data?.user || null;
+    const authError = authResult?.error || null;
+
+    if (authError) {
+      if (isAuthServiceUnavailableError(authError)) {
+        const authErrorSummary = summarizeError(authError);
+        ServerLoggerWrapper.warn('SECURITY', `[AUTH] join auth service unavailable clientId=${clientId} userId=${userId} error=${authErrorSummary}`);
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'error', message: 'Authentication service unavailable. Please retry.', code: 'AUTH_UNAVAILABLE' }));
+        }
+        ws?.close(1011, 'Auth unavailable');
+        return false;
+      }
+
       if (AUTH_AUDIT_LOGS) {
-        ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join invalid authToken clientId=${clientId} userId=${userId} error=${error?.message || 'unknown'}`);
+        ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join invalid authToken clientId=${clientId} userId=${userId} error=${summarizeError(authError)}`);
+      }
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid token', code: 'INVALID_TOKEN' }));
+      }
+      ws?.close(1008, 'Invalid token');
+      return false;
+    }
+
+    if (!user) {
+      if (AUTH_AUDIT_LOGS) {
+        ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join missing auth user clientId=${clientId} userId=${userId}`);
       }
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'error', message: 'Invalid token', code: 'INVALID_TOKEN' }));
@@ -177,8 +364,18 @@ async function verifyJoinAuthToken(data, context) {
       return false;
     }
   } catch (error) {
+    if (isAuthServiceUnavailableError(error)) {
+      const authErrorSummary = summarizeError(error);
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH] join auth request failed clientId=${clientId} userId=${userId} error=${authErrorSummary}`);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Authentication service unavailable. Please retry.', code: 'AUTH_UNAVAILABLE' }));
+      }
+      ws?.close(1011, 'Auth unavailable');
+      return false;
+    }
+
     if (AUTH_AUDIT_LOGS) {
-      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join token verification failed clientId=${clientId} userId=${userId} error=${error.message}`);
+      ServerLoggerWrapper.warn('SECURITY', `[AUTH AUDIT] join token verification failed clientId=${clientId} userId=${userId} error=${summarizeError(error)}`);
     }
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'error', message: 'Invalid token', code: 'INVALID_TOKEN' }));
@@ -403,7 +600,9 @@ async function handleJoin(data, sanitizedData, context) {
     playerData.maxHealth,
     playerData.shield,
     playerData.maxShield,
-    playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
+    playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+    normalizeRemotePetStatePayload(playerData.petState),
+    normalizeRemotePetPositionPayload(playerData.petPosition, playerData.position)
   );
   effectiveMapServer.broadcastToMap(playerJoinedMsg, persistentClientId);
 
@@ -424,7 +623,9 @@ async function handleJoin(data, sanitizedData, context) {
         maxHealth: existingPlayerData.maxHealth,
         shield: existingPlayerData.shield,
         maxShield: existingPlayerData.maxShield,
-        shipSkinId: existingPlayerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
+        shipSkinId: existingPlayerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+        petState: normalizeRemotePetStatePayload(existingPlayerData.petState),
+        petPosition: normalizeRemotePetPositionPayload(existingPlayerData.petPosition, existingPlayerData.position)
       };
       ws.send(JSON.stringify(existingPlayerBroadcast));
     }
@@ -446,7 +647,9 @@ async function handleJoin(data, sanitizedData, context) {
       maxHealth: playerData.maxHealth,
       shield: playerData.shield,
       maxShield: playerData.maxShield,
-      shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
+      shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+      petState: normalizeRemotePetStatePayload(playerData.petState),
+      petPosition: normalizeRemotePetPositionPayload(playerData.petPosition, playerData.position)
     };
     effectiveMapServer.broadcastToMap(newPlayerBroadcast, persistentClientId);
   }
@@ -609,6 +812,11 @@ function handlePositionUpdate(data, sanitizedData, context) {
 
   playerData.lastInputAt = new Date().toISOString();
 
+  const normalizedPetPosition = normalizeRemotePetPositionPayload(
+    sanitizedData?.petPosition,
+    sanitizedData
+  );
+
   if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
     playerData.position = {
       x: sanitizedData.x,
@@ -622,6 +830,14 @@ function handlePositionUpdate(data, sanitizedData, context) {
     playerData.y = sanitizedData.y;
     // Aggiorna timestamp per calcolo movimento successivo
     playerData.lastMovementTime = now;
+
+    if (normalizedPetPosition) {
+      playerData.petPosition = {
+        x: normalizedPetPosition.x,
+        y: normalizedPetPosition.y,
+        rotation: normalizedPetPosition.rotation
+      };
+    }
   }
 
   // Server-authoritative coordinate/explore quests
@@ -637,11 +853,11 @@ function handlePositionUpdate(data, sanitizedData, context) {
   }
 
   mapServer.positionUpdateQueue.get(data.clientId).push({
-    x: data.x,
-    y: data.y,
-    rotation: data.rotation,
-    velocityX: data.velocityX || 0,
-    velocityY: data.velocityY || 0,
+    x: sanitizedData.x,
+    y: sanitizedData.y,
+    rotation: sanitizedData.rotation,
+    velocityX: sanitizedData.velocityX || 0,
+    velocityY: sanitizedData.velocityY || 0,
     tick: data.tick,
     nickname: playerData.nickname,
     playerId: playerData.playerId,
@@ -651,6 +867,24 @@ function handlePositionUpdate(data, sanitizedData, context) {
     maxHealth: playerData.maxHealth,
     shield: playerData.shield,
     maxShield: playerData.maxShield,
+    petState: normalizeRemotePetStatePayload(playerData.petState),
+    petPosition: normalizedPetPosition
+      ? {
+          x: normalizedPetPosition.x,
+          y: normalizedPetPosition.y,
+          rotation: normalizedPetPosition.rotation
+        }
+      : (
+          playerData.petPosition && Number.isFinite(Number(playerData.petPosition.x)) && Number.isFinite(Number(playerData.petPosition.y))
+            ? {
+                x: Number(playerData.petPosition.x),
+                y: Number(playerData.petPosition.y),
+                rotation: Number.isFinite(Number(playerData.petPosition.rotation))
+                  ? Number(playerData.petPosition.rotation)
+                  : (Number.isFinite(Number(playerData.position?.rotation)) ? Number(playerData.position.rotation) : 0)
+              }
+            : null
+        ),
     senderWs: ws,
     // clientTimestamp is used for interpolation timing only (not authoritative)
     // Falls back to server time if client doesn't provide timestamp
@@ -1877,6 +2111,8 @@ async function handleShipSkinAction(data, sanitizedData, context) {
       shield: playerData.shield,
       maxShield: playerData.maxShield,
       shipSkinId: playerData.shipSkins.selectedSkinId,
+      petState: normalizeRemotePetStatePayload(playerData.petState),
+      petPosition: normalizeRemotePetPositionPayload(playerData.petPosition, playerData.position),
       t: Date.now()
     }, playerData.clientId);
   }
@@ -1944,12 +2180,123 @@ async function handleSetPetNickname(data, sanitizedData, context) {
     source: 'pet_nickname_updated'
   }));
 
+  if (playerData.position) {
+    mapServer.broadcastToMap({
+      type: 'remote_player_update',
+      clientId: playerData.clientId,
+      position: playerData.position,
+      rotation: playerData.position.rotation || 0,
+      tick: 0,
+      nickname: playerData.nickname,
+      playerId: playerData.playerId,
+      rank: playerData.rank || 'Basic Space Pilot',
+      leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield,
+      shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+      petState: normalizeRemotePetStatePayload(playerData.petState),
+      petPosition: normalizeRemotePetPositionPayload(playerData.petPosition, playerData.position),
+      t: Date.now()
+    }, playerData.clientId);
+  }
+
   try {
     playerDataManager.savePlayerData(playerData).catch(error => {
       logger.error('DATABASE', `Failed to persist pet nickname for ${playerData.userId}: ${error.message}`);
     });
   } catch (error) {
     logger.error('DATABASE', `Error triggering pet nickname save for ${playerData.userId}: ${error.message}`);
+  }
+}
+
+async function handleCraftItem(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const clientIdValidation = authManager.validateClientId(data.clientId, playerData);
+  if (!clientIdValidation.valid) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid client ID for crafting action.',
+      code: 'INVALID_CLIENT_ID'
+    }));
+    return;
+  }
+
+  const recipeId = typeof sanitizedData?.recipeId === 'string'
+    ? sanitizedData.recipeId
+    : data.recipeId;
+  const craftResult = craftingManager.craft(playerData, recipeId);
+  if (!craftResult.ok) {
+    let message = craftResult.message || 'Crafting action failed.';
+
+    if (craftResult.code === 'CRAFT_RESOURCES_MISSING' && Array.isArray(craftResult.missingResources)) {
+      const missingText = craftResult.missingResources
+        .map((entry) => {
+          const resourceType = String(entry?.resourceType || '').trim();
+          const required = Math.max(0, Math.floor(Number(entry?.required || 0)));
+          const owned = Math.max(0, Math.floor(Number(entry?.owned || 0)));
+          return resourceType ? `${resourceType} ${owned}/${required}` : null;
+        })
+        .filter((entry) => !!entry)
+        .join(', ');
+      if (missingText) {
+        message = `Not enough resources: ${missingText}`;
+      }
+    }
+
+    ws.send(JSON.stringify({
+      type: 'error',
+      message,
+      code: craftResult.code || 'CRAFT_FAILED'
+    }));
+    return;
+  }
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    resourceInventory: normalizeResourceInventoryPayload(playerData.resourceInventory),
+    petState: normalizePetStatePayload(playerData.petState),
+    crafting: {
+      recipeId: craftResult.recipe.id,
+      itemId: craftResult.recipe.itemId,
+      displayName: craftResult.recipe.displayName,
+      category: craftResult.recipe.category
+    },
+    source: 'craft_item_success'
+  }));
+
+  if (craftResult.petVisibilityChanged && playerData.position) {
+    mapServer.broadcastToMap({
+      type: 'remote_player_update',
+      clientId: playerData.clientId,
+      position: playerData.position,
+      rotation: playerData.position.rotation || 0,
+      tick: 0,
+      nickname: playerData.nickname,
+      playerId: playerData.playerId,
+      rank: playerData.rank || 'Basic Space Pilot',
+      leaderboardPodiumRank: Number(playerData.leaderboardPodiumRank || 0),
+      health: playerData.health,
+      maxHealth: playerData.maxHealth,
+      shield: playerData.shield,
+      maxShield: playerData.maxShield,
+      shipSkinId: playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+      petState: normalizeRemotePetStatePayload(playerData.petState),
+      petPosition: normalizeRemotePetPositionPayload(playerData.petPosition, playerData.position),
+      t: Date.now()
+    }, playerData.clientId);
+  }
+
+  try {
+    playerDataManager.savePlayerData(playerData).catch(error => {
+      logger.error('DATABASE', `Failed to persist crafting action for ${playerData.userId}: ${error.message}`);
+    });
+  } catch (error) {
+    logger.error('DATABASE', `Error triggering crafting save for ${playerData.userId}: ${error.message}`);
   }
 }
 
@@ -2139,6 +2486,7 @@ const handlers = {
   chat_message: handleChatMessage,
   save_request: handleSaveRequest,
   resource_collect: handleResourceCollect,
+  craft_item: handleCraftItem,
   equip_item: handleEquipItem,
   sell_item: handleSellItem,
   ship_skin_action: handleShipSkinAction,
@@ -2299,7 +2647,7 @@ function validatePlayerContext(type, data, context) {
   }
 
   // ðŸš« SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
-  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon', 'resource_collect'];
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon', 'resource_collect', 'craft_item'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
     logger.warn('SECURITY', `ðŸš« BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
     return { valid: false, reason: 'PLAYER_DEAD' };

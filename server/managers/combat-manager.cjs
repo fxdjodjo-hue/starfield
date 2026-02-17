@@ -758,6 +758,10 @@ class ServerCombatManager {
     // Aggiorna cooldown sempre quando l'NPC prova ad attaccare (indipendentemente dal successo)
     this.npcAttackCooldowns.set(npc.id, now);
 
+    if (projectileId && this.mapServer.petModuleManager && typeof this.mapServer.petModuleManager.handleDefenseReaction === 'function') {
+      this.mapServer.petModuleManager.handleDefenseReaction(npc, targetPlayer, now);
+    }
+
     if (process.env.DEBUG_COMBAT === 'true') {
       if (projectileId) {
         console.log(`[NPC ${npc.id}] Attacco deterministico riuscito contro ${targetPlayer.clientId}. Projectile: ${projectileId}, hitTime: ${hitTime}`);

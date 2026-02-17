@@ -9,6 +9,55 @@ const ServerLoggerWrapper = require('../infrastructure/ServerLoggerWrapper.cjs')
 const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../../config/ShipSkinCatalog.cjs');
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 
+function normalizeCompactPetState(petState) {
+  if (!petState || typeof petState !== 'object') {
+    return {
+      petId: '',
+      petNickname: '',
+      isActive: false
+    };
+  }
+
+  const petId = typeof petState.petId === 'string' ? petState.petId.trim() : '';
+  const petNickname = typeof petState.petNickname === 'string'
+    ? petState.petNickname.replace(/\s+/g, ' ').trim().slice(0, 24).trim()
+    : '';
+  const isActive = petId ? petState.isActive !== false : false;
+
+  return {
+    petId,
+    petNickname: petNickname || petId,
+    isActive
+  };
+}
+
+function normalizeCompactPetPosition(petPosition) {
+  if (!petPosition || typeof petPosition !== 'object') {
+    return {
+      x: null,
+      y: null,
+      rotation: null
+    };
+  }
+
+  const x = Number(petPosition.x);
+  const y = Number(petPosition.y);
+  const rotation = Number(petPosition.rotation);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return {
+      x: null,
+      y: null,
+      rotation: null
+    };
+  }
+
+  return {
+    x: Math.round(x * 100) / 100,
+    y: Math.round(y * 100) / 100,
+    rotation: Number.isFinite(rotation) ? parseFloat(rotation.toFixed(3)) : null
+  };
+}
+
 class PositionUpdateProcessor {
   /**
    * Processa tutti gli aggiornamenti posizione in coda e li broadcasta
@@ -31,10 +80,12 @@ class PositionUpdateProcessor {
         continue;
       }
       const isMigrating = !!playerData.isMigrating;
+      const compactPetState = normalizeCompactPetState(latestUpdate.petState);
+      const compactPetPosition = normalizeCompactPetPosition(latestUpdate.petPosition);
 
       const positionBroadcast = {
         type: 'remote_player_update',
-        // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh, leaderboardPodiumRank, shipSkinId]
+        // FORMATO COMPATTO: [clientId, x, y, vx, vy, rotation, tick, nickname, rank, hp, maxHp, sh, maxSh, leaderboardPodiumRank, shipSkinId, petId, petNickname, petIsActive, petX, petY, petRotation]
         // Riduce drasticamente la dimensione del JSON evitando le chiavi per ogni giocatore
         p: [
           clientId,
@@ -54,7 +105,13 @@ class PositionUpdateProcessor {
           Math.round(playerData.shield),
           Math.round(playerData.maxShield),
           Number(latestUpdate.leaderboardPodiumRank || 0),
-          playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID
+          playerData.shipSkins?.selectedSkinId || DEFAULT_PLAYER_SHIP_SKIN_ID,
+          compactPetState.petId,
+          compactPetState.petNickname,
+          compactPetState.isActive ? 1 : 0,
+          compactPetPosition.x,
+          compactPetPosition.y,
+          compactPetPosition.rotation
         ],
         t: latestUpdate.clientTimestamp || Date.now()
       };

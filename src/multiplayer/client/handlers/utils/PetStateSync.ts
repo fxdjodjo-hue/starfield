@@ -2,6 +2,7 @@ import type { ECS } from '../../../../infrastructure/ecs/ECS';
 import { Health } from '../../../../entities/combat/Health';
 import { Shield } from '../../../../entities/combat/Shield';
 import { Pet } from '../../../../entities/player/Pet';
+import { RemotePet } from '../../../../entities/player/RemotePet';
 import type { PetStatePayload } from '../../../../config/NetworkConfig';
 
 interface NormalizedPetCombatState {
@@ -52,11 +53,15 @@ function findLocalPetEntity(ecs: ECS, expectedPetId: string): any | null {
   if (!Array.isArray(petEntities) || petEntities.length === 0) return null;
 
   const matchedEntity = petEntities.find((entity) => {
+    if (ecs.hasComponent(entity, RemotePet)) return false;
     const petComponent = ecs.getComponent(entity, Pet);
     return petComponent && String(petComponent.petId || '') === expectedPetId;
   });
 
-  return matchedEntity || petEntities[0] || null;
+  if (matchedEntity) return matchedEntity;
+
+  const fallbackLocalPet = petEntities.find((entity) => !ecs.hasComponent(entity, RemotePet));
+  return fallbackLocalPet || null;
 }
 
 export function syncLocalPetCombatStats(ecs: ECS | null, petState: PetStatePayload): void {

@@ -58,6 +58,11 @@ export interface PositionUpdateMessage extends NetworkMessage {
   position: { x: number; y: number };
   rotation: number;
   tick: number;
+  petPosition?: {
+    x: number;
+    y: number;
+    rotation?: number;
+  } | null;
 }
 
 export interface HeartbeatMessage extends NetworkMessage {
@@ -74,6 +79,16 @@ export interface RemotePlayerUpdateMessage extends NetworkMessage {
   nickname?: string;
   rank?: string;
   leaderboardPodiumRank?: number;
+  petState?: {
+    petId?: string;
+    petNickname?: string;
+    isActive?: boolean;
+  };
+  petPosition?: {
+    x?: number;
+    y?: number;
+    rotation?: number;
+  } | null;
 }
 
 export interface PlayerJoinedMessage extends NetworkMessage {
@@ -88,6 +103,16 @@ export interface PlayerJoinedMessage extends NetworkMessage {
   maxHealth?: number;
   shield?: number;
   maxShield?: number;
+  petState?: {
+    petId?: string;
+    petNickname?: string;
+    isActive?: boolean;
+  };
+  petPosition?: {
+    x?: number;
+    y?: number;
+    rotation?: number;
+  } | null;
   t?: number;
 }
 

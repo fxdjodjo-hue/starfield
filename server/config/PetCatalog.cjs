@@ -86,6 +86,9 @@ const PET_SHIELD_MULTIPLIER_PER_LEVEL = Math.max(
   Number(RAW_PROGRESSION.growth?.shieldMultiplierPerLevel || 1.1)
 );
 
+const MIN_PET_INVENTORY_CAPACITY = 4;
+const MAX_PET_INVENTORY_CAPACITY = 32;
+
 function resolvePlayerPetId(preferredPetId) {
   const normalizedPetId = String(preferredPetId || '').trim();
   if (normalizedPetId && PET_ID_SET.has(normalizedPetId)) {
@@ -158,6 +161,62 @@ function getPetStatsForLevel(level) {
   };
 }
 
+function normalizePetModuleSlot(rawSlot) {
+  if (!rawSlot || typeof rawSlot !== 'object') return undefined;
+
+  const itemId = String(rawSlot.itemId ?? rawSlot.id ?? rawSlot.moduleId ?? '').trim();
+  const itemName = String(rawSlot.itemName ?? rawSlot.name ?? '').trim();
+  const normalizedItemId = itemId || itemName.toLowerCase().replace(/\s+/g, '_');
+  if (!normalizedItemId) return undefined;
+
+  return {
+    itemId: normalizedItemId,
+    itemName: itemName || normalizedItemId,
+    rarity: String(rawSlot.rarity ?? rawSlot.grade ?? 'common').trim().toLowerCase() || 'common',
+    level: Math.max(1, Math.floor(Number(rawSlot.level ?? rawSlot.tier ?? 1)))
+  };
+}
+
+function normalizePetInventory(rawInventory) {
+  if (!Array.isArray(rawInventory)) return [];
+
+  const mergedByItemId = new Map();
+  for (const rawItem of rawInventory) {
+    if (!rawItem || typeof rawItem !== 'object') continue;
+
+    const itemId = String(rawItem.itemId ?? rawItem.id ?? '').trim();
+    const itemName = String(rawItem.itemName ?? rawItem.name ?? '').trim();
+    const normalizedItemId = itemId || itemName.toLowerCase().replace(/\s+/g, '_');
+    if (!normalizedItemId) continue;
+
+    const normalizedItemName = itemName || normalizedItemId;
+    const quantity = Math.max(1, Math.floor(Number(rawItem.quantity ?? rawItem.count ?? 1)));
+    const rarity = String(rawItem.rarity ?? rawItem.grade ?? 'common').trim().toLowerCase() || 'common';
+
+    const current = mergedByItemId.get(normalizedItemId);
+    if (!current) {
+      mergedByItemId.set(normalizedItemId, {
+        itemId: normalizedItemId,
+        itemName: normalizedItemName,
+        quantity,
+        rarity
+      });
+      continue;
+    }
+
+    current.quantity += quantity;
+    if (!current.itemName && normalizedItemName) current.itemName = normalizedItemName;
+    if (!current.rarity && rarity) current.rarity = rarity;
+  }
+
+  return Array.from(mergedByItemId.values());
+}
+
+function normalizePetInventoryCapacity(rawCapacity, minimumCapacity = MIN_PET_INVENTORY_CAPACITY) {
+  const safeMinimum = Math.max(MIN_PET_INVENTORY_CAPACITY, Math.floor(Number(minimumCapacity || MIN_PET_INVENTORY_CAPACITY)));
+  return clampInteger(rawCapacity, safeMinimum, MAX_PET_INVENTORY_CAPACITY);
+}
+
 function createDefaultPlayerPetState(preferredPetId) {
   const petId = resolvePlayerPetId(preferredPetId);
   const stats = getPetStatsForLevel(1);
@@ -173,7 +232,10 @@ function createDefaultPlayerPetState(preferredPetId) {
     maxHealth: stats.maxHealth,
     currentShield: stats.maxShield,
     maxShield: stats.maxShield,
-    isActive: true
+    isActive: true,
+    moduleSlot: undefined,
+    inventory: [],
+    inventoryCapacity: 8
   };
 }
 
@@ -206,6 +268,26 @@ function normalizePlayerPetState(rawState, options = {}) {
   const currentShield = Number.isFinite(parsedCurrentShield)
     ? clampInteger(parsedCurrentShield, 0, stats.maxShield)
     : stats.maxShield;
+  const moduleSlot = normalizePetModuleSlot(
+    rawState.moduleSlot
+    ?? rawState.module
+    ?? rawState.module_slot
+    ?? rawState.petModuleSlot
+    ?? rawState.pet_module_slot
+  );
+  const inventory = normalizePetInventory(
+    rawState.inventory
+    ?? rawState.petInventory
+    ?? rawState.pet_inventory
+    ?? rawState.cargo
+  );
+  const inventoryCapacity = normalizePetInventoryCapacity(
+    rawState.inventoryCapacity
+    ?? rawState.inventory_capacity
+    ?? rawState.petInventoryCapacity
+    ?? rawState.pet_inventory_capacity,
+    Math.max(inventory.length, 8)
+  );
 
   return {
     petId,
@@ -217,7 +299,10 @@ function normalizePlayerPetState(rawState, options = {}) {
     maxHealth: stats.maxHealth,
     currentShield,
     maxShield: stats.maxShield,
-    isActive: rawState.isActive === undefined ? true : Boolean(rawState.isActive)
+    isActive: rawState.isActive === undefined ? true : Boolean(rawState.isActive),
+    moduleSlot,
+    inventory,
+    inventoryCapacity
   };
 }
 
@@ -233,7 +318,10 @@ function buildPetStateSignature(petState) {
     normalizedState.maxHealth,
     normalizedState.currentShield,
     normalizedState.maxShield,
-    normalizedState.isActive
+    normalizedState.isActive,
+    JSON.stringify(normalizedState.moduleSlot || null),
+    JSON.stringify(normalizedState.inventory || []),
+    Math.max(0, Math.floor(Number(normalizedState.inventoryCapacity || 0)))
   ]);
 }
 

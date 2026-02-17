@@ -3,6 +3,8 @@ import { Transform } from '../../../entities/spatial/Transform';
 import { Velocity } from '../../../entities/spatial/Velocity';
 import { Authority } from '../../../entities/spatial/Authority';
 import { Health } from '../../../entities/combat/Health';
+import { Pet } from '../../../entities/player/Pet';
+import { RemotePet } from '../../../entities/player/RemotePet';
 import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { RateLimiter, RATE_LIMITS } from './RateLimiter';
 import { NetworkTickManager } from './NetworkTickManager';
@@ -88,6 +90,41 @@ export class NetworkPositionSyncManager {
   }
 
   /**
+   * Gets the current local pet position for remote synchronization.
+   */
+  getLocalPetPosition(): { x: number; y: number; rotation: number } | null {
+    try {
+      if (!this.ecs) {
+        return null;
+      }
+
+      const petEntity = this.ecs.getEntitiesWithComponents(Pet, Transform)
+        .find((entity) => !this.ecs!.hasComponent(entity, RemotePet));
+
+      if (!petEntity) {
+        return null;
+      }
+
+      const petTransform = this.ecs.getComponent(petEntity, Transform);
+      if (!petTransform) {
+        return null;
+      }
+
+      let normalizedPetRotation = Number.isFinite(petTransform.rotation) ? petTransform.rotation : 0;
+      while (normalizedPetRotation > Math.PI) normalizedPetRotation -= 2 * Math.PI;
+      while (normalizedPetRotation < -Math.PI) normalizedPetRotation += 2 * Math.PI;
+
+      return {
+        x: petTransform.x,
+        y: petTransform.y,
+        rotation: normalizedPetRotation
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Synchronizes the player position to the server (called by tick manager)
    */
   sendPlayerPosition(position: { x: number; y: number; rotation: number }): void {
@@ -112,13 +149,15 @@ export class NetworkPositionSyncManager {
 
     // OTTIENI VELOCITÀ DAL PLAYER (per extrapolation client-side)
     const velocity = this.getCurrentPlayerVelocity();
+    const petPosition = this.getLocalPetPosition();
 
     const normalizedPosition = {
       x: position.x,
       y: position.y,
       rotation: normalizedRotation,
       velocityX: velocity.x,
-      velocityY: velocity.y
+      velocityY: velocity.y,
+      petPosition
     };
 
     // RATE LIMITING: Controlla se possiamo inviare aggiornamenti posizione
@@ -145,6 +184,7 @@ export class NetworkPositionSyncManager {
       normalizedPosition.rotation = NETWORK_CONFIG.FALLBACK_POSITION.rotation;
       normalizedPosition.velocityX = 0; // Always reset velocity on invalid data
       normalizedPosition.velocityY = 0;
+      normalizedPosition.petPosition = null;
 
       // TODO: Consider disconnecting client after multiple consecutive invalid messages
       // This could indicate cheating or serious client-side issues
@@ -158,6 +198,7 @@ export class NetworkPositionSyncManager {
       rotation: normalizedPosition.rotation,
       velocityX: normalizedPosition.velocityX,
       velocityY: normalizedPosition.velocityY,
+      petPosition: normalizedPosition.petPosition,
       tick: this.tickManager.getTickCounter(),
       t: Date.now() // Client timestamp for accurate interpolation timing
     }));
@@ -166,7 +207,14 @@ export class NetworkPositionSyncManager {
   /**
    * Valida che la posizione sia valida prima dell'invio
    */
-  private isValidPosition(pos: { x: number; y: number; rotation: number; velocityX?: number; velocityY?: number }): boolean {
+  private isValidPosition(pos: {
+    x: number;
+    y: number;
+    rotation: number;
+    velocityX?: number;
+    velocityY?: number;
+    petPosition?: { x: number; y: number; rotation: number } | null;
+  }): boolean {
     // Normalizza la rotation per accettare valori non normalizzati
     let normalizedRotation = pos.rotation;
     while (normalizedRotation > Math.PI) normalizedRotation -= 2 * Math.PI;
@@ -175,7 +223,7 @@ export class NetworkPositionSyncManager {
     const velocityX = pos.velocityX ?? 0;
     const velocityY = pos.velocityY ?? 0;
 
-    return Number.isFinite(pos.x) &&
+    const playerPositionValid = Number.isFinite(pos.x) &&
       Number.isFinite(pos.y) &&
       Number.isFinite(pos.rotation) &&
       Number.isFinite(velocityX) &&
@@ -185,6 +233,20 @@ export class NetworkPositionSyncManager {
       normalizedRotation >= -Math.PI && normalizedRotation <= Math.PI &&
       velocityX >= -500 && velocityX <= 500 && // Reasonable max speed for space ship
       velocityY >= -500 && velocityY <= 500;   // Prevents speed hacking
+
+    if (!playerPositionValid) return false;
+    if (!pos.petPosition) return true;
+
+    let normalizedPetRotation = pos.petPosition.rotation;
+    while (normalizedPetRotation > Math.PI) normalizedPetRotation -= 2 * Math.PI;
+    while (normalizedPetRotation < -Math.PI) normalizedPetRotation += 2 * Math.PI;
+
+    return Number.isFinite(pos.petPosition.x) &&
+      Number.isFinite(pos.petPosition.y) &&
+      Number.isFinite(pos.petPosition.rotation) &&
+      pos.petPosition.x >= -15000 && pos.petPosition.x <= 15000 &&
+      pos.petPosition.y >= -15000 && pos.petPosition.y <= 15000 &&
+      normalizedPetRotation >= -Math.PI && normalizedPetRotation <= Math.PI;
   }
 
   /**

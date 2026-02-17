@@ -22,6 +22,7 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     if (resourceInteractionSystem && typeof resourceInteractionSystem.handleCollectionStatus === 'function') {
       resourceInteractionSystem.handleCollectionStatus(message);
     }
+    this.handlePetAutoCollectMovement(status, message);
 
     const resourceInventory = this.normalizeResourceInventory(message?.resourceInventory);
     if (resourceInventory) {
@@ -61,6 +62,35 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
 
     if (status === 'completed') {
       logSystem.addLogMessage(`${resourceName} raccolta`, LogType.REWARD, 2600);
+    }
+  }
+
+  private handlePetAutoCollectMovement(status: string, message: ResourceCollectStatusMessage): void {
+    if (typeof document === 'undefined') return;
+
+    const reason = String(message?.reason || '').toLowerCase().trim();
+    if (reason !== 'pet_auto_collect') return;
+
+    if (status === 'started' || status === 'in_progress' || status === 'approaching') {
+      const x = Number(message?.resourceX);
+      const y = Number(message?.resourceY);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+      const parsedRemainingMs = Number(message?.remainingMs);
+      const durationMs = Number.isFinite(parsedRemainingMs)
+        ? Math.max(220, Math.floor(parsedRemainingMs))
+        : undefined;
+
+      document.dispatchEvent(new CustomEvent('pet:auto-collect', {
+        detail: { x, y, durationMs }
+      }));
+      return;
+    }
+
+    if (status === 'completed' || status === 'interrupted') {
+      document.dispatchEvent(new CustomEvent('pet:auto-collect', {
+        detail: { stop: true }
+      }));
     }
   }
 
@@ -148,4 +178,5 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
       detail: { resourceInventory }
     }));
   }
+
 }

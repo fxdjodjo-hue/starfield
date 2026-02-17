@@ -86,6 +86,7 @@ class PlayerDataManager {
     this.playerPetsTableUnavailable = false;
     this.playerPetsTableUnavailableMarkedAt = 0;
     this.playerPetsTableRetryIntervalMs = 60000;
+    this.playerPetsModuleColumnsUnavailableLogged = false;
     this.lastSavedPetStateSignatureByAuthId = new Map();
   }
 
@@ -374,6 +375,20 @@ class PlayerDataManager {
     return message.includes('player_pets') && message.includes('does not exist');
   }
 
+  isMissingPlayerPetsModuleColumnsError(error) {
+    if (!error) return false;
+    if (String(error.code || '') !== '42703') return false;
+
+    const message = String(error.message || '').toLowerCase();
+    if (!message.includes('player_pets')) return false;
+
+    return (
+      message.includes('module_slot')
+      || message.includes('inventory_capacity')
+      || message.includes('inventory')
+    );
+  }
+
   markPlayerPetsTableUnavailable(error, operation) {
     if (this.playerPetsTableUnavailable) return;
     this.playerPetsTableUnavailable = true;
@@ -407,13 +422,36 @@ class PlayerDataManager {
     if (this.shouldSkipPlayerPetsTableAccess()) return fallbackState;
 
     try {
-      const { data, error } = await supabase
+      let selectedWithModuleColumns = true;
+      let { data, error } = await supabase
         .from('player_pets')
-        .select('pet_id, pet_nickname, level, experience, current_health, max_health, current_shield, max_shield, is_active, updated_at')
+        .select('pet_id, pet_nickname, level, experience, current_health, max_health, current_shield, max_shield, is_active, module_slot, inventory, inventory_capacity, updated_at')
         .eq('auth_id', authId)
         .order('is_active', { ascending: false })
         .order('updated_at', { ascending: false })
         .limit(5);
+
+      if (error && this.isMissingPlayerPetsModuleColumnsError(error)) {
+        selectedWithModuleColumns = false;
+
+        if (!this.playerPetsModuleColumnsUnavailableLogged) {
+          ServerLoggerWrapper.warn(
+            'DATABASE',
+            `[PLAYER_PETS] module columns unavailable during load. Run latest migrations. ${error.message}`
+          );
+          this.playerPetsModuleColumnsUnavailableLogged = true;
+        }
+
+        const fallbackResult = await supabase
+          .from('player_pets')
+          .select('pet_id, pet_nickname, level, experience, current_health, max_health, current_shield, max_shield, is_active, updated_at')
+          .eq('auth_id', authId)
+          .order('is_active', { ascending: false })
+          .order('updated_at', { ascending: false })
+          .limit(5);
+        data = fallbackResult.data;
+        error = fallbackResult.error;
+      }
 
       if (error) {
         if (this.isMissingPlayerPetsTableError(error)) {
@@ -441,7 +479,10 @@ class PlayerDataManager {
         max_health: activeRow?.max_health,
         current_shield: activeRow?.current_shield,
         max_shield: activeRow?.max_shield,
-        isActive: activeRow?.is_active
+        isActive: activeRow?.is_active,
+        module_slot: selectedWithModuleColumns ? activeRow?.module_slot : undefined,
+        pet_inventory: selectedWithModuleColumns ? activeRow?.inventory : undefined,
+        inventory_capacity: selectedWithModuleColumns ? activeRow?.inventory_capacity : undefined
       });
 
       this.playerPetsTableUnavailable = false;
@@ -490,13 +531,45 @@ class PlayerDataManager {
         max_health: normalizedState.maxHealth,
         current_shield: normalizedState.currentShield,
         max_shield: normalizedState.maxShield,
+        module_slot: normalizedState.moduleSlot || null,
+        inventory: Array.isArray(normalizedState.inventory) ? normalizedState.inventory : [],
+        inventory_capacity: Math.max(4, Math.floor(Number(normalizedState.inventoryCapacity || 8))),
         is_active: true,
         updated_at: nowIso
       };
 
-      const { error: upsertError } = await supabase
+      let { error: upsertError } = await supabase
         .from('player_pets')
         .upsert(upsertPayload, { onConflict: 'auth_id,pet_id' });
+
+      if (upsertError && this.isMissingPlayerPetsModuleColumnsError(upsertError)) {
+        if (!this.playerPetsModuleColumnsUnavailableLogged) {
+          ServerLoggerWrapper.warn(
+            'DATABASE',
+            `[PLAYER_PETS] module columns unavailable during save. Run latest migrations. ${upsertError.message}`
+          );
+          this.playerPetsModuleColumnsUnavailableLogged = true;
+        }
+
+        const legacyUpsertPayload = {
+          auth_id: authId,
+          pet_id: normalizedState.petId,
+          pet_nickname: normalizedState.petNickname,
+          level: normalizedState.level,
+          experience: normalizedState.experience,
+          current_health: normalizedState.currentHealth,
+          max_health: normalizedState.maxHealth,
+          current_shield: normalizedState.currentShield,
+          max_shield: normalizedState.maxShield,
+          is_active: true,
+          updated_at: nowIso
+        };
+
+        const legacyResult = await supabase
+          .from('player_pets')
+          .upsert(legacyUpsertPayload, { onConflict: 'auth_id,pet_id' });
+        upsertError = legacyResult.error;
+      }
 
       if (upsertError) {
         if (this.isMissingPlayerPetsTableError(upsertError)) {

@@ -178,6 +178,7 @@ export const MESSAGE_TYPES = {
   SELL_ITEM: 'sell_item',
   SHIP_SKIN_ACTION: 'ship_skin_action',
   SET_PET_NICKNAME: 'set_pet_nickname',
+  CRAFT_ITEM: 'craft_item',
   RESOURCE_COLLECT: 'resource_collect',
   RESOURCE_NODE_REMOVED: 'resource_node_removed',
   RESOURCE_COLLECT_STATUS: 'resource_collect_status',
@@ -508,6 +509,12 @@ export interface PlayerStateUpdateMessage {
     targetSkinId?: string;
     lastAction?: 'equip' | 'purchase' | 'purchase_and_equip';
   };
+  crafting?: {
+    recipeId: string;
+    itemId?: string;
+    displayName?: string;
+    category?: string;
+  };
   items?: any[];
   resourceInventory?: Record<string, number>;
   petState?: PetStatePayload;
@@ -649,6 +656,13 @@ export interface SetPetNicknameMessage extends BaseMessage {
   timestamp?: number;
 }
 
+export interface CraftItemMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.CRAFT_ITEM;
+  clientId: string;
+  recipeId: string;
+  timestamp?: number;
+}
+
 export interface ResourceCollectMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.RESOURCE_COLLECT;
   clientId: string;
@@ -668,10 +682,12 @@ export interface ResourceNodeRemovedMessage extends BaseMessage {
 
 export interface ResourceCollectStatusMessage extends BaseMessage {
   type: typeof MESSAGE_TYPES.RESOURCE_COLLECT_STATUS;
-  status: 'started' | 'in_progress' | 'interrupted' | 'completed';
+  status: 'approaching' | 'started' | 'in_progress' | 'interrupted' | 'completed';
   resourceId: string;
   resourceType?: string | null;
   resourceName?: string | null;
+  resourceX?: number;
+  resourceY?: number;
   resourceInventory?: Record<string, number>;
   reason?: string;
   remainingMs?: number;

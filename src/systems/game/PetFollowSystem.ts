@@ -34,6 +34,15 @@ interface PetRuntimeState {
   stationaryWanderCooldownSeconds: number;
   rotationHeadingX: number;
   rotationHeadingY: number;
+  collectAnimationTargetX: number;
+  collectAnimationTargetY: number;
+  collectAnimationRemainingSeconds: number;
+}
+
+interface PetCollectAnimationCommand {
+  target: Point2D | null;
+  durationSeconds: number;
+  stop: boolean;
 }
 
 export class PetFollowSystem extends BaseSystem {
@@ -41,6 +50,8 @@ export class PetFollowSystem extends BaseSystem {
 
   private readonly playerSystem: PlayerSystem;
   private readonly runtimeStateByEntityId: Map<number, PetRuntimeState> = new Map();
+  private pendingCollectAnimationCommand: PetCollectAnimationCommand | null = null;
+  private petAutoCollectListener: ((event: Event) => void) | null = null;
 
   private readonly SNAP_DISTANCE_PX = 1600;
   private readonly PET_BASE_SPEED_PX_PER_SECOND = 270;
@@ -89,6 +100,8 @@ export class PetFollowSystem extends BaseSystem {
   private readonly OWNER_SAMPLED_VELOCITY_FILTER = 9.5;
   private readonly OWNER_VELOCITY_SNAP_THRESHOLD = 6;
   private readonly OWNER_TURN_RATE_SNAP_THRESHOLD = 0.03;
+  private readonly PET_COLLECT_ANIMATION_DURATION_SECONDS = 0.36;
+  private readonly PET_COLLECT_SPEED_BOOST = 1;
 
   private previousOwnerX: number | null = null;
   private previousOwnerY: number | null = null;
@@ -111,6 +124,8 @@ export class PetFollowSystem extends BaseSystem {
       120,
       (getPlayerRangeHeight() * this.STATIONARY_WANDER_RANGE_USE_HEIGHT_RATIO) / 2
     );
+
+    this.setupPetAutoCollectListener();
   }
 
   update(deltaTime: number): void {
@@ -125,6 +140,7 @@ export class PetFollowSystem extends BaseSystem {
 
     const playerVelocity = this.ecs.getComponent(playerEntity, Velocity) || null;
     const ownerKinematics = this.buildOwnerKinematics(playerTransform, playerVelocity, dtSeconds);
+    const pendingCollectCommand = this.consumePendingCollectAnimationCommand();
 
     const petEntities = this.ecs.getEntitiesWithComponents(Pet, Transform);
     const activePetEntityIds = new Set<number>();
@@ -137,6 +153,17 @@ export class PetFollowSystem extends BaseSystem {
       if (!pet || !petTransform) continue;
 
       const runtimeState = this.getOrCreateRuntimeState(petEntity.id, petTransform);
+      if (pendingCollectCommand?.stop) {
+        runtimeState.collectAnimationRemainingSeconds = 0;
+        runtimeState.currentMoveSpeed = this.PET_BASE_SPEED_PX_PER_SECOND;
+      } else if (pendingCollectCommand?.target) {
+        this.startCollectAnimation(
+          runtimeState,
+          petTransform,
+          pendingCollectCommand.target,
+          pendingCollectCommand.durationSeconds
+        );
+      }
       this.updatePetTransform(pet, runtimeState, petTransform, playerTransform, ownerKinematics, dtSeconds);
     }
 
@@ -157,21 +184,29 @@ export class PetFollowSystem extends BaseSystem {
   ): void {
     const ownerRotation = Number.isFinite(ownerTransform.rotation) ? ownerTransform.rotation : 0;
     const isOwnerStationary = this.isOwnerStationary(ownerKinematics);
+    const collectAnimationTarget = this.updateCollectAnimation(runtimeState, dtSeconds);
+    const hasCollectAnimationTarget = !!collectAnimationTarget;
 
-    const formationAnchor = this.calculateFormationAnchor(ownerTransform, pet, ownerKinematics, ownerRotation, isOwnerStationary);
-    const stationaryWanderOffset = this.updateStationaryWander(runtimeState, isOwnerStationary, dtSeconds);
+    const formationAnchor = hasCollectAnimationTarget
+      ? collectAnimationTarget
+      : this.calculateFormationAnchor(ownerTransform, pet, ownerKinematics, ownerRotation, isOwnerStationary);
+    const stationaryWanderOffset = hasCollectAnimationTarget
+      ? { x: 0, y: 0 }
+      : this.updateStationaryWander(runtimeState, isOwnerStationary, dtSeconds);
 
     const rawTargetX = formationAnchor.x + stationaryWanderOffset.x;
     const rawTargetY = formationAnchor.y + stationaryWanderOffset.y;
 
     const ownerClearanceRadius = this.computeOwnerClearanceRadius(pet, ownerKinematics.speed);
-    const target = this.constrainPointOutsideOwner(
-      rawTargetX,
-      rawTargetY,
-      ownerTransform,
-      ownerClearanceRadius,
-      petTransform
-    );
+    const target = hasCollectAnimationTarget
+      ? { x: rawTargetX, y: rawTargetY }
+      : this.constrainPointOutsideOwner(
+        rawTargetX,
+        rawTargetY,
+        ownerTransform,
+        ownerClearanceRadius,
+        petTransform
+      );
     const smoothedTarget = this.updateSmoothedFollowTarget(runtimeState, target, isOwnerStationary, dtSeconds);
 
     const previousX = petTransform.x;
@@ -205,12 +240,12 @@ export class PetFollowSystem extends BaseSystem {
         const catchUpBlend = this.clamp01(
           (distance - catchUpStartDistance) / Math.max(1, catchUpFullDistance - catchUpStartDistance)
         );
-        catchUpBlendForRotation = catchUpBlend;
+        catchUpBlendForRotation = hasCollectAnimationTarget ? 1 : catchUpBlend;
         const targetMoveSpeed = this.lerp(
           this.PET_BASE_SPEED_PX_PER_SECOND,
           this.PET_CATCHUP_SPEED_PX_PER_SECOND,
           catchUpBlend
-        );
+        ) * (hasCollectAnimationTarget ? this.PET_COLLECT_SPEED_BOOST : 1);
         const speedRampAlpha = this.clamp01(1 - Math.exp(-this.PET_SPEED_RAMP_RATE * dtSeconds));
         runtimeState.currentMoveSpeed = this.lerp(runtimeState.currentMoveSpeed, targetMoveSpeed, speedRampAlpha);
 
@@ -532,6 +567,97 @@ export class PetFollowSystem extends BaseSystem {
     runtimeState.rotationHeadingY /= headingMagnitude;
   }
 
+  private updateCollectAnimation(
+    runtimeState: PetRuntimeState,
+    dtSeconds: number
+  ): Point2D | null {
+    if (runtimeState.collectAnimationRemainingSeconds <= 0) return null;
+
+    runtimeState.collectAnimationRemainingSeconds = Math.max(
+      0,
+      runtimeState.collectAnimationRemainingSeconds - dtSeconds
+    );
+
+    const targetX = runtimeState.collectAnimationTargetX;
+    const targetY = runtimeState.collectAnimationTargetY;
+    this.resetStationaryWanderState(runtimeState);
+    return { x: targetX, y: targetY };
+  }
+
+  private startCollectAnimation(
+    runtimeState: PetRuntimeState,
+    petTransform: Transform,
+    target: Point2D,
+    durationSeconds?: number
+  ): void {
+    const dx = target.x - petTransform.x;
+    const dy = target.y - petTransform.y;
+    const distance = this.getMagnitude(dx, dy);
+    if (!Number.isFinite(distance)) return;
+
+    const normalizedDuration = Number.isFinite(Number(durationSeconds))
+      ? Math.max(0.1, Number(durationSeconds))
+      : this.PET_COLLECT_ANIMATION_DURATION_SECONDS;
+
+    runtimeState.collectAnimationTargetX = target.x;
+    runtimeState.collectAnimationTargetY = target.y;
+    runtimeState.collectAnimationRemainingSeconds = normalizedDuration;
+    this.resetStationaryWanderState(runtimeState);
+  }
+
+  private setupPetAutoCollectListener(): void {
+    if (typeof document === 'undefined' || this.petAutoCollectListener) return;
+
+    this.petAutoCollectListener = (event: Event) => {
+      const customEvent = event as CustomEvent<{ x?: number; y?: number; durationMs?: number; stop?: boolean }>;
+      const detail = customEvent?.detail;
+      if (detail?.stop === true) {
+        this.pendingCollectAnimationCommand = {
+          target: null,
+          durationSeconds: 0,
+          stop: true
+        };
+        return;
+      }
+
+      const point = this.parseCollectTargetPoint(detail);
+      if (!point) return;
+
+      const durationSeconds = this.parseCollectDurationSeconds(detail?.durationMs)
+        ?? this.PET_COLLECT_ANIMATION_DURATION_SECONDS;
+      this.pendingCollectAnimationCommand = {
+        target: point,
+        durationSeconds,
+        stop: false
+      };
+    };
+
+    document.addEventListener('pet:auto-collect', this.petAutoCollectListener);
+  }
+
+  private parseCollectTargetPoint(rawPoint: unknown): Point2D | null {
+    if (!rawPoint || typeof rawPoint !== 'object') return null;
+    const source = rawPoint as Record<string, unknown>;
+    const x = Number(source.x);
+    const y = Number(source.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    return { x, y };
+  }
+
+  private parseCollectDurationSeconds(rawDurationMs: unknown): number | null {
+    const parsedDurationMs = Number(rawDurationMs);
+    if (!Number.isFinite(parsedDurationMs)) return null;
+
+    const boundedDurationMs = Math.max(100, Math.min(6000, Math.floor(parsedDurationMs)));
+    return boundedDurationMs / 1000;
+  }
+
+  private consumePendingCollectAnimationCommand(): PetCollectAnimationCommand | null {
+    const command = this.pendingCollectAnimationCommand;
+    this.pendingCollectAnimationCommand = null;
+    return command;
+  }
+
   private getOrCreateRuntimeState(entityId: number, petTransform: Transform): PetRuntimeState {
     const existingState = this.runtimeStateByEntityId.get(entityId);
     if (existingState) {
@@ -554,7 +680,10 @@ export class PetFollowSystem extends BaseSystem {
       stationaryWanderHoldSeconds: 0,
       stationaryWanderCooldownSeconds: 0,
       rotationHeadingX: Math.cos(initialRotation),
-      rotationHeadingY: Math.sin(initialRotation)
+      rotationHeadingY: Math.sin(initialRotation),
+      collectAnimationTargetX: petTransform.x,
+      collectAnimationTargetY: petTransform.y,
+      collectAnimationRemainingSeconds: 0
     };
 
     this.runtimeStateByEntityId.set(entityId, initialState);
@@ -666,5 +795,14 @@ export class PetFollowSystem extends BaseSystem {
     if (normalized > Math.PI) normalized -= twoPi;
     if (normalized < -Math.PI) normalized += twoPi;
     return normalized;
+  }
+
+  override destroy(): void {
+    if (typeof document !== 'undefined' && this.petAutoCollectListener) {
+      document.removeEventListener('pet:auto-collect', this.petAutoCollectListener);
+    }
+    this.petAutoCollectListener = null;
+    this.pendingCollectAnimationCommand = null;
+    this.runtimeStateByEntityId.clear();
   }
 }

@@ -16,6 +16,7 @@ import { RepairEffect } from '../../entities/combat/RepairEffect';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
 import { Pet } from '../../entities/player/Pet';
+import { RemotePet } from '../../entities/player/RemotePet';
 import { Camera } from '../../entities/spatial/Camera';
 import { CameraSystem } from './CameraSystem';
 import { PlayerSystem } from '../player/PlayerSystem';
@@ -150,9 +151,10 @@ export class RenderSystem extends BaseSystem {
       const hasNpc = this.ecs.hasComponent(entity, Npc);
       const hasRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
       const hasPet = this.ecs.hasComponent(entity, Pet);
+      const hasRemotePet = this.ecs.hasComponent(entity, RemotePet);
 
       // Il player ha Transform ma non è NPC né remote player
-      if (hasTransform && !hasNpc && !hasRemotePlayer && !hasPet) {
+      if (hasTransform && !hasNpc && !hasRemotePlayer && !hasPet && !hasRemotePet) {
         // Verifica aggiuntiva: dovrebbe avere componenti specifici del player
         const hasHealth = this.ecs.hasComponent(entity, Health);
         const hasShield = this.ecs.hasComponent(entity, Shield);
@@ -262,7 +264,7 @@ export class RenderSystem extends BaseSystem {
     const playerEntity = this.playerSystem.getPlayerEntity();
     const isPlayerEntity = playerEntity && entity && playerEntity.id === entity.id;
     const isRemotePlayer = this.ecs.hasComponent(entity, RemotePlayer);
-    const isPet = this.ecs.hasComponent(entity, Pet);
+    const isPet = this.ecs.hasComponent(entity, Pet) || this.ecs.hasComponent(entity, RemotePet);
     const isSpaceStation = this.ecs.hasComponent(entity, SpaceStation);
     const isAsteroid = this.ecs.hasComponent(entity, Asteroid);
     const isPortal = this.ecs.hasComponent(entity, Portal);
@@ -637,8 +639,8 @@ export class RenderSystem extends BaseSystem {
           renderY = RenderSystem.smoothedLocalPlayerPos.y;
         }
 
-        // Keep pet visual movement aligned with local-player render smoothing.
-        if (this.ecs.hasComponent(entity, Pet)) {
+        // Keep only local-pet visual movement aligned with local-player render smoothing.
+        if (this.ecs.hasComponent(entity, Pet) && !this.ecs.hasComponent(entity, RemotePet)) {
           renderX += localPlayerVisualOffsetX;
           renderY += localPlayerVisualOffsetY;
         }

@@ -14,6 +14,7 @@ const RepairManager = require('../managers/repair-manager.cjs');
 const HazardManager = require('../managers/hazard-manager.cjs');
 const MapResourceManager = require('../managers/resource/MapResourceManager.cjs');
 const PetProgressionManager = require('../managers/pet/PetProgressionManager.cjs');
+const PetModuleManager = require('../managers/pet/PetModuleManager.cjs');
 const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
 const BossEncounterManager = require('../events/boss/BossEncounterManager.cjs');
 
@@ -34,6 +35,7 @@ class MapServer {
     this.hazardManager = new HazardManager(this);
     this.resourceManager = new MapResourceManager(this);
     this.petProgressionManager = new PetProgressionManager(this);
+    this.petModuleManager = new PetModuleManager(this);
     this.questManager = new ServerQuestManager(this);
     this.bossEncounterManager = new BossEncounterManager(this);
 
@@ -81,6 +83,9 @@ class MapServer {
 
   removePlayer(clientId) {
     this.players.delete(clientId);
+    if (this.petModuleManager && typeof this.petModuleManager.removePlayer === 'function') {
+      this.petModuleManager.removePlayer(clientId);
+    }
     if (this.hazardManager) {
       this.hazardManager.removePlayer(clientId);
     }
@@ -140,6 +145,11 @@ class MapServer {
       // 5.5. Processa raccolta risorse server-authoritative
       if (this.resourceManager) {
         this.resourceManager.updateCollections(tickNow);
+      }
+
+      // 5.6. Processa moduli pet server-authoritative (raccolta/difesa)
+      if (this.petModuleManager) {
+        this.petModuleManager.update(tickNow);
       }
 
       // 6. Processa riparazioni

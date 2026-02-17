@@ -29,6 +29,9 @@ class ServerInputValidator {
       PET_NICKNAME: {
         MAX_LENGTH: 24
       },
+      CRAFTING: {
+        MAX_RECIPE_ID_LENGTH: 100
+      },
       IDENTIFIERS: {
         MAX_ID_LENGTH: 100,
         UUID_PATTERN: /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i
@@ -47,7 +50,7 @@ class ServerInputValidator {
       return { isValid: false, errors };
     }
 
-    const { x, y, rotation, velocityX, velocityY } = data;
+    const { x, y, rotation, velocityX, velocityY, petPosition } = data;
 
     // Validazione X
     if (typeof x !== 'number' || isNaN(x) || !isFinite(x)) {
@@ -89,6 +92,33 @@ class ServerInputValidator {
       }
     }
 
+    // Validazione posizione pet (opzionale, ma usata per sincronizzazione remota)
+    if (petPosition !== undefined && petPosition !== null) {
+      if (typeof petPosition !== 'object') {
+        errors.push('Pet position must be an object');
+      } else {
+        const { x: petX, y: petY, rotation: petRotation } = petPosition;
+
+        if (typeof petX !== 'number' || isNaN(petX) || !isFinite(petX)) {
+          errors.push('Pet position X must be a valid finite number');
+        } else if (petX < this.LIMITS.POSITION.X_MIN || petX > this.LIMITS.POSITION.X_MAX) {
+          errors.push(`Pet position X out of bounds: ${petX}`);
+        }
+
+        if (typeof petY !== 'number' || isNaN(petY) || !isFinite(petY)) {
+          errors.push('Pet position Y must be a valid finite number');
+        } else if (petY < this.LIMITS.POSITION.Y_MIN || petY > this.LIMITS.POSITION.Y_MAX) {
+          errors.push(`Pet position Y out of bounds: ${petY}`);
+        }
+
+        if (petRotation !== undefined) {
+          if (typeof petRotation !== 'number' || isNaN(petRotation) || !isFinite(petRotation)) {
+            errors.push('Pet rotation must be a valid finite number');
+          }
+        }
+      }
+    }
+
     if (errors.length > 0) {
       return { isValid: false, errors };
     }
@@ -102,12 +132,28 @@ class ServerInputValidator {
       sanitizedRotation = Math.max(this.LIMITS.POSITION.ROTATION_MIN, Math.min(this.LIMITS.POSITION.ROTATION_MAX, sanitizedRotation));
     }
 
+    let sanitizedPetPosition = null;
+    if (petPosition && typeof petPosition === 'object') {
+      let sanitizedPetRotation = sanitizedRotation ?? 0;
+      if (petPosition.rotation !== undefined) {
+        sanitizedPetRotation = ((petPosition.rotation + Math.PI) % (2 * Math.PI)) - Math.PI;
+        sanitizedPetRotation = Math.max(this.LIMITS.POSITION.ROTATION_MIN, Math.min(this.LIMITS.POSITION.ROTATION_MAX, sanitizedPetRotation));
+      }
+
+      sanitizedPetPosition = {
+        x: Math.max(this.LIMITS.POSITION.X_MIN, Math.min(this.LIMITS.POSITION.X_MAX, petPosition.x)),
+        y: Math.max(this.LIMITS.POSITION.Y_MIN, Math.min(this.LIMITS.POSITION.Y_MAX, petPosition.y)),
+        rotation: sanitizedPetRotation
+      };
+    }
+
     const sanitized = {
       x: Math.max(this.LIMITS.POSITION.X_MIN, Math.min(this.LIMITS.POSITION.X_MAX, x)),
       y: Math.max(this.LIMITS.POSITION.Y_MIN, Math.min(this.LIMITS.POSITION.Y_MAX, y)),
       rotation: sanitizedRotation,
       velocityX: velocityX !== undefined ? Math.max(-this.LIMITS.VELOCITY.MAX_SPEED, Math.min(this.LIMITS.VELOCITY.MAX_SPEED, velocityX)) : 0,
-      velocityY: velocityY !== undefined ? Math.max(-this.LIMITS.VELOCITY.MAX_SPEED, Math.min(this.LIMITS.VELOCITY.MAX_SPEED, velocityY)) : 0
+      velocityY: velocityY !== undefined ? Math.max(-this.LIMITS.VELOCITY.MAX_SPEED, Math.min(this.LIMITS.VELOCITY.MAX_SPEED, velocityY)) : 0,
+      petPosition: sanitizedPetPosition
     };
 
     return {
@@ -233,6 +279,44 @@ class ServerInputValidator {
       sanitizedData: {
         clientId,
         resourceId
+      }
+    };
+  }
+
+  /**
+   * Valida richiesta crafting server-authoritative
+   */
+  validateCraftItem(data) {
+    const errors = [];
+
+    if (!data || typeof data !== 'object') {
+      errors.push('Craft item data must be an object');
+      return { isValid: false, errors };
+    }
+
+    const { clientId, recipeId } = data;
+
+    if (!clientId || typeof clientId !== 'string') {
+      errors.push('Invalid or missing clientId');
+    } else if (clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Client ID too long');
+    }
+
+    const normalizedRecipeId = String(recipeId ?? '').trim();
+    if (!normalizedRecipeId) {
+      errors.push('Invalid or missing recipeId');
+    } else if (normalizedRecipeId.length > this.LIMITS.CRAFTING.MAX_RECIPE_ID_LENGTH) {
+      errors.push(`Recipe ID too long (max ${this.LIMITS.CRAFTING.MAX_RECIPE_ID_LENGTH})`);
+    } else if (!/^[a-zA-Z0-9:_-]+$/.test(normalizedRecipeId)) {
+      errors.push('Recipe ID contains invalid characters');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedData: {
+        clientId,
+        recipeId: normalizedRecipeId
       }
     };
   }
@@ -667,6 +751,9 @@ class ServerInputValidator {
               petNickname: rawPetNickname
             }
           };
+
+        case 'craft_item':
+          return this.validateCraftItem(data);
 
         case 'resource_collect':
           return this.validateResourceCollect(data);

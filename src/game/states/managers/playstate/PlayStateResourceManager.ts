@@ -12,6 +12,7 @@ import { Npc } from '../../../../entities/ai/Npc';
 import { Authority, AuthorityLevel } from '../../../../entities/spatial/Authority';
 import { PlayerRole } from '../../../../entities/player/PlayerRole';
 import { Pet } from '../../../../entities/player/Pet';
+import { RemotePet } from '../../../../entities/player/RemotePet';
 import { Health } from '../../../../entities/combat/Health';
 import { RenderSystem } from '../../../../systems/rendering/RenderSystem';
 import { PlayerRenderer } from '../../../../core/utils/rendering/PlayerRenderer';
@@ -316,13 +317,16 @@ export class PlayStateResourceManager {
       }
     }
 
-    const petEntities = ecs.getEntitiesWithComponents(Pet, Transform);
+    const localPetEntities = ecs.getEntitiesWithComponents(Pet, Transform);
+    const remotePetEntities = ecs.getEntitiesWithComponents(RemotePet, Transform);
+    const petEntities = Array.from(new Set([...localPetEntities, ...remotePetEntities]));
     const visiblePetIds = new Set<number>();
 
     for (const entity of petEntities) {
-      const pet = ecs.getComponent(entity, Pet);
+      const localPet = ecs.getComponent(entity, Pet);
+      const remotePet = ecs.getComponent(entity, RemotePet);
       const transform = ecs.getComponent(entity, Transform);
-      if (!pet || !transform) continue;
+      if ((!localPet && !remotePet) || !transform) continue;
 
       const sprite = ecs.getComponent(entity, Sprite);
       const animatedSprite = ecs.getComponent(entity, AnimatedSprite);
@@ -334,9 +338,11 @@ export class PlayStateResourceManager {
       let renderX = interpolation ? interpolation.renderX : transform.x;
       let renderY = interpolation ? interpolation.renderY : transform.y;
 
-      // Keep pet nickname anchored to the same visual-space smoothing used by render.
-      renderX += localPlayerVisualOffsetX;
-      renderY += localPlayerVisualOffsetY;
+      // Keep only local-pet nickname anchored to local-player visual smoothing used by render.
+      if (localPet && !remotePet) {
+        renderX += localPlayerVisualOffsetX;
+        renderY += localPlayerVisualOffsetY;
+      }
 
       const screenPos = camera.worldToScreen(renderX, renderY, canvasSize.width, canvasSize.height);
       const petFloatOffsetY = PlayerRenderer.getFloatOffset(frameTime + entity.id * 157);
@@ -345,7 +351,13 @@ export class PlayStateResourceManager {
         && petScreenY >= -120 && petScreenY <= canvasSize.height + 120;
       if (!isVisible) continue;
 
-      const petNickname = String((pet as any).nickname || pet.petId || 'Pet').trim() || 'Pet';
+      const petNickname = String(
+        (localPet as any)?.nickname
+        || (remotePet as any)?.nickname
+        || localPet?.petId
+        || remotePet?.petId
+        || 'Pet'
+      ).trim() || 'Pet';
       visiblePetIds.add(entity.id);
 
       uiSystem.ensurePetNicknameElement(entity.id, petNickname);

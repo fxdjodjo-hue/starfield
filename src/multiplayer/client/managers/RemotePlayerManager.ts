@@ -1,9 +1,9 @@
 import { ECS } from '../../../infrastructure/ecs/ECS';
-import { Transform } from '../../../entities/spatial/Transform';
-import { Velocity } from '../../../entities/spatial/Velocity';
-import { Health } from '../../../entities/combat/Health';
-import { Sprite } from '../../../entities/Sprite';
-import { RemotePlayerSystem } from '../../../systems/multiplayer/RemotePlayerSystem';
+import {
+  RemotePlayerSystem,
+  type RemotePetStatePayload,
+  type RemotePetTransformPayload
+} from '../../../systems/multiplayer/RemotePlayerSystem';
 
 /**
  * Manages remote player entities
@@ -33,7 +33,9 @@ export class RemotePlayerManager {
     rank?: string,
     leaderboardPodiumRank?: number,
     serverTick?: number,
-    shipSkinId?: string
+    shipSkinId?: string,
+    remotePetState?: RemotePetStatePayload | null,
+    remotePetPosition?: RemotePetTransformPayload | null
   ): void {
     if (!this.remotePlayerSystem.isRemotePlayer(clientId)) {
       // Create new remote player
@@ -47,7 +49,9 @@ export class RemotePlayerManager {
         shield,
         maxShield,
         serverTick,
-        shipSkinId
+        shipSkinId,
+        remotePetState,
+        remotePetPosition
       );
       // Set info if provided
       if (nickname) {
@@ -67,7 +71,9 @@ export class RemotePlayerManager {
         serverTick,
         position.velocityX,
         position.velocityY,
-        shipSkinId
+        shipSkinId,
+        remotePetState,
+        remotePetPosition
       );
     }
 

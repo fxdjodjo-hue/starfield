@@ -1,0 +1,55 @@
+{
+  "recipes": [
+    {
+      "id": "pet_unlock",
+      "itemId": "pet_unlock",
+      "displayName": "Pet",
+      "description": "Unlock your personal companion pet.",
+      "category": "pet",
+      "cost": {
+        "cuprite": 1
+      },
+      "effect": {
+        "type": "unlock_pet"
+      }
+    },
+    {
+      "id": "pet_module_collection",
+      "itemId": "pet_module_collection",
+      "displayName": "Modulo Raccolta",
+      "description": "Enables automatic resource collection behavior for the pet.",
+      "category": "pet_module",
+      "cost": {
+        "cuprite": 1
+      },
+      "effect": {
+        "type": "add_pet_module",
+        "module": {
+          "itemId": "pet_module_collection",
+          "itemName": "Modulo Raccolta",
+          "rarity": "common",
+          "level": 1
+        }
+      }
+    },
+    {
+      "id": "pet_module_defense",
+      "itemId": "pet_module_defense",
+      "displayName": "Modulo Difesa",
+      "description": "Enables defensive counter-attack behavior for the pet.",
+      "category": "pet_module",
+      "cost": {
+        "cuprite": 1
+      },
+      "effect": {
+        "type": "add_pet_module",
+        "module": {
+          "itemId": "pet_module_defense",
+          "itemName": "Modulo Difesa",
+          "rarity": "common",
+          "level": 1
+        }
+      }
+    }
+  ]
+}
