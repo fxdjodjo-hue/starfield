@@ -9,16 +9,29 @@ export class Explosion extends Component {
   public currentFrame: number;
   public frameTime: number;
   public frameDuration: number; // millisecondi per frame
+  public renderScale: number;
+  public useTransformRotation: boolean;
+  public rotationOffset: number;
   public isFinished: boolean;
   public loopCount: number; // quante volte ripetere l'animazione
   public currentLoop: number;
 
-  constructor(frames: HTMLImageElement[], frameDuration: number = 100, loopCount: number = 1) {
+  constructor(
+    frames: HTMLImageElement[],
+    frameDuration: number = 100,
+    loopCount: number = 1,
+    renderScale: number = 0.8,
+    useTransformRotation: boolean = false,
+    rotationOffset: number = 0
+  ) {
     super();
     this.frames = frames;
     this.currentFrame = 0;
     this.frameTime = 0;
     this.frameDuration = frameDuration;
+    this.renderScale = Number.isFinite(renderScale) && renderScale > 0 ? renderScale : 0.8;
+    this.useTransformRotation = useTransformRotation === true;
+    this.rotationOffset = Number.isFinite(Number(rotationOffset)) ? Number(rotationOffset) : 0;
     this.isFinished = false;
     this.loopCount = loopCount;
     this.currentLoop = 0;

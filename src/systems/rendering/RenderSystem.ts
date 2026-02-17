@@ -919,7 +919,16 @@ export class RenderSystem extends BaseSystem {
 
     if (params && params.image) {
       ctx.save();
-      ctx.drawImage(params.image, params.x, params.y, params.width, params.height);
+      if (explosion.useTransformRotation) {
+        const centerX = params.x + params.width / 2;
+        const centerY = params.y + params.height / 2;
+        const rotation = Number(transform.rotation || 0) + Number(explosion.rotationOffset || 0);
+        ctx.translate(centerX, centerY);
+        ctx.rotate(rotation);
+        ctx.drawImage(params.image, -params.width / 2, -params.height / 2, params.width, params.height);
+      } else {
+        ctx.drawImage(params.image, params.x, params.y, params.width, params.height);
+      }
       ctx.restore();
     }
   }

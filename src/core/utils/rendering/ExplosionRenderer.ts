@@ -27,8 +27,11 @@ export class ExplosionRenderer {
       return null;
     }
 
-    const scaledWidth = currentFrame.width * this.SCALE_FACTOR;
-    const scaledHeight = currentFrame.height * this.SCALE_FACTOR;
+    const renderScale = Number.isFinite(Number(explosion.renderScale))
+      ? Math.max(0.01, Number(explosion.renderScale))
+      : this.SCALE_FACTOR;
+    const scaledWidth = currentFrame.width * renderScale;
+    const scaledHeight = currentFrame.height * renderScale;
 
     return {
       x: screenX - scaledWidth / 2,

@@ -159,28 +159,9 @@ export class UINicknameManager {
     if (!this.npcNicknameElements.has(entityId)) {
       const element = document.createElement('div');
       element.id = `npc-nickname-${entityId}`;
-      element.style.cssText = `
-        position: fixed;
-        color: rgba(255, 0, 0, 0.9);
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        font-weight: 400;
-        font-size: 14px;
-        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-        pointer-events: none;
-        user-select: none;
-        z-index: 40;
-        text-align: center;
-        line-height: 1.2;
-        white-space: nowrap;
-        border-radius: 3px;
-        padding: 2px 4px;
-        background: rgba(0, 0, 0, 0.3);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-      `;
-      // Contenuto iniziale: solo nome
-      element.innerHTML = `
-        <div>${npcType}</div>
-      `;
+      element.style.cssText = this.SHARED_NICKNAME_STYLE;
+      element.style.zIndex = '40';
+      this.setNpcNicknameHTML(element, npcType);
       document.body.appendChild(element);
       this.npcNicknameElements.set(entityId, element);
     }
@@ -192,9 +173,7 @@ export class UINicknameManager {
   updateNpcNicknameContent(entityId: number, npcType: string, behavior: string): void {
     const element = this.npcNicknameElements.get(entityId);
     if (element) {
-      element.innerHTML = `
-        <div>${npcType}</div>
-      `;
+      this.setNpcNicknameHTML(element, npcType);
     }
   }
 
@@ -461,6 +440,22 @@ export class UINicknameManager {
 
   getPetNicknameEntityIds(): number[] {
     return Array.from(this.petNicknameElements.keys());
+  }
+
+  private setNpcNicknameHTML(element: HTMLElement, npcType: string): void {
+    const normalizedNpcType = String(npcType || '').replace(/\s+/g, ' ').trim() || 'NPC';
+    if ((element.dataset.npcType || '') === normalizedNpcType) return;
+
+    element.dataset.npcType = normalizedNpcType;
+    const container = document.createElement('div');
+    container.style.cssText = 'position: relative; display: inline-block;';
+
+    const label = document.createElement('div');
+    label.style.cssText = 'font-size: 16px; font-weight: 700; color: rgba(255, 0, 0, 0.9); text-shadow: -0.75px 0 0 rgba(0,0,0,0.85), 0.75px 0 0 rgba(0,0,0,0.85), 0 -0.75px 0 rgba(0,0,0,0.85), 0 0.75px 0 rgba(0,0,0,0.85), -0.75px -0.75px 0 rgba(0,0,0,0.85), 0.75px -0.75px 0 rgba(0,0,0,0.85), -0.75px 0.75px 0 rgba(0,0,0,0.85), 0.75px 0.75px 0 rgba(0,0,0,0.85), 0 1px 3px rgba(0,0,0,0.5); letter-spacing: 0.5px; white-space: nowrap;';
+    label.textContent = normalizedNpcType;
+
+    container.appendChild(label);
+    element.replaceChildren(container);
   }
 
   private setPetNicknameHTML(element: HTMLElement, petNickname: string): void {
