@@ -50,13 +50,15 @@ export class ResourceInteractionSystem extends BaseSystem {
   private lastMoveCommandAtMs: number = 0;
 
   private readonly PENDING_REQUEST_TTL_MS = 1600;
-  private readonly RESOURCE_ROTATION_TARGET_FPS = 60;
+  private readonly RESOURCE_ROTATION_TARGET_FPS = 24;
   private readonly COLLECT_EFFECT_FRAME_DURATION_MS = 55;
   private readonly MOVE_COMMAND_INTERVAL_MS = 220;
   private readonly ALIGNMENT_DISTANCE_PX = 1;
   private readonly RESOURCE_APPROACH_STOP_DISTANCE_PX = 8;
   private readonly COLLECT_DISTANCE_TOLERANCE_PX = 8;
-  private readonly RESOURCE_COLLECT_ANCHOR_OFFSET_Y = 62;
+  private readonly RESOURCE_COLLECT_ANCHOR_OFFSET_Y = 100;
+  private readonly RESOURCE_COLLECT_CHANNEL_EFFECT_SCALE = 1.6;
+  private readonly RESOURCE_COLLECT_CHANNEL_EFFECT_MIDPOINT_RATIO = 0.5;
   private readonly COLLECT_MOVEMENT_LOCK_DURATION_MS = 2400;
 
   constructor(ecs: ECS) {
@@ -217,6 +219,7 @@ export class ResourceInteractionSystem extends BaseSystem {
       this.completedCollectionResourceIds.delete(resourceId);
       const resourceTransform = this.getResourceTransform(resourceId);
       if (!resourceTransform) return;
+      const collectEffectPosition = this.getCollectChannelEffectPosition(resourceTransform);
 
       const durationMs = Number.isFinite(Number(message?.remainingMs))
         ? Math.max(200, Math.floor(Number(message.remainingMs)))
@@ -226,7 +229,12 @@ export class ResourceInteractionSystem extends BaseSystem {
       this.collectMovementLockResourceId = resourceId;
       this.collectMovementLockUntilMs = now + (durationMs || this.COLLECT_MOVEMENT_LOCK_DURATION_MS);
 
-      this.spawnCollectEffect(resourceTransform.x, resourceTransform.y, resourceId, durationMs);
+      this.spawnCollectEffect(
+        collectEffectPosition.x,
+        collectEffectPosition.y,
+        resourceId,
+        durationMs
+      );
       return;
     }
 
@@ -482,6 +490,18 @@ export class ResourceInteractionSystem extends BaseSystem {
     };
   }
 
+  private getCollectChannelEffectPosition(resourceTransform: Transform): { x: number; y: number } {
+    const collectAnchor = this.getCollectAnchor(resourceTransform);
+    const t = Math.max(
+      0,
+      Math.min(1, Number(this.RESOURCE_COLLECT_CHANNEL_EFFECT_MIDPOINT_RATIO || 0.5))
+    );
+    return {
+      x: collectAnchor.x + (resourceTransform.x - collectAnchor.x) * t,
+      y: collectAnchor.y + (resourceTransform.y - collectAnchor.y) * t
+    };
+  }
+
   private resolvePlayerWorldPosition(): { x: number; y: number } | null {
     if (this.playerPositionResolver) {
       const resolved = this.playerPositionResolver();
@@ -532,8 +552,11 @@ export class ResourceInteractionSystem extends BaseSystem {
       this.removeCollectEffectForResource(resourceId);
     }
 
+    const isChannelEffect = typeof resourceId === 'string' && resourceId.length > 0;
+    const effectScale = isChannelEffect ? this.RESOURCE_COLLECT_CHANNEL_EFFECT_SCALE : 1;
+
     const entity = this.ecs.createEntity();
-    this.ecs.addComponent(entity, Transform, new Transform(worldX, worldY, 0, 1, 1));
+    this.ecs.addComponent(entity, Transform, new Transform(worldX, worldY, 0, effectScale, effectScale));
     this.ecs.addComponent(entity, AnimatedSprite, this.collectEffectSprite);
     this.ecs.addComponent(entity, ResourceCollectEffect, new ResourceCollectEffect('resource_collect', 0));
     const frameCount = Math.max(1, Number(this.collectEffectSprite.frameCount || 1));

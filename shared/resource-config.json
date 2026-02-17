@@ -5,7 +5,7 @@
       "id": "cuprite",
       "displayName": "Cuprite",
       "assetBasePath": "assets/resources/resource_2",
-      "spriteScale": 0.6,
+      "spriteScale": 1,
       "debugHitbox": false,
       "clickRadius": 30,
       "collectDistance": 620

@@ -60,7 +60,9 @@ class MapResourceManager {
       x: position.x,
       y: position.y,
       rotation: Math.random() * Math.PI * 2,
-      scale: 1,
+      scale: Number.isFinite(Number(definition.spriteScale))
+        ? Math.max(0.1, Number(definition.spriteScale))
+        : 1,
       spawnedAt: Date.now()
     };
 
