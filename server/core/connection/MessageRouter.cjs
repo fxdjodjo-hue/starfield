@@ -836,11 +836,6 @@ function handlePositionUpdate(data, sanitizedData, context) {
 
   playerData.lastInputAt = new Date().toISOString();
 
-  const normalizedPetPosition = normalizeRemotePetPositionPayload(
-    sanitizedData?.petPosition,
-    sanitizedData
-  );
-
   if (Number.isFinite(sanitizedData.x) && Number.isFinite(sanitizedData.y)) {
     playerData.position = {
       x: sanitizedData.x,
@@ -854,15 +849,12 @@ function handlePositionUpdate(data, sanitizedData, context) {
     playerData.y = sanitizedData.y;
     // Aggiorna timestamp per calcolo movimento successivo
     playerData.lastMovementTime = now;
-
-    if (normalizedPetPosition) {
-      playerData.petPosition = {
-        x: normalizedPetPosition.x,
-        y: normalizedPetPosition.y,
-        rotation: normalizedPetPosition.rotation
-      };
-    }
   }
+
+  const authoritativePetPosition = normalizeRemotePetPositionPayload(
+    playerData.petPosition,
+    playerData.position
+  );
 
   // Server-authoritative coordinate/explore quests
   if (mapServer.questManager && playerData.position) {
@@ -892,23 +884,13 @@ function handlePositionUpdate(data, sanitizedData, context) {
     shield: playerData.shield,
     maxShield: playerData.maxShield,
     petState: normalizeRemotePetStatePayload(playerData.petState),
-    petPosition: normalizedPetPosition
+    petPosition: authoritativePetPosition
       ? {
-          x: normalizedPetPosition.x,
-          y: normalizedPetPosition.y,
-          rotation: normalizedPetPosition.rotation
+          x: authoritativePetPosition.x,
+          y: authoritativePetPosition.y,
+          rotation: authoritativePetPosition.rotation
         }
-      : (
-          playerData.petPosition && Number.isFinite(Number(playerData.petPosition.x)) && Number.isFinite(Number(playerData.petPosition.y))
-            ? {
-                x: Number(playerData.petPosition.x),
-                y: Number(playerData.petPosition.y),
-                rotation: Number.isFinite(Number(playerData.petPosition.rotation))
-                  ? Number(playerData.petPosition.rotation)
-                  : (Number.isFinite(Number(playerData.position?.rotation)) ? Number(playerData.position.rotation) : 0)
-              }
-            : null
-        ),
+      : null,
     senderWs: ws,
     // clientTimestamp is used for interpolation timing only (not authoritative)
     // Falls back to server time if client doesn't provide timestamp
@@ -925,7 +907,15 @@ function handlePositionUpdate(data, sanitizedData, context) {
   ws.send(JSON.stringify({
     type: 'position_ack',
     clientId: data.clientId,
-    tick: data.tick
+    tick: data.tick,
+    serverTime: now,
+    petPosition: authoritativePetPosition
+      ? {
+          x: authoritativePetPosition.x,
+          y: authoritativePetPosition.y,
+          rotation: authoritativePetPosition.rotation
+        }
+      : null
   }));
 }
 

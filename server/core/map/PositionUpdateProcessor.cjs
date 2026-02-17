@@ -81,7 +81,9 @@ class PositionUpdateProcessor {
       }
       const isMigrating = !!playerData.isMigrating;
       const compactPetState = normalizeCompactPetState(latestUpdate.petState);
-      const compactPetPosition = normalizeCompactPetPosition(latestUpdate.petPosition);
+      const compactPetPosition = normalizeCompactPetPosition(
+        playerData?.petPosition || latestUpdate.petPosition
+      );
 
       const positionBroadcast = {
         type: 'remote_player_update',

@@ -15,6 +15,7 @@ const HazardManager = require('../managers/hazard-manager.cjs');
 const MapResourceManager = require('../managers/resource/MapResourceManager.cjs');
 const PetProgressionManager = require('../managers/pet/PetProgressionManager.cjs');
 const PetModuleManager = require('../managers/pet/PetModuleManager.cjs');
+const PetMovementManager = require('../managers/pet/PetMovementManager.cjs');
 const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
 const BossEncounterManager = require('../events/boss/BossEncounterManager.cjs');
 
@@ -36,6 +37,7 @@ class MapServer {
     this.resourceManager = new MapResourceManager(this);
     this.petProgressionManager = new PetProgressionManager(this);
     this.petModuleManager = new PetModuleManager(this);
+    this.petMovementManager = new PetMovementManager(this);
     this.questManager = new ServerQuestManager(this);
     this.bossEncounterManager = new BossEncounterManager(this);
 
@@ -85,6 +87,9 @@ class MapServer {
     this.players.delete(clientId);
     if (this.petModuleManager && typeof this.petModuleManager.removePlayer === 'function') {
       this.petModuleManager.removePlayer(clientId);
+    }
+    if (this.petMovementManager && typeof this.petMovementManager.removePlayer === 'function') {
+      this.petMovementManager.removePlayer(clientId);
     }
     if (this.hazardManager) {
       this.hazardManager.removePlayer(clientId);
@@ -139,18 +144,23 @@ class MapServer {
       // 4. Broadcast aggiornamenti NPC significativi
       MapBroadcaster.broadcastNpcUpdates(this.players, currentNpcs);
 
-      // 5. Processa aggiornamenti posizione giocatori (20Hz per massima fluidità)
-      PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
+      // 5. Processa moduli pet server-authoritative (raccolta/difesa)
+      if (this.petModuleManager) {
+        this.petModuleManager.update(tickNow);
+      }
 
-      // 5.5. Processa raccolta risorse server-authoritative
+      // 5.1. Movimento/rotazione pet server-authoritative
+      if (this.petMovementManager) {
+        this.petMovementManager.update(tickNow);
+      }
+
+      // 5.2. Processa raccolta risorse server-authoritative
       if (this.resourceManager) {
         this.resourceManager.updateCollections(tickNow);
       }
 
-      // 5.6. Processa moduli pet server-authoritative (raccolta/difesa)
-      if (this.petModuleManager) {
-        this.petModuleManager.update(tickNow);
-      }
+      // 5.3. Processa aggiornamenti posizione giocatori (20Hz per massima fluidita)
+      PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
 
       // 6. Processa riparazioni
       if (this.repairManager) {

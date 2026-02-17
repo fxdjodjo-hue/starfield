@@ -317,8 +317,12 @@ export class ClientNetworkSystem extends BaseSystem {
       const message: NetMessage = JSON.parse(data);
 
       // Handle simple acknowledgment messages that don't need handlers
-      if (message.type === MESSAGE_TYPES.POSITION_ACK ||
-        message.type === MESSAGE_TYPES.HEARTBEAT_ACK ||
+      if (message.type === MESSAGE_TYPES.POSITION_ACK) {
+        this.positionSyncManager.handlePositionAck(message);
+        return;
+      }
+
+      if (message.type === MESSAGE_TYPES.HEARTBEAT_ACK ||
         message.type === MESSAGE_TYPES.WORLD_UPDATE) {
         return; // No action needed
       }
@@ -402,13 +406,10 @@ export class ClientNetworkSystem extends BaseSystem {
       // Instead of sampling every frame (60Hz), sample at the sync interval (20Hz)
       if (now - this.lastBufferedTime >= NETWORK_CONFIG.POSITION_SYNC_INTERVAL) {
         const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
-        const currentPetPosition = this.positionSyncManager.getLocalPetPosition();
 
-        const hasMoved = this.shouldSendPositionUpdate(currentPosition, currentPetPosition);
-        // FIX: Keep-alive mechanism
-        // Invia aggiornamenti ogni 500ms anche senza movimento per garantire
-        // interpolazione fluida sui client degli altri giocatori
-        const keepAliveNeeded = (now - this.lastSentTime > 500);
+        const hasMoved = this.shouldSendPositionUpdate(currentPosition);
+        // Keep authority sync at tick-rate so server pet movement/rotation stays responsive.
+        const keepAliveNeeded = (now - this.lastSentTime >= NETWORK_CONFIG.POSITION_SYNC_INTERVAL);
 
         // Invia aggiornamenti se c'è movimento O se serve keep-alive
         if (hasMoved || keepAliveNeeded) {
@@ -419,7 +420,6 @@ export class ClientNetworkSystem extends BaseSystem {
           // Force update when movement exists to avoid secondary drop-threshold in tick manager.
           this.tickManager.bufferPositionUpdate(positionToSend, keepAliveNeeded || hasMoved);
           this.lastSentPosition = { ...currentPosition };
-          this.lastSentPetPosition = currentPetPosition ? { ...currentPetPosition } : null;
           this.lastBufferedTime = now;
           this.lastSentTime = now;
         }
@@ -430,7 +430,6 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   private lastSentPosition: { x: number; y: number; rotation: number } | null = null;
-  private lastSentPetPosition: { x: number; y: number; rotation: number } | null = null;
   private lastBufferedTime: number = 0;
   private lastSentTime: number = 0;
   private positionUpdatePausedUntil: number = 0; // Timestamp fino al quale gli update sono in pausa
@@ -445,8 +444,7 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   private shouldSendPositionUpdate(
-    currentPosition: { x: number; y: number; rotation: number },
-    currentPetPosition: { x: number; y: number; rotation: number } | null
+    currentPosition: { x: number; y: number; rotation: number }
   ): boolean {
     if (!this.lastSentPosition) {
       return true;
@@ -459,21 +457,7 @@ export class ClientNetworkSystem extends BaseSystem {
     const MOVEMENT_THRESHOLD = 1;
     const ROTATION_THRESHOLD = 0.05;
     const playerMoved = dx > MOVEMENT_THRESHOLD || dy > MOVEMENT_THRESHOLD || dr > ROTATION_THRESHOLD;
-    if (playerMoved) return true;
-
-    if (!currentPetPosition || !this.lastSentPetPosition) {
-      return false;
-    }
-
-    const petDx = Math.abs(currentPetPosition.x - this.lastSentPetPosition.x);
-    const petDy = Math.abs(currentPetPosition.y - this.lastSentPetPosition.y);
-    const petDr = Math.abs(currentPetPosition.rotation - this.lastSentPetPosition.rotation);
-    const PET_MOVEMENT_THRESHOLD = 0.6;
-    const PET_ROTATION_THRESHOLD = 0.05;
-
-    return petDx > PET_MOVEMENT_THRESHOLD
-      || petDy > PET_MOVEMENT_THRESHOLD
-      || petDr > PET_ROTATION_THRESHOLD;
+    return playerMoved;
   }
 
   public sendMessage(message: NetMessage): void {

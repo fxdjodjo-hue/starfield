@@ -514,6 +514,47 @@ class MapResourceManager {
     };
   }
 
+  getPetAutoCollectTarget(playerData) {
+    const playerClientId = String(playerData?.clientId || '').trim();
+    if (!playerClientId) return null;
+
+    for (const collection of this.activeAutoCollections.values()) {
+      if (!collection || String(collection.playerClientId || '').trim() !== playerClientId) {
+        continue;
+      }
+
+      const collectorType = String(collection.collectorType || '').trim().toLowerCase();
+      if (collectorType !== 'pet') {
+        continue;
+      }
+
+      const resourceId = String(collection.resourceId || '').trim();
+      if (!resourceId) {
+        continue;
+      }
+
+      const node = this.resources.get(resourceId);
+      if (!node) {
+        continue;
+      }
+
+      const collectAnchor = this.getAutoCollectionAnchor(node, collectorType);
+      const anchorX = Number(collectAnchor?.x);
+      const anchorY = Number(collectAnchor?.y);
+      if (!Number.isFinite(anchorX) || !Number.isFinite(anchorY)) {
+        continue;
+      }
+
+      return {
+        x: anchorX,
+        y: anchorY,
+        resourceId
+      };
+    }
+
+    return null;
+  }
+
   getAutoCollectionAnchor(node, collectorType) {
     const resourceX = Number(node?.x);
     const resourceY = Number(node?.y);
