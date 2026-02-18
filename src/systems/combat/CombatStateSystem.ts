@@ -199,6 +199,18 @@ export class CombatStateSystem extends BaseSystem {
     return getSelectedAmmoCount(normalizedAmmoInventory);
   }
 
+  private getSelectedAmmoTierForLocalPlayer(): 'x1' | 'x2' | 'x3' {
+    const gameContext = this.clientNetworkSystem?.gameContext;
+    if (!gameContext) return 'x1';
+
+    const normalizedAmmoInventory = normalizeAmmoInventory(
+      gameContext.playerAmmoInventory ?? gameContext.playerInventory?.ammo,
+      gameContext.playerAmmo
+    );
+
+    return normalizedAmmoInventory.selectedTier;
+  }
+
   private hasSelectedAmmoAvailable(): boolean {
     return this.getSelectedAmmoCountForLocalPlayer() > 0;
   }
@@ -982,10 +994,13 @@ export class CombatStateSystem extends BaseSystem {
     const npcComponent = this.ecs.getComponent(npcEntity, Npc);
     const targetId = npcComponent?.serverId || npcEntity.id.toString();
 
+    // Get current ammo tier for visual laser sprite
+    const ammoTier = this.getSelectedAmmoTierForLocalPlayer();
+
     // Crea DUE proiettili visivi (sinistro e destro)
     // Passiamo un flag per evitare il doppio suono
-    await this.createVisualProjectile(leftStartX, leftStartY, targetX, targetY, playerEntity.id, targetId, true);
-    await this.createVisualProjectile(rightStartX, rightStartY, targetX, targetY, playerEntity.id, targetId, false);
+    await this.createVisualProjectile(leftStartX, leftStartY, targetX, targetY, playerEntity.id, targetId, true, ammoTier);
+    await this.createVisualProjectile(rightStartX, rightStartY, targetX, targetY, playerEntity.id, targetId, false, ammoTier);
   }
 
   /**
@@ -1011,7 +1026,8 @@ export class CombatStateSystem extends BaseSystem {
     playerPosition: { x: number; y: number },
     targetPositionOrVelocity: { x: number; y: number } | { velocity: { x: number; y: number } },
     targetId: string,
-    activeBeamEntities?: Set<number> // Opzionale per tracciamento
+    activeBeamEntities?: Set<number>, // Opzionale per tracciamento
+    ammoTier: 'x1' | 'x2' | 'x3' = 'x1'
   ): Promise<void> {
     if (!assetManager) {
       console.warn('[BEAM-EFFECT] AssetManager not available, skipping beam effect');
@@ -1030,8 +1046,9 @@ export class CombatStateSystem extends BaseSystem {
         );
       }
 
-      // Carica immagine laser (stessa del player locale)
-      const laserImage = await assetManager.loadImage('assets/laser/laser1/laser1.png');
+      // Carica immagine laser in base all'ammo tier selezionato
+      const laserAssetIndex = ammoTier === 'x3' ? 3 : ammoTier === 'x2' ? 2 : 1;
+      const laserImage = await assetManager.loadImage(`assets/laser/laser${laserAssetIndex}/laser${laserAssetIndex}.png`);
 
       // Determina se abbiamo una posizione target o una velocity
       let config: any;
@@ -1050,7 +1067,7 @@ export class CombatStateSystem extends BaseSystem {
           velocity: targetPositionOrVelocity.velocity, // Usa velocity originale
           ownerId: parseInt(playerId) || 0,
           targetId: parseInt(targetId) || -1,
-          projectileType: 'laser',
+          projectileType: ammoTier === 'x3' ? 'lb3' : ammoTier === 'x2' ? 'lb2' : 'lb1',
           lifetime: 15000 // Stessa durata
         };
       } else {
@@ -1063,7 +1080,7 @@ export class CombatStateSystem extends BaseSystem {
           targetY: targetPositionOrVelocity.y,
           ownerId: parseInt(playerId) || 0,
           targetId: targetId || -1,
-          projectileType: 'laser',
+          projectileType: ammoTier === 'x3' ? 'lb3' : ammoTier === 'x2' ? 'lb2' : 'lb1',
           speed: GAME_CONSTANTS.PROJECTILE.VISUAL_SPEED, // Stessa velocità lenta
           lifetime: 15000 // Stessa durata
         };
@@ -1111,7 +1128,7 @@ export class CombatStateSystem extends BaseSystem {
    * Crea un proiettile visivo che viaggia dal player all'NPC
    * Questo è solo un effetto visivo, il danno rimane gestito da hitscan
    */
-  private async createVisualProjectile(startX: number, startY: number, targetX: number, targetY: number, ownerId: number, targetId: number, playSound: boolean = true): Promise<void> {
+  private async createVisualProjectile(startX: number, startY: number, targetX: number, targetY: number, ownerId: number, targetId: number, playSound: boolean = true, ammoTier: 'x1' | 'x2' | 'x3' = 'x1'): Promise<void> {
     // ✅ RIUTILIZZA IL METODO STATICO CONDIVISO
     // Elimina duplicazione di codice - usa la stessa logica per tutti i giocatori
     const audioSystem = this.clientNetworkSystem?.getAudioSystem();
@@ -1135,7 +1152,8 @@ export class CombatStateSystem extends BaseSystem {
       { x: startX, y: startY },
       { x: targetX, y: targetY },
       targetId.toString(),
-      this.activeBeamEntities // Passa il Set per tracciamento
+      this.activeBeamEntities, // Passa il Set per tracciamento
+      ammoTier
     );
   }
 

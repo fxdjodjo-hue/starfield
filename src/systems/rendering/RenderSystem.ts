@@ -244,7 +244,7 @@ export class RenderSystem extends BaseSystem {
     }
 
     // GESTIONE LASER
-    const isPlayerLaser = components.sprite && components.sprite.image?.src?.includes('laser1.png') && components.projectile && components.sprite.image.complete;
+    const isPlayerLaser = components.sprite && /laser[123]\.png$/.test(components.sprite.image?.src || '') && components.projectile && components.sprite.image?.complete;
     const isNpcLaser = components.sprite && components.sprite.image?.src?.includes('npc_frigate_projectile.png') && components.projectile && components.sprite.image.complete;
 
     if (isPlayerLaser || isNpcLaser) {
