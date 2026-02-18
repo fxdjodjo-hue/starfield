@@ -124,7 +124,12 @@ export class AuthInitializationManager {
       }, interval);
     }).catch(err => {
       // Autoplay ancora bloccato o file non trovato
-      console.log('[AuthAudio] Playback blocked or failed:', err.message);
+      if (err.name === 'NotAllowedError') {
+        // Expected behavior until user interaction
+        console.log('[AuthAudio] Autoplay waiting for user interaction');
+      } else {
+        console.warn('[AuthAudio] Playback failed:', err.message);
+      }
     });
   }
 
