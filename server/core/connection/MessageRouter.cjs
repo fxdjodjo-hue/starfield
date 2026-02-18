@@ -855,24 +855,24 @@ function handlePositionUpdate(data, sanitizedData, context) {
     const TELEPORT_THRESHOLD_MULTIPLIER = 15;
     const teleportThreshold = maxPossibleDistance * TELEPORT_THRESHOLD_MULTIPLIER;
 
-  // ðŸ³ï¸ SKIP ANTI-TELEPORT CHECKS if player is migrating (allow immediate movement after map change)
-  if (playerData.isMigrating) {
-    // Still accept and broadcast updates; only bypass anti-teleport validation.
-  } else {
+    // ðŸ³ï¸ SKIP ANTI-TELEPORT CHECKS if player is migrating (allow immediate movement after map change)
+    if (playerData.isMigrating) {
+      // Still accept and broadcast updates; only bypass anti-teleport validation.
+    } else {
 
-    // Se la distanza Ã¨ troppo grande, potrebbe essere un teleport hack
-    if (distance > teleportThreshold) {
-      ServerLoggerWrapper.security(`ðŸš« Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
-        `distance ${distance.toFixed(2)} > threshold ${teleportThreshold.toFixed(2)} | ` +
-        `actualMaxSpeed: ${actualMaxSpeed.toFixed(0)} u/s | ` +
-        `speedUpgrades: ${playerSpeedUpgrades} | ` +
-        `timeDelta: ${timeSinceLastMovement}ms | ` +
-        `from (${playerData.position.x.toFixed(1)}, ${playerData.position.y.toFixed(1)}) ` +
-        `to (${sanitizedData.x.toFixed(1)}, ${sanitizedData.y.toFixed(1)})`);
-      // Ignora questo update invece di applicarlo
-      return;
+      // Se la distanza Ã¨ troppo grande, potrebbe essere un teleport hack
+      if (distance > teleportThreshold) {
+        ServerLoggerWrapper.security(`ðŸš« Possible teleport hack from clientId:${data.clientId} playerId:${playerData.playerId}: ` +
+          `distance ${distance.toFixed(2)} > threshold ${teleportThreshold.toFixed(2)} | ` +
+          `actualMaxSpeed: ${actualMaxSpeed.toFixed(0)} u/s | ` +
+          `speedUpgrades: ${playerSpeedUpgrades} | ` +
+          `timeDelta: ${timeSinceLastMovement}ms | ` +
+          `from (${playerData.position.x.toFixed(1)}, ${playerData.position.y.toFixed(1)}) ` +
+          `to (${sanitizedData.x.toFixed(1)}, ${sanitizedData.y.toFixed(1)})`);
+        // Ignora questo update invece di applicarlo
+        return;
+      }
     }
-  }
   }
 
   playerData.lastInputAt = new Date().toISOString();
@@ -927,10 +927,10 @@ function handlePositionUpdate(data, sanitizedData, context) {
     petState: normalizeRemotePetStatePayload(playerData.petState),
     petPosition: authoritativePetPosition
       ? {
-          x: authoritativePetPosition.x,
-          y: authoritativePetPosition.y,
-          rotation: authoritativePetPosition.rotation
-        }
+        x: authoritativePetPosition.x,
+        y: authoritativePetPosition.y,
+        rotation: authoritativePetPosition.rotation
+      }
       : null,
     senderWs: ws,
     // clientTimestamp is used for interpolation timing only (not authoritative)
@@ -952,10 +952,10 @@ function handlePositionUpdate(data, sanitizedData, context) {
     serverTime: now,
     petPosition: authoritativePetPosition
       ? {
-          x: authoritativePetPosition.x,
-          y: authoritativePetPosition.y,
-          rotation: authoritativePetPosition.rotation
-        }
+        x: authoritativePetPosition.x,
+        y: authoritativePetPosition.y,
+        rotation: authoritativePetPosition.rotation
+      }
       : null
   }));
 }
@@ -2616,12 +2616,23 @@ async function handleCraftItem(data, sanitizedData, context) {
   const recipeId = typeof sanitizedData?.recipeId === 'string'
     ? sanitizedData.recipeId
     : data.recipeId;
-  const craftResult = craftingManager.craft(playerData, recipeId);
-  if (!craftResult.ok) {
-    let message = craftResult.message || 'Crafting action failed.';
+  const quantity = Math.max(1, Math.min(100000, Math.floor(Number(sanitizedData?.quantity || 1))));
 
-    if (craftResult.code === 'CRAFT_RESOURCES_MISSING' && Array.isArray(craftResult.missingResources)) {
-      const missingText = craftResult.missingResources
+  let lastCraftResult = null;
+  let craftedCount = 0;
+
+  for (let i = 0; i < quantity; i++) {
+    const craftResult = craftingManager.craft(playerData, recipeId);
+    lastCraftResult = craftResult;
+    if (!craftResult.ok) break;
+    craftedCount++;
+  }
+
+  if (craftedCount === 0 && lastCraftResult && !lastCraftResult.ok) {
+    let message = lastCraftResult.message || 'Crafting action failed.';
+
+    if (lastCraftResult.code === 'CRAFT_RESOURCES_MISSING' && Array.isArray(lastCraftResult.missingResources)) {
+      const missingText = lastCraftResult.missingResources
         .map((entry) => {
           const resourceType = String(entry?.resourceType || '').trim();
           const required = Math.max(0, Math.floor(Number(entry?.required || 0)));
@@ -2638,12 +2649,16 @@ async function handleCraftItem(data, sanitizedData, context) {
     ws.send(JSON.stringify({
       type: 'error',
       message,
-      code: craftResult.code || 'CRAFT_FAILED'
+      code: lastCraftResult.code || 'CRAFT_FAILED'
     }));
     return;
   }
 
-  const craftedEffectType = String(craftResult?.recipe?.effect?.type || '').trim().toLowerCase();
+  // Use the last successful craft result for the response — it reflects final state.
+  const successResult = craftedCount > 0 ? (lastCraftResult?.ok ? lastCraftResult : { ...lastCraftResult, ok: true }) : lastCraftResult;
+  const recipe = successResult?.recipe || lastCraftResult?.recipe;
+
+  const craftedEffectType = String(recipe?.effect?.type || '').trim().toLowerCase();
   if (craftedEffectType === 'add_pet_module') {
     if (mapServer?.petModuleManager && typeof mapServer.petModuleManager.removePlayer === 'function') {
       mapServer.petModuleManager.removePlayer(playerData.clientId);
@@ -2655,16 +2670,17 @@ async function handleCraftItem(data, sanitizedData, context) {
     resourceInventory: normalizeResourceInventoryPayload(playerData.resourceInventory),
     petState: normalizePetStatePayload(playerData.petState),
     crafting: {
-      recipeId: craftResult.recipe.id,
-      itemId: craftResult.recipe.itemId,
-      displayName: craftResult.recipe.displayName,
-      category: craftResult.recipe.category
+      recipeId: recipe.id,
+      itemId: recipe.itemId,
+      displayName: recipe.displayName,
+      category: recipe.category,
+      craftedCount
     },
     source: 'craft_item_success'
   };
 
   const normalizedAmmoInventory = normalizeAmmoInventoryPayload(
-    craftResult?.ammoInventory || playerData.inventory?.ammo,
+    successResult?.ammoInventory || playerData.inventory?.ammo,
     playerData.ammo
   );
   if (!playerData.inventory || typeof playerData.inventory !== 'object') {
@@ -2677,7 +2693,7 @@ async function handleCraftItem(data, sanitizedData, context) {
 
   ws.send(JSON.stringify(craftStateUpdateMessage));
 
-  if (craftResult.petVisibilityChanged && playerData.position) {
+  if (successResult?.petVisibilityChanged && playerData.position) {
     mapServer.broadcastToMap({
       type: 'remote_player_update',
       clientId: playerData.clientId,

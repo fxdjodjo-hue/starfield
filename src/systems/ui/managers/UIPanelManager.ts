@@ -91,7 +91,7 @@ export class UIPanelManager {
     const craftingPanel = new CraftingPanel(
       craftingConfig,
       () => this.resolveCraftingResourceInventory(),
-      (recipeId: string) => this.submitCraftItemRequest(recipeId),
+      (recipeId: string, quantity?: number) => this.submitCraftItemRequest(recipeId, quantity),
       () => this.resolvePetState()
     );
     this.uiManager.registerPanel(craftingPanel);
@@ -693,13 +693,13 @@ export class UIPanelManager {
     return true;
   }
 
-  private submitCraftItemRequest(recipeId: string): boolean {
+  private submitCraftItemRequest(recipeId: string, quantity?: number): boolean {
     const networkSystem = this.clientNetworkSystem;
     if (!networkSystem || typeof networkSystem.sendCraftItemRequest !== 'function') {
       return false;
     }
 
-    return networkSystem.sendCraftItemRequest(recipeId);
+    return networkSystem.sendCraftItemRequest(recipeId, quantity);
   }
 
   private setupCraftingPanelVisibilityListener(): void {

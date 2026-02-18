@@ -647,7 +647,7 @@ export class ClientNetworkSystem extends BaseSystem {
     return true;
   }
 
-  sendCraftItemRequest(recipeId: string): boolean {
+  sendCraftItemRequest(recipeId: string, quantity?: number): boolean {
     if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
       return false;
     }
@@ -657,10 +657,13 @@ export class ClientNetworkSystem extends BaseSystem {
       return false;
     }
 
+    const safeQuantity = Math.max(1, Math.min(100000, Math.floor(Number(quantity) || 1)));
+
     this.sendMessage({
       type: MESSAGE_TYPES.CRAFT_ITEM,
       clientId: this.clientId,
       recipeId: normalizedRecipeId,
+      quantity: safeQuantity,
       timestamp: Date.now()
     });
 

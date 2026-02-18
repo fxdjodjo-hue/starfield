@@ -15,7 +15,8 @@ interface CraftingPetSnapshot {
 
 export class CraftingPanel extends BasePanel {
   private readonly resourceInventoryProvider: (() => Record<string, number> | null) | null;
-  private readonly craftRequestSubmitter: ((recipeId: string) => boolean) | null;
+  private readonly craftRequestSubmitter: ((recipeId: string, quantity?: number) => boolean) | null;
+  private craftQuantityByRecipeId!: Map<string, number>;
   private readonly petStateProvider: (() => unknown) | null;
   private resourceTooltip!: HTMLElement | null;
   private hoveredResourceSlot!: HTMLElement | null;
@@ -28,7 +29,7 @@ export class CraftingPanel extends BasePanel {
   constructor(
     config: PanelConfig,
     resourceInventoryProvider?: (() => Record<string, number> | null),
-    craftRequestSubmitter?: ((recipeId: string) => boolean),
+    craftRequestSubmitter?: ((recipeId: string, quantity?: number) => boolean),
     petStateProvider?: (() => unknown)
   ) {
     const normalizedProvider = typeof resourceInventoryProvider === 'function'
@@ -81,6 +82,7 @@ export class CraftingPanel extends BasePanel {
     if (!this.recipeButtonsById) this.recipeButtonsById = new Map<string, HTMLButtonElement>();
     if (!this.recipeStatusById) this.recipeStatusById = new Map<string, HTMLElement>();
     if (!this.recipeCardById) this.recipeCardById = new Map<string, HTMLElement>();
+    if (!this.craftQuantityByRecipeId) this.craftQuantityByRecipeId = new Map<string, number>();
     if (!this.latestResourceInventory) this.latestResourceInventory = {};
     if (this.latestPetSnapshot === undefined) this.latestPetSnapshot = null;
     if (this.resourceTooltip === undefined) this.resourceTooltip = null;
@@ -320,7 +322,10 @@ export class CraftingPanel extends BasePanel {
     `;
     card.appendChild(requirementsLabel);
 
+    const isAmmoRecipe = String(recipe.category || '').trim().toLowerCase() === 'ammo';
+
     const costWrap = document.createElement('div');
+    costWrap.dataset.recipeCostWrapId = recipe.id;
     costWrap.style.cssText = `
       display: flex;
       flex-wrap: wrap;
@@ -329,56 +334,7 @@ export class CraftingPanel extends BasePanel {
       min-height: 0;
     `;
 
-    const costEntries = Object.entries(recipe.cost || {});
-    for (const [resourceType, quantity] of costEntries) {
-      const chip = document.createElement('div');
-      chip.style.cssText = `
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-      `;
-      const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
-      const definition = getResourceDefinition(normalizedResourceType);
-      const label = definition?.displayName || normalizedResourceType || 'Resource';
-      const safeQuantity = Math.max(0, Math.floor(Number(quantity || 0)));
-      chip.title = `${label} x${safeQuantity}`;
-
-      const previewPath = this.getResourcePreviewPath(normalizedResourceType);
-      if (previewPath) {
-        const icon = document.createElement('img');
-        icon.src = previewPath;
-        icon.alt = label;
-        icon.style.cssText = `
-          width: 18px;
-          height: 18px;
-          object-fit: contain;
-          filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.58));
-        `;
-        chip.appendChild(icon);
-      } else {
-        const fallback = document.createElement('span');
-        fallback.textContent = '?';
-        fallback.style.cssText = `
-          color: rgba(203, 213, 225, 0.9);
-          font-size: 14px;
-          font-weight: 700;
-          line-height: 1;
-        `;
-        chip.appendChild(fallback);
-      }
-
-      const quantityLabel = document.createElement('span');
-      quantityLabel.textContent = `x${safeQuantity}`;
-      quantityLabel.style.cssText = `
-        font-size: 12px;
-        font-weight: 800;
-        color: rgba(226, 232, 240, 0.97);
-        letter-spacing: 0.3px;
-        font-family: 'Consolas', 'Courier New', monospace;
-      `;
-      chip.appendChild(quantityLabel);
-      costWrap.appendChild(chip);
-    }
+    this.renderCostChips(costWrap, recipe, isAmmoRecipe ? this.getCraftQuantity(recipe.id) : 1);
     card.appendChild(costWrap);
 
     const footer = document.createElement('div');
@@ -405,6 +361,19 @@ export class CraftingPanel extends BasePanel {
     `;
     status.textContent = 'Checking';
     this.recipeStatusById.set(recipe.id, status);
+
+    // Right side of footer: optional quantity input + craft button
+    const footerRight = document.createElement('div');
+    footerRight.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    `;
+
+    if (isAmmoRecipe) {
+      footerRight.appendChild(this.createQuantityInput(recipe));
+    }
 
     const craftButton = document.createElement('button');
     craftButton.type = 'button';
@@ -441,8 +410,10 @@ export class CraftingPanel extends BasePanel {
     craftButton.addEventListener('click', () => this.handleCraftRequest(recipe));
     this.recipeButtonsById.set(recipe.id, craftButton);
 
+    footerRight.appendChild(craftButton);
+
     footer.appendChild(status);
-    footer.appendChild(craftButton);
+    footer.appendChild(footerRight);
     card.appendChild(footer);
 
     return card;
@@ -455,9 +426,12 @@ export class CraftingPanel extends BasePanel {
       return;
     }
 
-    const canCraft = this.canCraftRecipe(recipe, this.latestResourceInventory);
+    const isAmmoRecipe = String(recipe.category || '').trim().toLowerCase() === 'ammo';
+    const quantity = isAmmoRecipe ? this.getCraftQuantity(recipe.id) : 1;
+
+    const canCraft = this.canCraftRecipe(recipe, this.latestResourceInventory, quantity);
     if (!canCraft) {
-      this.setRecipeStatus(recipe.id, this.buildMissingResourceLabel(recipe, this.latestResourceInventory), 'error');
+      this.setRecipeStatus(recipe.id, this.buildMissingResourceLabel(recipe, this.latestResourceInventory, quantity), 'error');
       return;
     }
 
@@ -466,13 +440,13 @@ export class CraftingPanel extends BasePanel {
       return;
     }
 
-    const requestSent = this.craftRequestSubmitter(recipe.id);
+    const requestSent = this.craftRequestSubmitter(recipe.id, quantity);
     if (!requestSent) {
       this.setRecipeStatus(recipe.id, 'Request failed', 'error');
       return;
     }
 
-    this.setRecipeStatus(recipe.id, 'Craft request sent', 'success');
+    this.setRecipeStatus(recipe.id, quantity > 1 ? `Crafting x${quantity} sent` : 'Craft request sent', 'success');
   }
 
   private setRecipeStatus(recipeId: string, text: string, tone: 'error' | 'success' | 'neutral'): void {
@@ -502,7 +476,9 @@ export class CraftingPanel extends BasePanel {
       if (!button || !card || !status) continue;
 
       const lockReason = this.getOneTimeCraftLockReason(recipe);
-      const canCraftByResources = this.canCraftRecipe(recipe, this.latestResourceInventory);
+      const isAmmoRecipe = String(recipe.category || '').trim().toLowerCase() === 'ammo';
+      const quantity = isAmmoRecipe ? this.getCraftQuantity(recipe.id) : 1;
+      const canCraftByResources = this.canCraftRecipe(recipe, this.latestResourceInventory, quantity);
       const canCraft = !lockReason && canCraftByResources;
       button.disabled = !canCraft;
       button.style.opacity = canCraft ? '1' : '0.5';
@@ -521,7 +497,7 @@ export class CraftingPanel extends BasePanel {
 
       const statusText = canCraft
         ? 'Ready'
-        : (lockReason ? lockReason : this.buildMissingResourceLabel(recipe, this.latestResourceInventory));
+        : (lockReason ? lockReason : this.buildMissingResourceLabel(recipe, this.latestResourceInventory, quantity));
       status.textContent = statusText;
       if (canCraft) {
         status.style.color = 'rgba(186, 230, 253, 0.92)';
@@ -601,13 +577,15 @@ export class CraftingPanel extends BasePanel {
     return String(recipe?.itemId || '').trim().toLowerCase();
   }
 
-  private canCraftRecipe(recipe: CraftingRecipe, resourceInventory: Record<string, number>): boolean {
+  private canCraftRecipe(recipe: CraftingRecipe, resourceInventory: Record<string, number>, craftQuantity: number = 1): boolean {
     const costEntries = Object.entries(recipe.cost || {});
     if (costEntries.length === 0) return false;
+    const safeMultiplier = Math.max(1, Math.floor(Number(craftQuantity) || 1));
 
     for (const [resourceType, requiredQuantity] of costEntries) {
       const ownedQuantity = this.getOwnedResourceQuantity(resourceType, resourceInventory);
-      if (ownedQuantity < Math.max(0, Math.floor(Number(requiredQuantity || 0)))) {
+      const totalRequired = Math.max(0, Math.floor(Number(requiredQuantity || 0))) * safeMultiplier;
+      if (ownedQuantity < totalRequired) {
         return false;
       }
     }
@@ -615,10 +593,11 @@ export class CraftingPanel extends BasePanel {
     return true;
   }
 
-  private buildMissingResourceLabel(recipe: CraftingRecipe, resourceInventory: Record<string, number>): string {
+  private buildMissingResourceLabel(recipe: CraftingRecipe, resourceInventory: Record<string, number>, craftQuantity: number = 1): string {
     const missing: string[] = [];
+    const safeMultiplier = Math.max(1, Math.floor(Number(craftQuantity) || 1));
     for (const [resourceType, requiredQuantityRaw] of Object.entries(recipe.cost || {})) {
-      const requiredQuantity = Math.max(0, Math.floor(Number(requiredQuantityRaw || 0)));
+      const requiredQuantity = Math.max(0, Math.floor(Number(requiredQuantityRaw || 0))) * safeMultiplier;
       const ownedQuantity = this.getOwnedResourceQuantity(resourceType, resourceInventory);
       if (ownedQuantity >= requiredQuantity) continue;
       const missingQuantity = requiredQuantity - ownedQuantity;
@@ -669,6 +648,135 @@ export class CraftingPanel extends BasePanel {
     }
 
     return 0;
+  }
+
+  private getCraftQuantity(recipeId: string): number {
+    this.initializeRuntimeState();
+    return Math.max(1, Math.floor(Number(this.craftQuantityByRecipeId.get(recipeId) || 1)));
+  }
+
+  private setCraftQuantity(recipeId: string, quantity: number): void {
+    this.initializeRuntimeState();
+    const safeQuantity = Math.max(1, Math.min(100000, Math.floor(Number(quantity) || 1)));
+    this.craftQuantityByRecipeId.set(recipeId, safeQuantity);
+  }
+
+  private renderCostChips(container: HTMLElement, recipe: CraftingRecipe, multiplier: number): void {
+    container.innerHTML = '';
+    const safeMultiplier = Math.max(1, Math.floor(Number(multiplier) || 1));
+    const costEntries = Object.entries(recipe.cost || {});
+    for (const [resourceType, quantity] of costEntries) {
+      const chip = document.createElement('div');
+      chip.style.cssText = `
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      `;
+      const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
+      const definition = getResourceDefinition(normalizedResourceType);
+      const label = definition?.displayName || normalizedResourceType || 'Resource';
+      const baseQuantity = Math.max(0, Math.floor(Number(quantity || 0)));
+      const displayQuantity = baseQuantity * safeMultiplier;
+      chip.title = `${label} x${displayQuantity}`;
+
+      const previewPath = this.getResourcePreviewPath(normalizedResourceType);
+      if (previewPath) {
+        const icon = document.createElement('img');
+        icon.src = previewPath;
+        icon.alt = label;
+        icon.style.cssText = `
+          width: 28px;
+          height: 28px;
+          object-fit: contain;
+          filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.58));
+        `;
+        chip.appendChild(icon);
+      } else {
+        const fallback = document.createElement('span');
+        fallback.textContent = '?';
+        fallback.style.cssText = `
+          color: rgba(203, 213, 225, 0.9);
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1;
+        `;
+        chip.appendChild(fallback);
+      }
+
+      const quantityLabel = document.createElement('span');
+      quantityLabel.textContent = `x${displayQuantity}`;
+      quantityLabel.style.cssText = `
+        font-size: 12px;
+        font-weight: 800;
+        color: rgba(226, 232, 240, 0.97);
+        letter-spacing: 0.3px;
+        font-family: 'Consolas', 'Courier New', monospace;
+      `;
+      chip.appendChild(quantityLabel);
+      container.appendChild(chip);
+    }
+  }
+
+  private createQuantityInput(recipe: CraftingRecipe): HTMLElement {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.inputMode = 'numeric';
+    input.pattern = '[0-9]*';
+    input.value = String(this.getCraftQuantity(recipe.id));
+    input.dataset.recipeQuantityInputId = recipe.id;
+    input.style.cssText = `
+      width: 38px;
+      height: 28px;
+      border: 1px solid rgba(125, 211, 252, 0.36);
+      border-radius: 6px;
+      background: rgba(2, 6, 23, 0.6);
+      color: rgba(224, 242, 254, 0.96);
+      font-size: 12px;
+      font-weight: 800;
+      font-family: 'Consolas', 'Courier New', monospace;
+      text-align: center;
+      padding: 0 2px;
+      box-sizing: border-box;
+      outline: none;
+      transition: border-color 0.14s ease;
+    `;
+
+    input.addEventListener('focus', () => {
+      input.style.borderColor = 'rgba(125, 211, 252, 0.65)';
+    });
+    input.addEventListener('blur', () => {
+      input.style.borderColor = 'rgba(125, 211, 252, 0.36)';
+      this.commitQuantityInput(input, recipe);
+    });
+    input.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.commitQuantityInput(input, recipe);
+        input.blur();
+      }
+      e.stopPropagation();
+    });
+    input.addEventListener('keyup', (e: KeyboardEvent) => {
+      e.stopPropagation();
+    });
+
+    return input;
+  }
+
+  private commitQuantityInput(input: HTMLInputElement, recipe: CraftingRecipe): void {
+    const raw = parseInt(input.value, 10);
+    const clamped = Number.isFinite(raw) ? Math.max(1, Math.min(100000, raw)) : 1;
+    input.value = String(clamped);
+    this.setCraftQuantity(recipe.id, clamped);
+
+    // Refresh cost chips
+    const costWrap = this.content?.querySelector<HTMLElement>(`[data-recipe-cost-wrap-id="${recipe.id}"]`);
+    if (costWrap) {
+      this.renderCostChips(costWrap, recipe, clamped);
+    }
+
+    // Refresh craft button state
+    this.refreshRecipeStates();
   }
 
   private resolveLatestPetSnapshot(): CraftingPetSnapshot | null {
@@ -813,13 +921,13 @@ export class CraftingPanel extends BasePanel {
     slot.style.cssText = `
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
       width: 100%;
       aspect-ratio: 1 / 1;
       border-radius: 7px;
-      padding: 6px 5px;
+      padding: 8px 5px;
       box-sizing: border-box;
       transition: border-color 0.18s ease, background 0.18s ease;
     `;
@@ -878,29 +986,16 @@ export class CraftingPanel extends BasePanel {
       preview.src = previewPath;
       preview.alt = `${label} preview`;
       preview.style.cssText = `
-        width: 19px;
-        height: 19px;
+        width: 36px;
+        height: 36px;
         object-fit: contain;
         filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
-        margin-top: 1px;
       `;
       slot.appendChild(preview);
     }
 
-    const name = document.createElement('div');
-    name.style.cssText = `
-      font-size: 9px;
-      color: rgba(255, 255, 255, 0.95);
-      font-weight: 700;
-      letter-spacing: 0.2px;
-      text-align: center;
-      width: 100%;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    `;
-    name.textContent = label;
-    slot.appendChild(name);
+    // Resource name label intentionally omitted — icon + quantity is enough.
+    // The full name is available via the hover tooltip.
 
     const value = document.createElement('div');
     value.style.cssText = `

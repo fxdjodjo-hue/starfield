@@ -311,12 +311,27 @@ class ServerInputValidator {
       errors.push('Recipe ID contains invalid characters');
     }
 
+    // Quantity: optional integer, defaults to 1, capped at 100000.
+    const rawQuantity = data.quantity;
+    let sanitizedQuantity = 1;
+    if (rawQuantity !== undefined && rawQuantity !== null) {
+      const parsed = Number(rawQuantity);
+      if (!Number.isFinite(parsed) || parsed !== Math.floor(parsed)) {
+        errors.push('Quantity must be an integer');
+      } else if (parsed < 1 || parsed > 100000) {
+        errors.push('Quantity must be between 1 and 100000');
+      } else {
+        sanitizedQuantity = parsed;
+      }
+    }
+
     return {
       isValid: errors.length === 0,
       errors,
       sanitizedData: {
         clientId,
-        recipeId: normalizedRecipeId
+        recipeId: normalizedRecipeId,
+        quantity: sanitizedQuantity
       }
     };
   }
