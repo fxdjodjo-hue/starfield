@@ -2738,6 +2738,11 @@ async function handleCraftItem(data, sanitizedData, context) {
   craftStateUpdateMessage.ammoInventory = normalizedAmmoInventory;
   craftStateUpdateMessage.ammo = getLegacyAmmoValue(normalizedAmmoInventory);
 
+  const normalizedMissileInventory = normalizeMissileInventory(
+    successResult?.missileInventory || playerData.inventory?.missileAmmo
+  );
+  craftStateUpdateMessage.missileAmmo = normalizedMissileInventory;
+
   ws.send(JSON.stringify(craftStateUpdateMessage));
 
   if (successResult?.petVisibilityChanged && playerData.position) {

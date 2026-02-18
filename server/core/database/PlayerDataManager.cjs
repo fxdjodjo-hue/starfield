@@ -728,7 +728,10 @@ class PlayerDataManager {
       tiers: {
         x1: Number(normalizedAmmo.tiers?.x1 || 0),
         x2: Number(normalizedAmmo.tiers?.x2 || 0),
-        x3: Number(normalizedAmmo.tiers?.x3 || 0)
+        x3: Number(normalizedAmmo.tiers?.x3 || 0),
+        m1: Number(normalizedAmmo.tiers?.m1 || 0),
+        m2: Number(normalizedAmmo.tiers?.m2 || 0),
+        m3: Number(normalizedAmmo.tiers?.m3 || 0)
       }
     });
   }
@@ -778,7 +781,8 @@ class PlayerDataManager {
       const { data: ammoTypeRows, error: ammoTypeError } = await supabase
         .from('ammo_types')
         .select('id, code')
-        .in('code', ['x1', 'x2', 'x3']);
+        .select('id, code')
+        .in('code', ['x1', 'x2', 'x3', 'm1', 'm2', 'm3']);
 
       if (ammoTypeError) {
         if (this.isMissingPlayerAmmoTablesError(ammoTypeError)) {
@@ -794,7 +798,7 @@ class PlayerDataManager {
         const ammoTypeId = Number(row?.id);
         const ammoCode = String(row?.code || '').trim().toLowerCase();
         if (!Number.isFinite(ammoTypeId)) continue;
-        if (ammoCode !== 'x1' && ammoCode !== 'x2' && ammoCode !== 'x3') continue;
+        if (ammoCode !== 'x1' && ammoCode !== 'x2' && ammoCode !== 'x3' && ammoCode !== 'm1' && ammoCode !== 'm2' && ammoCode !== 'm3') continue;
         ammoTypeIdToCode.set(Math.floor(ammoTypeId), ammoCode);
       }
 
@@ -817,7 +821,10 @@ class PlayerDataManager {
         tiers: {
           x1: Number(normalizedFallbackInventory.tiers?.x1 || 0),
           x2: Number(normalizedFallbackInventory.tiers?.x2 || 0),
-          x3: Number(normalizedFallbackInventory.tiers?.x3 || 0)
+          x3: Number(normalizedFallbackInventory.tiers?.x3 || 0),
+          m1: Number(normalizedFallbackInventory.tiers?.m1 || 0),
+          m2: Number(normalizedFallbackInventory.tiers?.m2 || 0),
+          m3: Number(normalizedFallbackInventory.tiers?.m3 || 0)
         }
       };
 
@@ -855,7 +862,7 @@ class PlayerDataManager {
       const { data: ammoTypeRows, error: ammoTypeError } = await supabase
         .from('ammo_types')
         .select('id, code')
-        .in('code', ['x1', 'x2', 'x3']);
+        .in('code', ['x1', 'x2', 'x3', 'm1', 'm2', 'm3']);
 
       if (ammoTypeError) {
         if (this.isMissingPlayerAmmoTablesError(ammoTypeError)) {
@@ -869,14 +876,17 @@ class PlayerDataManager {
       const ammoTypeIdByCode = {
         x1: null,
         x2: null,
-        x3: null
+        x3: null,
+        m1: null,
+        m2: null,
+        m3: null
       };
 
       for (const row of ammoTypeRows || []) {
         const ammoCode = String(row?.code || '').trim().toLowerCase();
         const ammoTypeId = Number(row?.id);
         if (!Number.isFinite(ammoTypeId)) continue;
-        if (ammoCode !== 'x1' && ammoCode !== 'x2' && ammoCode !== 'x3') continue;
+        if (ammoCode !== 'x1' && ammoCode !== 'x2' && ammoCode !== 'x3' && ammoCode !== 'm1' && ammoCode !== 'm2' && ammoCode !== 'm3') continue;
         ammoTypeIdByCode[ammoCode] = Math.floor(ammoTypeId);
       }
 
@@ -903,7 +913,7 @@ class PlayerDataManager {
       }
 
       const upsertRows = [];
-      for (const ammoCode of ['x1', 'x2', 'x3']) {
+      for (const ammoCode of ['x1', 'x2', 'x3', 'm1', 'm2', 'm3']) {
         const ammoTypeId = ammoTypeIdByCode[ammoCode];
         if (!Number.isFinite(ammoTypeId)) continue;
         upsertRows.push({
@@ -1252,6 +1262,17 @@ class PlayerDataManager {
         playerData.inventory = {};
       }
       playerData.inventory.ammo = persistedAmmoInventory;
+
+      // Populate separate missileAmmo structure for game logic compatibility
+      playerData.inventory.missileAmmo = {
+        selectedTier: 'm1', // Default, or could be stored
+        tiers: {
+          m1: persistedAmmoInventory.tiers?.m1 || 0,
+          m2: persistedAmmoInventory.tiers?.m2 || 0,
+          m3: persistedAmmoInventory.tiers?.m3 || 0
+        }
+      };
+
       playerData.ammo = getLegacyAmmoValue(persistedAmmoInventory);
       this.lastSavedAmmoInventorySignatureByAuthId.set(
         userId,
@@ -1279,6 +1300,7 @@ class PlayerDataManager {
       ServerLoggerWrapper.database(`Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
       const { honor, cosmos, credits, experience } = playerData.inventory;
       ServerLoggerWrapper.database(`Loaded currencies`, { honor, cosmos, credits, experience });
+      ServerLoggerWrapper.debug('DATABASE', `Loaded ammo inventory`, playerData.inventory.ammo);
       ServerLoggerWrapper.debug('DATABASE', `RecentHonor (30 days): ${recentHonor}`);
       // Legacy mirror kept while old code paths are migrated to inventory.ammo.
       playerData.ammo = getLegacyAmmoValue(playerData.inventory?.ammo);
@@ -1408,6 +1430,14 @@ class PlayerDataManager {
         playerData.inventory?.ammo,
         playerData.ammo
       );
+
+      // Merge missile ammo if present separately
+      if (playerData.inventory?.missileAmmo && playerData.inventory.missileAmmo.tiers) {
+        normalizedAmmoInventory.tiers.m1 = Math.max(normalizedAmmoInventory.tiers.m1 || 0, playerData.inventory.missileAmmo.tiers.m1 || 0);
+        normalizedAmmoInventory.tiers.m2 = Math.max(normalizedAmmoInventory.tiers.m2 || 0, playerData.inventory.missileAmmo.tiers.m2 || 0);
+        normalizedAmmoInventory.tiers.m3 = Math.max(normalizedAmmoInventory.tiers.m3 || 0, playerData.inventory.missileAmmo.tiers.m3 || 0);
+      }
+
       playerData.inventory.ammo = normalizedAmmoInventory;
       playerData.ammo = getLegacyAmmoValue(normalizedAmmoInventory);
 

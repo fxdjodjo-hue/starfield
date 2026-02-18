@@ -5,7 +5,7 @@ const RECIPE_EFFECT_TYPES = Object.freeze({
   ADD_PET_MODULE: 'add_pet_module',
   ADD_AMMO: 'add_ammo'
 });
-const AMMO_TIERS = Object.freeze(['x1', 'x2', 'x3']);
+const AMMO_TIERS = Object.freeze(['x1', 'x2', 'x3', 'm1', 'm2', 'm3']);
 
 function normalizeCost(rawCost) {
   const normalizedCost = {};

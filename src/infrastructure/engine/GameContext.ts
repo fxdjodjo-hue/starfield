@@ -56,6 +56,7 @@ export class GameContext {
     experience: number;
     honor: number;
     ammo?: AmmoInventoryPayload;
+    missileAmmo?: any; // Using any to avoid importing MissileInventoryPayload to minimize dependency cycles
     recentHonor?: number; // Media mobile honor ultimi 30 giorni
   } = {
       credits: 0,
@@ -80,6 +81,7 @@ export class GameContext {
   public playerResourceInventory: Record<string, number> = {};
   public playerPetState: PetStatePayload | null = null;
   public playerAmmoInventory: AmmoInventoryPayload | null = null;
+  public playerMissileInventory: any | null = null;
   public playerAmmo: number | null = null;
 
   // Stato connessione

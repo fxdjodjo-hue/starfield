@@ -95,6 +95,51 @@
         "ammoTier": "x3",
         "quantity": 1
       }
+    },
+    {
+      "id": "missile_m1",
+      "itemId": "missile_m1",
+      "displayName": "Missile m1",
+      "description": "Craft one standard missile.",
+      "category": "ammo",
+      "cost": {
+        "cuprite": 1
+      },
+      "effect": {
+        "type": "add_ammo",
+        "ammoTier": "m1",
+        "quantity": 1
+      }
+    },
+    {
+      "id": "missile_m2",
+      "itemId": "missile_m2",
+      "displayName": "Missile m2",
+      "description": "Craft one enhanced missile (x2 damage).",
+      "category": "ammo",
+      "cost": {
+        "cuprite": 2
+      },
+      "effect": {
+        "type": "add_ammo",
+        "ammoTier": "m2",
+        "quantity": 1
+      }
+    },
+    {
+      "id": "missile_m3",
+      "itemId": "missile_m3",
+      "displayName": "Missile m3",
+      "description": "Craft one advanced missile (x3 damage).",
+      "category": "ammo",
+      "cost": {
+        "cuprite": 4
+      },
+      "effect": {
+        "type": "add_ammo",
+        "ammoTier": "m3",
+        "quantity": 1
+      }
     }
   ]
 }

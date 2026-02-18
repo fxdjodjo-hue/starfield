@@ -6,6 +6,11 @@ const {
   normalizeAmmoTier,
   getLegacyAmmoValue
 } = require('../../core/combat/AmmoInventory.cjs');
+const {
+  normalizeMissileInventory,
+  addMissileAmmo,
+  normalizeMissileTier
+} = require('../../core/combat/MissileInventory.cjs');
 
 function normalizeResourceInventory(resourceInventory) {
   const normalizedInventory = {};
@@ -107,6 +112,8 @@ class CraftingManager {
     let nextPetState = previousPetState;
     const previousAmmoInventory = normalizeAmmoInventory(playerData.inventory?.ammo, playerData.ammo);
     let nextAmmoInventory = previousAmmoInventory;
+    const previousMissileInventory = normalizeMissileInventory(playerData.inventory?.missileAmmo);
+    let nextMissileInventory = previousMissileInventory;
 
     if (recipe.effect.type === RECIPE_EFFECT_TYPES.UNLOCK_PET) {
       if (previousPetVisibility) {
@@ -189,8 +196,14 @@ class CraftingManager {
         };
       }
 
-      const ammoTier = normalizeAmmoTier(recipe?.effect?.ammoTier, 'x1');
-      nextAmmoInventory = addAmmo(nextAmmoInventory, ammoTier, ammoQuantity);
+      const rawTier = String(recipe?.effect?.ammoTier || '').trim().toLowerCase();
+      if (['m1', 'm2', 'm3'].includes(rawTier)) {
+        const missileTier = normalizeMissileTier(rawTier, 'm1');
+        nextMissileInventory = addMissileAmmo(nextMissileInventory, missileTier, ammoQuantity);
+      } else {
+        const ammoTier = normalizeAmmoTier(recipe?.effect?.ammoTier, 'x1');
+        nextAmmoInventory = addAmmo(nextAmmoInventory, ammoTier, ammoQuantity);
+      }
     }
 
     const nextResourceInventory = { ...currentResourceInventory };
@@ -207,6 +220,7 @@ class CraftingManager {
     playerData.resourceInventory = nextResourceInventory;
     playerData.petState = nextPetState;
     playerData.inventory.ammo = normalizeAmmoInventory(nextAmmoInventory);
+    playerData.inventory.missileAmmo = normalizeMissileInventory(nextMissileInventory);
     // Legacy mirror kept for compatibility with older code paths.
     playerData.ammo = getLegacyAmmoValue(playerData.inventory.ammo);
 
@@ -221,7 +235,9 @@ class CraftingManager {
       petState: nextPetState,
       petVisibilityChanged: hasVisiblePet(nextPetState) !== previousPetVisibility,
       ammoInventory: playerData.inventory.ammo,
-      ammoChanged: nextAmmoSignature !== previousAmmoSignature
+      ammoChanged: nextAmmoSignature !== previousAmmoSignature,
+      missileInventory: playerData.inventory.missileAmmo,
+      missileChanged: JSON.stringify(nextMissileInventory) !== JSON.stringify(previousMissileInventory)
     };
   }
 }

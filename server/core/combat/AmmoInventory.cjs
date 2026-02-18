@@ -1,10 +1,13 @@
-const AMMO_TIERS = Object.freeze(['x1', 'x2', 'x3']);
+const AMMO_TIERS = Object.freeze(['x1', 'x2', 'x3', 'm1', 'm2', 'm3']);
 const DEFAULT_AMMO_TIER = 'x1';
 
 const AMMO_DAMAGE_MULTIPLIERS = Object.freeze({
   x1: 1,
   x2: 2,
-  x3: 3
+  x3: 3,
+  m1: 1, // Missile standard damage
+  m2: 2, // Missile enhanced damage
+  m3: 3  // Missile advanced damage
 });
 
 function normalizeAmmoTier(rawTier, fallbackTier = DEFAULT_AMMO_TIER) {
@@ -33,7 +36,10 @@ function normalizeAmmoInventory(rawAmmoInventory, legacyAmmoValue) {
   const normalizedTiers = {
     x1: 0,
     x2: 0,
-    x3: 0
+    x3: 0,
+    m1: 0,
+    m2: 0,
+    m3: 0
   };
 
   for (const tier of AMMO_TIERS) {

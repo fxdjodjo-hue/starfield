@@ -24,7 +24,7 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState, crafting, ammo, ammoInventory } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState, crafting, ammo, ammoInventory, missileAmmo } = message;
     const normalizedResourceInventory = this.normalizeResourceInventory(resourceInventory);
     const normalizedPetState = this.normalizePetState(petState);
     const hasStructuredAmmoPayload = ammoInventory !== undefined || inventory?.ammo !== undefined;
@@ -62,6 +62,15 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       networkSystem.gameContext.playerInventory = {
         ...networkSystem.gameContext.playerInventory,
         ammo: normalizedAmmoInventory
+      };
+    }
+
+    if (networkSystem.gameContext && missileAmmo) {
+      networkSystem.gameContext.playerMissileInventory = missileAmmo;
+      // Also update generic inventory structure if needed
+      networkSystem.gameContext.playerInventory = {
+        ...networkSystem.gameContext.playerInventory,
+        missileAmmo
       };
     }
 
@@ -225,6 +234,9 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         if (hasAmmoUpdate) {
           updatePayload.ammoInventory = normalizedAmmoInventory;
           updatePayload.ammo = getSelectedAmmoCount(normalizedAmmoInventory);
+        }
+        if (missileAmmo) {
+          updatePayload.missileAmmo = missileAmmo;
         }
         (uiSystem as any).updatePlayerData(updatePayload);
       }
