@@ -1,5 +1,11 @@
 const ServerLoggerWrapper = require('../../core/infrastructure/ServerLoggerWrapper.cjs');
 const { normalizePlayerPetState } = require('../../config/PetCatalog.cjs');
+const {
+  normalizeAmmoInventory,
+  consumeSelectedAmmo,
+  getLegacyAmmoValue,
+  getDamageMultiplierForTier
+} = require('../../core/combat/AmmoInventory.cjs');
 
 const PET_MODULE_IDS = Object.freeze({
   COLLECTION: 'pet_module_collection',
@@ -267,17 +273,49 @@ class PetModuleManager {
     const combatManager = this.mapServer?.combatManager;
     if (!combatManager || typeof combatManager.performAttack !== 'function') return null;
 
-    const defenseDamage = this.resolveDefenseDamage(playerData.petState);
+    // 🚀 NEW: Ammo consumption logic for PET
+    const currentAmmoInventory = normalizeAmmoInventory(
+      playerData.inventory?.ammo,
+      playerData.ammo
+    );
+    const consumeResult = consumeSelectedAmmo(currentAmmoInventory);
+
+    // If out of ammo, PET stops shooting
+    if (!consumeResult.ok) {
+      return null;
+    }
+
+    // Calculate damage with ammo multiplier
+    const baseDefenseDamage = this.resolveDefenseDamage(playerData.petState);
+    const ammoMultiplier = getDamageMultiplierForTier(consumeResult.selectedTier);
+    const finalDamage = Math.floor(baseDefenseDamage * ammoMultiplier);
+
     const projectileId = combatManager.performAttack(
       playerId,
       petPosition,
       targetNpc.position,
-      defenseDamage,
+      finalDamage,
       this.DEFENSE_PROJECTILE_TYPE,
       targetNpcId
     );
 
     if (!projectileId) return null;
+
+    // ✅ Update player inventory and notify client ONLY if projectile was created
+    if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+      playerData.inventory = {};
+    }
+    playerData.inventory.ammo = consumeResult.ammoInventory;
+    playerData.ammo = getLegacyAmmoValue(consumeResult.ammoInventory);
+
+    if (playerData.ws && playerData.ws.readyState === 1) {
+      playerData.ws.send(JSON.stringify({
+        type: 'player_state_update',
+        ammo: playerData.ammo,
+        ammoInventory: consumeResult.ammoInventory,
+        source: 'pet_combat_attack'
+      }));
+    }
 
     this.defenseCooldownByPlayerId.set(playerId, now + this.DEFENSE_REACTION_COOLDOWN_MS);
     this.setDefenseTarget(playerId, targetNpcId, now);
