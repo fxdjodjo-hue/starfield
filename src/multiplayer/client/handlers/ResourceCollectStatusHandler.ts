@@ -27,7 +27,11 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     if (resourceInventory) {
       networkSystem.gameContext.playerResourceInventory = resourceInventory;
       this.notifyResourceInventoryUpdated(resourceInventory);
-      this.updateCraftingPanel(networkSystem, resourceInventory);
+      this.updateCraftingPanel(
+        networkSystem,
+        resourceInventory,
+        networkSystem.gameContext?.playerPetState ?? null
+      );
     }
 
     if (status === 'started' || status === 'in_progress') {
@@ -131,14 +135,21 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     return normalizedInventory;
   }
 
-  private updateCraftingPanel(networkSystem: ClientNetworkSystem, resourceInventory: Record<string, number>): void {
+  private updateCraftingPanel(
+    networkSystem: ClientNetworkSystem,
+    resourceInventory: Record<string, number>,
+    petState?: unknown
+  ): void {
     const uiSystem = networkSystem.getUiSystem();
     if (!uiSystem || typeof uiSystem.getUIManager !== 'function') return;
 
     const uiManager = uiSystem.getUIManager();
     const craftingPanel = uiManager?.getPanel?.('crafting-panel');
     if (craftingPanel && typeof (craftingPanel as any).update === 'function') {
-      (craftingPanel as any).update({ resourceInventory });
+      (craftingPanel as any).update({
+        resourceInventory,
+        petState: petState ?? networkSystem.gameContext?.playerPetState ?? undefined
+      });
     }
   }
 

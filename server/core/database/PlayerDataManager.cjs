@@ -17,6 +17,10 @@ const {
   normalizePlayerPetState,
   buildPetStateSignature
 } = require('../../config/PetCatalog.cjs');
+const {
+  normalizeAmmoInventory,
+  getLegacyAmmoValue
+} = require('../combat/AmmoInventory.cjs');
 
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
@@ -87,7 +91,14 @@ class PlayerDataManager {
     this.playerPetsTableUnavailableMarkedAt = 0;
     this.playerPetsTableRetryIntervalMs = 60000;
     this.playerPetsModuleColumnsUnavailableLogged = false;
+    this.playerAmmoTablesUnavailable = false;
+    this.playerAmmoTablesUnavailableMarkedAt = 0;
+    this.playerAmmoTablesRetryIntervalMs = 60000;
+    this.playerAmmoSelectedColumnUnavailableLogged = false;
     this.lastSavedPetStateSignatureByAuthId = new Map();
+    this.lastSavedAmmoInventorySignatureByAuthId = new Map();
+    this.lastSavedQuestProgressSignatureByAuthId = new Map();
+    this.lastSavedInventoryItemsSignatureByAuthId = new Map();
   }
 
   /**
@@ -248,6 +259,70 @@ class PlayerDataManager {
       .sort((a, b) => a.localeCompare(b))
       .map((resourceType) => [resourceType, normalizedInventory[resourceType]]);
     return JSON.stringify(orderedEntries);
+  }
+
+  buildQuestProgressSignature(quests) {
+    if (!Array.isArray(quests)) return '[]';
+
+    const normalizedQuests = quests
+      .map((quest) => {
+        const questId = String(quest?.quest_id || quest?.id || '').trim();
+        if (!questId) return null;
+
+        const objectives = Array.isArray(quest?.objectives)
+          ? quest.objectives
+            .map((objective) => {
+              const objectiveId = String(objective?.id || '').trim();
+              if (!objectiveId) return null;
+              return {
+                id: objectiveId,
+                current: Math.max(0, Math.floor(Number(objective?.current || 0))),
+                target: Math.max(0, Math.floor(Number(objective?.target || 0))),
+                type: String(objective?.type || '').trim().toLowerCase()
+              };
+            })
+            .filter((objective) => !!objective)
+            .sort((a, b) => a.id.localeCompare(b.id))
+          : [];
+
+        return {
+          quest_id: questId,
+          is_completed: quest?.is_completed === true || quest?.isCompleted === true || quest?.completed === true,
+          objectives
+        };
+      })
+      .filter((quest) => !!quest)
+      .sort((a, b) => a.quest_id.localeCompare(b.quest_id));
+
+    return JSON.stringify(normalizedQuests);
+  }
+
+  buildInventoryItemsSignature(items) {
+    if (!Array.isArray(items)) return '[]';
+
+    const normalizedItems = items
+      .map((item) => {
+        const itemId = String(item?.id || '').trim();
+        const instanceId = String(item?.instanceId || '').trim();
+        if (!itemId || !instanceId) return null;
+
+        const normalizedSlot = String(item?.slot || '').trim();
+        const acquiredAtDate = new Date(item?.acquiredAt);
+        const acquiredAt = Number.isFinite(acquiredAtDate.getTime())
+          ? acquiredAtDate.toISOString()
+          : null;
+
+        return {
+          item_id: itemId,
+          instance_id: instanceId,
+          slot: normalizedSlot || null,
+          acquired_at: acquiredAt
+        };
+      })
+      .filter((item) => !!item)
+      .sort((a, b) => a.instance_id.localeCompare(b.instance_id));
+
+    return JSON.stringify(normalizedItems);
   }
 
   async loadPlayerResourceInventory(authId) {
@@ -593,6 +668,337 @@ class PlayerDataManager {
     }
   }
 
+  isMissingPlayerAmmoTablesError(error) {
+    if (!error) return false;
+    if (String(error.code || '') === '42P01') return true;
+    const message = String(error.message || '').toLowerCase();
+    return (
+      (message.includes('player_ammo_inventory')
+        || message.includes('player_ammo_transactions')
+        || message.includes('ammo_types'))
+      && message.includes('does not exist')
+    );
+  }
+
+  isMissingSelectedAmmoColumnError(error) {
+    if (!error) return false;
+    if (String(error.code || '') !== '42703') return false;
+    const message = String(error.message || '').toLowerCase();
+    return message.includes('selected_ammo_code');
+  }
+
+  isPermissionDeniedError(error) {
+    if (!error) return false;
+    if (String(error.code || '') === '42501') return true;
+    const message = String(error.message || '').toLowerCase();
+    return message.includes('permission denied');
+  }
+
+  markPlayerAmmoTablesUnavailable(error, operation) {
+    if (this.playerAmmoTablesUnavailable) return;
+    this.playerAmmoTablesUnavailable = true;
+    this.playerAmmoTablesUnavailableMarkedAt = Date.now();
+    ServerLoggerWrapper.warn(
+      'DATABASE',
+      `[PLAYER_AMMO] Tables unavailable during ${operation}. Run latest migrations. ${error?.message || 'Unknown error'}`
+    );
+  }
+
+  shouldSkipPlayerAmmoTableAccess() {
+    if (!this.playerAmmoTablesUnavailable) return false;
+
+    const markedAt = Number(this.playerAmmoTablesUnavailableMarkedAt || 0);
+    const elapsed = Date.now() - markedAt;
+    if (elapsed < this.playerAmmoTablesRetryIntervalMs) {
+      return true;
+    }
+
+    this.playerAmmoTablesUnavailable = false;
+    this.playerAmmoTablesUnavailableMarkedAt = 0;
+    return false;
+  }
+
+  buildAmmoInventorySignature(ammoInventory) {
+    const normalizedAmmo = normalizeAmmoInventory(ammoInventory);
+    return JSON.stringify({
+      selectedTier: normalizedAmmo.selectedTier,
+      tiers: {
+        x1: Number(normalizedAmmo.tiers?.x1 || 0),
+        x2: Number(normalizedAmmo.tiers?.x2 || 0),
+        x3: Number(normalizedAmmo.tiers?.x3 || 0)
+      }
+    });
+  }
+
+  async loadPlayerAmmoInventory(authId, fallbackAmmoInventory) {
+    const normalizedFallbackInventory = normalizeAmmoInventory(fallbackAmmoInventory);
+    if (this.shouldSkipPlayerAmmoTableAccess()) return normalizedFallbackInventory;
+
+    try {
+      let selectedAmmoCode = normalizedFallbackInventory.selectedTier;
+
+      const { data: profileRow, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('selected_ammo_code')
+        .eq('auth_id', authId)
+        .maybeSingle();
+
+      if (profileError) {
+        if (this.isMissingSelectedAmmoColumnError(profileError)) {
+          if (!this.playerAmmoSelectedColumnUnavailableLogged) {
+            ServerLoggerWrapper.warn(
+              'DATABASE',
+              `[PLAYER_AMMO] selected_ammo_code column unavailable during load. Run latest migrations. ${profileError.message}`
+            );
+            this.playerAmmoSelectedColumnUnavailableLogged = true;
+          }
+        } else if (this.isMissingPlayerAmmoTablesError(profileError)) {
+          this.markPlayerAmmoTablesUnavailable(profileError, 'load_profile_selected_ammo');
+          return normalizedFallbackInventory;
+        } else {
+          if (this.isPermissionDeniedError(profileError)) {
+            ServerLoggerWrapper.warn(
+              'DATABASE',
+              `[PLAYER_AMMO] Permission denied reading selected ammo for ${authId}. Continuing with fallback tier "${selectedAmmoCode}". ${profileError.message}`
+            );
+          } else {
+            ServerLoggerWrapper.warn(
+              'DATABASE',
+              `[PLAYER_AMMO] Failed to load selected ammo for ${authId}. Continuing with fallback tier "${selectedAmmoCode}". ${profileError.message}`
+            );
+          }
+        }
+      } else if (profileRow?.selected_ammo_code) {
+        selectedAmmoCode = String(profileRow.selected_ammo_code || '').trim().toLowerCase();
+      }
+
+      const { data: ammoTypeRows, error: ammoTypeError } = await supabase
+        .from('ammo_types')
+        .select('id, code')
+        .in('code', ['x1', 'x2', 'x3']);
+
+      if (ammoTypeError) {
+        if (this.isMissingPlayerAmmoTablesError(ammoTypeError)) {
+          this.markPlayerAmmoTablesUnavailable(ammoTypeError, 'load_ammo_types');
+          return normalizedFallbackInventory;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Failed to load ammo type catalog for ${authId}: ${ammoTypeError.message}`);
+        return normalizedFallbackInventory;
+      }
+
+      const ammoTypeIdToCode = new Map();
+      for (const row of ammoTypeRows || []) {
+        const ammoTypeId = Number(row?.id);
+        const ammoCode = String(row?.code || '').trim().toLowerCase();
+        if (!Number.isFinite(ammoTypeId)) continue;
+        if (ammoCode !== 'x1' && ammoCode !== 'x2' && ammoCode !== 'x3') continue;
+        ammoTypeIdToCode.set(Math.floor(ammoTypeId), ammoCode);
+      }
+
+      const { data: ammoRows, error: ammoRowsError } = await supabase
+        .from('player_ammo_inventory')
+        .select('ammo_type_id, quantity')
+        .eq('auth_id', authId);
+
+      if (ammoRowsError) {
+        if (this.isMissingPlayerAmmoTablesError(ammoRowsError)) {
+          this.markPlayerAmmoTablesUnavailable(ammoRowsError, 'load_inventory');
+          return normalizedFallbackInventory;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Failed to load ammo inventory for ${authId}: ${ammoRowsError.message}`);
+        return normalizedFallbackInventory;
+      }
+
+      const nextAmmoInventory = {
+        selectedTier: selectedAmmoCode,
+        tiers: {
+          x1: Number(normalizedFallbackInventory.tiers?.x1 || 0),
+          x2: Number(normalizedFallbackInventory.tiers?.x2 || 0),
+          x3: Number(normalizedFallbackInventory.tiers?.x3 || 0)
+        }
+      };
+
+      for (const row of ammoRows || []) {
+        const ammoTypeId = Math.floor(Number(row?.ammo_type_id));
+        if (!Number.isFinite(ammoTypeId)) continue;
+
+        const ammoCode = ammoTypeIdToCode.get(ammoTypeId);
+        if (!ammoCode) continue;
+
+        const quantity = Math.max(0, Math.floor(Number(row?.quantity || 0)));
+        nextAmmoInventory.tiers[ammoCode] = quantity;
+      }
+
+      const normalizedAmmoInventory = normalizeAmmoInventory(nextAmmoInventory);
+      this.playerAmmoTablesUnavailable = false;
+      this.playerAmmoTablesUnavailableMarkedAt = 0;
+      return normalizedAmmoInventory;
+    } catch (error) {
+      if (this.isMissingPlayerAmmoTablesError(error)) {
+        this.markPlayerAmmoTablesUnavailable(error, 'load');
+        return normalizedFallbackInventory;
+      }
+      ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Unexpected load error for ${authId}: ${error.message}`);
+      return normalizedFallbackInventory;
+    }
+  }
+
+  async savePlayerAmmoInventory(authId, ammoInventory) {
+    const normalizedAmmoInventory = normalizeAmmoInventory(ammoInventory);
+    if (this.shouldSkipPlayerAmmoTableAccess()) return normalizedAmmoInventory;
+
+    try {
+      const nowIso = new Date().toISOString();
+      const { data: ammoTypeRows, error: ammoTypeError } = await supabase
+        .from('ammo_types')
+        .select('id, code')
+        .in('code', ['x1', 'x2', 'x3']);
+
+      if (ammoTypeError) {
+        if (this.isMissingPlayerAmmoTablesError(ammoTypeError)) {
+          this.markPlayerAmmoTablesUnavailable(ammoTypeError, 'save_ammo_types');
+          return normalizedAmmoInventory;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Failed to load ammo types for save ${authId}: ${ammoTypeError.message}`);
+        return normalizedAmmoInventory;
+      }
+
+      const ammoTypeIdByCode = {
+        x1: null,
+        x2: null,
+        x3: null
+      };
+
+      for (const row of ammoTypeRows || []) {
+        const ammoCode = String(row?.code || '').trim().toLowerCase();
+        const ammoTypeId = Number(row?.id);
+        if (!Number.isFinite(ammoTypeId)) continue;
+        if (ammoCode !== 'x1' && ammoCode !== 'x2' && ammoCode !== 'x3') continue;
+        ammoTypeIdByCode[ammoCode] = Math.floor(ammoTypeId);
+      }
+
+      const { data: existingRows, error: existingRowsError } = await supabase
+        .from('player_ammo_inventory')
+        .select('ammo_type_id, quantity')
+        .eq('auth_id', authId);
+
+      if (existingRowsError) {
+        if (this.isMissingPlayerAmmoTablesError(existingRowsError)) {
+          this.markPlayerAmmoTablesUnavailable(existingRowsError, 'save_load_existing');
+          return normalizedAmmoInventory;
+        }
+        ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Failed to load existing ammo rows for ${authId}: ${existingRowsError.message}`);
+        return normalizedAmmoInventory;
+      }
+
+      const previousQuantityByAmmoTypeId = new Map();
+      for (const row of existingRows || []) {
+        const ammoTypeId = Math.floor(Number(row?.ammo_type_id));
+        if (!Number.isFinite(ammoTypeId)) continue;
+        const quantity = Math.max(0, Math.floor(Number(row?.quantity || 0)));
+        previousQuantityByAmmoTypeId.set(ammoTypeId, quantity);
+      }
+
+      const upsertRows = [];
+      for (const ammoCode of ['x1', 'x2', 'x3']) {
+        const ammoTypeId = ammoTypeIdByCode[ammoCode];
+        if (!Number.isFinite(ammoTypeId)) continue;
+        upsertRows.push({
+          auth_id: authId,
+          ammo_type_id: ammoTypeId,
+          quantity: Math.max(0, Math.floor(Number(normalizedAmmoInventory.tiers?.[ammoCode] || 0))),
+          updated_at: nowIso
+        });
+      }
+
+      if (upsertRows.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('player_ammo_inventory')
+          .upsert(upsertRows, { onConflict: 'auth_id,ammo_type_id' });
+
+        if (upsertError) {
+          if (this.isMissingPlayerAmmoTablesError(upsertError)) {
+            this.markPlayerAmmoTablesUnavailable(upsertError, 'save_inventory');
+            return normalizedAmmoInventory;
+          }
+          ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Failed to upsert ammo rows for ${authId}: ${upsertError.message}`);
+          return normalizedAmmoInventory;
+        }
+      }
+
+      const transactionRows = [];
+      for (const upsertRow of upsertRows) {
+        const ammoTypeId = Math.floor(Number(upsertRow.ammo_type_id));
+        if (!Number.isFinite(ammoTypeId)) continue;
+        const nextQuantity = Math.max(0, Math.floor(Number(upsertRow.quantity || 0)));
+        const previousQuantity = Math.max(0, Math.floor(Number(previousQuantityByAmmoTypeId.get(ammoTypeId) || 0)));
+        const delta = nextQuantity - previousQuantity;
+        if (delta === 0) continue;
+
+        transactionRows.push({
+          auth_id: authId,
+          ammo_type_id: ammoTypeId,
+          delta,
+          reason: 'state_sync',
+          reference_id: null,
+          metadata: { source: 'player_data_save' }
+        });
+      }
+
+      if (transactionRows.length > 0) {
+        const { error: transactionInsertError } = await supabase
+          .from('player_ammo_transactions')
+          .insert(transactionRows);
+
+        if (transactionInsertError) {
+          if (this.isMissingPlayerAmmoTablesError(transactionInsertError)) {
+            this.markPlayerAmmoTablesUnavailable(transactionInsertError, 'save_transactions');
+            return normalizedAmmoInventory;
+          }
+          ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Failed to insert ammo transactions for ${authId}: ${transactionInsertError.message}`);
+          return normalizedAmmoInventory;
+        }
+      }
+
+      const { error: selectedAmmoError } = await supabase
+        .from('user_profiles')
+        .update({
+          selected_ammo_code: normalizedAmmoInventory.selectedTier,
+          updated_at: nowIso
+        })
+        .eq('auth_id', authId);
+
+      if (selectedAmmoError) {
+        if (this.isMissingSelectedAmmoColumnError(selectedAmmoError)) {
+          if (!this.playerAmmoSelectedColumnUnavailableLogged) {
+            ServerLoggerWrapper.warn(
+              'DATABASE',
+              `[PLAYER_AMMO] selected_ammo_code column unavailable during save. Run latest migrations. ${selectedAmmoError.message}`
+            );
+            this.playerAmmoSelectedColumnUnavailableLogged = true;
+          }
+        } else if (this.isMissingPlayerAmmoTablesError(selectedAmmoError)) {
+          this.markPlayerAmmoTablesUnavailable(selectedAmmoError, 'save_selected_ammo');
+          return normalizedAmmoInventory;
+        } else {
+          ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Failed updating selected ammo for ${authId}: ${selectedAmmoError.message}`);
+          return normalizedAmmoInventory;
+        }
+      }
+
+      this.playerAmmoTablesUnavailable = false;
+      this.playerAmmoTablesUnavailableMarkedAt = 0;
+      return normalizedAmmoInventory;
+    } catch (error) {
+      if (this.isMissingPlayerAmmoTablesError(error)) {
+        this.markPlayerAmmoTablesUnavailable(error, 'save');
+        return normalizedAmmoInventory;
+      }
+      ServerLoggerWrapper.warn('DATABASE', `[PLAYER_AMMO] Unexpected save error for ${authId}: ${error.message}`);
+      return normalizedAmmoInventory;
+    }
+  }
+
   /**
    * Carica i dati del giocatore dal database Supabase
    * @param {string} userId - auth_id del giocatore
@@ -717,7 +1123,13 @@ class PlayerDataManager {
             currencies = { ...defaultInventory };
           }
 
-          return currencies;
+          return {
+            credits: Number(currencies.credits ?? defaultInventory.credits ?? 0),
+            cosmos: Number(currencies.cosmos ?? defaultInventory.cosmos ?? 0),
+            experience: Number(currencies.experience ?? defaultInventory.experience ?? 0),
+            honor: Number(currencies.honor ?? defaultInventory.honor ?? 0),
+            ammo: normalizeAmmoInventory(currencies?.ammo, currencies?.ammo)
+          };
         })(),
         upgrades: (() => {
           const defaultUpgrades = this.getDefaultPlayerData().upgrades;
@@ -829,6 +1241,28 @@ class PlayerDataManager {
         })()
       };
 
+      const persistedAmmoInventory = await this.loadPlayerAmmoInventory(
+        userId,
+        playerData.inventory?.ammo
+      );
+      if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+        playerData.inventory = {};
+      }
+      playerData.inventory.ammo = persistedAmmoInventory;
+      playerData.ammo = getLegacyAmmoValue(persistedAmmoInventory);
+      this.lastSavedAmmoInventorySignatureByAuthId.set(
+        userId,
+        this.buildAmmoInventorySignature(playerData.inventory.ammo)
+      );
+      this.lastSavedQuestProgressSignatureByAuthId.set(
+        userId,
+        this.buildQuestProgressSignature(playerData.quests)
+      );
+      this.lastSavedInventoryItemsSignatureByAuthId.set(
+        userId,
+        this.buildInventoryItemsSignature(playerData.items)
+      );
+
       // Crea snapshot iniziale dell'honor corrente (non bloccante)
       // Questo assicura che i player esistenti abbiano uno snapshot per il calcolo della media mobile
       const currentHonor = Number(playerData.inventory.honor || 0);
@@ -840,9 +1274,11 @@ class PlayerDataManager {
       }
 
       ServerLoggerWrapper.database(`Complete player data loaded successfully for user ${userId} (player_id: ${playerData.playerId})`);
-      const { honor, cosmos, credits, experience, current_health, current_shield } = playerData.inventory;
-      ServerLoggerWrapper.database(`Loaded currencies`, { honor, cosmos, credits, experience, current_health, current_shield });
+      const { honor, cosmos, credits, experience } = playerData.inventory;
+      ServerLoggerWrapper.database(`Loaded currencies`, { honor, cosmos, credits, experience });
       ServerLoggerWrapper.debug('DATABASE', `RecentHonor (30 days): ${recentHonor}`);
+      // Legacy mirror kept while old code paths are migrated to inventory.ammo.
+      playerData.ammo = getLegacyAmmoValue(playerData.inventory?.ammo);
       auditIdentityConsistency(playerData, 'load');
       return playerData;
 
@@ -921,6 +1357,13 @@ class PlayerDataManager {
         missile_damage_upgrades: playerData.upgrades.missileDamageUpgrades || 0
       } : null;
 
+      const normalizedAmmoInventory = normalizeAmmoInventory(
+        playerData.inventory?.ammo,
+        playerData.ammo
+      );
+      playerData.inventory.ammo = normalizedAmmoInventory;
+      playerData.ammo = getLegacyAmmoValue(normalizedAmmoInventory);
+
       // DATABASE IS SOURCE OF TRUTH: Salva i valori esatti accumulati durante il gameplay
       // playerData.inventory contiene i valori accumulati dal player (NPC kills, quest, etc.)
       const currenciesData = {
@@ -928,6 +1371,7 @@ class PlayerDataManager {
         cosmos: Number(playerData.inventory.cosmos ?? 0),
         experience: Number(playerData.inventory.experience ?? 0),
         honor: Number(playerData.inventory.honor ?? 0),
+        ammo: normalizedAmmoInventory,
         // 🟢 MMO-CORRECT: Salva SEMPRE HP/shield correnti (persistenza vera)
         // NULL ora significa "errore DB", mai "ottimizzazione"
         // Questo garantisce che ogni logout/login mantenga lo stato esatto
@@ -995,6 +1439,17 @@ class PlayerDataManager {
 
       ServerLoggerWrapper.database(`Player data saved successfully for ${authId}`);
 
+      const nextAmmoInventorySignature = this.buildAmmoInventorySignature(playerData.inventory?.ammo);
+      const lastSavedAmmoInventorySignature = this.lastSavedAmmoInventorySignatureByAuthId.get(authId) || null;
+      if (nextAmmoInventorySignature !== lastSavedAmmoInventorySignature) {
+        playerData.inventory.ammo = await this.savePlayerAmmoInventory(authId, playerData.inventory?.ammo);
+        playerData.ammo = getLegacyAmmoValue(playerData.inventory.ammo);
+        this.lastSavedAmmoInventorySignatureByAuthId.set(
+          authId,
+          this.buildAmmoInventorySignature(playerData.inventory.ammo)
+        );
+      }
+
       // Persist world resource inventory only when it changes.
       const nextResourceInventorySignature = this.buildResourceInventorySignature(playerData.resourceInventory);
       const lastSavedResourceInventorySignature = this.lastSavedResourceInventorySignatureByAuthId.get(authId) || null;
@@ -1016,8 +1471,14 @@ class PlayerDataManager {
       // Persist ship skin ownership/equip state (non-blocking helper handles its own errors).
       await this.savePlayerShipSkinState(authId, playerData.shipSkins);
 
-      // Salva quest progress separatamente se presente
-      if (playerData.quests && Array.isArray(playerData.quests)) {
+      const nextQuestProgressSignature = this.buildQuestProgressSignature(playerData.quests);
+      const lastSavedQuestProgressSignature = this.lastSavedQuestProgressSignatureByAuthId.get(authId) || null;
+      // Salva quest progress separatamente solo quando cambia
+      if (
+        playerData.quests
+        && Array.isArray(playerData.quests)
+        && nextQuestProgressSignature !== lastSavedQuestProgressSignature
+      ) {
         ServerLoggerWrapper.database(`Saving quest progress for auth_id: ${authId}`);
         for (const quest of playerData.quests) {
           const questResult = await supabase.from('quest_progress').upsert({
@@ -1033,10 +1494,20 @@ class PlayerDataManager {
             ServerLoggerWrapper.database(`Error saving quest progress: ${questResult.error.message}`);
           }
         }
+        this.lastSavedQuestProgressSignatureByAuthId.set(
+          authId,
+          this.buildQuestProgressSignature(playerData.quests)
+        );
       }
 
-      // Salva inventory items separatamente
-      if (playerData.items && Array.isArray(playerData.items)) {
+      const nextInventoryItemsSignature = this.buildInventoryItemsSignature(playerData.items);
+      const lastSavedInventoryItemsSignature = this.lastSavedInventoryItemsSignatureByAuthId.get(authId) || null;
+      // Salva inventory items separatamente solo quando cambia
+      if (
+        playerData.items
+        && Array.isArray(playerData.items)
+        && nextInventoryItemsSignature !== lastSavedInventoryItemsSignature
+      ) {
         ServerLoggerWrapper.database(`Saving inventory items for auth_id: ${authId} (${playerData.items.length} items)`);
 
         // 1. Rimuovi items non più presenti (per gestire vendite/eliminazioni se implementate)
@@ -1080,7 +1551,7 @@ class PlayerDataManager {
 
         for (const item of playerData.items) {
           if (item.slot) {
-            ServerLoggerWrapper.database(`Saving item ${item.id} (${item.instanceId}) in slot ${item.slot}`);
+            ServerLoggerWrapper.debug('DATABASE', `Saving item ${item.id} (${item.instanceId}) in slot ${item.slot}`);
           }
           const itemResult = await supabase.from('player_inventory').upsert({
             auth_id: authId,
@@ -1096,6 +1567,10 @@ class PlayerDataManager {
             ServerLoggerWrapper.database(`Error saving inventory item ${item.instanceId}: ${itemResult.error.message}`);
           }
         }
+        this.lastSavedInventoryItemsSignatureByAuthId.set(
+          authId,
+          this.buildInventoryItemsSignature(playerData.items)
+        );
       }
 
     } catch (error) {
@@ -1140,6 +1615,13 @@ class PlayerDataManager {
         experience: playerConfig.startingResources.experience,
         honor: playerConfig.startingResources.honor
       });
+
+      const defaultAmmoInventory = this.getDefaultPlayerData().inventory?.ammo;
+      await this.savePlayerAmmoInventory(playerId, defaultAmmoInventory);
+      this.lastSavedAmmoInventorySignatureByAuthId.set(
+        playerId,
+        this.buildAmmoInventorySignature(defaultAmmoInventory)
+      );
 
       ServerLoggerWrapper.database(`Initial player records created for ${playerId}`);
     } catch (error) {
@@ -1218,7 +1700,15 @@ class PlayerDataManager {
         credits: playerConfig.startingResources.credits || 10000,
         cosmos: playerConfig.startingResources.cosmos || 5000,
         experience: playerConfig.startingResources.experience || 0,
-        honor: playerConfig.startingResources.honor || 0
+        honor: playerConfig.startingResources.honor || 0,
+        ammo: normalizeAmmoInventory({
+          selectedTier: 'x1',
+          tiers: {
+            x1: 0,
+            x2: 0,
+            x3: 0
+          }
+        })
       },
       shipSkins: {
         selectedSkinId: DEFAULT_PLAYER_SHIP_SKIN_ID,

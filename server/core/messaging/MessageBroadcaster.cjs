@@ -5,6 +5,10 @@
 const { logger } = require('../../logger.cjs');
 const { DEFAULT_PLAYER_SHIP_SKIN_ID } = require('../../config/ShipSkinCatalog.cjs');
 const { normalizePlayerPetState } = require('../../config/PetCatalog.cjs');
+const {
+  normalizeAmmoInventory,
+  getLegacyAmmoValue
+} = require('../combat/AmmoInventory.cjs');
 
 function normalizeResourceInventory(resourceInventory) {
   const normalizedResourceInventory = {};
@@ -27,6 +31,10 @@ function normalizeResourceInventory(resourceInventory) {
 
 function normalizePetState(petState) {
   return normalizePlayerPetState(petState);
+}
+
+function normalizeAmmoInventoryPayload(ammoInventory, legacyAmmo) {
+  return normalizeAmmoInventory(ammoInventory, legacyAmmo);
 }
 
 function normalizeRemotePetState(petState) {
@@ -93,6 +101,10 @@ class MessageBroadcaster {
   formatWelcomeMessage(playerData, nickname, calculateMaxHealth, calculateMaxShield, isAdministrator = false, mapId = 'palantir') {
     const normalizedResourceInventory = normalizeResourceInventory(playerData?.resourceInventory);
     const normalizedPetState = normalizePetState(playerData?.petState);
+    const normalizedAmmoInventory = normalizeAmmoInventoryPayload(
+      playerData?.inventory?.ammo,
+      playerData?.ammo
+    );
 
     return {
       type: 'welcome',
@@ -128,6 +140,8 @@ class MessageBroadcaster {
             ? playerData.shipSkins.unlockedSkinIds
             : [DEFAULT_PLAYER_SHIP_SKIN_ID]
         },
+        ammo: getLegacyAmmoValue(normalizedAmmoInventory),
+        ammoInventory: normalizedAmmoInventory,
         resourceInventory: normalizedResourceInventory,
         petState: normalizedPetState
       }
@@ -279,17 +293,26 @@ class MessageBroadcaster {
    * @param {Array} items - Inventory items array
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null, resourceInventory = null, petState = null) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null, resourceInventory = null, petState = null, ammoInventory = null, legacyAmmo = undefined) {
     const normalizedResourceInventory = normalizeResourceInventory(resourceInventory);
     const normalizedPetState = normalizePetState(petState);
+    const normalizedAmmoInventory = normalizeAmmoInventoryPayload(
+      ammoInventory || inventory?.ammo,
+      legacyAmmo
+    );
+    const normalizedInventory = inventory && typeof inventory === 'object'
+      ? { ...inventory, ammo: normalizedAmmoInventory }
+      : { ammo: normalizedAmmoInventory };
 
     return {
       type: 'player_data_response',
       playerId: playerId,
-      inventory: inventory,
+      inventory: normalizedInventory,
       upgrades: upgrades,
       quests: quests || [],
       items: items || [],
+      ammo: getLegacyAmmoValue(normalizedAmmoInventory),
+      ammoInventory: normalizedAmmoInventory,
       resourceInventory: normalizedResourceInventory,
       petState: normalizedPetState,
       recentHonor: recentHonor,

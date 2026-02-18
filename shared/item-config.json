@@ -11,7 +11,9 @@
             "stats": {
                 "hpBonus": 0.2
             },
-            "dropChance": 0.04
+            "dropChance": 0.04,
+            "sellValue": 1200,
+            "sellCurrency": "credits"
         },
         "hull_titanium_uncommon": {
             "id": "hull_titanium_uncommon",
@@ -24,7 +26,9 @@
             "stats": {
                 "hpBonus": 0.35
             },
-            "dropChance": 0.01
+            "dropChance": 0.01,
+            "sellValue": 3000,
+            "sellCurrency": "credits"
         },
         "hull_titanium_rare": {
             "id": "hull_titanium_rare",
@@ -37,7 +41,9 @@
             "stats": {
                 "hpBonus": 0.55
             },
-            "dropChance": 0.0025
+            "dropChance": 0.0025,
+            "sellValue": 9000,
+            "sellCurrency": "credits"
         },
         "hull_titanium_epic": {
             "id": "hull_titanium_epic",
@@ -50,7 +56,9 @@
             "stats": {
                 "hpBonus": 0.85
             },
-            "dropChance": 0.0005
+            "dropChance": 0.0005,
+            "sellValue": 2500,
+            "sellCurrency": "cosmos"
         },
         "shield_aegis": {
             "id": "shield_aegis",
@@ -63,7 +71,9 @@
             "stats": {
                 "shieldBonus": 0.25
             },
-            "dropChance": 0.04
+            "dropChance": 0.04,
+            "sellValue": 1200,
+            "sellCurrency": "credits"
         },
         "shield_aegis_uncommon": {
             "id": "shield_aegis_uncommon",
@@ -76,7 +86,9 @@
             "stats": {
                 "shieldBonus": 0.45
             },
-            "dropChance": 0.01
+            "dropChance": 0.01,
+            "sellValue": 3000,
+            "sellCurrency": "credits"
         },
         "shield_aegis_rare": {
             "id": "shield_aegis_rare",
@@ -89,7 +101,9 @@
             "stats": {
                 "shieldBonus": 0.75
             },
-            "dropChance": 0.0025
+            "dropChance": 0.0025,
+            "sellValue": 9000,
+            "sellCurrency": "credits"
         },
         "shield_aegis_epic": {
             "id": "shield_aegis_epic",
@@ -102,7 +116,9 @@
             "stats": {
                 "shieldBonus": 1.15
             },
-            "dropChance": 0.0005
+            "dropChance": 0.0005,
+            "sellValue": 2500,
+            "sellCurrency": "cosmos"
         },
         "laser_pulse": {
             "id": "laser_pulse",
@@ -115,7 +131,9 @@
             "stats": {
                 "damageBonus": 0.15
             },
-            "dropChance": 0.04
+            "dropChance": 0.04,
+            "sellValue": 1200,
+            "sellCurrency": "credits"
         },
         "laser_pulse_uncommon": {
             "id": "laser_pulse_uncommon",
@@ -128,7 +146,9 @@
             "stats": {
                 "damageBonus": 0.3
             },
-            "dropChance": 0.01
+            "dropChance": 0.01,
+            "sellValue": 3000,
+            "sellCurrency": "credits"
         },
         "laser_pulse_rare": {
             "id": "laser_pulse_rare",
@@ -141,7 +161,9 @@
             "stats": {
                 "damageBonus": 0.55
             },
-            "dropChance": 0.0025
+            "dropChance": 0.0025,
+            "sellValue": 9000,
+            "sellCurrency": "credits"
         },
         "laser_pulse_epic": {
             "id": "laser_pulse_epic",
@@ -154,7 +176,9 @@
             "stats": {
                 "damageBonus": 0.95
             },
-            "dropChance": 0.0005
+            "dropChance": 0.0005,
+            "sellValue": 2500,
+            "sellCurrency": "cosmos"
         },
         "engine_fusion": {
             "id": "engine_fusion",
@@ -167,7 +191,9 @@
             "stats": {
                 "speedBonus": 0.1
             },
-            "dropChance": 0.04
+            "dropChance": 0.04,
+            "sellValue": 1200,
+            "sellCurrency": "credits"
         },
         "engine_fusion_uncommon": {
             "id": "engine_fusion_uncommon",
@@ -180,7 +206,9 @@
             "stats": {
                 "speedBonus": 0.2
             },
-            "dropChance": 0.01
+            "dropChance": 0.01,
+            "sellValue": 3000,
+            "sellCurrency": "credits"
         },
         "engine_fusion_rare": {
             "id": "engine_fusion_rare",
@@ -193,7 +221,9 @@
             "stats": {
                 "speedBonus": 0.35
             },
-            "dropChance": 0.0025
+            "dropChance": 0.0025,
+            "sellValue": 9000,
+            "sellCurrency": "credits"
         },
         "engine_fusion_epic": {
             "id": "engine_fusion_epic",
@@ -206,7 +236,9 @@
             "stats": {
                 "speedBonus": 0.55
             },
-            "dropChance": 0.0005
+            "dropChance": 0.0005,
+            "sellValue": 2500,
+            "sellCurrency": "cosmos"
         },
         "missile_stingray": {
             "id": "missile_stingray",
@@ -219,7 +251,9 @@
             "stats": {
                 "missileBonus": 0.2
             },
-            "dropChance": 0.04
+            "dropChance": 0.04,
+            "sellValue": 1200,
+            "sellCurrency": "credits"
         },
         "missile_stingray_uncommon": {
             "id": "missile_stingray_uncommon",
@@ -232,7 +266,9 @@
             "stats": {
                 "missileBonus": 0.4
             },
-            "dropChance": 0.01
+            "dropChance": 0.01,
+            "sellValue": 3000,
+            "sellCurrency": "credits"
         },
         "missile_stingray_rare": {
             "id": "missile_stingray_rare",
@@ -245,7 +281,9 @@
             "stats": {
                 "missileBonus": 0.7
             },
-            "dropChance": 0.0025
+            "dropChance": 0.0025,
+            "sellValue": 9000,
+            "sellCurrency": "credits"
         },
         "missile_stingray_epic": {
             "id": "missile_stingray_epic",
@@ -258,7 +296,9 @@
             "stats": {
                 "missileBonus": 1.2
             },
-            "dropChance": 0.0005
+            "dropChance": 0.0005,
+            "sellValue": 2500,
+            "sellCurrency": "cosmos"
         }
     }
 }

@@ -118,6 +118,16 @@ export type ExplosionId = string & { readonly __brand: unique symbol };
 export type PlayerUuid = string & { readonly __brand: unique symbol }; // UUID Supabase (auth)
 export type PlayerDbId = number & { readonly __brand: unique symbol }; // ID numerico database
 export type NetworkNpcType = 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid' | 'ARX-DRONE';
+export type AmmoTier = 'x1' | 'x2' | 'x3';
+
+export interface AmmoInventoryPayload {
+  selectedTier: AmmoTier;
+  tiers: {
+    x1: number;
+    x2: number;
+    x3: number;
+  };
+}
 
 /**
  * Network message types
@@ -177,6 +187,7 @@ export const MESSAGE_TYPES = {
   SAVE_RESPONSE: 'save_response',
   SELL_ITEM: 'sell_item',
   SHIP_SKIN_ACTION: 'ship_skin_action',
+  SET_AMMO_TIER: 'set_ammo_tier',
   SET_PET_NICKNAME: 'set_pet_nickname',
   SET_PET_ACTIVE: 'set_pet_active',
   SET_PET_MODULE: 'set_pet_module',
@@ -473,6 +484,7 @@ export interface PlayerStateUpdateMessage {
     cosmos: number;
     experience: number;
     honor: number;
+    ammo?: AmmoInventoryPayload;
   };
   upgrades?: {
     hpUpgrades: number;
@@ -517,6 +529,8 @@ export interface PlayerStateUpdateMessage {
     displayName?: string;
     category?: string;
   };
+  ammo?: number;
+  ammoInventory?: AmmoInventoryPayload;
   items?: any[];
   resourceInventory?: Record<string, number>;
   petState?: PetStatePayload;
@@ -545,6 +559,8 @@ export interface WelcomeMessage {
       selectedSkinId: string;
       unlockedSkinIds: string[];
     };
+    ammo?: number;
+    ammoInventory?: AmmoInventoryPayload;
     resources?: Array<{
       id: string;
       resourceType: string;
@@ -621,6 +637,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
     cosmos: number;
     experience: number;
     honor: number;
+    ammo?: AmmoInventoryPayload;
   };
   upgrades: {
     hpUpgrades: number;
@@ -638,6 +655,8 @@ export interface PlayerDataResponseMessage extends BaseMessage {
   };
   quests: any[];
   items: any[];
+  ammo?: number;
+  ammoInventory?: AmmoInventoryPayload;
   resourceInventory?: Record<string, number>;
   petState?: PetStatePayload;
   timestamp: number;
@@ -648,6 +667,13 @@ export interface ShipSkinActionMessage extends BaseMessage {
   clientId: string;
   skinId: string;
   action: 'equip' | 'purchase' | 'purchase_and_equip';
+  timestamp?: number;
+}
+
+export interface SetAmmoTierMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.SET_AMMO_TIER;
+  clientId: string;
+  ammoTier: AmmoTier;
   timestamp?: number;
 }
 

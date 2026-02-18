@@ -8,20 +8,28 @@ const RESOURCE_DESCRIPTIONS: Record<string, string> = {
   cuprite: 'Raw crystal ore used for crafting modules and ship components.'
 };
 
+interface CraftingPetSnapshot {
+  hasPetUnlocked: boolean;
+  ownedPetModuleIds: Set<string>;
+}
+
 export class CraftingPanel extends BasePanel {
   private readonly resourceInventoryProvider: (() => Record<string, number> | null) | null;
   private readonly craftRequestSubmitter: ((recipeId: string) => boolean) | null;
+  private readonly petStateProvider: (() => unknown) | null;
   private resourceTooltip!: HTMLElement | null;
   private hoveredResourceSlot!: HTMLElement | null;
   private recipeButtonsById!: Map<string, HTMLButtonElement>;
   private recipeStatusById!: Map<string, HTMLElement>;
   private recipeCardById!: Map<string, HTMLElement>;
   private latestResourceInventory!: Record<string, number>;
+  private latestPetSnapshot!: CraftingPetSnapshot | null;
 
   constructor(
     config: PanelConfig,
     resourceInventoryProvider?: (() => Record<string, number> | null),
-    craftRequestSubmitter?: ((recipeId: string) => boolean)
+    craftRequestSubmitter?: ((recipeId: string) => boolean),
+    petStateProvider?: (() => unknown)
   ) {
     const normalizedProvider = typeof resourceInventoryProvider === 'function'
       ? resourceInventoryProvider
@@ -29,9 +37,13 @@ export class CraftingPanel extends BasePanel {
     const normalizedSubmitter = typeof craftRequestSubmitter === 'function'
       ? craftRequestSubmitter
       : null;
+    const normalizedPetStateProvider = typeof petStateProvider === 'function'
+      ? petStateProvider
+      : null;
     super(config);
     this.resourceInventoryProvider = normalizedProvider;
     this.craftRequestSubmitter = normalizedSubmitter;
+    this.petStateProvider = normalizedPetStateProvider;
   }
 
   protected createPanelContent(): HTMLElement {
@@ -70,6 +82,7 @@ export class CraftingPanel extends BasePanel {
     if (!this.recipeStatusById) this.recipeStatusById = new Map<string, HTMLElement>();
     if (!this.recipeCardById) this.recipeCardById = new Map<string, HTMLElement>();
     if (!this.latestResourceInventory) this.latestResourceInventory = {};
+    if (this.latestPetSnapshot === undefined) this.latestPetSnapshot = null;
     if (this.resourceTooltip === undefined) this.resourceTooltip = null;
     if (this.hoveredResourceSlot === undefined) this.hoveredResourceSlot = null;
   }
@@ -227,6 +240,7 @@ export class CraftingPanel extends BasePanel {
 
   private createRecipeCard(recipe: CraftingRecipe): HTMLElement {
     const card = document.createElement('article');
+    card.dataset.recipeCardId = recipe.id;
     card.style.cssText = `
       border: 1px solid rgba(125, 211, 252, 0.24);
       border-radius: 10px;
@@ -294,11 +308,23 @@ export class CraftingPanel extends BasePanel {
     `;
     card.appendChild(description);
 
+    const requirementsLabel = document.createElement('div');
+    requirementsLabel.textContent = 'Recipe Requirements';
+    requirementsLabel.style.cssText = `
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: rgba(186, 230, 253, 0.84);
+      line-height: 1;
+    `;
+    card.appendChild(requirementsLabel);
+
     const costWrap = document.createElement('div');
     costWrap.style.cssText = `
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 10px;
       align-items: center;
       min-height: 0;
     `;
@@ -307,13 +333,9 @@ export class CraftingPanel extends BasePanel {
     for (const [resourceType, quantity] of costEntries) {
       const chip = document.createElement('div');
       chip.style.cssText = `
-        border: 1px solid rgba(148, 163, 184, 0.42);
-        border-radius: 6px;
-        padding: 3px 6px;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        background: rgba(15, 23, 42, 0.4);
+        gap: 6px;
       `;
       const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
       const definition = getResourceDefinition(normalizedResourceType);
@@ -327,18 +349,19 @@ export class CraftingPanel extends BasePanel {
         icon.src = previewPath;
         icon.alt = label;
         icon.style.cssText = `
-          width: 13px;
-          height: 13px;
+          width: 18px;
+          height: 18px;
           object-fit: contain;
-          filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.5));
+          filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.58));
         `;
         chip.appendChild(icon);
       } else {
         const fallback = document.createElement('span');
-        fallback.textContent = '•';
+        fallback.textContent = '?';
         fallback.style.cssText = `
-          color: rgba(203, 213, 225, 0.8);
-          font-size: 12px;
+          color: rgba(203, 213, 225, 0.9);
+          font-size: 14px;
+          font-weight: 700;
           line-height: 1;
         `;
         chip.appendChild(fallback);
@@ -347,10 +370,11 @@ export class CraftingPanel extends BasePanel {
       const quantityLabel = document.createElement('span');
       quantityLabel.textContent = `x${safeQuantity}`;
       quantityLabel.style.cssText = `
-        font-size: 10px;
-        font-weight: 700;
-        color: rgba(203, 213, 225, 0.95);
-        letter-spacing: 0.5px;
+        font-size: 12px;
+        font-weight: 800;
+        color: rgba(226, 232, 240, 0.97);
+        letter-spacing: 0.3px;
+        font-family: 'Consolas', 'Courier New', monospace;
       `;
       chip.appendChild(quantityLabel);
       costWrap.appendChild(chip);
@@ -367,6 +391,7 @@ export class CraftingPanel extends BasePanel {
     `;
 
     const status = document.createElement('div');
+    status.dataset.recipeStatusId = recipe.id;
     status.style.cssText = `
       font-size: 10px;
       font-weight: 700;
@@ -383,6 +408,7 @@ export class CraftingPanel extends BasePanel {
 
     const craftButton = document.createElement('button');
     craftButton.type = 'button';
+    craftButton.dataset.recipeButtonId = recipe.id;
     craftButton.style.cssText = `
       border: 1px solid rgba(56, 189, 248, 0.5);
       border-radius: 7px;
@@ -423,36 +449,51 @@ export class CraftingPanel extends BasePanel {
   }
 
   private handleCraftRequest(recipe: CraftingRecipe): void {
+    const lockReason = this.getOneTimeCraftLockReason(recipe);
+    if (lockReason) {
+      this.setRecipeStatus(recipe.id, lockReason, 'neutral');
+      return;
+    }
+
     const canCraft = this.canCraftRecipe(recipe, this.latestResourceInventory);
     if (!canCraft) {
-      this.setRecipeStatus(recipe.id, this.buildMissingResourceLabel(recipe, this.latestResourceInventory), true);
+      this.setRecipeStatus(recipe.id, this.buildMissingResourceLabel(recipe, this.latestResourceInventory), 'error');
       return;
     }
 
     if (!this.craftRequestSubmitter) {
-      this.setRecipeStatus(recipe.id, 'Network unavailable', true);
+      this.setRecipeStatus(recipe.id, 'Network unavailable', 'error');
       return;
     }
 
     const requestSent = this.craftRequestSubmitter(recipe.id);
     if (!requestSent) {
-      this.setRecipeStatus(recipe.id, 'Request failed', true);
+      this.setRecipeStatus(recipe.id, 'Request failed', 'error');
       return;
     }
 
-    this.setRecipeStatus(recipe.id, 'Craft request sent', false);
+    this.setRecipeStatus(recipe.id, 'Craft request sent', 'success');
   }
 
-  private setRecipeStatus(recipeId: string, text: string, isError: boolean): void {
+  private setRecipeStatus(recipeId: string, text: string, tone: 'error' | 'success' | 'neutral'): void {
+    this.ensureRecipeElementMaps();
     const status = this.recipeStatusById.get(recipeId);
     if (!status) return;
     status.textContent = text;
-    status.style.color = isError
-      ? 'rgba(248, 113, 113, 0.96)'
-      : 'rgba(109, 255, 138, 0.96)';
+    if (tone === 'error') {
+      status.style.color = 'rgba(248, 113, 113, 0.96)';
+      return;
+    }
+    if (tone === 'success') {
+      status.style.color = 'rgba(109, 255, 138, 0.96)';
+      return;
+    }
+    status.style.color = 'rgba(203, 213, 225, 0.95)';
   }
 
   private refreshRecipeStates(): void {
+    this.ensureRecipeElementMaps();
+    this.resolveLatestPetSnapshot();
     const recipes = listCraftingRecipes();
     for (const recipe of recipes) {
       const button = this.recipeButtonsById.get(recipe.id);
@@ -460,14 +501,18 @@ export class CraftingPanel extends BasePanel {
       const status = this.recipeStatusById.get(recipe.id);
       if (!button || !card || !status) continue;
 
-      const canCraft = this.canCraftRecipe(recipe, this.latestResourceInventory);
+      const lockReason = this.getOneTimeCraftLockReason(recipe);
+      const canCraftByResources = this.canCraftRecipe(recipe, this.latestResourceInventory);
+      const canCraft = !lockReason && canCraftByResources;
       button.disabled = !canCraft;
       button.style.opacity = canCraft ? '1' : '0.5';
       button.style.cursor = canCraft ? 'pointer' : 'not-allowed';
       button.style.borderColor = canCraft
         ? 'rgba(56, 189, 248, 0.5)'
         : 'rgba(148, 163, 184, 0.35)';
-      button.textContent = canCraft ? 'Craft' : 'Missing';
+      button.textContent = canCraft
+        ? 'Craft'
+        : (lockReason ? 'Owned' : 'Missing');
 
       card.style.opacity = canCraft ? '1' : '0.72';
       card.style.borderColor = canCraft
@@ -476,12 +521,84 @@ export class CraftingPanel extends BasePanel {
 
       const statusText = canCraft
         ? 'Ready'
-        : this.buildMissingResourceLabel(recipe, this.latestResourceInventory);
+        : (lockReason ? lockReason : this.buildMissingResourceLabel(recipe, this.latestResourceInventory));
       status.textContent = statusText;
-      status.style.color = canCraft
-        ? 'rgba(186, 230, 253, 0.92)'
-        : 'rgba(248, 113, 113, 0.92)';
+      if (canCraft) {
+        status.style.color = 'rgba(186, 230, 253, 0.92)';
+      } else if (lockReason) {
+        status.style.color = 'rgba(203, 213, 225, 0.9)';
+      } else {
+        status.style.color = 'rgba(248, 113, 113, 0.92)';
+      }
     }
+  }
+
+  private ensureRecipeElementMaps(): void {
+    this.initializeRuntimeState();
+
+    const root = this.content;
+    if (!root || typeof root.querySelectorAll !== 'function') return;
+
+    const expectedRecipeCount = listCraftingRecipes().length;
+    const hasAllMaps =
+      this.recipeButtonsById.size >= expectedRecipeCount
+      && this.recipeStatusById.size >= expectedRecipeCount
+      && this.recipeCardById.size >= expectedRecipeCount;
+    if (hasAllMaps) return;
+
+    this.recipeButtonsById.clear();
+    this.recipeStatusById.clear();
+    this.recipeCardById.clear();
+
+    const cardElements = root.querySelectorAll<HTMLElement>('[data-recipe-card-id]');
+    for (const cardElement of cardElements) {
+      const recipeId = String(cardElement.dataset.recipeCardId || '').trim();
+      if (!recipeId) continue;
+      this.recipeCardById.set(recipeId, cardElement);
+    }
+
+    const statusElements = root.querySelectorAll<HTMLElement>('[data-recipe-status-id]');
+    for (const statusElement of statusElements) {
+      const recipeId = String(statusElement.dataset.recipeStatusId || '').trim();
+      if (!recipeId) continue;
+      this.recipeStatusById.set(recipeId, statusElement);
+    }
+
+    const buttonElements = root.querySelectorAll<HTMLButtonElement>('[data-recipe-button-id]');
+    for (const buttonElement of buttonElements) {
+      const recipeId = String(buttonElement.dataset.recipeButtonId || '').trim();
+      if (!recipeId) continue;
+      this.recipeButtonsById.set(recipeId, buttonElement);
+    }
+  }
+
+  private getOneTimeCraftLockReason(recipe: CraftingRecipe): string | null {
+    const effectType = String(recipe?.effect?.type || '').trim().toLowerCase();
+    if (!effectType) return null;
+
+    const petSnapshot = this.latestPetSnapshot;
+    if (!petSnapshot) return null;
+
+    if (effectType === 'unlock_pet') {
+      return petSnapshot.hasPetUnlocked
+        ? 'Already unlocked'
+        : null;
+    }
+
+    if (effectType !== 'add_pet_module') return null;
+
+    const moduleItemId = this.resolveRecipePetModuleId(recipe);
+    if (!moduleItemId) return null;
+
+    return petSnapshot.ownedPetModuleIds.has(moduleItemId)
+      ? 'Already crafted'
+      : null;
+  }
+
+  private resolveRecipePetModuleId(recipe: CraftingRecipe): string {
+    const fromEffect = String(recipe?.effect?.module?.itemId || '').trim().toLowerCase();
+    if (fromEffect) return fromEffect;
+    return String(recipe?.itemId || '').trim().toLowerCase();
   }
 
   private canCraftRecipe(recipe: CraftingRecipe, resourceInventory: Record<string, number>): boolean {
@@ -489,7 +606,7 @@ export class CraftingPanel extends BasePanel {
     if (costEntries.length === 0) return false;
 
     for (const [resourceType, requiredQuantity] of costEntries) {
-      const ownedQuantity = Math.max(0, Math.floor(Number(resourceInventory[resourceType] || 0)));
+      const ownedQuantity = this.getOwnedResourceQuantity(resourceType, resourceInventory);
       if (ownedQuantity < Math.max(0, Math.floor(Number(requiredQuantity || 0)))) {
         return false;
       }
@@ -502,7 +619,7 @@ export class CraftingPanel extends BasePanel {
     const missing: string[] = [];
     for (const [resourceType, requiredQuantityRaw] of Object.entries(recipe.cost || {})) {
       const requiredQuantity = Math.max(0, Math.floor(Number(requiredQuantityRaw || 0)));
-      const ownedQuantity = Math.max(0, Math.floor(Number(resourceInventory[resourceType] || 0)));
+      const ownedQuantity = this.getOwnedResourceQuantity(resourceType, resourceInventory);
       if (ownedQuantity >= requiredQuantity) continue;
       const missingQuantity = requiredQuantity - ownedQuantity;
       missing.push(`${resourceType} ${missingQuantity}`);
@@ -510,6 +627,139 @@ export class CraftingPanel extends BasePanel {
 
     if (missing.length === 0) return 'Missing resources';
     return `Need ${missing.join(', ')}`;
+  }
+
+  private getOwnedResourceQuantity(resourceType: string, resourceInventory: Record<string, number>): number {
+    const normalizedType = String(resourceType || '').trim().toLowerCase();
+    if (!normalizedType) return 0;
+
+    const directCandidates: unknown[] = [
+      resourceInventory[normalizedType],
+      resourceInventory[resourceType]
+    ];
+    for (const candidate of directCandidates) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return Math.max(0, Math.floor(parsed));
+      }
+    }
+
+    for (const [rawType, rawQuantity] of Object.entries(resourceInventory || {})) {
+      const key = String(rawType || '').trim().toLowerCase();
+      if (!key || key !== normalizedType) continue;
+      const parsed = Number(rawQuantity);
+      if (Number.isFinite(parsed)) {
+        return Math.max(0, Math.floor(parsed));
+      }
+    }
+
+    const panelRoot = this.content;
+    if (!panelRoot || typeof panelRoot.querySelector !== 'function') {
+      return 0;
+    }
+
+    const valueElement = panelRoot.querySelector<HTMLElement>(
+      `[data-resource-value="${normalizedType}"]`
+    );
+    if (valueElement) {
+      const parsed = Number(String(valueElement.textContent || '').trim());
+      if (Number.isFinite(parsed)) {
+        return Math.max(0, Math.floor(parsed));
+      }
+    }
+
+    return 0;
+  }
+
+  private resolveLatestPetSnapshot(): CraftingPetSnapshot | null {
+    if (!this.petStateProvider) {
+      return this.latestPetSnapshot;
+    }
+
+    let rawProviderPetState: unknown = undefined;
+    try {
+      rawProviderPetState = this.petStateProvider();
+    } catch (_error) {
+      return this.latestPetSnapshot;
+    }
+
+    const providerSnapshot = this.normalizePetSnapshot(rawProviderPetState);
+    if (providerSnapshot !== undefined) {
+      this.latestPetSnapshot = providerSnapshot;
+    }
+
+    return this.latestPetSnapshot;
+  }
+
+  private readProvidedPetState(): unknown {
+    if (!this.petStateProvider) return undefined;
+
+    try {
+      return this.petStateProvider();
+    } catch (_error) {
+      return undefined;
+    }
+  }
+
+  private normalizePetSnapshot(rawPetState: unknown): CraftingPetSnapshot | null | undefined {
+    if (rawPetState === undefined) return undefined;
+    if (!rawPetState || typeof rawPetState !== 'object') return null;
+
+    const source = rawPetState as Record<string, unknown>;
+    const petId = String(source.petId ?? source.pet_id ?? '').trim();
+    const hasPetUnlocked = petId.length > 0;
+
+    const ownedPetModuleIds = new Set<string>();
+    const moduleSlotId = this.readPetModuleIdFromSlot(
+      source.moduleSlot ?? source.petModuleSlot ?? source.module ?? source.module_slot
+    );
+    if (moduleSlotId) {
+      ownedPetModuleIds.add(moduleSlotId);
+    }
+
+    for (const item of this.readPetInventory(
+      source.inventory ?? source.petInventory ?? source.pet_inventory ?? source.cargo
+    )) {
+      const itemId = String(
+        item?.itemId
+        ?? item?.item_id
+        ?? item?.moduleId
+        ?? item?.module_id
+        ?? item?.id
+        ?? ''
+      ).trim().toLowerCase();
+      const quantity = Math.max(0, Math.floor(Number(item?.quantity ?? item?.count ?? item?.qty ?? 1)));
+      if (!itemId || quantity <= 0) continue;
+      if (!itemId.startsWith('pet_module_')) continue;
+      ownedPetModuleIds.add(itemId);
+    }
+
+    return {
+      hasPetUnlocked,
+      ownedPetModuleIds
+    };
+  }
+
+  private readPetModuleIdFromSlot(rawModuleSlot: unknown): string {
+    if (!rawModuleSlot || typeof rawModuleSlot !== 'object') return '';
+
+    const source = rawModuleSlot as Record<string, unknown>;
+    return String(
+      source.itemId
+      ?? source.item_id
+      ?? source.id
+      ?? source.moduleId
+      ?? source.module_id
+      ?? ''
+    )
+      .trim()
+      .toLowerCase();
+  }
+
+  private readPetInventory(rawInventory: unknown): Array<Record<string, unknown>> {
+    if (!Array.isArray(rawInventory)) return [];
+    return rawInventory
+      .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object');
   }
 
   private createResourceInventoryPane(): HTMLElement {
@@ -792,34 +1042,47 @@ export class CraftingPanel extends BasePanel {
   override update(data: any): void {
     this.initializeRuntimeState();
 
-    const rawInventory = data && typeof data === 'object'
-      ? (data.resourceInventory || null)
+    const payload = data && typeof data === 'object'
+      ? (data as Record<string, unknown>)
       : null;
-    if (!rawInventory || typeof rawInventory !== 'object') return;
 
-    const normalizedInventory: Record<string, number> = {};
-    for (const [rawType, rawQuantity] of Object.entries(rawInventory as Record<string, unknown>)) {
-      const normalizedType = String(rawType || '').trim().toLowerCase();
-      if (!normalizedType) continue;
-      const quantity = Number(rawQuantity);
-      normalizedInventory[normalizedType] = Number.isFinite(quantity)
-        ? Math.max(0, Math.floor(quantity))
-        : 0;
+    const rawPetState = payload
+      ? (payload.petState ?? payload.playerPetState)
+      : undefined;
+    const normalizedPetSnapshot = this.normalizePetSnapshot(rawPetState);
+    if (normalizedPetSnapshot !== undefined) {
+      this.latestPetSnapshot = normalizedPetSnapshot;
     }
-    this.latestResourceInventory = normalizedInventory;
+    this.resolveLatestPetSnapshot();
 
-    const valueElements = this.content.querySelectorAll<HTMLElement>('[data-resource-value]');
-    for (const valueElement of valueElements) {
-      const normalizedType = String(valueElement.dataset.resourceValue || '').trim().toLowerCase();
-      if (!normalizedType) continue;
-      const quantity = Math.max(0, Math.floor(Number(normalizedInventory[normalizedType] || 0)));
-      valueElement.textContent = String(quantity);
-      const slot = valueElement.closest<HTMLElement>('[data-resource-type]');
-      if (slot) {
-        const tooltipText = this.buildResourceTooltip(normalizedType, quantity);
-        slot.dataset.resourceTooltip = tooltipText;
-        if (this.hoveredResourceSlot === slot && this.resourceTooltip) {
-          this.resourceTooltip.textContent = tooltipText;
+    const rawInventory = payload
+      ? (payload.resourceInventory || null)
+      : null;
+    if (rawInventory && typeof rawInventory === 'object') {
+      const normalizedInventory: Record<string, number> = {};
+      for (const [rawType, rawQuantity] of Object.entries(rawInventory as Record<string, unknown>)) {
+        const normalizedType = String(rawType || '').trim().toLowerCase();
+        if (!normalizedType) continue;
+        const quantity = Number(rawQuantity);
+        normalizedInventory[normalizedType] = Number.isFinite(quantity)
+          ? Math.max(0, Math.floor(quantity))
+          : 0;
+      }
+      this.latestResourceInventory = normalizedInventory;
+
+      const valueElements = this.content.querySelectorAll<HTMLElement>('[data-resource-value]');
+      for (const valueElement of valueElements) {
+        const normalizedType = String(valueElement.dataset.resourceValue || '').trim().toLowerCase();
+        if (!normalizedType) continue;
+        const quantity = Math.max(0, Math.floor(Number(normalizedInventory[normalizedType] || 0)));
+        valueElement.textContent = String(quantity);
+        const slot = valueElement.closest<HTMLElement>('[data-resource-type]');
+        if (slot) {
+          const tooltipText = this.buildResourceTooltip(normalizedType, quantity);
+          slot.dataset.resourceTooltip = tooltipText;
+          if (this.hoveredResourceSlot === slot && this.resourceTooltip) {
+            this.resourceTooltip.textContent = tooltipText;
+          }
         }
       }
     }
@@ -830,17 +1093,30 @@ export class CraftingPanel extends BasePanel {
   protected override onShow(): void {
     this.initializeRuntimeState();
 
+    const providedPetState = this.readProvidedPetState();
+    const resourceInventory = this.resourceInventoryProvider
+      ? this.resourceInventoryProvider()
+      : null;
+
+    if (resourceInventory && typeof resourceInventory === 'object') {
+      this.update({
+        resourceInventory,
+        petState: providedPetState
+      });
+      return;
+    }
+
+    if (providedPetState !== undefined) {
+      this.update({ petState: providedPetState });
+      return;
+    }
+
     if (!this.resourceInventoryProvider) {
       this.refreshRecipeStates();
       return;
     }
 
-    const resourceInventory = this.resourceInventoryProvider();
-    if (!resourceInventory || typeof resourceInventory !== 'object') {
-      this.refreshRecipeStates();
-      return;
-    }
-    this.update({ resourceInventory });
+    this.refreshRecipeStates();
   }
 
   protected override onHide(): void {

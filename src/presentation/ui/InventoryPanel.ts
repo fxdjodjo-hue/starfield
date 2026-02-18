@@ -9,8 +9,12 @@ import { Damage } from '../../entities/combat/Damage';
 import { PlayerUpgrades } from '../../entities/player/PlayerUpgrades';
 import { Inventory } from '../../entities/player/Inventory';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
-import { ITEM_REGISTRY, ItemSlot, getItem } from '../../config/ItemConfig';
+import { ITEM_REGISTRY, ItemSlot } from '../../config/ItemConfig';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
+import {
+  normalizeAmmoInventory,
+  getAmmoCountForTier
+} from '../../core/utils/ammo/AmmoInventory';
 import {
   getPlayerShipSkinById,
   getSelectedPlayerShipSkinId,
@@ -20,6 +24,23 @@ import {
 } from '../../config/ShipSkinConfig';
 
 type ShipSkinCurrency = 'credits' | 'cosmos';
+type AmmoTierSlot = 'x1' | 'x2' | 'x3';
+const AMMO_TIERS: AmmoTierSlot[] = ['x1', 'x2', 'x3'];
+const AMMO_ICON_BY_TIER: Record<AmmoTierSlot, string> = {
+  x1: 'assets/actionbar/x1.png',
+  x2: 'assets/actionbar/x2.png',
+  x3: 'assets/actionbar/x3.png'
+};
+const AMMO_MULTIPLIER_BY_TIER: Record<AmmoTierSlot, number> = {
+  x1: 1,
+  x2: 2,
+  x3: 3
+};
+const AMMO_DESCRIPTION_BY_TIER: Record<AmmoTierSlot, string> = {
+  x1: 'Standard rounds for balanced ship weapon output.',
+  x2: 'Enhanced rounds that double weapon impact at a higher tactical cost.',
+  x3: 'Overcharged rounds with maximum impact for high-priority targets.'
+};
 
 interface ShipSkinPriceInfo {
   currency: ShipSkinCurrency;
@@ -681,9 +702,11 @@ export class InventoryPanel extends BasePanel {
       if (bar) bar.style.width = `${Math.min(100, (bonus - 1) * 20 + 20)}%`;
     }
 
+    const ammoInventory = this.getAmmoInventoryForUi();
+
     // Update equipment slots and cargo grid
     if (inventory) {
-      this.renderInventory(inventory);
+      this.renderInventory(inventory, ammoInventory);
     }
 
     // Calculate overall power (average of raw values)
@@ -701,17 +724,27 @@ export class InventoryPanel extends BasePanel {
     }
   }
 
+  private getAmmoInventoryForUi() {
+    const contextState = this.networkSystem?.gameContext;
+    return normalizeAmmoInventory(
+      contextState?.playerAmmoInventory ?? contextState?.playerInventory?.ammo,
+      contextState?.playerAmmo
+    );
+  }
+
   /**
    * Renderizza l'inventario e gli slot equipaggiamento
    */
-  private renderInventory(inventory: Inventory): void {
+  private renderInventory(inventory: Inventory, ammoInventory = this.getAmmoInventoryForUi()): void {
     const cargoGrid = this.container.querySelector('.inventory-grid') as HTMLElement | null;
     if (!cargoGrid) return;
 
     // 🚀 OPTIMIZATION: Check if inventory actually changed before destroying DOM
     const layoutSignature = `${cargoGrid.clientWidth}x${cargoGrid.clientHeight}`;
+    const ammoSignature = `${ammoInventory.selectedTier}:${AMMO_TIERS.map(tier => getAmmoCountForTier(ammoInventory, tier)).join(',')}`;
     const currentHash = JSON.stringify(inventory.items.map(i => ({ id: i.id, instanceId: i.instanceId }))) +
-      JSON.stringify(inventory.equipped);
+      JSON.stringify(inventory.equipped) +
+      ammoSignature;
     if (this.lastInventoryHash === currentHash && this.lastInventoryLayoutSignature === layoutSignature) {
       // Still update visual slots (they are cheaper and might need updates even if items are same)
       this.updateVisualSlots(inventory);
@@ -744,6 +777,59 @@ export class InventoryPanel extends BasePanel {
         count: 1
       });
     });
+
+    const selectedAmmoTier = ammoInventory.selectedTier as AmmoTierSlot;
+    let renderedAmmoCardsCount = 0;
+    for (const tier of AMMO_TIERS) {
+      const ammoCount = getAmmoCountForTier(ammoInventory, tier);
+      if (ammoCount <= 0) {
+        continue;
+      }
+      renderedAmmoCardsCount += 1;
+      const isSelectedTier = tier === selectedAmmoTier;
+      const ammoBorder = isSelectedTier ? 'rgba(56, 189, 248, 0.6)' : 'rgba(148, 163, 184, 0.35)';
+      const ammoLabelColor = isSelectedTier ? '#7dd3fc' : '#e2e8f0';
+
+      const ammoSlot = document.createElement('div');
+      ammoSlot.style.cssText = `
+        min-height: 78px;
+        background: linear-gradient(135deg, ${isSelectedTier ? 'rgba(14, 116, 144, 0.25)' : 'rgba(30, 41, 59, 0.22)'}, rgba(8, 12, 20, 0.78));
+        border: 1px solid ${ammoBorder};
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        box-sizing: border-box;
+        cursor: pointer;
+        transition: filter 0.2s ease, border-color 0.2s ease;
+        flex-shrink: 0;
+      `;
+
+      ammoSlot.innerHTML = `
+        <div style="width: 52px; display: flex; justify-content: center;">${this.renderIcon(AMMO_ICON_BY_TIER[tier], '36px')}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="color: ${ammoLabelColor}; font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.95px;">Ammo ${tier.toUpperCase()}</div>
+          <div style="color: rgba(255, 255, 255, 0.78); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;">${isSelectedTier ? 'Active Tier  •  ' : ''}x${NumberFormatter.format(ammoCount)}  •  Not Equippable</div>
+        </div>
+      `;
+
+      ammoSlot.onmouseenter = () => {
+        ammoSlot.style.filter = 'brightness(1.08)';
+        ammoSlot.style.borderColor = isSelectedTier ? 'rgba(56, 189, 248, 0.78)' : 'rgba(148, 163, 184, 0.55)';
+      };
+      ammoSlot.onmouseleave = () => {
+        ammoSlot.style.filter = 'none';
+        ammoSlot.style.borderColor = ammoBorder;
+      };
+
+      ammoSlot.title = `Ammo ${tier.toUpperCase()} x${NumberFormatter.format(ammoCount)}\nNot equippable\nClick for details`;
+      ammoSlot.onclick = (event) => {
+        event.stopPropagation();
+        this.showAmmoDetails(tier, ammoCount);
+      };
+      cargoGrid.appendChild(ammoSlot);
+    }
 
     stackedItems.forEach(stackedItem => {
       const itemDef = ITEM_REGISTRY[stackedItem.itemId];
@@ -804,7 +890,7 @@ export class InventoryPanel extends BasePanel {
     });
 
     // Riempi con slot vuoti in base allo spazio disponibile della colonna
-    const emptySlots = this.getInventoryPlaceholderCount(cargoGrid, stackedItems.size);
+    const emptySlots = this.getInventoryPlaceholderCount(cargoGrid, stackedItems.size + renderedAmmoCardsCount);
     for (let i = 0; i < emptySlots; i++) {
       const slot = document.createElement('div');
       slot.style.cssText = `
@@ -1708,17 +1794,335 @@ export class InventoryPanel extends BasePanel {
     this.lastInventoryLayoutSignature = '';
   }
 
-  private getSellValue(item: any): number {
-    const explicitSellValue = Number(item?.sellValue);
-    if (Number.isFinite(explicitSellValue) && explicitSellValue > 0) {
-      return Math.floor(explicitSellValue);
+  private requestAmmoSell(ammoTier: AmmoTierSlot, quantity: number): boolean {
+    const normalizedQuantity = Number.isFinite(Number(quantity))
+      ? Math.max(1, Math.floor(Number(quantity)))
+      : 1;
+
+    if (this.networkSystem?.sendSellAmmoRequest) {
+      return !!this.networkSystem.sendSellAmmoRequest(ammoTier, normalizedQuantity);
     }
 
-    const rarity = String(item?.rarity || 'COMMON').toUpperCase();
-    if (rarity === 'UNCOMMON') return 300;
-    if (rarity === 'RARE') return 900;
-    if (rarity === 'EPIC') return 2500;
-    return 120;
+    if (this.networkSystem?.sendMessage) {
+      this.networkSystem.sendMessage({
+        type: 'sell_item',
+        clientId: this.networkSystem?.clientId,
+        itemId: `ammo_${ammoTier}`,
+        quantity: normalizedQuantity,
+        timestamp: Date.now()
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  private showAmmoDetails(ammoTier: AmmoTierSlot, availableQuantity: number): void {
+    const normalizedAvailableQuantity = Number.isFinite(Number(availableQuantity))
+      ? Math.max(0, Math.floor(Number(availableQuantity)))
+      : 0;
+    if (normalizedAvailableQuantity <= 0) {
+      return;
+    }
+
+    if (this.activePopup) {
+      this.activePopup.remove();
+    }
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    `;
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+      width: 380px;
+      background: rgba(20, 20, 25, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      padding: 0;
+      overflow: hidden;
+      transform: scale(0.9);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    `;
+
+    const tierColor = ammoTier === 'x1'
+      ? '#7dd3fc'
+      : ammoTier === 'x2'
+        ? '#fbbf24'
+        : '#f472b6';
+    const tierMultiplier = AMMO_MULTIPLIER_BY_TIER[ammoTier] || 1;
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      padding: 20px;
+      background: linear-gradient(to right, ${tierColor}22, transparent);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    `;
+
+    header.innerHTML = `
+      ${this.renderIcon(AMMO_ICON_BY_TIER[ammoTier], '32px', `drop-shadow(0 0 10px ${tierColor}88)`)}
+      <div>
+        <div style="color: ${tierColor}; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Ammo ${ammoTier.toUpperCase()}</div>
+        <div style="color: rgba(255, 255, 255, 0.4); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">AMMUNITION  â€¢  x${NumberFormatter.format(normalizedAvailableQuantity)}</div>
+      </div>
+    `;
+
+    const body = document.createElement('div');
+    body.style.cssText = `padding: 24px; display: flex; flex-direction: column; gap: 20px;`;
+
+    const desc = document.createElement('div');
+    desc.style.cssText = `color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5; font-style: italic;`;
+    desc.textContent = `${AMMO_DESCRIPTION_BY_TIER[ammoTier]} Not equippable as a ship module.`;
+
+    const statsGrid = document.createElement('div');
+    statsGrid.style.cssText = `display: grid; grid-template-columns: 1fr 1fr; gap: 10px;`;
+    const createStat = (label: string, value: string, isAccent: boolean = false) => `
+      <div style="background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 2px;">
+        <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 700; text-transform: uppercase;">${label}</div>
+        <div style="color: ${isAccent ? tierColor : '#ffffff'}; font-size: 14px; font-weight: 700; margin-top: 4px;">${value}</div>
+      </div>
+    `;
+    statsGrid.innerHTML = [
+      createStat('Damage Tier', `x${tierMultiplier}`, true),
+      createStat('Sell Price', 'Server-defined'),
+      createStat('Available', NumberFormatter.format(normalizedAvailableQuantity)),
+      createStat('Equippable', 'No')
+    ].join('');
+
+    const actions = document.createElement('div');
+    actions.style.cssText = `display: flex; gap: 10px; margin-top: 10px;`;
+
+    const sellBtn = document.createElement('button');
+    let sellRequestInFlight = false;
+    const maxSellQuantity = Math.max(1, normalizedAvailableQuantity);
+    let selectedSellQuantity = 1;
+    sellBtn.style.cssText = `
+      flex: 1;
+      padding: 14px;
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #fbbf24;
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 2px;
+    `;
+    const updateSellButtonLabel = () => {
+      sellBtn.textContent = `SELL ${selectedSellQuantity}`;
+    };
+
+    let quantityControls: HTMLDivElement | null = null;
+    if (maxSellQuantity > 1) {
+      quantityControls = document.createElement('div');
+      quantityControls.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 2px;
+        margin-top: 6px;
+      `;
+
+      const quantityLabel = document.createElement('div');
+      quantityLabel.style.cssText = `
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      `;
+      quantityLabel.textContent = 'Sell quantity';
+
+      const controls = document.createElement('div');
+      controls.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+      const qtyValue = document.createElement('div');
+      qtyValue.style.cssText = `
+        min-width: 72px;
+        text-align: center;
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      `;
+
+      const createQtyButton = (label: string) => {
+        const button = document.createElement('button');
+        button.style.cssText = `
+          width: 30px;
+          height: 30px;
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          background: rgba(245, 158, 11, 0.14);
+          color: #fbbf24;
+          font-size: 14px;
+          font-weight: 800;
+          cursor: pointer;
+          border-radius: 2px;
+        `;
+        button.textContent = label;
+        return button;
+      };
+
+      const minusBtn = createQtyButton('-');
+      const plusBtn = createQtyButton('+');
+      const maxBtn = document.createElement('button');
+      maxBtn.style.cssText = `
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        background: rgba(245, 158, 11, 0.14);
+        color: #fbbf24;
+        font-size: 11px;
+        font-weight: 800;
+        cursor: pointer;
+        border-radius: 2px;
+        letter-spacing: 0.8px;
+      `;
+      maxBtn.textContent = 'MAX';
+
+      const updateQuantityControls = () => {
+        qtyValue.textContent = `${selectedSellQuantity} / ${maxSellQuantity}`;
+        minusBtn.disabled = selectedSellQuantity <= 1;
+        plusBtn.disabled = selectedSellQuantity >= maxSellQuantity;
+        minusBtn.style.opacity = minusBtn.disabled ? '0.4' : '1';
+        plusBtn.style.opacity = plusBtn.disabled ? '0.4' : '1';
+        updateSellButtonLabel();
+      };
+
+      minusBtn.onclick = () => {
+        selectedSellQuantity = Math.max(1, selectedSellQuantity - 1);
+        updateQuantityControls();
+      };
+      plusBtn.onclick = () => {
+        selectedSellQuantity = Math.min(maxSellQuantity, selectedSellQuantity + 1);
+        updateQuantityControls();
+      };
+      maxBtn.onclick = () => {
+        selectedSellQuantity = maxSellQuantity;
+        updateQuantityControls();
+      };
+
+      controls.appendChild(minusBtn);
+      controls.appendChild(qtyValue);
+      controls.appendChild(plusBtn);
+      controls.appendChild(maxBtn);
+      quantityControls.appendChild(quantityLabel);
+      quantityControls.appendChild(controls);
+      updateQuantityControls();
+    } else {
+      updateSellButtonLabel();
+    }
+
+    sellBtn.onmouseenter = () => {
+      sellBtn.style.background = 'rgba(245, 158, 11, 0.3)';
+    };
+    sellBtn.onmouseleave = () => {
+      sellBtn.style.background = 'rgba(245, 158, 11, 0.2)';
+    };
+    sellBtn.onclick = () => {
+      if (sellRequestInFlight) return;
+      sellRequestInFlight = true;
+      sellBtn.style.pointerEvents = 'none';
+      sellBtn.style.opacity = '0.6';
+
+      const sellRequested = this.requestAmmoSell(ammoTier, selectedSellQuantity);
+      if (!sellRequested) {
+        sellRequestInFlight = false;
+        sellBtn.style.pointerEvents = 'auto';
+        sellBtn.style.opacity = '1';
+        if (typeof document !== 'undefined') {
+          document.dispatchEvent(new CustomEvent('ui:system-message', {
+            detail: { content: 'Unable to sell ammo right now' }
+          }));
+        }
+        return;
+      }
+
+      popup.style.opacity = '0';
+      setTimeout(() => popup.remove(), 200);
+      this.activePopup = null;
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.style.cssText = `
+      padding: 14px 18px;
+      min-width: 96px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 2px;
+    `;
+    cancelBtn.textContent = 'CANCEL';
+    cancelBtn.onclick = () => {
+      popup.style.opacity = '0';
+      setTimeout(() => popup.remove(), 200);
+      this.activePopup = null;
+    };
+    cancelBtn.onmouseenter = () => {
+      cancelBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+      cancelBtn.style.color = '#ffffff';
+    };
+    cancelBtn.onmouseleave = () => {
+      cancelBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+      cancelBtn.style.color = 'rgba(255, 255, 255, 0.6)';
+    };
+
+    actions.appendChild(sellBtn);
+    actions.appendChild(cancelBtn);
+
+    body.appendChild(desc);
+    body.appendChild(statsGrid);
+    if (quantityControls) {
+      body.appendChild(quantityControls);
+    }
+    body.appendChild(actions);
+
+    card.appendChild(header);
+    card.appendChild(body);
+    popup.appendChild(card);
+
+    popup.onclick = (event) => {
+      if (event.target === popup) {
+        cancelBtn.click();
+      }
+    };
+
+    this.container.appendChild(popup);
+    this.activePopup = popup;
+
+    requestAnimationFrame(() => {
+      popup.style.opacity = '1';
+      card.style.transform = 'scale(1)';
+    });
   }
 
   private showItemDetails(item: any, instanceId: string, isEquipped: boolean, inventory: Inventory, stackCount: number = 1): void {
@@ -1872,7 +2276,6 @@ export class InventoryPanel extends BasePanel {
     if (!isEquipped) {
       sellBtn = document.createElement('button');
       let sellRequestInFlight = false;
-      const unitSellValue = this.getSellValue(item);
       const maxSellQuantity = Math.max(1, stackCount);
       let selectedSellQuantity = 1;
       sellBtn.style.cssText = `
@@ -1890,8 +2293,7 @@ export class InventoryPanel extends BasePanel {
         border-radius: 2px;
       `;
       const updateSellButtonLabel = () => {
-        const totalSellValue = unitSellValue * selectedSellQuantity;
-        sellBtn!.textContent = `SELL ${selectedSellQuantity} (+${NumberFormatter.format(totalSellValue)}c)`;
+        sellBtn!.textContent = `SELL ${selectedSellQuantity}`;
       };
 
       if (maxSellQuantity > 1) {

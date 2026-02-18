@@ -12,7 +12,7 @@ import type { QuestSystem } from '../../quest/QuestSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
-import type { PetStatePayload } from '../../../config/NetworkConfig';
+import type { PetStatePayload, AmmoTier } from '../../../config/NetworkConfig';
 import { LogSystem, type LogHistoryEntry } from '../../rendering/LogSystem';
 
 /**
@@ -32,6 +32,7 @@ export class UIPanelManager {
   private resourceInventoryUpdateListener: ((event: Event) => void) | null = null;
   private petStateUpdateListener: ((event: Event) => void) | null = null;
   private panelVisibilityListener: ((event: Event) => void) | null = null;
+  private ammoShortcutListener: ((event: Event) => void) | null = null;
   private lastCraftingDataRefreshRequestAt: number = 0;
   private lastPetDataRefreshRequestAt: number = 0;
   private cachedLogSystem: LogSystem | null = null;
@@ -50,6 +51,7 @@ export class UIPanelManager {
     this.setupResourceInventorySyncListener();
     this.setupPetStateSyncListener();
     this.setupCraftingPanelVisibilityListener();
+    this.setupAmmoShortcutListener();
   }
 
   /**
@@ -89,7 +91,8 @@ export class UIPanelManager {
     const craftingPanel = new CraftingPanel(
       craftingConfig,
       () => this.resolveCraftingResourceInventory(),
-      (recipeId: string) => this.submitCraftItemRequest(recipeId)
+      (recipeId: string) => this.submitCraftItemRequest(recipeId),
+      () => this.resolvePetState()
     );
     this.uiManager.registerPanel(craftingPanel);
     this.syncCraftingPanelResourceInventory(true);
@@ -263,7 +266,42 @@ export class UIPanelManager {
     this.teardownResourceInventorySyncListener();
     this.teardownPetStateSyncListener();
     this.teardownCraftingPanelVisibilityListener();
+    this.teardownAmmoShortcutListener();
     this.uiManager.destroy();
+  }
+
+  private setupAmmoShortcutListener(): void {
+    if (this.ammoShortcutListener || typeof document === 'undefined') return;
+
+    this.ammoShortcutListener = (event: Event) => {
+      const customEvent = event as CustomEvent<{ slot?: number }>;
+      const slot = Math.floor(Number(customEvent?.detail?.slot || 0));
+      const ammoTier = this.resolveAmmoTierFromSlot(slot);
+      if (!ammoTier) return;
+
+      this.submitAmmoTierUpdate(ammoTier);
+    };
+
+    document.addEventListener('skillbar:activate', this.ammoShortcutListener as EventListener);
+  }
+
+  private teardownAmmoShortcutListener(): void {
+    if (!this.ammoShortcutListener || typeof document === 'undefined') return;
+    document.removeEventListener('skillbar:activate', this.ammoShortcutListener as EventListener);
+    this.ammoShortcutListener = null;
+  }
+
+  private resolveAmmoTierFromSlot(slot: number): AmmoTier | null {
+    if (slot === 1) return 'x1';
+    if (slot === 2) return 'x2';
+    if (slot === 3) return 'x3';
+    return null;
+  }
+
+  private submitAmmoTierUpdate(ammoTier: AmmoTier): void {
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem) return;
+    networkSystem.sendAmmoTierUpdateRequest(ammoTier);
   }
 
   private syncCraftingPanelResourceInventory(force: boolean = false): void {
@@ -272,6 +310,7 @@ export class UIPanelManager {
 
     const resourceInventory = this.resolveCraftingResourceInventory();
     if (!resourceInventory) return;
+    const petState = this.resolvePetState();
 
     const signature = this.buildCraftingResourceInventorySignature(resourceInventory);
     if (!force && signature === this.lastCraftingResourceInventorySignature) {
@@ -279,7 +318,7 @@ export class UIPanelManager {
     }
     this.lastCraftingResourceInventorySignature = signature;
 
-    (craftingPanel as any).update({ resourceInventory });
+    (craftingPanel as any).update({ resourceInventory, petState });
   }
 
   private syncPetPanelState(force: boolean = false): void {
@@ -353,6 +392,7 @@ export class UIPanelManager {
 
       this.cachedPetState = normalizedPetState;
       this.syncPetPanelState(true);
+      this.syncCraftingPanelResourceInventory(true);
     };
 
     document.addEventListener('playerPetStateUpdated', this.petStateUpdateListener);

@@ -13,6 +13,7 @@ import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { createPlayerShipAnimatedSprite } from '../../../core/services/PlayerShipSpriteFactory';
 import { getSelectedPlayerShipSkinId, getUnlockedPlayerShipSkinIds } from '../../../config/ShipSkinConfig';
 import { syncLocalPetCombatStats } from './utils/PetStateSync';
+import { normalizeAmmoInventory, getSelectedAmmoCount } from '../../../core/utils/ammo/AmmoInventory';
 
 /**
  * Handles player data response messages from the server
@@ -26,6 +27,10 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
   handle(message: PlayerDataResponseMessage, networkSystem: ClientNetworkSystem): void {
     const normalizedResourceInventory = this.normalizeResourceInventory(message.resourceInventory);
     const normalizedPetState = this.normalizePetState(message.petState);
+    const normalizedAmmoInventory = normalizeAmmoInventory(
+      message.ammoInventory ?? message.inventory?.ammo,
+      message.ammo
+    );
 
     // Aggiorna i dati del giocatore nel game context
     if (networkSystem.gameContext) {
@@ -33,9 +38,13 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
       if (message.inventory) {
         networkSystem.gameContext.playerInventory = {
           ...message.inventory,
+          ammo: normalizedAmmoInventory,
           recentHonor: message.recentHonor // Includi RecentHonor nell'inventory
         };
       }
+
+      networkSystem.gameContext.playerAmmoInventory = normalizedAmmoInventory;
+      networkSystem.gameContext.playerAmmo = getSelectedAmmoCount(normalizedAmmoInventory);
 
       // Aggiorna upgrades
       if (message.upgrades) {
@@ -230,7 +239,11 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     }
 
     if (normalizedResourceInventory) {
-      this.updateCraftingPanel(networkSystem, normalizedResourceInventory);
+      this.updateCraftingPanel(
+        networkSystem,
+        normalizedResourceInventory,
+        normalizedPetState ?? networkSystem.gameContext?.playerPetState ?? null
+      );
     }
 
     if (normalizedPetState) {
@@ -255,14 +268,21 @@ export class PlayerDataResponseHandler extends BaseMessageHandler {
     return normalizedInventory;
   }
 
-  private updateCraftingPanel(networkSystem: ClientNetworkSystem, resourceInventory: Record<string, number>): void {
+  private updateCraftingPanel(
+    networkSystem: ClientNetworkSystem,
+    resourceInventory: Record<string, number>,
+    petState?: PetStatePayload | null
+  ): void {
     const uiSystem = networkSystem.getUiSystem();
     if (!uiSystem || typeof uiSystem.getUIManager !== 'function') return;
 
     const uiManager = uiSystem.getUIManager();
     const craftingPanel = uiManager?.getPanel?.('crafting-panel');
     if (craftingPanel && typeof (craftingPanel as any).update === 'function') {
-      (craftingPanel as any).update({ resourceInventory });
+      (craftingPanel as any).update({
+        resourceInventory,
+        petState: petState ?? networkSystem.gameContext?.playerPetState ?? undefined
+      });
     }
   }
 

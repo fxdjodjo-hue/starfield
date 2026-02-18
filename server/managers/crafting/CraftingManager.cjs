@@ -1,5 +1,11 @@
 const { getCraftingRecipeById, RECIPE_EFFECT_TYPES } = require('../../config/CraftingCatalog.cjs');
 const { normalizePlayerPetState } = require('../../config/PetCatalog.cjs');
+const {
+  normalizeAmmoInventory,
+  addAmmo,
+  normalizeAmmoTier,
+  getLegacyAmmoValue
+} = require('../../core/combat/AmmoInventory.cjs');
 
 function normalizeResourceInventory(resourceInventory) {
   const normalizedInventory = {};
@@ -40,6 +46,14 @@ function normalizePetModuleEntry(rawModule) {
     rarity: String(rawModule.rarity || 'common').trim().toLowerCase() || 'common',
     level: Math.max(1, Math.floor(Number(rawModule.level || 1)))
   };
+}
+
+function buildAmmoSignature(ammoInventory) {
+  const normalized = normalizeAmmoInventory(ammoInventory);
+  return JSON.stringify({
+    selectedTier: normalized.selectedTier,
+    tiers: normalized.tiers
+  });
 }
 
 class CraftingManager {
@@ -84,9 +98,15 @@ class CraftingManager {
       };
     }
 
+    if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+      playerData.inventory = {};
+    }
+
     const previousPetState = normalizePlayerPetState(playerData.petState);
     const previousPetVisibility = hasVisiblePet(previousPetState);
     let nextPetState = previousPetState;
+    const previousAmmoInventory = normalizeAmmoInventory(playerData.inventory?.ammo, playerData.ammo);
+    let nextAmmoInventory = previousAmmoInventory;
 
     if (recipe.effect.type === RECIPE_EFFECT_TYPES.UNLOCK_PET) {
       if (previousPetVisibility) {
@@ -158,6 +178,19 @@ class CraftingManager {
           Math.floor(Number(previousPetState.inventoryCapacity || 8))
         )
       });
+    } else if (recipe.effect.type === RECIPE_EFFECT_TYPES.ADD_AMMO) {
+      const ammoQuantity = Math.max(0, Math.floor(Number(recipe?.effect?.quantity || 0)));
+      if (ammoQuantity <= 0) {
+        return {
+          ok: false,
+          code: 'CRAFT_AMMO_INVALID',
+          message: 'Invalid ammo recipe configuration.',
+          recipe
+        };
+      }
+
+      const ammoTier = normalizeAmmoTier(recipe?.effect?.ammoTier, 'x1');
+      nextAmmoInventory = addAmmo(nextAmmoInventory, ammoTier, ammoQuantity);
     }
 
     const nextResourceInventory = { ...currentResourceInventory };
@@ -173,6 +206,12 @@ class CraftingManager {
 
     playerData.resourceInventory = nextResourceInventory;
     playerData.petState = nextPetState;
+    playerData.inventory.ammo = normalizeAmmoInventory(nextAmmoInventory);
+    // Legacy mirror kept for compatibility with older code paths.
+    playerData.ammo = getLegacyAmmoValue(playerData.inventory.ammo);
+
+    const nextAmmoSignature = buildAmmoSignature(playerData.inventory.ammo);
+    const previousAmmoSignature = buildAmmoSignature(previousAmmoInventory);
 
     return {
       ok: true,
@@ -180,7 +219,9 @@ class CraftingManager {
       recipe,
       resourceInventory: nextResourceInventory,
       petState: nextPetState,
-      petVisibilityChanged: hasVisiblePet(nextPetState) !== previousPetVisibility
+      petVisibilityChanged: hasVisiblePet(nextPetState) !== previousPetVisibility,
+      ammoInventory: playerData.inventory.ammo,
+      ammoChanged: nextAmmoSignature !== previousAmmoSignature
     };
   }
 }

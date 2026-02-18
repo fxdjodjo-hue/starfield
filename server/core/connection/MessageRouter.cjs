@@ -19,15 +19,29 @@ const {
 } = require('../../config/ShipSkinCatalog.cjs');
 const { normalizePlayerPetState, sanitizePetNickname } = require('../../config/PetCatalog.cjs');
 const CraftingManager = require('../../managers/crafting/CraftingManager.cjs');
+const {
+  normalizeAmmoInventory,
+  getLegacyAmmoValue,
+  consumeSelectedAmmo,
+  getDamageMultiplierForTier,
+  setSelectedAmmoTier,
+  normalizeAmmoTier,
+  getSelectedAmmoCount,
+  getAmmoCountForTier
+} = require('../combat/AmmoInventory.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
 const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY || {};
-const DEFAULT_SELL_REWARDS_BY_RARITY = Object.freeze({
-  COMMON: Object.freeze({ amount: 1200, currency: 'credits' }),
-  UNCOMMON: Object.freeze({ amount: 3000, currency: 'credits' }),
-  RARE: Object.freeze({ amount: 9000, currency: 'credits' }),
-  EPIC: Object.freeze({ amount: 2500, currency: 'cosmos' })
+const AMMO_SELL_ITEM_IDS_BY_TIER = Object.freeze({
+  x1: 'ammo_x1',
+  x2: 'ammo_x2',
+  x3: 'ammo_x3'
+});
+const AMMO_SELL_REWARDS_BY_TIER = Object.freeze({
+  x1: Object.freeze({ amount: 180, currency: 'credits' }),
+  x2: Object.freeze({ amount: 360, currency: 'credits' }),
+  x3: Object.freeze({ amount: 540, currency: 'credits' })
 });
 const craftingManager = new CraftingManager();
 
@@ -35,23 +49,38 @@ function normalizeSellCurrency(currency) {
   return String(currency || '').toLowerCase() === 'cosmos' ? 'cosmos' : 'credits';
 }
 
+function resolveAmmoTierFromSellTarget(itemId) {
+  const normalizedItemId = String(itemId || '').trim().toLowerCase();
+  if (!normalizedItemId) return null;
+
+  if (normalizedItemId === 'ammo_x1' || normalizedItemId === 'ammo_basic_x1') return 'x1';
+  if (normalizedItemId === 'ammo_x2' || normalizedItemId === 'ammo_basic_x2') return 'x2';
+  if (normalizedItemId === 'ammo_x3' || normalizedItemId === 'ammo_basic_x3') return 'x3';
+  return null;
+}
+
+function getAmmoSellReward(ammoTier) {
+  const normalizedTier = normalizeAmmoTier(ammoTier, 'x1');
+  const fallbackReward = AMMO_SELL_REWARDS_BY_TIER.x1;
+  const tierReward = AMMO_SELL_REWARDS_BY_TIER[normalizedTier] || fallbackReward;
+  return {
+    amount: Math.max(0, Math.floor(Number(tierReward.amount || 0))),
+    currency: normalizeSellCurrency(tierReward.currency)
+  };
+}
+
 function getItemSellReward(itemId) {
   const itemDef = ITEM_REGISTRY[itemId];
   if (!itemDef) return null;
 
   const explicitSellValue = Number(itemDef.sellValue);
-  if (Number.isFinite(explicitSellValue) && explicitSellValue > 0) {
-    return {
-      amount: Math.floor(explicitSellValue),
-      currency: normalizeSellCurrency(itemDef.sellCurrency)
-    };
+  if (!Number.isFinite(explicitSellValue) || explicitSellValue <= 0) {
+    return null;
   }
 
-  const rarity = String(itemDef.rarity || 'COMMON').toUpperCase();
-  const fallback = DEFAULT_SELL_REWARDS_BY_RARITY[rarity] || DEFAULT_SELL_REWARDS_BY_RARITY.COMMON;
   return {
-    amount: Math.floor(Number(fallback.amount || 0)),
-    currency: normalizeSellCurrency(fallback.currency)
+    amount: Math.floor(explicitSellValue),
+    currency: normalizeSellCurrency(itemDef.sellCurrency)
   };
 }
 
@@ -92,6 +121,14 @@ function normalizeResourceInventoryPayload(resourceInventory) {
   }
 
   return normalizedResourceInventory;
+}
+
+function normalizeAmmoInventoryPayload(ammoInventory, legacyAmmo) {
+  return normalizeAmmoInventory(ammoInventory, legacyAmmo);
+}
+
+function normalizeAmmoPayload(ammoInventory, legacyAmmo) {
+  return getLegacyAmmoValue(normalizeAmmoInventoryPayload(ammoInventory, legacyAmmo));
 }
 
 function normalizePetStatePayload(petState) {
@@ -526,12 +563,16 @@ async function handleJoin(data, sanitizedData, context) {
     respawnTime: null,
     joinTime: Date.now(), // Timestamp quando ha fatto join
     isFullyLoaded: false, // ðŸš« Blocca auto-repair finchÃ© non Ã¨ true
-    inventory: loadedData.inventory,
+    inventory: {
+      ...loadedData.inventory,
+      ammo: normalizeAmmoInventoryPayload(loadedData.inventory?.ammo, loadedData.ammo)
+    },
     resourceInventory: loadedData.resourceInventory || {},
     petState: loadedData.petState || null,
     quests: loadedData.quests || [],
     items: loadedData.items || [],
-    shipSkins: normalizePlayerShipSkinState(loadedData.shipSkins)
+    shipSkins: normalizePlayerShipSkinState(loadedData.shipSkins),
+    ammo: normalizeAmmoPayload(loadedData.inventory?.ammo, loadedData.ammo)
   };
 
   // Verifica che inventory sia presente
@@ -1104,6 +1145,20 @@ function handleProjectileFired(data, sanitizedData, context) {
     return;
   }
 
+  const currentAmmoInventory = normalizeAmmoInventoryPayload(
+    playerData.inventory?.ammo,
+    playerData.ammo
+  );
+  const consumeResult = consumeSelectedAmmo(currentAmmoInventory);
+  if (!consumeResult.ok) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: `No ammo available for ${consumeResult.selectedTier}.`,
+      code: 'NO_AMMO'
+    }));
+    return;
+  }
+
   let targetId = data.targetId || null;
   console.log(`[SERVER_PROJECTILE] Received projectile fired: projectileId=${data.projectileId}, targetId=${targetId}, projectileType=${data.projectileType}, rawTargetId=${JSON.stringify(data.targetId)}`);
   if (!targetId) {
@@ -1121,19 +1176,39 @@ function handleProjectileFired(data, sanitizedData, context) {
     playerData?.upgrades,
     playerData?.items || []
   );
+  const ammoDamageMultiplier = getDamageMultiplierForTier(consumeResult.selectedTier);
+  calculatedDamage = Math.floor(calculatedDamage * ammoDamageMultiplier);
 
   // Usa clientId per identificare il giocatore nel sistema di collisione
   // data.playerId Ã¨ l'authId (usato per security check)
   // data.clientId Ã¨ l'identificatore della connessione (usato per collisione)
-  mapServer.projectileManager.addProjectile(
-    data.projectileId,
-    data.clientId, // Usa clientId per identificare il giocatore nel sistema di collisione
-    data.position,
-    data.velocity,
-    calculatedDamage,
-    data.projectileType || 'laser',
-    targetId
-  );
+  try {
+    mapServer.projectileManager.addProjectile(
+      data.projectileId,
+      data.clientId, // Usa clientId per identificare il giocatore nel sistema di collisione
+      data.position,
+      data.velocity,
+      calculatedDamage,
+      data.projectileType || 'laser',
+      targetId
+    );
+  } catch (error) {
+    logger.error('PROJECTILE', `Failed to spawn projectile for ${data.clientId}: ${error.message}`);
+    return;
+  }
+
+  if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+    playerData.inventory = {};
+  }
+  playerData.inventory.ammo = consumeResult.ammoInventory;
+  playerData.ammo = getLegacyAmmoValue(consumeResult.ammoInventory);
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    ammo: playerData.ammo,
+    ammoInventory: consumeResult.ammoInventory,
+    source: 'projectile_fired'
+  }));
 
   const projectileMessage = {
     type: 'projectile_fired',
@@ -1203,8 +1278,8 @@ function handleStartCombat(data, sanitizedData, context) {
       combat.sessionId // Passa il session ID univoco
     );
     mapServer.broadcastToMap(combatUpdate);
-  } else {
-    ServerLoggerWrapper.error('SERVER', `Combat not found after startPlayerCombat for ${data.clientId}`);
+  } else if (process.env.DEBUG_COMBAT === 'true') {
+    ServerLoggerWrapper.combat(`START_COMBAT rejected for ${data.clientId} (no active combat created)`);
   }
 }
 
@@ -1487,7 +1562,9 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.items,
     normalizePlayerShipSkinState(playerData.shipSkins),
     playerData.resourceInventory,
-    playerData.petState
+    playerData.petState,
+    normalizeAmmoInventoryPayload(playerData.inventory?.ammo, playerData.ammo),
+    normalizeAmmoPayload(playerData.inventory?.ammo, playerData.ammo)
   );
   ServerLoggerWrapper.debug(
     'RESOURCE',
@@ -1846,6 +1923,74 @@ async function handleSellItem(data, sanitizedData, context) {
     ? sanitizedData.itemId
     : null;
   const requestedQuantity = Math.max(1, Math.floor(Number(sanitizedData?.quantity || 1)));
+  const ammoTierSellTarget = resolveAmmoTierFromSellTarget(itemId);
+
+  if (ammoTierSellTarget) {
+    const normalizedAmmoInventory = normalizeAmmoInventoryPayload(
+      playerData.inventory?.ammo,
+      playerData.ammo
+    );
+    const availableAmmo = getAmmoCountForTier(normalizedAmmoInventory, ammoTierSellTarget);
+    if (availableAmmo <= 0) {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'No ammo available to sell.',
+        code: 'NO_AMMO_TO_SELL'
+      }));
+      return;
+    }
+
+    const quantityToSell = Math.max(1, Math.min(requestedQuantity, availableAmmo));
+    const nextAmmoInventory = {
+      selectedTier: normalizeAmmoTier(normalizedAmmoInventory.selectedTier, 'x1'),
+      tiers: {
+        ...normalizedAmmoInventory.tiers,
+        [ammoTierSellTarget]: Math.max(0, availableAmmo - quantityToSell)
+      }
+    };
+    playerData.inventory.ammo = nextAmmoInventory;
+    playerData.ammo = getLegacyAmmoValue(nextAmmoInventory);
+
+    const sellReward = getAmmoSellReward(ammoTierSellTarget);
+    const unitSellValue = Math.floor(Number(sellReward.amount || 0));
+    const sellCurrency = sellReward.currency === 'cosmos' ? 'cosmos' : 'credits';
+    const totalSellValue = unitSellValue * quantityToSell;
+    playerData.inventory[sellCurrency] = Number(playerData.inventory[sellCurrency] || 0) + totalSellValue;
+
+    const saleItemId = AMMO_SELL_ITEM_IDS_BY_TIER[ammoTierSellTarget] || `ammo_${ammoTierSellTarget}`;
+    ws.send(JSON.stringify({
+      type: 'player_state_update',
+      inventory: { ...playerData.inventory },
+      upgrades: { ...playerData.upgrades },
+      items: playerData.items,
+      ammo: playerData.ammo,
+      ammoInventory: nextAmmoInventory,
+      petState: normalizePetStatePayload(playerData.petState),
+      sale: {
+        itemId: saleItemId,
+        instanceId: saleItemId,
+        quantity: quantityToSell,
+        unitPrice: unitSellValue,
+        amount: totalSellValue,
+        currency: sellCurrency
+      },
+      source: 'item_sold'
+    }));
+
+    logger.info(
+      'INVENTORY',
+      `Player ${data.clientId} sold ammo ${ammoTierSellTarget} x${quantityToSell} for ${totalSellValue} ${sellCurrency} (${unitSellValue} each)`
+    );
+
+    try {
+      playerDataManager.savePlayerData(playerData).catch(error => {
+        logger.error('DATABASE', `Failed to persist sold ammo for ${playerData.userId}: ${error.message}`);
+      });
+    } catch (error) {
+      logger.error('DATABASE', `Error triggering sold ammo save for ${playerData.userId}: ${error.message}`);
+    }
+    return;
+  }
 
   if (!instanceId && !itemId) {
     ws.send(JSON.stringify({
@@ -2410,6 +2555,49 @@ async function handleSetPetModule(data, sanitizedData, context) {
   }
 }
 
+function handleSetAmmoTier(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const requestedTier = normalizeAmmoTier(sanitizedData?.ammoTier || data?.ammoTier, 'x1');
+  const currentAmmoInventory = normalizeAmmoInventoryPayload(
+    playerData.inventory?.ammo,
+    playerData.ammo
+  );
+  const nextAmmoInventory = setSelectedAmmoTier(currentAmmoInventory, requestedTier);
+
+  if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+    playerData.inventory = {};
+  }
+
+  playerData.inventory.ammo = nextAmmoInventory;
+  playerData.ammo = getLegacyAmmoValue(nextAmmoInventory);
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    ammo: playerData.ammo,
+    ammoInventory: nextAmmoInventory,
+    source: 'set_ammo_tier'
+  }));
+
+  // Persist selected ammo tier quickly (debounced) to preserve last selected slot.
+  if (playerDataManager && typeof playerDataManager.savePlayerData === 'function') {
+    try {
+      if (playerData._ammoTierSaveTimeout) {
+        clearTimeout(playerData._ammoTierSaveTimeout);
+      }
+      playerData._ammoTierSaveTimeout = setTimeout(() => {
+        playerDataManager.savePlayerData(playerData).catch((error) => {
+          logger.error('DATABASE', `Failed to persist ammo tier for ${playerData.userId}: ${error.message}`);
+        });
+      }, 500);
+    } catch (error) {
+      logger.error('DATABASE', `Error scheduling ammo tier save for ${playerData.userId}: ${error.message}`);
+    }
+  }
+}
+
 async function handleCraftItem(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
@@ -2462,7 +2650,7 @@ async function handleCraftItem(data, sanitizedData, context) {
     }
   }
 
-  ws.send(JSON.stringify({
+  const craftStateUpdateMessage = {
     type: 'player_state_update',
     resourceInventory: normalizeResourceInventoryPayload(playerData.resourceInventory),
     petState: normalizePetStatePayload(playerData.petState),
@@ -2473,7 +2661,21 @@ async function handleCraftItem(data, sanitizedData, context) {
       category: craftResult.recipe.category
     },
     source: 'craft_item_success'
-  }));
+  };
+
+  const normalizedAmmoInventory = normalizeAmmoInventoryPayload(
+    craftResult?.ammoInventory || playerData.inventory?.ammo,
+    playerData.ammo
+  );
+  if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+    playerData.inventory = {};
+  }
+  playerData.inventory.ammo = normalizedAmmoInventory;
+  playerData.ammo = getLegacyAmmoValue(normalizedAmmoInventory);
+  craftStateUpdateMessage.ammoInventory = normalizedAmmoInventory;
+  craftStateUpdateMessage.ammo = getLegacyAmmoValue(normalizedAmmoInventory);
+
+  ws.send(JSON.stringify(craftStateUpdateMessage));
 
   if (craftResult.petVisibilityChanged && playerData.position) {
     mapServer.broadcastToMap({
@@ -2696,6 +2898,7 @@ const handlers = {
   equip_item: handleEquipItem,
   sell_item: handleSellItem,
   ship_skin_action: handleShipSkinAction,
+  set_ammo_tier: handleSetAmmoTier,
   set_pet_nickname: handleSetPetNickname,
   set_pet_active: handleSetPetActive,
   set_pet_module: handleSetPetModule,
@@ -2899,8 +3102,10 @@ function validatePlayerContext(type, data, context) {
 
     case 'projectile_fired':
       // Deve avere munizioni (server-authoritative)
-      if (playerData.ammo <= 0) {
-        logger.warn('SECURITY', `ðŸš« BLOCKED: No ammo projectile attempt from ${data.clientId} playerId:${playerData.playerId} (ammo: ${playerData.ammo})`);
+      const ammoInventory = normalizeAmmoInventoryPayload(playerData.inventory?.ammo, playerData.ammo);
+      const trackedAmmo = getSelectedAmmoCount(ammoInventory);
+      if (trackedAmmo <= 0) {
+        logger.warn('SECURITY', `ðŸš« BLOCKED: No ammo projectile attempt from ${data.clientId} playerId:${playerData.playerId} (tier: ${ammoInventory.selectedTier}, ammo: ${trackedAmmo})`);
         return { valid: false, reason: 'NO_AMMO' };
       }
       break;
@@ -2915,7 +3120,7 @@ function validatePlayerContext(type, data, context) {
 
     case 'start_combat':
       // Non deve giÃ  essere in combattimento
-      if (playerData.inCombat) {
+      if (mapServer && mapServer.combatManager && mapServer.combatManager.playerCombats && mapServer.combatManager.playerCombats.has(data.clientId)) {
         logger.warn('SECURITY', `ðŸš« BLOCKED: Already in combat attempt from ${data.clientId} playerId:${playerData.playerId}`);
         return { valid: false, reason: 'ALREADY_IN_COMBAT' };
       }
@@ -2965,5 +3170,3 @@ async function routeMessage({ type, data, sanitizedData, context }) {
 module.exports = {
   routeMessage
 };
-
-

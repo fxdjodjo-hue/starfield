@@ -1,6 +1,6 @@
 import { AssetManager } from '../../core/services/AssetManager';
 import { NETWORK_CONFIG } from '../../config/NetworkConfig';
-import { type PlayerUuid, type PlayerDbId, type ClientId, type PetStatePayload } from '../../config/NetworkConfig';
+import { type PlayerUuid, type PlayerDbId, type ClientId, type PetStatePayload, type AmmoInventoryPayload } from '../../config/NetworkConfig';
 import { ConnectionState } from '../../multiplayer/client/managers/NetworkStateManager';
 
 /**
@@ -55,6 +55,7 @@ export class GameContext {
     cosmos: number;
     experience: number;
     honor: number;
+    ammo?: AmmoInventoryPayload;
     recentHonor?: number; // Media mobile honor ultimi 30 giorni
   } = {
       credits: 0,
@@ -78,6 +79,8 @@ export class GameContext {
   public playerQuests: any[] = [];             // Lista quest del giocatore
   public playerResourceInventory: Record<string, number> = {};
   public playerPetState: PetStatePayload | null = null;
+  public playerAmmoInventory: AmmoInventoryPayload | null = null;
+  public playerAmmo: number | null = null;
 
   // Stato connessione
   public connectionState: ConnectionState = ConnectionState.DISCONNECTED;

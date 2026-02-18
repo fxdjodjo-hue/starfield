@@ -6,6 +6,13 @@ const ServerLoggerWrapper = require('../core/infrastructure/ServerLoggerWrapper.
 const { SERVER_CONSTANTS, NPC_CONFIG } = require('../config/constants.cjs');
 const DamageCalculationSystem = require('../core/combat/DamageCalculationSystem.cjs');
 const PLAYER_CONFIG = require('../../shared/player-config.json');
+const {
+  normalizeAmmoInventory,
+  consumeSelectedAmmo,
+  getDamageMultiplierForTier,
+  getLegacyAmmoValue,
+  getSelectedAmmoCount
+} = require('../core/combat/AmmoInventory.cjs');
 
 class ServerCombatManager {
   constructor(mapServer) {
@@ -84,6 +91,39 @@ class ServerCombatManager {
     if (!existingNpc) {
       ServerLoggerWrapper.warn('COMBAT', `Player ${playerId} tried to start combat with non-existing NPC ${npcId}`);
       return;
+    }
+
+    const playerData = this.mapServer.players.get(playerId);
+    if (playerData) {
+      const currentAmmoInventory = normalizeAmmoInventory(
+        playerData.inventory?.ammo,
+        playerData.ammo
+      );
+      const selectedAmmoCount = getSelectedAmmoCount(currentAmmoInventory);
+
+      if (selectedAmmoCount <= 0) {
+        if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+          playerData.inventory = {};
+        }
+        playerData.inventory.ammo = currentAmmoInventory;
+        playerData.ammo = getLegacyAmmoValue(currentAmmoInventory);
+
+        if (context && context.ws && context.ws.readyState === 1) {
+          context.ws.send(JSON.stringify({
+            type: 'player_state_update',
+            ammo: playerData.ammo,
+            ammoInventory: currentAmmoInventory,
+            source: 'combat_start_no_ammo'
+          }));
+          context.ws.send(JSON.stringify({
+            type: 'error',
+            message: `No ammo available for ${currentAmmoInventory.selectedTier}.`,
+            code: 'NO_AMMO'
+          }));
+        }
+
+        return;
+      }
     }
 
     // 🛡️ SAFE ZONE CHECK - REMOVED: Allow player to start combat ANYWHERE
@@ -307,6 +347,42 @@ class ServerCombatManager {
       return;
     }
 
+    const currentAmmoInventory = normalizeAmmoInventory(
+      playerData.inventory?.ammo,
+      playerData.ammo
+    );
+    const selectedAmmoCount = getSelectedAmmoCount(currentAmmoInventory);
+    if (selectedAmmoCount <= 0) {
+      if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+        playerData.inventory = {};
+      }
+      playerData.inventory.ammo = currentAmmoInventory;
+      playerData.ammo = getLegacyAmmoValue(currentAmmoInventory);
+
+      this.stopPlayerCombat(playerId);
+
+      if (playerData.ws && playerData.ws.readyState === 1) {
+        playerData.ws.send(JSON.stringify({
+          type: 'player_state_update',
+          ammo: playerData.ammo,
+          ammoInventory: currentAmmoInventory,
+          source: 'combat_no_ammo'
+        }));
+        playerData.ws.send(JSON.stringify({
+          type: 'stop_combat',
+          reason: 'no_ammo',
+          playerId: playerId
+        }));
+        playerData.ws.send(JSON.stringify({
+          type: 'error',
+          message: `No ammo available for ${currentAmmoInventory.selectedTier}.`,
+          code: 'NO_AMMO'
+        }));
+      }
+
+      return;
+    }
+
     // Verifica che il player sia nel range rettangolare
     const rangeWidth = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_WIDTH;
     const rangeHeight = SERVER_CONSTANTS.COMBAT.PLAYER_RANGE_HEIGHT;
@@ -355,8 +431,10 @@ class ServerCombatManager {
 
     // Esegui attacco (danno applicato secondo cooldown configurato)
     // Combat attack logging removed for production - too verbose
-    this.performPlayerAttack(playerId, playerData, npc, now);
-    combat.lastAttackTime = now;
+    const projectileId = this.performPlayerAttack(playerId, playerData, npc, now);
+    if (projectileId) {
+      combat.lastAttackTime = now;
+    }
 
     // 🚀 AUTO-FIRE MISSILES
     // Controlla cooldown missili (indipendente dal laser)
@@ -583,7 +661,21 @@ class ServerCombatManager {
     // DEBUG: Log quando il player spara
     // Combat tick logging removed for production - too verbose
 
-    // Usa posizione corrente del player dal server (più affidabile)
+    const currentAmmoInventory = normalizeAmmoInventory(
+      playerData.inventory?.ammo,
+      playerData.ammo
+    );
+    const consumeResult = consumeSelectedAmmo(currentAmmoInventory);
+    if (!consumeResult.ok) {
+      if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+        playerData.inventory = {};
+      }
+      playerData.inventory.ammo = currentAmmoInventory;
+      playerData.ammo = getLegacyAmmoValue(currentAmmoInventory);
+      return null;
+    }
+
+    // Usa posizione corrente del player dal server (piu affidabile)
     const playerPos = playerData.position;
 
     // Calcola danno usando DamageCalculationSystem (logica di gioco)
@@ -593,20 +685,36 @@ class ServerCombatManager {
       playerData.upgrades,
       playerData.items
     );
+    const ammoDamageMultiplier = getDamageMultiplierForTier(consumeResult.selectedTier);
+    const finalDamage = Math.floor(calculatedDamage * ammoDamageMultiplier);
 
     // Usa la funzione comune per creare il proiettile
     const projectileId = this.performAttack(
       playerId,              // ownerId - ID del player
       playerPos,             // ownerPosition - posizione attuale del player
       npc.position,          // targetPosition - posizione dell'NPC
-      calculatedDamage,      // damage - danno calcolato
+      finalDamage,           // damage - danno calcolato
       'laser',               // projectileType - tipo corretto per player
       npc.id                 // targetId - ID dell'NPC
     );
 
-    // ✅ Aggiorna cooldown PLAYER se il proiettile è stato creato
-    // Questo assicura che il player possa sparare più volte
+    // Aggiorna cooldown PLAYER solo se il proiettile e stato creato.
     if (projectileId) {
+      if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+        playerData.inventory = {};
+      }
+      playerData.inventory.ammo = consumeResult.ammoInventory;
+      playerData.ammo = getLegacyAmmoValue(consumeResult.ammoInventory);
+
+      if (playerData.ws && playerData.ws.readyState === 1) {
+        playerData.ws.send(JSON.stringify({
+          type: 'player_state_update',
+          ammo: playerData.ammo,
+          ammoInventory: consumeResult.ammoInventory,
+          source: 'combat_attack'
+        }));
+      }
+
       playerData.lastAttackTime = now;
     }
 

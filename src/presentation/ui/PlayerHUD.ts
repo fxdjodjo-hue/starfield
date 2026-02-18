@@ -188,6 +188,7 @@ export class PlayerHUD {
     style.textContent = `
       /* Container principale con effetto glassmorphism */
       #player-hud {
+        --inner-stat-nudge: clamp(40px, 9vw, 120px);
         background:
           linear-gradient(130deg, rgba(37, 99, 235, 0.12) 0%, rgba(255, 255, 255, 0.03) 42%, rgba(14, 165, 233, 0.08) 100%),
           rgba(0, 0, 0, 0.45);
@@ -346,6 +347,14 @@ export class PlayerHUD {
 
       .stats-side-right .stat-item {
         text-align: left;
+      }
+
+      .stats-side-left .stat-item[data-stat="honor"] {
+        transform: translateX(var(--inner-stat-nudge));
+      }
+
+      .stats-side-right .stat-item[data-stat="credits"] {
+        transform: translateX(calc(var(--inner-stat-nudge) * -1));
       }
 
 

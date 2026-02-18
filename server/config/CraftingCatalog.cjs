@@ -2,8 +2,10 @@ const sharedCraftingConfig = require('../../shared/crafting-config.json');
 
 const RECIPE_EFFECT_TYPES = Object.freeze({
   UNLOCK_PET: 'unlock_pet',
-  ADD_PET_MODULE: 'add_pet_module'
+  ADD_PET_MODULE: 'add_pet_module',
+  ADD_AMMO: 'add_ammo'
 });
+const AMMO_TIERS = Object.freeze(['x1', 'x2', 'x3']);
 
 function normalizeCost(rawCost) {
   const normalizedCost = {};
@@ -39,6 +41,20 @@ function normalizeModule(rawModule) {
   };
 }
 
+function normalizePositiveInteger(rawValue, fallback = 1) {
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.floor(parsed));
+}
+
+function normalizeAmmoTier(rawAmmoTier, fallback = 'x1') {
+  const normalizedTier = String(rawAmmoTier || '').trim().toLowerCase();
+  if (AMMO_TIERS.includes(normalizedTier)) {
+    return normalizedTier;
+  }
+  return AMMO_TIERS.includes(fallback) ? fallback : 'x1';
+}
+
 const CRAFTING_RECIPES = Array.isArray(sharedCraftingConfig.recipes)
   ? sharedCraftingConfig.recipes
     .map((recipe) => {
@@ -55,6 +71,12 @@ const CRAFTING_RECIPES = Array.isArray(sharedCraftingConfig.recipes)
         ? normalizeModule(recipe?.effect?.module)
         : null;
       if (effectType === RECIPE_EFFECT_TYPES.ADD_PET_MODULE && !module) return null;
+      const quantity = effectType === RECIPE_EFFECT_TYPES.ADD_AMMO
+        ? normalizePositiveInteger(recipe?.effect?.quantity, 1)
+        : undefined;
+      const ammoTier = effectType === RECIPE_EFFECT_TYPES.ADD_AMMO
+        ? normalizeAmmoTier(recipe?.effect?.ammoTier, 'x1')
+        : undefined;
 
       const itemId = String(recipe?.itemId || id).trim() || id;
       const displayName = String(recipe?.displayName || itemId).trim() || itemId;
@@ -70,7 +92,9 @@ const CRAFTING_RECIPES = Array.isArray(sharedCraftingConfig.recipes)
         cost,
         effect: {
           type: effectType,
-          module: module || undefined
+          module: module || undefined,
+          quantity,
+          ammoTier
         }
       };
     })

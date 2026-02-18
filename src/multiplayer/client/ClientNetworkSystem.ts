@@ -31,7 +31,7 @@ import type { ResourceInteractionSystem } from '../../systems/game/ResourceInter
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
-import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, type ClientId, secureLogger } from '../../config/NetworkConfig';
+import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, type ClientId, type AmmoTier, secureLogger } from '../../config/NetworkConfig';
 
 /**
  * Sistema di rete client modulare per multiplayer
@@ -522,6 +522,30 @@ export class ClientNetworkSystem extends BaseSystem {
   }
 
   /**
+   * Sends a sell ammo request to the server.
+   */
+  sendSellAmmoRequest(ammoTier: AmmoTier, quantity: number = 1): boolean {
+    if (!this.connectionManager.isConnectionActive()) {
+      return false;
+    }
+
+    const normalizedTier = String(ammoTier ?? '').trim().toLowerCase();
+    if (normalizedTier !== 'x1' && normalizedTier !== 'x2' && normalizedTier !== 'x3') {
+      return false;
+    }
+
+    const sanitizedQuantity = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+    this.sendMessage({
+      type: 'sell_item',
+      clientId: this.clientId,
+      itemId: `ammo_${normalizedTier}`,
+      quantity: sanitizedQuantity,
+      timestamp: Date.now()
+    });
+    return true;
+  }
+
+  /**
    * Sends a server-authoritative ship skin action request (equip/purchase).
    */
   sendShipSkinActionRequest(
@@ -539,6 +563,25 @@ export class ClientNetworkSystem extends BaseSystem {
       action,
       timestamp: Date.now()
     });
+  }
+
+  sendAmmoTierUpdateRequest(ammoTier: AmmoTier): boolean {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return false;
+    }
+
+    const normalizedTier = String(ammoTier ?? '').trim().toLowerCase();
+    if (normalizedTier !== 'x1' && normalizedTier !== 'x2' && normalizedTier !== 'x3') {
+      return false;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.SET_AMMO_TIER,
+      clientId: this.clientId,
+      ammoTier: normalizedTier as AmmoTier,
+      timestamp: Date.now()
+    });
+    return true;
   }
 
   sendPetNicknameUpdateRequest(petNickname: string): boolean {

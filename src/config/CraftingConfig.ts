@@ -11,7 +11,8 @@ export interface CraftingModuleDefinition {
   level: number;
 }
 
-export type CraftingEffectType = 'unlock_pet' | 'add_pet_module';
+export type CraftingEffectType = 'unlock_pet' | 'add_pet_module' | 'add_ammo';
+export type CraftingAmmoTier = 'x1' | 'x2' | 'x3';
 
 export interface CraftingRecipe {
   id: string;
@@ -23,6 +24,8 @@ export interface CraftingRecipe {
   effect: {
     type: CraftingEffectType;
     module?: CraftingModuleDefinition;
+    ammoTier?: CraftingAmmoTier;
+    quantity?: number;
   };
 }
 
@@ -35,6 +38,8 @@ interface SharedCraftingRecipe {
   cost?: Record<string, unknown>;
   effect?: {
     type?: unknown;
+    quantity?: unknown;
+    ammoTier?: unknown;
     module?: {
       itemId?: unknown;
       itemName?: unknown;
@@ -90,6 +95,20 @@ function normalizeModuleDefinition(rawModule: SharedCraftingModule | null | unde
   };
 }
 
+function normalizePositiveInteger(rawValue: unknown, fallback: number = 1): number {
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.floor(parsed));
+}
+
+function normalizeAmmoTier(rawValue: unknown, fallback: CraftingAmmoTier = 'x1'): CraftingAmmoTier {
+  const normalizedTier = String(rawValue ?? '').trim().toLowerCase();
+  if (normalizedTier === 'x1' || normalizedTier === 'x2' || normalizedTier === 'x3') {
+    return normalizedTier;
+  }
+  return fallback;
+}
+
 const CRAFTING_RECIPES: CraftingRecipe[] = Array.isArray(SHARED_CRAFTING_CONFIG.recipes)
   ? SHARED_CRAFTING_CONFIG.recipes
     .map((recipe) => {
@@ -97,12 +116,18 @@ const CRAFTING_RECIPES: CraftingRecipe[] = Array.isArray(SHARED_CRAFTING_CONFIG.
       if (!id) return null;
 
       const effectType = String(recipe?.effect?.type || '').trim().toLowerCase();
-      if (effectType !== 'unlock_pet' && effectType !== 'add_pet_module') return null;
+      if (effectType !== 'unlock_pet' && effectType !== 'add_pet_module' && effectType !== 'add_ammo') return null;
 
       const module = effectType === 'add_pet_module'
         ? normalizeModuleDefinition(recipe?.effect?.module)
         : undefined;
       if (effectType === 'add_pet_module' && !module) return null;
+      const quantity = effectType === 'add_ammo'
+        ? normalizePositiveInteger(recipe?.effect?.quantity, 1)
+        : undefined;
+      const ammoTier = effectType === 'add_ammo'
+        ? normalizeAmmoTier(recipe?.effect?.ammoTier, 'x1')
+        : undefined;
 
       const itemId = String(recipe?.itemId || id).trim() || id;
       const displayName = String(recipe?.displayName || itemId).trim() || itemId;
@@ -120,7 +145,9 @@ const CRAFTING_RECIPES: CraftingRecipe[] = Array.isArray(SHARED_CRAFTING_CONFIG.
         cost,
         effect: {
           type: effectType,
-          module
+          module,
+          ammoTier,
+          quantity
         }
       } as CraftingRecipe;
     })

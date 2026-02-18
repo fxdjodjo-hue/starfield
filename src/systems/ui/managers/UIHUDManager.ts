@@ -2,6 +2,7 @@ import { PlayerHUD } from '../../../presentation/ui/PlayerHUD';
 import { QuestTracker } from '../../../presentation/ui/QuestTracker';
 import { WeaponStatus } from '../../../presentation/ui/WeaponStatus';
 import type { PlayerSystem } from '../../player/PlayerSystem';
+import { normalizeAmmoInventory, getSelectedAmmoCount } from '../../../core/utils/ammo/AmmoInventory';
 
 /**
  * UIHUDManager - Gestisce aggiornamenti HUD e statistiche giocatore
@@ -183,12 +184,17 @@ export class UIHUDManager {
     }
 
     const combatStatus = this.getCurrentCombatStatus();
+    const normalizedAmmoInventory = normalizeAmmoInventory(
+      this.context?.playerAmmoInventory ?? this.context?.playerInventory?.ammo,
+      this.context?.playerAmmo
+    );
 
     // Aggiorna sempre l'HUD con i dati disponibili
     this.playerHUD.updateData({
       ...hudData,
       ...combatStatus
     });
+    this.weaponStatus.setAmmoShortcutCounts(normalizedAmmoInventory);
     // NON mostrare weaponStatus qui - verrà mostrato da showHud() dopo l'animazione camera
     // NON mostrare automaticamente - viene mostrato da hideLoadingScreen() quando la schermata di autenticazione è nascosta
     // this.playerHUD.show();
@@ -220,7 +226,25 @@ export class UIHUDManager {
           credits: data.inventory.credits || 0,
           cosmos: data.inventory.cosmos || 0,
           experience: data.inventory.experience || 0,
-          honor: data.inventory.honor || 0
+          honor: data.inventory.honor || 0,
+          ammo: data.inventory.ammo ?? this.context.playerInventory?.ammo
+        };
+      }
+    }
+
+    if (this.context) {
+      const hasAmmoInventoryPayload = data.ammoInventory !== undefined || data.inventory?.ammo !== undefined;
+      const hasLegacyAmmoPayload = Number.isFinite(Number(data.ammo));
+      if (hasAmmoInventoryPayload || hasLegacyAmmoPayload) {
+        const normalizedAmmoInventory = normalizeAmmoInventory(
+          data.ammoInventory ?? data.inventory?.ammo ?? this.context.playerAmmoInventory,
+          data.ammo
+        );
+        this.context.playerAmmoInventory = normalizedAmmoInventory;
+        this.context.playerAmmo = getSelectedAmmoCount(normalizedAmmoInventory);
+        this.context.playerInventory = {
+          ...this.context.playerInventory,
+          ammo: normalizedAmmoInventory
         };
       }
     }

@@ -727,6 +727,30 @@ class ServerInputValidator {
             }
           };
 
+        case 'set_ammo_tier':
+          const setAmmoTierErrors = [];
+          const allowedAmmoTiers = ['x1', 'x2', 'x3'];
+          const normalizedAmmoTier = String(data.ammoTier ?? '').trim().toLowerCase();
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            setAmmoTierErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            setAmmoTierErrors.push('Client ID too long');
+          }
+
+          if (!allowedAmmoTiers.includes(normalizedAmmoTier)) {
+            setAmmoTierErrors.push('Invalid ammoTier (must be x1, x2, or x3)');
+          }
+
+          return {
+            isValid: setAmmoTierErrors.length === 0,
+            errors: setAmmoTierErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              ammoTier: normalizedAmmoTier
+            }
+          };
+
         case 'set_pet_nickname':
           const petNicknameErrors = [];
           const rawPetNickname = String(data.petNickname ?? '').trim();

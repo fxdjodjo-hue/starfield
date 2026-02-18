@@ -21,6 +21,7 @@ import { DamageTextSystem } from '../rendering/DamageTextSystem';
 import { DisplayManager } from '../../infrastructure/display';
 import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
 import { GAME_CONSTANTS } from '../../config/GameConstants';
+import { normalizeAmmoInventory, getSelectedAmmoCount } from '../../core/utils/ammo/AmmoInventory';
 import { LogType } from '../../presentation/ui/LogMessage';
 import { AssetManager } from '../../core/services/AssetManager';
 import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
@@ -183,6 +184,41 @@ export class CombatStateSystem extends BaseSystem {
     }
   }
 
+  private getSelectedAmmoCountForLocalPlayer(): number {
+    const gameContext = this.clientNetworkSystem?.gameContext;
+    if (!gameContext) {
+      // Fallback permissivo per evitare blocchi durante bootstrap/local debug.
+      return Number.POSITIVE_INFINITY;
+    }
+
+    const normalizedAmmoInventory = normalizeAmmoInventory(
+      gameContext.playerAmmoInventory ?? gameContext.playerInventory?.ammo,
+      gameContext.playerAmmo
+    );
+
+    return getSelectedAmmoCount(normalizedAmmoInventory);
+  }
+
+  private hasSelectedAmmoAvailable(): boolean {
+    return this.getSelectedAmmoCountForLocalPlayer() > 0;
+  }
+
+  private showNoAmmoWarning(): void {
+    const now = Date.now();
+    if (now - this.lastCombatLogTime < 1000) {
+      return;
+    }
+    this.lastCombatLogTime = now;
+
+    if (this.logSystem) {
+      this.logSystem.addLogMessage(
+        'No ammo in selected slot. Select or craft ammo to attack.',
+        LogType.ATTACK_FAILED,
+        2000
+      );
+    }
+  }
+
   private pruneActiveBeamTracking(): void {
     if (this.activeBeamEntities.size === 0) {
       return;
@@ -240,6 +276,12 @@ export class CombatStateSystem extends BaseSystem {
     const npcTransform = this.ecs.getComponent(selectedNpc, Transform);
 
     if (!playerTransform || !npcTransform) {
+      return;
+    }
+
+    if (!this.hasSelectedAmmoAvailable()) {
+      this.showNoAmmoWarning();
+      this.deactivateAttackAfterCombatEnd();
       return;
     }
 
@@ -364,6 +406,12 @@ export class CombatStateSystem extends BaseSystem {
 
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
 
+    if (attackActivated && inRange && !this.hasSelectedAmmoAvailable()) {
+      this.showNoAmmoWarning();
+      this.stopCombatImmediately();
+      return;
+    }
+
 
     // Permetti combattimento anche se NPC fuori schermo, purché entro range
     // NON deselezionare mai temporaneamente - lascia che il face-up gestisca la logica
@@ -404,6 +452,12 @@ export class CombatStateSystem extends BaseSystem {
     const attackActivated = this.playerControlSystem?.isAttackActivated() || false;
     if (!attackActivated || this.currentAttackTarget === null) {
       return; // Non creare laser se attacco non attivo
+    }
+
+    if (!this.hasSelectedAmmoAvailable()) {
+      this.showNoAmmoWarning();
+      this.stopCombatImmediately();
+      return;
     }
 
     const now = Date.now();
@@ -681,6 +735,12 @@ export class CombatStateSystem extends BaseSystem {
   private sendStartCombat(npcEntity: Entity): void {
     if (!this.clientNetworkSystem) {
       return; // Non fare niente se non connesso
+    }
+
+    if (!this.hasSelectedAmmoAvailable()) {
+      this.showNoAmmoWarning();
+      this.deactivateAttackAfterCombatEnd();
+      return;
     }
 
     const npc = this.ecs.getComponent(npcEntity, Npc);

@@ -260,6 +260,8 @@ class BoundaryEnforcement {
         return { allowed: true };
       case 'ship_skin_action':
         return { allowed: true };
+      case 'set_ammo_tier':
+        return { allowed: true };
       case 'set_pet_nickname':
         return { allowed: true };
       case 'set_pet_active':

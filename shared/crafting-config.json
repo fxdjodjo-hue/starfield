@@ -50,6 +50,21 @@
           "level": 1
         }
       }
+    },
+    {
+      "id": "ammo_basic_x1",
+      "itemId": "ammo_basic_x1",
+      "displayName": "Munizioni x1",
+      "description": "Craft one unit of standard ammo.",
+      "category": "ammo",
+      "cost": {
+        "cuprite": 1
+      },
+      "effect": {
+        "type": "add_ammo",
+        "ammoTier": "x1",
+        "quantity": 1
+      }
     }
   ]
 }

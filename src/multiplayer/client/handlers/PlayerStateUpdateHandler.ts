@@ -11,6 +11,7 @@ import { AnimatedSprite } from '../../../entities/AnimatedSprite';
 import { createPlayerShipAnimatedSprite } from '../../../core/services/PlayerShipSpriteFactory';
 import { getSelectedPlayerShipSkinId, getUnlockedPlayerShipSkinIds } from '../../../config/ShipSkinConfig';
 import { syncLocalPetCombatStats } from './utils/PetStateSync';
+import { normalizeAmmoInventory, getSelectedAmmoCount } from '../../../core/utils/ammo/AmmoInventory';
 
 /**
  * Gestisce gli aggiornamenti completi dello stato del giocatore dal server
@@ -23,9 +24,16 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
 
 
   handle(message: PlayerStateUpdateMessage, networkSystem: ClientNetworkSystem): void {
-    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState, crafting } = message;
+    const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState, crafting, ammo, ammoInventory } = message;
     const normalizedResourceInventory = this.normalizeResourceInventory(resourceInventory);
     const normalizedPetState = this.normalizePetState(petState);
+    const hasAmmoPayload = ammoInventory !== undefined || Number.isFinite(Number(ammo)) || inventory?.ammo !== undefined;
+    const normalizedAmmoInventory = hasAmmoPayload
+      ? normalizeAmmoInventory(
+        ammoInventory ?? inventory?.ammo ?? networkSystem.gameContext?.playerAmmoInventory,
+        ammo
+      )
+      : null;
     const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);
     const previousCosmos = Number(networkSystem.gameContext?.playerInventory?.cosmos || 0);
     const previousSelectedShipSkinId = networkSystem.gameContext?.playerShipSkinId || '';
@@ -39,7 +47,16 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
         cosmos: inventory.cosmos,
         experience: inventory.experience,
         honor: inventory.honor,
+        ammo: normalizedAmmoInventory ?? networkSystem.gameContext.playerAmmoInventory ?? undefined,
         recentHonor: recentHonor // Includi RecentHonor se disponibile
+      };
+    }
+    if (networkSystem.gameContext && normalizedAmmoInventory) {
+      networkSystem.gameContext.playerAmmoInventory = normalizedAmmoInventory;
+      networkSystem.gameContext.playerAmmo = getSelectedAmmoCount(normalizedAmmoInventory);
+      networkSystem.gameContext.playerInventory = {
+        ...networkSystem.gameContext.playerInventory,
+        ammo: normalizedAmmoInventory
       };
     }
 
@@ -194,8 +211,17 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     // Importante per riflettere immediatamente i cambiamenti di HP/Shield max dopo equipaggiamento
     if (uiSystem) {
       // Forza aggiornamento immediato dati HUD (credits/cosmos in alto a sinistra)
-      if (inventory && typeof (uiSystem as any).updatePlayerData === 'function') {
-        (uiSystem as any).updatePlayerData({ inventory });
+      const hasAmmoUpdate = normalizedAmmoInventory !== null;
+      if ((inventory || hasAmmoUpdate) && typeof (uiSystem as any).updatePlayerData === 'function') {
+        const updatePayload: any = {};
+        if (inventory) {
+          updatePayload.inventory = inventory;
+        }
+        if (hasAmmoUpdate) {
+          updatePayload.ammoInventory = normalizedAmmoInventory;
+          updatePayload.ammo = getSelectedAmmoCount(normalizedAmmoInventory);
+        }
+        (uiSystem as any).updatePlayerData(updatePayload);
       }
 
       const uiManager = uiSystem.getUIManager();
@@ -221,7 +247,10 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
       if (normalizedResourceInventory) {
         const craftingPanel = uiManager.getPanel('crafting-panel');
         if (craftingPanel && typeof (craftingPanel as any).update === 'function') {
-          (craftingPanel as any).update({ resourceInventory: normalizedResourceInventory });
+          (craftingPanel as any).update({
+            resourceInventory: normalizedResourceInventory,
+            petState: normalizedPetState ?? networkSystem.gameContext?.playerPetState ?? undefined
+          });
         }
       }
 

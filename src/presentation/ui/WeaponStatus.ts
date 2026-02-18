@@ -1,5 +1,6 @@
 import { DisplayManager } from '../../infrastructure/display';
 import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
+import type { AmmoInventoryPayload, AmmoTier } from '../../config/NetworkConfig';
 
 type WeaponCooldownId = 'laser' | 'missile';
 
@@ -18,6 +19,24 @@ interface WeaponWidgetConfig {
   modeLabel: string;
 }
 
+const AMMO_SLOT_BY_TIER: Record<AmmoTier, number> = {
+  x1: 1,
+  x2: 2,
+  x3: 3
+};
+
+const AMMO_TIERS_BY_SLOT: Record<number, AmmoTier> = {
+  1: 'x1',
+  2: 'x2',
+  3: 'x3'
+};
+
+const AMMO_ICON_BY_TIER: Record<AmmoTier, string> = {
+  x1: 'assets/actionbar/x1.png',
+  x2: 'assets/actionbar/x2.png',
+  x3: 'assets/actionbar/x3.png'
+};
+
 /**
  * WeaponStatus - Bottom action area with:
  * - automatic ship weapon cooldown telemetry (separate, non-numeric)
@@ -30,9 +49,9 @@ export class WeaponStatus {
   private currentActiveSlot: number = 0;
 
   private readonly skillSlots: SkillSlotConfig[] = [
-    { index: 1, title: 'Skill Slot 1', actionLabel: 'Skill Slot', enabled: false },
-    { index: 2, title: 'Skill Slot 2', actionLabel: 'Skill Slot', enabled: false },
-    { index: 3, title: 'Skill Slot 3', actionLabel: 'Skill Slot', enabled: false },
+    { index: 1, title: 'Ammo x1', actionLabel: 'Ammo x1', enabled: false },
+    { index: 2, title: 'Ammo x2', actionLabel: 'Ammo x2', enabled: false },
+    { index: 3, title: 'Ammo x3', actionLabel: 'Ammo x3', enabled: false },
     { index: 4, title: 'Skill Slot 4', actionLabel: 'Skill Slot', enabled: false },
     { index: 5, title: 'Skill Slot 5', actionLabel: 'Skill Slot', enabled: false },
     { index: 6, title: 'Skill Slot 6', actionLabel: 'Skill Slot', enabled: false },
@@ -50,6 +69,7 @@ export class WeaponStatus {
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     this.dprCompensation = 1 / dpr;
     this.container = this.createStatusContainer();
+    this.setAmmoShortcutCount(0);
     document.body.appendChild(this.container);
     this.setupInputBindings();
   }
@@ -80,9 +100,17 @@ export class WeaponStatus {
     `;
 
     const skillSlotsMarkup = this.skillSlots.map((slot) => {
-      const iconMarkup = slot.iconPath
-        ? `<img src="${slot.iconPath}" class="skillbar-icon" alt="${slot.title}">`
-        : '<div class="skillbar-empty-mark">+</div>';
+      const ammoTier = AMMO_TIERS_BY_SLOT[slot.index];
+      const iconMarkup = ammoTier
+        ? `
+          <div class="skillbar-ammo-slot">
+            <img src="${AMMO_ICON_BY_TIER[ammoTier]}" class="skillbar-ammo-icon" alt="Ammo ${ammoTier.toUpperCase()}">
+            <div class="skillbar-ammo-count" data-ammo-shortcut-count="${ammoTier}">0</div>
+          </div>
+        `
+        : slot.iconPath
+          ? `<img src="${slot.iconPath}" class="skillbar-icon" alt="${slot.title}">`
+          : '<div class="skillbar-empty-mark">+</div>';
 
       const disabledClass = slot.enabled ? '' : ' skillbar-slot-disabled';
       return `
@@ -429,6 +457,36 @@ export class WeaponStatus {
         z-index: 0;
       }
 
+      .skillbar-ammo-slot {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .skillbar-ammo-icon {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        opacity: 0.95;
+        filter: drop-shadow(0 0 ${Math.max(4, Math.round(6 * c))}px rgba(14, 165, 233, 0.25));
+      }
+
+      .skillbar-ammo-count {
+        position: absolute;
+        right: ${Math.max(2, Math.round(3 * c))}px;
+        bottom: ${Math.max(2, Math.round(2 * c))}px;
+        color: rgba(248, 250, 252, 0.95);
+        font-size: ${Math.round(14 * c)}px;
+        font-weight: 800;
+        line-height: 1;
+        font-family: 'Consolas', 'Courier New', monospace;
+        text-shadow: 0 0 ${Math.max(4, Math.round(8 * c))}px rgba(14, 165, 233, 0.35);
+      }
+
       .skillbar-slot-label {
         width: ${Math.round(60 * c)}px;
         padding: ${Math.max(1, Math.round(1 * c))}px ${Math.round(3 * c)}px;
@@ -467,7 +525,8 @@ export class WeaponStatus {
     if (slot < 1 || slot > 9) {
       return;
     }
-    this.setActiveSlot(slot);
+    const shouldForceActivation = slot >= 1 && slot <= 3;
+    this.setActiveSlot(slot, shouldForceActivation);
   };
 
   public show(): void {
@@ -476,7 +535,8 @@ export class WeaponStatus {
       applyFadeIn(this.container, 'translateX(-50%)');
       this.isVisible = true;
     }
-    this.setActiveSlot(this.currentActiveSlot);
+    const shouldForceActivation = this.currentActiveSlot >= 1 && this.currentActiveSlot <= 3;
+    this.setActiveSlot(this.currentActiveSlot, shouldForceActivation);
   }
 
   public hide(): void {
@@ -487,6 +547,76 @@ export class WeaponStatus {
   public update(laserProgress: number, missileProgress: number, laserRemaining: number = 0, missileRemaining: number = 0): void {
     this.updateWeaponCooldown('laser', laserProgress, laserRemaining);
     this.updateWeaponCooldown('missile', missileProgress, missileRemaining);
+  }
+
+  public setAmmoShortcutCount(ammoCountRaw: number | null | undefined): void {
+    const ammoCount = Number.isFinite(Number(ammoCountRaw))
+      ? Math.max(0, Math.floor(Number(ammoCountRaw)))
+      : 0;
+    this.setAmmoShortcutCounts({
+      selectedTier: 'x1',
+      tiers: {
+        x1: ammoCount,
+        x2: 0,
+        x3: 0
+      }
+    });
+  }
+
+  public setAmmoShortcutCounts(ammoInventoryRaw: AmmoInventoryPayload | null | undefined): void {
+    const normalizedAmmoInventory = this.normalizeAmmoInventory(ammoInventoryRaw);
+
+    for (const ammoTier of Object.keys(AMMO_SLOT_BY_TIER) as AmmoTier[]) {
+      const slotIndex = AMMO_SLOT_BY_TIER[ammoTier];
+      const ammoCount = this.normalizeAmmoCount(normalizedAmmoInventory.tiers[ammoTier]);
+      const isEnabled = ammoCount > 0;
+
+      const slotConfig = this.skillSlots.find((slot) => slot.index === slotIndex);
+      if (slotConfig) {
+        slotConfig.enabled = isEnabled;
+      }
+
+      const ammoSlot = this.container.querySelector<HTMLElement>(`[data-skill-slot="${slotIndex}"]`);
+      const ammoCountElement = this.container.querySelector<HTMLElement>(`[data-ammo-shortcut-count="${ammoTier}"]`);
+      if (ammoCountElement) {
+        ammoCountElement.textContent = `${ammoCount}`;
+      }
+
+      if (ammoSlot) {
+        ammoSlot.classList.toggle('skillbar-slot-disabled', !isEnabled);
+        ammoSlot.title = isEnabled
+          ? `Ammo ${ammoTier} (${ammoCount})`
+          : `Ammo ${ammoTier} (empty)`;
+      }
+    }
+
+    const selectedSlot = AMMO_SLOT_BY_TIER[normalizedAmmoInventory.selectedTier] || 1;
+    this.setActiveSlot(selectedSlot, true);
+  }
+
+  private normalizeAmmoInventory(ammoInventoryRaw: AmmoInventoryPayload | null | undefined): AmmoInventoryPayload {
+    const sourceInventory = ammoInventoryRaw && typeof ammoInventoryRaw === 'object'
+      ? ammoInventoryRaw
+      : null;
+    const fallbackTier: AmmoTier = 'x1';
+    const selectedTier = sourceInventory && (sourceInventory.selectedTier === 'x1' || sourceInventory.selectedTier === 'x2' || sourceInventory.selectedTier === 'x3')
+      ? sourceInventory.selectedTier
+      : fallbackTier;
+
+    return {
+      selectedTier,
+      tiers: {
+        x1: this.normalizeAmmoCount(sourceInventory?.tiers?.x1),
+        x2: this.normalizeAmmoCount(sourceInventory?.tiers?.x2),
+        x3: this.normalizeAmmoCount(sourceInventory?.tiers?.x3)
+      }
+    };
+  }
+
+  private normalizeAmmoCount(rawValue: unknown): number {
+    const parsedValue = Number(rawValue);
+    if (!Number.isFinite(parsedValue)) return 0;
+    return Math.max(0, Math.floor(parsedValue));
   }
 
   private updateWeaponCooldown(weaponId: WeaponCooldownId, progress: number, remainingMs: number): void {
@@ -505,13 +635,15 @@ export class WeaponStatus {
     timerElement.textContent = remainingMs > 100 ? (remainingMs / 1000).toFixed(1) : '';
   }
 
-  private setActiveSlot(slot: number): void {
+  private setActiveSlot(slot: number, forceActivation: boolean = false): void {
+    const hasSlot = this.skillSlots.some((slotConfig) => slotConfig.index === slot);
     const hasEnabledSlot = this.skillSlots.some((slotConfig) => slotConfig.index === slot && slotConfig.enabled);
-    this.currentActiveSlot = hasEnabledSlot ? slot : 0;
+    const shouldActivate = forceActivation ? hasSlot : hasEnabledSlot;
+    this.currentActiveSlot = shouldActivate ? slot : 0;
 
     this.container.querySelectorAll<HTMLElement>('.skillbar-slot').forEach((element) => {
       const currentSlot = Number(element.dataset.skillSlot || 0);
-      element.classList.toggle('skillbar-slot-active', hasEnabledSlot && currentSlot === slot);
+      element.classList.toggle('skillbar-slot-active', shouldActivate && currentSlot === slot);
     });
   }
 

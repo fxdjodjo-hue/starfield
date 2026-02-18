@@ -344,7 +344,11 @@ export class MessageValidator {
     context: ValidationContext
   ): ValidationResult {
     // Validazione munizioni
-    if (!context.playerData || context.playerData.ammo <= 0) {
+    const playerData = context.playerData || {};
+    const ammoInventory = playerData.inventory?.ammo;
+    const selectedTier = String(ammoInventory?.selectedTier || 'x1').toLowerCase();
+    const selectedTierAmmo = Number(ammoInventory?.tiers?.[selectedTier] ?? playerData.ammo);
+    if (!Number.isFinite(selectedTierAmmo) || selectedTierAmmo <= 0) {
       return {
         isValid: false,
         error: 'No ammo available',
