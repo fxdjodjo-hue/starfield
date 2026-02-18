@@ -689,12 +689,12 @@ class ServerCombatManager {
     const finalDamage = Math.floor(calculatedDamage * ammoDamageMultiplier);
 
     // Determine projectile type based on selected ammo tier
-    let projectileType = 'lb1'; // Default (Targeting LCB-10 / Tier 1)
+    let projectileType = 'lb1'; // Default (x1)
 
-    if (consumeResult.selectedTier === 2) {
-      projectileType = 'lb2'; // MCB-25
-    } else if (consumeResult.selectedTier >= 3) {
-      projectileType = 'lb3'; // MCB-50 / UCB-100
+    if (consumeResult.selectedTier === 'x2') {
+      projectileType = 'lb2';
+    } else if (consumeResult.selectedTier === 'x3') {
+      projectileType = 'lb3';
     }
 
     // Usa la funzione comune per creare il proiettile
