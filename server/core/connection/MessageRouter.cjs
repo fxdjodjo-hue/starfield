@@ -29,6 +29,11 @@ const {
   getSelectedAmmoCount,
   getAmmoCountForTier
 } = require('../combat/AmmoInventory.cjs');
+const {
+  normalizeMissileInventory,
+  setSelectedMissileTier,
+  normalizeMissileTier
+} = require('../combat/MissileInventory.cjs');
 const AUTH_AUDIT_LOGS = process.env.AUTH_AUDIT_LOGS === 'true';
 const MOVEMENT_AUDIT_LOGS = process.env.MOVEMENT_AUDIT_LOGS === 'true';
 const GLOBAL_MONITOR_TOKEN = (process.env.GLOBAL_MONITOR_TOKEN || '').trim();
@@ -565,7 +570,8 @@ async function handleJoin(data, sanitizedData, context) {
     isFullyLoaded: false, // ðŸš« Blocca auto-repair finchÃ© non Ã¨ true
     inventory: {
       ...loadedData.inventory,
-      ammo: normalizeAmmoInventoryPayload(loadedData.inventory?.ammo, loadedData.ammo)
+      ammo: normalizeAmmoInventoryPayload(loadedData.inventory?.ammo, loadedData.ammo),
+      missileAmmo: normalizeMissileInventory(loadedData.inventory?.missileAmmo)
     },
     resourceInventory: loadedData.resourceInventory || {},
     petState: loadedData.petState || null,
@@ -1564,7 +1570,8 @@ async function handleRequestPlayerData(data, sanitizedData, context) {
     playerData.resourceInventory,
     playerData.petState,
     normalizeAmmoInventoryPayload(playerData.inventory?.ammo, playerData.ammo),
-    normalizeAmmoPayload(playerData.inventory?.ammo, playerData.ammo)
+    normalizeAmmoPayload(playerData.inventory?.ammo, playerData.ammo),
+    normalizeMissileInventory(playerData.inventory?.missileAmmo)
   );
   ServerLoggerWrapper.debug(
     'RESOURCE',
@@ -2298,6 +2305,46 @@ async function handleShipSkinAction(data, sanitizedData, context) {
   }
 }
 
+function handleSetMissileTier(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const requestedTier = normalizeMissileTier(sanitizedData?.missileTier || data?.missileTier, 'm1');
+  const currentMissileInventory = normalizeMissileInventory(
+    playerData.inventory?.missileAmmo
+  );
+  const nextMissileInventory = setSelectedMissileTier(currentMissileInventory, requestedTier);
+
+  if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+    playerData.inventory = {};
+  }
+
+  playerData.inventory.missileAmmo = nextMissileInventory;
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    missileAmmo: nextMissileInventory,
+    source: 'set_missile_tier'
+  }));
+
+  // Persist selected missile tier quickly
+  if (playerDataManager && typeof playerDataManager.savePlayerData === 'function') {
+    try {
+      if (playerData._missileTierSaveTimeout) {
+        clearTimeout(playerData._missileTierSaveTimeout);
+      }
+      playerData._missileTierSaveTimeout = setTimeout(() => {
+        playerDataManager.savePlayerData(playerData).catch((error) => {
+          logger.error('DATABASE', `Failed to persist missile tier for ${playerData.userId}: ${error.message}`);
+        });
+      }, 500);
+    } catch (error) {
+      logger.error('DATABASE', `Error scheduling missile tier save for ${playerData.userId}: ${error.message}`);
+    }
+  }
+}
+
 async function handleSetPetNickname(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);
@@ -2915,6 +2962,7 @@ const handlers = {
   sell_item: handleSellItem,
   ship_skin_action: handleShipSkinAction,
   set_ammo_tier: handleSetAmmoTier,
+  set_missile_tier: handleSetMissileTier,
   set_pet_nickname: handleSetPetNickname,
   set_pet_active: handleSetPetActive,
   set_pet_module: handleSetPetModule,

@@ -130,7 +130,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3'): void {
     this.initializeManagers();
     this.damageManager.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
   }
@@ -138,7 +138,7 @@ export class CombatSystem extends BaseSystem {
   /**
    * Decrementa il contatore dei testi di danno attivi per un'entità
    */
-  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile'): void {
+  public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3'): void {
     this.initializeManagers();
     this.damageManager.decrementDamageTextCount(targetEntityId, projectileType);
   }

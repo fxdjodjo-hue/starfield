@@ -986,6 +986,13 @@ export class UiSystem extends System {
         const cooldownRemaining = damage.getCooldownRemaining(now);
 
         this.hudManager.updateWeaponCooldown(cooldownProgress, cooldownRemaining);
+
+        // Missile Cooldown progress
+        const elapsedMissile = now - (damage.lastMissileTime || 0);
+        const missileCooldownProgress = damage.missileCooldown > 0 ? Math.min(1, elapsedMissile / damage.missileCooldown) : 1;
+        const missileCooldownRemaining = damage.getMissileCooldownRemaining(now);
+
+        this.hudManager.updateMissileCooldown(missileCooldownProgress, missileCooldownRemaining);
       }
     }
   }

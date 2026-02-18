@@ -119,6 +119,7 @@ export type PlayerUuid = string & { readonly __brand: unique symbol }; // UUID S
 export type PlayerDbId = number & { readonly __brand: unique symbol }; // ID numerico database
 export type NetworkNpcType = 'Scouter' | 'Kronos' | 'Guard' | 'Pyramid' | 'ARX-DRONE';
 export type AmmoTier = 'x1' | 'x2' | 'x3';
+export type MissileTier = 'm1' | 'm2' | 'm3';
 
 export interface AmmoInventoryPayload {
   selectedTier: AmmoTier;
@@ -126,6 +127,15 @@ export interface AmmoInventoryPayload {
     x1: number;
     x2: number;
     x3: number;
+  };
+}
+
+export interface MissileInventoryPayload {
+  selectedTier: MissileTier;
+  tiers: {
+    m1: number;
+    m2: number;
+    m3: number;
   };
 }
 
@@ -188,6 +198,7 @@ export const MESSAGE_TYPES = {
   SELL_ITEM: 'sell_item',
   SHIP_SKIN_ACTION: 'ship_skin_action',
   SET_AMMO_TIER: 'set_ammo_tier',
+  SET_MISSILE_TIER: 'set_missile_tier',
   SET_PET_NICKNAME: 'set_pet_nickname',
   SET_PET_ACTIVE: 'set_pet_active',
   SET_PET_MODULE: 'set_pet_module',
@@ -366,7 +377,7 @@ export interface ProjectileFiredMessage {
   position: { x: number; y: number };
   velocity: { x: number; y: number };
   damage: number;
-  projectileType: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'repair' | 'lb1' | 'lb2' | 'lb3';
+  projectileType: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'repair' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3';
   targetId?: string | null;
   hitTime?: number;
   isDeterministic?: boolean;
@@ -404,7 +415,7 @@ export interface EntityDamagedMessage {
   maxHealth?: number;
   maxShield?: number;
   position: { x: number; y: number };
-  projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'repair' | 'lb1' | 'lb2' | 'lb3';
+  projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'repair' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3';
 }
 
 /**
@@ -531,6 +542,7 @@ export interface PlayerStateUpdateMessage {
   };
   ammo?: number;
   ammoInventory?: AmmoInventoryPayload;
+  missileAmmo?: MissileInventoryPayload;
   items?: any[];
   resourceInventory?: Record<string, number>;
   petState?: PetStatePayload;
@@ -561,6 +573,7 @@ export interface WelcomeMessage {
     };
     ammo?: number;
     ammoInventory?: AmmoInventoryPayload;
+    missileAmmo?: MissileInventoryPayload;
     resources?: Array<{
       id: string;
       resourceType: string;
@@ -657,6 +670,7 @@ export interface PlayerDataResponseMessage extends BaseMessage {
   items: any[];
   ammo?: number;
   ammoInventory?: AmmoInventoryPayload;
+  missileAmmo?: MissileInventoryPayload;
   resourceInventory?: Record<string, number>;
   petState?: PetStatePayload;
   timestamp: number;

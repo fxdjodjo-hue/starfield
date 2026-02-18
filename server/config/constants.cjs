@@ -17,8 +17,6 @@ const SERVER_CONSTANTS = {
     MISSILE_SPEED: 500 // Velocità missili (leggermente aumentata da 250)
   },
 
-  // Missile constants removed - missiles are no longer supported
-
   COMBAT: {
     PLAYER_RANGE_WIDTH: playerConfig.stats.rangeWidth || (playerConfig.stats.range * 2),
     PLAYER_RANGE_HEIGHT: playerConfig.stats.rangeHeight || (playerConfig.stats.range * 2),

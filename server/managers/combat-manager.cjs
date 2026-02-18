@@ -13,6 +13,12 @@ const {
   getLegacyAmmoValue,
   getSelectedAmmoCount
 } = require('../core/combat/AmmoInventory.cjs');
+const {
+  normalizeMissileInventory,
+  consumeSelectedMissile,
+  getDamageMultiplierForMissileTier,
+  getSelectedMissileCount
+} = require('../core/combat/MissileInventory.cjs');
 
 class ServerCombatManager {
   constructor(mapServer) {
@@ -436,35 +442,43 @@ class ServerCombatManager {
       combat.lastAttackTime = now;
     }
 
-    // 🚀 AUTO-FIRE MISSILES
+    // 🚀 AUTO-FIRE MISSILES (consumable ammo system)
     // Controlla cooldown missili (indipendente dal laser)
     const missileCooldown = PLAYER_CONFIG.stats.missileCooldown || 3000;
     const lastMissileTime = combat.lastMissileTime || 0;
 
     if (now - lastMissileTime >= missileCooldown) {
-      // 🚀 PREDICTIVE MISSILE LOGIC: Lancio un missile solo se il target sopravviverà abbastanza a lungo
-
-      // 1. Calcola DPS stimato dei laser (Danno / Cooldown)
-      const laserDamage = DamageCalculationSystem.calculatePlayerDamage(
-        DamageCalculationSystem.getBasePlayerDamage(),
-        playerData.upgrades
+      // Check missile ammo availability
+      const currentMissileInventory = normalizeMissileInventory(
+        playerData.inventory?.missileAmmo
       );
-      const laserCooldownSec = (PLAYER_CONFIG.stats.cooldown || 1500) / 1000;
-      const laserDps = laserDamage / laserCooldownSec;
+      const selectedMissileCount = getSelectedMissileCount(currentMissileInventory);
 
-      // 2. Calcola tempo alla morte (TTD)
-      const targetTotalHealth = npc.health + npc.shield;
-      const timeToDeath = targetTotalHealth / laserDps;
+      if (selectedMissileCount > 0) {
+        // 🚀 PREDICTIVE MISSILE LOGIC: Lancio un missile solo se il target sopravviverà abbastanza a lungo
 
-      // 3. Calcola tempo di arrivo del missile (Distanza / Velocità + Buffer)
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const missileSpeed = SERVER_CONSTANTS.PROJECTILE.MISSILE_SPEED || 300;
-      const arrivalTime = (dist / missileSpeed) + 0.5; // 0.5s buffer di sicurezza
+        // 1. Calcola DPS stimato dei laser (Danno / Cooldown)
+        const laserDamage = DamageCalculationSystem.calculatePlayerDamage(
+          DamageCalculationSystem.getBasePlayerDamage(),
+          playerData.upgrades
+        );
+        const laserCooldownSec = (PLAYER_CONFIG.stats.cooldown || 1500) / 1000;
+        const laserDps = laserDamage / laserCooldownSec;
 
-      // 4. Fuoco solo se TTD > arrivalTime
-      if (timeToDeath > arrivalTime) {
-        this.performPlayerMissileAttack(playerId, playerData, npc, now);
-        combat.lastMissileTime = now;
+        // 2. Calcola tempo alla morte (TTD)
+        const targetTotalHealth = npc.health + npc.shield;
+        const timeToDeath = targetTotalHealth / laserDps;
+
+        // 3. Calcola tempo di arrivo del missile (Distanza / Velocità + Buffer)
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const missileSpeed = SERVER_CONSTANTS.PROJECTILE.MISSILE_SPEED || 300;
+        const arrivalTime = (dist / missileSpeed) + 0.5; // 0.5s buffer di sicurezza
+
+        // 4. Fuoco solo se TTD > arrivalTime
+        if (timeToDeath > arrivalTime) {
+          this.performPlayerMissileAttack(playerId, playerData, npc, now);
+          combat.lastMissileTime = now;
+        }
       }
     }
   }
@@ -473,8 +487,20 @@ class ServerCombatManager {
    * Esegue attacco missile automatico del player
    */
   performPlayerMissileAttack(playerId, playerData, npc, now) {
-    // Calcola danno missili: Base + Bonus Upgrades
-    // Nota: I missili scalano con missileDamageUpgrades, non weaponDamageUpgrades
+    // Consume missile ammo
+    const currentMissileInventory = normalizeMissileInventory(
+      playerData.inventory?.missileAmmo
+    );
+    const consumeResult = consumeSelectedMissile(currentMissileInventory);
+    if (!consumeResult.ok) {
+      if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+        playerData.inventory = {};
+      }
+      playerData.inventory.missileAmmo = currentMissileInventory;
+      return null;
+    }
+
+    // Calcola danno missili: Base + Bonus Upgrades + Tier Multiplier
     const baseMissileDamage = PLAYER_CONFIG.stats.missileDamage || 100;
 
     // Calcolo bonus upgrade (simile a DamageCalculationSystem ma specifico per missili)
@@ -484,7 +510,6 @@ class ServerCombatManager {
     }
 
     let itemMultiplier = 1.0;
-    // 🚀 FIX: Aggiungi bonus dagli item equipaggiati per i missili
     if (playerData.items && Array.isArray(playerData.items)) {
       const itemConfig = require('../../shared/item-config.json');
       const ITEM_REGISTRY = itemConfig.ITEM_REGISTRY;
@@ -498,24 +523,44 @@ class ServerCombatManager {
       }
     }
 
-    const damage = Math.floor(baseMissileDamage * upgradeMultiplier * itemMultiplier);
+    // Apply missile tier damage multiplier
+    const missileTierMultiplier = getDamageMultiplierForMissileTier(consumeResult.selectedTier);
+    const damage = Math.floor(baseMissileDamage * upgradeMultiplier * itemMultiplier * missileTierMultiplier);
+
+    // Determine projectile type from selected missile tier (m1, m2, m3)
+    const projectileType = consumeResult.selectedTier;
 
     // Usa posizione corrente del player
     const playerPos = playerData.position;
 
     // Crea proiettile missile (FISICO, non deterministico)
-    // Usiamo la logica standard dei laser ma con tipo 'missile' e target specifico per homing
     const projectileId = this.performAttack(
       playerId,              // ownerId
       playerPos,             // ownerPosition
       npc.position,          // targetPosition
       damage,                // damage
-      'missile',             // projectileType
+      projectileType,        // projectileType (m1, m2, m3)
       npc.id                 // targetId (abilita homing nel ProjectilePhysics)
     );
 
+    // Update missile inventory after successful fire
+    if (projectileId) {
+      if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+        playerData.inventory = {};
+      }
+      playerData.inventory.missileAmmo = consumeResult.missileInventory;
+
+      if (playerData.ws && playerData.ws.readyState === 1) {
+        playerData.ws.send(JSON.stringify({
+          type: 'player_state_update',
+          missileAmmo: consumeResult.missileInventory,
+          source: 'combat_missile'
+        }));
+      }
+    }
+
     if (process.env.DEBUG_COMBAT === 'true' && projectileId) {
-      console.log(`[PLAYER ${playerId}] Fired physics missile at NPC ${npc.id}. Damage: ${damage}`);
+      console.log(`[PLAYER ${playerId}] Fired ${projectileType} missile at NPC ${npc.id}. Damage: ${damage}`);
     }
 
     return projectileId;
@@ -623,7 +668,8 @@ class ServerCombatManager {
     };
 
     // Velocità costante verso il target
-    const speed = projectileType === 'missile' ? SERVER_CONSTANTS.PROJECTILE.MISSILE_SPEED : SERVER_CONSTANTS.PROJECTILE.SPEED;
+    const isMissile = projectileType === 'missile' || projectileType === 'm1' || projectileType === 'm2' || projectileType === 'm3';
+    const speed = isMissile ? SERVER_CONSTANTS.PROJECTILE.MISSILE_SPEED : SERVER_CONSTANTS.PROJECTILE.SPEED;
 
     const velocity = {
       x: directionX * speed,

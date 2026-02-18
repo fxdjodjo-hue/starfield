@@ -51,15 +51,32 @@ export class EntityDamagedHandler extends BaseMessageHandler {
       message.attackerId === String(localAuthId) ||
       message.attackerId === String(localClientId);
 
-    if (isLocalPlayerAttacker && (message.projectileType === 'laser' || message.projectileType === 'lb1' || message.projectileType === 'lb2' || message.projectileType === 'lb3')) {
-      // Trova l'entità del player locale e aggiorna lastAttackTime
-      const playerSystem = networkSystem.getPlayerSystem();
-      if (playerSystem) {
-        const playerEntity = playerSystem.getPlayerEntity();
-        if (playerEntity) {
-          const playerDamage = ecs.getComponent(playerEntity, Damage);
-          if (playerDamage) {
-            playerDamage.performAttack(Date.now());
+    if (isLocalPlayerAttacker) {
+      // Logic for laser cooldown (handled by WeaponStatus/Damage)
+      if (message.projectileType === 'laser' || message.projectileType === 'lb1' || message.projectileType === 'lb2' || message.projectileType === 'lb3') {
+        const playerSystem = networkSystem.getPlayerSystem();
+        if (playerSystem) {
+          const playerEntity = playerSystem.getPlayerEntity();
+          if (playerEntity) {
+            const playerDamage = ecs.getComponent(playerEntity, Damage);
+            if (playerDamage) {
+              playerDamage.performAttack(Date.now());
+            }
+          }
+        }
+      }
+      // Logic for missile cooldown - Fallback trigger on damage confirmation
+      // (Primary trigger should be in ProjectileFiredHandler, but this ensures sync)
+      else if (message.projectileType === 'missile' || message.projectileType === 'm1' || message.projectileType === 'm2' || message.projectileType === 'm3') {
+        const playerSystem = networkSystem.getPlayerSystem();
+        if (playerSystem) {
+          const playerEntity = playerSystem.getPlayerEntity();
+          if (playerEntity) {
+            const playerDamage = ecs.getComponent(playerEntity, Damage);
+            if (playerDamage) {
+              // Update lastMissileTime
+              playerDamage.lastMissileTime = Date.now();
+            }
           }
         }
       }

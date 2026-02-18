@@ -9,6 +9,9 @@ const {
   normalizeAmmoInventory,
   getLegacyAmmoValue
 } = require('../combat/AmmoInventory.cjs');
+const {
+  normalizeMissileInventory
+} = require('../combat/MissileInventory.cjs');
 
 function normalizeResourceInventory(resourceInventory) {
   const normalizedResourceInventory = {};
@@ -142,6 +145,7 @@ class MessageBroadcaster {
         },
         ammo: getLegacyAmmoValue(normalizedAmmoInventory),
         ammoInventory: normalizedAmmoInventory,
+        missileAmmo: normalizeMissileInventory(playerData?.inventory?.missileAmmo),
         resourceInventory: normalizedResourceInventory,
         petState: normalizedPetState
       }
@@ -293,16 +297,20 @@ class MessageBroadcaster {
    * @param {Array} items - Inventory items array
    * @returns {Object} Player data response
    */
-  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null, resourceInventory = null, petState = null, ammoInventory = null, legacyAmmo = undefined) {
+  formatPlayerDataResponse(playerId, inventory, upgrades, quests, recentHonor, isAdministrator = false, rank = 'Basic Space Pilot', items = [], shipSkins = null, resourceInventory = null, petState = null, ammoInventory = null, legacyAmmo = undefined, missileAmmo = null) {
     const normalizedResourceInventory = normalizeResourceInventory(resourceInventory);
     const normalizedPetState = normalizePetState(petState);
     const normalizedAmmoInventory = normalizeAmmoInventoryPayload(
       ammoInventory || inventory?.ammo,
       legacyAmmo
     );
+    const normalizedMissileInventory = normalizeMissileInventory(
+      missileAmmo || inventory?.missileAmmo
+    );
+
     const normalizedInventory = inventory && typeof inventory === 'object'
-      ? { ...inventory, ammo: normalizedAmmoInventory }
-      : { ammo: normalizedAmmoInventory };
+      ? { ...inventory, ammo: normalizedAmmoInventory, missileAmmo: normalizedMissileInventory }
+      : { ammo: normalizedAmmoInventory, missileAmmo: normalizedMissileInventory };
 
     return {
       type: 'player_data_response',
@@ -313,6 +321,7 @@ class MessageBroadcaster {
       items: items || [],
       ammo: getLegacyAmmoValue(normalizedAmmoInventory),
       ammoInventory: normalizedAmmoInventory,
+      missileAmmo: normalizedMissileInventory,
       resourceInventory: normalizedResourceInventory,
       petState: normalizedPetState,
       recentHonor: recentHonor,

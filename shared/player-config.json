@@ -16,7 +16,12 @@
     "cosmos": 5000,
     "level": 1,
     "experience": 0,
-    "honor": 0
+    "honor": 0,
+    "missileAmmo": {
+      "m1": 100,
+      "m2": 0,
+      "m3": 0
+    }
   },
   "spriteSize": {
     "width": 112,
