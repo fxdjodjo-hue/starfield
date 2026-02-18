@@ -65,6 +65,36 @@
         "ammoTier": "x1",
         "quantity": 1
       }
+    },
+    {
+      "id": "ammo_basic_x2",
+      "itemId": "ammo_basic_x2",
+      "displayName": "Ammo x2",
+      "description": "Craft one unit of enhanced ammo (x2 damage).",
+      "category": "ammo",
+      "cost": {
+        "cuprite": 2
+      },
+      "effect": {
+        "type": "add_ammo",
+        "ammoTier": "x2",
+        "quantity": 1
+      }
+    },
+    {
+      "id": "ammo_basic_x3",
+      "itemId": "ammo_basic_x3",
+      "displayName": "Ammo x3",
+      "description": "Craft one unit of advanced ammo (x3 damage).",
+      "category": "ammo",
+      "cost": {
+        "cuprite": 4
+      },
+      "effect": {
+        "type": "add_ammo",
+        "ammoTier": "x3",
+        "quantity": 1
+      }
     }
   ]
 }
