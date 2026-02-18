@@ -17,12 +17,14 @@ interface StarLayer {
   minSize: number;    // Dimensione minima
   maxSize: number;    // Dimensione massima
   alpha: number;      // Trasparenza base
+  driftX?: number;    // Velocità drift orizzontale (px/s)
+  driftY?: number;    // Velocità drift verticale (px/s)
 }
 
 const STAR_LAYERS: StarLayer[] = [
   { speed: 0.05, density: 5, minSize: 0.5, maxSize: 1.2, alpha: 0.4 },  // Layer lontano - Stelle moderate
   { speed: 0.15, density: 4, minSize: 0.8, maxSize: 1.8, alpha: 0.6 },  // Layer medio - Stelle bilanciate
-  { speed: 0.30, density: 2, minSize: 1.0, maxSize: 1.8, alpha: 0.8 },  // Layer vicino - Stelle essenziali
+  { speed: 0.30, density: 2, minSize: 1.0, maxSize: 1.8, alpha: 0.8, driftX: 10, driftY: 3 },  // Layer vicino - Stelle essenziali + drift fluido
 ];
 
 const STAR_GRID_SIZE = 400; // Dimensione cella griglia in pixel
@@ -62,6 +64,7 @@ export class ParallaxSystem extends BaseSystem {
   private lastCameraX: number = 0;
   private lastCameraY: number = 0;
   private initialized: boolean = false;
+  private totalTime: number = 0;
 
   // Sistema meteore
   private meteors: Meteor[] = [];
@@ -202,6 +205,9 @@ export class ParallaxSystem extends BaseSystem {
     const camera = this.cameraSystem.getCamera();
     const { width, height } = DisplayManager.getInstance().getLogicalSize();
 
+    // Aggiorna tempo totale per animazioni drift
+    this.totalTime += deltaTime;
+
     // Inizializza la posizione precedente della camera
     if (!this.initialized) {
       this.lastCameraX = camera.x;
@@ -271,8 +277,16 @@ export class ParallaxSystem extends BaseSystem {
       const layer = STAR_LAYERS[layerIndex];
 
       // Calcola posizione camera con parallax
-      const parallaxX = camera.x * layer.speed;
-      const parallaxY = camera.y * layer.speed;
+      // Aggiungi drift per movimento fluido continuo (se configurato)
+      // Usa secondi per evitare velocità folli
+      const timeS = this.totalTime / 1000;
+
+      // Movimento lineare costante (come stelle vere nello spazio)
+      const driftX = (layer.driftX || 0) * timeS;
+      const driftY = (layer.driftY || 0) * timeS;
+
+      const parallaxX = camera.x * layer.speed + driftX;
+      const parallaxY = camera.y * layer.speed + driftY;
 
       // Calcola celle visibili (con margine)
       const margin = STAR_GRID_SIZE;

@@ -61,16 +61,24 @@ export class DamageSystem extends BaseSystem {
       textColor = '#4444ff'; // Blu per shield
       offsetY = -30;
       offsetX = (Math.random() - 0.5) * 25; // ±12.5px
-    } else if (projectileType === 'missile') {
-      // Danni Missili in Arancione
-      textColor = '#FFA500'; // Orange
-      offsetY = -40; // Leggermente più in alto
-      offsetX = (Math.random() - 0.5) * 30; // Più dispersione per missili
+      offsetY = -30;
+      offsetX = (Math.random() - 0.5) * 25; // ±12.5px
     } else {
-      // Tutti i danni HP usano il rosso (laser standard)
-      textColor = '#ff4444';
-      offsetY = -30; // Default, sarà aggiustato sotto
-      offsetX = (Math.random() - 0.5) * 20; // ±10px
+      // Robust missile check (supports m1, m2, m3, missile)
+      const isMissile = projectileType === 'missile' ||
+        (typeof projectileType === 'string' && projectileType.startsWith('m'));
+
+      if (isMissile) {
+        // Danni Missili in Arancione
+        textColor = '#FFA500'; // Orange
+        offsetY = -40; // Leggermente più in alto
+        offsetX = (Math.random() - 0.5) * 30; // Più dispersione per missili
+      } else {
+        // Tutti i danni HP usano il rosso (laser standard)
+        textColor = '#ff4444';
+        offsetY = -30; // Default, sarà aggiustato sotto
+        offsetX = (Math.random() - 0.5) * 20; // ±10px
+      }
     }
 
     // Se abbiamo appena applicato danno shield, il prossimo danno HP va più in basso

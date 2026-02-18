@@ -19,7 +19,7 @@ export class CombatDamageManager {
   /**
    * Creates a damage text for a target entity
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3', worldX?: number, worldY?: number): void {
     if (damage <= 0) {
       return;
     }
@@ -27,7 +27,7 @@ export class CombatDamageManager {
     const targetEntityId = targetEntity.id;
 
     // Seleziona la mappa corretta in base al tipo di proiettile
-    const isMissile = projectileType === 'missile';
+    const isMissile = projectileType === 'missile' || projectileType === 'm1' || projectileType === 'm2' || projectileType === 'm3';
     const activeMap = isMissile ? this.activeMissileTexts : this.activeLaserTexts;
     const maxTexts = 3; // Max 3 testi di danno per tipo
 
@@ -49,10 +49,31 @@ export class CombatDamageManager {
       offsetY = -30;
       offsetX = (Math.random() - 0.5) * 25; // ±12.5px
     } else {
-      // Tutti i danni HP usano il rosso
-      textColor = '#ff4444';
+      // Check for missile damage (robust check)
+      // Check for strict types OR any type starting with 'm' (m1, m2, m3...)
+      const isMissileType = projectileType === 'missile' ||
+        (typeof projectileType === 'string' && projectileType.startsWith('m'));
+
+      if (isMissileType) {
+        textColor = '#ffaa00'; // Orange for missiles
+        if (projectileType !== 'missile') {
+          // console.log('[DamageText] Missile damage detected:', projectileType);
+        }
+      } else {
+        // Tutti i danni HP usano il rosso
+        textColor = '#ff4444';
+        // Debug fallback
+        if (projectileType && projectileType !== 'laser') {
+          console.warn('[DamageText] Unknown projectile type defaulting to red:', projectileType);
+        }
+      }
       offsetY = -30; // Default, sarà aggiustato sotto
       offsetX = (Math.random() - 0.5) * 20; // ±10px
+    }
+
+    if (projectileType?.includes('m')) {
+      // Debug log only for potential missiles to reduce spam
+      // console.log('[DamageText] Creating text:', { projectileType, textColor, isMissile });
     }
 
     // Se abbiamo appena applicato danno shield, il prossimo danno HP va più in basso
@@ -62,7 +83,11 @@ export class CombatDamageManager {
 
     // Crea il testo di danno
     const damageTextEntity = this.ecs.createEntity();
-    const damageText = new DamageText(damage, targetEntityId, offsetX, offsetY, textColor, 1000, projectileType);
+    // Usa le coordinate world passate se disponibili, altrimenti 0 (DamageText userà la posizione dell'entità target nel sistema)
+    const initialX = worldX ?? 0;
+    const initialY = worldY ?? 0;
+
+    const damageText = new DamageText(damage, targetEntityId, offsetX, offsetY, textColor, 1000, projectileType, initialX, initialY);
     this.ecs.addComponent(damageTextEntity, DamageText, damageText);
 
     // Aggiorna il contatore appropriato
@@ -84,7 +109,7 @@ export class CombatDamageManager {
    * Chiamato dal DamageTextSystem quando un testo scade
    */
   decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3'): void {
-    const isMissile = projectileType === 'missile';
+    const isMissile = projectileType === 'missile' || projectileType === 'm1' || projectileType === 'm2' || projectileType === 'm3';
     const activeMap = isMissile ? this.activeMissileTexts : this.activeLaserTexts;
 
     const currentCount = activeMap.get(targetEntityId) || 0;

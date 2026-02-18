@@ -68,6 +68,23 @@ export class ProjectileRenderer {
       }
     } else {
       // Player projectile - try to use sprite first, fallback to red laser with glow
+
+      // Check for missile types
+      if (projectile.projectileType === 'm1' || projectile.projectileType === 'm2' || projectile.projectileType === 'm3') {
+        const missileImage = this.getProjectileImageForProjectile(projectile);
+
+        if (missileImage && missileImage.complete && missileImage.naturalWidth > 0) {
+          return {
+            color: '#ffaa00', // Orange fallback
+            length: 24,
+            lineWidth: 4,
+            hasImage: true,
+            imageSize: 32, // Slightly larger for missiles
+            image: missileImage
+          };
+        }
+      }
+
       // 🔧 FIX: Usa percorso corretto per Vite (senza leading slash)
       const playerLaserImage = this.assetManager.getOrLoadImage('assets/laser/laser1/laser1.png');
 
@@ -120,6 +137,11 @@ export class ProjectileRenderer {
    * Get projectile image based on projectile type
    */
   private getProjectileImageForProjectile(projectile: Projectile): HTMLImageElement | null {
+    // Check for missile types explicitly first
+    if (projectile.projectileType === 'm1' || projectile.projectileType === 'm2' || projectile.projectileType === 'm3') {
+      return this.assetManager.getOrLoadImage('assets/npc_ships/kronos/npc_frigate_projectile.png');
+    }
+
     // Determina il tipo di NPC dal playerId
     if (projectile.playerId && projectile.playerId.startsWith('npc_')) {
       // È un proiettile NPC

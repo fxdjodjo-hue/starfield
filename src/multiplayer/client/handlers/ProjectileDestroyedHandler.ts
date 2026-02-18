@@ -23,7 +23,7 @@ export class ProjectileDestroyedHandler extends BaseMessageHandler {
     const validExplosionReasons = ['target_hit', 'collision', 'hit', 'deterministic_hit'];
     const type = remoteProjectileSystem.getRemoteProjectileType(message.projectileId);
 
-    if (type === 'missile' && validExplosionReasons.includes(message.reason)) {
+    if ((type === 'missile' || type === 'm1' || type === 'm2' || type === 'm3') && validExplosionReasons.includes(message.reason)) {
       const entityId = remoteProjectileSystem.getRemoteProjectileEntity(message.projectileId);
       if (entityId !== undefined) {
         const ecs = networkSystem.getECS();
