@@ -34,7 +34,7 @@
       "targetPriority": "nearest",
       "formation": "scattered"
     },
-    "description": "Nemico base dello spazio profondo"
+    "description": "Basic deep space enemy"
   },
   "Kronos": {
     "type": "Kronos",
@@ -72,7 +72,7 @@
       "targetPriority": "weakest",
       "formation": "patrol"
     },
-    "description": "Nave da guerra di medie dimensioni"
+    "description": "Medium-sized warship"
   },
   "ARX-DRONE": {
     "type": "ARX-DRONE",
@@ -109,7 +109,7 @@
       "targetPriority": "players",
       "formation": "solo"
     },
-    "description": "Boss d'assalto ad alta pressione con scudi rinforzati"
+    "description": "High-pressure assault boss with reinforced shields"
   },
   "Guard": {
     "type": "Guard",
@@ -149,7 +149,7 @@
       "targetPriority": "nearest",
       "formation": "pack"
     },
-    "description": "Guardia della flotta Kronos"
+    "description": "Kronos fleet guard"
   },
   "Pyramid": {
     "type": "Pyramid",
@@ -188,6 +188,6 @@
       "formation": "solo",
       "detectionRange": 500
     },
-    "description": "Pyramid - Nave da guerra avanzata"
+    "description": "Pyramid - Advanced warship"
   }
 }

@@ -32,7 +32,7 @@ export interface ProjectileConfig {
   playerId?: string;
   animatedSprite?: AnimatedSprite;
   shipRotation?: number;
-  projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile';
+  projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3';
   isRemote?: boolean; // Per proiettili ricevuti dal server
   velocity?: { x: number; y: number }; // Per remote projectiles
   speed?: number; // Override velocità
@@ -145,14 +145,23 @@ export class ProjectileFactory {
         || config.projectileType === 'pet_laser'
         || config.projectileType === 'npc_laser'
         || config.projectileType === 'missile'
+        || config.projectileType === 'lb1'
+        || config.projectileType === 'lb2'
+        || config.projectileType === 'lb3'
       )) {
         let image: HTMLImageElement | null = null;
 
         if (assetManager) {
           // Usa AssetManager per caricare l'immagine
-          if (config.projectileType === 'laser' || config.projectileType === 'pet_laser') {
-            // Laser del player
+          if (config.projectileType === 'laser' || config.projectileType === 'pet_laser' || config.projectileType === 'lb1') {
+            // Laser del player (Standard / LCB-10)
             image = assetManager.getOrLoadImage('assets/laser/laser1/laser1.png');
+          } else if (config.projectileType === 'lb2') {
+            // Laser MCB-25
+            image = assetManager.getOrLoadImage('assets/laser/laser2/laser2.png');
+          } else if (config.projectileType === 'lb3') {
+            // Laser MCB-50 / UCB-100
+            image = assetManager.getOrLoadImage('assets/laser/laser3/laser3.png');
           } else if (config.projectileType === 'missile') {
             // Missile del player
             image = assetManager.getOrLoadImage('assets/missiles/rocket15.png');
@@ -305,7 +314,7 @@ export class ProjectileFactory {
       actualTargetId || -1,
       GAME_CONSTANTS.PROJECTILE.LIFETIME,
       playerId,
-      projectileType as 'laser' | 'pet_laser' | 'npc_laser' | 'missile'
+      projectileType as 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3'
     );
     ecs.addComponent(entity, Projectile, projectile);
 
@@ -367,7 +376,7 @@ export class ProjectileFactory {
       ownerId: ownerId || 0,
       targetId: numericTargetId,
       playerId,
-      projectileType: projectileType as 'laser' | 'pet_laser' | 'npc_laser' | 'missile',
+      projectileType: projectileType as 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3',
       isRemote: true,
       velocity,
       speed,
@@ -390,7 +399,7 @@ export class ProjectileFactory {
     ownerId: number,
     targetId: number,
     playerId?: string,
-    projectileType: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' = 'laser'
+    projectileType: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' = 'laser'
   ): Entity {
     const projectileId = IDGenerator.generateProjectileId(String(ownerId));
 

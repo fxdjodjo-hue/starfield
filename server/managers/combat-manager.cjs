@@ -688,13 +688,22 @@ class ServerCombatManager {
     const ammoDamageMultiplier = getDamageMultiplierForTier(consumeResult.selectedTier);
     const finalDamage = Math.floor(calculatedDamage * ammoDamageMultiplier);
 
+    // Determine projectile type based on selected ammo tier
+    let projectileType = 'lb1'; // Default (Targeting LCB-10 / Tier 1)
+
+    if (consumeResult.selectedTier === 2) {
+      projectileType = 'lb2'; // MCB-25
+    } else if (consumeResult.selectedTier >= 3) {
+      projectileType = 'lb3'; // MCB-50 / UCB-100
+    }
+
     // Usa la funzione comune per creare il proiettile
     const projectileId = this.performAttack(
       playerId,              // ownerId - ID del player
       playerPos,             // ownerPosition - posizione attuale del player
       npc.position,          // targetPosition - posizione dell'NPC
       finalDamage,           // damage - danno calcolato
-      'laser',               // projectileType - tipo corretto per player
+      projectileType,        // projectileType - tipo dinamico (lb1, lb2, lb3)
       npc.id                 // targetId - ID dell'NPC
     );
 

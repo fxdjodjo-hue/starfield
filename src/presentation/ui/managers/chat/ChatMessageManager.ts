@@ -33,7 +33,7 @@ export class ChatMessageManager {
   addSystemMessage(content: string): void {
     this.addMessage({
       id: `system-${Date.now()}`,
-      sender: 'Sistema',
+      sender: 'System',
       content,
       timestamp: new Date(),
       type: 'system'

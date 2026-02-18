@@ -16,7 +16,7 @@
     {
       "id": "pet_module_collection",
       "itemId": "pet_module_collection",
-      "displayName": "Modulo Raccolta",
+      "displayName": "Collection Module",
       "description": "Enables automatic resource collection behavior for the pet.",
       "category": "pet_module",
       "cost": {
@@ -26,7 +26,7 @@
         "type": "add_pet_module",
         "module": {
           "itemId": "pet_module_collection",
-          "itemName": "Modulo Raccolta",
+          "itemName": "Collection Module",
           "rarity": "common",
           "level": 1
         }
@@ -35,7 +35,7 @@
     {
       "id": "pet_module_defense",
       "itemId": "pet_module_defense",
-      "displayName": "Modulo Difesa",
+      "displayName": "Defense Module",
       "description": "Enables defensive counter-attack behavior for the pet.",
       "category": "pet_module",
       "cost": {
@@ -45,7 +45,7 @@
         "type": "add_pet_module",
         "module": {
           "itemId": "pet_module_defense",
-          "itemName": "Modulo Difesa",
+          "itemName": "Defense Module",
           "rarity": "common",
           "level": 1
         }
@@ -54,7 +54,7 @@
     {
       "id": "ammo_basic_x1",
       "itemId": "ammo_basic_x1",
-      "displayName": "Munizioni x1",
+      "displayName": "Ammo x1",
       "description": "Craft one unit of standard ammo.",
       "category": "ammo",
       "cost": {
