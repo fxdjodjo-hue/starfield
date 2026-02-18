@@ -27,11 +27,16 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     const { inventory, upgrades, health, maxHealth, shield, maxShield, source, rewardsEarned, recentHonor, healthRepaired, shieldRepaired, items, shipSkins, resourceInventory, petState, crafting, ammo, ammoInventory } = message;
     const normalizedResourceInventory = this.normalizeResourceInventory(resourceInventory);
     const normalizedPetState = this.normalizePetState(petState);
-    const hasAmmoPayload = ammoInventory !== undefined || Number.isFinite(Number(ammo)) || inventory?.ammo !== undefined;
+    const hasStructuredAmmoPayload = ammoInventory !== undefined || inventory?.ammo !== undefined;
+    const hasLegacyAmmoPayload = Number.isFinite(Number(ammo));
+    const shouldUseLegacyAmmoFallback = !hasStructuredAmmoPayload
+      && hasLegacyAmmoPayload
+      && !networkSystem.gameContext?.playerAmmoInventory;
+    const hasAmmoPayload = hasStructuredAmmoPayload || shouldUseLegacyAmmoFallback;
     const normalizedAmmoInventory = hasAmmoPayload
       ? normalizeAmmoInventory(
         ammoInventory ?? inventory?.ammo ?? networkSystem.gameContext?.playerAmmoInventory,
-        ammo
+        shouldUseLegacyAmmoFallback ? ammo : undefined
       )
       : null;
     const previousCredits = Number(networkSystem.gameContext?.playerInventory?.credits || 0);

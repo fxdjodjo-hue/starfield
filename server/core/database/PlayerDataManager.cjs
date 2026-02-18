@@ -99,6 +99,9 @@ class PlayerDataManager {
     this.lastSavedAmmoInventorySignatureByAuthId = new Map();
     this.lastSavedQuestProgressSignatureByAuthId = new Map();
     this.lastSavedInventoryItemsSignatureByAuthId = new Map();
+    this.saveInFlightByAuthId = new Map();
+    this.savePendingRequestByAuthId = new Set();
+    this.savePendingPlayerDataByAuthId = new Map();
   }
 
   /**
@@ -1294,10 +1297,54 @@ class PlayerDataManager {
   }
 
   /**
-   * Salva i dati del giocatore nel database
+   * Accoda il salvataggio per auth_id (single-flight + coalescing)
    * @param {Object} playerData - Dati del giocatore da salvare
    */
   async savePlayerData(playerData) {
+    if (!playerData || !playerData.playerId) {
+      ServerLoggerWrapper.database('Cannot save player data: invalid player data');
+      return;
+    }
+
+    const authId = playerData.userId;
+    if (!authId || typeof authId !== 'string') {
+      ServerLoggerWrapper.warn('DATABASE', `Cannot queue player save: invalid auth_id (${String(authId)})`);
+      return;
+    }
+
+    // Mentre un save è in corso per lo stesso auth_id, manteniamo solo l'ultima snapshot.
+    this.savePendingPlayerDataByAuthId.set(authId, playerData);
+    this.savePendingRequestByAuthId.add(authId);
+
+    let inFlightSave = this.saveInFlightByAuthId.get(authId);
+    if (!inFlightSave) {
+      inFlightSave = this.processQueuedSavesForAuthId(authId);
+      this.saveInFlightByAuthId.set(authId, inFlightSave);
+    }
+
+    return inFlightSave;
+  }
+
+  async processQueuedSavesForAuthId(authId) {
+    try {
+      while (this.savePendingRequestByAuthId.has(authId)) {
+        this.savePendingRequestByAuthId.delete(authId);
+        const queuedPlayerData = this.savePendingPlayerDataByAuthId.get(authId);
+        if (!queuedPlayerData || !queuedPlayerData.playerId) continue;
+        await this.savePlayerDataInternal(queuedPlayerData);
+      }
+    } finally {
+      this.savePendingRequestByAuthId.delete(authId);
+      this.savePendingPlayerDataByAuthId.delete(authId);
+      this.saveInFlightByAuthId.delete(authId);
+    }
+  }
+
+  /**
+   * Salva i dati del giocatore nel database
+   * @param {Object} playerData - Dati del giocatore da salvare
+   */
+  async savePlayerDataInternal(playerData) {
     try {
       if (!playerData || !playerData.playerId) {
         ServerLoggerWrapper.database('Cannot save player data: invalid player data');
