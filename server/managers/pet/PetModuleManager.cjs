@@ -65,6 +65,19 @@ class PetModuleManager {
     if (!targetNpc || !npcId || !targetNpc.position) return false;
     if (!this.mapServer?.npcManager?.getNpc(npcId)) return false;
 
+    // If pet already has a valid locked target, do not switch to the new attacker.
+    // This ensures the pet focuses on one NPC at a time until it dies or goes out of range.
+    const existingLock = this.defenseTargetByPlayerId.get(playerId);
+    if (existingLock) {
+      const existingNpcId = String(existingLock.npcId || '').trim();
+      if (existingNpcId && existingNpcId !== npcId) {
+        const existingNpc = this.mapServer?.npcManager?.getNpc(existingNpcId);
+        if (existingNpc && existingNpc.position) {
+          return false;
+        }
+      }
+    }
+
     this.setDefenseTarget(playerId, npcId, now);
 
     const projectileId = this.tryFireDefenseProjectile(playerId, playerData, targetNpc, now);
