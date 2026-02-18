@@ -2,21 +2,12 @@ import { DisplayManager } from '../../infrastructure/display';
 import { applyFadeIn } from '../../core/utils/rendering/UIFadeAnimation';
 import type { AmmoInventoryPayload, AmmoTier } from '../../config/NetworkConfig';
 
-type WeaponCooldownId = 'laser' | 'missile';
-
 interface SkillSlotConfig {
   index: number;
   title: string;
   iconPath?: string;
   actionLabel: string;
   enabled: boolean;
-}
-
-interface WeaponWidgetConfig {
-  id: WeaponCooldownId;
-  title: string;
-  iconPath: string;
-  modeLabel: string;
 }
 
 const AMMO_SLOT_BY_TIER: Record<AmmoTier, number> = {
@@ -39,8 +30,8 @@ const AMMO_ICON_BY_TIER: Record<AmmoTier, string> = {
 
 /**
  * WeaponStatus - Bottom action area with:
- * - automatic ship weapon cooldown telemetry (separate, non-numeric)
- * - numeric skill slots 1..9 (manual abilities)
+ * - ammo slots 1..3 with cooldown overlay on the selected slot
+ * - numeric skill slots 4..9 (manual abilities)
  */
 export class WeaponStatus {
   private container: HTMLElement;
@@ -58,11 +49,6 @@ export class WeaponStatus {
     { index: 7, title: 'Skill Slot 7', actionLabel: 'Skill Slot', enabled: false },
     { index: 8, title: 'Skill Slot 8', actionLabel: 'Skill Slot', enabled: false },
     { index: 9, title: 'Skill Slot 9', actionLabel: 'Skill Slot', enabled: false }
-  ];
-
-  private readonly weaponWidgets: WeaponWidgetConfig[] = [
-    { id: 'laser', title: 'Laser Cannon', iconPath: 'assets/weapon_status/laser_icon.png', modeLabel: 'AUTO' },
-    { id: 'missile', title: 'Missile Launcher', iconPath: 'assets/weapon_status/missile_icon.png', modeLabel: 'AUTO' }
   ];
 
   constructor() {
@@ -101,6 +87,12 @@ export class WeaponStatus {
 
     const skillSlotsMarkup = this.skillSlots.map((slot) => {
       const ammoTier = AMMO_TIERS_BY_SLOT[slot.index];
+      const cooldownMarkup = ammoTier
+        ? `
+          <div class="skillbar-slot-cooldown" data-slot-cooldown="${slot.index}"></div>
+          <div class="skillbar-slot-timer" data-slot-timer="${slot.index}"></div>
+        `
+        : '';
       const iconMarkup = ammoTier
         ? `
           <div class="skillbar-ammo-slot">
@@ -118,28 +110,14 @@ export class WeaponStatus {
           <div class="skillbar-slot-key">${slot.index}</div>
           <div class="skillbar-slot-body">
             ${iconMarkup}
+            ${cooldownMarkup}
           </div>
           <div class="skillbar-slot-label">${slot.actionLabel}</div>
         </div>
       `;
     }).join('');
 
-    const weaponWidgetsMarkup = this.weaponWidgets.map((widget) => `
-      <div class="weapon-widget" data-weapon-widget="${widget.id}" title="${widget.title} (${widget.modeLabel})">
-        <div class="weapon-widget-core">
-          <img src="${widget.iconPath}" class="weapon-widget-icon" alt="${widget.title}">
-          <div class="weapon-widget-cooldown" data-cooldown-fill="${widget.id}"></div>
-          <div class="weapon-widget-timer" data-cooldown-timer="${widget.id}"></div>
-        </div>
-        <div class="weapon-widget-text">
-          <div class="weapon-widget-name">${widget.title}</div>
-          <div class="weapon-widget-mode">${widget.modeLabel}</div>
-        </div>
-      </div>
-    `).join('');
-
     container.innerHTML = `
-      <div class="weapon-telemetry-shell">${weaponWidgetsMarkup}</div>
       <div class="skillbar-shell">${skillSlotsMarkup}</div>
     `;
 
@@ -167,119 +145,6 @@ export class WeaponStatus {
     const style = document.createElement('style');
     style.id = id;
     style.textContent = `
-      .weapon-telemetry-shell {
-        width: fit-content;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: ${Math.round(12 * c)}px;
-        pointer-events: none;
-      }
-
-      .weapon-widget {
-        display: flex;
-        align-items: center;
-        gap: ${Math.round(6 * c)}px;
-        min-width: ${Math.round(130 * c)}px;
-        pointer-events: none;
-      }
-
-      .weapon-widget-core {
-        width: ${Math.round(42 * c)}px;
-        height: ${Math.round(42 * c)}px;
-        position: relative;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background:
-          linear-gradient(155deg, rgba(107, 114, 128, 0.14) 0%, rgba(255, 255, 255, 0.03) 42%, rgba(0, 0, 0, 0.62) 100%),
-          rgba(0, 0, 0, 0.5);
-        box-shadow:
-          inset 0 0 0 1px rgba(148, 163, 184, 0.16),
-          inset 0 1px 0 rgba(255, 255, 255, 0.05),
-          0 ${Math.round(4 * c)}px ${Math.round(10 * c)}px rgba(0, 0, 0, 0.35);
-        clip-path: polygon(
-          ${Math.round(4 * c)}px 0,
-          calc(100% - ${Math.round(4 * c)}px) 0,
-          100% ${Math.round(4 * c)}px,
-          100% calc(100% - ${Math.round(4 * c)}px),
-          calc(100% - ${Math.round(4 * c)}px) 100%,
-          ${Math.round(4 * c)}px 100%,
-          0 calc(100% - ${Math.round(4 * c)}px),
-          0 ${Math.round(4 * c)}px
-        );
-        overflow: hidden;
-      }
-
-      .weapon-widget-icon {
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        opacity: 0.9;
-        z-index: 0;
-      }
-
-      .weapon-widget-cooldown {
-        position: absolute;
-        inset: 0;
-        --cooldown-remaining: 0deg;
-        z-index: 1;
-        opacity: 0;
-        transition: opacity 0.08s linear;
-        pointer-events: none;
-      }
-
-      .weapon-widget-cooldown::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: conic-gradient(
-          from -90deg,
-          rgba(0, 0, 0, 0.48) 0deg var(--cooldown-remaining),
-          rgba(0, 0, 0, 0.02) var(--cooldown-remaining) 360deg
-        );
-      }
-
-      .weapon-widget-timer {
-        position: absolute;
-        inset: 0;
-        z-index: 2;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: ${Math.round(10 * c)}px;
-        font-weight: 800;
-        color: rgba(248, 250, 252, 0.95);
-        text-shadow: 0 0 10px rgba(0, 0, 0, 0.88);
-        font-family: 'Consolas', 'Courier New', monospace;
-        letter-spacing: 0.2px;
-        pointer-events: none;
-      }
-
-      .weapon-widget-text {
-        display: flex;
-        flex-direction: column;
-        gap: ${Math.max(1, Math.round(1 * c))}px;
-        min-width: ${Math.round(76 * c)}px;
-      }
-
-      .weapon-widget-name {
-        color: rgba(241, 245, 249, 0.82);
-        font-size: ${Math.round(8 * c)}px;
-        font-weight: 700;
-        letter-spacing: 0.75px;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
-
-      .weapon-widget-mode {
-        color: rgba(248, 113, 113, 0.88);
-        font-size: ${Math.round(7 * c)}px;
-        font-weight: 800;
-        letter-spacing: 0.7px;
-        text-transform: uppercase;
-        white-space: nowrap;
-      }
 
       .skillbar-shell {
         width: fit-content;
@@ -487,6 +352,43 @@ export class WeaponStatus {
         text-shadow: 0 0 ${Math.max(4, Math.round(8 * c))}px rgba(14, 165, 233, 0.35);
       }
 
+      .skillbar-slot-cooldown {
+        position: absolute;
+        inset: 0;
+        --cooldown-remaining: 0deg;
+        z-index: 2;
+        opacity: 0;
+        transition: opacity 0.08s linear;
+        pointer-events: none;
+      }
+
+      .skillbar-slot-cooldown::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: conic-gradient(
+          from -90deg,
+          rgba(0, 0, 0, 0.52) 0deg var(--cooldown-remaining),
+          rgba(0, 0, 0, 0.02) var(--cooldown-remaining) 360deg
+        );
+      }
+
+      .skillbar-slot-timer {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: ${Math.round(11 * c)}px;
+        font-weight: 800;
+        color: rgba(248, 250, 252, 0.95);
+        text-shadow: 0 0 10px rgba(0, 0, 0, 0.88);
+        font-family: 'Consolas', 'Courier New', monospace;
+        letter-spacing: 0.2px;
+        pointer-events: none;
+      }
+
       .skillbar-slot-label {
         width: ${Math.round(60 * c)}px;
         padding: ${Math.max(1, Math.round(1 * c))}px ${Math.round(3 * c)}px;
@@ -544,9 +446,13 @@ export class WeaponStatus {
     this.isVisible = false;
   }
 
-  public update(laserProgress: number, missileProgress: number, laserRemaining: number = 0, missileRemaining: number = 0): void {
-    this.updateWeaponCooldown('laser', laserProgress, laserRemaining);
-    this.updateWeaponCooldown('missile', missileProgress, missileRemaining);
+  /**
+   * Updates the cooldown overlay on the currently active ammo slot.
+   * @param cooldownProgress 0.0 (just fired) to 1.0 (ready)
+   * @param cooldownRemaining milliseconds remaining
+   */
+  public update(cooldownProgress: number, cooldownRemaining: number = 0): void {
+    this.updateActiveSlotCooldown(cooldownProgress, cooldownRemaining);
   }
 
   public setAmmoShortcutCount(ammoCountRaw: number | null | undefined): void {
@@ -619,20 +525,31 @@ export class WeaponStatus {
     return Math.max(0, Math.floor(parsedValue));
   }
 
-  private updateWeaponCooldown(weaponId: WeaponCooldownId, progress: number, remainingMs: number): void {
-    const fillElement = this.container.querySelector<HTMLElement>(`[data-cooldown-fill="${weaponId}"]`);
-    const timerElement = this.container.querySelector<HTMLElement>(`[data-cooldown-timer="${weaponId}"]`);
-    if (!fillElement || !timerElement) {
-      return;
-    }
-
+  /**
+   * Updates the cooldown overlay on the currently active ammo slot.
+   * Clears cooldown on all other ammo slots.
+   */
+  private updateActiveSlotCooldown(progress: number, remainingMs: number): void {
     const normalizedProgress = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
     const remainingRatio = 1 - normalizedProgress;
     const remainingDegrees = Math.round(remainingRatio * 360);
 
-    fillElement.style.setProperty('--cooldown-remaining', `${remainingDegrees}deg`);
-    fillElement.style.opacity = remainingRatio > 0.005 ? '1' : '0';
-    timerElement.textContent = remainingMs > 100 ? (remainingMs / 1000).toFixed(1) : '';
+    // Update all ammo slots (1-3): show cooldown only on active, clear others
+    for (let slot = 1; slot <= 3; slot++) {
+      const fillElement = this.container.querySelector<HTMLElement>(`[data-slot-cooldown="${slot}"]`);
+      const timerElement = this.container.querySelector<HTMLElement>(`[data-slot-timer="${slot}"]`);
+      if (!fillElement || !timerElement) continue;
+
+      if (slot === this.currentActiveSlot) {
+        fillElement.style.setProperty('--cooldown-remaining', `${remainingDegrees}deg`);
+        fillElement.style.opacity = remainingRatio > 0.005 ? '1' : '0';
+        timerElement.textContent = remainingMs > 100 ? (remainingMs / 1000).toFixed(1) : '';
+      } else {
+        fillElement.style.setProperty('--cooldown-remaining', '0deg');
+        fillElement.style.opacity = '0';
+        timerElement.textContent = '';
+      }
+    }
   }
 
   private setActiveSlot(slot: number, forceActivation: boolean = false): void {

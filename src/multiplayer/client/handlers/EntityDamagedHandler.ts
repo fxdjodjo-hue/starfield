@@ -51,7 +51,7 @@ export class EntityDamagedHandler extends BaseMessageHandler {
       message.attackerId === String(localAuthId) ||
       message.attackerId === String(localClientId);
 
-    if (isLocalPlayerAttacker && message.projectileType === 'laser') {
+    if (isLocalPlayerAttacker && (message.projectileType === 'laser' || message.projectileType === 'lb1' || message.projectileType === 'lb2' || message.projectileType === 'lb3')) {
       // Trova l'entità del player locale e aggiorna lastAttackTime
       const playerSystem = networkSystem.getPlayerSystem();
       if (playerSystem) {

@@ -973,24 +973,19 @@ export class UiSystem extends System {
     this.panelManager.updateRealtimePanels(deltaTime);
     this.hudManager.updatePlayerCombatStatus();
 
-    // Aggiorna progress cooldown armi nell'HUD
+    // Aggiorna progress cooldown arma sullo slot ammo selezionato
     const playerEntity = this.playerSystem?.getPlayerEntity();
     if (playerEntity) {
       const damage = this.ecs.getComponent(playerEntity, Damage) as Damage;
       if (damage) {
         const now = Date.now();
 
-        // Laser progress (0.0 to 1.0)
-        const laserElapsed = now - (damage.lastAttackTime || 0);
-        const laserProgress = damage.attackCooldown > 0 ? Math.min(1, laserElapsed / damage.attackCooldown) : 1;
-        const laserRemaining = damage.getCooldownRemaining(now);
+        // Attack cooldown progress (0.0 = just fired, 1.0 = ready)
+        const elapsed = now - (damage.lastAttackTime || 0);
+        const cooldownProgress = damage.attackCooldown > 0 ? Math.min(1, elapsed / damage.attackCooldown) : 1;
+        const cooldownRemaining = damage.getCooldownRemaining(now);
 
-        // Missile progress (0.0 to 1.0)
-        const missileElapsed = now - (damage.lastMissileTime || 0);
-        const missileProgress = damage.missileCooldown > 0 ? Math.min(1, missileElapsed / damage.missileCooldown) : 1;
-        const missileRemaining = damage.getMissileCooldownRemaining(now);
-
-        this.hudManager.updateWeaponCooldowns(laserProgress, missileProgress, laserRemaining, missileRemaining);
+        this.hudManager.updateWeaponCooldown(cooldownProgress, cooldownRemaining);
       }
     }
   }

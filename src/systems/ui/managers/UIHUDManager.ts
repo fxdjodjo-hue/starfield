@@ -310,10 +310,10 @@ export class UIHUDManager {
   }
 
   /**
-   * Aggiorna il progresso dei cooldown delle armi (0.0 a 1.0)
+   * Aggiorna il progresso del cooldown dell'arma sullo slot ammo selezionato (0.0 a 1.0)
    */
-  updateWeaponCooldowns(laserProgress: number, missileProgress: number, laserRemaining: number = 0, missileRemaining: number = 0): void {
-    this.weaponStatus.update(laserProgress, missileProgress, laserRemaining, missileRemaining);
+  updateWeaponCooldown(cooldownProgress: number, cooldownRemaining: number = 0): void {
+    this.weaponStatus.update(cooldownProgress, cooldownRemaining);
   }
 
   updatePlayerCombatStatus(force: boolean = false): void {
