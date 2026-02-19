@@ -9,13 +9,54 @@
       "debugHitbox": false,
       "clickRadius": 30,
       "collectDistance": 620
+    },
+    {
+      "id": "pyrite",
+      "displayName": "Pyrite",
+      "assetBasePath": "assets/resources/resource_1",
+      "spriteScale": 1,
+      "debugHitbox": false,
+      "clickRadius": 30,
+      "collectDistance": 620
+    },
+    {
+      "id": "malachite",
+      "displayName": "Malachite",
+      "assetBasePath": "assets/resources/resource_3",
+      "spriteScale": 1,
+      "debugHitbox": false,
+      "clickRadius": 30,
+      "collectDistance": 620
+    },
+    {
+      "id": "azurite",
+      "displayName": "Azurite",
+      "assetBasePath": "assets/resources/resource_4",
+      "spriteScale": 1,
+      "debugHitbox": false,
+      "clickRadius": 30,
+      "collectDistance": 620
     }
   ],
   "mapSpawns": {
     "palantir": [
       {
         "resourceType": "cuprite",
-        "count": 200
+        "count": 400
+      },
+      {
+        "resourceType": "pyrite",
+        "count": 100
+      }
+    ],
+    "singularity": [
+      {
+        "resourceType": "malachite",
+        "count": 100
+      },
+      {
+        "resourceType": "azurite",
+        "count": 100
       }
     ]
   }

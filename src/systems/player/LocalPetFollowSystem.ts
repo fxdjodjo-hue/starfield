@@ -246,12 +246,9 @@ export class LocalPetFollowSystem extends BaseSystem {
 
     const followDistance = pet.followDistance + this.FOLLOW_DISTANCE_EXTRA;
     const lateralOffset = pet.lateralOffset * this.LATERAL_OFFSET_MULTIPLIER;
-    const idleOscillation = (ownerIsStationary && pet.hoverAmplitude > 0 && pet.hoverFrequency > 0)
-      ? Math.sin(Date.now() * 0.001 * pet.hoverFrequency) * Math.min(10, pet.hoverAmplitude * 0.5)
-      : 0;
 
-    const rawTargetX = ownerX + leadX - (forwardX * followDistance) + (rightX * (lateralOffset + idleOscillation));
-    const rawTargetY = ownerY + leadY - (forwardY * followDistance) + (rightY * (lateralOffset + idleOscillation));
+    const rawTargetX = ownerX + leadX - (forwardX * followDistance) + (rightX * lateralOffset);
+    const rawTargetY = ownerY + leadY - (forwardY * followDistance) + (rightY * lateralOffset);
 
     const ownerClearanceRadius = this.computeOwnerClearanceRadius(pet, ownerSpeed);
     return this.constrainPointOutsideOwner(rawTargetX, rawTargetY, ownerX, ownerY, ownerClearanceRadius);
