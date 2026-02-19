@@ -61,7 +61,8 @@ export class CameraSystem extends BaseSystem {
         this.targetPos = { x, y };
       } else {
         // Update target for smooth interpolation
-        this.targetPos = { x, y };
+        this.targetPos.x = x;
+        this.targetPos.y = y;
       }
     }
   }
@@ -72,9 +73,19 @@ export class CameraSystem extends BaseSystem {
    */
   snapTo(x: number, y: number): void {
     this.camera.centerOn(x, y);
-    this.targetPos = { x, y };
+    if (!this.targetPos) {
+      this.targetPos = { x, y };
+    } else {
+      this.targetPos.x = x;
+      this.targetPos.y = y;
+    }
     // Reset last position per evitare calcoli di velocità errati
-    this.lastPosition = { x, y };
+    if (!this.lastPosition) {
+      this.lastPosition = { x, y };
+    } else {
+      this.lastPosition.x = x;
+      this.lastPosition.y = y;
+    }
   }
 
   /**
@@ -129,7 +140,12 @@ export class CameraSystem extends BaseSystem {
       this.currentSpeed = this.currentSpeed * 0.9 + instantSpeed * 0.1;
     }
 
-    this.lastPosition = { x: playerX, y: playerY };
+    if (!this.lastPosition) {
+      this.lastPosition = { x: playerX, y: playerY };
+    } else {
+      this.lastPosition.x = playerX;
+      this.lastPosition.y = playerY;
+    }
 
     // Calcola il target zoom basato sulla velocità
     const speedRatio = Math.min(this.currentSpeed / this.MAX_SPEED_FOR_ZOOM, 1);
@@ -166,7 +182,12 @@ export class CameraSystem extends BaseSystem {
         this.isZoomAnimating = false;
 
         // Reset smooth target to avoid jump after zoom
-        this.targetPos = { x: this.camera.x, y: this.camera.y };
+        if (!this.targetPos) {
+          this.targetPos = { x: this.camera.x, y: this.camera.y };
+        } else {
+          this.targetPos.x = this.camera.x;
+          this.targetPos.y = this.camera.y;
+        }
 
         // Resetta lo speed zoom al valore finale dell'animazione
         this.currentSpeedZoom = currentZoom;

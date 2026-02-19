@@ -685,10 +685,34 @@ export class WeaponStatus {
     return Math.max(0, Math.floor(parsedValue));
   }
 
+  private applyCooldownDom(
+    fillElement: HTMLElement,
+    timerElement: HTMLElement,
+    remainingDegrees: number,
+    isVisible: boolean,
+    timerText: string
+  ): void {
+    const degreesValue = `${remainingDegrees}deg`;
+    if (fillElement.style.getPropertyValue('--cooldown-remaining') !== degreesValue) {
+      fillElement.style.setProperty('--cooldown-remaining', degreesValue);
+    }
+
+    const opacityValue = isVisible ? '1' : '0';
+    if (fillElement.style.opacity !== opacityValue) {
+      fillElement.style.opacity = opacityValue;
+    }
+
+    if (timerElement.textContent !== timerText) {
+      timerElement.textContent = timerText;
+    }
+  }
+
   private updateActiveSlotCooldown(progress: number, remainingMs: number): void {
     const normalizedProgress = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
     const remainingRatio = 1 - normalizedProgress;
     const remainingDegrees = Math.round(remainingRatio * 360);
+    const activeVisible = remainingRatio > 0.005;
+    const activeTimerText = remainingMs > 100 ? (remainingMs / 1000).toFixed(1) : '';
 
     // Update all ammo slots (1-3): show cooldown only on active, clear others
     for (let slot = 1; slot <= 3; slot++) {
@@ -697,13 +721,9 @@ export class WeaponStatus {
       if (!fillElement || !timerElement) continue;
 
       if (slot === this.currentActiveSlot) {
-        fillElement.style.setProperty('--cooldown-remaining', `${remainingDegrees}deg`);
-        fillElement.style.opacity = remainingRatio > 0.005 ? '1' : '0';
-        timerElement.textContent = remainingMs > 100 ? (remainingMs / 1000).toFixed(1) : '';
+        this.applyCooldownDom(fillElement, timerElement, remainingDegrees, activeVisible, activeTimerText);
       } else {
-        fillElement.style.setProperty('--cooldown-remaining', '0deg');
-        fillElement.style.opacity = '0';
-        timerElement.textContent = '';
+        this.applyCooldownDom(fillElement, timerElement, 0, false, '');
       }
     }
   }
@@ -712,6 +732,8 @@ export class WeaponStatus {
     const normalizedProgress = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
     const remainingRatio = 1 - normalizedProgress;
     const remainingDegrees = Math.round(remainingRatio * 360);
+    const activeVisible = remainingRatio > 0.005;
+    const activeTimerText = remainingMs > 100 ? (remainingMs / 1000).toFixed(1) : '';
 
     // Update all missile slots (4-6): show cooldown only on active, clear others
     for (let slot = 4; slot <= 6; slot++) {
@@ -720,13 +742,9 @@ export class WeaponStatus {
       if (!fillElement || !timerElement) continue;
 
       if (slot === this.currentActiveMissileSlot) {
-        fillElement.style.setProperty('--cooldown-remaining', `${remainingDegrees}deg`);
-        fillElement.style.opacity = remainingRatio > 0.005 ? '1' : '0';
-        timerElement.textContent = remainingMs > 100 ? (remainingMs / 1000).toFixed(1) : '';
+        this.applyCooldownDom(fillElement, timerElement, remainingDegrees, activeVisible, activeTimerText);
       } else {
-        fillElement.style.setProperty('--cooldown-remaining', '0deg');
-        fillElement.style.opacity = '0';
-        timerElement.textContent = '';
+        this.applyCooldownDom(fillElement, timerElement, 0, false, '');
       }
     }
   }

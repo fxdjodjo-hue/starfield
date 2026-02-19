@@ -30,6 +30,7 @@ export class PlayerControlSystem extends BaseSystem {
   private deathPopupManager: DeathPopupManager | null = null;
   private forceInputDisabled: boolean = false;
   private engineStopRequestedAt: number | null = null;
+  private readonly displayManager: DisplayManager = DisplayManager.getInstance();
   private readonly ENGINE_STOP_GRACE_MS = 250;
   private readonly ENGINE_MIN_SPEED_FOR_AUDIO = 1;
 
@@ -278,12 +279,13 @@ export class PlayerControlSystem extends BaseSystem {
     if (isMouseMoving && this.camera && this.playerEntity) {
       const x = this.inputManager.getLastMouseX();
       const y = this.inputManager.getLastMouseY();
-      const { width, height } = DisplayManager.getInstance().getLogicalSize();
+      const { width, height } = this.displayManager.getLogicalSize();
       const worldPos = this.camera.screenToWorld(x, y, width, height);
       const transform = this.ecs.getComponent(this.playerEntity, Transform);
       if (transform) {
-        const dist = Math.sqrt(Math.pow(worldPos.x - transform.x, 2) + Math.pow(worldPos.y - transform.y, 2));
-        if (dist < 80) isMouseMoving = false; // 80px deadzone
+        const dx = worldPos.x - transform.x;
+        const dy = worldPos.y - transform.y;
+        if ((dx * dx + dy * dy) < this.SELF_CLICK_DEADZONE_SQ) isMouseMoving = false; // 80px deadzone
       }
     }
 
@@ -366,6 +368,8 @@ export class PlayerControlSystem extends BaseSystem {
   private mouseDownPos: { x: number; y: number } = { x: 0, y: 0 };
   private readonly CLICK_THRESHOLD_MS = 200;
   private readonly CLICK_DISTANCE_THRESHOLD = 5;
+  private readonly CLICK_DISTANCE_THRESHOLD_SQ = this.CLICK_DISTANCE_THRESHOLD * this.CLICK_DISTANCE_THRESHOLD;
+  private readonly SELF_CLICK_DEADZONE_SQ = 6400;
 
   /**
    * Gestisce lo stato del mouse (premuto/rilasciato)
@@ -384,17 +388,16 @@ export class PlayerControlSystem extends BaseSystem {
     } else {
       // Mouse Up: Check if it was a click or a drag release
       const pressDuration = Date.now() - this.mouseDownTime;
-      const moveDistance = Math.sqrt(
-        Math.pow(x - this.mouseDownPos.x, 2) +
-        Math.pow(y - this.mouseDownPos.y, 2)
-      );
+      const deltaX = x - this.mouseDownPos.x;
+      const deltaY = y - this.mouseDownPos.y;
+      const moveDistanceSq = deltaX * deltaX + deltaY * deltaY;
 
       // If brief press and little movement -> It's a Click-to-Move!
-      if (pressDuration < this.CLICK_THRESHOLD_MS && moveDistance < this.CLICK_DISTANCE_THRESHOLD) {
+      if (pressDuration < this.CLICK_THRESHOLD_MS && moveDistanceSq < this.CLICK_DISTANCE_THRESHOLD_SQ) {
         if (this.camera) {
           // Calculate world position
           // Using DisplayManager logical size (similar to PlayerMovementManager)
-          const { width, height } = DisplayManager.getInstance().getLogicalSize();
+          const { width, height } = this.displayManager.getLogicalSize();
           // NOTE: Camera.screenToWorld uses logical coordinates. 
           // InputSystem gives coordinates relative to canvas.
 
@@ -405,8 +408,9 @@ export class PlayerControlSystem extends BaseSystem {
           let shouldMove = true;
           const transform = this.ecs.getComponent(this.playerEntity, Transform);
           if (transform) {
-            const dist = Math.sqrt(Math.pow(worldPos.x - transform.x, 2) + Math.pow(worldPos.y - transform.y, 2));
-            if (dist < 80) { // 80px deadzone (approx ship radius + margin)
+            const dx = worldPos.x - transform.x;
+            const dy = worldPos.y - transform.y;
+            if ((dx * dx + dy * dy) < this.SELF_CLICK_DEADZONE_SQ) { // 80px deadzone (approx ship radius + margin)
               shouldMove = false;
             }
           }

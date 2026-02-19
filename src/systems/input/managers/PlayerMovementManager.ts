@@ -25,6 +25,8 @@ export class PlayerMovementManager {
   private readonly MIN_TARGET_STOP_DISTANCE = 1;
   private readonly MAX_TARGET_STOP_DISTANCE = 220;
   private readonly FACE_TARGET_CLEAR_EPSILON = 0.03;
+  private readonly INV_SQRT2 = 0.7071067811865476;
+  private readonly displayManager: DisplayManager = DisplayManager.getInstance();
 
   constructor(
     private readonly ecs: ECS,
@@ -208,7 +210,7 @@ export class PlayerMovementManager {
 
     if (!transform || !velocity) return;
 
-    const { width, height } = DisplayManager.getInstance().getLogicalSize();
+    const { width, height } = this.displayManager.getLogicalSize();
     const worldMousePos = camera.screenToWorld(this.getLastMouseX(), this.getLastMouseY(), width, height);
     const worldMouseX = worldMousePos.x;
     const worldMouseY = worldMousePos.y;
@@ -265,9 +267,8 @@ export class PlayerMovementManager {
     if (keysPressed.has('d')) vx += 1;
 
     if (vx !== 0 && vy !== 0) {
-      const length = Math.sqrt(vx * vx + vy * vy);
-      vx /= length;
-      vy /= length;
+      vx *= this.INV_SQRT2;
+      vy *= this.INV_SQRT2;
     }
 
     // Apply acceleration towards input direction

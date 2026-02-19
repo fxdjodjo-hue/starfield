@@ -34,6 +34,11 @@ export class PlayerHUD {
   private readonly statValueElements: Partial<Record<'credits' | 'cosmos' | 'experience' | 'honor', HTMLElement>> = {};
   private readonly vitalValueElements: Partial<Record<'health' | 'shield', HTMLElement>> = {};
   private readonly vitalFillElements: Partial<Record<'health' | 'shield', HTMLElement>> = {};
+  private lastLevelText: string = '';
+  private lastPlayerIdText: string = '';
+  private readonly lastStatTexts: Partial<Record<'credits' | 'cosmos' | 'experience' | 'honor', string>> = {};
+  private readonly lastVitalTexts: Partial<Record<'health' | 'shield', string>> = {};
+  private readonly lastVitalWidths: Partial<Record<'health' | 'shield', string>> = {};
 
   constructor() {
     // Calcola compensazione DPR per dimensioni UI corrette
@@ -502,18 +507,30 @@ export class PlayerHUD {
 
     // Aggiorna livello
     if (this.levelElement) {
-      this.levelElement.textContent = data.level.toString();
+      const nextLevelText = data.level.toString();
+      if (this.lastLevelText !== nextLevelText) {
+        this.levelElement.textContent = nextLevelText;
+        this.lastLevelText = nextLevelText;
+      }
     }
 
     // Aggiorna ID giocatore
     if (this.playerIdElement) {
-      this.playerIdElement.textContent = `ID: ${data.playerId}`;
+      const nextPlayerIdText = `ID: ${data.playerId}`;
+      if (this.lastPlayerIdText !== nextPlayerIdText) {
+        this.playerIdElement.textContent = nextPlayerIdText;
+        this.lastPlayerIdText = nextPlayerIdText;
+      }
     }
 
     const setStatValue = (stat: 'credits' | 'cosmos' | 'experience' | 'honor', value: number): void => {
       const valueElement = this.statValueElements[stat];
       if (valueElement) {
-        valueElement.textContent = this.formatNumber(value);
+        const nextStatText = this.formatNumber(value);
+        if (this.lastStatTexts[stat] !== nextStatText) {
+          valueElement.textContent = nextStatText;
+          this.lastStatTexts[stat] = nextStatText;
+        }
       }
     };
 
@@ -551,12 +568,20 @@ export class PlayerHUD {
 
     const valueElement = this.vitalValueElements[vital];
     if (valueElement) {
-      valueElement.textContent = `${this.formatNumber(safeCurrent)} / ${this.formatNumber(max)}`;
+      const nextVitalText = `${this.formatNumber(safeCurrent)} / ${this.formatNumber(max)}`;
+      if (this.lastVitalTexts[vital] !== nextVitalText) {
+        valueElement.textContent = nextVitalText;
+        this.lastVitalTexts[vital] = nextVitalText;
+      }
     }
 
     const fillElement = this.vitalFillElements[vital];
     if (fillElement) {
-      fillElement.style.width = `${percent}%`;
+      const nextWidth = `${percent}%`;
+      if (this.lastVitalWidths[vital] !== nextWidth) {
+        fillElement.style.width = nextWidth;
+        this.lastVitalWidths[vital] = nextWidth;
+      }
     }
   }
 
@@ -577,6 +602,8 @@ export class PlayerHUD {
 
     this.levelElement = null;
     this.playerIdElement = null;
+    this.lastLevelText = '';
+    this.lastPlayerIdText = '';
 
     const styleElement = document.getElementById('player-hud-styles');
     if (styleElement) {

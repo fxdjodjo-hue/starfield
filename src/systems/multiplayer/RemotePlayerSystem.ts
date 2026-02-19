@@ -37,6 +37,7 @@ export class RemotePlayerSystem extends BaseSystem {
   private assetManager: AssetManager | null;
   private remoteShipSpriteCache: Map<string, AnimatedSprite> = new Map();
   private pendingShipSpriteLoads: Map<string, Promise<AnimatedSprite | null>> = new Map();
+  private remotePlayerEntityByClientId: Map<string, number> = new Map();
   private remotePetEntityByClientId: Map<string, number> = new Map();
   private remotePetSpriteCache: Map<string, AnimatedSprite> = new Map();
   private pendingPetSpriteLoads: Map<string, Promise<AnimatedSprite | null>> = new Map();
@@ -70,6 +71,10 @@ export class RemotePlayerSystem extends BaseSystem {
 
   private resolveRemoteShipSkinId(shipSkinId?: string | null): string {
     return getSelectedPlayerShipSkinId(shipSkinId || null);
+  }
+
+  private normalizeClientIdKey(clientId: string | number): string {
+    return String(clientId);
   }
 
   private getCachedRemoteShipSprite(shipSkinId: string): AnimatedSprite | null {
@@ -475,19 +480,36 @@ export class RemotePlayerSystem extends BaseSystem {
    * Trova l'entità di un giocatore remoto tramite clientId
    */
   public findRemotePlayerEntity(clientId: string): Entity | null {
-    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
+    const clientIdKey = this.normalizeClientIdKey(clientId);
+    const cachedEntityId = this.remotePlayerEntityByClientId.get(clientIdKey);
+    if (cachedEntityId !== undefined) {
+      const cachedEntity = this.ecs.getEntity(cachedEntityId);
+      if (cachedEntity && this.ecs.hasComponent(cachedEntity, RemotePlayer)) {
+        const cachedRemotePlayer = this.ecs.getComponent(cachedEntity, RemotePlayer);
+        if (cachedRemotePlayer && this.normalizeClientIdKey(cachedRemotePlayer.clientId) === clientIdKey) {
+          return cachedEntity;
+        }
+      }
+      this.remotePlayerEntityByClientId.delete(clientIdKey);
+    }
 
+    const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
     for (const entity of remotePlayerEntities) {
       const remotePlayerComponent = this.ecs.getComponent(entity, RemotePlayer);
+      if (!remotePlayerComponent) {
+        continue;
+      }
+
+      const remoteClientIdKey = this.normalizeClientIdKey(remotePlayerComponent.clientId);
+      this.remotePlayerEntityByClientId.set(remoteClientIdKey, entity.id);
       // 🚀 FIX ROBUSTEZZA: Forza il confronto tra stringhe per evitare problemi tra number e string (clientId)
-      if (remotePlayerComponent && remotePlayerComponent.clientId.toString() === clientId.toString()) {
+      if (remoteClientIdKey === clientIdKey) {
         return entity;
       }
     }
 
     return null;
   }
-
   /**
    * Imposta info nickname e rank per un remote player
    */
@@ -548,6 +570,7 @@ export class RemotePlayerSystem extends BaseSystem {
     remotePetPosition?: RemotePetTransformPayload | null
   ): number {
     // Verifica se il giocatore remoto esiste già
+    const clientIdKey = this.normalizeClientIdKey(clientId);
     const existingEntity = this.findRemotePlayerEntity(clientId);
     if (existingEntity) {
       // Aggiorna posizione del giocatore esistente
@@ -611,6 +634,7 @@ export class RemotePlayerSystem extends BaseSystem {
       return -1;
     }
 
+    this.remotePlayerEntityByClientId.set(clientIdKey, entity.id);
     this.updateRemotePlayerSkin(clientId, resolvedSkinId);
     this.ensureRemotePetForPlayer(clientId, x, y, rotation, serverTimestamp, remotePetState, remotePetPosition);
     return entity.id;
@@ -680,7 +704,9 @@ export class RemotePlayerSystem extends BaseSystem {
    * Rimuove un giocatore remoto
    */
   removeRemotePlayer(clientId: string): void {
+    const clientIdKey = this.normalizeClientIdKey(clientId);
     this.removeRemotePetEntity(clientId);
+    this.remotePlayerEntityByClientId.delete(clientIdKey);
     const entity = this.findRemotePlayerEntity(clientId);
     if (entity) {
       this.ecs.removeEntity(entity);
@@ -691,6 +717,7 @@ export class RemotePlayerSystem extends BaseSystem {
    * Rimuove tutti i giocatori remoti
    */
   removeAllRemotePlayers(): void {
+    this.remotePlayerEntityByClientId.clear();
     this.remotePetEntityByClientId.clear();
     const remotePlayerEntities = this.ecs.getEntitiesWithComponents(RemotePlayer);
     const remotePetEntities = this.ecs.getEntitiesWithComponents(RemotePet);
@@ -843,3 +870,4 @@ export class RemotePlayerSystem extends BaseSystem {
     });
   }
 }
+

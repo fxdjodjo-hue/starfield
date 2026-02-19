@@ -20,34 +20,33 @@ export class MovementSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    // Prima aggiorna le posizioni delle entità
-    // ESCLUDI entità con InterpolationTarget (remote player) - gestite da InterpolationSystem
-    const entities = this.ecs.getEntitiesWithComponents(Transform, Velocity)
-      .filter(entity => !this.ecs.hasComponent(entity, InterpolationTarget));
+    // Single pass over moving entities to avoid per-frame filtered array allocations.
+    const entities = this.ecs.getEntitiesWithComponents(Transform, Velocity);
+    let localPlayerTransform: Transform | null = null;
 
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);
       const velocity = this.ecs.getComponent(entity, Velocity);
+      if (!transform || !velocity) {
+        continue;
+      }
 
-      if (transform && velocity) {
+      const hasInterpolationTarget = this.ecs.hasComponent(entity, InterpolationTarget);
+
+      // ESCLUDI entit� con InterpolationTarget (remote player) - gestite da InterpolationSystem
+      if (!hasInterpolationTarget) {
         this.updatePosition(transform, velocity, deltaTime);
+      }
+
+      // Trova il player locale (Transform + Velocity, SENZA Npc e SENZA InterpolationTarget)
+      if (!localPlayerTransform && !hasInterpolationTarget && !this.ecs.hasComponent(entity, Npc)) {
+        localPlayerTransform = transform;
       }
     }
 
-    // Trova il player locale (entità con Transform e Velocity ma SENZA Npc e SENZA InterpolationTarget)
-    // IMPORTANTE: Escludiamo InterpolationTarget per evitare che la camera segua player remoti
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform, Velocity)
-      .filter(entity =>
-        !this.ecs.hasComponent(entity, Npc) &&
-        !this.ecs.hasComponent(entity, InterpolationTarget)
-      );
-
     // Comunica al CameraSystem di centrarsi sul player locale
-    if (playerEntities.length > 0) {
-      const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
-      if (playerTransform) {
-        this.cameraSystem.centerOn(playerTransform.x, playerTransform.y);
-      }
+    if (localPlayerTransform) {
+      this.cameraSystem.centerOn(localPlayerTransform.x, localPlayerTransform.y);
     }
   }
 

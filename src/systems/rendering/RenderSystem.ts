@@ -42,7 +42,6 @@ import { ExplosionRenderer } from '../../core/utils/rendering/ExplosionRenderer'
 import type { ExplosionRenderParams } from '../../core/utils/rendering/ExplosionRenderer';
 import { RepairEffectRenderer } from '../../core/utils/rendering/RepairEffectRenderer';
 import { EngineFlamesRenderer } from '../../core/utils/rendering/EngineFlamesRenderer';
-import { ScreenSpace } from '../../core/utils/rendering/ScreenSpace';
 import { SpriteRenderer } from '../../core/utils/rendering/SpriteRenderer';
 
 import type { RenderableTransform } from '../../core/utils/rendering/SpriteRenderer';
@@ -455,11 +454,11 @@ export class RenderSystem extends BaseSystem {
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] Player has no Velocity component!`);
     } else if (!isMoving) {
       // Log solo occasionalmente per non spam
-      if (Math.random() < 0.01) {
-        if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] Player not moving enough - velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)})`);
+      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES && Math.random() < 0.01) {
+        console.log(`[DEBUG_FLAMES] Player not moving enough - velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)})`);
       }
-    } else {
-      if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_FLAMES] ✅ Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
+    } else if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) {
+      console.log(`[DEBUG_FLAMES] ✅ Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
     }
 
     // Gestisci fiamme del motore
@@ -733,15 +732,13 @@ export class RenderSystem extends BaseSystem {
           this.localPlayerSmoothedPos = { x: playerTransform.x, y: playerTransform.y };
         }
 
-        // Create a visual transform backed by smoothed coordinates
-        const smoothedTransform = {
-          ...playerTransform,
-          x: this.localPlayerSmoothedPos.x,
-          y: this.localPlayerSmoothedPos.y
-        };
-
-        // Use smoothed transform for screen projection
-        const screenPos = ScreenSpace.toScreen(smoothedTransform as Transform, camera, width, height);
+        // Use smoothed transform position for screen projection
+        const screenPos = camera.worldToScreen(
+          this.localPlayerSmoothedPos.x,
+          this.localPlayerSmoothedPos.y,
+          width,
+          height
+        );
 
         // Render engine flames BEFORE player ship (behind in z-order)
         const playerVelocity = this.ecs.getComponent(playerEntity, Velocity);
