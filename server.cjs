@@ -630,9 +630,12 @@ server.listen(parseInt(PORT), '0.0.0.0', () => {
 // Initialize MapManager (which initializes all MapServers)
 MapManager.initializeMaps();
 
-// Tick unificato MapManager con FixedLoop (20 Hz)
-const serverLoop = new FixedLoop(20, () => {
-  MapManager.tick();
+const SERVER_LOOP_TPS = SERVER_CONSTANTS.LOOP?.TPS || 20;
+const SERVER_TICK_DELTA_MS = SERVER_CONSTANTS.LOOP?.TICK_DELTA_MS || (1000 / SERVER_LOOP_TPS);
+
+// Tick unificato MapManager con FixedLoop (TPS configurabile)
+const serverLoop = new FixedLoop(SERVER_LOOP_TPS, () => {
+  MapManager.tick(SERVER_TICK_DELTA_MS);
 });
 
 serverLoop.start();

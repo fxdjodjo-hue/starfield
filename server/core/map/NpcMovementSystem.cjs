@@ -14,8 +14,10 @@ class NpcMovementSystem {
    * @param {Map} players - Map di clientId -> playerData
    * @param {Object} npcManager - NpcManager per accedere ai world bounds
    */
-  static updateMovements(allNpcs, players, npcManager) {
-    const deltaTime = 1000 / 60; // Fixed timestep per fisica server
+  static updateMovements(allNpcs, players, npcManager, deltaTimeMs = 50) {
+    const deltaTime = (Number.isFinite(Number(deltaTimeMs)) && Number(deltaTimeMs) > 0)
+      ? Number(deltaTimeMs)
+      : 50;
     const combatParticipantsByNpc = this.buildNpcCombatParticipantMap(npcManager);
     const emptyParticipants = this.EMPTY_PARTICIPANTS;
 

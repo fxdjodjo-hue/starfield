@@ -102,7 +102,7 @@ class MapServer {
   createNpc(type, x, y) { return this.npcManager.createNpc(type, x, y); }
 
   // Tick unificato per la mappa (20 Hz)
-  tick() {
+  tick(deltaTimeMs = 50) {
     try {
       // Incrementa counter per throttling
       this.tickCounter = (this.tickCounter || 0) + 1;
@@ -125,7 +125,7 @@ class MapServer {
       }
 
       const allNpcs = this.npcManager.getAllNpcs();
-      NpcMovementSystem.updateMovements(allNpcs, this.players, this.npcManager);
+      NpcMovementSystem.updateMovements(allNpcs, this.players, this.npcManager, deltaTimeMs);
 
       // 2. Logica di combat NPC (Sempre a 20 Hz per precisione attacchi)
       if (this.combatManager) {

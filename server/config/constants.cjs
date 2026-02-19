@@ -6,8 +6,15 @@
 // Carica configurazione player condivisa (single source of truth)
 const playerConfig = require('../../shared/player-config.json');
 
+const SERVER_TPS = 20;
+
 // Combat constants
 const SERVER_CONSTANTS = {
+  LOOP: {
+    TPS: SERVER_TPS,
+    TICK_DELTA_MS: 1000 / SERVER_TPS
+  },
+
   PROJECTILE: {
     SPEED: 1000,     // Velocità proiettili player
     NPC_SPEED: 800, // Velocità proiettili NPC (deve essere > player speed per raggiungerlo)

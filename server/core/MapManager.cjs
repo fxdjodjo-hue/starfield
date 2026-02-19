@@ -79,9 +79,9 @@ class MapManager {
     /**
      * Update all active map instances (Tick)
      */
-    tick() {
+    tick(deltaTimeMs) {
         for (const mapInstance of this.maps.values()) {
-            mapInstance.tick();
+            mapInstance.tick(deltaTimeMs);
         }
     }
 

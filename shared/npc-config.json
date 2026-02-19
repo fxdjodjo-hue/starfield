@@ -9,7 +9,7 @@
       "damage": 2500,
       "range": 600,
       "cooldown": 1200,
-      "speed": 350
+      "speed": 117
     },
     "rewards": {
       "credits": 1500,
@@ -47,7 +47,7 @@
       "damage": 5000,
       "range": 600,
       "cooldown": 2000,
-      "speed": 350
+      "speed": 117
     },
     "rewards": {
       "credits": 80000,
@@ -84,7 +84,7 @@
       "damage": 8500,
       "range": 750,
       "cooldown": 1700,
-      "speed": 320
+      "speed": 107
     },
     "rewards": {
       "credits": 2500000,
@@ -121,7 +121,7 @@
       "damage": 2500,
       "range": 600,
       "cooldown": 1000,
-      "speed": 350
+      "speed": 117
     },
     "rewards": {
       "credits": 3000,
@@ -161,7 +161,7 @@
       "damage": 3500,
       "range": 300,
       "cooldown": 1000,
-      "speed": 450
+      "speed": 150
     },
     "rewards": {
       "credits": 10000,
