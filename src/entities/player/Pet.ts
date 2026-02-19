@@ -10,8 +10,6 @@ export interface PetBehaviorOptions {
   catchUpDistance: number;
   maxFollowSpeed: number;
   rotationFollowSpeed: number;
-  hoverAmplitude: number;
-  hoverFrequency: number;
   phaseOffset?: number;
 }
 
@@ -25,8 +23,6 @@ export class Pet extends Component {
   public readonly catchUpDistance: number;
   public readonly maxFollowSpeed: number;
   public readonly rotationFollowSpeed: number;
-  public readonly hoverAmplitude: number;
-  public readonly hoverFrequency: number;
   public readonly phaseOffset: number;
 
   constructor(options: PetBehaviorOptions) {
@@ -41,8 +37,6 @@ export class Pet extends Component {
     this.catchUpDistance = Math.max(this.followDistance + this.stopDistance, Number(options.catchUpDistance || 0));
     this.maxFollowSpeed = Math.max(10, Number(options.maxFollowSpeed || 0));
     this.rotationFollowSpeed = Math.max(0.1, Number(options.rotationFollowSpeed || 0));
-    this.hoverAmplitude = Math.max(0, Number(options.hoverAmplitude || 0));
-    this.hoverFrequency = Math.max(0, Number(options.hoverFrequency || 0));
     this.phaseOffset = Number.isFinite(Number(options.phaseOffset))
       ? Number(options.phaseOffset)
       : Math.random() * Math.PI * 2;

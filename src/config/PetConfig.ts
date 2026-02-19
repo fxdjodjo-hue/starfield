@@ -13,8 +13,6 @@ export interface PlayerPetDefinition {
   catchUpDistance: number;
   maxFollowSpeed: number;
   rotationFollowSpeed: number;
-  hoverAmplitude: number;
-  hoverFrequency: number;
 }
 
 interface SharedPetDefinition {
@@ -30,8 +28,6 @@ interface SharedPetDefinition {
   catchUpDistance?: number;
   maxFollowSpeed?: number;
   rotationFollowSpeed?: number;
-  hoverAmplitude?: number;
-  hoverFrequency?: number;
 }
 
 interface SharedPetConfig {
@@ -84,13 +80,7 @@ const PLAYER_PET_DEFINITIONS: PlayerPetDefinition[] = Array.isArray(SHARED_PET_C
           : 900,
         rotationFollowSpeed: Number.isFinite(Number(pet.rotationFollowSpeed))
           ? Math.max(0.1, Number(pet.rotationFollowSpeed))
-          : 8,
-        hoverAmplitude: Number.isFinite(Number(pet.hoverAmplitude))
-          ? Math.max(0, Number(pet.hoverAmplitude))
-          : 12,
-        hoverFrequency: Number.isFinite(Number(pet.hoverFrequency))
-          ? Math.max(0, Number(pet.hoverFrequency))
-          : 2.2
+          : 8
       };
     })
     .filter((pet) => pet.id.length > 0)

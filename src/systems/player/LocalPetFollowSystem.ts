@@ -81,9 +81,10 @@ export class LocalPetFollowSystem extends BaseSystem {
   private readonly OWNER_CLEARANCE_SPEED_BONUS = PET_TUNING.OWNER_CLEARANCE_SPEED_BONUS;
   private readonly OWNER_STATIONARY_SPEED_THRESHOLD = PET_TUNING.OWNER_STATIONARY_SPEED_THRESHOLD;
 
-  private readonly RECONCILIATION_SOFT_RATE = 10;
+  private readonly RECONCILIATION_SOFT_RATE = 2;
   private readonly RECONCILIATION_HARD_SNAP_DISTANCE = 220;
-  private readonly RECONCILIATION_MAX_SAMPLE_AGE_MS = 500;
+  private readonly RECONCILIATION_MIN_ERROR_DISTANCE = 20;
+  private readonly RECONCILIATION_MAX_SAMPLE_AGE_MS = 250;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -149,12 +150,13 @@ export class LocalPetFollowSystem extends BaseSystem {
     this.applyServerReconciliation(runtime, freshServerState, dtSeconds);
 
     let targetRotation = runtime.rotation;
-    if (!ownerIsStationary && predictedMoveSpeed > 1 && predictedMoveDistance > 0.001) {
-      // Keep local facing aligned with predicted movement, not with tiny reconciliation nudges.
+    if (predictedMoveSpeed > 1 && predictedMoveDistance > 0.001) {
+      // Always rotate toward movement direction while the pet is physically moving,
+      // regardless of whether the owner is stationary. This prevents the pet from
+      // dragging sideways when the player stops and the pet repositions.
       targetRotation = Math.atan2(predictedMoveY, predictedMoveX);
-    }
-    if (freshServerState) {
-      // In combat/defense the server may intentionally face targets instead of move direction.
+    } else if (freshServerState) {
+      // Pet is stationary: in combat/defense the server may face a target intentionally.
       targetRotation = freshServerState.rotation;
     }
 
@@ -375,6 +377,9 @@ export class LocalPetFollowSystem extends BaseSystem {
     const errorDistance = this.getMagnitude(errorX, errorY);
     if (!Number.isFinite(errorDistance)) return false;
 
+    // Ignore small drifts - both simulations are identical so they should stay close.
+    // Correcting tiny errors every frame is the main source of stuttering.
+    if (errorDistance < this.RECONCILIATION_MIN_ERROR_DISTANCE) return false;
     if (errorDistance > this.RECONCILIATION_HARD_SNAP_DISTANCE) {
       runtime.x = serverState.x;
       runtime.y = serverState.y;

@@ -1062,20 +1062,19 @@ export class CraftingPanel extends BasePanel {
     const normalizedResourceType = String(resourceType || '').trim().toLowerCase();
     if (!normalizedResourceType) return null;
 
-    // Prefer dedicated preview sprites for compact UI chips.
-    if (normalizedResourceType === 'cuprite') {
-      return 'assets/resources/previews/resource_2.png';
-    }
-
     const definition = getResourceDefinition(normalizedResourceType);
     const assetBasePath = String(definition?.assetBasePath || '').trim();
-    if (assetBasePath) {
-      const normalizedPath = assetBasePath.replace(/^\//, '');
-      return normalizedPath.toLowerCase().endsWith('.png')
-        ? normalizedPath
-        : `${normalizedPath}.png`;
-    }
-    return null;
+    if (!assetBasePath) return null;
+
+    // Derive preview path from assetBasePath by inserting the /previews/ subfolder.
+    // e.g. "assets/resources/resource_1" → "assets/resources/previews/resource_1.png"
+    const normalizedPath = assetBasePath.replace(/^\//, '');
+    const baseName = normalizedPath.split('/').pop() || '';
+    const dirPart = normalizedPath.includes('/')
+      ? normalizedPath.substring(0, normalizedPath.lastIndexOf('/'))
+      : '';
+    const previewBase = dirPart ? `${dirPart}/previews/${baseName}` : `previews/${baseName}`;
+    return previewBase.toLowerCase().endsWith('.png') ? previewBase : `${previewBase}.png`;
   }
 
   private getResourceDescription(resourceType: string): string {

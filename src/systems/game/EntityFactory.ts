@@ -115,9 +115,7 @@ export class EntityFactory {
         stopDistance: petDefinition.stopDistance,
         catchUpDistance: petDefinition.catchUpDistance,
         maxFollowSpeed: petDefinition.maxFollowSpeed,
-        rotationFollowSpeed: petDefinition.rotationFollowSpeed,
-        hoverAmplitude: petDefinition.hoverAmplitude,
-        hoverFrequency: petDefinition.hoverFrequency
+        rotationFollowSpeed: petDefinition.rotationFollowSpeed
       })
     );
     const initialCombatStats = EntityFactory.resolveInitialPetCombatStats(initialPetState);

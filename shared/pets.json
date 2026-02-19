@@ -41,9 +41,7 @@
       "stopDistance": 26,
       "catchUpDistance": 760,
       "maxFollowSpeed": 920,
-      "rotationFollowSpeed": 8,
-      "hoverAmplitude": 14,
-      "hoverFrequency": 2.8
+      "rotationFollowSpeed": 8
     }
   ]
 }
