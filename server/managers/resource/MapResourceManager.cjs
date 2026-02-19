@@ -564,10 +564,8 @@ class MapResourceManager {
 
     const normalizedCollectorType = String(collectorType || '').trim().toLowerCase();
     if (normalizedCollectorType === 'pet') {
-      return {
-        x: resourceX,
-        y: resourceY - this.AUTO_COLLECT_ANCHOR_OFFSET_Y
-      };
+      // Small upward offset so the pet ship appears visually ON TOP of the resource sprite.
+      return { x: resourceX, y: resourceY - 100 };
     }
 
     return { x: resourceX, y: resourceY };

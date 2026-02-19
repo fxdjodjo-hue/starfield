@@ -81,9 +81,9 @@ export class LocalPetFollowSystem extends BaseSystem {
   private readonly OWNER_CLEARANCE_SPEED_BONUS = PET_TUNING.OWNER_CLEARANCE_SPEED_BONUS;
   private readonly OWNER_STATIONARY_SPEED_THRESHOLD = PET_TUNING.OWNER_STATIONARY_SPEED_THRESHOLD;
 
-  private readonly RECONCILIATION_SOFT_RATE = 10;
-  private readonly RECONCILIATION_HARD_SNAP_DISTANCE = 220;
-  private readonly RECONCILIATION_MAX_SAMPLE_AGE_MS = 500;
+  private readonly SERVER_CONVERGENCE_RATE = 15;
+  private readonly SERVER_HARD_SNAP_DISTANCE = 300;
+  private readonly SERVER_STATE_MAX_AGE_MS = 600;
 
   constructor(ecs: ECS) {
     super(ecs);
@@ -123,39 +123,54 @@ export class LocalPetFollowSystem extends BaseSystem {
     const ownerSpeed = this.getMagnitude(ownerVelocityX, ownerVelocityY);
     const ownerIsStationary = ownerSpeed <= this.OWNER_STATIONARY_SPEED_THRESHOLD;
 
-    const target = this.resolveFollowTarget(
-      playerTransform.x,
-      playerTransform.y,
-      playerTransform.rotation,
-      ownerVelocityX,
-      ownerVelocityY,
-      ownerSpeed,
-      ownerIsStationary,
-      petComponent
-    );
-
-    const smoothedTarget = this.updateSmoothedTarget(runtime, target, dtSeconds, ownerIsStationary);
-
     const previousX = runtime.x;
     const previousY = runtime.y;
 
-    this.moveTowardsTarget(runtime, smoothedTarget, petComponent, dtSeconds);
-    const predictedMoveX = runtime.x - previousX;
-    const predictedMoveY = runtime.y - previousY;
-    const predictedMoveDistance = this.getMagnitude(predictedMoveX, predictedMoveY);
-    const predictedMoveSpeed = dtSeconds > 0 ? predictedMoveDistance / dtSeconds : 0;
-
     const freshServerState = this.getFreshServerState(petEntity);
-    this.applyServerReconciliation(runtime, freshServerState, dtSeconds);
+
+    if (freshServerState) {
+      // SERVER-AUTHORITATIVE: server knows about collect, defense, and all special modes.
+      // Lerp directly toward server position — no local simulation fighting it.
+      const dx = freshServerState.x - runtime.x;
+      const dy = freshServerState.y - runtime.y;
+      const dist = this.getMagnitude(dx, dy);
+      if (dist > this.SERVER_HARD_SNAP_DISTANCE) {
+        runtime.x = freshServerState.x;
+        runtime.y = freshServerState.y;
+        runtime.followTargetX = freshServerState.x;
+        runtime.followTargetY = freshServerState.y;
+      } else if (dist > 1) {
+        const alpha = this.clamp01(1 - Math.exp(-this.SERVER_CONVERGENCE_RATE * dtSeconds));
+        runtime.x += dx * alpha;
+        runtime.y += dy * alpha;
+      }
+    } else {
+      // FALLBACK: no server state available — simulate follow locally.
+      const target = this.resolveFollowTarget(
+        playerTransform.x,
+        playerTransform.y,
+        playerTransform.rotation,
+        ownerVelocityX,
+        ownerVelocityY,
+        ownerSpeed,
+        ownerIsStationary,
+        petComponent
+      );
+      const smoothedTarget = this.updateSmoothedTarget(runtime, target, dtSeconds, ownerIsStationary);
+      this.moveTowardsTarget(runtime, smoothedTarget, petComponent, dtSeconds);
+    }
+
+    // Rotation: always derived from ACTUAL frame displacement so it matches what the player sees.
+    const actualMoveX = runtime.x - previousX;
+    const actualMoveY = runtime.y - previousY;
+    const actualMoveDistance = this.getMagnitude(actualMoveX, actualMoveY);
+    const actualMoveSpeed = dtSeconds > 0 ? actualMoveDistance / dtSeconds : 0;
 
     let targetRotation = runtime.rotation;
-    if (predictedMoveSpeed > 1 && predictedMoveDistance > 0.001) {
-      // Keep local facing aligned with predicted movement, not with tiny reconciliation nudges.
-      targetRotation = Math.atan2(predictedMoveY, predictedMoveX);
-    }
-    if (freshServerState) {
-      // In combat/defense the server may intentionally face targets instead of move direction.
-      targetRotation = freshServerState.rotation;
+    // When owner is stationary, ignore tiny drifts from follow-target shifting with ship rotation.
+    const rotationThreshold = ownerIsStationary ? 20 : 1;
+    if (actualMoveSpeed > rotationThreshold && actualMoveDistance > 0.5) {
+      targetRotation = Math.atan2(actualMoveY, actualMoveX);
     }
 
     runtime.rotation = this.rotateTowardsLikePlayer(
@@ -363,31 +378,13 @@ export class LocalPetFollowSystem extends BaseSystem {
     const serverState = this.ecs.getComponent(petEntity, LocalPetServerState);
     if (!serverState) return null;
     const sampleAge = Date.now() - serverState.receivedAt;
-    if (!Number.isFinite(sampleAge) || sampleAge > this.RECONCILIATION_MAX_SAMPLE_AGE_MS) return null;
+    if (!Number.isFinite(sampleAge) || sampleAge > this.SERVER_STATE_MAX_AGE_MS) return null;
     return serverState;
   }
 
-  private applyServerReconciliation(runtime: LocalPetRuntimeState, serverState: LocalPetServerState | null, dtSeconds: number): boolean {
-    if (!serverState) return false;
-
-    const errorX = serverState.x - runtime.x;
-    const errorY = serverState.y - runtime.y;
-    const errorDistance = this.getMagnitude(errorX, errorY);
-    if (!Number.isFinite(errorDistance)) return false;
-
-    if (errorDistance > this.RECONCILIATION_HARD_SNAP_DISTANCE) {
-      runtime.x = serverState.x;
-      runtime.y = serverState.y;
-      runtime.rotation = serverState.rotation;
-      runtime.followTargetX = serverState.x;
-      runtime.followTargetY = serverState.y;
-      runtime.currentMoveSpeed = this.PET_BASE_SPEED_PX_PER_SECOND;
-      return true;
-    }
-
-    const alpha = this.clamp01(1 - Math.exp(-this.RECONCILIATION_SOFT_RATE * dtSeconds));
-    runtime.x += errorX * alpha;
-    runtime.y += errorY * alpha;
+  // Reconciliation is no longer called — server-authoritative lerp is inlined in update().
+  // Kept as a no-op to avoid breaking any external call sites that may reference it.
+  private applyServerReconciliation(_runtime: LocalPetRuntimeState, _serverState: LocalPetServerState | null, _dtSeconds: number): boolean {
     return false;
   }
 
