@@ -25,7 +25,13 @@ for (const rawDefinition of RAW_PET_DEFINITIONS) {
       : 760,
     rotationFollowSpeed: Number.isFinite(Number(rawDefinition?.rotationFollowSpeed))
       ? Math.max(0.1, Number(rawDefinition.rotationFollowSpeed))
-      : 8
+      : 8,
+    hoverAmplitude: Number.isFinite(Number(rawDefinition?.hoverAmplitude))
+      ? Math.max(0, Number(rawDefinition.hoverAmplitude))
+      : 12,
+    hoverFrequency: Number.isFinite(Number(rawDefinition?.hoverFrequency))
+      ? Math.max(0, Number(rawDefinition.hoverFrequency))
+      : 2.2
   });
 }
 
@@ -43,7 +49,9 @@ function resolvePetDefinition(petId) {
     lateralOffset: 92,
     stopDistance: 26,
     catchUpDistance: 760,
-    rotationFollowSpeed: 8
+    rotationFollowSpeed: 8,
+    hoverAmplitude: 12,
+    hoverFrequency: 2.2
   };
 }
 
@@ -204,7 +212,7 @@ class PetMovementManager {
       if (this.getMagnitude(lookDx, lookDy) > 0.001) {
         targetRotation = Math.atan2(lookDy, lookDx);
       }
-    } else if (frameMoveSpeed > 1 && frameMoveDistance > 0.001) {
+    } else if (!targetState.ownerIsStationary && frameMoveSpeed > 1 && frameMoveDistance > 0.001) {
       targetRotation = Math.atan2(frameMoveY, frameMoveX);
     }
 
@@ -349,13 +357,25 @@ class PetMovementManager {
     const rawTargetY = playerPosition.y + leadY - (forwardY * followDistance) + (rightY * lateralOffset);
 
     const ownerClearanceRadius = this.computeOwnerClearanceRadius(petDefinition, ownerSpeed);
-    const constrainedTarget = this.constrainPointOutsideOwner(
+    let constrainedTarget = this.constrainPointOutsideOwner(
       rawTargetX,
       rawTargetY,
       playerPosition.x,
       playerPosition.y,
       ownerClearanceRadius
     );
+
+    if (isOwnerStationary && petDefinition.hoverAmplitude > 0 && petDefinition.hoverFrequency > 0) {
+      const idleOscillation = Math.sin(Date.now() * 0.001 * petDefinition.hoverFrequency);
+      const idleOffset = idleOscillation * Math.min(10, petDefinition.hoverAmplitude * 0.5);
+      constrainedTarget = this.constrainPointOutsideOwner(
+        constrainedTarget.x + (rightX * idleOffset),
+        constrainedTarget.y + (rightY * idleOffset),
+        playerPosition.x,
+        playerPosition.y,
+        ownerClearanceRadius
+      );
+    }
 
     return {
       target: constrainedTarget,
