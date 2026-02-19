@@ -20,6 +20,8 @@ const {
   getSelectedMissileCount
 } = require('../core/combat/MissileInventory.cjs');
 
+const MISSILE_AMMO_SAVE_DEBOUNCE_MS = 750;
+
 class ServerCombatManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
@@ -239,6 +241,37 @@ class ServerCombatManager {
   processPlayerCombats(now) {
     for (const [playerId, combat] of this.playerCombats) {
       this.processPlayerCombat(playerId, combat, now);
+    }
+  }
+
+  scheduleMissileAmmoSave(playerData) {
+    const websocketManager = this.mapServer?.websocketManager;
+    if (!websocketManager || typeof websocketManager.savePlayerData !== 'function') {
+      return;
+    }
+
+    if (!playerData || typeof playerData !== 'object') {
+      return;
+    }
+
+    try {
+      if (playerData._missileAmmoSaveTimeout) {
+        clearTimeout(playerData._missileAmmoSaveTimeout);
+      }
+
+      playerData._missileAmmoSaveTimeout = setTimeout(() => {
+        websocketManager.savePlayerData(playerData).catch((error) => {
+          ServerLoggerWrapper.warn(
+            'DATABASE',
+            `Failed to persist missile ammo for ${playerData?.userId || 'unknown'}: ${error.message}`
+          );
+        });
+      }, MISSILE_AMMO_SAVE_DEBOUNCE_MS);
+    } catch (error) {
+      ServerLoggerWrapper.warn(
+        'DATABASE',
+        `Error scheduling missile ammo save for ${playerData?.userId || 'unknown'}: ${error.message}`
+      );
     }
   }
 
@@ -549,6 +582,7 @@ class ServerCombatManager {
         playerData.inventory = {};
       }
       playerData.inventory.missileAmmo = consumeResult.missileInventory;
+      this.scheduleMissileAmmoSave(playerData);
 
       if (playerData.ws && playerData.ws.readyState === 1) {
         playerData.ws.send(JSON.stringify({

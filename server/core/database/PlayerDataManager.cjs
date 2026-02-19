@@ -21,6 +21,9 @@ const {
   normalizeAmmoInventory,
   getLegacyAmmoValue
 } = require('../combat/AmmoInventory.cjs');
+const {
+  normalizeMissileInventory
+} = require('../combat/MissileInventory.cjs');
 
 const UUID_PATTERN = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
@@ -1431,11 +1434,12 @@ class PlayerDataManager {
         playerData.ammo
       );
 
-      // Merge missile ammo if present separately
-      if (playerData.inventory?.missileAmmo && playerData.inventory.missileAmmo.tiers) {
-        normalizedAmmoInventory.tiers.m1 = Math.max(normalizedAmmoInventory.tiers.m1 || 0, playerData.inventory.missileAmmo.tiers.m1 || 0);
-        normalizedAmmoInventory.tiers.m2 = Math.max(normalizedAmmoInventory.tiers.m2 || 0, playerData.inventory.missileAmmo.tiers.m2 || 0);
-        normalizedAmmoInventory.tiers.m3 = Math.max(normalizedAmmoInventory.tiers.m3 || 0, playerData.inventory.missileAmmo.tiers.m3 || 0);
+      // Keep missile tiers aligned with the dedicated missile inventory.
+      if (playerData.inventory?.missileAmmo) {
+        const normalizedMissileInventory = normalizeMissileInventory(playerData.inventory.missileAmmo);
+        normalizedAmmoInventory.tiers.m1 = normalizedMissileInventory.tiers.m1;
+        normalizedAmmoInventory.tiers.m2 = normalizedMissileInventory.tiers.m2;
+        normalizedAmmoInventory.tiers.m3 = normalizedMissileInventory.tiers.m3;
       }
 
       playerData.inventory.ammo = normalizedAmmoInventory;
