@@ -2,10 +2,10 @@ import { ECS } from '../../../infrastructure/ecs/ECS';
 import { Transform } from '../../../entities/spatial/Transform';
 import { Velocity } from '../../../entities/spatial/Velocity';
 import { Authority } from '../../../entities/spatial/Authority';
-import { InterpolationTarget } from '../../../entities/spatial/InterpolationTarget';
 import { Health } from '../../../entities/combat/Health';
 import { Pet } from '../../../entities/player/Pet';
 import { RemotePet } from '../../../entities/player/RemotePet';
+import { LocalPetServerState } from '../../../entities/player/LocalPetServerState';
 import { NetworkConnectionManager } from './NetworkConnectionManager';
 import { RateLimiter, RATE_LIMITS } from './RateLimiter';
 import { NetworkTickManager } from './NetworkTickManager';
@@ -207,11 +207,13 @@ export class NetworkPositionSyncManager {
   }
 
   /**
-   * Applies authoritative local pet transform from server acknowledgments.
+   * Stores authoritative local-pet samples from server acknowledgments.
+   * LocalPetFollowSystem consumes these samples for soft reconciliation.
    */
   handlePositionAck(message: {
     [key: string]: unknown;
     petPosition?: { x?: number; y?: number; rotation?: number } | null;
+    petServerTime?: number;
     serverTime?: number;
     t?: number;
   }): void {
@@ -229,9 +231,13 @@ export class NetworkPositionSyncManager {
       if (!Number.isFinite(rotation)) rotation = 0;
       while (rotation > Math.PI) rotation -= 2 * Math.PI;
       while (rotation < -Math.PI) rotation += 2 * Math.PI;
-      const serverTime = Number.isFinite(Number(message?.serverTime))
-        ? Number(message.serverTime)
-        : (Number.isFinite(Number(message?.t)) ? Number(message.t) : Date.now());
+      const serverTime = Number.isFinite(Number(message?.petServerTime))
+        ? Number(message.petServerTime)
+        : (
+          Number.isFinite(Number(message?.serverTime))
+            ? Number(message.serverTime)
+            : (Number.isFinite(Number(message?.t)) ? Number(message.t) : Date.now())
+        );
 
       const petEntity = this.ecs.getEntitiesWithComponents(Pet, Transform)
         .find((entity) => !this.ecs!.hasComponent(entity, RemotePet));
@@ -240,22 +246,24 @@ export class NetworkPositionSyncManager {
       const petTransform = this.ecs.getComponent(petEntity, Transform);
       if (!petTransform) return;
 
-      let interpolation = this.ecs.getComponent(petEntity, InterpolationTarget);
-      if (!interpolation) {
+      let serverState = this.ecs.getComponent(petEntity, LocalPetServerState);
+      if (!serverState) {
         this.ecs.addComponent(
           petEntity,
-          InterpolationTarget,
-          new InterpolationTarget(petTransform.x, petTransform.y, petTransform.rotation)
+          LocalPetServerState,
+          new LocalPetServerState(
+            petTransform.x,
+            petTransform.y,
+            petTransform.rotation,
+            serverTime,
+            Date.now()
+          )
         );
-        interpolation = this.ecs.getComponent(petEntity, InterpolationTarget);
+        serverState = this.ecs.getComponent(petEntity, LocalPetServerState);
       }
 
-      if (interpolation) {
-        interpolation.updateTarget(x, y, rotation, serverTime);
-      } else {
-        petTransform.x = x;
-        petTransform.y = y;
-        petTransform.rotation = rotation;
+      if (serverState) {
+        serverState.updateFromServer(x, y, rotation, serverTime, Date.now());
       }
     } catch {
       // Best-effort sync; ignore malformed acknowledgments.

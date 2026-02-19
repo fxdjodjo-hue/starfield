@@ -205,6 +205,11 @@ export class RemotePlayerSystem extends BaseSystem {
   }
 
   private applyRemotePetSprite(entity: Entity, petId: string, sprite: AnimatedSprite): void {
+    const petDefinition = this.getRemotePetDefinition(petId);
+    if (petDefinition) {
+      sprite.rotationFrameDirection = petDefinition.frameRotationDirection;
+      sprite.rotationFrameOffset = petDefinition.frameRotationOffsetRad;
+    }
     (sprite as AnimatedSprite & { petId?: string }).petId = petId;
     this.ecs.addComponent(entity, AnimatedSprite, sprite);
   }
@@ -230,6 +235,8 @@ export class RemotePlayerSystem extends BaseSystem {
       petDefinition.spriteScale
     )
       .then((sprite) => {
+        sprite.rotationFrameDirection = petDefinition.frameRotationDirection;
+        sprite.rotationFrameOffset = petDefinition.frameRotationOffsetRad;
         this.remotePetSpriteCache.set(petId, sprite);
         return sprite;
       })

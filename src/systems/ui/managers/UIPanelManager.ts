@@ -111,8 +111,7 @@ export class UIPanelManager {
     const logConfig = getPanelConfig('logs');
     const logPanel = new LogPanel(
       logConfig,
-      () => this.resolveLogSystemHistory(),
-      () => this.clearLogSystemHistory()
+      () => this.resolveLogSystemHistory()
     );
     this.uiManager.registerPanel(logPanel);
 
@@ -492,15 +491,6 @@ export class UIPanelManager {
     }
 
     return logSystem.getHistoryEntries();
-  }
-
-  private clearLogSystemHistory(): void {
-    const logSystem = this.resolveLogSystem();
-    if (!logSystem || typeof logSystem.clearHistory !== 'function') {
-      return;
-    }
-
-    logSystem.clearHistory();
   }
 
   private hasInventoryEntries(resourceInventory: Record<string, number> | null): boolean {

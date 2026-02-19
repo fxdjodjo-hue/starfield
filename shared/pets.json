@@ -34,6 +34,8 @@
       "displayName": "Sentinel 50",
       "assetBasePath": "assets/pet/ship50",
       "spriteScale": 1,
+      "frameRotationDirection": -1,
+      "frameRotationOffsetRad": 0,
       "followDistance": 172,
       "lateralOffset": 92,
       "stopDistance": 26,

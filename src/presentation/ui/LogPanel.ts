@@ -16,9 +16,7 @@ const MAX_RENDERED_ENTRIES = 150;
  */
 export class LogPanel extends BasePanel {
   private getHistoryEntries: () => LogHistoryEntry[] = () => [];
-  private clearHistoryEntries: (() => void) | null = null;
   private messagesContainer: HTMLElement | null = null;
-  private entryCountElement: HTMLElement | null = null;
   private dragHandleElement: HTMLElement | null = null;
   private autoScrollEnabled: boolean = true;
   private logEntryListener: ((event: Event) => void) | null = null;
@@ -29,8 +27,7 @@ export class LogPanel extends BasePanel {
 
   constructor(
     config: PanelConfig,
-    getHistoryEntries: () => LogHistoryEntry[],
-    clearHistoryEntries?: () => void
+    getHistoryEntries: () => LogHistoryEntry[]
   ) {
     super(config);
 
@@ -38,11 +35,9 @@ export class LogPanel extends BasePanel {
     // I field initializer della sottoclasse vengono applicati dopo super(),
     // quindi i riferimenti assegnati durante createPanelContent vanno ricollegati qui.
     this.messagesContainer = this.container.querySelector<HTMLElement>('.log-panel-messages');
-    this.entryCountElement = this.container.querySelector<HTMLElement>('.log-panel-entry-count');
     this.dragHandleElement = this.container.querySelector<HTMLElement>('.log-panel-drag-handle');
 
     this.getHistoryEntries = getHistoryEntries;
-    this.clearHistoryEntries = clearHistoryEntries || null;
 
     // Performance profile for frequent resizing:
     // avoid expensive backdrop filters and avoid width/height transitions.
@@ -142,63 +137,6 @@ export class LogPanel extends BasePanel {
     headerSection.appendChild(this.createCloseButton());
     content.appendChild(headerSection);
 
-    const toolbar = document.createElement('div');
-    toolbar.style.cssText = `
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-    `;
-
-    this.entryCountElement = document.createElement('div');
-    this.entryCountElement.className = 'log-panel-entry-count';
-    this.entryCountElement.style.cssText = `
-      font-size: 12px;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      color: rgba(255, 255, 255, 0.65);
-      font-weight: 700;
-    `;
-    this.entryCountElement.textContent = '0 entries';
-
-    const clearButton = document.createElement('button');
-    clearButton.textContent = 'Clear';
-    clearButton.style.cssText = `
-      background: rgba(255, 255, 255, 0.06);
-      color: rgba(255, 255, 255, 0.85);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 8px;
-      padding: 7px 12px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.6px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    `;
-
-    clearButton.addEventListener('mouseenter', () => {
-      clearButton.style.background = 'rgba(239, 68, 68, 0.2)';
-      clearButton.style.borderColor = 'rgba(239, 68, 68, 0.35)';
-      clearButton.style.color = '#ffffff';
-    });
-
-    clearButton.addEventListener('mouseleave', () => {
-      clearButton.style.background = 'rgba(255, 255, 255, 0.06)';
-      clearButton.style.borderColor = 'rgba(255, 255, 255, 0.14)';
-      clearButton.style.color = 'rgba(255, 255, 255, 0.85)';
-    });
-
-    clearButton.addEventListener('click', () => {
-      if (this.clearHistoryEntries) {
-        this.clearHistoryEntries();
-      }
-      this.renderHistory(this.getHistoryEntries());
-    });
-
-    toolbar.appendChild(this.entryCountElement);
-    toolbar.appendChild(clearButton);
-    content.appendChild(toolbar);
-
     const messagesContainer = document.createElement('div');
     messagesContainer.className = 'log-panel-messages';
     messagesContainer.style.cssText = `
@@ -285,7 +223,6 @@ export class LogPanel extends BasePanel {
       if (!entry) return;
 
       if (!this.isPanelVisible()) {
-        this.updateEntryCount(this.getHistoryEntries().length);
         return;
       }
 
@@ -337,7 +274,6 @@ export class LogPanel extends BasePanel {
       }
     }
 
-    this.updateEntryCount(entries.length);
     this.scrollToBottom(true);
   }
 
@@ -356,8 +292,6 @@ export class LogPanel extends BasePanel {
     while (this.messagesContainer.childElementCount > MAX_RENDERED_ENTRIES) {
       this.messagesContainer.removeChild(this.messagesContainer.firstChild as ChildNode);
     }
-
-    this.updateEntryCount(this.getHistoryEntries().length);
 
     if (shouldKeepBottom) {
       this.scrollToBottom(true);
@@ -499,12 +433,6 @@ export class LogPanel extends BasePanel {
     const mm = String(date.getMinutes()).padStart(2, '0');
     const ss = String(date.getSeconds()).padStart(2, '0');
     return `${hh}:${mm}:${ss}`;
-  }
-
-  private updateEntryCount(totalEntries: number): void {
-    if (!this.entryCountElement) return;
-    const label = totalEntries === 1 ? 'entry' : 'entries';
-    this.entryCountElement.textContent = `${totalEntries} ${label}`;
   }
 
   private scrollToBottom(force: boolean = false): void {

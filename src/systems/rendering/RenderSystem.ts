@@ -58,6 +58,7 @@ export class RenderSystem extends BaseSystem {
   // Static access to smoothed position for UI synchronization (Nicknames, etc.)
   public static smoothedLocalPlayerPos: { x: number; y: number } | null = null;
   public static smoothedLocalPlayerId: number | null = null;
+  public static renderFrameTime: number = 0;
 
   private cameraSystem: CameraSystem;
   private playerSystem: PlayerSystem;
@@ -438,6 +439,7 @@ export class RenderSystem extends BaseSystem {
     // Sincronizza frameTime con l'orologio reale invece del deltaTime fisico
     // per evitare stutter nelle animazioni visuali (floatOffset, ecc) tra i passi di fisica
     this.frameTime = performance.now();
+    RenderSystem.renderFrameTime = this.frameTime;
 
     this.engflamesAnimationTime += deltaTime;
     this.portalAnimationTime += deltaTime;

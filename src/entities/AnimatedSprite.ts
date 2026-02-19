@@ -25,7 +25,7 @@ export interface SpritesheetData {
  * 
  * Spritesheet convention:
  * - Frame 0: ship pointing RIGHT (0 rad)
- * - Frames ordered counter-clockwise
+ * - Frame order can be configured via `rotationFrameDirection`
  */
 export class AnimatedSprite {
   public spritesheet: SpritesheetData;
@@ -33,6 +33,11 @@ export class AnimatedSprite {
   public offsetX: number;
   public offsetY: number;
   public visible: boolean = true;
+  // Frame-orientation controls:
+  // - direction: -1 keeps current historical mapping
+  // - offset: per-asset angular correction in radians
+  public rotationFrameDirection: 1 | -1 = -1;
+  public rotationFrameOffset: number = 0;
 
   constructor(
     spritesheet: SpritesheetData,
@@ -48,14 +53,15 @@ export class AnimatedSprite {
 
   /**
    * Get the frame index for a given rotation (in radians)
-   * Frames are ordered counter-clockwise, so we negate the rotation
+   * Mapping can be tuned per asset using direction/offset fields.
    */
   getFrameForRotation(rotation: number): number {
     const frameCount = this.spritesheet.frames.length;
     const twoPi = Math.PI * 2;
-
-    // Negate rotation: frames are counter-clockwise
-    let normalized = (-rotation) % twoPi;
+    const direction = this.rotationFrameDirection === 1 ? 1 : -1;
+    const safeRotation = Number.isFinite(rotation) ? rotation : 0;
+    const safeOffset = Number.isFinite(this.rotationFrameOffset) ? this.rotationFrameOffset : 0;
+    let normalized = (direction * (safeRotation + safeOffset)) % twoPi;
     if (normalized < 0) normalized += twoPi;
 
     return Math.floor((normalized / twoPi) * frameCount) % frameCount;

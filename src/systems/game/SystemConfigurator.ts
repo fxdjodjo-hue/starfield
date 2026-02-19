@@ -25,6 +25,7 @@ export class SystemConfigurator {
       inputSystem, playerControlSystem, npcSelectionSystem, npcMovementSystem, npcBehaviorSystem,
       damageSystem, projectileCreationSystem, combatStateSystem,
       cameraSystem, explosionSystem, repairEffectSystem, projectileSystem, movementSystem,
+      localPetFollowSystem,
       parallaxSystem, renderSystem, boundsSystem, minimapSystem,
       damageTextSystem, chatTextSystem, logSystem, economySystem, rankSystem,
       rewardSystem, questSystem, questDiscoverySystem, uiSystem, playerStatusDisplaySystem,
@@ -50,6 +51,7 @@ export class SystemConfigurator {
       ecs.addSystem(interpolationSystem);
     }
     ecs.addSystem(movementSystem);
+    ecs.addSystem(localPetFollowSystem);
     ecs.addSystem(asteroidSystem); // Aggiorna posizione e rotazione asteroidi
     ecs.addSystem(parallaxSystem);
     ecs.addSystem(renderSystem);

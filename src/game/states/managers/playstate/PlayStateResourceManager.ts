@@ -304,7 +304,9 @@ export class PlayStateResourceManager {
     const camera = cameraSystem.getCamera();
     const canvasSize = this.world.getCanvasSize();
     const ecs = this.world.getECS();
-    const frameTime = performance.now();
+    const frameTime = Number.isFinite(RenderSystem.renderFrameTime) && RenderSystem.renderFrameTime > 0
+      ? RenderSystem.renderFrameTime
+      : performance.now();
 
     let localPlayerVisualOffsetX = 0;
     let localPlayerVisualOffsetY = 0;

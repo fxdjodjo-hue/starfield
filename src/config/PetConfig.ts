@@ -5,6 +5,8 @@ export interface PlayerPetDefinition {
   displayName: string;
   assetBasePath: string;
   spriteScale: number;
+  frameRotationDirection: 1 | -1;
+  frameRotationOffsetRad: number;
   followDistance: number;
   lateralOffset: number;
   stopDistance: number;
@@ -20,6 +22,8 @@ interface SharedPetDefinition {
   displayName?: string;
   assetBasePath?: string;
   spriteScale?: number;
+  frameRotationDirection?: number;
+  frameRotationOffsetRad?: number;
   followDistance?: number;
   lateralOffset?: number;
   stopDistance?: number;
@@ -49,6 +53,10 @@ const PLAYER_PET_DEFINITIONS: PlayerPetDefinition[] = Array.isArray(SHARED_PET_C
       const stopDistance = Number.isFinite(Number(pet.stopDistance))
         ? Math.max(0, Math.floor(Number(pet.stopDistance)))
         : 24;
+      const frameRotationDirection: 1 | -1 = Number(pet.frameRotationDirection) === 1 ? 1 : -1;
+      const frameRotationOffsetRad = Number.isFinite(Number(pet.frameRotationOffsetRad))
+        ? Number(pet.frameRotationOffsetRad)
+        : 0;
 
       return {
         id,
@@ -61,6 +69,8 @@ const PLAYER_PET_DEFINITIONS: PlayerPetDefinition[] = Array.isArray(SHARED_PET_C
         spriteScale: Number.isFinite(Number(pet.spriteScale))
           ? Math.max(0.01, Number(pet.spriteScale))
           : 0.35,
+        frameRotationDirection,
+        frameRotationOffsetRad,
         followDistance,
         lateralOffset: Number.isFinite(Number(pet.lateralOffset))
           ? Number(pet.lateralOffset)

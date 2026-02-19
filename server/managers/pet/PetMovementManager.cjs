@@ -1,4 +1,5 @@
 const sharedPetConfig = require('../../../shared/pets.json');
+const sharedPetMovementTuning = require('../../../shared/pet-movement-tuning.json');
 const { normalizePlayerPetState } = require('../../config/PetCatalog.cjs');
 
 const RAW_PET_DEFINITIONS = Array.isArray(sharedPetConfig?.pets) ? sharedPetConfig.pets : [];
@@ -46,38 +47,52 @@ function resolvePetDefinition(petId) {
   };
 }
 
+function readTuningNumber(source, key, fallback, min = null) {
+  const raw = Number(source?.[key]);
+  if (!Number.isFinite(raw)) return fallback;
+  if (Number.isFinite(min)) return Math.max(min, raw);
+  return raw;
+}
+
 class PetMovementManager {
   constructor(mapServer) {
     this.mapServer = mapServer;
     this.runtimeByPlayerId = new Map();
     this.lastUpdateAt = 0;
 
-    this.SNAP_DISTANCE_PX = 1600;
-    this.PET_BASE_SPEED_PX_PER_SECOND = 270;
-    this.PET_CATCHUP_SPEED_PX_PER_SECOND = 560;
-    this.PET_CATCHUP_START_RATIO = 0.42;
-    this.PET_CATCHUP_FULL_RATIO = 0.88;
-    this.PET_SPEED_RAMP_RATE = 7.5;
-    this.PET_SLOWDOWN_DISTANCE = 130;
-    this.PET_STOP_EPSILON = 6;
-    this.FOLLOW_TARGET_FILTER_MOVING = 15;
-    this.FOLLOW_TARGET_FILTER_STATIONARY = 9;
-    this.FOLLOW_TARGET_SNAP_DISTANCE = 900;
+    const tuning = (sharedPetMovementTuning && typeof sharedPetMovementTuning === 'object')
+      ? sharedPetMovementTuning
+      : {};
 
-    this.FOLLOW_DISTANCE_EXTRA = 24;
-    this.LATERAL_OFFSET_MULTIPLIER = 1.1;
-    this.OWNER_LEAD_TIME = 0.18;
+    this.SNAP_DISTANCE_PX = readTuningNumber(tuning, 'snapDistancePx', 1600, 100);
+    this.PET_BASE_SPEED_PX_PER_SECOND = readTuningNumber(tuning, 'petBaseSpeedPxPerSecond', 270, 10);
+    this.PET_CATCHUP_SPEED_PX_PER_SECOND = readTuningNumber(tuning, 'petCatchUpSpeedPxPerSecond', 560, 10);
+    this.PET_CATCHUP_START_RATIO = readTuningNumber(tuning, 'petCatchUpStartRatio', 0.42, 0);
+    this.PET_CATCHUP_FULL_RATIO = Math.max(
+      this.PET_CATCHUP_START_RATIO,
+      readTuningNumber(tuning, 'petCatchUpFullRatio', 0.88, 0)
+    );
+    this.PET_SPEED_RAMP_RATE = readTuningNumber(tuning, 'petSpeedRampRate', 7.5, 0.01);
+    this.PET_SLOWDOWN_DISTANCE = readTuningNumber(tuning, 'petSlowdownDistance', 130, 1);
+    this.PET_STOP_EPSILON = readTuningNumber(tuning, 'petStopEpsilon', 6, 0);
+    this.FOLLOW_TARGET_FILTER_MOVING = readTuningNumber(tuning, 'followTargetFilterMoving', 15, 0.01);
+    this.FOLLOW_TARGET_FILTER_STATIONARY = readTuningNumber(tuning, 'followTargetFilterStationary', 9, 0.01);
+    this.FOLLOW_TARGET_SNAP_DISTANCE = readTuningNumber(tuning, 'followTargetSnapDistance', 900, 1);
 
-    this.OWNER_CLEARANCE_MIN = 130;
-    this.OWNER_CLEARANCE_MAX = 230;
-    this.OWNER_CLEARANCE_FOLLOW_MULTIPLIER = 0.82;
-    this.OWNER_CLEARANCE_SPEED_BONUS = 20;
-    this.OWNER_STATIONARY_SPEED_THRESHOLD = 28;
+    this.FOLLOW_DISTANCE_EXTRA = readTuningNumber(tuning, 'followDistanceExtra', 24);
+    this.LATERAL_OFFSET_MULTIPLIER = readTuningNumber(tuning, 'lateralOffsetMultiplier', 1.1, 0);
+    this.OWNER_LEAD_TIME = readTuningNumber(tuning, 'ownerLeadTime', 0.18, 0);
 
-    this.PET_DEFENSE_SPEED_BOOST = 1.28;
-    this.PET_DEFENSE_TARGET_FILTER = 26;
-    this.PET_DEFENSE_SLOWDOWN_DISTANCE = 92;
-    this.PET_DEFENSE_ORBIT_RADIUS = 260;
+    this.OWNER_CLEARANCE_MIN = readTuningNumber(tuning, 'ownerClearanceMin', 130, 1);
+    this.OWNER_CLEARANCE_MAX = readTuningNumber(tuning, 'ownerClearanceMax', 230, this.OWNER_CLEARANCE_MIN);
+    this.OWNER_CLEARANCE_FOLLOW_MULTIPLIER = readTuningNumber(tuning, 'ownerClearanceFollowMultiplier', 0.82, 0);
+    this.OWNER_CLEARANCE_SPEED_BONUS = readTuningNumber(tuning, 'ownerClearanceSpeedBonus', 20, 0);
+    this.OWNER_STATIONARY_SPEED_THRESHOLD = readTuningNumber(tuning, 'ownerStationarySpeedThreshold', 28, 0);
+
+    this.PET_DEFENSE_SPEED_BOOST = readTuningNumber(tuning, 'petDefenseSpeedBoost', 1.28, 0.1);
+    this.PET_DEFENSE_TARGET_FILTER = readTuningNumber(tuning, 'petDefenseTargetFilter', 26, 0.01);
+    this.PET_DEFENSE_SLOWDOWN_DISTANCE = readTuningNumber(tuning, 'petDefenseSlowdownDistance', 92, 1);
+    this.PET_DEFENSE_ORBIT_RADIUS = readTuningNumber(tuning, 'petDefenseOrbitRadius', 260, 1);
   }
 
   update(now = Date.now()) {
@@ -164,7 +179,13 @@ class PetMovementManager {
     const petDefinition = resolvePetDefinition(petId);
     const runtime = this.getOrCreateRuntimeState(playerId, playerData.petPosition, playerPosition, petDefinition);
     const targetState = this.resolvePetTargetState(playerId, playerData, playerPosition, petDefinition);
-    const smoothedTarget = this.updateSmoothedTarget(runtime, targetState.target, dtSeconds, targetState.isDefense);
+    const smoothedTarget = this.updateSmoothedTarget(
+      runtime,
+      targetState.target,
+      dtSeconds,
+      targetState.isDefense,
+      targetState.ownerIsStationary
+    );
 
     const previousX = runtime.x;
     const previousY = runtime.y;
@@ -272,6 +293,11 @@ class PetMovementManager {
   }
 
   resolvePetTargetState(playerId, playerData, playerPosition, petDefinition) {
+    const ownerVelocityX = Number.isFinite(playerPosition.velocityX) ? playerPosition.velocityX : 0;
+    const ownerVelocityY = Number.isFinite(playerPosition.velocityY) ? playerPosition.velocityY : 0;
+    const ownerSpeed = this.getMagnitude(ownerVelocityX, ownerVelocityY);
+    const isOwnerStationary = ownerSpeed <= this.OWNER_STATIONARY_SPEED_THRESHOLD;
+
     const defenseNpcId = this.mapServer?.petModuleManager?.getDefenseTargetNpcId?.(playerId);
     if (defenseNpcId) {
       const defenseNpc = this.mapServer?.npcManager?.getNpc?.(defenseNpcId);
@@ -290,7 +316,8 @@ class PetMovementManager {
               y: npcY + (awayY / safeLength) * this.PET_DEFENSE_ORBIT_RADIUS
             },
             lookAt: { x: npcX, y: npcY },
-            isDefense: true
+            isDefense: true,
+            ownerIsStationary: isOwnerStationary
           };
         }
       }
@@ -301,15 +328,12 @@ class PetMovementManager {
       return {
         target: collectTarget,
         lookAt: null,
-        isDefense: false
+        isDefense: false,
+        ownerIsStationary: isOwnerStationary
       };
     }
 
     const ownerRotation = Number.isFinite(playerPosition.rotation) ? playerPosition.rotation : 0;
-    const ownerVelocityX = Number.isFinite(playerPosition.velocityX) ? playerPosition.velocityX : 0;
-    const ownerVelocityY = Number.isFinite(playerPosition.velocityY) ? playerPosition.velocityY : 0;
-    const ownerSpeed = this.getMagnitude(ownerVelocityX, ownerVelocityY);
-    const isOwnerStationary = ownerSpeed <= this.OWNER_STATIONARY_SPEED_THRESHOLD;
 
     const forwardX = Math.cos(ownerRotation);
     const forwardY = Math.sin(ownerRotation);
@@ -336,7 +360,8 @@ class PetMovementManager {
     return {
       target: constrainedTarget,
       lookAt: null,
-      isDefense: false
+      isDefense: false,
+      ownerIsStationary: isOwnerStationary
     };
   }
 
@@ -386,7 +411,7 @@ class PetMovementManager {
     };
   }
 
-  updateSmoothedTarget(runtime, target, dtSeconds, isDefenseTarget) {
+  updateSmoothedTarget(runtime, target, dtSeconds, isDefenseTarget, ownerIsStationary) {
     const dx = target.x - runtime.followTargetX;
     const dy = target.y - runtime.followTargetY;
     const distance = this.getMagnitude(dx, dy);
@@ -397,11 +422,10 @@ class PetMovementManager {
       return { x: target.x, y: target.y };
     }
 
-    const speed = runtime.currentMoveSpeed;
-    const isOwnerStationary = speed <= this.OWNER_STATIONARY_SPEED_THRESHOLD;
+    const stationaryOwner = ownerIsStationary === true;
     const filterRate = isDefenseTarget
       ? this.PET_DEFENSE_TARGET_FILTER
-      : (isOwnerStationary ? this.FOLLOW_TARGET_FILTER_STATIONARY : this.FOLLOW_TARGET_FILTER_MOVING);
+      : (stationaryOwner ? this.FOLLOW_TARGET_FILTER_STATIONARY : this.FOLLOW_TARGET_FILTER_MOVING);
     const alpha = this.clamp01(1 - Math.exp(-filterRate * dtSeconds));
 
     runtime.followTargetX = this.lerp(runtime.followTargetX, target.x, alpha);

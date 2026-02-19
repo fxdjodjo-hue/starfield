@@ -35,6 +35,7 @@ import { QuestTrackingSystem } from '../quest/QuestTrackingSystem';
 import { QuestDiscoverySystem } from '../quest/QuestDiscoverySystem';
 import { PlayerStatusDisplaySystem } from '../player/PlayerStatusDisplaySystem';
 import { PlayerSystem } from '../player/PlayerSystem';
+import { LocalPetFollowSystem } from '../player/LocalPetFollowSystem';
 import AudioSystem from '../audio/AudioSystem';
 import { PortalSystem } from './PortalSystem';
 import { AUDIO_CONFIG } from '../../config/AudioConfig';
@@ -66,6 +67,7 @@ export interface SystemFactoryDependencies {
 export interface CreatedSystems {
   cameraSystem: CameraSystem;
   movementSystem: MovementSystem;
+  localPetFollowSystem: LocalPetFollowSystem;
   parallaxSystem: ParallaxSystem;
   renderSystem: RenderSystem;
   inputSystem: InputSystem;
@@ -152,6 +154,8 @@ export class SystemFactory {
           defaultPetDefinition.assetBasePath,
           defaultPetDefinition.spriteScale
         );
+        petAnimatedSprite.rotationFrameDirection = defaultPetDefinition.frameRotationDirection;
+        petAnimatedSprite.rotationFrameOffset = defaultPetDefinition.frameRotationOffsetRad;
       } catch (error) {
         if (import.meta.env.DEV) {
           console.warn(`[SystemFactory] Failed to load pet sprite "${defaultPetDefinition.id}"`, error);
@@ -163,6 +167,7 @@ export class SystemFactory {
     const audioSystem = new AudioSystem(ecs, AUDIO_CONFIG);
     const cameraSystem = new CameraSystem(ecs);
     const movementSystem = new MovementSystem(ecs, cameraSystem);
+    const localPetFollowSystem = new LocalPetFollowSystem(ecs);
     const parallaxSystem = new ParallaxSystem(ecs, cameraSystem);
     const inputSystem = new InputSystem(ecs, context.canvas);
     const playerControlSystem = new PlayerControlSystem(ecs);
@@ -312,6 +317,7 @@ export class SystemFactory {
     return {
       cameraSystem,
       movementSystem,
+      localPetFollowSystem,
       parallaxSystem,
       renderSystem,
       inputSystem,

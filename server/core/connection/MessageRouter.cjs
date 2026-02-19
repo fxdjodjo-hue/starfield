@@ -902,6 +902,9 @@ function handlePositionUpdate(data, sanitizedData, context) {
     playerData.petPosition,
     playerData.position
   );
+  const petAuthoritativeTime = (authoritativePetPosition && Number.isFinite(Number(mapServer?.petMovementManager?.lastUpdateAt)))
+    ? Number(mapServer.petMovementManager.lastUpdateAt)
+    : now;
 
   // Server-authoritative coordinate/explore quests
   if (mapServer.questManager && playerData.position) {
@@ -956,6 +959,7 @@ function handlePositionUpdate(data, sanitizedData, context) {
     clientId: data.clientId,
     tick: data.tick,
     serverTime: now,
+    petServerTime: petAuthoritativeTime,
     petPosition: authoritativePetPosition
       ? {
         x: authoritativePetPosition.x,
