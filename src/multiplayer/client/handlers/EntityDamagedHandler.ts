@@ -168,7 +168,9 @@ export class EntityDamagedHandler extends BaseMessageHandler {
         // Per ora mostriamo tutto come danno HP (bianco/rosso)
         // In futuro potremmo migliorare la logica per distinguere shield vs HP
         const isShieldDamage = false;
-        const projectileType = message.projectileType;
+        const projectileType = projectileSource === 'pet'
+          ? 'pet_laser'
+          : message.projectileType;
 
         // Passa anche la posizione dal server per garantire che il testo appaia anche se l'entità è stata distrutta (es: oneshot)
         combatSystem.createDamageText(targetEntity, message.damage, isShieldDamage, false, projectileType, message.position.x, message.position.y);
