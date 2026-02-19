@@ -31,7 +31,7 @@ import type { ResourceInteractionSystem } from '../../systems/game/ResourceInter
 
 // Types and Configuration
 import type { NetMessage } from './types/MessageTypes';
-import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, type ClientId, type AmmoTier, secureLogger } from '../../config/NetworkConfig';
+import { NETWORK_CONFIG, MESSAGE_TYPES, type PlayerUuid, type PlayerDbId, type ClientId, type AmmoTier, type MissileTier, secureLogger } from '../../config/NetworkConfig';
 
 /**
  * Sistema di rete client modulare per multiplayer
@@ -579,6 +579,53 @@ export class ClientNetworkSystem extends BaseSystem {
       type: MESSAGE_TYPES.SET_AMMO_TIER,
       clientId: this.clientId,
       ammoTier: normalizedTier as AmmoTier,
+      timestamp: Date.now()
+    });
+    return true;
+  }
+
+  /**
+   * Sends a sell missile request to the server to consume missile ammo.
+   * Workaround for missing server-side consumption logic.
+   */
+  sendSellMissileRequest(missileTier: MissileTier, quantity: number = 1): boolean {
+    if (!this.connectionManager.isConnectionActive()) {
+      return false;
+    }
+
+    const normalizedTier = String(missileTier ?? '').trim().toLowerCase();
+    if (normalizedTier !== 'm1' && normalizedTier !== 'm2' && normalizedTier !== 'm3') {
+      return false;
+    }
+
+    const sanitizedQuantity = Number.isFinite(quantity) ? Math.max(1, Math.floor(quantity)) : 1;
+
+    // Assumption: Missile ammo IDs are 'missile_m1', 'missile_m2', 'missile_m3'
+    // This aligns with 'ammo_x1' pattern for laser ammo
+    this.sendMessage({
+      type: 'sell_item',
+      clientId: this.clientId,
+      itemId: `missile_${normalizedTier}`,
+      quantity: sanitizedQuantity,
+      timestamp: Date.now()
+    });
+    return true;
+  }
+
+  sendMissileTierUpdateRequest(missileTier: MissileTier): boolean {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return false;
+    }
+
+    const normalizedTier = String(missileTier ?? '').trim().toLowerCase();
+    if (normalizedTier !== 'm1' && normalizedTier !== 'm2' && normalizedTier !== 'm3') {
+      return false;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.SET_MISSILE_TIER,
+      clientId: this.clientId,
+      missileTier: normalizedTier as MissileTier,
       timestamp: Date.now()
     });
     return true;

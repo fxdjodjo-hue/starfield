@@ -12,7 +12,7 @@ import type { QuestSystem } from '../../quest/QuestSystem';
 import type { ECS } from '../../../infrastructure/ecs/ECS';
 import type { PlayerSystem } from '../../player/PlayerSystem';
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
-import type { PetStatePayload, AmmoTier } from '../../../config/NetworkConfig';
+import type { PetStatePayload, AmmoTier, MissileTier } from '../../../config/NetworkConfig';
 import { LogSystem, type LogHistoryEntry } from '../../rendering/LogSystem';
 
 /**
@@ -276,10 +276,18 @@ export class UIPanelManager {
     this.ammoShortcutListener = (event: Event) => {
       const customEvent = event as CustomEvent<{ slot?: number }>;
       const slot = Math.floor(Number(customEvent?.detail?.slot || 0));
-      const ammoTier = this.resolveAmmoTierFromSlot(slot);
-      if (!ammoTier) return;
 
-      this.submitAmmoTierUpdate(ammoTier);
+      const ammoTier = this.resolveAmmoTierFromSlot(slot);
+      if (ammoTier) {
+        this.submitAmmoTierUpdate(ammoTier);
+        return;
+      }
+
+      const missileTier = this.resolveMissileTierFromSlot(slot);
+      if (missileTier) {
+        this.submitMissileTierUpdate(missileTier);
+        return;
+      }
     };
 
     document.addEventListener('skillbar:activate', this.ammoShortcutListener as EventListener);
@@ -298,10 +306,26 @@ export class UIPanelManager {
     return null;
   }
 
+  private resolveMissileTierFromSlot(slot: number): MissileTier | null {
+    if (slot === 4) return 'm1';
+    if (slot === 5) return 'm2';
+    if (slot === 6) return 'm3';
+    return null;
+  }
+
   private submitAmmoTierUpdate(ammoTier: AmmoTier): void {
     const networkSystem = this.clientNetworkSystem;
     if (!networkSystem) return;
     networkSystem.sendAmmoTierUpdateRequest(ammoTier);
+  }
+
+  private submitMissileTierUpdate(missileTier: MissileTier): void {
+    const networkSystem = this.clientNetworkSystem;
+    if (!networkSystem) return;
+    // Check if method exists (it should now, but for safety/TS check)
+    if (typeof networkSystem.sendMissileTierUpdateRequest === 'function') {
+      networkSystem.sendMissileTierUpdateRequest(missileTier);
+    }
   }
 
   private syncCraftingPanelResourceInventory(force: boolean = false): void {
