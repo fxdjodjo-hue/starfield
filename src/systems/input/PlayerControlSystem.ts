@@ -302,6 +302,18 @@ export class PlayerControlSystem extends BaseSystem {
       this.movementManager.stopPlayerMovement(deltaTime);
     }
 
+    // Completa eventuale allineamento del facing quando non ci sono input di movimento attivi.
+    if (!this.attackActivated
+      && !this.movementManager.hasMinimapTarget()
+      && !this.inputManager.isKeyboardMoving()
+      && !this.inputManager.getIsMousePressed()) {
+      this.movementManager.faceTowardsTarget(deltaTime);
+    }
+
+    if (this.attackActivated) {
+      this.movementManager.clearFaceTarget();
+    }
+
     // Gestisci suono motore con una breve isteresi per evitare stop/start rapidi.
     const now = Date.now();
     const velocity = this.ecs.getComponent(this.playerEntity, Velocity);

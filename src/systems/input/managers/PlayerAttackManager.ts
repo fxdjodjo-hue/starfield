@@ -7,7 +7,7 @@ import { Damage } from '../../../entities/combat/Damage';
 import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { LogType } from '../../../presentation/ui/LogMessage';
-import { getPlayerRangeWidth, getPlayerRangeHeight, getPlayerDefinition } from '../../../config/PlayerConfig';
+import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../../config/PlayerConfig';
 import { PlayerControlSystem } from '../PlayerControlSystem';
 import { MathUtils } from '../../../core/utils/MathUtils';
 import { CONFIG } from '../../../core/utils/config/GameConfig';
@@ -363,7 +363,7 @@ export class PlayerAttackManager {
    * Se non ci sono NPC selezionati, usa l'ultimo target salvato (per deselezioni temporanee)
    * Usa InterpolationTarget per rotazioni fluide senza vibrazioni
    */
-  faceSelectedNpc(deltaTime: number): void {
+  faceSelectedNpc(_deltaTime: number): void {
     const now = Date.now();
 
     // Throttling removed for smooth rotation
@@ -411,26 +411,18 @@ export class PlayerAttackManager {
     const dy = targetY - playerTransform.y;
     const angle = Math.atan2(dy, dx);
 
-    // Controllo cambio minimo: evita aggiornamenti per cambiamenti piccoli
-    const angleDiff = Math.abs(angle - this.lastFaceAngle);
-    if (angleDiff < this.MIN_ANGLE_CHANGE) {
-      return; // Angolo cambiato troppo poco
+    // Compare against current ship rotation, not historical angle.
+    // This avoids stale-angle edge cases when switching targets/combat state.
+    const currentAngleDiff = Math.abs(MathUtils.angleDifference(playerTransform.rotation, angle));
+    if (currentAngleDiff < this.MIN_ANGLE_CHANGE) {
+      return;
     }
 
-    // Usa InterpolationTarget per rotazione fluida invece di impostare direttamente
+    // In combat we want precise facing towards the selected target.
     if (playerInterpolation) {
       playerInterpolation.updateTarget(playerTransform.x, playerTransform.y, angle, now);
     } else {
-      // Fallback se non c'è InterpolationTarget: usa Smooth Rotation
-      const playerDef = getPlayerDefinition();
-      const rotationSpeed = playerDef.rotationSpeed || 5;
-      const t = rotationSpeed * (deltaTime / 1000);
-      playerTransform.rotation = MathUtils.lerpAngle(playerTransform.rotation, angle, t);
-
-      // Snap to target if very close
-      if (Math.abs(MathUtils.angleDifference(playerTransform.rotation, angle)) < 0.01) {
-        playerTransform.rotation = angle;
-      }
+      playerTransform.rotation = angle;
     }
 
     // Aggiorna timestamp e ultimo angolo

@@ -1,3 +1,5 @@
+import { DomPanelInteractionController } from '../../interactions/DomPanelInteractionController';
+
 /**
  * Manages chat input and event listeners
  */
@@ -78,7 +80,14 @@ export class ChatInputManager {
     // Setup header click (also toggles)
     const header = this.container.querySelector('.chat-header') as HTMLElement;
     if (header) {
-      header.addEventListener('click', toggleClick);
+      header.addEventListener('click', (event) => {
+        if (DomPanelInteractionController.consumeSuppressedClick(this.container)) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        toggleClick();
+      });
     }
 
     // Setup send button click

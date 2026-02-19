@@ -9,6 +9,10 @@ import { RemotePet } from '../../entities/player/RemotePet';
 import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Minimap } from '../../presentation/ui/Minimap';
+import {
+  clampPanelPositionToViewport,
+  clampPanelSizeToViewport
+} from '../../presentation/ui/interactions/PanelLayoutMath';
 import { Camera } from '../../entities/spatial/Camera';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 import { DisplayManager } from '../../infrastructure/display';
@@ -35,6 +39,21 @@ export class MinimapSystem extends BaseSystem {
   private portalAnimationTime: number = 0;
   private readonly PORTAL_ANIMATION_FRAME_DURATION = 16.67; // ms per frame (~60fps)
   private unsubscribeResize: (() => void) | null = null;
+  private isPanelDragging: boolean = false;
+  private isPanelResizing: boolean = false;
+  private hasManualPanelPosition: boolean = false;
+  private hasManualPanelSize: boolean = false;
+  private panelDragStartPointerX: number = 0;
+  private panelDragStartPointerY: number = 0;
+  private panelDragStartX: number = 0;
+  private panelDragStartY: number = 0;
+  private panelResizeStartPointerX: number = 0;
+  private panelResizeStartPointerY: number = 0;
+  private panelResizeStartWidth: number = 0;
+  private panelResizeStartHeight: number = 0;
+  private readonly MINIMAP_MIN_WIDTH = 160;
+  private readonly MINIMAP_MIN_HEIGHT = 120;
+  private readonly MINIMAP_RESIZE_HANDLE_SIZE = 18;
 
   constructor(ecs: any, canvas: HTMLCanvasElement) {
     super(ecs);
@@ -138,6 +157,17 @@ export class MinimapSystem extends BaseSystem {
   handleMouseDown(screenX: number, screenY: number): boolean {
     if (!this.minimap.enabled || !this.minimap.visible) return false;
 
+    // Resize handle has highest priority, then header drag.
+    if (this.isPointInResizeHandle(screenX, screenY)) {
+      this.beginPanelResize(screenX, screenY);
+      return true;
+    }
+
+    if (this.isPointInGlassHeader(screenX, screenY)) {
+      this.beginPanelDrag(screenX, screenY);
+      return true;
+    }
+
     // PRIMA controlla se il click è nei bordi glass - se sì, ignora completamente
     if (this.isClickInGlassBorders(screenX, screenY)) {
       return false; // Click nei bordi glass - non gestito dalla minimappa
@@ -157,6 +187,16 @@ export class MinimapSystem extends BaseSystem {
    * Gestisce mouse move mentre è premuto nella minimappa
    */
   handleMouseMove(screenX: number, screenY: number): boolean {
+    if (this.isPanelResizing) {
+      this.updatePanelResize(screenX, screenY);
+      return true;
+    }
+
+    if (this.isPanelDragging) {
+      this.updatePanelDrag(screenX, screenY);
+      return true;
+    }
+
     if (!this.isMouseDownInMinimap) return false;
 
     if (this.minimap.isPointInside(screenX, screenY)) {
@@ -173,7 +213,27 @@ export class MinimapSystem extends BaseSystem {
    * Gestisce mouse up (ferma il movimento dalla minimappa)
    */
   handleMouseUp(): void {
+    this.isPanelDragging = false;
+    this.isPanelResizing = false;
     this.isMouseDownInMinimap = false;
+  }
+
+  /**
+   * Risolve il cursore da mostrare in base all'interazione minimappa.
+   * Ritorna null quando la minimappa non richiede un cursore specifico.
+   */
+  resolveInteractionCursor(screenX: number, screenY: number): string | null {
+    if (!this.minimap.enabled || !this.minimap.visible) return null;
+
+    if (this.isPanelResizing || this.isPointInResizeHandle(screenX, screenY)) {
+      return 'nwse-resize';
+    }
+
+    if (this.isPanelDragging || this.isPointInGlassHeader(screenX, screenY)) {
+      return 'move';
+    }
+
+    return null;
   }
 
   /**
@@ -196,6 +256,38 @@ export class MinimapSystem extends BaseSystem {
    */
   handleClick(screenX: number, screenY: number): boolean {
     return this.handleMouseDown(screenX, screenY);
+  }
+
+  private beginPanelDrag(screenX: number, screenY: number): void {
+    this.isPanelDragging = true;
+    this.isPanelResizing = false;
+    this.isMouseDownInMinimap = false;
+    this.panelDragStartPointerX = screenX;
+    this.panelDragStartPointerY = screenY;
+    this.panelDragStartX = this.minimap.x;
+    this.panelDragStartY = this.minimap.y;
+  }
+
+  private updatePanelDrag(screenX: number, screenY: number): void {
+    const nextX = this.panelDragStartX + (screenX - this.panelDragStartPointerX);
+    const nextY = this.panelDragStartY + (screenY - this.panelDragStartPointerY);
+    this.setManualPanelPosition(nextX, nextY);
+  }
+
+  private beginPanelResize(screenX: number, screenY: number): void {
+    this.isPanelResizing = true;
+    this.isPanelDragging = false;
+    this.isMouseDownInMinimap = false;
+    this.panelResizeStartPointerX = screenX;
+    this.panelResizeStartPointerY = screenY;
+    this.panelResizeStartWidth = this.minimap.width;
+    this.panelResizeStartHeight = this.minimap.height;
+  }
+
+  private updatePanelResize(screenX: number, screenY: number): void {
+    const nextWidth = this.panelResizeStartWidth + (screenX - this.panelResizeStartPointerX);
+    const nextHeight = this.panelResizeStartHeight + (screenY - this.panelResizeStartPointerY);
+    this.setManualPanelSize(nextWidth, nextHeight);
   }
 
   /**
@@ -366,7 +458,39 @@ export class MinimapSystem extends BaseSystem {
       this.renderPlayerReferenceLines(ctx, playerPos.x, playerPos.y);
     }
 
+    this.renderPanelInteractionHints(ctx, bgX, bgY, bgW, bgH);
+
     // Ripristina stato del contesto
+    ctx.restore();
+  }
+
+  private renderPanelInteractionHints(
+    ctx: CanvasRenderingContext2D,
+    bgX: number,
+    bgY: number,
+    bgW: number,
+    bgH: number
+  ): void {
+    const c = this.minimap.getDprCompensation();
+
+    ctx.save();
+    // Bottom-right resize cue.
+    ctx.globalAlpha = 0.82;
+    const handleSize = Math.max(10, Math.round(this.MINIMAP_RESIZE_HANDLE_SIZE * c));
+    const startX = bgX + bgW - handleSize;
+    const startY = bgY + bgH - handleSize;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = Math.max(1, Math.round(1 * c));
+
+    const step = Math.max(3, Math.round(4 * c));
+    for (let i = 0; i < 3; i++) {
+      const offset = i * step;
+      ctx.beginPath();
+      ctx.moveTo(startX + offset, bgY + bgH - Math.max(1, Math.round(1 * c)));
+      ctx.lineTo(bgX + bgW - Math.max(1, Math.round(1 * c)), startY + offset);
+      ctx.stroke();
+    }
+
     ctx.restore();
   }
 
@@ -856,12 +980,128 @@ export class MinimapSystem extends BaseSystem {
     ctx.restore();
   }
 
+  private setManualPanelPosition(nextX: number, nextY: number): void {
+    const viewport = DisplayManager.getInstance().getLogicalSize();
+    const clampedPosition = clampPanelPositionToViewport(
+      { left: nextX, top: nextY },
+      { width: this.minimap.width, height: this.minimap.height },
+      viewport
+    );
+
+    this.minimap.x = clampedPosition.left;
+    this.minimap.y = clampedPosition.top;
+    this.hasManualPanelPosition = true;
+    this.ensurePanelWithinViewport(viewport.width, viewport.height);
+  }
+
+  private setManualPanelSize(nextWidth: number, nextHeight: number): void {
+    const viewport = DisplayManager.getInstance().getLogicalSize();
+    const c = this.minimap.getDprCompensation();
+    const padding = Math.round(20 * c);
+    const headerHeight = Math.round(35 * c);
+
+    const clampedSize = clampPanelSizeToViewport(
+      { width: nextWidth, height: nextHeight },
+      {
+        width: Math.max(this.MINIMAP_MIN_WIDTH, Math.round(this.MINIMAP_MIN_WIDTH * c)),
+        height: Math.max(this.MINIMAP_MIN_HEIGHT, Math.round(this.MINIMAP_MIN_HEIGHT * c))
+      },
+      {
+        width: viewport.width - (padding * 2),
+        height: viewport.height - ((padding * 2) + headerHeight)
+      }
+    );
+
+    this.minimap.width = clampedSize.width;
+    this.minimap.height = clampedSize.height;
+    this.hasManualPanelSize = true;
+    this.recomputeMinimapScale();
+    this.ensurePanelWithinViewport(viewport.width, viewport.height);
+  }
+
+  private recomputeMinimapScale(): void {
+    const scaleX = this.minimap.width / this.minimap.worldWidth;
+    const scaleY = this.minimap.height / this.minimap.worldHeight;
+    this.minimap.scale = Math.min(scaleX, scaleY);
+  }
+
+  private ensurePanelWithinViewport(viewportWidth: number, viewportHeight: number): void {
+    const c = this.minimap.getDprCompensation();
+    const padding = Math.round(20 * c);
+    const headerHeight = Math.round(35 * c);
+    const glassWidth = this.minimap.width + (padding * 2);
+    const glassHeight = this.minimap.height + (padding * 2) + headerHeight;
+
+    const clampedGlass = clampPanelPositionToViewport(
+      {
+        left: this.minimap.x - padding,
+        top: this.minimap.y - padding - headerHeight
+      },
+      { width: glassWidth, height: glassHeight },
+      { width: viewportWidth, height: viewportHeight }
+    );
+
+    this.minimap.x = clampedGlass.left + padding;
+    this.minimap.y = clampedGlass.top + padding + headerHeight;
+  }
+
+  private getGlassPanelMetrics(): {
+    glassX: number;
+    glassY: number;
+    glassW: number;
+    glassH: number;
+    padding: number;
+    headerHeight: number;
+  } {
+    const c = this.minimap.getDprCompensation();
+    const padding = Math.round(20 * c);
+    const headerHeight = Math.round(35 * c);
+
+    return {
+      glassX: this.minimap.x - padding,
+      glassY: this.minimap.y - padding - headerHeight,
+      glassW: this.minimap.width + (padding * 2),
+      glassH: this.minimap.height + (padding * 2) + headerHeight,
+      padding,
+      headerHeight
+    };
+  }
+
+  private isPointInGlassHeader(screenX: number, screenY: number): boolean {
+    const { glassX, glassY, glassW, headerHeight } = this.getGlassPanelMetrics();
+    return screenX >= glassX
+      && screenX <= glassX + glassW
+      && screenY >= glassY
+      && screenY <= glassY + headerHeight;
+  }
+
+  private isPointInResizeHandle(screenX: number, screenY: number): boolean {
+    const { glassX, glassY, glassW, glassH } = this.getGlassPanelMetrics();
+    const handleSize = Math.max(10, Math.round(this.MINIMAP_RESIZE_HANDLE_SIZE * this.minimap.getDprCompensation()));
+    const handleX = glassX + glassW - handleSize;
+    const handleY = glassY + glassH - handleSize;
+
+    return screenX >= handleX
+      && screenX <= glassX + glassW
+      && screenY >= handleY
+      && screenY <= glassY + glassH;
+  }
+
   /**
    * Gestisce il resize della finestra
    */
   private handleResize(): void {
     const { width, height } = DisplayManager.getInstance().getLogicalSize();
-    this.minimap.updateViewport(width, height);
+
+    if (!this.hasManualPanelSize && !this.hasManualPanelPosition) {
+      this.minimap.updateViewport(width, height);
+      return;
+    }
+
+    if (this.hasManualPanelSize) {
+      this.setManualPanelSize(this.minimap.width, this.minimap.height);
+    }
+    this.ensurePanelWithinViewport(width, height);
   }
 
   /**
@@ -906,24 +1146,7 @@ export class MinimapSystem extends BaseSystem {
    */
   isClickInGlassPanel(screenX: number, screenY: number): boolean {
     if (!this.minimap.visible) return false;
-
-    const x = this.minimap.x;
-    const y = this.minimap.y;
-    const w = this.minimap.width;
-    const h = this.minimap.height;
-
-    // Compensazione DPR
-    const c = this.minimap.getDprCompensation();
-
-    // Padding del pannello glass (compensato)
-    const padding = Math.round(20 * c);
-    const headerHeight = Math.round(35 * c);
-
-    // Coordinate del pannello glass completo
-    const glassX = x - padding;
-    const glassY = y - padding - headerHeight;
-    const glassW = w + (padding * 2);
-    const glassH = h + (padding * 2) + headerHeight;
+    const { glassX, glassY, glassW, glassH } = this.getGlassPanelMetrics();
 
     // Il click è nel pannello glass completo?
     return screenX >= glassX && screenX <= glassX + glassW &&
@@ -934,23 +1157,7 @@ export class MinimapSystem extends BaseSystem {
    * Verifica se un click è nei bordi glass del pannello (da ignorare per movimento nave)
    */
   private isClickInGlassBorders(screenX: number, screenY: number): boolean {
-    const x = this.minimap.x;
-    const y = this.minimap.y;
-    const w = this.minimap.width;
-    const h = this.minimap.height;
-
-    // Compensazione DPR
-    const c = this.minimap.getDprCompensation();
-
-    // Padding del pannello glass (compensato)
-    const padding = Math.round(20 * c);
-    const headerHeight = Math.round(35 * c);
-
-    // Coordinate del pannello glass completo
-    const glassX = x - padding;
-    const glassY = y - padding - headerHeight;
-    const glassW = w + (padding * 2);
-    const glassH = h + (padding * 2) + headerHeight;
+    const { glassX, glassY, glassW, glassH } = this.getGlassPanelMetrics();
 
     // Il click è nel pannello glass?
     if (screenX >= glassX && screenX <= glassX + glassW &&

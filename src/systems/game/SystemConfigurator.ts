@@ -185,14 +185,22 @@ export class SystemConfigurator {
 
     inputSystem.setMouseMoveCallback((x: number, y: number) => {
       let nextCursor = 'default';
-      const inMinimapGlassPanel = minimapSystem.isClickInGlassPanel(x, y);
-      const inPlayerStatusHUD = playerStatusDisplaySystem.isClickInHUD(x, y);
+      const minimapCursor = typeof minimapSystem.resolveInteractionCursor === 'function'
+        ? minimapSystem.resolveInteractionCursor(x, y)
+        : null;
 
-      if (!inMinimapGlassPanel && !inPlayerStatusHUD) {
-        const { width, height } = DisplayManager.getInstance().getLogicalSize();
-        const worldPos = cameraSystem.getCamera().screenToWorld(x, y, width, height);
-        if (resourceInteractionSystem.isResourceHovered(worldPos.x, worldPos.y)) {
-          nextCursor = 'pointer';
+      if (minimapCursor) {
+        nextCursor = minimapCursor;
+      } else {
+        const inMinimapGlassPanel = minimapSystem.isClickInGlassPanel(x, y);
+        const inPlayerStatusHUD = playerStatusDisplaySystem.isClickInHUD(x, y);
+
+        if (!inMinimapGlassPanel && !inPlayerStatusHUD) {
+          const { width, height } = DisplayManager.getInstance().getLogicalSize();
+          const worldPos = cameraSystem.getCamera().screenToWorld(x, y, width, height);
+          if (resourceInteractionSystem.isResourceHovered(worldPos.x, worldPos.y)) {
+            nextCursor = 'pointer';
+          }
         }
       }
 

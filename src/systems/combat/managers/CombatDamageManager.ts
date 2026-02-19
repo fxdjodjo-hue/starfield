@@ -51,10 +51,13 @@ export class CombatDamageManager {
     } else {
       // Check for missile damage (robust check)
       // Check for strict types OR any type starting with 'm' (m1, m2, m3...)
+      const isPetLaser = projectileType === 'pet_laser';
       const isMissileType = projectileType === 'missile' ||
         (typeof projectileType === 'string' && projectileType.startsWith('m'));
 
-      if (isMissileType) {
+      if (isPetLaser) {
+        textColor = '#b266ff';
+      } else if (isMissileType) {
         textColor = '#ffaa00'; // Orange for missiles
         if (projectileType !== 'missile') {
           // console.log('[DamageText] Missile damage detected:', projectileType);

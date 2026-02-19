@@ -24,6 +24,7 @@ export class PlayerMovementManager {
   private readonly DEFAULT_TARGET_STOP_DISTANCE = 80;
   private readonly MIN_TARGET_STOP_DISTANCE = 1;
   private readonly MAX_TARGET_STOP_DISTANCE = 220;
+  private readonly FACE_TARGET_CLEAR_EPSILON = 0.03;
 
   constructor(
     private readonly ecs: ECS,
@@ -107,8 +108,19 @@ export class PlayerMovementManager {
     const transform = this.ecs.getComponent(playerEntity, Transform);
     if (!transform) return;
 
+    const dx = this.faceTargetX - transform.x;
+    const dy = this.faceTargetY - transform.y;
+    if ((dx * dx) + (dy * dy) <= 0.0001) {
+      this.clearFaceTarget();
+      return;
+    }
+
     const angle = Math.atan2(this.faceTargetY - transform.y, this.faceTargetX - transform.x);
     this.smoothRotate(transform, angle, deltaTime);
+
+    if (Math.abs(MathUtils.angleDifference(transform.rotation, angle)) <= this.FACE_TARGET_CLEAR_EPSILON) {
+      this.clearFaceTarget();
+    }
   }
 
   /**
@@ -120,6 +132,8 @@ export class PlayerMovementManager {
 
     this.minimapTargetX = worldX;
     this.minimapTargetY = worldY;
+    // Persist facing target so alignment can complete smoothly after movement stop.
+    this.setFaceTarget(worldX, worldY);
     const sanitizedStopDistance = Number.isFinite(Number(stopDistancePx))
       ? Math.max(this.MIN_TARGET_STOP_DISTANCE, Math.min(this.MAX_TARGET_STOP_DISTANCE, Number(stopDistancePx)))
       : this.DEFAULT_TARGET_STOP_DISTANCE;
@@ -159,6 +173,7 @@ export class PlayerMovementManager {
       const speed = this.getPlayerSpeed();
 
       this.applyVelocityChange(velocity, dirX * speed, dirY * speed, deltaTime);
+      this.clearFaceTarget();
 
       // Imposta rotazione solo se non siamo in combattimento attivo
       if (!this.isAttackActivated()) {
@@ -167,6 +182,9 @@ export class PlayerMovementManager {
       }
     } else {
       this.stopPlayerMovement(deltaTime);
+      // Keep facing destination as persistent target and let it settle smoothly.
+      this.setFaceTarget(this.minimapTargetX, this.minimapTargetY);
+
       this.minimapTargetX = null;
       this.minimapTargetY = null;
       this.minimapTargetStopDistance = this.DEFAULT_TARGET_STOP_DISTANCE;
@@ -207,6 +225,7 @@ export class PlayerMovementManager {
       const speed = this.getPlayerSpeed();
 
       this.applyVelocityChange(velocity, dirX * speed, dirY * speed, deltaTime);
+      this.clearFaceTarget();
 
       // Imposta rotazione solo se non siamo in combattimento attivo
       if (!this.isAttackActivated()) {
@@ -215,6 +234,12 @@ export class PlayerMovementManager {
       }
     } else {
       this.stopPlayerMovement(deltaTime);
+
+      if (!this.isAttackActivated()) {
+        this.setFaceTarget(worldMouseX, worldMouseY);
+        this.faceTowardsTarget(deltaTime);
+      }
+
       // Don't unpress mouse automatically here, as dragging might continue
     }
   }
@@ -249,6 +274,7 @@ export class PlayerMovementManager {
     this.applyVelocityChange(velocity, vx * speed, vy * speed, deltaTime);
 
     if (vx !== 0 || vy !== 0) {
+      this.clearFaceTarget();
       // Imposta rotazione solo se non siamo in combattimento attivo
       if (!this.isAttackActivated()) {
         const angle = Math.atan2(vy, vx);

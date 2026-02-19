@@ -7,6 +7,7 @@ import {
   type LogCategory,
   type LogHistoryEntry
 } from '../../systems/rendering/LogSystem';
+import { DomPanelInteractionController } from './interactions/DomPanelInteractionController';
 
 const MAX_RENDERED_ENTRIES = 150;
 
@@ -22,24 +23,9 @@ export class LogPanel extends BasePanel {
   private autoScrollEnabled: boolean = true;
   private logEntryListener: ((event: Event) => void) | null = null;
   private historyClearedListener: ((event: Event) => void) | null = null;
-  private isDragging: boolean = false;
-  private hasManualPosition: boolean = false;
-  private hasManualSize: boolean = false;
-  private dragStartPointerX: number = 0;
-  private dragStartPointerY: number = 0;
-  private dragStartLeft: number = 0;
-  private dragStartTop: number = 0;
-  private manualLeft: number = 0;
-  private manualTop: number = 0;
-  private manualWidth: number = 0;
-  private manualHeight: number = 0;
-  private dragPreviousTransition: string = '';
   private readonly minWidth: number = 360;
   private readonly minHeight: number = 220;
-  private readonly dragMoveHandler = (event: MouseEvent) => this.handleDragMove(event);
-  private readonly dragEndHandler = () => this.handleDragEnd();
-  private readonly dragStartHandler = (event: MouseEvent) => this.handleDragStart(event);
-  private readonly resizeSyncHandler = () => this.syncNativeResizedDimensions();
+  private panelInteraction: DomPanelInteractionController | null = null;
 
   constructor(
     config: PanelConfig,
@@ -67,8 +53,12 @@ export class LogPanel extends BasePanel {
     this.container.style.contain = 'layout paint style';
 
     this.setupLogEventListeners();
-    this.setupDragBehavior();
-    this.setupNativeResizeBehavior();
+    this.panelInteraction = new DomPanelInteractionController({
+      container: this.container,
+      dragHandle: this.dragHandleElement,
+      minWidth: this.minWidth,
+      minHeight: this.minHeight
+    });
     this.renderHistory(this.getHistoryEntries());
   }
 
@@ -235,21 +225,19 @@ export class LogPanel extends BasePanel {
   protected onShow(): void {
     this.autoScrollEnabled = true;
     this.renderHistory(this.getHistoryEntries());
-    this.applyStoredManualSize();
-    this.applyStoredManualPosition();
+    this.panelInteraction?.applyStoredLayout();
     this.scrollToBottom(true);
   }
 
   updatePosition(): void {
     super.updatePosition();
-    this.applyStoredManualSize();
-    this.applyStoredManualPosition();
-    this.ensureContainerWithinViewport();
+    this.panelInteraction?.applyStoredLayout();
+    this.panelInteraction?.ensureContainerWithinViewport();
   }
 
   destroy(): void {
-    this.teardownNativeResizeBehavior();
-    this.teardownDragBehavior();
+    this.panelInteraction?.destroy();
+    this.panelInteraction = null;
     this.teardownLogEventListeners();
     super.destroy();
   }
@@ -324,151 +312,6 @@ export class LogPanel extends BasePanel {
       document.removeEventListener(LOG_EVENT_HISTORY_CLEARED, this.historyClearedListener);
       this.historyClearedListener = null;
     }
-  }
-
-  private setupDragBehavior(): void {
-    if (!this.dragHandleElement) return;
-    this.dragHandleElement.addEventListener('mousedown', this.dragStartHandler);
-  }
-
-  private setupNativeResizeBehavior(): void {
-    this.container.style.resize = 'both';
-    this.container.style.overflow = 'hidden';
-    this.container.style.minWidth = `${this.minWidth}px`;
-    this.container.style.minHeight = `${this.minHeight}px`;
-    document.addEventListener('mouseup', this.resizeSyncHandler);
-  }
-
-  private teardownDragBehavior(): void {
-    if (this.dragHandleElement) {
-      this.dragHandleElement.removeEventListener('mousedown', this.dragStartHandler);
-    }
-    this.handleDragEnd();
-  }
-
-  private teardownNativeResizeBehavior(): void {
-    document.removeEventListener('mouseup', this.resizeSyncHandler);
-  }
-
-  private handleDragStart(event: MouseEvent): void {
-    if (event.button !== 0) return;
-
-    const target = event.target as HTMLElement | null;
-    if (target?.closest('button, input, textarea, select, a')) return;
-
-    const rect = this.container.getBoundingClientRect();
-    this.isDragging = true;
-    this.dragStartPointerX = event.clientX;
-    this.dragStartPointerY = event.clientY;
-    this.dragStartLeft = rect.left;
-    this.dragStartTop = rect.top;
-    this.dragPreviousTransition = this.container.style.transition;
-    this.container.style.transition = 'none';
-
-    document.addEventListener('mousemove', this.dragMoveHandler);
-    document.addEventListener('mouseup', this.dragEndHandler);
-    document.body.style.userSelect = 'none';
-    event.preventDefault();
-  }
-
-  private handleDragMove(event: MouseEvent): void {
-    if (!this.isDragging) return;
-
-    const offsetX = event.clientX - this.dragStartPointerX;
-    const offsetY = event.clientY - this.dragStartPointerY;
-    const nextLeft = this.dragStartLeft + offsetX;
-    const nextTop = this.dragStartTop + offsetY;
-
-    this.setManualPosition(nextLeft, nextTop);
-  }
-
-  private handleDragEnd(): void {
-    if (!this.isDragging) return;
-    this.isDragging = false;
-    document.removeEventListener('mousemove', this.dragMoveHandler);
-    document.removeEventListener('mouseup', this.dragEndHandler);
-    document.body.style.userSelect = '';
-    this.container.style.transition = this.dragPreviousTransition;
-  }
-
-  private setManualPosition(left: number, top: number): void {
-    const { clampedLeft, clampedTop } = this.clampToViewport(left, top);
-    this.manualLeft = clampedLeft;
-    this.manualTop = clampedTop;
-    this.hasManualPosition = true;
-    this.container.style.left = `${clampedLeft}px`;
-    this.container.style.top = `${clampedTop}px`;
-  }
-
-  private syncNativeResizedDimensions(): void {
-    if (!this.isPanelVisible() || this.isDragging) return;
-
-    const rect = this.container.getBoundingClientRect();
-    if (rect.width < 10 || rect.height < 10) return;
-
-    const nextWidth = Math.max(this.minWidth, Math.round(this.container.offsetWidth));
-    const nextHeight = Math.max(this.minHeight, Math.round(this.container.offsetHeight));
-    const hasChanged = !this.hasManualSize
-      || this.manualWidth !== nextWidth
-      || this.manualHeight !== nextHeight;
-
-    if (!hasChanged) return;
-
-    this.manualWidth = nextWidth;
-    this.manualHeight = nextHeight;
-    this.hasManualSize = true;
-    this.container.style.width = `${nextWidth}px`;
-    this.container.style.height = `${nextHeight}px`;
-
-    if (!this.hasManualPosition) {
-      this.manualLeft = rect.left;
-      this.manualTop = rect.top;
-      this.hasManualPosition = true;
-    }
-
-    this.ensureContainerWithinViewport();
-  }
-
-  private applyStoredManualPosition(): void {
-    if (!this.hasManualPosition) return;
-    this.setManualPosition(this.manualLeft, this.manualTop);
-  }
-
-  private applyStoredManualSize(): void {
-    if (!this.hasManualSize) return;
-    this.container.style.width = `${this.manualWidth}px`;
-    this.container.style.height = `${this.manualHeight}px`;
-    this.ensureContainerWithinViewport();
-  }
-
-  private ensureContainerWithinViewport(): void {
-    const rect = this.container.getBoundingClientRect();
-    const maxLeft = Math.max(0, window.innerWidth - rect.width);
-    const maxTop = Math.max(0, window.innerHeight - rect.height);
-
-    const clampedLeft = Math.min(Math.max(0, rect.left), maxLeft);
-    const clampedTop = Math.min(Math.max(0, rect.top), maxTop);
-
-    if (clampedLeft !== rect.left || clampedTop !== rect.top) {
-      this.manualLeft = clampedLeft;
-      this.manualTop = clampedTop;
-      this.hasManualPosition = true;
-      this.container.style.left = `${clampedLeft}px`;
-      this.container.style.top = `${clampedTop}px`;
-    }
-  }
-
-  private clampToViewport(left: number, top: number): { clampedLeft: number; clampedTop: number } {
-    const panelRect = this.container.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const maxLeft = Math.max(0, viewportWidth - panelRect.width);
-    const maxTop = Math.max(0, viewportHeight - panelRect.height);
-
-    return {
-      clampedLeft: Math.min(Math.max(0, left), maxLeft),
-      clampedTop: Math.min(Math.max(0, top), maxTop)
-    };
   }
 
   private renderHistory(entries: LogHistoryEntry[]): void {

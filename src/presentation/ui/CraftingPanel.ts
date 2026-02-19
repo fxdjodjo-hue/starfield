@@ -2,6 +2,7 @@ import { BasePanel } from './FloatingIcon';
 import type { PanelConfig } from './PanelConfig';
 import { getResourceDefinition, listResourceDefinitions } from '../../config/ResourceConfig';
 import { listCraftingRecipes, type CraftingRecipe } from '../../config/CraftingConfig';
+import { CustomScrollBarController } from './interactions/CustomScrollBarController';
 
 const RESOURCE_SLOT_CAPACITY = 8;
 const RESOURCE_DESCRIPTIONS: Record<string, string> = {
@@ -25,6 +26,7 @@ export class CraftingPanel extends BasePanel {
   private recipeCardById!: Map<string, HTMLElement>;
   private latestResourceInventory!: Record<string, number>;
   private latestPetSnapshot!: CraftingPetSnapshot | null;
+  private customScrollBarControllers!: CustomScrollBarController[];
 
   constructor(
     config: PanelConfig,
@@ -49,6 +51,7 @@ export class CraftingPanel extends BasePanel {
 
   protected createPanelContent(): HTMLElement {
     this.initializeRuntimeState();
+    this.teardownCustomScrollbars();
 
     const content = document.createElement('div');
     content.className = 'crafting-panel-content';
@@ -87,6 +90,7 @@ export class CraftingPanel extends BasePanel {
     if (this.latestPetSnapshot === undefined) this.latestPetSnapshot = null;
     if (this.resourceTooltip === undefined) this.resourceTooltip = null;
     if (this.hoveredResourceSlot === undefined) this.hoveredResourceSlot = null;
+    if (!this.customScrollBarControllers) this.customScrollBarControllers = [];
   }
 
   private createHeader(): HTMLElement {
@@ -210,7 +214,7 @@ export class CraftingPanel extends BasePanel {
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 10px;
       overflow-y: auto;
-      padding-right: 2px;
+      padding-right: 12px;
       min-height: 0;
       flex: 1;
     `;
@@ -237,6 +241,7 @@ export class CraftingPanel extends BasePanel {
     }
 
     pane.appendChild(recipeList);
+    this.attachCustomScrollbar(recipeList);
     return pane;
   }
 
@@ -901,7 +906,7 @@ export class CraftingPanel extends BasePanel {
       gap: 6px;
       align-items: stretch;
       overflow-y: auto;
-      padding-right: 2px;
+      padding-right: 12px;
     `;
 
     const resourceTypes = listResourceDefinitions().map((resource) => resource.id);
@@ -912,8 +917,42 @@ export class CraftingPanel extends BasePanel {
 
     block.appendChild(title);
     block.appendChild(cards);
+    this.attachCustomScrollbar(cards);
 
     return block;
+  }
+
+  private attachCustomScrollbar(scrollElement: HTMLElement): void {
+    const controller = new CustomScrollBarController({
+      scrollElement,
+      railWidth: 9,
+      railTop: 3,
+      railRight: 1,
+      railBottom: 3,
+      minThumbHeight: 24
+    });
+    this.customScrollBarControllers.push(controller);
+  }
+
+  private teardownCustomScrollbars(): void {
+    if (!this.customScrollBarControllers || this.customScrollBarControllers.length === 0) {
+      return;
+    }
+
+    for (const controller of this.customScrollBarControllers) {
+      controller.destroy();
+    }
+    this.customScrollBarControllers = [];
+  }
+
+  private refreshCustomScrollbars(): void {
+    if (!this.customScrollBarControllers || this.customScrollBarControllers.length === 0) {
+      return;
+    }
+
+    for (const controller of this.customScrollBarControllers) {
+      controller.refresh();
+    }
   }
 
   private createResourceSlot(resourceType: string | null): HTMLElement {
@@ -1183,6 +1222,7 @@ export class CraftingPanel extends BasePanel {
     }
 
     this.refreshRecipeStates();
+    this.refreshCustomScrollbars();
   }
 
   protected override onShow(): void {
@@ -1208,10 +1248,12 @@ export class CraftingPanel extends BasePanel {
 
     if (!this.resourceInventoryProvider) {
       this.refreshRecipeStates();
+      this.refreshCustomScrollbars();
       return;
     }
 
     this.refreshRecipeStates();
+    this.refreshCustomScrollbars();
   }
 
   protected override onHide(): void {
@@ -1224,6 +1266,7 @@ export class CraftingPanel extends BasePanel {
     this.initializeRuntimeState();
     this.hoveredResourceSlot = null;
     this.removeResourceTooltip();
+    this.teardownCustomScrollbars();
     super.destroy();
   }
 }

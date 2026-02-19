@@ -63,7 +63,7 @@ export class ChatUIRenderer {
       align-items: center;
       justify-content: space-between;
       gap: ${Math.round(8 * c)}px;
-      cursor: pointer;
+      cursor: move;
     `;
 
     const titleContainer = document.createElement('div');

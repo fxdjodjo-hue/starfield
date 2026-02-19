@@ -3,6 +3,7 @@
  */
 export class ChatVisibilityManager {
   private _isVisible: boolean = false;
+  private expandedHeight: number;
 
   constructor(
     private readonly container: HTMLElement,
@@ -11,8 +12,10 @@ export class ChatVisibilityManager {
     private readonly inputContainer: HTMLElement,
     private readonly inputElement: HTMLInputElement,
     private readonly toggleButton: HTMLElement,
-    private readonly targetHeight: number
+    targetHeight: number
   ) {
+    this.expandedHeight = Math.max(1, Math.round(targetHeight));
+
     // Initialize in hidden state
     this.messagesContainer.style.display = 'none';
     this.inputContainer.style.display = 'none';
@@ -50,7 +53,7 @@ export class ChatVisibilityManager {
     this.container.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
 
     setTimeout(() => {
-      this.container.style.height = this.targetHeight + 'px';
+      this.container.style.height = this.expandedHeight + 'px';
     }, 10);
 
     setTimeout(() => {
@@ -69,13 +72,24 @@ export class ChatVisibilityManager {
    * Hides the chat (only messages and input, keeps header)
    */
   hide(): void {
-    if (!this._isVisible) return;
+    const measuredHeaderHeight = Math.round(
+      this.header.offsetHeight || this.header.getBoundingClientRect().height || 0
+    );
+    const headerHeight = measuredHeaderHeight > 0
+      ? measuredHeaderHeight
+      : Math.round(this.container.offsetHeight || 0);
+    if (this._isVisible) {
+      // Preserve current expanded height before collapsing.
+      this.expandedHeight = Math.max(this.expandedHeight, Math.round(this.container.offsetHeight || 0));
+    }
 
     this._isVisible = false;
     this.messagesContainer.style.display = 'none';
     this.inputContainer.style.display = 'none';
     this.toggleButton.textContent = '+';
     this.inputElement.blur();
+    this.container.style.height = headerHeight > 0 ? `${headerHeight}px` : 'auto';
+    this.container.style.transition = '';
   }
 
   /**
@@ -85,7 +99,11 @@ export class ChatVisibilityManager {
     if (!this._isVisible) return;
 
     const currentHeight = this.container.offsetHeight;
-    const headerHeight = this.header.offsetHeight;
+    const headerHeight = Math.max(
+      1,
+      Math.round(this.header.offsetHeight || this.header.getBoundingClientRect().height || 0)
+    );
+    this.expandedHeight = Math.max(this.expandedHeight, Math.round(currentHeight || 0));
 
     this.container.style.height = currentHeight + 'px';
     this.container.style.transition = 'height 0.4s cubic-bezier(0.4, 0, 0.2, 1)';
@@ -110,5 +128,11 @@ export class ChatVisibilityManager {
    */
   isVisible(): boolean {
     return this._isVisible;
+  }
+
+  setExpandedHeight(nextHeight: number): void {
+    if (!Number.isFinite(nextHeight)) return;
+    const normalizedHeight = Math.max(1, Math.round(nextHeight));
+    this.expandedHeight = normalizedHeight;
   }
 }

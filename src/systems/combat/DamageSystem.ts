@@ -65,10 +65,15 @@ export class DamageSystem extends BaseSystem {
       offsetX = (Math.random() - 0.5) * 25; // ±12.5px
     } else {
       // Robust missile check (supports m1, m2, m3, missile)
+      const isPetLaser = projectileType === 'pet_laser';
       const isMissile = projectileType === 'missile' ||
         (typeof projectileType === 'string' && projectileType.startsWith('m'));
 
-      if (isMissile) {
+      if (isPetLaser) {
+        textColor = '#b266ff';
+        offsetY = -30;
+        offsetX = (Math.random() - 0.5) * 20;
+      } else if (isMissile) {
         // Danni Missili in Arancione
         textColor = '#FFA500'; // Orange
         offsetY = -40; // Leggermente più in alto

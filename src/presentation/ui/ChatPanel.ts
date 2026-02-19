@@ -1,6 +1,7 @@
 import type { ECS } from '../../infrastructure/ecs/ECS';
 import type { PlayerSystem } from '../../systems/player/PlayerSystem';
 import { DisplayManager } from '../../infrastructure/display';
+import { DomPanelInteractionController } from './interactions/DomPanelInteractionController';
 
 // Modular architecture managers
 import { ChatUIRenderer } from './managers/chat/ChatUIRenderer';
@@ -30,6 +31,10 @@ export class ChatPanel {
   private visibilityManager!: ChatVisibilityManager;
   private inputManager!: ChatInputManager;
   private managersInitialized: boolean = false;
+  private panelInteraction: DomPanelInteractionController | null = null;
+  private panelMinWidth: number;
+  private panelExpandedMinHeight: number;
+  private panelCollapsedMinHeight: number;
 
   constructor(ecs?: ECS, context?: any, playerSystem?: PlayerSystem) {
     // ecs and playerSystem parameters kept for API compatibility but no longer used
@@ -39,10 +44,13 @@ export class ChatPanel {
     const dpr = DisplayManager.getInstance().getDevicePixelRatio();
     this.dprCompensation = 1 / dpr;
     this.targetHeight = Math.round(300 * this.dprCompensation);
+    this.panelMinWidth = Math.max(1, Math.round(320 * this.dprCompensation));
+    this.panelExpandedMinHeight = Math.max(1, Math.round(140 * this.dprCompensation));
+    this.panelCollapsedMinHeight = Math.max(1, Math.round(52 * this.dprCompensation));
 
     this.initializeManagers();
     // Inizializza in stato chiuso (solo header visibile)
-    this.visibilityManager.hide();
+    this.hide();
   }
 
   /**
@@ -87,8 +95,14 @@ export class ChatPanel {
       this.container,
       () => this.isEnabled,
       () => this.visibilityManager.isVisible(),
-      () => this.visibilityManager.show(),
-      () => this.visibilityManager.hideWithAnimation(),
+      () => {
+        this.applyExpandedInteractionConstraints();
+        this.visibilityManager.show();
+      },
+      () => {
+        this.applyCollapsedInteractionConstraints();
+        this.visibilityManager.hideWithAnimation();
+      },
       () => {
         this.inputManager.sendMessage();
       }
@@ -98,8 +112,10 @@ export class ChatPanel {
     this.inputManager.setupEventListeners(
       () => {
         if (this.visibilityManager.isVisible()) {
+          this.applyCollapsedInteractionConstraints();
           this.visibilityManager.hideWithAnimation();
         } else {
+          this.applyExpandedInteractionConstraints();
           this.visibilityManager.show();
         }
       },
@@ -108,7 +124,37 @@ export class ChatPanel {
       }
     );
 
+    this.panelInteraction = new DomPanelInteractionController({
+      container: this.container,
+      dragHandle: this.header,
+      minWidth: this.panelMinWidth,
+      minHeight: this.panelExpandedMinHeight,
+      onSizeChanged: (size) => {
+        this.visibilityManager.setExpandedHeight(size.height);
+      }
+    });
+    this.applyCollapsedInteractionConstraints();
+    this.panelInteraction.applyStoredLayout();
+
     this.managersInitialized = true;
+  }
+
+  private resolveCollapsedMinHeight(): number {
+    if (!this.header) return this.panelCollapsedMinHeight;
+    const measuredHeaderHeight = Math.round(this.header.getBoundingClientRect().height || 0);
+    return Math.max(this.panelCollapsedMinHeight, measuredHeaderHeight || this.panelCollapsedMinHeight);
+  }
+
+  private applyExpandedInteractionConstraints(): void {
+    if (!this.panelInteraction) return;
+    this.panelInteraction.setMinDimensions(this.panelMinWidth, this.panelExpandedMinHeight);
+    this.panelInteraction.setNativeResizeMode('both');
+  }
+
+  private applyCollapsedInteractionConstraints(): void {
+    if (!this.panelInteraction) return;
+    this.panelInteraction.setMinDimensions(this.panelMinWidth, this.resolveCollapsedMinHeight());
+    this.panelInteraction.setNativeResizeMode('horizontal');
   }
 
   /**
@@ -125,6 +171,7 @@ export class ChatPanel {
    * Mostra la chat con animazione d'espansione dal punto attuale
    */
   show(): void {
+    this.applyExpandedInteractionConstraints();
     this.visibilityManager.show();
   }
 
@@ -132,6 +179,7 @@ export class ChatPanel {
    * Nasconde la chat (solo messaggi e input, mantiene l'header)
    */
   hide(): void {
+    this.applyCollapsedInteractionConstraints();
     this.visibilityManager.hide();
   }
 
@@ -181,6 +229,10 @@ export class ChatPanel {
 
     if (this.managersInitialized) {
       this.inputManager.destroy();
+    }
+    if (this.panelInteraction) {
+      this.panelInteraction.destroy();
+      this.panelInteraction = null;
     }
 
     if (document.body.contains(this.container)) {
