@@ -44,9 +44,6 @@ export class NpcBehaviorSystem extends BaseSystem {
   }
 
   private updateNpcBehavior(npc: Npc, entityId: number): void {
-    const entity = this.ecs.getEntity(entityId);
-    const transform = entity ? this.ecs.getComponent(entity, Transform) : null;
-
     // Solo comportamento critico locale: fuga quando salute molto bassa
     // Il server gestisce tutti gli altri comportamenti (aggressive/cruise)
     if (this.isNpcLowHealth(entityId)) {
@@ -64,9 +61,7 @@ export class NpcBehaviorSystem extends BaseSystem {
 
 
   private isNpcLowHealth(entityId: number): boolean {
-    const entities = this.ecs.getEntitiesWithComponents(Health);
-    const entity = entities.find(e => e.id === entityId);
-
+    const entity = this.ecs.getEntity(entityId);
     if (!entity) return false;
 
     const health = this.ecs.getComponent(entity, Health);

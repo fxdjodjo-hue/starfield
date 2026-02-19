@@ -4,6 +4,7 @@ import { Velocity } from '../../../entities/spatial/Velocity';
 import { Npc } from '../../../entities/ai/Npc';
 import { RemotePlayer } from '../../../entities/player/RemotePlayer';
 import { InterpolationTarget } from '../../../entities/spatial/InterpolationTarget';
+import { Authority } from '../../../entities/spatial/Authority';
 import { NETWORK_CONFIG } from '../../../config/NetworkConfig';
 
 /**
@@ -12,12 +13,15 @@ import { NETWORK_CONFIG } from '../../../config/NetworkConfig';
  */
 export class PlayerPositionTracker {
   private readonly ecs: ECS;
+  private readonly clientIdResolver: (() => string) | null;
   private cachedPlayerEntity: any = null;
   private cacheTimestamp = 0;
   private lastFallbackLog = 0;
+  private lastKnownValidPosition: { x: number; y: number; rotation: number } | null = null;
 
-  constructor(ecs: ECS) {
+  constructor(ecs: ECS, clientIdResolver?: () => string) {
     this.ecs = ecs;
+    this.clientIdResolver = clientIdResolver || null;
   }
 
   /**
@@ -40,8 +44,20 @@ export class PlayerPositionTracker {
       return this.getPositionFromEntity(playerEntity);
     }
 
-    // Fallback position
-    console.warn('[PlayerPositionTracker] Could not find local player position, using fallback');
+    // Preferisci ultima posizione valida per evitare snap/teleport lato server.
+    if (this.lastKnownValidPosition) {
+      if (Date.now() - this.lastFallbackLog > 10000) {
+        console.warn('[PlayerPositionTracker] Could not resolve local player, reusing last known valid position');
+        this.lastFallbackLog = Date.now();
+      }
+      return { ...this.lastKnownValidPosition };
+    }
+
+    // Fallback assoluto (solo bootstrap iniziale).
+    if (Date.now() - this.lastFallbackLog > 10000) {
+      console.warn('[PlayerPositionTracker] Could not find local player position, using fallback');
+      this.lastFallbackLog = Date.now();
+    }
     return { ...NETWORK_CONFIG.FALLBACK_POSITION };
   }
 
@@ -59,11 +75,21 @@ export class PlayerPositionTracker {
     const transform = this.ecs.getComponent(entity, Transform);
 
     if (transform && this.isValidTransform(transform)) {
-      return {
+      const validPosition = {
         x: transform.x,
         y: transform.y,
         rotation: transform.rotation || 0
       };
+      this.lastKnownValidPosition = validPosition;
+      return validPosition;
+    }
+
+    // Invalida cache: l'entità può essere stata rimossa o non pronta.
+    this.cachedPlayerEntity = null;
+    this.cacheTimestamp = 0;
+
+    if (this.lastKnownValidPosition) {
+      return { ...this.lastKnownValidPosition };
     }
 
     // Fallback con logging ridotto per evitare spam
@@ -93,6 +119,19 @@ export class PlayerPositionTracker {
    * Assumes local player is the only entity with Transform but without Npc component
    */
   private findLocalPlayer(): any {
+    const localClientId = this.clientIdResolver ? this.clientIdResolver() : '';
+    if (localClientId) {
+      // Path preferito: authority ownerId corrisponde al client locale.
+      const authorityEntities = this.ecs.getEntitiesWithComponents(Transform, Authority);
+      const localAuthorityEntity = authorityEntities.find(entity => {
+        const authority = this.ecs.getComponent(entity, Authority);
+        return authority && String(authority.ownerId) === String(localClientId);
+      });
+      if (localAuthorityEntity) {
+        return localAuthorityEntity;
+      }
+    }
+
     const entitiesWithTransform = this.ecs.getEntitiesWithComponents(Transform);
 
     // Debug: log entità trovate con più dettagli
@@ -151,5 +190,12 @@ export class PlayerPositionTracker {
       age: now - this.cacheTimestamp,
       hasEntity: this.cachedPlayerEntity !== null
     };
+  }
+
+  /**
+   * True quando almeno una posizione locale valida è stata risolta.
+   */
+  hasResolvedPosition(): boolean {
+    return this.lastKnownValidPosition !== null;
   }
 }

@@ -13,6 +13,7 @@ import { supabase } from '../../lib/SupabaseClient';
 export class Game {
   private gameLoop: GameLoop;
   private context: GameContext;
+  private canvasContext: CanvasRenderingContext2D | null;
   private currentState: GameState | null = null;
   private startState: StartState;
   private playState: PlayState;
@@ -25,6 +26,7 @@ export class Game {
 
     this.gameLoop = new GameLoop();
     this.context = new GameContext(canvas, gameContainer);
+    this.canvasContext = canvas.getContext('2d');
 
     // Crea gli stati
     this.startState = new StartState(this.context);
@@ -194,7 +196,7 @@ export class Game {
    * Renderizza il gioco (chiamato dal game loop)
    */
   private render(): void {
-    const ctx = this.context.canvas.getContext('2d');
+    const ctx = this.canvasContext;
     if (!ctx) return;
 
     // Renderizza lo stato corrente

@@ -65,15 +65,18 @@ export class ProjectileSystem extends BaseSystem {
 
     // Projectile processing - silent in production
 
+    const isHoming = this.isHomingProjectile(projectile);
+    const targetEntity = isHoming ? this.findTargetEntity(projectile.targetId) : null;
+
     // 1. Controllo cleanup uniforme - rimuovi se necessario
-    if (this.shouldRemoveProjectile(projectileEntity, projectile)) {
+    if (this.shouldRemoveProjectile(projectileEntity, projectile, targetEntity)) {
       return true;
     }
 
     // 2. Aggiorna homing se necessario (logica semplificata)
-    if (this.isHomingProjectile(projectile)) {
+    if (isHoming) {
       // Applying homing - silent in production
-      this.updateHomingDirection(projectileEntity, transform, projectile);
+      this.updateHomingDirection(projectileEntity, transform, projectile, targetEntity);
     }
 
     // 3. Movimento - gestito da MovementSystem per tutti se hanno Velocity.
@@ -126,10 +129,13 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Controllo uniforme per rimuovere proiettili (cleanup centralizzato)
    */
-  private shouldRemoveProjectile(projectileEntity: Entity, projectile: Projectile): boolean {
+  private shouldRemoveProjectile(
+    projectileEntity: Entity,
+    projectile: Projectile,
+    targetEntity: Entity | null
+  ): boolean {
     // Rimuovi se target morto (solo per homing projectiles)
     if (this.isHomingProjectile(projectile)) {
-      const targetEntity = this.findTargetEntity(projectile.targetId);
       if (!targetEntity) {
         // Target not found - removing projectile
         this.ecs.removeEntity(projectileEntity);
@@ -182,8 +188,12 @@ export class ProjectileSystem extends BaseSystem {
    * Aggiorna direzione homing - LOGICA SEMPLIFICATA
    * Tutti i proiettili homing cercano semplicemente il loro targetId
    */
-  private updateHomingDirection(entity: Entity, projectileTransform: Transform, projectile: Projectile): void {
-    const targetEntity = this.findTargetEntity(projectile.targetId);
+  private updateHomingDirection(
+    entity: Entity,
+    projectileTransform: Transform,
+    projectile: Projectile,
+    targetEntity: Entity | null
+  ): void {
     if (!targetEntity) {
       // Homing target not found
       return;
@@ -246,13 +256,14 @@ export class ProjectileSystem extends BaseSystem {
   private getVisualTargetPosition(
     targetEntity: Entity,
     targetTransform: Transform,
-    projectile: Projectile
+    projectile: Projectile,
+    localPlayerOverride?: Entity | null
   ): { x: number; y: number } {
     if (projectile.projectileType !== 'npc_laser') {
       return { x: targetTransform.x, y: targetTransform.y };
     }
 
-    const localPlayer = this.playerSystem.getPlayerEntity();
+    const localPlayer = localPlayerOverride ?? this.playerSystem.getPlayerEntity();
     if (
       localPlayer &&
       targetEntity.id === localPlayer.id &&
@@ -298,6 +309,7 @@ export class ProjectileSystem extends BaseSystem {
     projectile: Projectile,
     collisionProbePosition?: { x: number; y: number }
   ): void {
+    const localPlayerEntity = this.playerSystem.getPlayerEntity();
     const startX = projectileTransform.x;
     const startY = projectileTransform.y;
     const endX = collisionProbePosition ? collisionProbePosition.x : projectileTransform.x;
@@ -308,23 +320,22 @@ export class ProjectileSystem extends BaseSystem {
 
     for (const targetEntity of targets) {
       // Non colpire il proprietario del proiettile
-      if (this.isProjectileOwner(targetEntity, projectile)) continue;
+      if (this.isProjectileOwner(targetEntity, projectile, localPlayerEntity)) continue;
 
       const targetTransform = this.ecs.getComponent(targetEntity, Transform);
       const targetHealth = this.ecs.getComponent(targetEntity, Health);
 
       if (!targetTransform || !targetHealth) continue;
 
-      const visualTargetPosition = this.getVisualTargetPosition(targetEntity, targetTransform, projectile);
+      const visualTargetPosition = this.getVisualTargetPosition(targetEntity, targetTransform, projectile, localPlayerEntity);
 
       // Calcola distanza tra proiettile e bersaglio.
       // For remote visual beams, use swept distance from segment start->end to avoid
       // pass-through/overshoot jitter on moving targets.
-      const endDistance = Math.sqrt(
-        Math.pow(endX - visualTargetPosition.x, 2) +
-        Math.pow(endY - visualTargetPosition.y, 2)
-      );
-      const sweptDistance = this.distancePointToSegment(
+      const endDx = endX - visualTargetPosition.x;
+      const endDy = endY - visualTargetPosition.y;
+      const endDistanceSq = endDx * endDx + endDy * endDy;
+      const sweptDistanceSq = this.distancePointToSegmentSquared(
         visualTargetPosition.x,
         visualTargetPosition.y,
         startX,
@@ -332,7 +343,7 @@ export class ProjectileSystem extends BaseSystem {
         endX,
         endY
       );
-      const distance = collisionProbePosition ? Math.min(endDistance, sweptDistance) : endDistance;
+      const distanceSq = collisionProbePosition ? Math.min(endDistanceSq, sweptDistanceSq) : endDistanceSq;
 
       // Se la distanza è minore di una soglia (hitbox), colpisce
       let hitDistance: number = GAME_CONSTANTS.PROJECTILE.HIT_RADIUS;
@@ -370,15 +381,17 @@ export class ProjectileSystem extends BaseSystem {
           const toTargetY = visualTargetPosition.y - endY;
           const movingAway = (velocityX * toTargetX + velocityY * toTargetY) < 0;
           const escapeDistance = 140 + Math.min(60, targetSpeed * 0.1);
+          const escapeDistanceSq = escapeDistance * escapeDistance;
 
-          if (movingAway && distance < escapeDistance) {
+          if (movingAway && distanceSq < escapeDistanceSq) {
             this.ecs.removeEntity(projectileEntity);
             return;
           }
         }
       }
 
-      if (distance < hitDistance) {
+      const hitDistanceSq = hitDistance * hitDistance;
+      if (distanceSq < hitDistanceSq) {
         // Collision detected
 
         // GESTIONE DIFFERENZIATA PER TARGETING
@@ -394,7 +407,7 @@ export class ProjectileSystem extends BaseSystem {
         // Per proiettili CON target specifico (player projectiles):
         // Per laser visivi (damage = 0), rimuovi sempre quando colpiscono il target
         // Anche se il server gestisce il danno, il laser visivo deve sparire immediatamente
-        const isLaserTarget = this.isLaserTarget(projectile, targetEntity);
+        const isLaserTarget = this.isLaserTarget(projectile, targetEntity, localPlayerEntity);
         if (projectile.damage === 0 && isLaserTarget) {
           this.ecs.removeEntity(projectileEntity);
           return;
@@ -418,9 +431,9 @@ export class ProjectileSystem extends BaseSystem {
   }
 
   /**
-   * Minimum distance between a point and a segment.
+   * Minimum squared distance between a point and a segment.
    */
-  private distancePointToSegment(
+  private distancePointToSegmentSquared(
     px: number,
     py: number,
     x1: number,
@@ -435,7 +448,7 @@ export class ProjectileSystem extends BaseSystem {
     if (lenSq <= 0.000001) {
       const ddx = px - x1;
       const ddy = py - y1;
-      return Math.sqrt(ddx * ddx + ddy * ddy);
+      return ddx * ddx + ddy * ddy;
     }
 
     const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
@@ -443,13 +456,17 @@ export class ProjectileSystem extends BaseSystem {
     const closestY = y1 + t * dy;
     const cdx = px - closestX;
     const cdy = py - closestY;
-    return Math.sqrt(cdx * cdx + cdy * cdy);
+    return cdx * cdx + cdy * cdy;
   }
 
   /**
    * Controlla se l'entità target è il proprietario del proiettile
    */
-  private isProjectileOwner(targetEntity: any, projectile: Projectile): boolean {
+  private isProjectileOwner(
+    targetEntity: any,
+    projectile: Projectile,
+    localPlayerOverride?: Entity | null
+  ): boolean {
     // Controllo diretto per entity ID
     if (projectile.ownerId === targetEntity.id) return true;
 
@@ -460,7 +477,7 @@ export class ProjectileSystem extends BaseSystem {
     }
 
     // Per il player locale, usa il controllo esistente
-    const playerEntity = this.playerSystem.getPlayerEntity();
+    const playerEntity = localPlayerOverride ?? this.playerSystem.getPlayerEntity();
     if (playerEntity && targetEntity.id === playerEntity.id) {
       // Se il proiettile è del player, non colpire il player
       return projectile.ownerId === playerEntity.id || (projectile.playerId?.startsWith('client_') ?? false);
@@ -472,7 +489,11 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Verifica se l'entità target corrisponde al targetId del proiettile (per laser)
    */
-  private isLaserTarget(projectile: Projectile, targetEntity: any): boolean {
+  private isLaserTarget(
+    projectile: Projectile,
+    targetEntity: any,
+    localPlayerOverride?: Entity | null
+  ): boolean {
     const targetId = projectile.targetId;
 
     if (typeof targetId === 'number') {
@@ -498,7 +519,7 @@ export class ProjectileSystem extends BaseSystem {
         }
 
         // Check Local Player
-        const localPlayer = this.playerSystem.getPlayerEntity();
+        const localPlayer = localPlayerOverride ?? this.playerSystem.getPlayerEntity();
         if (localPlayer && targetEntity.id === localPlayer.id) {
           return true;
         }
@@ -529,9 +550,7 @@ export class ProjectileSystem extends BaseSystem {
    */
   private findTargetEntity(targetId: number | string): Entity | null {
     if (typeof targetId === 'number') {
-      // Cerca per entity.id
-      const allEntities = this.ecs.getEntitiesWithComponents(Transform);
-      return allEntities.find(entity => entity.id === targetId) || null;
+      return this.findEntityByIdWithTransform(targetId);
     }
 
     if (typeof targetId === 'string') {
@@ -575,9 +594,7 @@ export class ProjectileSystem extends BaseSystem {
         // Prova a convertire in numero (fallback)
         const parsed = parseInt(targetId, 10);
         if (!isNaN(parsed)) {
-          // Converting string targetId to number
-          const allEntities = this.ecs.getEntitiesWithComponents(Transform);
-          return allEntities.find(entity => entity.id === parsed) || null;
+          return this.findEntityByIdWithTransform(parsed);
         }
       }
 
@@ -587,6 +604,15 @@ export class ProjectileSystem extends BaseSystem {
 
     // Invalid targetId type
     return null;
+  }
+
+  private findEntityByIdWithTransform(entityId: number): Entity | null {
+    const entity = this.ecs.getEntity(entityId);
+    if (!entity) {
+      return null;
+    }
+
+    return this.ecs.hasComponent(entity, Transform) ? entity : null;
   }
 
 

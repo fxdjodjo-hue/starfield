@@ -122,7 +122,7 @@ export class ClientNetworkSystem extends BaseSystem {
 
     this.eventSystem = new NetworkEventManager(ecs, gameContext);
     this.entityManager = new RemoteEntityManager(ecs, remotePlayerSystem);
-    this.positionTracker = new PlayerPositionTracker(ecs);
+    this.positionTracker = new PlayerPositionTracker(ecs, () => this.clientId);
     this.rateLimiter = new RateLimiter();
 
     // Initialize network tick manager (callbacks will be set after managers are created)
@@ -406,6 +406,9 @@ export class ClientNetworkSystem extends BaseSystem {
       // Instead of sampling every frame (60Hz), sample at the sync interval (20Hz)
       if (now - this.lastBufferedTime >= NETWORK_CONFIG.POSITION_SYNC_INTERVAL) {
         const currentPosition = this.positionSyncManager.getLocalPlayerPosition();
+        if (!this.positionTracker.hasResolvedPosition()) {
+          return;
+        }
 
         const hasMoved = this.shouldSendPositionUpdate(currentPosition);
         // Keep authority sync at tick-rate so server pet movement/rotation stays responsive.

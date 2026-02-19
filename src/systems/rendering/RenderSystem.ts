@@ -64,7 +64,7 @@ export class RenderSystem extends BaseSystem {
   private assetManager: AssetManager | null = null;
   private displayManager: DisplayManager;
   private damageTextSystem: any = null; // Sistema per renderizzare i testi di danno
-  private componentCache: Map<Entity, any> = new Map(); // Cache componenti per ottimizzazione
+  private componentCache: Map<number, any> = new Map(); // Cache componenti per ottimizzazione
   private entityQueryCache: Entity[] = []; // Cache risultati query ECS
   private projectileQueryCache: Entity[] = []; // Cache risultati query proiettili
   private projectileRenderer: ProjectileRenderer | null = null;
@@ -172,8 +172,9 @@ export class RenderSystem extends BaseSystem {
    * Ottieni componenti con caching per ottimizzazione performance
    */
   private getCachedComponents(entity: Entity): any {
-    if (!this.componentCache.has(entity)) {
-      this.componentCache.set(entity, {
+    const entityId = entity.id;
+    if (!this.componentCache.has(entityId)) {
+      this.componentCache.set(entityId, {
         transform: this.ecs.getComponent(entity, Transform),
         npc: this.ecs.getComponent(entity, Npc),
         parallax: this.ecs.getComponent(entity, ParallaxLayer),
@@ -189,7 +190,7 @@ export class RenderSystem extends BaseSystem {
         projectileVisualState: this.ecs.getComponent(entity, ProjectileVisualState)
       });
     }
-    return this.componentCache.get(entity);
+    return this.componentCache.get(entityId);
   }
 
   /**

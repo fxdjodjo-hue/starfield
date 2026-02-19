@@ -12,7 +12,7 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
  * Implementa invalidazione intelligente basata sui tipi di componente modificati
  */
 class EntityQueryCache {
-  private cache = new Map<string, Set<number>>();
+  private cache = new Map<string, Entity[]>();
   private lastEntityCount = 0;
 
   /**
@@ -32,17 +32,16 @@ class EntityQueryCache {
     const cacheKey = this.getCacheKey(componentTypes);
 
     if (this.cache.has(cacheKey)) {
-      // Restituisce copia dalla cache per evitare modifiche esterne
-      const cachedIds = this.cache.get(cacheKey)!;
-      return Array.from(cachedIds).map(id => new Entity(id));
+      // Restituisce copia dell'array cached per evitare modifiche esterne
+      return this.cache.get(cacheKey)!.slice();
     }
 
     // Calcola e cache il risultato
     const entities = ecs.getEntitiesWithComponentsUncached(...componentTypes);
-    const entityIds = new Set(entities.map(e => e.id));
-    this.cache.set(cacheKey, entityIds);
+    this.cache.set(cacheKey, entities);
 
-    return entities;
+    // Restituisce sempre una copia per proteggere la cache da mutazioni esterne (es. length=0).
+    return entities.slice();
   }
 
   /**
@@ -86,6 +85,7 @@ class EntityQueryCache {
  */
 export class ECS {
   private entities = new Set<number>();
+  private entityPool = new Map<number, Entity>();
   private components = new Map<new (...args: any[]) => Component, Map<number, Component>>();
   private systems: System[] = [];
   private queryCache = new EntityQueryCache();
@@ -96,6 +96,7 @@ export class ECS {
   createEntity(): Entity {
     const entity = EntityIdGenerator.createId();
     this.entities.add(entity.id);
+    this.entityPool.set(entity.id, entity);
     return entity;
   }
 
@@ -104,6 +105,7 @@ export class ECS {
    */
   removeEntity(entity: Entity): void {
     this.entities.delete(entity.id);
+    this.entityPool.delete(entity.id);
 
     // Rimuovi tutti i componenti dell'entità
     for (const componentMap of this.components.values()) {
@@ -185,7 +187,7 @@ export class ECS {
    */
   getEntity(id: number): Entity | undefined {
     if (this.entities.has(id)) {
-      return new Entity(id);
+      return this.getOrCreateEntity(id);
     }
     return undefined;
   }
@@ -203,14 +205,34 @@ export class ECS {
   getEntitiesWithComponentsUncached(...componentTypes: (new (...args: any[]) => Component)[]): Entity[] {
     const entities: Entity[] = [];
 
+    // Nessun filtro componenti: restituisce tutte le entità in ordine di inserimento
+    if (componentTypes.length === 0) {
+      for (const entityId of this.entities) {
+        entities.push(this.getOrCreateEntity(entityId));
+      }
+      return entities;
+    }
+
+    const componentMaps: Map<number, Component>[] = [];
+    for (const componentType of componentTypes) {
+      const componentMap = this.components.get(componentType);
+      if (!componentMap) {
+        return entities; // Nessuna entità può soddisfare tutti i componenti richiesti
+      }
+      componentMaps.push(componentMap);
+    }
+
     for (const entityId of this.entities) {
-      const entity = new Entity(entityId);
-      const hasAllComponents = componentTypes.every(componentType =>
-        this.hasComponent(entity, componentType)
-      );
+      let hasAllComponents = true;
+      for (const componentMap of componentMaps) {
+        if (!componentMap.has(entityId)) {
+          hasAllComponents = false;
+          break;
+        }
+      }
 
       if (hasAllComponents) {
-        entities.push(entity);
+        entities.push(this.getOrCreateEntity(entityId));
       }
     }
 
@@ -316,10 +338,13 @@ export class ECS {
    * Usato dai sistemi che hanno bisogno di identificare il player
    */
   getPlayerEntity(): Entity | null {
-    const playerEntities = this.getEntitiesWithComponents(Transform, Health, Damage)
-      .filter(entity => !this.hasComponent(entity, SelectedNpc));
-
-    return playerEntities.length > 0 ? playerEntities[0] : null;
+    const playerEntities = this.getEntitiesWithComponents(Transform, Health, Damage);
+    for (const entity of playerEntities) {
+      if (!this.hasComponent(entity, SelectedNpc)) {
+        return entity;
+      }
+    }
+    return null;
   }
 
   /**
@@ -336,9 +361,22 @@ export class ECS {
    */
   getEntityByNumber(id: number): Entity | undefined {
     if (this.entities.has(id)) {
-      return new Entity(id);
+      return this.getOrCreateEntity(id);
     }
     return undefined;
+  }
+
+  /**
+   * Restituisce un wrapper Entity stabile per ID.
+   * Riduce allocazioni ripetute nei loop ad alta frequenza.
+   */
+  private getOrCreateEntity(id: number): Entity {
+    let entity = this.entityPool.get(id);
+    if (!entity) {
+      entity = new Entity(id);
+      this.entityPool.set(id, entity);
+    }
+    return entity;
   }
 
 }

@@ -29,6 +29,7 @@ export class NpcMovementSystem extends BaseSystem {
    */
   private executeMovements(deltaTime: number): void {
     const npcs = this.ecs.getEntitiesWithComponents(Npc, Transform, Velocity);
+    const playerContext = this.resolvePlayerContext();
 
     for (const entity of npcs) {
       const npc = this.ecs.getComponent(entity, Npc);
@@ -36,7 +37,7 @@ export class NpcMovementSystem extends BaseSystem {
       const velocity = this.ecs.getComponent(entity, Velocity);
 
       if (npc && transform && velocity) {
-        this.executeNpcMovement(npc, transform, velocity, deltaTime, entity.id);
+        this.executeNpcMovement(npc, transform, velocity, deltaTime, entity.id, playerContext);
         // Aggiorna rotazione basandosi sulla velocity (come il player)
         this.updateRotationFromVelocity(transform, velocity);
         this.enforceWorldBounds(transform, velocity, entity.id);
@@ -47,16 +48,23 @@ export class NpcMovementSystem extends BaseSystem {
   /**
    * Esegue il movimento fisico per un singolo NPC basato sul suo comportamento corrente
    */
-  private executeNpcMovement(npc: Npc, transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
+  private executeNpcMovement(
+    npc: Npc,
+    transform: Transform,
+    velocity: Velocity,
+    deltaTime: number,
+    entityId?: number,
+    playerContext?: { transform: Transform; velocity: Velocity | null } | null
+  ): void {
     switch (npc.behavior) {
       case 'idle':
         this.executeIdleMovement(velocity);
         break;
       case 'aggressive':
-        this.executeAggressiveMovement(transform, velocity, deltaTime, entityId);
+        this.executeAggressiveMovement(npc, transform, velocity, deltaTime, playerContext);
         break;
       case 'flee':
-        this.executeFleeMovement(transform, velocity, deltaTime, entityId);
+        this.executeFleeMovement(transform, velocity, deltaTime, playerContext, entityId);
         break;
       case 'cruise':
         this.executeCruiseMovement(transform, velocity, deltaTime);
@@ -76,7 +84,13 @@ export class NpcMovementSystem extends BaseSystem {
     velocity.setVelocity(50, 0);
   }
 
-  private executeFleeMovement(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
+  private executeFleeMovement(
+    transform: Transform,
+    velocity: Velocity,
+    deltaTime: number,
+    playerContext?: { transform: Transform; velocity: Velocity | null } | null,
+    entityId?: number
+  ): void {
     if (!entityId) return;
 
     velocity.setAngularVelocity(0);
@@ -86,15 +100,7 @@ export class NpcMovementSystem extends BaseSystem {
 
     if (!fleeDirection) {
       // PRIMA volta che fugge - calcola e salva la direzione fissa
-      const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
-        .filter(playerEntity => !this.ecs.hasComponent(playerEntity, Npc));
-
-      if (playerEntities.length === 0) {
-        this.executeCruiseMovement(transform, velocity, deltaTime);
-        return;
-      }
-
-      const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
+      const playerTransform = playerContext?.transform;
       if (!playerTransform) {
         this.executeCruiseMovement(transform, velocity, deltaTime);
         return;
@@ -129,24 +135,22 @@ export class NpcMovementSystem extends BaseSystem {
     );
   }
 
-  private executeAggressiveMovement(transform: Transform, velocity: Velocity, deltaTime: number, entityId?: number): void {
+  private executeAggressiveMovement(
+    npc: Npc,
+    transform: Transform,
+    velocity: Velocity,
+    deltaTime: number,
+    playerContext?: { transform: Transform; velocity: Velocity | null } | null
+  ): void {
     velocity.setAngularVelocity(0);
 
-    // Trova il player
-    const playerEntities = this.ecs.getEntitiesWithComponents(Transform)
-      .filter(playerEntity => !this.ecs.hasComponent(playerEntity, Npc));
-
-    if (playerEntities.length === 0) {
-      this.executeIdleMovement(velocity);
-      return;
-    }
-
-    const playerTransform = this.ecs.getComponent(playerEntities[0], Transform);
-    const playerVelocity = this.ecs.getComponent(playerEntities[0], Velocity);
+    const playerTransform = playerContext?.transform;
     if (!playerTransform) {
       this.executeIdleMovement(velocity);
       return;
     }
+
+    const playerVelocity = playerContext?.velocity || null;
 
     // Verifica se il player si sta muovendo
     const playerSpeedThreshold = 10;
@@ -173,10 +177,7 @@ export class NpcMovementSystem extends BaseSystem {
       const directionY = direction.y;
 
       // Ottieni la velocità base dalla configurazione dell'NPC
-      const entity = this.ecs.getEntity(entityId!);
-      if (!entity) return;
-      const currentNpc = this.ecs.getComponent(entity, Npc);
-      const npcConfig = getNpcDefinition(currentNpc?.npcType || 'Kronos');
+      const npcConfig = getNpcDefinition(npc.npcType || 'Kronos');
       const baseSpeed = npcConfig?.stats.speed || 150;
 
       // Insegue il player alla velocità base
@@ -188,6 +189,25 @@ export class NpcMovementSystem extends BaseSystem {
       // Se già nella stessa posizione, resta fermo
       this.executeIdleMovement(velocity);
     }
+  }
+
+  private resolvePlayerContext(): { transform: Transform; velocity: Velocity | null } | null {
+    const entitiesWithTransform = this.ecs.getEntitiesWithComponents(Transform);
+    for (const entity of entitiesWithTransform) {
+      if (this.ecs.hasComponent(entity, Npc)) continue;
+
+      const transform = this.ecs.getComponent(entity, Transform);
+      if (!transform) {
+        continue;
+      }
+
+      return {
+        transform,
+        velocity: this.ecs.getComponent(entity, Velocity) || null
+      };
+    }
+
+    return null;
   }
 
   private enforceWorldBounds(transform: Transform, velocity: Velocity, entityId: number): void {
