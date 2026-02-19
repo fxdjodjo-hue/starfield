@@ -41,9 +41,9 @@ const MISSILE_TIERS_BY_SLOT: Record<number, MissileTier> = {
 };
 
 const MISSILE_ICON_BY_TIER: Record<MissileTier, string> = {
-  m1: 'assets/actionbar/m1.png',
-  m2: 'assets/actionbar/m2.png',
-  m3: 'assets/actionbar/m3.png' // Assuming these icons exist or will be placeholders
+  m1: 'assets/actionbar/missile1.png',
+  m2: 'assets/actionbar/missile2.png',
+  m3: 'assets/actionbar/missile3.png'
 };
 
 /**
@@ -252,6 +252,11 @@ export class WeaponStatus {
         align-items: center;
         gap: ${Math.round(5 * c)}px;
         pointer-events: auto;
+        transition: transform 0.12s ease;
+      }
+
+      .skillbar-slot-active {
+        transform: translateY(-${Math.max(2, Math.round(3 * c))}px);
       }
 
       .skillbar-slot-key {
@@ -288,11 +293,11 @@ export class WeaponStatus {
       }
 
       .skillbar-slot-active .skillbar-slot-key {
-        border-color: rgba(203, 213, 225, 0.42);
+        border-color: rgba(248, 250, 252, 0.9);
         color: rgba(248, 250, 252, 0.98);
         box-shadow:
-          0 ${Math.round(3 * c)}px ${Math.round(9 * c)}px rgba(148, 163, 184, 0.2),
-          inset 0 1px 0 rgba(248, 250, 252, 0.12);
+          0 ${Math.round(3 * c)}px ${Math.round(11 * c)}px rgba(241, 245, 249, 0.42),
+          inset 0 1px 0 rgba(248, 250, 252, 0.14);
       }
 
       .skillbar-slot-disabled .skillbar-slot-key {
@@ -324,14 +329,15 @@ export class WeaponStatus {
           0 calc(100% - ${Math.round(5 * c)}px),
           0 ${Math.round(5 * c)}px
         );
+        transition: box-shadow 0.12s ease;
       }
 
       .skillbar-slot-active .skillbar-slot-body {
         box-shadow:
-          inset 0 0 0 1px rgba(203, 213, 225, 0.34),
-          inset 0 1px 0 rgba(248, 250, 252, 0.12),
-          0 0 ${Math.round(16 * c)}px rgba(148, 163, 184, 0.28),
-          0 ${Math.round(6 * c)}px ${Math.round(14 * c)}px rgba(0, 0, 0, 0.38);
+          inset 0 0 0 ${Math.max(2, Math.round(2 * c))}px rgba(248, 250, 252, 0.92),
+          inset 0 1px 0 rgba(248, 250, 252, 0.2),
+          0 0 ${Math.round(18 * c)}px rgba(241, 245, 249, 0.48),
+          0 ${Math.round(6 * c)}px ${Math.round(14 * c)}px rgba(0, 0, 0, 0.45);
       }
 
       .skillbar-slot-disabled .skillbar-slot-body {
@@ -444,6 +450,11 @@ export class WeaponStatus {
           100% 100%,
           0 100%
         );
+      }
+
+      .skillbar-slot-active .skillbar-slot-label {
+        color: rgba(248, 250, 252, 0.98);
+        background: rgba(15, 23, 42, 0.72);
       }
 
       .skillbar-slot-disabled .skillbar-slot-label {

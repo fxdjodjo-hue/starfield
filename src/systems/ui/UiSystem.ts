@@ -25,6 +25,9 @@ import { CONFIG } from '../../core/utils/config/GameConfig';
 // ... existing imports ...
 
 export class UiSystem extends System {
+  private static readonly SAFE_ZONE_AUTO_HIDE_MS = 5000;
+  private static readonly SAFE_ZONE_FADE_MS = 850;
+
   // Modular architecture managers
   private panelManager!: UIPanelManager;
   private hudManager!: UIHUDManager;
@@ -36,6 +39,7 @@ export class UiSystem extends System {
   private networkStats!: NetworkStatsDisplay;
   private notificationPopup!: NotificationPopup;
   private safeZoneElement: HTMLElement | null = null;
+  private safeZoneAutoHideTimeout: ReturnType<typeof setTimeout> | null = null;
   private blackoutElement: HTMLElement | null = null;
   private blackoutVideoElement: HTMLVideoElement | null = null;
   private currentWarpSound: HTMLAudioElement | null = null;
@@ -366,6 +370,11 @@ export class UiSystem extends System {
       const safeIndicator = document.getElementById('safe-zone-text-indicator');
 
       if (isSafe) {
+        if (this.safeZoneAutoHideTimeout) {
+          clearTimeout(this.safeZoneAutoHideTimeout);
+          this.safeZoneAutoHideTimeout = null;
+        }
+
         if (safeIndicator) safeIndicator.style.display = 'block';
         this.safeZoneElement.style.display = 'flex';
 
@@ -374,17 +383,34 @@ export class UiSystem extends System {
             this.safeZoneElement.style.opacity = '1';
           }
         });
+
+        // Auto-hide dopo 5s per non coprire troppo la visuale.
+        this.safeZoneAutoHideTimeout = setTimeout(() => {
+          if (!this.safeZoneElement) return;
+
+          this.safeZoneElement.style.opacity = '0';
+          setTimeout(() => {
+            if (this.safeZoneElement && this.safeZoneElement.style.opacity === '0') {
+              this.safeZoneElement.style.display = 'none';
+              if (safeIndicator) safeIndicator.style.display = 'none';
+            }
+          }, UiSystem.SAFE_ZONE_FADE_MS);
+        }, UiSystem.SAFE_ZONE_AUTO_HIDE_MS);
       } else {
+        if (this.safeZoneAutoHideTimeout) {
+          clearTimeout(this.safeZoneAutoHideTimeout);
+          this.safeZoneAutoHideTimeout = null;
+        }
+
         this.safeZoneElement.style.opacity = '0';
 
-        // ASPETTA che la dissolvenza finisca prima di togliere il display
-        // Questo evita che SAFEZONE sparisca di scatto
+        // Wait fade-out before hiding display to avoid abrupt disappearance.
         setTimeout(() => {
           if (this.safeZoneElement && this.safeZoneElement.style.opacity === '0') {
             this.safeZoneElement.style.display = 'none';
             if (safeIndicator) safeIndicator.style.display = 'none';
           }
-        }, 850); // Leggermente più della transizione (0.8s)
+        }, UiSystem.SAFE_ZONE_FADE_MS);
       }
     }
   }
@@ -393,6 +419,11 @@ export class UiSystem extends System {
    * Mostra il nome della mappa durante la transizione (cambio mappa via portale)
    */
   showMapTransitionName(mapName: string, displayDuration: number = 3000): void {
+    if (this.safeZoneAutoHideTimeout) {
+      clearTimeout(this.safeZoneAutoHideTimeout);
+      this.safeZoneAutoHideTimeout = null;
+    }
+
     // Trasforma mapId in nome display
     const displayName = this.getMapDisplayName(mapName);
 
@@ -423,7 +454,7 @@ export class UiSystem extends System {
             if (this.safeZoneElement && this.safeZoneElement.style.opacity === '0') {
               this.safeZoneElement.style.display = 'none';
             }
-          }, 850);
+          }, UiSystem.SAFE_ZONE_FADE_MS);
         }
       }, displayDuration);
     }
@@ -806,7 +837,7 @@ export class UiSystem extends System {
     // Stile minimalista centrato in alto - Più in basso e più grande
     this.safeZoneElement.style.cssText = `
       position: fixed;
-      top: 100px;
+      top: 170px;
       left: 50%;
       transform: translateX(-50%);
       text-align: center;
@@ -844,7 +875,7 @@ export class UiSystem extends System {
       font-size: 18px;
       font-weight: 800;
       letter-spacing: 6px;
-      margin-top: 2px;
+      margin-top: 10px;
       text-shadow: 0 0 15px rgba(255, 255, 255, 0.4);
       opacity: 0.8;
       margin-left: 6px;
@@ -1021,6 +1052,11 @@ export class UiSystem extends System {
     return this.chatManager.getStatus();
   }
   destroy(): void {
+    if (this.safeZoneAutoHideTimeout) {
+      clearTimeout(this.safeZoneAutoHideTimeout);
+      this.safeZoneAutoHideTimeout = null;
+    }
+
     this.nicknameManager.removePlayerNicknameElement();
     this.nicknameManager.removeAllNpcNicknameElements();
     this.nicknameManager.removeAllRemotePlayerNicknameElements();
@@ -1078,3 +1114,4 @@ export class UiSystem extends System {
     }, stepTime);
   }
 }
+
