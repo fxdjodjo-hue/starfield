@@ -194,9 +194,6 @@ export class UINicknameManager {
         return;
       }
 
-      // Memorizza la larghezza per evitare ricalcoli continui che potrebbero causare instabilità
-      const elementWidth = element.offsetWidth || 0;
-
       // Posiziona il nickname centrato orizzontalmente usando trasformazione CSS
       element.style.left = `${screenX}px`;
       element.style.top = `${screenY + 45}px`;

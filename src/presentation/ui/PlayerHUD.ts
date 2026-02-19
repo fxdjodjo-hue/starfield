@@ -29,6 +29,11 @@ export class PlayerHUD {
   private isVisible: boolean = false;
   private _isExpanded: boolean = false;
   private dprCompensation: number;
+  private levelElement: HTMLElement | null = null;
+  private playerIdElement: HTMLElement | null = null;
+  private readonly statValueElements: Partial<Record<'credits' | 'cosmos' | 'experience' | 'honor', HTMLElement>> = {};
+  private readonly vitalValueElements: Partial<Record<'health' | 'shield', HTMLElement>> = {};
+  private readonly vitalFillElements: Partial<Record<'health' | 'shield', HTMLElement>> = {};
 
   constructor() {
     // Calcola compensazione DPR per dimensioni UI corrette
@@ -153,8 +158,29 @@ export class PlayerHUD {
       </div>
     `;
 
+    this.cacheDomReferences(container);
     this.attachGlassStyles();
     return container;
+  }
+
+  private cacheDomReferences(container: HTMLElement): void {
+    this.levelElement = container.querySelector('.level-number') as HTMLElement | null;
+    this.playerIdElement = container.querySelector('.player-id') as HTMLElement | null;
+
+    for (const stat of ['credits', 'cosmos', 'experience', 'honor'] as const) {
+      this.statValueElements[stat] = container.querySelector<HTMLElement>(
+        `.stat-item[data-stat="${stat}"] .stat-value`
+      ) || undefined;
+    }
+
+    for (const vital of ['health', 'shield'] as const) {
+      this.vitalValueElements[vital] = container.querySelector<HTMLElement>(
+        `.vital-row[data-vital="${vital}"] .vital-value`
+      ) || undefined;
+      this.vitalFillElements[vital] = container.querySelector<HTMLElement>(
+        `.vital-row[data-vital="${vital}"] .vital-fill`
+      ) || undefined;
+    }
   }
 
   /**
@@ -475,21 +501,17 @@ export class PlayerHUD {
     // }
 
     // Aggiorna livello
-    const levelElement = this.container.querySelector('.level-number') as HTMLElement;
-    if (levelElement) {
-      levelElement.textContent = data.level.toString();
+    if (this.levelElement) {
+      this.levelElement.textContent = data.level.toString();
     }
 
     // Aggiorna ID giocatore
-    const playerIdElement = this.container.querySelector('.player-id') as HTMLElement;
-    if (playerIdElement) {
-      playerIdElement.textContent = `ID: ${data.playerId}`;
+    if (this.playerIdElement) {
+      this.playerIdElement.textContent = `ID: ${data.playerId}`;
     }
 
     const setStatValue = (stat: 'credits' | 'cosmos' | 'experience' | 'honor', value: number): void => {
-      const valueElement = this.container.querySelector<HTMLElement>(
-        `.stat-item[data-stat="${stat}"] .stat-value`
-      );
+      const valueElement = this.statValueElements[stat];
       if (valueElement) {
         valueElement.textContent = this.formatNumber(value);
       }
@@ -527,16 +549,12 @@ export class PlayerHUD {
     const safeCurrent = Math.min(current, max);
     const percent = Math.max(0, Math.min(100, Math.round((safeCurrent / max) * 100)));
 
-    const valueElement = this.container.querySelector<HTMLElement>(
-      `.vital-row[data-vital="${vital}"] .vital-value`
-    );
+    const valueElement = this.vitalValueElements[vital];
     if (valueElement) {
       valueElement.textContent = `${this.formatNumber(safeCurrent)} / ${this.formatNumber(max)}`;
     }
 
-    const fillElement = this.container.querySelector<HTMLElement>(
-      `.vital-row[data-vital="${vital}"] .vital-fill`
-    );
+    const fillElement = this.vitalFillElements[vital];
     if (fillElement) {
       fillElement.style.width = `${percent}%`;
     }
@@ -556,6 +574,9 @@ export class PlayerHUD {
     if (document.body.contains(this.container)) {
       document.body.removeChild(this.container);
     }
+
+    this.levelElement = null;
+    this.playerIdElement = null;
 
     const styleElement = document.getElementById('player-hud-styles');
     if (styleElement) {

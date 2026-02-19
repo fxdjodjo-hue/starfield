@@ -494,7 +494,6 @@ export class RenderSystem extends BaseSystem {
     // Cap dt to avoid huge jumps on tab switch (max 100ms)
     const dt = this.lastRenderTimestamp > 0 ? Math.min(now - this.lastRenderTimestamp, 100) : 16;
     this.lastRenderTimestamp = now;
-    this.lastRenderTimestamp = now;
     this.lastDt = dt; // Store for entity rendering
 
     // PRE-CALCULATE Player Smoothing BEFORE any rendering
@@ -555,11 +554,17 @@ export class RenderSystem extends BaseSystem {
       this.entityQueryCache = this.ecs.getEntitiesWithComponents(Transform);
     }
     const entities = this.entityQueryCache;
+    const { width, height } = this.displayManager.getLogicalSize();
+    const isZoomAnimating = this.cameraSystem.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
+    if (isZoomAnimating) {
+      // Reset fade quando l'animazione ricomincia
+      this.healthBarsFadeStartTime = null;
+    }
 
     let playerEntity = this.playerSystem.getPlayerEntity();
 
     // Se PlayerSystem non ha il player (inizializzazione non completata), identifica il player dai suoi componenti unici
-    // Il player √® l'unica entit√† con Transform ma senza componenti NPC
+    // Il player Ë l'unica entit‡ con Transform ma senza componenti NPC
     if (!playerEntity) {
       playerEntity = this.findPlayerByComponents();
     }
@@ -574,23 +579,34 @@ export class RenderSystem extends BaseSystem {
       ? this.localPlayerSmoothedPos.y - localPlayerTransform.y
       : 0;
 
-    // Rimuovi il player dalla lista per evitare doppio rendering (confronto per ID)
-    const entitiesWithoutPlayer = playerEntity
-      ? entities.filter(entity => !entity || entity.id !== playerEntity.id)
-      : entities;
-    const collectEffects = entitiesWithoutPlayer.filter(entity =>
-      this.ecs.hasComponent(entity, ResourceCollectEffect)
-    );
+    // Single-pass classification to avoid per-frame temporary arrays from chained filters.
+    // Keep identical classification semantics/order as before.
+    const collectEffects: Entity[] = [];
+    const spaceStations: Entity[] = [];
+    const otherEntities: Entity[] = [];
+    for (const entity of entities) {
+      if (playerEntity && entity && entity.id === playerEntity.id) {
+        continue;
+      }
 
-    // Render space stations PRIMA di tutte le altre entit√† (pi√π in background)
-    const spaceStations = entitiesWithoutPlayer.filter(entity =>
-      this.ecs.hasComponent(entity, SpaceStation)
-    );
+      const hasCollectEffect = this.ecs.hasComponent(entity, ResourceCollectEffect);
+      const hasSpaceStation = this.ecs.hasComponent(entity, SpaceStation);
+
+      if (hasCollectEffect) {
+        collectEffects.push(entity);
+      }
+      if (hasSpaceStation) {
+        spaceStations.push(entity);
+      }
+      if (!hasCollectEffect && !hasSpaceStation) {
+        otherEntities.push(entity);
+      }
+    }
+
+    // Render space stations PRIMA di tutte le altre entit‡ (pi˘ in background)
     for (const entity of spaceStations) {
       const components = this.getCachedComponents(entity);
       if (components.transform) {
-        const { width, height } = this.displayManager.getLogicalSize();
-
         // Per NPC remoti, usa coordinate interpolate se disponibili
         let renderX = components.transform.x;
         let renderY = components.transform.y;
@@ -616,23 +632,16 @@ export class RenderSystem extends BaseSystem {
       }
     }
 
-    // Render altre entit√† (portali, NPC, ecc.) - player verr√† renderizzato dopo
-    const otherEntities = entitiesWithoutPlayer.filter(entity =>
-      !this.ecs.hasComponent(entity, SpaceStation) &&
-      !this.ecs.hasComponent(entity, ResourceCollectEffect)
-    );
+    // Render altre entit‡ (portali, NPC, ecc.) - player verr‡ renderizzato dopo
     for (const entity of otherEntities) {
       // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
       const components = this.getCachedComponents(entity);
-
 
       // Skip parallax entities (rendered by ParallaxSystem)
       if (components.parallax) continue;
 
       if (components.transform) {
-        const { width, height } = this.displayManager.getLogicalSize();
-
-        // Per entit√† remote, usa coordinate interpolate se disponibili
+        // Per entit‡ remote, usa coordinate interpolate se disponibili
         let renderX = components.transform.x;
         let renderY = components.transform.y;
 
@@ -642,7 +651,7 @@ export class RenderSystem extends BaseSystem {
           renderX = interpolationTarget.renderX;
           renderY = interpolationTarget.renderY;
         }
-        // FIX: Se √® un effetto di riparazione collegato al Local Player, usa la posizione smoothed
+        // FIX: Se Ë un effetto di riparazione collegato al Local Player, usa la posizione smoothed
         else if (components.repairEffect &&
           RenderSystem.smoothedLocalPlayerPos &&
           components.repairEffect.targetEntityId === RenderSystem.smoothedLocalPlayerId) {
@@ -674,17 +683,13 @@ export class RenderSystem extends BaseSystem {
           projectileVisualState: components.projectileVisualState
         }, camera);
 
-        // Render health/shield bars con fade quando l'animazione zoom √® completata
-        const isZoomAnimating = this.cameraSystem.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
+        // Render health/shield bars con fade quando l'animazione zoom Ë completata
         if (!isZoomAnimating && (components.health || components.shield)) {
-          // Inizia il fade quando l'animazione √® appena completata
+          // Inizia il fade quando l'animazione Ë appena completata
           if (this.healthBarsFadeStartTime === null) {
             this.healthBarsFadeStartTime = Date.now();
           }
           this.renderHealthBars(ctx, screenPos.x, screenPos.y, components.health || null, components.shield || null);
-        } else if (isZoomAnimating) {
-          // Reset fade quando l'animazione ricomincia
-          this.healthBarsFadeStartTime = null;
         }
       }
     }
@@ -693,8 +698,6 @@ export class RenderSystem extends BaseSystem {
     for (const entity of collectEffects) {
       const components = this.getCachedComponents(entity);
       if (!components.transform) continue;
-
-      const { width, height } = this.displayManager.getLogicalSize();
 
       let renderX = components.transform.x;
       let renderY = components.transform.y;
@@ -717,13 +720,12 @@ export class RenderSystem extends BaseSystem {
       }, camera);
     }
 
-    // Render player DOPO tutte le altre entit√† (sopra portali, NPC e space stations)
+    // Render player DOPO tutte le altre entit‡ (sopra portali, NPC e space stations)
     // This ensures the player is rendered on top with proper priority
     if (playerEntity) {
       const playerTransform = this.ecs.getComponent(playerEntity, Transform);
 
       if (playerTransform) {
-
         // --- VISUAL SMOOTHING FOR LOCAL PLAYER ---
         // (Calculated at start of frame in updateLocalPlayerSmoothing)
         // Just ensure it exists (fallback)
@@ -738,7 +740,6 @@ export class RenderSystem extends BaseSystem {
           y: this.localPlayerSmoothedPos.y
         };
 
-        const { width, height } = this.displayManager.getLogicalSize();
         // Use smoothed transform for screen projection
         const screenPos = ScreenSpace.toScreen(smoothedTransform as Transform, camera, width, height);
 
@@ -777,17 +778,13 @@ export class RenderSystem extends BaseSystem {
           projectileVisualState: components.projectileVisualState
         }, camera);
 
-        // Render health/shield bars con fade quando l'animazione zoom √® completata
-        const isZoomAnimating = this.cameraSystem.isZoomAnimationActive ? this.cameraSystem.isZoomAnimationActive() : false;
+        // Render health/shield bars con fade quando l'animazione zoom Ë completata
         if (!isZoomAnimating && (components.health || components.shield) && isVisible) {
-          // Inizia il fade quando l'animazione √® appena completata
+          // Inizia il fade quando l'animazione Ë appena completata
           if (this.healthBarsFadeStartTime === null) {
             this.healthBarsFadeStartTime = Date.now();
           }
           this.renderHealthBars(ctx, screenPos.x, screenPos.y, components.health || null, components.shield || null);
-        } else if (isZoomAnimating) {
-          // Reset fade quando l'animazione ricomincia
-          this.healthBarsFadeStartTime = null;
         }
       }
     }
@@ -1153,3 +1150,4 @@ export class RenderSystem extends BaseSystem {
 
 
 }
+

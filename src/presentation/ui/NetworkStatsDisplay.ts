@@ -5,8 +5,7 @@ export class NetworkStatsDisplay {
     private container: HTMLElement;
     private networkSystem: ClientNetworkSystem | null = null;
     private visible: boolean = false;
-    private animationFrameId: number | null = null;
-    private lastUpdate: number = 0;
+    private updateIntervalId: number | null = null;
 
     constructor() {
         this.container = document.createElement('div');
@@ -46,18 +45,6 @@ export class NetworkStatsDisplay {
         this.networkSystem = networkSystem;
     }
 
-    private loop = (timestamp: number): void => {
-        if (!this.lastUpdate) this.lastUpdate = timestamp;
-
-        // Update display every 500ms
-        if (timestamp - this.lastUpdate >= 500) {
-            this.updateDisplay();
-            this.lastUpdate = timestamp;
-        }
-
-        this.animationFrameId = requestAnimationFrame(this.loop);
-    }
-
     private updateDisplay(): void {
         if (!this.networkSystem) return;
 
@@ -91,16 +78,16 @@ export class NetworkStatsDisplay {
         if (this.visible) return;
         this.visible = true;
         this.container.style.display = 'block';
-        this.lastUpdate = 0;
-        this.animationFrameId = requestAnimationFrame(this.loop);
+        this.updateDisplay();
+        this.updateIntervalId = window.setInterval(() => this.updateDisplay(), 500);
     }
 
     public hide(): void {
         this.visible = false;
         this.container.style.display = 'none';
-        if (this.animationFrameId !== null) {
-            cancelAnimationFrame(this.animationFrameId);
-            this.animationFrameId = null;
+        if (this.updateIntervalId !== null) {
+            clearInterval(this.updateIntervalId);
+            this.updateIntervalId = null;
         }
     }
 

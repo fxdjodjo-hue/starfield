@@ -57,6 +57,11 @@ export class WeaponStatus {
   private dprCompensation: number;
   private currentActiveSlot: number = 0;
   private currentActiveMissileSlot: number = 0;
+  private readonly slotElements: Map<number, HTMLElement> = new Map();
+  private readonly ammoCountElements: Map<string, HTMLElement> = new Map();
+  private readonly cooldownFillElements: Map<number, HTMLElement> = new Map();
+  private readonly cooldownTimerElements: Map<number, HTMLElement> = new Map();
+  private skillbarSlotElements: HTMLElement[] = [];
 
   private readonly skillSlots: SkillSlotConfig[] = [
     { index: 1, title: 'Ammo x1', actionLabel: 'Ammo x1', enabled: false },
@@ -157,8 +162,48 @@ export class WeaponStatus {
       <div class="skillbar-shell">${skillSlotsMarkup}</div>
     `;
 
+    this.cacheDomReferences(container);
     this.attachStyles();
     return container;
+  }
+
+  private cacheDomReferences(container: HTMLElement): void {
+    this.slotElements.clear();
+    this.ammoCountElements.clear();
+    this.cooldownFillElements.clear();
+    this.cooldownTimerElements.clear();
+
+    this.skillbarSlotElements = Array.from(container.querySelectorAll<HTMLElement>('.skillbar-slot'));
+    for (const element of this.skillbarSlotElements) {
+      const slotIndex = Number(element.dataset.skillSlot || 0);
+      if (slotIndex > 0) {
+        this.slotElements.set(slotIndex, element);
+      }
+    }
+
+    const ammoCounters = container.querySelectorAll<HTMLElement>('[data-ammo-shortcut-count]');
+    for (const counter of Array.from(ammoCounters)) {
+      const key = String(counter.dataset.ammoShortcutCount || '').trim().toLowerCase();
+      if (key.length > 0) {
+        this.ammoCountElements.set(key, counter);
+      }
+    }
+
+    const cooldownFillNodes = container.querySelectorAll<HTMLElement>('[data-slot-cooldown]');
+    for (const fillNode of Array.from(cooldownFillNodes)) {
+      const slotIndex = Number(fillNode.dataset.slotCooldown || 0);
+      if (slotIndex > 0) {
+        this.cooldownFillElements.set(slotIndex, fillNode);
+      }
+    }
+
+    const cooldownTimerNodes = container.querySelectorAll<HTMLElement>('[data-slot-timer]');
+    for (const timerNode of Array.from(cooldownTimerNodes)) {
+      const slotIndex = Number(timerNode.dataset.slotTimer || 0);
+      if (slotIndex > 0) {
+        this.cooldownTimerElements.set(slotIndex, timerNode);
+      }
+    }
   }
 
   private attachStyles(): void {
@@ -547,8 +592,8 @@ export class WeaponStatus {
         slotConfig.enabled = isEnabled;
       }
 
-      const ammoSlot = this.container.querySelector<HTMLElement>(`[data-skill-slot="${slotIndex}"]`);
-      const ammoCountElement = this.container.querySelector<HTMLElement>(`[data-ammo-shortcut-count="${ammoTier}"]`);
+      const ammoSlot = this.slotElements.get(slotIndex);
+      const ammoCountElement = this.ammoCountElements.get(ammoTier);
       if (ammoCountElement) {
         ammoCountElement.textContent = `${ammoCount}`;
       }
@@ -578,8 +623,8 @@ export class WeaponStatus {
         slotConfig.enabled = isEnabled;
       }
 
-      const ammoSlot = this.container.querySelector<HTMLElement>(`[data-skill-slot="${slotIndex}"]`);
-      const ammoCountElement = this.container.querySelector<HTMLElement>(`[data-ammo-shortcut-count="${missileTier}"]`);
+      const ammoSlot = this.slotElements.get(slotIndex);
+      const ammoCountElement = this.ammoCountElements.get(missileTier);
       if (ammoCountElement) {
         ammoCountElement.textContent = `${missileCount}`;
       }
@@ -647,8 +692,8 @@ export class WeaponStatus {
 
     // Update all ammo slots (1-3): show cooldown only on active, clear others
     for (let slot = 1; slot <= 3; slot++) {
-      const fillElement = this.container.querySelector<HTMLElement>(`[data-slot-cooldown="${slot}"]`);
-      const timerElement = this.container.querySelector<HTMLElement>(`[data-slot-timer="${slot}"]`);
+      const fillElement = this.cooldownFillElements.get(slot);
+      const timerElement = this.cooldownTimerElements.get(slot);
       if (!fillElement || !timerElement) continue;
 
       if (slot === this.currentActiveSlot) {
@@ -670,8 +715,8 @@ export class WeaponStatus {
 
     // Update all missile slots (4-6): show cooldown only on active, clear others
     for (let slot = 4; slot <= 6; slot++) {
-      const fillElement = this.container.querySelector<HTMLElement>(`[data-slot-cooldown="${slot}"]`);
-      const timerElement = this.container.querySelector<HTMLElement>(`[data-slot-timer="${slot}"]`);
+      const fillElement = this.cooldownFillElements.get(slot);
+      const timerElement = this.cooldownTimerElements.get(slot);
       if (!fillElement || !timerElement) continue;
 
       if (slot === this.currentActiveMissileSlot) {
@@ -701,7 +746,7 @@ export class WeaponStatus {
       }
     }
 
-    this.container.querySelectorAll<HTMLElement>('.skillbar-slot').forEach((element) => {
+    this.skillbarSlotElements.forEach((element) => {
       const currentSlot = Number(element.dataset.skillSlot || 0);
       const isActive = (currentSlot === this.currentActiveSlot) || (currentSlot === this.currentActiveMissileSlot);
       element.classList.toggle('skillbar-slot-active', isActive);
@@ -714,6 +759,12 @@ export class WeaponStatus {
     if (this.container && this.container.parentNode) {
       this.container.parentNode.removeChild(this.container);
     }
+
+    this.slotElements.clear();
+    this.ammoCountElements.clear();
+    this.cooldownFillElements.clear();
+    this.cooldownTimerElements.clear();
+    this.skillbarSlotElements = [];
 
     const style = document.getElementById('weapon-status-styles');
     if (style) {

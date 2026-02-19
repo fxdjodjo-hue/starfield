@@ -530,6 +530,7 @@ export class MinimapSystem extends BaseSystem {
     // Renderizza NPC
     const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
     const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    const selectedNpcSet = new Set(selectedNpcs);
 
     // Distanza massima di visibilità radar (1500 unità)
     const RADAR_RANGE = 1200;
@@ -551,7 +552,7 @@ export class MinimapSystem extends BaseSystem {
           return;
         }
 
-        const isSelected = selectedNpcs.includes(entityId);
+        const isSelected = selectedNpcSet.has(entityId);
         if (isBossNpc) {
           this.renderBossDot(ctx, transform.x, transform.y, isSelected);
           return;
