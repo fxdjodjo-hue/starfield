@@ -21,7 +21,8 @@ class ProjectileBroadcaster {
     const message = {
       type: 'projectile_fired',
       projectileId: projectile.id,
-      playerId: projectile.playerId, // Questo è il clientId del player che ha sparato
+      playerId: projectile.playerId,
+      projectileSource: this.resolveProjectileSource(projectile),
       position: projectile.position,
       velocity: projectile.velocity,
       damage: actualDamage !== null ? actualDamage : projectile.damage,
@@ -112,7 +113,8 @@ class ProjectileBroadcaster {
       maxHealth: maxHealth,
       maxShield: maxShield,
       position: entity.position,
-      projectileType: projectile.projectileType || 'laser'
+      projectileType: projectile.projectileType || 'laser',
+      projectileSource: this.resolveProjectileSource(projectile)
     };
 
     if (entityType === 'player') {
@@ -232,6 +234,21 @@ class ProjectileBroadcaster {
       }
     }
   }
+
+  resolveProjectileSource(projectile) {
+    const normalizedSource = String(projectile?.projectileSource || '').trim().toLowerCase();
+    if (normalizedSource === 'player' || normalizedSource === 'pet' || normalizedSource === 'npc') {
+      return normalizedSource;
+    }
+
+    const normalizedPlayerId = String(projectile?.playerId || '').trim();
+    if (normalizedPlayerId.startsWith('npc_')) {
+      return 'npc';
+    }
+
+    return 'player';
+  }
 }
 
 module.exports = ProjectileBroadcaster;
+

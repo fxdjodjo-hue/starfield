@@ -1196,7 +1196,9 @@ function handleProjectileFired(data, sanitizedData, context) {
       data.velocity,
       calculatedDamage,
       data.projectileType || 'laser',
-      targetId
+      targetId,
+      true,
+      'player'
     );
   } catch (error) {
     logger.error('PROJECTILE', `Failed to spawn projectile for ${data.clientId}: ${error.message}`);
@@ -1225,6 +1227,7 @@ function handleProjectileFired(data, sanitizedData, context) {
     velocity: data.velocity,
     damage: calculatedDamage,
     projectileType: data.projectileType || 'laser',
+    projectileSource: 'player',
     targetId: targetId
   };
 

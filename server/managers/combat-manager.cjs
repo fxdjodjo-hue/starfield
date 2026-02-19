@@ -644,6 +644,7 @@ class ServerCombatManager {
       const projectileData = {
         id: projectileId,
         playerId: ownerId,
+        projectileSource: 'npc',
         position: projectilePos,
         velocity: velocity,
         damage: damage,
@@ -675,9 +676,10 @@ class ServerCombatManager {
    * @param {number} damage - Danno del proiettile
    * @param {string} projectileType - Tipo di proiettile ('laser' o altro)
    * @param {string} targetId - ID del target
+   * @param {'player'|'pet'|'npc'|null} projectileSource - Origine logica del proiettile
    * @returns {string|null} ID del proiettile creato
    */
-  performAttack(ownerId, ownerPosition, targetPosition, damage, projectileType = 'laser', targetId = null) {
+  performAttack(ownerId, ownerPosition, targetPosition, damage, projectileType = 'laser', targetId = null, projectileSource = null) {
     // DEBUG: Log per vedere se viene chiamato
     // Calcola direzione normalizzata dal owner al target
     const dx = targetPosition.x - ownerPosition.x;
@@ -724,7 +726,8 @@ class ServerCombatManager {
         damage,
         projectileType,
         targetId,
-        excludeSender
+        excludeSender,
+        projectileSource
       );
       return projectileId;
     } catch (error) {

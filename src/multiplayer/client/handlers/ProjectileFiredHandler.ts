@@ -19,6 +19,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         const localAuthId = networkSystem.gameContext.authId;
         const localClientId = networkSystem.getLocalClientId();
         const isLocalPlayer = message.playerId === String(localAuthId) || message.playerId === String(localClientId);
+        const projectileSource = this.normalizeProjectileSource(message.projectileSource, message.playerId);
 
         /*
         console.log('[DEBUG_PROJECTILE] Received projectile_fired message:', {
@@ -43,7 +44,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
         // Gestisci audio e visualizzazione per tutti i proiettili
         const audioSystem = networkSystem.getAudioSystem();
         if (audioSystem) {
-            if (message.playerId.startsWith('npc_')) {
+            if (projectileSource === 'npc' || message.playerId.startsWith('npc_')) {
                 // FIX SPAZIALE: Usa playSoundAt per i proiettili NPC per attenuare quelli lontani
                 audioSystem.playSoundAt(
                     'scouterLaser',
@@ -60,7 +61,7 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
                     message.position.y,
                     { volume: 0.1, allowMultiple: true, category: 'effects' }
                 );
-            } else if (message.projectileType === 'pet_laser') {
+            } else if (projectileSource === 'pet' || message.projectileType === 'pet_laser') {
                 audioSystem.playSoundAt(
                     'laser',
                     message.position.x,
@@ -97,18 +98,19 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
             networkSystem.sendSellMissileRequest(tier, 1);
         }
 
-        // OTTIMIZZAZIONE: Per i laser del giocatore locale, ignoriamo il messaggio di ritorno dal server
-        // perché abbiamo già creato il laser locale per responsività immediata in CombatStateSystem.
-        // MA per i MISSILI (che sono auto-fire dal server), dobbiamo processarli anche per il player locale!
-        if (isLocalPlayer && !isMissile) {
-            // Skip self-broadcast to avoid duplication - local laser already created
+        // OTTIMIZZAZIONE: ignora l'echo locale solo per i laser del player
+        // già renderizzati lato client in CombatStateSystem.
+        // Nota: pet_laser non usa quel percorso locale, quindi non va filtrato qui.
+        const isPlayerLaserEcho = projectileSource === 'player' &&
+            (message.projectileType === 'laser' || message.projectileType.startsWith('lb'));
+        if (isLocalPlayer && isPlayerLaserEcho) {
             return;
         }
 
         // OTTIMIZZAZIONE: Per i laser dei giocatori (locali o remoti), usiamo la simulazione locale
         // in CombatStateSystem. Ignoriamo il messaggio 'projectile_fired' dal server per i laser
         // per evitare duplicazioni, flicker e lag visivo.
-        if (message.projectileType === 'laser' || message.projectileType.startsWith('lb')) {
+        if (projectileSource === 'player' && (message.projectileType === 'laser' || message.projectileType.startsWith('lb'))) {
             // if (import.meta.env.DEV) console.log(`[DEBUG_PROJECTILE] Skipping visual for ${isLocalPlayer ? 'local' : 'remote'} player laser (handled by simulation)`);
             return;
         }
@@ -191,5 +193,14 @@ export class ProjectileFiredHandler extends BaseMessageHandler {
                 assetManager
             );
         }
+    }
+
+    private normalizeProjectileSource(rawSource: unknown, playerId: unknown): 'player' | 'pet' | 'npc' {
+        const normalizedSource = String(rawSource ?? '').trim().toLowerCase();
+        if (normalizedSource === 'player' || normalizedSource === 'pet' || normalizedSource === 'npc') {
+            return normalizedSource;
+        }
+
+        return String(playerId ?? '').startsWith('npc_') ? 'npc' : 'player';
     }
 }

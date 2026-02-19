@@ -29,7 +29,11 @@ class PetModuleManager {
     this.DEFENSE_PLAYER_DISENGAGE_RANGE_PX = 3400;
     this.DEFENSE_BASE_DAMAGE = 900;
     this.DEFENSE_LEVEL_DAMAGE_STEP = 0.08;
-    this.DEFENSE_PROJECTILE_TYPE = 'pet_laser';
+    this.DEFENSE_PROJECTILE_TYPE_BY_AMMO_TIER = Object.freeze({
+      x1: 'lb1',
+      x2: 'lb2',
+      x3: 'lb3'
+    });
   }
 
   update(now = Date.now()) {
@@ -290,13 +294,17 @@ class PetModuleManager {
     const ammoMultiplier = getDamageMultiplierForTier(consumeResult.selectedTier);
     const finalDamage = Math.floor(baseDefenseDamage * ammoMultiplier);
 
+    const selectedAmmoTier = String(consumeResult.selectedTier || 'x1').toLowerCase();
+    const projectileType = this.DEFENSE_PROJECTILE_TYPE_BY_AMMO_TIER[selectedAmmoTier] || 'lb1';
+
     const projectileId = combatManager.performAttack(
       playerId,
       petPosition,
       targetNpc.position,
       finalDamage,
-      this.DEFENSE_PROJECTILE_TYPE,
-      targetNpcId
+      projectileType,
+      targetNpcId,
+      'pet'
     );
 
     if (!projectileId) return null;

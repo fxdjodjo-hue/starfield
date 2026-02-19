@@ -18,12 +18,14 @@ class ProjectileSpawner {
    * @param {number} damage - Danno del proiettile
    * @param {string} projectileType - Tipo proiettile (laser, missile, etc.)
    * @param {string|null} targetId - ID del target (per homing)
+   * @param {'player'|'pet'|'npc'|null} projectileSource - Origine logica del proiettile
    * @returns {Object} Proiettile data object
    */
-  createProjectileData(projectileId, playerId, position, velocity, damage, projectileType = 'laser', targetId = null) {
+  createProjectileData(projectileId, playerId, position, velocity, damage, projectileType = 'laser', targetId = null, projectileSource = null) {
     const projectile = {
       id: projectileId,
       playerId,
+      projectileSource: this.normalizeProjectileSource(projectileSource, playerId),
       position: { ...position },
       velocity: { ...velocity },
       damage,
@@ -35,6 +37,20 @@ class ProjectileSpawner {
     };
 
     return projectile;
+  }
+
+  normalizeProjectileSource(projectileSource, playerId) {
+    const normalizedSource = String(projectileSource || '').trim().toLowerCase();
+    if (normalizedSource === 'player' || normalizedSource === 'pet' || normalizedSource === 'npc') {
+      return normalizedSource;
+    }
+
+    const normalizedPlayerId = String(playerId || '').trim();
+    if (normalizedPlayerId.startsWith('npc_')) {
+      return 'npc';
+    }
+
+    return 'player';
   }
 
   /**

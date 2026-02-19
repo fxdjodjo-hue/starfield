@@ -50,8 +50,11 @@ export class EntityDamagedHandler extends BaseMessageHandler {
     const isLocalPlayerAttacker =
       message.attackerId === String(localAuthId) ||
       message.attackerId === String(localClientId);
+    const projectileSource = message.projectileSource === 'pet' || message.projectileSource === 'player' || message.projectileSource === 'npc'
+      ? message.projectileSource
+      : (String(message.attackerId || '').startsWith('npc_') ? 'npc' : 'player');
 
-    if (isLocalPlayerAttacker) {
+    if (isLocalPlayerAttacker && projectileSource !== 'pet') {
       // Logic for laser cooldown (handled by WeaponStatus/Damage)
       if (message.projectileType === 'laser' || message.projectileType === 'lb1' || message.projectileType === 'lb2' || message.projectileType === 'lb3') {
         const playerSystem = networkSystem.getPlayerSystem();

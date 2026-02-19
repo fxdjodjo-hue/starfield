@@ -49,9 +49,9 @@ class ServerProjectileManager {
   /**
    * Registra un nuovo proiettile sparato da un giocatore
    */
-  addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser', targetId = null, excludeSender = true) {
+  addProjectile(projectileId, playerId, position, velocity, damage, projectileType = 'laser', targetId = null, excludeSender = true, projectileSource = null) {
     const projectile = this.spawner.createProjectileData(
-      projectileId, playerId, position, velocity, damage, projectileType, targetId
+      projectileId, playerId, position, velocity, damage, projectileType, targetId, projectileSource
     );
 
     this.projectiles.set(projectileId, projectile);
