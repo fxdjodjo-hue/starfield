@@ -1015,7 +1015,7 @@ export class ResourceInteractionSystem extends BaseSystem {
     };
     const now = Date.now();
 
-    const collectDistance = this.ALIGNMENT_DISTANCE_PX + this.COLLECT_DISTANCE_TOLERANCE_PX;
+    const collectDistance = this.CARGO_BOX_COLLECT_DISTANCE_PX;
     const dx = collectAnchor.x - playerPosition.x;
     const dy = collectAnchor.y - playerPosition.y;
     const distanceSq = dx * dx + dy * dy;
