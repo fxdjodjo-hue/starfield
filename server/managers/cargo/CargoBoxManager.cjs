@@ -197,10 +197,19 @@ class CargoBoxManager {
 
             // Check player hasn't moved too much (stationary check like resources)
             if (collection.anchorSynced) {
+                const timeReference = collection.anchorSyncedAt || collection.startedAt;
+                const elapsedMs = Math.max(0, now - timeReference);
+                const COLLECT_START_GRACE_MS = 350;
+                const COLLECT_START_DRIFT_PX = 70;
+                const COLLECT_STATIONARY_DRIFT_PX = 26;
+
+                const allowedDriftPx = elapsedMs <= COLLECT_START_GRACE_MS
+                    ? COLLECT_START_DRIFT_PX
+                    : COLLECT_STATIONARY_DRIFT_PX;
+
                 const adx = playerPosition.x - collection.anchorX;
                 const ady = playerPosition.y - collection.anchorY;
-                const DRIFT_PX = 26;
-                if ((adx * adx + ady * ady) > (DRIFT_PX * DRIFT_PX)) {
+                if ((adx * adx + ady * ady) > (allowedDriftPx * allowedDriftPx)) {
                     this.cancelCollection(boxId, collection, playerData, 'player_moved');
                     continue;
                 }
@@ -209,6 +218,7 @@ class CargoBoxManager {
                 collection.anchorX = playerPosition.x;
                 collection.anchorY = playerPosition.y;
                 collection.anchorSynced = true;
+                collection.anchorSyncedAt = now;
             }
 
             // Not yet complete
