@@ -221,7 +221,8 @@ class PetMovementManager {
     playerData.petPosition = {
       x: runtime.x,
       y: runtime.y,
-      rotation: runtime.rotation
+      rotation: runtime.rotation,
+      isAttacking: targetState.isDefense
     };
   }
 

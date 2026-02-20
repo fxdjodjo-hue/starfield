@@ -8,6 +8,7 @@ export class LocalPetServerState extends Component {
   public x: number;
   public y: number;
   public rotation: number;
+  public isAttacking: boolean;
   public serverTime: number;
   public receivedAt: number;
 
@@ -15,6 +16,7 @@ export class LocalPetServerState extends Component {
     x: number = 0,
     y: number = 0,
     rotation: number = 0,
+    isAttacking: boolean = false,
     serverTime: number = Date.now(),
     receivedAt: number = Date.now()
   ) {
@@ -22,6 +24,7 @@ export class LocalPetServerState extends Component {
     this.x = Number.isFinite(x) ? x : 0;
     this.y = Number.isFinite(y) ? y : 0;
     this.rotation = this.normalizeAngle(rotation);
+    this.isAttacking = !!isAttacking;
     this.serverTime = Number.isFinite(serverTime) ? serverTime : Date.now();
     this.receivedAt = Number.isFinite(receivedAt) ? receivedAt : Date.now();
   }
@@ -30,6 +33,7 @@ export class LocalPetServerState extends Component {
     x: number,
     y: number,
     rotation: number,
+    isAttacking: boolean,
     serverTime: number,
     receivedAt: number = Date.now()
   ): void {
@@ -37,6 +41,7 @@ export class LocalPetServerState extends Component {
     this.x = x;
     this.y = y;
     this.rotation = this.normalizeAngle(rotation);
+    this.isAttacking = !!isAttacking;
     this.serverTime = Number.isFinite(serverTime) ? serverTime : Date.now();
     this.receivedAt = Number.isFinite(receivedAt) ? receivedAt : Date.now();
   }

@@ -166,11 +166,24 @@ export class LocalPetFollowSystem extends BaseSystem {
     const actualMoveDistance = this.getMagnitude(actualMoveX, actualMoveY);
     const actualMoveSpeed = dtSeconds > 0 ? actualMoveDistance / dtSeconds : 0;
 
+    // Rotation: hybrid approach.
+    // - During movement: use per-frame atan2(actualMove) for smooth 60fps rotation.
+    //   Server rotation updates only at ~20Hz tick, which looks "frozen" during follow.
+    // - Exception: if server rotation diverges > 60° from movement direction, the server
+    //   is in defense lookAt mode (pet orbits but faces NPC). Trust server in that case.
+    // - When stationary: use server rotation for correct defense/collect facing.
     let targetRotation = runtime.rotation;
-    // When owner is stationary, ignore tiny drifts from follow-target shifting with ship rotation.
-    const rotationThreshold = ownerIsStationary ? 20 : 1;
-    if (actualMoveSpeed > rotationThreshold && actualMoveDistance > 0.5) {
-      targetRotation = Math.atan2(actualMoveY, actualMoveX);
+
+    if (freshServerState && freshServerState.isAttacking) {
+      // Combat/Defense: Always face the target (server authoritative rotation)
+      targetRotation = freshServerState.rotation;
+    } else if (actualMoveSpeed > 1 && actualMoveDistance > 0.5) {
+      // Moving: Face direction of movement
+      const movementAngle = Math.atan2(actualMoveY, actualMoveX);
+      targetRotation = movementAngle;
+    } else if (freshServerState) {
+      // Stationary: use server rotation (defense facing, collect idle, etc.).
+      targetRotation = freshServerState.rotation;
     }
 
     runtime.rotation = this.rotateTowardsLikePlayer(
