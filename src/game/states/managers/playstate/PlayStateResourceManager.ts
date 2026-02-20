@@ -348,8 +348,7 @@ export class PlayStateResourceManager {
       }
 
       const screenPos = camera.worldToScreen(renderX, renderY, canvasSize.width, canvasSize.height);
-      const petFloatOffsetY = PlayerRenderer.getFloatOffset(frameTime + entity.id * 157);
-      const petScreenY = screenPos.y + petFloatOffsetY;
+      const petScreenY = screenPos.y;
       const isVisible = screenPos.x >= -120 && screenPos.x <= canvasSize.width + 120
         && petScreenY >= -120 && petScreenY <= canvasSize.height + 120;
       if (!isVisible) continue;

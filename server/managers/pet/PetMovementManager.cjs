@@ -330,6 +330,7 @@ class PetMovementManager {
         target: collectTarget,
         lookAt: null,
         isDefense: false,
+        isCollecting: true,
         ownerIsStationary: isOwnerStationary
       };
     }
