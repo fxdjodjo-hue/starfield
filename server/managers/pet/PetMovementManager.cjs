@@ -204,7 +204,9 @@ class PetMovementManager {
       if (this.getMagnitude(lookDx, lookDy) > 0.001) {
         targetRotation = Math.atan2(lookDy, lookDx);
       }
-    } else if (!targetState.ownerIsStationary && frameMoveSpeed > 1 && frameMoveDistance > 0.001) {
+    } else if (frameMoveSpeed > 8 && frameMoveDistance > 1) {
+      // Rotate based on actual pet movement direction, even if owner is stationary.
+      // This ensures pet faces forward while moving/catching up.
       targetRotation = Math.atan2(frameMoveY, frameMoveX);
     }
 
@@ -328,7 +330,7 @@ class PetMovementManager {
     if (collectTarget) {
       return {
         target: collectTarget,
-        lookAt: null,
+        lookAt: collectTarget, // Face the resource during collection
         isDefense: false,
         isCollecting: true,
         ownerIsStationary: isOwnerStationary

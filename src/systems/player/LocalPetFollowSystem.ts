@@ -166,24 +166,20 @@ export class LocalPetFollowSystem extends BaseSystem {
     const actualMoveDistance = this.getMagnitude(actualMoveX, actualMoveY);
     const actualMoveSpeed = dtSeconds > 0 ? actualMoveDistance / dtSeconds : 0;
 
-    // Rotation: hybrid approach.
-    // - During movement: use per-frame atan2(actualMove) for smooth 60fps rotation.
-    //   Server rotation updates only at ~20Hz tick, which looks "frozen" during follow.
-    // - Exception: if server rotation diverges > 60° from movement direction, the server
-    //   is in defense lookAt mode (pet orbits but faces NPC). Trust server in that case.
-    // - When stationary: use server rotation for correct defense/collect facing.
+    // Rotation: SERVER is the single source of truth.
+    // The server computes rotation at 20Hz based on movement direction, lookAt targets,
+    // and collection/defense state. The client trusts it unconditionally when available.
+    // rotateTowardsLikePlayer() smoothly interpolates at 60fps for visual fluidity.
+    // Local atan2 fallback only when no server state is available (first frames, timeout).
     let targetRotation = runtime.rotation;
 
-    if (freshServerState && freshServerState.isAttacking) {
-      // Combat/Defense: Always face the target (server authoritative rotation)
+    if (freshServerState) {
+      // Server-authoritative: covers movement, defense lookAt, collection face-target, etc.
       targetRotation = freshServerState.rotation;
-    } else if (actualMoveSpeed > 1 && actualMoveDistance > 0.5) {
-      // Moving: Face direction of movement
+    } else if (actualMoveSpeed > 8 && actualMoveDistance > 2) {
+      // Fallback: no server state — derive from local movement
       const movementAngle = Math.atan2(actualMoveY, actualMoveX);
       targetRotation = movementAngle;
-    } else if (freshServerState) {
-      // Stationary: use server rotation (defense facing, collect idle, etc.).
-      targetRotation = freshServerState.rotation;
     }
 
     runtime.rotation = this.rotateTowardsLikePlayer(
