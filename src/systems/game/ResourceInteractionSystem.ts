@@ -69,7 +69,9 @@ export class ResourceInteractionSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     this.animateResourceNodes(deltaTime);
+    this.animateCargoBoxes(deltaTime);
     this.processActiveCollectTarget();
+    this.processActiveCargoBoxCollectTarget();
     this.animateCollectEffects(deltaTime);
     this.processPendingResourceRemovals(deltaTime);
     this.cleanupPendingCollectRequests();
@@ -132,6 +134,7 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.activeCollectTargetResourceId = null;
     this.collectMovementLockResourceId = null;
     this.collectMovementLockUntilMs = 0;
+    this.clearAllCargoBoxes();
   }
 
   removeResource(resourceId: string, worldX?: number, worldY?: number): void {
@@ -259,7 +262,9 @@ export class ResourceInteractionSystem extends BaseSystem {
     this.cleanupPendingCollectRequests();
 
     const closest = this.findClosestResource(worldX, worldY);
-    if (!closest) return false;
+    if (!closest) {
+      return this.handleCargoBoxMouseClick(worldX, worldY);
+    }
 
     const lastRequestTime = this.pendingCollectRequests.get(closest.resourceId);
     const now = Date.now();
@@ -689,4 +694,388 @@ export class ResourceInteractionSystem extends BaseSystem {
       }
     }
   }
+
+  // ==========================================
+  // CARGO BOX MANAGEMENT
+  // ==========================================
+
+  private readonly cargoBoxEntities: Map<string, Entity> = new Map();
+  private cargoBoxSprite: AnimatedSprite | null = null;
+  private activeCargoBoxCollectTargetId: string | null = null;
+  private readonly pendingCargoBoxCollectRequests: Map<string, number> = new Map();
+  private cargoBoxCollectMovementLockId: string | null = null;
+  private cargoBoxCollectMovementLockUntilMs: number = 0;
+
+  private readonly CARGO_BOX_CLICK_RADIUS = 40;
+  private readonly CARGO_BOX_SPRITE_SCALE = 0.8;
+  private readonly CARGO_BOX_COLLECT_DISTANCE_PX = 16;
+  private readonly CARGO_BOX_PENDING_REQUEST_TTL_MS = 1600;
+  private readonly CARGO_BOX_COLLECT_MOVEMENT_LOCK_DURATION_MS = 2400;
+  private readonly CARGO_BOX_FRAME_DURATION_MS = 40;
+  private readonly CARGO_BOX_LIFETIME_MS = 20000;
+
+  private readonly cargoBoxExpirations: Map<string, number> = new Map();
+
+  registerCargoBoxSprite(sprite: AnimatedSprite): void {
+    this.cargoBoxSprite = sprite;
+  }
+
+  addCargoBox(data: {
+    id: string;
+    x: number;
+    y: number;
+    npcType: string;
+    killerClientId?: string;
+    exclusiveUntil: number;
+    expiresAt: number;
+  }): void {
+    if (!data || typeof data.id !== 'string') return;
+    if (!Number.isFinite(data.x) || !Number.isFinite(data.y)) return;
+
+    // Remove existing entity if present
+    const existing = this.cargoBoxEntities.get(data.id);
+    if (existing && this.ecs.entityExists(existing.id)) {
+      this.ecs.removeEntity(existing);
+    }
+
+    const sprite = this.cargoBoxSprite;
+    if (!sprite) return;
+
+    const entity = this.ecs.createEntity();
+    this.ecs.addComponent(
+      entity,
+      Transform,
+      new Transform(
+        data.x,
+        data.y,
+        0,
+        this.CARGO_BOX_SPRITE_SCALE,
+        this.CARGO_BOX_SPRITE_SCALE
+      )
+    );
+    this.ecs.addComponent(entity, AnimatedSprite, sprite);
+    this.ecs.addComponent(
+      entity,
+      ResourceNode,
+      new ResourceNode(
+        data.id,
+        'cargo_box',
+        this.CARGO_BOX_CLICK_RADIUS,
+        this.CARGO_BOX_COLLECT_DISTANCE_PX,
+        false
+      )
+    );
+
+    // Hack to force animation in RenderSystem via ResourceCollectEffect component
+    this.ecs.addComponent(
+      entity,
+      ResourceCollectEffect,
+      new ResourceCollectEffect('cargo_anim', 0)
+    );
+
+    // Fade-in state
+    const visualState = new ProjectileVisualState(true, true);
+    visualState.setAlpha(0); // Start invisible
+    this.ecs.addComponent(entity, ProjectileVisualState, visualState);
+
+    this.cargoBoxEntities.set(data.id, entity);
+
+    // Set expiration
+    const now = Date.now();
+    const expiresAt = Number.isFinite(data.expiresAt) && data.expiresAt > now
+      ? data.expiresAt
+      : now + this.CARGO_BOX_LIFETIME_MS;
+
+    this.cargoBoxExpirations.set(data.id, expiresAt);
+  }
+
+  private animateCargoBoxes(deltaTime: number): void {
+    if (!Number.isFinite(deltaTime) || deltaTime <= 0) return;
+
+    const now = Date.now();
+    const fadeInSpeed = 1 / (this.RESOURCE_REMOVAL_FADE_DURATION_MS || 260); // Reuse same duration for fade in
+
+    for (const [boxId, entity] of this.cargoBoxEntities.entries()) {
+      if (!this.ecs.entityExists(entity.id)) {
+        this.cargoBoxEntities.delete(boxId);
+        continue;
+      }
+
+      const sprite = this.ecs.getComponent(entity, AnimatedSprite);
+      const animState = this.ecs.getComponent(entity, ResourceCollectEffect);
+      const visualState = this.ecs.getComponent(entity, ProjectileVisualState);
+
+      if (sprite && animState) {
+        const frameCount = Math.max(1, Number(sprite.frameCount || 1));
+        // Simple loop based on global time
+        const frameIndex = Math.floor(now / this.CARGO_BOX_FRAME_DURATION_MS) % frameCount;
+        animState.frameIndex = frameIndex;
+      }
+
+      // Handle fade-in
+      if (visualState && visualState.alpha < 1 && !this.pendingResourceRemovals.has(boxId)) {
+        const newAlpha = Math.min(1, visualState.alpha + (fadeInSpeed * deltaTime));
+        visualState.setAlpha(newAlpha);
+      }
+
+      // Check for expiration
+      const expiresAt = this.cargoBoxExpirations.get(boxId);
+      if (expiresAt && now > expiresAt) {
+        this.removeCargoBox(boxId);
+      }
+    }
+  }
+
+  removeCargoBox(cargoBoxId: string): void {
+    if (this.pendingResourceRemovals.has(cargoBoxId)) {
+      return;
+    }
+
+    const entity = this.cargoBoxEntities.get(cargoBoxId);
+    if (entity && this.ecs.entityExists(entity.id)) {
+      // Reuse resource removal logic which adds ProjectileVisualState for fade out
+      this.startPendingResourceRemoval(cargoBoxId, entity, this.RESOURCE_REMOVAL_FADE_DURATION_MS);
+    }
+
+    // Always cleanup data immediately, let pendingResourceRemovals handle visual fade
+    this.cleanupCargoBoxData(cargoBoxId);
+  }
+
+  private cleanupCargoBoxData(cargoBoxId: string): void {
+    this.cargoBoxEntities.delete(cargoBoxId);
+    this.cargoBoxExpirations.delete(cargoBoxId);
+    this.pendingCargoBoxCollectRequests.delete(cargoBoxId);
+    if (this.activeCargoBoxCollectTargetId === cargoBoxId) {
+      this.activeCargoBoxCollectTargetId = null;
+    }
+    if (this.cargoBoxCollectMovementLockId === cargoBoxId) {
+      this.cargoBoxCollectMovementLockId = null;
+      this.cargoBoxCollectMovementLockUntilMs = 0;
+    }
+  }
+
+  syncCargoBoxes(boxes: Array<{
+    id: string;
+    x: number;
+    y: number;
+    npcType: string;
+    killerClientId?: string;
+    exclusiveUntil: number;
+    expiresAt: number;
+  }> | null | undefined): void {
+    this.clearAllCargoBoxes();
+    if (!Array.isArray(boxes)) return;
+
+    for (const box of boxes) {
+      this.addCargoBox(box);
+    }
+  }
+
+  clearAllCargoBoxes(): void {
+    for (const entity of this.cargoBoxEntities.values()) {
+      if (this.ecs.entityExists(entity.id)) {
+        this.ecs.removeEntity(entity);
+      }
+    }
+    this.cargoBoxEntities.clear();
+    this.cargoBoxExpirations.clear();
+    this.pendingCargoBoxCollectRequests.clear();
+    this.activeCargoBoxCollectTargetId = null;
+    this.cargoBoxCollectMovementLockId = null;
+    this.cargoBoxCollectMovementLockUntilMs = 0;
+  }
+
+  handleCargoBoxMouseClick(worldX: number, worldY: number): boolean {
+    const closest = this.findClosestCargoBox(worldX, worldY);
+    if (!closest) return false;
+
+    const now = Date.now();
+    const lastRequestTime = this.pendingCargoBoxCollectRequests.get(closest.cargoBoxId);
+    if (lastRequestTime && now - lastRequestTime < this.CARGO_BOX_PENDING_REQUEST_TTL_MS) {
+      return true;
+    }
+
+    if (!this.clientNetworkSystem || !this.clientNetworkSystem.isConnected()) {
+      return false;
+    }
+
+    const entity = this.cargoBoxEntities.get(closest.cargoBoxId);
+    if (!entity || !this.ecs.entityExists(entity.id)) return false;
+
+    const transform = this.ecs.getComponent(entity, Transform);
+    if (!transform) return false;
+
+    this.activeCargoBoxCollectTargetId = closest.cargoBoxId;
+    this.issueMoveCommand(
+      transform.x,
+      transform.y - this.RESOURCE_COLLECT_ANCHOR_OFFSET_Y,
+      true,
+      this.RESOURCE_APPROACH_STOP_DISTANCE_PX
+    );
+    return true;
+  }
+
+  handleCargoBoxCollectionStatus(message: {
+    status?: string;
+    cargoBoxId?: string;
+    remainingMs?: number;
+  }): void {
+    const cargoBoxId = typeof message?.cargoBoxId === 'string' ? message.cargoBoxId : '';
+    if (!cargoBoxId) return;
+
+    const status = String(message?.status || '').toLowerCase();
+    if (!status) return;
+
+    if (status === 'started' || status === 'in_progress') {
+      const entity = this.cargoBoxEntities.get(cargoBoxId);
+      if (!entity || !this.ecs.entityExists(entity.id)) return;
+      const transform = this.ecs.getComponent(entity, Transform);
+      if (!transform) return;
+
+      const durationMs = Number.isFinite(Number(message?.remainingMs))
+        ? Math.max(200, Math.floor(Number(message.remainingMs)))
+        : undefined;
+
+      const now = Date.now();
+      this.cargoBoxCollectMovementLockId = cargoBoxId;
+      this.cargoBoxCollectMovementLockUntilMs = now + (durationMs || this.CARGO_BOX_COLLECT_MOVEMENT_LOCK_DURATION_MS);
+
+      const collectEffectPosition = this.getCollectChannelEffectPosition(transform);
+      this.spawnCollectEffect(
+        collectEffectPosition.x,
+        collectEffectPosition.y,
+        cargoBoxId,
+        durationMs
+      );
+      return;
+    }
+
+    if (status === 'interrupted') {
+      this.pendingCargoBoxCollectRequests.delete(cargoBoxId);
+      if (this.activeCargoBoxCollectTargetId === cargoBoxId) {
+        this.activeCargoBoxCollectTargetId = null;
+      }
+      if (this.cargoBoxCollectMovementLockId === cargoBoxId) {
+        this.cargoBoxCollectMovementLockId = null;
+        this.cargoBoxCollectMovementLockUntilMs = 0;
+      }
+      this.removeCollectEffectForResource(cargoBoxId);
+      return;
+    }
+
+    if (status === 'completed') {
+      this.pendingCargoBoxCollectRequests.delete(cargoBoxId);
+      if (this.activeCargoBoxCollectTargetId === cargoBoxId) {
+        this.activeCargoBoxCollectTargetId = null;
+      }
+      if (this.cargoBoxCollectMovementLockId === cargoBoxId) {
+        this.cargoBoxCollectMovementLockId = null;
+        this.cargoBoxCollectMovementLockUntilMs = 0;
+      }
+      this.removeCollectEffectForResource(cargoBoxId);
+      this.removeCargoBox(cargoBoxId);
+    }
+  }
+  isCargoBoxHovered(worldX: number, worldY: number): boolean {
+    return !!this.findClosestCargoBox(worldX, worldY);
+  }
+
+  private processActiveCargoBoxCollectTarget(): void {
+    if (!this.activeCargoBoxCollectTargetId) return;
+    if (!this.clientNetworkSystem || !this.clientNetworkSystem.isConnected()) return;
+
+    const cargoBoxEntity = this.cargoBoxEntities.get(this.activeCargoBoxCollectTargetId);
+    if (!cargoBoxEntity || !this.ecs.entityExists(cargoBoxEntity.id)) {
+      this.pendingCargoBoxCollectRequests.delete(this.activeCargoBoxCollectTargetId);
+      if (this.cargoBoxCollectMovementLockId === this.activeCargoBoxCollectTargetId) {
+        this.cargoBoxCollectMovementLockId = null;
+        this.cargoBoxCollectMovementLockUntilMs = 0;
+      }
+      this.activeCargoBoxCollectTargetId = null;
+      return;
+    }
+
+    const transform = this.ecs.getComponent(cargoBoxEntity, Transform);
+    if (!transform) {
+      this.pendingCargoBoxCollectRequests.delete(this.activeCargoBoxCollectTargetId);
+      if (this.cargoBoxCollectMovementLockId === this.activeCargoBoxCollectTargetId) {
+        this.cargoBoxCollectMovementLockId = null;
+        this.cargoBoxCollectMovementLockUntilMs = 0;
+      }
+      this.activeCargoBoxCollectTargetId = null;
+      return;
+    }
+
+    const playerPosition = this.resolvePlayerWorldPosition();
+    if (!playerPosition) return;
+
+    const collectAnchor = {
+      x: transform.x,
+      y: transform.y - this.RESOURCE_COLLECT_ANCHOR_OFFSET_Y
+    };
+    const now = Date.now();
+
+    const collectDistance = this.ALIGNMENT_DISTANCE_PX + this.COLLECT_DISTANCE_TOLERANCE_PX;
+    const dx = collectAnchor.x - playerPosition.x;
+    const dy = collectAnchor.y - playerPosition.y;
+    const distanceSq = dx * dx + dy * dy;
+    const collectDistanceSq = collectDistance * collectDistance;
+
+    if (distanceSq <= collectDistanceSq) {
+      if (this.stopPlayerMovementCallback) {
+        this.stopPlayerMovementCallback();
+      }
+
+      const lastRequestTime = this.pendingCargoBoxCollectRequests.get(this.activeCargoBoxCollectTargetId);
+      if (!lastRequestTime || now - lastRequestTime >= this.CARGO_BOX_PENDING_REQUEST_TTL_MS) {
+        this.pendingCargoBoxCollectRequests.set(this.activeCargoBoxCollectTargetId, now);
+        this.cargoBoxCollectMovementLockId = this.activeCargoBoxCollectTargetId;
+        this.cargoBoxCollectMovementLockUntilMs = now + this.CARGO_BOX_COLLECT_MOVEMENT_LOCK_DURATION_MS;
+        this.clientNetworkSystem.sendCargoBoxCollectRequest(this.activeCargoBoxCollectTargetId);
+      }
+      return;
+    }
+
+    const isMovementLockedForCollect = (
+      this.cargoBoxCollectMovementLockId === this.activeCargoBoxCollectTargetId &&
+      now < this.cargoBoxCollectMovementLockUntilMs
+    );
+    if (isMovementLockedForCollect) {
+      return;
+    }
+
+    this.issueMoveCommand(
+      collectAnchor.x,
+      collectAnchor.y,
+      false,
+      this.RESOURCE_APPROACH_STOP_DISTANCE_PX
+    );
+  }
+
+  private findClosestCargoBox(worldX: number, worldY: number): { cargoBoxId: string; distanceSq: number } | null {
+    let result: { cargoBoxId: string; distanceSq: number } | null = null;
+
+    for (const [cargoBoxId, entity] of this.cargoBoxEntities.entries()) {
+      if (!this.ecs.entityExists(entity.id)) {
+        this.cargoBoxEntities.delete(cargoBoxId);
+        continue;
+      }
+
+      const transform = this.ecs.getComponent(entity, Transform);
+      if (!transform) continue;
+
+      const dx = worldX - transform.x;
+      const dy = worldY - transform.y;
+      const distanceSq = dx * dx + dy * dy;
+      const maxDistanceSq = this.CARGO_BOX_CLICK_RADIUS * this.CARGO_BOX_CLICK_RADIUS;
+      if (distanceSq > maxDistanceSq) continue;
+
+      if (!result || distanceSq < result.distanceSq) {
+        result = { cargoBoxId, distanceSq };
+      }
+    }
+
+    return result;
+  }
 }
+

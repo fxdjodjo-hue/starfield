@@ -284,6 +284,43 @@ class ServerInputValidator {
   }
 
   /**
+   * Valida raccolta cargo box (server authoritative)
+   */
+  validateCargoBoxCollect(data) {
+    const errors = [];
+
+    if (!data || typeof data !== 'object') {
+      errors.push('Cargo box collect data must be an object');
+      return { isValid: false, errors };
+    }
+
+    const { clientId, cargoBoxId } = data;
+
+    if (!clientId || typeof clientId !== 'string') {
+      errors.push('Invalid or missing clientId');
+    } else if (clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Client ID too long');
+    }
+
+    if (!cargoBoxId || typeof cargoBoxId !== 'string') {
+      errors.push('Invalid or missing cargoBoxId');
+    } else if (cargoBoxId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+      errors.push('Cargo box ID too long');
+    } else if (!/^[a-zA-Z0-9:_-]+$/.test(cargoBoxId)) {
+      errors.push('Cargo box ID contains invalid characters');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      sanitizedData: {
+        clientId,
+        cargoBoxId
+      }
+    };
+  }
+
+  /**
    * Valida richiesta crafting server-authoritative
    */
   validateCraftItem(data) {
@@ -871,6 +908,9 @@ class ServerInputValidator {
               portalId: data.portalId
             }
           };
+
+        case 'cargo_box_collect':
+          return this.validateCargoBoxCollect(data);
 
         case 'quest_progress_update':
           // Valida aggiornamento progresso quest

@@ -1,7 +1,8 @@
-// SystemFactory - Creazione di tutti i sistemi di gioco
+5// SystemFactory - Creazione di tutti i sistemi di gioco
 // Responsabilità: Istanziare tutti i sistemi, caricare assets
 // Dipendenze: ECS, GameContext, World, QuestManager, QuestSystem, UiSystem, PlayState, ClientNetworkSystem
 
+import CARGO_CONFIG from '../../../shared/cargo-config.json';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { World } from '../../infrastructure/engine/World';
 import { GameContext } from '../../infrastructure/engine/GameContext';
@@ -286,6 +287,20 @@ export class SystemFactory {
     } catch (error) {
       if (import.meta.env.DEV) {
         console.warn('[SystemFactory] Failed to load collecting resource effect', error);
+      }
+    }
+
+    // Cargo box sprite (spritesheet da cargo.atlas)
+    try {
+      const scale = Number(CARGO_CONFIG.spriteScale) || 1.2;
+      const cargoBoxSprite = await context.assetManager.createAnimatedSprite(
+        'assets/resources/cargobox/cargo',
+        scale
+      );
+      resourceInteractionSystem.registerCargoBoxSprite(cargoBoxSprite);
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn('[SystemFactory] Failed to load cargo box sprite', error);
       }
     }
 

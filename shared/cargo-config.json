@@ -1,0 +1,58 @@
+{
+    "collectDistance": 520,
+    "channelDurationMs": 1800,
+    "lifetimeMs": 30000,
+    "exclusivityDurationMs": 10000,
+    "spriteScale": 1.2,
+    "clickRadius": 40,
+    "npcRewards": {
+        "Scouter": {
+            "dropChance": 1.0,
+            "resources": [
+                "cuprite",
+                "pyrite"
+            ],
+            "quantityMin": 1,
+            "quantityMax": 2
+        },
+        "Guard": {
+            "dropChance": 1.0,
+            "resources": [
+                "cuprite",
+                "pyrite",
+                "malachite"
+            ],
+            "quantityMin": 1,
+            "quantityMax": 3
+        },
+        "Pyramid": {
+            "dropChance": 1.0,
+            "resources": [
+                "pyrite",
+                "malachite",
+                "azurite"
+            ],
+            "quantityMin": 2,
+            "quantityMax": 4
+        },
+        "Kronos": {
+            "dropChance": 1.0,
+            "resources": [
+                "malachite",
+                "azurite",
+                "pyrite"
+            ],
+            "quantityMin": 3,
+            "quantityMax": 6
+        },
+        "ARX-DRONE": {
+            "dropChance": 1.0,
+            "resources": [
+                "malachite",
+                "azurite"
+            ],
+            "quantityMin": 5,
+            "quantityMax": 10
+        }
+    }
+}

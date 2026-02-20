@@ -200,7 +200,8 @@ export class SystemConfigurator {
         if (!inMinimapGlassPanel && !inPlayerStatusHUD) {
           const { width, height } = DisplayManager.getInstance().getLogicalSize();
           const worldPos = cameraSystem.getCamera().screenToWorld(x, y, width, height);
-          if (resourceInteractionSystem.isResourceHovered(worldPos.x, worldPos.y)) {
+          if (resourceInteractionSystem.isResourceHovered(worldPos.x, worldPos.y) ||
+            resourceInteractionSystem.isCargoBoxHovered(worldPos.x, worldPos.y)) {
             nextCursor = 'pointer';
           }
         }

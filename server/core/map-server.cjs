@@ -18,6 +18,7 @@ const PetModuleManager = require('../managers/pet/PetModuleManager.cjs');
 const PetMovementManager = require('../managers/pet/PetMovementManager.cjs');
 const GlobalGameMonitor = require('./debug/GlobalGameMonitor.cjs');
 const BossEncounterManager = require('../events/boss/BossEncounterManager.cjs');
+const CargoBoxManager = require('../managers/cargo/CargoBoxManager.cjs');
 
 class MapServer {
   constructor(mapId, config = {}) {
@@ -40,6 +41,7 @@ class MapServer {
     this.petMovementManager = new PetMovementManager(this);
     this.questManager = new ServerQuestManager(this);
     this.bossEncounterManager = new BossEncounterManager(this);
+    this.cargoBoxManager = new CargoBoxManager(this);
 
     // Players connessi a questa mappa
     this.players = new Map();
@@ -159,7 +161,12 @@ class MapServer {
         this.resourceManager.updateCollections(tickNow);
       }
 
-      // 5.3. Processa aggiornamenti posizione giocatori (20Hz per massima fluidita)
+      // 5.3. Processa cargo box collections and expirations
+      if (this.cargoBoxManager) {
+        this.cargoBoxManager.update(tickNow);
+      }
+
+      // 5.4. Processa aggiornamenti posizione giocatori (20Hz per massima fluidita)
       PositionUpdateProcessor.processUpdates(this.positionUpdateQueue, this.players, this.tickCounter);
 
       // 6. Processa riparazioni

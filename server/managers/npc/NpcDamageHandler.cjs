@@ -84,6 +84,21 @@ class NpcDamageHandler {
         this.mapServer.projectileManager.broadcaster.broadcastEntityDestroyed(npc, attackerId, 'npc', rewards);
       }
 
+      // Spawn cargo box at NPC death position (BEFORE removeNpc clears the NPC data)
+      if (this.mapServer.cargoBoxManager) {
+        const deathPosition = {
+          x: npc.position?.x || npc.x || 0,
+          y: npc.position?.y || npc.y || 0
+        };
+        const killerClientId = this.resolveRewardPlayerId(attackerId);
+        const npcType = npc.type;
+
+        // Delay spawn by 3 seconds as requested
+        setTimeout(() => {
+          this.mapServer.cargoBoxManager.spawnCargoBox(deathPosition, npcType, killerClientId);
+        }, 3000);
+      }
+
       this.removeNpc(npcId);
       if (rewardParticipantIds.length === 0) {
         logger.warn('REWARDS', `No eligible reward participants for NPC ${npcId} (${npc.type}), attackerId=${attackerId}`);
@@ -92,6 +107,7 @@ class NpcDamageHandler {
           this.rewardSystem.awardNpcKillRewards(participantId, npc.type);
         });
       }
+
       return true; // NPC morto
     }
 

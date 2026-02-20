@@ -276,6 +276,11 @@ export class WelcomeHandler extends BaseMessageHandler {
             ? message.initialState.resources
             : [];
           resourceInteractionSystem.syncResources(resourceNodes as any[]);
+
+          const cargoBoxes = Array.isArray(message.initialState?.cargoBoxes)
+            ? message.initialState.cargoBoxes
+            : [];
+          resourceInteractionSystem.syncCargoBoxes(cargoBoxes as any[]);
         }
       }
     }

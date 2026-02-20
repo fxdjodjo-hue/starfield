@@ -12,6 +12,7 @@ export enum LogType {
   REWARD = 'reward',
   MISSION = 'mission',
   INFO = 'info',
+  RESOURCES = 'resources',
   GIFT = 'gift',
   RARITY_COMMON = 'rarity_common',
   RARITY_UNCOMMON = 'rarity_uncommon',

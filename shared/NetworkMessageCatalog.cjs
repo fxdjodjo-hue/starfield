@@ -24,6 +24,7 @@ const CLIENT_TO_SERVER_MESSAGE_TYPES = Object.freeze([
   'set_pet_module',
   'craft_item',
   'resource_collect',
+  'cargo_box_collect',
   'portal_use',
   'quest_progress_update',
   'quest_accept',

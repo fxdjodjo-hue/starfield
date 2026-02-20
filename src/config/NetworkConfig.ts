@@ -219,7 +219,13 @@ export const MESSAGE_TYPES = {
   // Quest messages
   QUEST_PROGRESS_UPDATE: 'quest_progress_update',
   QUEST_ACCEPT: 'quest_accept',
-  QUEST_ABANDON: 'quest_abandon'
+  QUEST_ABANDON: 'quest_abandon',
+
+  // Cargo box messages
+  CARGO_BOX_SPAWNED: 'cargo_box_spawned',
+  CARGO_BOX_REMOVED: 'cargo_box_removed',
+  CARGO_BOX_COLLECT: 'cargo_box_collect',
+  CARGO_BOX_COLLECT_STATUS: 'cargo_box_collect_status'
 } as const;
 
 /**
@@ -603,6 +609,15 @@ export interface WelcomeMessage {
       position: { x: number; y: number };
       type: string;
     }>;
+    cargoBoxes?: Array<{
+      id: string;
+      x: number;
+      y: number;
+      npcType: string;
+      killerClientId?: string;
+      exclusiveUntil: number;
+      expiresAt: number;
+    }>;
   };
 }
 
@@ -749,6 +764,43 @@ export interface ResourceCollectStatusMessage extends BaseMessage {
   resourceInventory?: Record<string, number>;
   reason?: string;
   remainingMs?: number;
+  timestamp?: number;
+}
+
+export interface CargoBoxSpawnedMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.CARGO_BOX_SPAWNED;
+  id: string;
+  x: number;
+  y: number;
+  npcType: string;
+  killerClientId?: string;
+  exclusiveUntil: number;
+  expiresAt: number;
+}
+
+export interface CargoBoxRemovedMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.CARGO_BOX_REMOVED;
+  cargoBoxId: string;
+  reason: 'collected' | 'expired';
+}
+
+export interface CargoBoxCollectMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.CARGO_BOX_COLLECT;
+  clientId: string;
+  cargoBoxId: string;
+  timestamp?: number;
+}
+
+export interface CargoBoxCollectStatusMessage extends BaseMessage {
+  type: typeof MESSAGE_TYPES.CARGO_BOX_COLLECT_STATUS;
+  status: 'started' | 'in_progress' | 'completed' | 'interrupted';
+  cargoBoxId: string;
+  rewards?: Record<string, number>;
+  remainingMs?: number;
+  resourceInventory?: Record<string, number>;
+  resourceType?: string;
+  quantity?: number;
+  reason?: string;
   timestamp?: number;
 }
 

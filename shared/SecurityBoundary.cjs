@@ -271,6 +271,7 @@ class BoundaryEnforcement {
       case 'craft_item':
         return { allowed: true };
       case 'resource_collect':
+      case 'cargo_box_collect':
         return { allowed: true };
 
       case 'join':

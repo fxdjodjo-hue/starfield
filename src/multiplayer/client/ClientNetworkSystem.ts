@@ -733,6 +733,19 @@ export class ClientNetworkSystem extends BaseSystem {
     });
   }
 
+  sendCargoBoxCollectRequest(cargoBoxId: string): void {
+    if (!this.connectionManager.isConnectionActive() || !this.isReady()) {
+      return;
+    }
+
+    this.sendMessage({
+      type: MESSAGE_TYPES.CARGO_BOX_COLLECT,
+      clientId: this.clientId,
+      cargoBoxId,
+      timestamp: Date.now()
+    });
+  }
+
 
   isConnected(): boolean {
     return this.stateManager.isConnected();

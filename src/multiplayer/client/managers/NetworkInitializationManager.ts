@@ -46,6 +46,9 @@ import { QuestUpdateHandler } from '../handlers/QuestUpdateHandler';
 import { BossEventHandler } from '../handlers/BossEventHandler';
 import { ResourceNodeRemovedHandler } from '../handlers/ResourceNodeRemovedHandler';
 import { ResourceCollectStatusHandler } from '../handlers/ResourceCollectStatusHandler';
+import { CargoBoxSpawnedHandler } from '../handlers/CargoBoxSpawnedHandler';
+import { CargoBoxRemovedHandler } from '../handlers/CargoBoxRemovedHandler';
+import { CargoBoxCollectStatusHandler } from '../handlers/CargoBoxCollectStatusHandler';
 
 /**
  * Interface for JWT authentication validation
@@ -146,6 +149,9 @@ export class NetworkInitializationManager {
         new MapChangeHandler(),
         new ResourceNodeRemovedHandler(),
         new ResourceCollectStatusHandler(),
+        new CargoBoxSpawnedHandler(),
+        new CargoBoxRemovedHandler(),
+        new CargoBoxCollectStatusHandler(),
         new QuestUpdateHandler(),
         new BossEventHandler(),
         new ErrorMessageHandler()

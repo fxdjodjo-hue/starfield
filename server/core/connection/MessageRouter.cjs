@@ -754,6 +754,9 @@ async function handleJoin(data, sanitizedData, context) {
   if (effectiveMapServer.resourceManager && welcomeMessage?.initialState) {
     welcomeMessage.initialState.resources = effectiveMapServer.resourceManager.getSerializedResources();
   }
+  if (effectiveMapServer.cargoBoxManager && welcomeMessage?.initialState) {
+    welcomeMessage.initialState.cargoBoxes = effectiveMapServer.cargoBoxManager.getSerializedCargoBoxes();
+  }
 
   try {
     ws.send(JSON.stringify(welcomeMessage));
@@ -2955,6 +2958,64 @@ async function handlePortalUse(data, sanitizedData, context) {
     ServerLoggerWrapper.warn('MAP', `Player ${playerData.clientId} attempted to use portal but none found nearby.`);
   }
 }
+
+/**
+ * Handler per messaggio 'cargo_box_collect'
+ */
+function handleCargoBoxCollect(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData || !mapServer?.cargoBoxManager) return;
+
+  const cargoBoxId = typeof sanitizedData?.cargoBoxId === 'string'
+    ? sanitizedData.cargoBoxId
+    : data.cargoBoxId;
+  if (!cargoBoxId) {
+    ws.send(JSON.stringify({
+      type: 'error',
+      message: 'Invalid cargo box target.',
+      code: 'INVALID_CARGO_BOX_TARGET'
+    }));
+    return;
+  }
+
+  const result = mapServer.cargoBoxManager.collectCargoBox(playerData, cargoBoxId);
+  if (!result.ok) {
+    if (result.code === 'CARGO_BOX_TOO_FAR') {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Cargo box is too far away.',
+        code: 'CARGO_BOX_TOO_FAR'
+      }));
+    } else if (result.code === 'CARGO_BOX_BUSY') {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'Cargo box is already being collected.',
+        code: 'CARGO_BOX_BUSY'
+      }));
+    } else if (result.code === 'CARGO_BOX_EXCLUSIVE') {
+      ws.send(JSON.stringify({
+        type: 'error',
+        message: 'This cargo box is not available yet.',
+        code: 'CARGO_BOX_EXCLUSIVE'
+      }));
+    }
+    return;
+  }
+
+  if (result.code === 'COLLECTION_STARTED' && ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({
+      type: 'cargo_box_collect_status',
+      status: 'started',
+      cargoBoxId: result.cargoBoxId || cargoBoxId,
+      remainingMs: Number.isFinite(Number(result.remainingMs))
+        ? Math.max(0, Math.floor(Number(result.remainingMs)))
+        : 0,
+      timestamp: Date.now()
+    }));
+  }
+}
+
 const handlers = {
   join: handleJoin,
   position_update: handlePositionUpdate,
@@ -2983,7 +3044,8 @@ const handlers = {
   portal_use: handlePortalUse,
   quest_progress_update: handleQuestProgressUpdate,
   quest_accept: handleQuestAccept,
-  quest_abandon: handleQuestAbandon
+  quest_abandon: handleQuestAbandon,
+  cargo_box_collect: handleCargoBoxCollect
 };
 
 /**
@@ -3134,7 +3196,7 @@ function validatePlayerContext(type, data, context) {
   }
 
   // ðŸš« SECURITY: Giocatore deve essere vivo per azioni di gioco (eccetto respawn)
-  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon', 'resource_collect', 'craft_item'];
+  const deathRestrictedActions = ['position_update', 'projectile_fired', 'start_combat', 'skill_upgrade_request', 'chat_message', 'portal_use', 'quest_accept', 'quest_abandon', 'resource_collect', 'craft_item', 'cargo_box_collect'];
   if (deathRestrictedActions.includes(type) && playerData.health <= 0) {
     logger.warn('SECURITY', `ðŸš« BLOCKED: Dead player ${data.clientId} attempted ${type} - health: ${playerData.health}`);
     return { valid: false, reason: 'PLAYER_DEAD' };
