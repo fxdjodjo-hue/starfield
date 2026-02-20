@@ -80,9 +80,10 @@ class CargoBoxManager {
      * Start collection of a cargo box (channeled, like resources)
      * @param {object} playerData
      * @param {string} boxId
+     * @param {object} options Optional parameters (e.g. collectorType)
      * @returns {{ ok: boolean, code: string, [key: string]: any }}
      */
-    collectCargoBox(playerData, boxId) {
+    collectCargoBox(playerData, boxId, options = {}) {
         const now = Date.now();
         const box = this.cargoBoxes.get(boxId);
         if (!box) return { ok: false, code: 'BOX_NOT_FOUND' };
@@ -135,7 +136,9 @@ class CargoBoxManager {
             collectDistance,
             anchorX: playerPosition.x,
             anchorY: playerPosition.y,
-            anchorSynced: false
+            anchorSynced: false,
+            collectorType: options.collectorType || 'player',
+            reason: options.reason || 'manual_collect'
         });
 
         return {
@@ -144,7 +147,9 @@ class CargoBoxManager {
             remainingMs: channelDuration,
             cargoBoxId: box.id,
             resourceType: box.resourceType,
-            quantity: box.quantity
+            quantity: box.quantity,
+            collectorType: options.collectorType || 'player',
+            reason: options.reason || 'manual_collect'
         };
     }
 
@@ -233,7 +238,9 @@ class CargoBoxManager {
                 cargoBoxId: box.id,
                 resourceType: box.resourceType,
                 quantity: box.quantity,
-                timestamp: now
+                timestamp: now,
+                collectorType: collection.collectorType || 'player',
+                reason: collection.reason || 'completed'
             });
 
             // Broadcast removal to all players
@@ -246,7 +253,7 @@ class CargoBoxManager {
                 timestamp: now
             });
 
-            ServerLoggerWrapper.info('CARGO', `Player ${playerData.clientId} collected cargo ${box.id}: ${box.quantity}x ${box.resourceType}`);
+            ServerLoggerWrapper.info('CARGO', `Player ${playerData.clientId} collected cargo ${box.id}: ${box.quantity}x ${box.resourceType} (by: ${collection.collectorType || 'player'})`);
         }
     }
 

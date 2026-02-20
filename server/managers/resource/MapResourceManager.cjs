@@ -197,7 +197,8 @@ class MapResourceManager {
       remainingMs: this.COLLECT_CHANNEL_DURATION_MS,
       resourceId: node.id,
       resourceType: node.resourceType,
-      resourceName: this.resolveResourceDisplayName(node)
+      resourceName: this.resolveResourceDisplayName(node),
+      collectorType: 'player'
     };
   }
 
@@ -279,6 +280,7 @@ class MapResourceManager {
       remainingMs: isPetCollector
         ? this.AUTO_COLLECT_APPROACH_TIMEOUT_MS
         : this.COLLECT_CHANNEL_DURATION_MS,
+      collectorType: isPetCollector ? 'pet' : 'player',
       timestamp: now
     });
 
@@ -357,6 +359,7 @@ class MapResourceManager {
         resourceType: node.resourceType,
         resourceName: this.resolveResourceDisplayName(node),
         reason: 'completed',
+        collectorType: 'player',
         timestamp: now
       });
 
@@ -423,6 +426,7 @@ class MapResourceManager {
           resourceY: Math.round(Number(collectAnchor.y || 0)),
           reason: String(collection.reason || 'pet_auto_collect').trim() || 'pet_auto_collect',
           remainingMs: this.COLLECT_CHANNEL_DURATION_MS,
+          collectorType: collection.collectorType || 'pet',
           timestamp: now
         });
 
@@ -450,6 +454,7 @@ class MapResourceManager {
         resourceX: Math.round(Number(node.x || 0)),
         resourceY: Math.round(Number(node.y || 0)),
         reason: String(collection.reason || 'pet_auto_collect').trim() || 'pet_auto_collect',
+        collectorType: collection.collectorType || 'pet',
         timestamp: now
       });
 

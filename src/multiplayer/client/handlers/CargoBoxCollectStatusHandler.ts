@@ -58,6 +58,9 @@ export class CargoBoxCollectStatusHandler extends BaseMessageHandler {
         }
 
         if (status === 'completed') {
+            const collectorType = typeof message?.collectorType === 'string' ? message.collectorType : 'player';
+            const logPrefix = collectorType === 'pet' ? 'Pet collected cargo box' : 'Cargo box collected';
+
             // Show rewards in log
             const rewards = message?.rewards;
             if (rewards && typeof rewards === 'object') {
@@ -66,16 +69,16 @@ export class CargoBoxCollectStatusHandler extends BaseMessageHandler {
                     .map(([type, amount]) => `+${amount} ${type}`)
                     .join(', ');
                 if (rewardEntries.length > 0) {
-                    logSystem.addLogMessage(`Cargo box collected: ${rewardEntries}`, LogType.RESOURCES, 3500);
+                    logSystem.addLogMessage(`${logPrefix}: ${rewardEntries}`, LogType.RESOURCES, 3500);
                 } else {
-                    logSystem.addLogMessage('Cargo box collected', LogType.RESOURCES, 2600);
+                    logSystem.addLogMessage(logPrefix, LogType.RESOURCES, 2600);
                 }
             } else if (message.resourceType && message.quantity) {
                 // Use explicit resource type and quantity
                 const resourceName = message.resourceType.charAt(0).toUpperCase() + message.resourceType.slice(1);
-                logSystem.addLogMessage(`Cargo box collected: ${message.quantity}x ${resourceName}`, LogType.RESOURCES, 3500);
+                logSystem.addLogMessage(`${logPrefix}: ${message.quantity}x ${resourceName}`, LogType.RESOURCES, 3500);
             } else {
-                logSystem.addLogMessage('Cargo box collected', LogType.RESOURCES, 2600);
+                logSystem.addLogMessage(logPrefix, LogType.RESOURCES, 2600);
             }
         }
     }

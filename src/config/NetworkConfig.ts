@@ -763,6 +763,7 @@ export interface ResourceCollectStatusMessage extends BaseMessage {
   resourceY?: number;
   resourceInventory?: Record<string, number>;
   reason?: string;
+  collectorType?: string;
   remainingMs?: number;
   timestamp?: number;
 }
@@ -801,6 +802,7 @@ export interface CargoBoxCollectStatusMessage extends BaseMessage {
   resourceType?: string;
   quantity?: number;
   reason?: string;
+  collectorType?: string;
   timestamp?: number;
 }
 

@@ -52,19 +52,23 @@ export class ResourceCollectStatusHandler extends BaseMessageHandler {
     const logSystem = networkSystem.getLogSystem();
     if (!logSystem || typeof logSystem.addLogMessage !== 'function') return;
 
+    const collectorType = typeof message?.collectorType === 'string' ? message.collectorType : 'player';
+    const isPet = collectorType === 'pet';
+    const actorPrefix = isPet ? 'Pet: ' : '';
+
     if (status === 'started') {
-      logSystem.addLogMessage(`Collection of ${resourceName} started`, LogType.MISSION, 2600);
+      logSystem.addLogMessage(`${isPet ? 'Pet started collection of' : 'Collection of'} ${resourceName}`, LogType.MISSION, 2600);
       return;
     }
 
     if (status === 'interrupted') {
       const reason = this.resolveInterruptReason(message?.reason);
-      logSystem.addLogMessage(`Collection of ${resourceName} interrupted${reason}`, LogType.ATTACK_FAILED, 2800);
+      logSystem.addLogMessage(`${isPet ? 'Pet collection of' : 'Collection of'} ${resourceName} interrupted${reason}`, LogType.ATTACK_FAILED, 2800);
       return;
     }
 
     if (status === 'completed') {
-      logSystem.addLogMessage(`${resourceName} collected`, LogType.REWARD, 2600);
+      logSystem.addLogMessage(`${actorPrefix}${resourceName} collected`, LogType.REWARD, 2600);
     }
   }
 

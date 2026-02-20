@@ -2970,6 +2970,13 @@ function handleCargoBoxCollect(data, sanitizedData, context) {
   const cargoBoxId = typeof sanitizedData?.cargoBoxId === 'string'
     ? sanitizedData.cargoBoxId
     : data.cargoBoxId;
+  const collectorType = typeof sanitizedData?.collectorType === 'string'
+    ? sanitizedData.collectorType
+    : (data.collectorType || 'player');
+  const reason = typeof sanitizedData?.reason === 'string'
+    ? sanitizedData.reason
+    : (data.reason || 'manual_collect');
+
   if (!cargoBoxId) {
     ws.send(JSON.stringify({
       type: 'error',
@@ -2979,7 +2986,10 @@ function handleCargoBoxCollect(data, sanitizedData, context) {
     return;
   }
 
-  const result = mapServer.cargoBoxManager.collectCargoBox(playerData, cargoBoxId);
+  const result = mapServer.cargoBoxManager.collectCargoBox(playerData, cargoBoxId, {
+    collectorType,
+    reason
+  });
   if (!result.ok) {
     if (result.code === 'CARGO_BOX_TOO_FAR') {
       ws.send(JSON.stringify({
@@ -3011,7 +3021,9 @@ function handleCargoBoxCollect(data, sanitizedData, context) {
       remainingMs: Number.isFinite(Number(result.remainingMs))
         ? Math.max(0, Math.floor(Number(result.remainingMs)))
         : 0,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      collectorType: result.collectorType || 'player',
+      reason: result.reason || 'manual_collect'
     }));
   }
 }
