@@ -118,17 +118,6 @@ export class RemoteProjectileSystem extends BaseSystem {
         projectile.lifetime = Math.min(projectile.lifetime, bufferedLifetime);
         projectile.maxLifetime = projectile.lifetime;
       }
-
-      if (!this.ecs.hasComponent(entity, InterpolationTarget)) {
-        const initialRotation = (velocity.x !== 0 || velocity.y !== 0)
-          ? Math.atan2(velocity.y, velocity.x)
-          : 0;
-        this.ecs.addComponent(
-          entity,
-          InterpolationTarget,
-          new InterpolationTarget(position.x, position.y, initialRotation)
-        );
-      }
     }
 
     this.remoteProjectiles.set(projectileId, {

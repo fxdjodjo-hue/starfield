@@ -25,7 +25,7 @@ export class ProjectileUpdateHandler extends BaseMessageHandler {
       // Controlla se questo è il proiettile giusto (usando il campo id del componente Projectile)
       const projectile = ecs.getComponent(entity, Projectile);
       if (projectile && (projectile as any).id === message.projectileId) {
-        // Trovato! Aggiorna l'interpolazione
+        // Aggiorna l'interpolazione
         const interpolation = ecs.getComponent(entity, InterpolationTarget);
         if (interpolation) {
           // Derive serverTime (MMO-Standard: tick * 50ms or direct timestamp)
