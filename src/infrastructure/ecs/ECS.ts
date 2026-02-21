@@ -76,6 +76,12 @@ class EntityQueryCache {
 
     let invalidationsInThisCall = 0;
     for (const cacheKey of affectedKeys) {
+      // Lazy auto-clean stale keys
+      if (!this.cache.has(cacheKey)) {
+        affectedKeys.delete(cacheKey);
+        continue;
+      }
+
       const requiredTypes = this.queryComponents.get(cacheKey);
       if (!requiredTypes) continue;
 
@@ -90,6 +96,7 @@ class EntityQueryCache {
 
       if (matchesAll) {
         if (this.cache.delete(cacheKey)) {
+          this.queryComponents.delete(cacheKey);
           invalidationsInThisCall++;
           this.totalInvalidations++;
         }
@@ -118,12 +125,19 @@ class EntityQueryCache {
 
     let invalidationsInThisCall = 0;
     for (const cacheKey of affectedKeys) {
+      // Lazy auto-clean stale keys
+      if (!this.cache.has(cacheKey)) {
+        affectedKeys.delete(cacheKey);
+        continue;
+      }
+
       const requiredTypes = this.queryComponents.get(cacheKey);
       if (!requiredTypes) continue;
 
       // Se l'entità soddisfaceva la query prima, allora la rimozione la invalida
       if (entityMatchesQueryBefore(requiredTypes)) {
         if (this.cache.delete(cacheKey)) {
+          this.queryComponents.delete(cacheKey);
           invalidationsInThisCall++;
           this.totalInvalidations++;
         }
@@ -208,27 +222,28 @@ export class ECS {
   removeEntity(entity: Entity): void {
     if (!this.entities.has(entity.id)) return;
 
-    // Invalida cache solo per i componenti che l'entità possiede effettivamente
     const componentNames = this.entityComponentSets.get(entity.id);
-    if (componentNames) {
-      for (const [componentType, componentMap] of this.components.entries()) {
-        if (componentMap.has(entity.id)) {
-          componentMap.delete(entity.id);
 
-          // Smart Invalidation: use removal logic
+    // Rimuovi tutti i componenti dell'entità
+    for (const [componentType, componentMap] of this.components.entries()) {
+      if (componentMap.has(entity.id)) {
+        // Smart Invalidation: check if it matched BEFORE removal
+        if (componentNames) {
           this.queryCache.invalidateRemoval(componentType, (requiredTypes) => {
             return requiredTypes.every(type => componentNames.has(type.name));
           });
         }
+
+        componentMap.delete(entity.id);
       }
-      this.entityComponentSets.delete(entity.id);
     }
 
-
+    // Cleanup strutture dati
+    this.entityComponentSets.delete(entity.id);
     this.entities.delete(entity.id);
     this.entityPool.delete(entity.id);
 
-    // Invalida la query speciale "__all__" se presente
+    // Invalida solo la query speciale "__all__"
     this.queryCache.invalidateAllEntitiesQuery();
   }
 

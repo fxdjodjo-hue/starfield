@@ -11,6 +11,8 @@ import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
 import { Velocity } from '../../../entities/spatial/Velocity';
 import { AtlasParser } from '../../../core/utils/AtlasParser';
+import { LifeState, LifeStateType } from '../../../entities/combat/LifeState';
+import { Active } from '../../../entities/tags/Active';
 
 /**
  * Manages explosion creation and dead entity removal
@@ -67,18 +69,33 @@ export class CombatExplosionManager {
         return;
       }
 
-      // Rimuovi componenti non necessari per l'esplosione
-      this.ecs.removeComponent(entity, Health);
-      this.ecs.removeComponent(entity, Shield);
-      this.ecs.removeComponent(entity, Damage);
-      this.ecs.removeComponent(entity, DamageTaken);
-      this.ecs.removeComponent(entity, SelectedNpc);
-      this.ecs.removeComponent(entity, Npc);
-      this.ecs.removeComponent(entity, Velocity);
+      // Mark entity as exploding but don't add structural component to it
+      const lifeState = this.ecs.getComponent(entity, LifeState);
+      if (lifeState) {
+        lifeState.state = LifeStateType.EXPLODING;
+      }
 
-      // Aggiungi il componente esplosione
+      const active = this.ecs.getComponent(entity, Active);
+      if (active) {
+        active.isEnabled = false;
+      }
+
+      // Create separate explosion entity (avoids component churn on original NPC)
+      const explosionEntity = this.ecs.createEntity();
+      const transform = this.ecs.getComponent(entity, Transform);
+      if (transform) {
+        // Add transform so it renders at the same place
+        this.ecs.addComponent(explosionEntity, Transform, new Transform(
+          transform.x,
+          transform.y,
+          transform.rotation,
+          transform.scaleX,
+          transform.scaleY
+        ));
+      }
+
       const explosion = new Explosion(frames, 20, 1);
-      this.ecs.addComponent(entity, Explosion, explosion);
+      this.ecs.addComponent(explosionEntity, Explosion, explosion);
 
       // Notifica il sistema di rete per sincronizzazione multiplayer
       const clientNetworkSystem = this.getClientNetworkSystem();

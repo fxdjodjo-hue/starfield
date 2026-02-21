@@ -30,6 +30,15 @@ export class Authority extends Component {
   }
 
   /**
+   * Updates authority parameters in-place to avoid structural ECS changes
+   */
+  setAuthority(ownerId: string, authorityLevel: AuthorityLevel): void {
+    this.ownerId = ownerId;
+    this.authorityLevel = authorityLevel;
+    this.updateAuthority();
+  }
+
+  /**
    * Verifica se questa entity può essere controllata dal client locale
    */
   canBeControlledBy(localClientId: string): boolean {

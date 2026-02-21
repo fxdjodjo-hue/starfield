@@ -37,7 +37,7 @@ export class ProjectileSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    const projectiles = this.ecs.getEntitiesWithComponents(Transform, Projectile);
+    const projectiles = this.ecs.getEntitiesWithComponentsReadOnly(Transform, Projectile);
     const deltaTimeSeconds = TimeManager.millisecondsToSeconds(deltaTime);
     this.lastDeltaTimeSeconds = deltaTimeSeconds; // Salva per uso nei metodi privati
 
@@ -315,13 +315,12 @@ export class ProjectileSystem extends BaseSystem {
     const endX = collisionProbePosition ? collisionProbePosition.x : projectileTransform.x;
     const endY = collisionProbePosition ? collisionProbePosition.y : projectileTransform.y;
 
-    // Trova tutte le entità con Health (possibili bersagli)
-    const targets = this.ecs.getEntitiesWithComponents(Transform, Health);
+    // Trova tutte le entità con Health (possibili bersagli) - ReadOnly per performance
+    const targets = this.ecs.getEntitiesWithComponentsReadOnly(Transform, Health);
 
     for (const targetEntity of targets) {
       // Non colpire il proprietario del proiettile
       if (this.isProjectileOwner(targetEntity, projectile, localPlayerEntity)) continue;
-
       const targetTransform = this.ecs.getComponent(targetEntity, Transform);
       const targetHealth = this.ecs.getComponent(targetEntity, Health);
 
@@ -557,7 +556,7 @@ export class ProjectileSystem extends BaseSystem {
       // Gestisci ID speciali (npc_X, player_X, etc.)
       if (targetId.startsWith('npc_')) {
         // Cerca NPC per serverId
-        const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
+        const npcEntities = this.ecs.getEntitiesWithComponentsReadOnly(Npc);
         for (const npcEntity of npcEntities) {
           const npc = this.ecs.getComponent(npcEntity, Npc);
           if (npc && npc.serverId === targetId) {
@@ -566,7 +565,7 @@ export class ProjectileSystem extends BaseSystem {
         }
       } else if (targetId.startsWith('player_')) {
         // Cerca tra i remote players per clientId
-        const remotePlayers = this.ecs.getEntitiesWithComponents(RemotePlayer);
+        const remotePlayers = this.ecs.getEntitiesWithComponentsReadOnly(RemotePlayer);
         for (const remoteEntity of remotePlayers) {
           const remote = this.ecs.getComponent(remoteEntity, RemotePlayer);
           if (remote && (remote.clientId === targetId || `player_${remote.clientId}` === targetId)) {
@@ -583,7 +582,7 @@ export class ProjectileSystem extends BaseSystem {
         return null;
       } else {
         // Raw clientId (senza prefisso): cerca prima tra i remote players.
-        const remotePlayers = this.ecs.getEntitiesWithComponents(RemotePlayer);
+        const remotePlayers = this.ecs.getEntitiesWithComponentsReadOnly(RemotePlayer);
         for (const remoteEntity of remotePlayers) {
           const remote = this.ecs.getComponent(remoteEntity, RemotePlayer);
           if (remote && String(remote.clientId) === String(targetId)) {

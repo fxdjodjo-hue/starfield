@@ -104,7 +104,7 @@ export class DamageTextSystem extends BaseSystem {
     if (!camera) return;
 
     const canvasSize = DisplayManager.getInstance().getLogicalSize();
-    const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
+    const damageTextEntities = this.ecs.getEntitiesWithComponentsReadOnly(DamageText);
 
     for (const entity of damageTextEntities) {
       const damageText = this.ecs.getComponent(entity, DamageText);

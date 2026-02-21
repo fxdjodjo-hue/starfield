@@ -12,6 +12,8 @@ import { Shield } from '../../entities/combat/Shield';
 import { Damage } from '../../entities/combat/Damage';
 import { getPlayerRangeWidth, getPlayerRangeHeight } from '../../config/PlayerConfig';
 import { Explosion } from '../../entities/combat/Explosion';
+import { LifeState, LifeStateType } from '../../entities/combat/LifeState';
+import { Active } from '../../entities/tags/Active';
 import { RepairEffect } from '../../entities/combat/RepairEffect';
 import { SelectedNpc } from '../../entities/combat/SelectedNpc';
 import { RemotePlayer } from '../../entities/player/RemotePlayer';
@@ -588,6 +590,13 @@ export class RenderSystem extends BaseSystem {
       if (playerEntity && entity && entity.id === playerEntity.id) {
         continue;
       }
+
+      // Check life state and active status to avoid rendering dead/inactive entities
+      // without invalidating the query cache (Phase 3 optimization)
+      const lifeState = this.ecs.getComponent(entity, LifeState);
+      const active = this.ecs.getComponent(entity, Active);
+      if (lifeState && !lifeState.isAlive() && !lifeState.isExploding()) continue;
+      if (active && !active.isEnabled && (!lifeState || !lifeState.isExploding())) continue;
 
       const hasCollectEffect = this.ecs.hasComponent(entity, ResourceCollectEffect);
       const hasSpaceStation = this.ecs.hasComponent(entity, SpaceStation);

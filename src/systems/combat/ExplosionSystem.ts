@@ -13,8 +13,8 @@ export class ExplosionSystem extends BaseSystem {
   }
 
   update(deltaTime: number): void {
-    // Trova tutte le entità con componente Explosion
-    const explosionEntities = this.ecs.getEntitiesWithComponents(Explosion);
+    // Trova tutte le entità con componente Explosion (ReadOnly per performance)
+    const explosionEntities = this.ecs.getEntitiesWithComponentsReadOnly(Explosion);
 
     for (const entity of explosionEntities) {
       const explosion = this.ecs.getComponent(entity, Explosion);

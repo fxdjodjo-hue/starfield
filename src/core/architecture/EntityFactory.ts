@@ -21,6 +21,8 @@ import { Experience } from '../../entities/currency/Experience';
 import { Honor } from '../../entities/currency/Honor';
 import { PlayerRole } from '../../entities/player/PlayerRole';
 import { ActiveQuest } from '../../entities/quest/ActiveQuest';
+import { LifeState, LifeStateType } from '../../entities/combat/LifeState';
+import { Active } from '../../entities/tags/Active';
 import { ComponentHelper } from '../data/ComponentHelper';
 import { LoggerWrapper, LogCategory } from '../data/LoggerWrapper';
 import { InputValidator } from '../utils/InputValidator';
@@ -94,6 +96,10 @@ export class EntityFactory {
       if (config.quests) {
         this.addQuestComponents(entity);
       }
+
+      // Add default tracking components for performance stability
+      this.ecs.addComponent(entity, LifeState, new LifeState(LifeStateType.ALIVE));
+      this.ecs.addComponent(entity, Active, new Active(true));
 
       LoggerWrapper.ecs('Entity created with full configuration', {
         entityId: entity.id,

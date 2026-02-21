@@ -67,7 +67,7 @@ export class InterpolationSystem extends BaseSystem {
       const transform = this.ecs.getComponent(entity, Transform);
       const interpolation = this.ecs.getComponent(entity, InterpolationTarget);
 
-      if (transform && interpolation) {
+      if (transform && interpolation && interpolation.enabled) {
         // Perform snapshot-based interpolation
         interpolation.interpolate(renderTime);
 

@@ -34,6 +34,7 @@ export class InterpolationTarget {
     renderX: number;
     renderY: number;
     renderRotation: number;
+    public enabled: boolean = false;
 
     // ==========================================
     // SNAPSHOT BUFFER
@@ -117,7 +118,7 @@ export class InterpolationTarget {
      * Uses PURE interpolation - no additional smoothing layer.
      */
     interpolate(_renderTime: number): void {
-        if (this.snapshots.length === 0 || this.clockOffset === null) {
+        if (!this.enabled || this.snapshots.length === 0 || this.clockOffset === null) {
             return;
         }
 
@@ -216,5 +217,14 @@ export class InterpolationTarget {
     private normalizeAngle(angle: number): number {
         angle = angle % (2 * Math.PI);
         return angle < 0 ? angle + 2 * Math.PI : angle;
+    }
+    enable(): void {
+        this.enabled = true;
+    }
+
+    disable(): void {
+        this.enabled = false;
+        // opzionale: non svuotare snapshots, così quando riabiliti hai ancora timeline
+        // oppure this.snapshots = this.snapshots.slice(-1);
     }
 }

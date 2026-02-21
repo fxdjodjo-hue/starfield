@@ -527,14 +527,14 @@ export class MinimapSystem extends BaseSystem {
   private renderEntities(ctx: CanvasRenderingContext2D): void {
     if (!this.camera) return;
 
-    // Renderizza NPC
-    const npcEntities = this.ecs.getEntitiesWithComponents(Npc);
-    const selectedNpcs = this.ecs.getEntitiesWithComponents(SelectedNpc);
+    // Renderizza NPC (ReadOnly per performance)
+    const npcEntities = this.ecs.getEntitiesWithComponentsReadOnly(Npc);
+    const selectedNpcs = this.ecs.getEntitiesWithComponentsReadOnly(SelectedNpc);
     const selectedNpcSet = new Set(selectedNpcs);
 
-    // Distanza massima di visibilità radar (1500 unità)
+    // Distanza massima di visibilità radar (1200 unità)
     const RADAR_RANGE = 1200;
-    const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE
+    const RADAR_RANGE_SQ = RADAR_RANGE * RADAR_RANGE;
 
     npcEntities.forEach(entityId => {
       const npc = this.ecs.getComponent(entityId, Npc);
@@ -568,7 +568,7 @@ export class MinimapSystem extends BaseSystem {
    * Renderizza i portali sulla minimappa come cerchi bianchi
    */
   private renderPortals(ctx: CanvasRenderingContext2D): void {
-    const portalEntities = this.ecs.getEntitiesWithComponents(Portal);
+    const portalEntities = this.ecs.getEntitiesWithComponentsReadOnly(Portal);
 
     portalEntities.forEach(entityId => {
       const transform = this.ecs.getComponent(entityId, Transform);
@@ -588,7 +588,7 @@ export class MinimapSystem extends BaseSystem {
    * Falls back to legacy cross marker if sprite is unavailable.
    */
   private renderWorldCenterMarker(ctx: CanvasRenderingContext2D): void {
-    const stations = this.ecs.getEntitiesWithComponents(SpaceStation);
+    const stations = this.ecs.getEntitiesWithComponentsReadOnly(SpaceStation);
     const stationEntity = stations.length > 0 ? stations[0] : null;
     if (!stationEntity) {
       this.renderLegacyCenterCross(ctx);

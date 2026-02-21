@@ -3,6 +3,9 @@ import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
 import { CameraSystem } from '../rendering/CameraSystem';
+import { getNpcDefinition } from '../../config/NpcConfig';
+import { LifeState } from '../../entities/combat/LifeState';
+import { Active } from '../../entities/tags/Active';
 import { Npc } from '../../entities/ai/Npc';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 
@@ -25,6 +28,11 @@ export class MovementSystem extends BaseSystem {
     let localPlayerTransform: Transform | null = null;
 
     for (const entity of entities) {
+      const lifeState = this.ecs.getComponent(entity, LifeState);
+      const active = this.ecs.getComponent(entity, Active);
+      if (lifeState && !lifeState.isAlive()) continue;
+      if (active && !active.isEnabled) continue;
+
       const transform = this.ecs.getComponent(entity, Transform);
       const velocity = this.ecs.getComponent(entity, Velocity);
       if (!transform || !velocity) {
