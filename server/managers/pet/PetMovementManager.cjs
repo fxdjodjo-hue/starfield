@@ -183,7 +183,7 @@ class PetMovementManager {
       runtime,
       targetState.target,
       dtSeconds,
-      targetState.isDefense,
+      targetState.isDefense || targetState.isCollecting, // Snap for defense or collection
       targetState.ownerIsStationary
     );
 
@@ -224,7 +224,8 @@ class PetMovementManager {
       x: runtime.x,
       y: runtime.y,
       rotation: runtime.rotation,
-      isAttacking: targetState.isDefense
+      isAttacking: targetState.isDefense,
+      isCollecting: !!targetState.isCollecting
     };
   }
 
@@ -415,7 +416,7 @@ class PetMovementManager {
     };
   }
 
-  updateSmoothedTarget(runtime, target, dtSeconds, isDefenseTarget, ownerIsStationary) {
+  updateSmoothedTarget(runtime, target, dtSeconds, snap, ownerIsStationary) {
     const dx = target.x - runtime.followTargetX;
     const dy = target.y - runtime.followTargetY;
     const distance = this.getMagnitude(dx, dy);
@@ -426,10 +427,15 @@ class PetMovementManager {
       return { x: target.x, y: target.y };
     }
 
-    const stationaryOwner = ownerIsStationary === true;
-    const filterRate = isDefenseTarget
-      ? this.PET_DEFENSE_TARGET_FILTER
-      : (stationaryOwner ? this.FOLLOW_TARGET_FILTER_STATIONARY : this.FOLLOW_TARGET_FILTER_MOVING);
+    // Snap target for better stability.
+    // When stationary or in special modes (defense, collection), we want NO smoothing on the target itself.
+    if (snap || ownerIsStationary === true) {
+      runtime.followTargetX = target.x;
+      runtime.followTargetY = target.y;
+      return { x: target.x, y: target.y };
+    }
+
+    const filterRate = ownerIsStationary === true ? this.FOLLOW_TARGET_FILTER_STATIONARY : this.FOLLOW_TARGET_FILTER_MOVING;
     const alpha = this.clamp01(1 - Math.exp(-filterRate * dtSeconds));
 
     runtime.followTargetX = this.lerp(runtime.followTargetX, target.x, alpha);

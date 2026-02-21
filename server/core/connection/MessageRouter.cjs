@@ -967,7 +967,9 @@ function handlePositionUpdate(data, sanitizedData, context) {
       ? {
         x: authoritativePetPosition.x,
         y: authoritativePetPosition.y,
-        rotation: authoritativePetPosition.rotation
+        rotation: authoritativePetPosition.rotation,
+        isAttacking: authoritativePetPosition.isAttacking,
+        isCollecting: authoritativePetPosition.isCollecting
       }
       : null
   }));

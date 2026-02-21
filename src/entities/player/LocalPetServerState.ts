@@ -9,6 +9,7 @@ export class LocalPetServerState extends Component {
   public y: number;
   public rotation: number;
   public isAttacking: boolean;
+  public isCollecting: boolean;
   public serverTime: number;
   public receivedAt: number;
 
@@ -17,6 +18,7 @@ export class LocalPetServerState extends Component {
     y: number = 0,
     rotation: number = 0,
     isAttacking: boolean = false,
+    isCollecting: boolean = false,
     serverTime: number = Date.now(),
     receivedAt: number = Date.now()
   ) {
@@ -25,6 +27,7 @@ export class LocalPetServerState extends Component {
     this.y = Number.isFinite(y) ? y : 0;
     this.rotation = this.normalizeAngle(rotation);
     this.isAttacking = !!isAttacking;
+    this.isCollecting = !!isCollecting;
     this.serverTime = Number.isFinite(serverTime) ? serverTime : Date.now();
     this.receivedAt = Number.isFinite(receivedAt) ? receivedAt : Date.now();
   }
@@ -34,6 +37,7 @@ export class LocalPetServerState extends Component {
     y: number,
     rotation: number,
     isAttacking: boolean,
+    isCollecting: boolean,
     serverTime: number,
     receivedAt: number = Date.now()
   ): void {
@@ -42,6 +46,7 @@ export class LocalPetServerState extends Component {
     this.y = y;
     this.rotation = this.normalizeAngle(rotation);
     this.isAttacking = !!isAttacking;
+    this.isCollecting = !!isCollecting;
     this.serverTime = Number.isFinite(serverTime) ? serverTime : Date.now();
     this.receivedAt = Number.isFinite(receivedAt) ? receivedAt : Date.now();
   }

@@ -24,6 +24,7 @@ export class Pet extends Component {
   public readonly maxFollowSpeed: number;
   public readonly rotationFollowSpeed: number;
   public readonly phaseOffset: number;
+  public isCollecting: boolean = false;
 
   constructor(options: PetBehaviorOptions) {
     super();

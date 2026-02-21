@@ -129,12 +129,20 @@ export class LocalPetFollowSystem extends BaseSystem {
     const freshServerState = this.getFreshServerState(petEntity);
 
     if (freshServerState) {
-      // SERVER-AUTHORITATIVE: server knows about collect, defense, and all special modes.
-      // Lerp directly toward server position — no local simulation fighting it.
+      // SERVER-AUTHORITATIVE: sync state and follow server position.
+      petComponent.isCollecting = freshServerState.isCollecting;
+
       const dx = freshServerState.x - runtime.x;
       const dy = freshServerState.y - runtime.y;
       const dist = this.getMagnitude(dx, dy);
-      if (dist > this.SERVER_HARD_SNAP_DISTANCE) {
+
+      if (petComponent.isCollecting) {
+        // COLLECTION LOCK: Snap immediately to server position and stay there.
+        runtime.x = freshServerState.x;
+        runtime.y = freshServerState.y;
+        runtime.followTargetX = freshServerState.x;
+        runtime.followTargetY = freshServerState.y;
+      } else if (dist > this.SERVER_HARD_SNAP_DISTANCE) {
         runtime.x = freshServerState.x;
         runtime.y = freshServerState.y;
         runtime.followTargetX = freshServerState.x;
@@ -145,19 +153,35 @@ export class LocalPetFollowSystem extends BaseSystem {
         runtime.y += dy * alpha;
       }
     } else {
-      // FALLBACK: no server state available — simulate follow locally.
-      const target = this.resolveFollowTarget(
-        playerTransform.x,
-        playerTransform.y,
-        playerTransform.rotation,
-        ownerVelocityX,
-        ownerVelocityY,
-        ownerSpeed,
-        ownerIsStationary,
-        petComponent
-      );
-      const smoothedTarget = this.updateSmoothedTarget(runtime, target, dtSeconds, ownerIsStationary);
-      this.moveTowardsTarget(runtime, smoothedTarget, petComponent, dtSeconds);
+      // FALLBACK: no server state available.
+
+      // STABILITY GUARD: If pet was recently collecting, lock position for up to 2s
+      // to avoid 'jumpy' follow logic during short network stalls.
+      const lastServerState = this.ecs.getComponent(petEntity, LocalPetServerState);
+      const isRecentlyCollecting = lastServerState && lastServerState.isCollecting && (Date.now() - lastServerState.receivedAt < 2000);
+
+      if (isRecentlyCollecting) {
+        // Stay locked at last known server position.
+        runtime.x = lastServerState!.x;
+        runtime.y = lastServerState!.y;
+        runtime.followTargetX = runtime.x;
+        runtime.followTargetY = runtime.y;
+      } else {
+        // Actually simulate follow locally.
+        petComponent.isCollecting = false; // Reset stale collection state.
+        const target = this.resolveFollowTarget(
+          playerTransform.x,
+          playerTransform.y,
+          playerTransform.rotation,
+          ownerVelocityX,
+          ownerVelocityY,
+          ownerSpeed,
+          ownerIsStationary,
+          petComponent
+        );
+        const smoothedTarget = this.updateSmoothedTarget(runtime, target, dtSeconds, ownerIsStationary);
+        this.moveTowardsTarget(runtime, smoothedTarget, petComponent, dtSeconds);
+      }
     }
 
     // Rotation: always derived from ACTUAL frame displacement so it matches what the player sees.

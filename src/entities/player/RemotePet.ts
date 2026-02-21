@@ -9,6 +9,7 @@ export class RemotePet extends Component {
   public petId: string;
   public nickname: string;
   public isActive: boolean;
+  public isCollecting: boolean = false;
 
   constructor(ownerClientId: string, petId: string, nickname: string, isActive: boolean = true) {
     super();
@@ -18,11 +19,12 @@ export class RemotePet extends Component {
     this.isActive = Boolean(isActive);
   }
 
-  updateState(petId: string, nickname: string, isActive: boolean = true): void {
+  updateState(petId: string, nickname: string, isActive: boolean = true, isCollecting: boolean = false): void {
     const nextPetId = String(petId || '').trim();
     this.petId = nextPetId || this.petId || 'pet';
     this.nickname = this.normalizeNickname(nickname, this.petId);
     this.isActive = Boolean(isActive);
+    this.isCollecting = Boolean(isCollecting);
   }
 
   private normalizeNickname(rawNickname: string, fallback: string): string {

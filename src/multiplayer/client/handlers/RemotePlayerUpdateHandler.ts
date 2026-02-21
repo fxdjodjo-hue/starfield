@@ -72,11 +72,14 @@ export class RemotePlayerUpdateHandler extends BaseMessageHandler {
       const compactPetX = p[18];
       const compactPetY = p[19];
       const compactPetRotation = p[20];
+      const compactPetIsCollecting = p[21] === 1;
+
       if (typeof compactPetX === 'number' && Number.isFinite(compactPetX) && typeof compactPetY === 'number' && Number.isFinite(compactPetY)) {
         remotePetPosition = {
           x: compactPetX,
           y: compactPetY,
-          rotation: (typeof compactPetRotation === 'number' && Number.isFinite(compactPetRotation)) ? compactPetRotation : rotation
+          rotation: (typeof compactPetRotation === 'number' && Number.isFinite(compactPetRotation)) ? compactPetRotation : rotation,
+          isCollecting: compactPetIsCollecting
         };
       }
     } else {

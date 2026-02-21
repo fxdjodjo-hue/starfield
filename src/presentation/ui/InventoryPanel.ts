@@ -16,12 +16,18 @@ import {
   getAmmoCountForTier
 } from '../../core/utils/ammo/AmmoInventory';
 import {
+  normalizeMissileInventory,
+  getMissileCountForTier,
+  MISSILE_TIERS
+} from '../../core/utils/ammo/MissileInventory';
+import {
   getPlayerShipSkinById,
   getSelectedPlayerShipSkinId,
   listPlayerShipSkins,
   getUnlockedPlayerShipSkinIds,
   type PlayerShipSkinDefinition
 } from '../../config/ShipSkinConfig';
+import type { MissileTier } from '../../config/NetworkConfig';
 
 type ShipSkinCurrency = 'credits' | 'cosmos';
 type AmmoTierSlot = 'x1' | 'x2' | 'x3';
@@ -40,6 +46,18 @@ const AMMO_DESCRIPTION_BY_TIER: Record<AmmoTierSlot, string> = {
   x1: 'Standard rounds for balanced ship weapon output.',
   x2: 'Enhanced rounds that double weapon impact at a higher tactical cost.',
   x3: 'Overcharged rounds with maximum impact for high-priority targets.'
+};
+
+const MISSILE_ICON_BY_TIER: Record<MissileTier, string> = {
+  m1: 'assets/actionbar/missile1.png',
+  m2: 'assets/actionbar/missile2.png',
+  m3: 'assets/actionbar/missile3.png'
+};
+
+const MISSILE_DESCRIPTION_BY_TIER: Record<MissileTier, string> = {
+  m1: 'Standard missiles for reliable kinetic area damage.',
+  m2: 'Advanced missiles with larger blast radius and enhanced tracking.',
+  m3: 'Heavy ordnance with maximum destructive payload.'
 };
 
 interface ShipSkinPriceInfo {
@@ -732,19 +750,28 @@ export class InventoryPanel extends BasePanel {
     );
   }
 
+  private getMissileInventoryForUi() {
+    const contextState = this.networkSystem?.gameContext;
+    return normalizeMissileInventory(
+      contextState?.playerMissileInventory ?? contextState?.playerInventory?.missileAmmo
+    );
+  }
+
   /**
    * Renderizza l'inventario e gli slot equipaggiamento
    */
-  private renderInventory(inventory: Inventory, ammoInventory = this.getAmmoInventoryForUi()): void {
+  private renderInventory(inventory: Inventory, ammoInventory = this.getAmmoInventoryForUi(), missileInventory = this.getMissileInventoryForUi()): void {
     const cargoGrid = this.container.querySelector('.inventory-grid') as HTMLElement | null;
     if (!cargoGrid) return;
 
     // 🚀 OPTIMIZATION: Check if inventory actually changed before destroying DOM
     const layoutSignature = `${cargoGrid.clientWidth}x${cargoGrid.clientHeight}`;
     const ammoSignature = `${ammoInventory.selectedTier}:${AMMO_TIERS.map(tier => getAmmoCountForTier(ammoInventory, tier)).join(',')}`;
+    const missileSignature = `${missileInventory.selectedTier}:${MISSILE_TIERS.map(tier => getMissileCountForTier(missileInventory, tier)).join(',')}`;
     const currentHash = JSON.stringify(inventory.items.map(i => ({ id: i.id, instanceId: i.instanceId }))) +
       JSON.stringify(inventory.equipped) +
-      ammoSignature;
+      ammoSignature +
+      missileSignature;
     if (this.lastInventoryHash === currentHash && this.lastInventoryLayoutSignature === layoutSignature) {
       // Still update visual slots (they are cheaper and might need updates even if items are same)
       this.updateVisualSlots(inventory);
@@ -829,6 +856,55 @@ export class InventoryPanel extends BasePanel {
         this.showAmmoDetails(tier, ammoCount);
       };
       cargoGrid.appendChild(ammoSlot);
+    }
+
+    // Render Missile Cards
+    for (const tier of MISSILE_TIERS) {
+      const missileCount = getMissileCountForTier(missileInventory, tier as MissileTier);
+      if (missileCount <= 0) {
+        continue;
+      }
+
+      const missileBorder = 'rgba(236, 72, 153, 0.45)'; // Distinct pinkish color for missiles
+      const missileSlot = document.createElement('div');
+      missileSlot.style.cssText = `
+        min-height: 78px;
+        background: linear-gradient(135deg, rgba(83, 21, 55, 0.22), rgba(8, 12, 20, 0.78));
+        border: 1px solid ${missileBorder};
+        border-radius: 2px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        box-sizing: border-box;
+        cursor: pointer;
+        transition: filter 0.2s ease, border-color 0.2s ease;
+        flex-shrink: 0;
+      `;
+
+      missileSlot.innerHTML = `
+        <div style="width: 52px; display: flex; justify-content: center;">${this.renderIcon(MISSILE_ICON_BY_TIER[tier as MissileTier], '36px')}</div>
+        <div style="flex: 1; min-width: 0;">
+          <div style="color: #f472b6; font-size: 15px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.95px;">Missile ${tier.toUpperCase()}</div>
+          <div style="color: rgba(255, 255, 255, 0.78); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.7px;">x${NumberFormatter.format(missileCount)}  •  Ordnance</div>
+        </div>
+      `;
+
+      missileSlot.onmouseenter = () => {
+        missileSlot.style.filter = 'brightness(1.15)';
+        missileSlot.style.borderColor = 'rgba(236, 72, 153, 0.75)';
+      };
+      missileSlot.onmouseleave = () => {
+        missileSlot.style.filter = 'none';
+        missileSlot.style.borderColor = missileBorder;
+      };
+
+      missileSlot.title = `Missile ${tier.toUpperCase()} x${NumberFormatter.format(missileCount)}\nNot equippable\nClick for details`;
+      missileSlot.onclick = (event) => {
+        event.stopPropagation();
+        this.showMissileDetails(tier as MissileTier, missileCount);
+      };
+      cargoGrid.appendChild(missileSlot);
     }
 
     stackedItems.forEach(stackedItem => {
@@ -2056,6 +2132,337 @@ export class InventoryPanel extends BasePanel {
         if (typeof document !== 'undefined') {
           document.dispatchEvent(new CustomEvent('ui:system-message', {
             detail: { content: 'Unable to sell ammo right now' }
+          }));
+        }
+        return;
+      }
+
+      popup.style.opacity = '0';
+      setTimeout(() => popup.remove(), 200);
+      this.activePopup = null;
+    };
+
+    const cancelBtn = document.createElement('button');
+    cancelBtn.style.cssText = `
+      padding: 14px 18px;
+      min-width: 96px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 2px;
+    `;
+    cancelBtn.textContent = 'CANCEL';
+    cancelBtn.onclick = () => {
+      popup.style.opacity = '0';
+      setTimeout(() => popup.remove(), 200);
+      this.activePopup = null;
+    };
+    cancelBtn.onmouseenter = () => {
+      cancelBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+      cancelBtn.style.color = '#ffffff';
+    };
+    cancelBtn.onmouseleave = () => {
+      cancelBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+      cancelBtn.style.color = 'rgba(255, 255, 255, 0.6)';
+    };
+
+    actions.appendChild(sellBtn);
+    actions.appendChild(cancelBtn);
+
+    body.appendChild(desc);
+    body.appendChild(statsGrid);
+    if (quantityControls) {
+      body.appendChild(quantityControls);
+    }
+    body.appendChild(actions);
+
+    card.appendChild(header);
+    card.appendChild(body);
+    popup.appendChild(card);
+
+    popup.onclick = (event) => {
+      if (event.target === popup) {
+        cancelBtn.click();
+      }
+    };
+
+    this.container.appendChild(popup);
+    this.activePopup = popup;
+
+    requestAnimationFrame(() => {
+      popup.style.opacity = '1';
+      card.style.transform = 'scale(1)';
+    });
+  }
+
+  private requestMissileSell(missileTier: MissileTier, quantity: number): boolean {
+    const normalizedQuantity = Number.isFinite(Number(quantity))
+      ? Math.max(1, Math.floor(Number(quantity)))
+      : 1;
+
+    if (this.networkSystem?.sendSellMissileRequest) {
+      return !!this.networkSystem.sendSellMissileRequest(missileTier, normalizedQuantity);
+    }
+
+    if (this.networkSystem?.sendMessage) {
+      this.networkSystem.sendMessage({
+        type: 'sell_item',
+        clientId: this.networkSystem?.clientId,
+        itemId: `missile_${missileTier}`,
+        quantity: normalizedQuantity,
+        timestamp: Date.now()
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  private showMissileDetails(missileTier: MissileTier, availableQuantity: number): void {
+    const normalizedAvailableQuantity = Number.isFinite(Number(availableQuantity))
+      ? Math.max(0, Math.floor(Number(availableQuantity)))
+      : 0;
+    if (normalizedAvailableQuantity <= 0) {
+      return;
+    }
+
+    if (this.activePopup) {
+      this.activePopup.remove();
+    }
+
+    const popup = document.createElement('div');
+    popup.style.cssText = `
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(5px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+    `;
+
+    const card = document.createElement('div');
+    card.style.cssText = `
+      width: 380px;
+      background: rgba(20, 20, 25, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.5);
+      border-radius: 4px;
+      padding: 0;
+      overflow: hidden;
+      transform: scale(0.9);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+    `;
+
+    const tierColor = missileTier === 'm1'
+      ? '#7dd3fc'
+      : missileTier === 'm2'
+        ? '#fbbf24'
+        : '#f472b6';
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      padding: 20px;
+      background: linear-gradient(to right, ${tierColor}22, transparent);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    `;
+
+    header.innerHTML = `
+      ${this.renderIcon(MISSILE_ICON_BY_TIER[missileTier], '32px', `drop-shadow(0 0 10px ${tierColor}88)`)}
+      <div>
+        <div style="color: ${tierColor}; font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">Missile ${missileTier.toUpperCase()}</div>
+        <div style="color: rgba(255, 255, 255, 0.4); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">AMMUNITION  •  x${NumberFormatter.format(normalizedAvailableQuantity)}</div>
+      </div>
+    `;
+
+    const body = document.createElement('div');
+    body.style.cssText = `padding: 24px; display: flex; flex-direction: column; gap: 20px;`;
+
+    const desc = document.createElement('div');
+    desc.style.cssText = `color: rgba(255, 255, 255, 0.7); font-size: 13px; line-height: 1.5; font-style: italic;`;
+    desc.textContent = `${MISSILE_DESCRIPTION_BY_TIER[missileTier]} Not equippable as a ship module.`;
+
+    const statsGrid = document.createElement('div');
+    statsGrid.style.cssText = `display: grid; grid-template-columns: 1fr 1fr; gap: 10px;`;
+    const createStat = (label: string, value: string, isAccent: boolean = false) => `
+      <div style="background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 2px;">
+        <div style="color: rgba(255, 255, 255, 0.4); font-size: 10px; font-weight: 700; text-transform: uppercase;">${label}</div>
+        <div style="color: ${isAccent ? tierColor : '#ffffff'}; font-size: 14px; font-weight: 700; margin-top: 4px;">${value}</div>
+      </div>
+    `;
+    const getMultiplier = (t: string) => t === 'm1' ? 1 : t === 'm2' ? 2 : 3;
+    statsGrid.innerHTML = [
+      createStat('Damage Tier', `x${getMultiplier(missileTier)}`, true),
+      createStat('Sell Price', 'Server-defined'),
+      createStat('Available', NumberFormatter.format(normalizedAvailableQuantity)),
+      createStat('Equippable', 'No')
+    ].join('');
+
+    const actions = document.createElement('div');
+    actions.style.cssText = `display: flex; gap: 10px; margin-top: 10px;`;
+
+    const sellBtn = document.createElement('button');
+    let sellRequestInFlight = false;
+    const maxSellQuantity = Math.max(1, normalizedAvailableQuantity);
+    let selectedSellQuantity = 1;
+    sellBtn.style.cssText = `
+      flex: 1;
+      padding: 14px;
+      background: rgba(245, 158, 11, 0.2);
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      color: #fbbf24;
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border-radius: 2px;
+    `;
+    const updateSellButtonLabel = () => {
+      sellBtn.textContent = `SELL ${selectedSellQuantity}`;
+    };
+
+    let quantityControls: HTMLDivElement | null = null;
+    if (maxSellQuantity > 1) {
+      quantityControls = document.createElement('div');
+      quantityControls.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(255, 255, 255, 0.02);
+        border-radius: 2px;
+        margin-top: 6px;
+      `;
+
+      const quantityLabel = document.createElement('div');
+      quantityLabel.style.cssText = `
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      `;
+      quantityLabel.textContent = 'Sell quantity';
+
+      const controls = document.createElement('div');
+      controls.style.cssText = 'display: flex; align-items: center; gap: 8px;';
+
+      const qtyValue = document.createElement('div');
+      qtyValue.style.cssText = `
+        min-width: 72px;
+        text-align: center;
+        color: #f8fafc;
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+      `;
+
+      const createQtyButton = (label: string) => {
+        const button = document.createElement('button');
+        button.style.cssText = `
+          width: 30px;
+          height: 30px;
+          border: 1px solid rgba(245, 158, 11, 0.4);
+          background: rgba(245, 158, 11, 0.14);
+          color: #fbbf24;
+          font-size: 14px;
+          font-weight: 800;
+          cursor: pointer;
+          border-radius: 2px;
+        `;
+        button.textContent = label;
+        return button;
+      };
+
+      const minusBtn = createQtyButton('-');
+      const plusBtn = createQtyButton('+');
+      const maxBtn = document.createElement('button');
+      maxBtn.style.cssText = `
+        height: 30px;
+        padding: 0 10px;
+        border: 1px solid rgba(245, 158, 11, 0.4);
+        background: rgba(245, 158, 11, 0.14);
+        color: #fbbf24;
+        font-size: 11px;
+        font-weight: 800;
+        cursor: pointer;
+        border-radius: 2px;
+        letter-spacing: 0.8px;
+      `;
+      maxBtn.textContent = 'MAX';
+
+      const updateQuantityControls = () => {
+        qtyValue.textContent = `${selectedSellQuantity} / ${maxSellQuantity}`;
+        minusBtn.disabled = selectedSellQuantity <= 1;
+        plusBtn.disabled = selectedSellQuantity >= maxSellQuantity;
+        minusBtn.style.opacity = minusBtn.disabled ? '0.4' : '1';
+        plusBtn.style.opacity = plusBtn.disabled ? '0.4' : '1';
+        updateSellButtonLabel();
+      };
+
+      minusBtn.onclick = () => {
+        selectedSellQuantity = Math.max(1, selectedSellQuantity - 1);
+        updateQuantityControls();
+      };
+      plusBtn.onclick = () => {
+        selectedSellQuantity = Math.min(maxSellQuantity, selectedSellQuantity + 1);
+        updateQuantityControls();
+      };
+      maxBtn.onclick = () => {
+        selectedSellQuantity = maxSellQuantity;
+        updateQuantityControls();
+      };
+
+      controls.appendChild(minusBtn);
+      controls.appendChild(qtyValue);
+      controls.appendChild(plusBtn);
+      controls.appendChild(maxBtn);
+      quantityControls.appendChild(quantityLabel);
+      quantityControls.appendChild(controls);
+      updateQuantityControls();
+    } else {
+      updateSellButtonLabel();
+    }
+
+    sellBtn.onmouseenter = () => {
+      sellBtn.style.background = 'rgba(245, 158, 11, 0.3)';
+    };
+    sellBtn.onmouseleave = () => {
+      sellBtn.style.background = 'rgba(245, 158, 11, 0.2)';
+    };
+    sellBtn.onclick = () => {
+      if (sellRequestInFlight) return;
+      sellRequestInFlight = true;
+      sellBtn.style.pointerEvents = 'none';
+      sellBtn.style.opacity = '0.6';
+
+      const sellRequested = this.requestMissileSell(missileTier, selectedSellQuantity);
+      if (!sellRequested) {
+        sellRequestInFlight = false;
+        sellBtn.style.pointerEvents = 'auto';
+        sellBtn.style.opacity = '1';
+        if (typeof document !== 'undefined') {
+          document.dispatchEvent(new CustomEvent('ui:system-message', {
+            detail: { content: 'Unable to sell missile right now' }
           }));
         }
         return;

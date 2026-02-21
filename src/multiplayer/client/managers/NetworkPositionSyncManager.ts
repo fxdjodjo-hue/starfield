@@ -212,7 +212,7 @@ export class NetworkPositionSyncManager {
    */
   handlePositionAck(message: {
     [key: string]: unknown;
-    petPosition?: { x?: number; y?: number; rotation?: number; isAttacking?: boolean } | null;
+    petPosition?: { x?: number; y?: number; rotation?: number; isAttacking?: boolean; isCollecting?: boolean } | null;
     petServerTime?: number;
     serverTime?: number;
     t?: number;
@@ -228,6 +228,7 @@ export class NetworkPositionSyncManager {
       if (!Number.isFinite(x) || !Number.isFinite(y)) return;
 
       const isAttacking = !!petPosition.isAttacking;
+      const isCollecting = !!petPosition.isCollecting;
 
       let rotation = Number(petPosition.rotation);
       if (!Number.isFinite(rotation)) rotation = 0;
@@ -258,6 +259,7 @@ export class NetworkPositionSyncManager {
             petTransform.y,
             petTransform.rotation,
             isAttacking,
+            isCollecting,
             serverTime,
             Date.now()
           )
@@ -266,7 +268,7 @@ export class NetworkPositionSyncManager {
       }
 
       if (serverState) {
-        serverState.updateFromServer(x, y, rotation, isAttacking, serverTime, Date.now());
+        serverState.updateFromServer(x, y, rotation, isAttacking, isCollecting, serverTime, Date.now());
       }
     } catch {
       // Best-effort sync; ignore malformed acknowledgments.

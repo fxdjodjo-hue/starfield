@@ -54,7 +54,8 @@ function normalizeCompactPetPosition(petPosition) {
   return {
     x: Math.round(x * 100) / 100,
     y: Math.round(y * 100) / 100,
-    rotation: Number.isFinite(rotation) ? parseFloat(rotation.toFixed(3)) : null
+    rotation: Number.isFinite(rotation) ? parseFloat(rotation.toFixed(3)) : null,
+    isCollecting: !!petPosition.isCollecting
   };
 }
 
@@ -113,7 +114,8 @@ class PositionUpdateProcessor {
           compactPetState.isActive ? 1 : 0,
           compactPetPosition.x,
           compactPetPosition.y,
-          compactPetPosition.rotation
+          compactPetPosition.rotation,
+          compactPetPosition.isCollecting ? 1 : 0
         ],
         t: latestUpdate.clientTimestamp || Date.now()
       };
