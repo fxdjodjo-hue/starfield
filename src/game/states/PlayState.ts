@@ -21,6 +21,9 @@ import { Sprite } from '../../entities/Sprite';
 import { AnimatedSprite } from '../../entities/AnimatedSprite';
 import { Npc } from '../../entities/ai/Npc';
 import AudioSystem from '../../systems/audio/AudioSystem';
+import { PerformanceMonitor } from '../../core/utils/performance/PerformanceMonitor';
+import { LogSystem } from '../../systems/rendering/LogSystem';
+
 
 // Modular architecture managers
 import { PlayStateInitializer } from './managers/playstate/PlayStateInitializer';
@@ -51,6 +54,8 @@ export class PlayState extends GameState {
   private remotePlayerSystem: RemotePlayerSystem | null = null;
   private remoteNpcSystem: RemoteNpcSystem | null = null;
   private remoteProjectileSystem: RemoteProjectileSystem | null = null;
+  private performanceMonitor: PerformanceMonitor | null = null;
+
 
   // Modular architecture managers (lazy initialization)
   private initializer!: PlayStateInitializer;
@@ -238,8 +243,19 @@ export class PlayState extends GameState {
       }
     }
 
+    // Update PerformanceMonitor
+    if (this.performanceMonitor) {
+      this.performanceMonitor.update();
+    } else {
+      const logSystem = this.world.getECS().getSystems().find(s => s instanceof LogSystem) as LogSystem;
+      if (logSystem) {
+        this.performanceMonitor = new PerformanceMonitor(this.world.getECS(), logSystem);
+      }
+    }
+
     this.lifecycleManager.update(deltaTime);
   }
+
 
   /**
    * Renderizza il gioco

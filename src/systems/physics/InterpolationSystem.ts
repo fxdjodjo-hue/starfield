@@ -61,7 +61,7 @@ export class InterpolationSystem extends BaseSystem {
     const renderTime = Date.now();
 
     // Find all entities with interpolation targets
-    const entities = this.ecs.getEntitiesWithComponents(Transform, InterpolationTarget);
+    const entities = this.ecs.getEntitiesWithComponentsReadOnly(Transform, InterpolationTarget);
 
     for (const entity of entities) {
       const transform = this.ecs.getComponent(entity, Transform);

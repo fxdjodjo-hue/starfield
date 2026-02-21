@@ -1,4 +1,4 @@
-import { System as BaseSystem } from '../../infrastructure/ecs/System';
+﻿import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Transform } from '../../entities/spatial/Transform';
 import { Velocity } from '../../entities/spatial/Velocity';
@@ -7,7 +7,7 @@ import { Npc } from '../../entities/ai/Npc';
 import { InterpolationTarget } from '../../entities/spatial/InterpolationTarget';
 
 /**
- * Sistema di movimento che aggiorna le posizioni delle entità basandosi sulla velocity
+ * Sistema di movimento che aggiorna le posizioni delle entitÃ  basandosi sulla velocity
  * Collabora con CameraSystem per mantenere la camera centrata sul player
  */
 export class MovementSystem extends BaseSystem {
@@ -21,7 +21,7 @@ export class MovementSystem extends BaseSystem {
 
   update(deltaTime: number): void {
     // Single pass over moving entities to avoid per-frame filtered array allocations.
-    const entities = this.ecs.getEntitiesWithComponents(Transform, Velocity);
+    const entities = this.ecs.getEntitiesWithComponentsReadOnly(Transform, Velocity);
     let localPlayerTransform: Transform | null = null;
 
     for (const entity of entities) {
@@ -33,7 +33,7 @@ export class MovementSystem extends BaseSystem {
 
       const hasInterpolationTarget = this.ecs.hasComponent(entity, InterpolationTarget);
 
-      // ESCLUDI entit� con InterpolationTarget (remote player) - gestite da InterpolationSystem
+      // ESCLUDI entità con InterpolationTarget (remote player) - gestite da InterpolationSystem
       if (!hasInterpolationTarget) {
         this.updatePosition(transform, velocity, deltaTime);
       }
@@ -51,10 +51,10 @@ export class MovementSystem extends BaseSystem {
   }
 
   /**
-   * Aggiorna la posizione dell'entità basandosi sulla velocity
+   * Aggiorna la posizione dell'entitÃ  basandosi sulla velocity
    */
   private updatePosition(transform: Transform, velocity: Velocity, deltaTime: number): void {
-    // Calcola il delta movimento (deltaTime è in millisecondi, converti in secondi)
+    // Calcola il delta movimento (deltaTime Ã¨ in millisecondi, converti in secondi)
     const dt = deltaTime / 1000;
 
     // Aggiorna posizione
@@ -63,7 +63,7 @@ export class MovementSystem extends BaseSystem {
       velocity.y * dt
     );
 
-    // Aggiorna rotazione solo se velocity.angular è diverso da 0
+    // Aggiorna rotazione solo se velocity.angular Ã¨ diverso da 0
     // (il player imposta direttamente transform.rotation, quindi non usa velocity.angular)
     if (velocity.angular !== 0) {
       transform.rotation += velocity.angular * dt;

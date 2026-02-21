@@ -11,6 +11,7 @@ import { Inventory } from '../../entities/player/Inventory';
 import { getPlayerDefinition } from '../../config/PlayerConfig';
 import { ITEM_REGISTRY, ItemSlot } from '../../config/ItemConfig';
 import { NumberFormatter } from '../../core/utils/ui/NumberFormatter';
+
 import {
   normalizeAmmoInventory,
   getAmmoCountForTier
@@ -28,6 +29,8 @@ import {
   type PlayerShipSkinDefinition
 } from '../../config/ShipSkinConfig';
 import type { MissileTier } from '../../config/NetworkConfig';
+import { InventoryTooltipManager } from './managers/inventory/InventoryTooltipManager';
+
 
 type ShipSkinCurrency = 'credits' | 'cosmos';
 type AmmoTierSlot = 'x1' | 'x2' | 'x3';
@@ -105,6 +108,8 @@ export class InventoryPanel extends BasePanel {
   private availableShipSkins: PlayerShipSkinDefinition[] = [];
   private lastInventoryHash: string = '';
   private lastInventoryLayoutSignature: string = '';
+  private tooltipManager!: InventoryTooltipManager;
+
 
   constructor(config: PanelConfig, ecs: ECS, playerSystem?: PlayerSystem) {
     super(config);
@@ -131,7 +136,9 @@ export class InventoryPanel extends BasePanel {
 
     // Recupero forzato riferimenti se persi durante la costruzione
     this.recoverElements();
+    this.tooltipManager = new InventoryTooltipManager(this.container);
   }
+
 
   /**
    * Recupera i riferimenti agli elementi DOM se non sono correttamente assegnati
@@ -844,14 +851,16 @@ export class InventoryPanel extends BasePanel {
       ammoSlot.onmouseenter = () => {
         ammoSlot.style.filter = 'brightness(1.08)';
         ammoSlot.style.borderColor = isSelectedTier ? 'rgba(56, 189, 248, 0.78)' : 'rgba(148, 163, 184, 0.55)';
+        this.tooltipManager.showTierTooltip('Ammo', tier, ammoCount, ammoSlot, isSelectedTier);
       };
       ammoSlot.onmouseleave = () => {
         ammoSlot.style.filter = 'none';
         ammoSlot.style.borderColor = ammoBorder;
+        this.tooltipManager.hideTooltip();
       };
 
-      ammoSlot.title = `Ammo ${tier.toUpperCase()} x${NumberFormatter.format(ammoCount)}\nNot equippable\nClick for details`;
       ammoSlot.onclick = (event) => {
+
         event.stopPropagation();
         this.showAmmoDetails(tier, ammoCount);
       };
@@ -893,14 +902,16 @@ export class InventoryPanel extends BasePanel {
       missileSlot.onmouseenter = () => {
         missileSlot.style.filter = 'brightness(1.15)';
         missileSlot.style.borderColor = 'rgba(236, 72, 153, 0.75)';
+        this.tooltipManager.showTierTooltip('Missile', tier, missileCount, missileSlot);
       };
       missileSlot.onmouseleave = () => {
         missileSlot.style.filter = 'none';
         missileSlot.style.borderColor = missileBorder;
+        this.tooltipManager.hideTooltip();
       };
 
-      missileSlot.title = `Missile ${tier.toUpperCase()} x${NumberFormatter.format(missileCount)}\nNot equippable\nClick for details`;
       missileSlot.onclick = (event) => {
+
         event.stopPropagation();
         this.showMissileDetails(tier as MissileTier, missileCount);
       };
@@ -949,15 +960,16 @@ export class InventoryPanel extends BasePanel {
       slot.onmouseenter = () => {
         slot.style.filter = 'brightness(1.08)';
         slot.style.borderColor = itemDef.rarity === 'COMMON' ? 'rgba(226, 232, 240, 0.48)' : rarityBorder.replace('0.3', '0.55');
+        this.tooltipManager.showItemTooltip(itemDef, stackedItem.count, slot);
       };
       slot.onmouseleave = () => {
         slot.style.filter = 'none';
         slot.style.borderColor = rarityBorder;
+        this.tooltipManager.hideTooltip();
       };
 
-      slot.title = `${itemDef.name} x${stackedItem.count}\n${itemDef.description}\n(Click to Equip)`;
-
       slot.onclick = (e) => {
+
         e.stopPropagation();
         this.showItemDetails(itemDef, stackedItem.instanceId, false, inventory, stackedItem.count);
       };
@@ -1341,12 +1353,22 @@ export class InventoryPanel extends BasePanel {
             e.stopPropagation();
             this.showItemDetails(item, instanceId, true, inventory);
           };
+
+          slotElement.onmouseenter = () => {
+            this.tooltipManager.showItemTooltip(item, 1, slotElement);
+          };
+          slotElement.onmouseleave = () => {
+            this.tooltipManager.hideTooltip();
+          };
         } else {
           slotElement.innerHTML = `<div style="font-size: 20px; opacity: 0.1;">+</div>`;
           slotElement.style.background = 'rgba(255, 255, 255, 0.08)';
           slotElement.style.borderColor = 'rgba(255, 255, 255, 0.18)';
           slotElement.onclick = null;
+          slotElement.onmouseenter = null;
+          slotElement.onmouseleave = null;
         }
+
       }
     });
   }

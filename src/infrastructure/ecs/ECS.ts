@@ -13,71 +13,164 @@ import { SelectedNpc } from '../../entities/combat/SelectedNpc';
  */
 class EntityQueryCache {
   private cache = new Map<string, Entity[]>();
-  private lastEntityCount = 0;
+  // reverseIndex: componentName -> Set of cacheKeys that use it
+  private reverseIndex = new Map<string, Set<string>>();
+  // queryComponents: cacheKey -> Array of component constructors
+  private queryComponents = new Map<string, (new (...args: any[]) => Component)[]>();
+
+  // Diagnostic counters
+  public totalInvalidations = 0;
+  public totalRecomputations = 0;
+  public totalInvalidationTimeMs = 0;
+  // componentName -> number of times it caused invalidation
+  public componentInvalidationStats = new Map<string, number>();
 
   /**
-   * Ottiene entità dalla cache o calcola se necessario
+   * Ottiene entità dalla cache in modalità READONLY.
+   * EVITA l'allocazione di nuovi array ad ogni frame se il risultato è già in cache.
    */
-  getEntitiesWithComponents(
+  getEntitiesWithComponentsReadOnly(
     ecs: ECS,
-    componentTypes: (new (...args: any[]) => Component)[],
-    currentEntityCount: number
-  ): Entity[] {
-    // Invalida cache se numero entità è cambiato (entità aggiunte/rimosse)
-    if (currentEntityCount !== this.lastEntityCount) {
-      this.cache.clear();
-      this.lastEntityCount = currentEntityCount;
-    }
-
+    componentTypes: (new (...args: any[]) => Component)[]
+  ): readonly Entity[] {
     const cacheKey = this.getCacheKey(componentTypes);
 
     if (this.cache.has(cacheKey)) {
-      // Restituisce copia dell'array cached per evitare modifiche esterne
-      return this.cache.get(cacheKey)!.slice();
+      return this.cache.get(cacheKey)!;
     }
 
     // Calcola e cache il risultato
+    this.totalRecomputations++;
     const entities = ecs.getEntitiesWithComponentsUncached(...componentTypes);
-    this.cache.set(cacheKey, entities);
 
-    // Restituisce sempre una copia per proteggere la cache da mutazioni esterne (es. length=0).
-    return entities.slice();
+    // Registra nella cache e nel reverse index
+    this.cache.set(cacheKey, entities);
+    this.queryComponents.set(cacheKey, [...componentTypes]);
+
+    for (const type of componentTypes) {
+      const typeName = type.name;
+      if (!this.reverseIndex.has(typeName)) {
+        this.reverseIndex.set(typeName, new Set());
+      }
+      this.reverseIndex.get(typeName)!.add(cacheKey);
+    }
+
+    return entities;
   }
 
   /**
-   * Invalida cache in modo intelligente - solo le cache che includono il tipo di componente modificato
+   * Invalida intelligente per AGGIUNTA di un componente.
+   * Un'aggiunta invalida una query SOLO SE l'entità ora soddisfa TUTTI i componenti della query.
    */
-  invalidateForComponent(componentType: new (...args: any[]) => Component): void {
-    const componentTypeName = componentType.name;
-    const keysToRemove: string[] = [];
+  invalidateAddition(
+    ecs: ECS,
+    entity: Entity,
+    addedComponentType: new (...args: any[]) => Component,
+    entityComponentSet: Set<string>
+  ): void {
+    const startTime = performance.now();
+    const typeName = addedComponentType.name;
+    const affectedKeys = this.reverseIndex.get(typeName);
 
-    // Trova tutte le chiavi cache che includono questo tipo di componente
-    for (const cacheKey of this.cache.keys()) {
-      if (cacheKey.includes(componentTypeName)) {
-        keysToRemove.push(cacheKey);
+    if (!affectedKeys) return;
+
+    let invalidationsInThisCall = 0;
+    for (const cacheKey of affectedKeys) {
+      const requiredTypes = this.queryComponents.get(cacheKey);
+      if (!requiredTypes) continue;
+
+      // Verifica se l'entità ora soddisfa l'intera query
+      let matchesAll = true;
+      for (const reqType of requiredTypes) {
+        if (!entityComponentSet.has(reqType.name)) {
+          matchesAll = false;
+          break;
+        }
+      }
+
+      if (matchesAll) {
+        if (this.cache.delete(cacheKey)) {
+          invalidationsInThisCall++;
+          this.totalInvalidations++;
+        }
       }
     }
 
-    // Rimuovi solo le cache influenzate
-    for (const key of keysToRemove) {
-      this.cache.delete(key);
+    if (invalidationsInThisCall > 0) {
+      this.componentInvalidationStats.set(typeName, (this.componentInvalidationStats.get(typeName) || 0) + 1);
+    }
+    this.totalInvalidationTimeMs += (performance.now() - startTime);
+  }
+
+  /**
+   * Invalida intelligente per RIMOZIONE di un componente o entità.
+   * Una rimozione invalida una query SOLO SE l'entità soddisfaceva la query PRIMA della rimozione.
+   */
+  invalidateRemoval(
+    removedComponentType: new (...args: any[]) => Component,
+    entityMatchesQueryBefore: (requiredTypes: (new (...args: any[]) => Component)[]) => boolean
+  ): void {
+    const startTime = performance.now();
+    const typeName = removedComponentType.name;
+    const affectedKeys = this.reverseIndex.get(typeName);
+
+    if (!affectedKeys) return;
+
+    let invalidationsInThisCall = 0;
+    for (const cacheKey of affectedKeys) {
+      const requiredTypes = this.queryComponents.get(cacheKey);
+      if (!requiredTypes) continue;
+
+      // Se l'entità soddisfaceva la query prima, allora la rimozione la invalida
+      if (entityMatchesQueryBefore(requiredTypes)) {
+        if (this.cache.delete(cacheKey)) {
+          invalidationsInThisCall++;
+          this.totalInvalidations++;
+        }
+      }
+    }
+
+    if (invalidationsInThisCall > 0) {
+      this.componentInvalidationStats.set(typeName, (this.componentInvalidationStats.get(typeName) || 0) + 1);
+    }
+    this.totalInvalidationTimeMs += (performance.now() - startTime);
+  }
+
+  /**
+   * Invalida completamente la cache
+   */
+  invalidate(): void {
+    this.totalInvalidations += this.cache.size;
+    this.cache.clear();
+    this.reverseIndex.clear();
+    this.queryComponents.clear();
+  }
+
+  /**
+   * Invalida la query speciale "__all__"
+   */
+  invalidateAllEntitiesQuery(): void {
+    if (this.cache.has("__all__")) {
+      this.cache.delete("__all__");
+      this.totalInvalidations++;
     }
   }
 
-  /**
-   * Invalida completamente la cache (fallback per cambiamenti drastici)
-   */
-  invalidate(): void {
-    this.cache.clear();
+  getEntitiesWithComponents(
+    ecs: ECS,
+    componentTypes: (new (...args: any[]) => Component)[]
+  ): Entity[] {
+    return (this.getEntitiesWithComponentsReadOnly(ecs, componentTypes) as Entity[]).slice();
   }
 
-  /**
-   * Genera chiave cache basata sui tipi di componente
-   */
   private getCacheKey(componentTypes: (new (...args: any[]) => Component)[]): string {
+    if (componentTypes.length === 0) return "__all__";
     return componentTypes.map(type => type.name).sort().join(',');
   }
 }
+
+
+
 
 /**
  * Entity Component System principale
@@ -88,7 +181,11 @@ export class ECS {
   private entityPool = new Map<number, Entity>();
   private components = new Map<new (...args: any[]) => Component, Map<number, Component>>();
   private systems: System[] = [];
-  private queryCache = new EntityQueryCache();
+  public queryCache = new EntityQueryCache();
+
+  // entityId -> Set of component names (tracked for smart invalidation)
+  private entityComponentSets = new Map<number, Set<string>>();
+
 
   /**
    * Crea una nuova entità
@@ -97,24 +194,44 @@ export class ECS {
     const entity = EntityIdGenerator.createId();
     this.entities.add(entity.id);
     this.entityPool.set(entity.id, entity);
+
+    // Invalida la query speciale "__all__"
+    this.queryCache.invalidateAllEntitiesQuery();
+
     return entity;
   }
 
+
   /**
-   * Rimuove un'entità e tutti i suoi componenti
+   * Rimuovi un'entità e tutti i suoi componenti
    */
   removeEntity(entity: Entity): void {
+    if (!this.entities.has(entity.id)) return;
+
+    // Invalida cache solo per i componenti che l'entità possiede effettivamente
+    const componentNames = this.entityComponentSets.get(entity.id);
+    if (componentNames) {
+      for (const [componentType, componentMap] of this.components.entries()) {
+        if (componentMap.has(entity.id)) {
+          componentMap.delete(entity.id);
+
+          // Smart Invalidation: use removal logic
+          this.queryCache.invalidateRemoval(componentType, (requiredTypes) => {
+            return requiredTypes.every(type => componentNames.has(type.name));
+          });
+        }
+      }
+      this.entityComponentSets.delete(entity.id);
+    }
+
+
     this.entities.delete(entity.id);
     this.entityPool.delete(entity.id);
 
-    // Rimuovi tutti i componenti dell'entità
-    for (const componentMap of this.components.values()) {
-      componentMap.delete(entity.id);
-    }
-
-    // Invalida cache quando entità vengono rimosse
-    this.queryCache.invalidate();
+    // Invalida la query speciale "__all__" se presente
+    this.queryCache.invalidateAllEntitiesQuery();
   }
+
 
   /**
    * Aggiunge un componente a un'entità
@@ -134,9 +251,18 @@ export class ECS {
 
     this.components.get(componentType)!.set(entity.id, component);
 
-    // Invalida cache in modo intelligente per questo tipo di componente
-    this.queryCache.invalidateForComponent(componentType);
+    // Update entity component set
+    let componentSet = this.entityComponentSets.get(entity.id);
+    if (!componentSet) {
+      componentSet = new Set();
+      this.entityComponentSets.set(entity.id, componentSet);
+    }
+    componentSet.add(componentType.name);
+
+    // Smart Invalidation: check addition impact
+    this.queryCache.invalidateAddition(this, entity, componentType, componentSet);
   }
+
 
   /**
    * Rimuove un componente da un'entità
@@ -146,12 +272,19 @@ export class ECS {
     componentType: new (...args: any[]) => T
   ): void {
     const componentMap = this.components.get(componentType);
-    if (componentMap) {
+    const componentNames = this.entityComponentSets.get(entity.id);
+
+    if (componentMap && componentMap.has(entity.id) && componentNames) {
+      // Smart Invalidation: check if it matched BEFORE removal
+      this.queryCache.invalidateRemoval(componentType, (requiredTypes) => {
+        return requiredTypes.every(type => componentNames.has(type.name));
+      });
+
       componentMap.delete(entity.id);
-      // Invalida cache in modo intelligente per questo tipo di componente
-      this.queryCache.invalidateForComponent(componentType);
+      componentNames.delete(componentType.name);
     }
   }
+
 
   /**
    * Ottiene un componente da un'entità
@@ -193,11 +326,23 @@ export class ECS {
   }
 
   /**
-   * Ottiene tutte le entità che hanno determinati componenti (con caching)
+   * Ottiene tutte le entità che hanno determinati componenti (con caching).
+   * Restituisce una copia dell'array (sicuro ma alloca memoria).
    */
   getEntitiesWithComponents(...componentTypes: (new (...args: any[]) => Component)[]): Entity[] {
-    return this.queryCache.getEntitiesWithComponents(this, componentTypes, this.entities.size);
+    return this.queryCache.getEntitiesWithComponents(this, componentTypes);
   }
+
+  /**
+   * Ottiene tutte le entità che hanno determinati componenti (con caching).
+   * Restituisce un array READONLY (zero allocazione se in cache).
+   * USATE questo per i sistemi che girano ogni frame.
+   */
+  getEntitiesWithComponentsReadOnly(...componentTypes: (new (...args: any[]) => Component)[]): readonly Entity[] {
+    return this.queryCache.getEntitiesWithComponentsReadOnly(this, componentTypes);
+  }
+
+
 
   /**
    * Versione non-cached per calcoli interni e testing

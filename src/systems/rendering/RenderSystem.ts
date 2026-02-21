@@ -1,4 +1,4 @@
-import { System as BaseSystem } from '../../infrastructure/ecs/System';
+﻿import { System as BaseSystem } from '../../infrastructure/ecs/System';
 import { ECS } from '../../infrastructure/ecs/ECS';
 import { Entity } from '../../infrastructure/ecs/Entity';
 import { AssetManager } from '../../core/services/AssetManager';
@@ -51,7 +51,7 @@ import { ProjectileRenderer } from '../../core/utils/rendering/ProjectileRendere
 
 /**
  * Sistema di rendering per Canvas 2D
- * Renderizza tutte le entità con componente Transform applicando la camera
+ * Renderizza tutte le entitÃ  con componente Transform applicando la camera
  */
 export class RenderSystem extends BaseSystem {
   // Static access to smoothed position for UI synchronization (Nicknames, etc.)
@@ -65,17 +65,17 @@ export class RenderSystem extends BaseSystem {
   private displayManager: DisplayManager;
   private damageTextSystem: any = null; // Sistema per renderizzare i testi di danno
   private componentCache: Map<number, any> = new Map(); // Cache componenti per ottimizzazione
-  private entityQueryCache: Entity[] = []; // Cache risultati query ECS
-  private projectileQueryCache: Entity[] = []; // Cache risultati query proiettili
+  private entityQueryCache: readonly Entity[] = []; // Cache risultati query ECS
+  private projectileQueryCache: readonly Entity[] = []; // Cache risultati query proiettili
   private projectileRenderer: ProjectileRenderer | null = null;
   private aimImage: HTMLImageElement | null = null; // Immagine per la selezione NPC
   private healthBarsFadeStartTime: number | null = null; // Timestamp quando inizia il fade delle health bars
   private readonly HEALTH_BARS_FADE_DURATION = 500; // Durata fade in millisecondi
   private engflamesSprite: AnimatedSprite | null = null; // Sprite per le fiamme del motore
   private engflamesAnimationTime: number = 0; // Tempo per l'animazione delle fiamme
-  private engflamesOpacity: number = 0; // Opacità delle fiamme (0-1) per fade in/out
+  private engflamesOpacity: number = 0; // OpacitÃ  delle fiamme (0-1) per fade in/out
   private engflamesWasMoving: boolean = false; // Stato movimento precedente per fade
-  private readonly ENGFLAMES_FADE_SPEED = 0.15; // Velocità fade in/out (per frame)
+  private readonly ENGFLAMES_FADE_SPEED = 0.15; // VelocitÃ  fade in/out (per frame)
   private frameTime: number = 0; // Timestamp sincronizzato con frame rate per float offset
   private portalAnimationTime: number = 0; // Tempo per l'animazione del portale
   private readonly PORTAL_ANIMATION_FRAME_DURATION = 16.67; // ms per frame (~60fps)
@@ -142,8 +142,8 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
-   * Trova l'entità player basandosi sui suoi componenti unici quando PlayerSystem non è ancora inizializzato
-   * Il player è l'unica entità che ha Transform ma non ha componenti NPC (Npc o RemotePlayer)
+   * Trova l'entitÃ  player basandosi sui suoi componenti unici quando PlayerSystem non Ã¨ ancora inizializzato
+   * Il player Ã¨ l'unica entitÃ  che ha Transform ma non ha componenti NPC (Npc o RemotePlayer)
    */
   private findPlayerByComponents(): Entity | null {
     for (const entity of this.entityQueryCache) {
@@ -153,7 +153,7 @@ export class RenderSystem extends BaseSystem {
       const hasPet = this.ecs.hasComponent(entity, Pet);
       const hasRemotePet = this.ecs.hasComponent(entity, RemotePet);
 
-      // Il player ha Transform ma non è NPC né remote player
+      // Il player ha Transform ma non Ã¨ NPC nÃ© remote player
       if (hasTransform && !hasNpc && !hasRemotePlayer && !hasPet && !hasRemotePet) {
         // Verifica aggiuntiva: dovrebbe avere componenti specifici del player
         const hasHealth = this.ecs.hasComponent(entity, Health);
@@ -198,8 +198,8 @@ export class RenderSystem extends BaseSystem {
    */
   private clearComponentCache(): void {
     this.componentCache.clear();
-    this.entityQueryCache.length = 0; // Svuota array invece di riassegnare
-    this.projectileQueryCache.length = 0;
+    this.entityQueryCache = [];
+    this.projectileQueryCache = [];
   }
 
 
@@ -395,11 +395,11 @@ export class RenderSystem extends BaseSystem {
   }
 
   /**
-   * Renderizza informazioni di debug sull'interpolazione (solo in modalità DEBUG)
+   * Renderizza informazioni di debug sull'interpolazione (solo in modalitÃ  DEBUG)
    */
   private renderInterpolationDebug(ctx: CanvasRenderingContext2D): void {
     // Trova il primo remote player con un InterpolationTarget
-    const entities = this.ecs.getEntitiesWithComponents(RemotePlayer, InterpolationTarget);
+    const entities = this.ecs.getEntitiesWithComponentsReadOnly(RemotePlayer, InterpolationTarget);
     if (entities.length === 0) return;
 
     const entity = entities[0];
@@ -459,7 +459,7 @@ export class RenderSystem extends BaseSystem {
         console.log(`[DEBUG_FLAMES] Player not moving enough - velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)})`);
       }
     } else if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) {
-      console.log(`[DEBUG_FLAMES] ✅ Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
+      console.log(`[DEBUG_FLAMES] âœ… Player is MOVING! Velocity: (${velocity.x.toFixed(2)}, ${velocity.y.toFixed(2)}) - Flames should appear (opacity: ${this.engflamesOpacity})`);
     }
 
     // Gestisci fiamme del motore
@@ -483,7 +483,7 @@ export class RenderSystem extends BaseSystem {
       worldOpacity = this.cameraSystem.getWorldOpacity();
     }
 
-    // DEBUG: Log opacità globale per investigare problema rendering
+    // DEBUG: Log opacitÃ  globale per investigare problema rendering
     if (worldOpacity < 1) {
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_RENDER] worldOpacity: ${worldOpacity}, isZoomAnimating: ${isZoomAnimating}`);
     }
@@ -508,7 +508,7 @@ export class RenderSystem extends BaseSystem {
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_RENDER] Zoom animation finished - opacity back to normal`);
     }
 
-    // Salva stato e applica opacità
+    // Salva stato e applica opacitÃ 
     ctx.save();
     ctx.globalAlpha = worldOpacity;
     // Svuota cache componenti ad ogni frame per dati freschi
@@ -541,7 +541,7 @@ export class RenderSystem extends BaseSystem {
     // Render NPC beam effects (laser attacks) - TEMPORANEAMENTE DISABILITATO
     // TODO: Riabilitare dopo aver fixato il sistema di selezione NPC
 
-    // Ripristina opacità
+    // Ripristina opacitÃ 
     ctx.restore();
   }
 
@@ -551,7 +551,7 @@ export class RenderSystem extends BaseSystem {
   private renderEntities(ctx: CanvasRenderingContext2D, camera: Camera): void {
     // OTTIMIZZAZIONE: Cache risultati query ECS invece di chiamare ogni volta
     if (this.entityQueryCache.length === 0) {
-      this.entityQueryCache = this.ecs.getEntitiesWithComponents(Transform);
+      this.entityQueryCache = this.ecs.getEntitiesWithComponentsReadOnly(Transform);
     }
     const entities = this.entityQueryCache;
     const { width, height } = this.displayManager.getLogicalSize();
@@ -564,7 +564,7 @@ export class RenderSystem extends BaseSystem {
     let playerEntity = this.playerSystem.getPlayerEntity();
 
     // Se PlayerSystem non ha il player (inizializzazione non completata), identifica il player dai suoi componenti unici
-    // Il player � l'unica entit� con Transform ma senza componenti NPC
+    // Il player è l'unica entità con Transform ma senza componenti NPC
     if (!playerEntity) {
       playerEntity = this.findPlayerByComponents();
     }
@@ -603,7 +603,7 @@ export class RenderSystem extends BaseSystem {
       }
     }
 
-    // Render space stations PRIMA di tutte le altre entit� (pi� in background)
+    // Render space stations PRIMA di tutte le altre entità (più in background)
     for (const entity of spaceStations) {
       const components = this.getCachedComponents(entity);
       if (components.transform) {
@@ -632,7 +632,7 @@ export class RenderSystem extends BaseSystem {
       }
     }
 
-    // Render altre entit� (portali, NPC, ecc.) - player verr� renderizzato dopo
+    // Render altre entità (portali, NPC, ecc.) - player verrà renderizzato dopo
     for (const entity of otherEntities) {
       // OTTIMIZZAZIONE: Usa cache componenti invece di chiamate ripetute getComponent()
       const components = this.getCachedComponents(entity);
@@ -641,7 +641,7 @@ export class RenderSystem extends BaseSystem {
       if (components.parallax) continue;
 
       if (components.transform) {
-        // Per entit� remote, usa coordinate interpolate se disponibili
+        // Per entità remote, usa coordinate interpolate se disponibili
         let renderX = components.transform.x;
         let renderY = components.transform.y;
 
@@ -651,7 +651,7 @@ export class RenderSystem extends BaseSystem {
           renderX = interpolationTarget.renderX;
           renderY = interpolationTarget.renderY;
         }
-        // FIX: Se � un effetto di riparazione collegato al Local Player, usa la posizione smoothed
+        // FIX: Se è un effetto di riparazione collegato al Local Player, usa la posizione smoothed
         else if (components.repairEffect &&
           RenderSystem.smoothedLocalPlayerPos &&
           components.repairEffect.targetEntityId === RenderSystem.smoothedLocalPlayerId) {
@@ -683,9 +683,9 @@ export class RenderSystem extends BaseSystem {
           projectileVisualState: components.projectileVisualState
         }, camera);
 
-        // Render health/shield bars con fade quando l'animazione zoom � completata
+        // Render health/shield bars con fade quando l'animazione zoom è completata
         if (!isZoomAnimating && (components.health || components.shield)) {
-          // Inizia il fade quando l'animazione � appena completata
+          // Inizia il fade quando l'animazione è appena completata
           if (this.healthBarsFadeStartTime === null) {
             this.healthBarsFadeStartTime = Date.now();
           }
@@ -720,7 +720,7 @@ export class RenderSystem extends BaseSystem {
       }, camera);
     }
 
-    // Render player DOPO tutte le altre entit� (sopra portali, NPC e space stations)
+    // Render player DOPO tutte le altre entità (sopra portali, NPC e space stations)
     // This ensures the player is rendered on top with proper priority
     if (playerEntity) {
       const playerTransform = this.ecs.getComponent(playerEntity, Transform);
@@ -776,9 +776,9 @@ export class RenderSystem extends BaseSystem {
           projectileVisualState: components.projectileVisualState
         }, camera);
 
-        // Render health/shield bars con fade quando l'animazione zoom � completata
+        // Render health/shield bars con fade quando l'animazione zoom è completata
         if (!isZoomAnimating && (components.health || components.shield) && isVisible) {
-          // Inizia il fade quando l'animazione � appena completata
+          // Inizia il fade quando l'animazione è appena completata
           if (this.healthBarsFadeStartTime === null) {
             this.healthBarsFadeStartTime = Date.now();
           }
@@ -966,7 +966,7 @@ export class RenderSystem extends BaseSystem {
         return;
       }
 
-      // Controlla se questa entità è un portale per applicare animazione temporale
+      // Controlla se questa entitÃ  Ã¨ un portale per applicare animazione temporale
       const isPortal = this.ecs.hasComponent(entity, Portal);
       if (isPortal) {
         // Portali: usa animazione temporale (come GIF)
@@ -997,11 +997,11 @@ export class RenderSystem extends BaseSystem {
    * Render repair effect
    */
   private renderRepairEffect(ctx: CanvasRenderingContext2D, transform: Transform, repairEffect: RepairEffect, screenX: number, screenY: number): void {
-    // 🚀 FIX: Se è un effetto scudo per un PLAYER, mostra solo se HP > 50%
+    // ðŸš€ FIX: Se Ã¨ un effetto scudo per un PLAYER, mostra solo se HP > 50%
     if (repairEffect.repairType === 'shield') {
       const targetEntity = this.ecs.getEntity(repairEffect.targetEntityId);
       if (targetEntity) {
-        // Controlla se è un player (locale o remoto)
+        // Controlla se Ã¨ un player (locale o remoto)
         const isRemotePlayer = this.ecs.hasComponent(targetEntity, RemotePlayer);
         const playerEntity = this.playerSystem?.getPlayerEntity();
         const isLocalPlayer = playerEntity && targetEntity.id === playerEntity.id;
@@ -1033,13 +1033,13 @@ export class RenderSystem extends BaseSystem {
       return;
     }
 
-    // Carica l'immagine in modo lazy se non è già caricata
+    // Carica l'immagine in modo lazy se non Ã¨ giÃ  caricata
     if (!this.aimImage) {
       this.aimImage = this.assetManager.getOrLoadImage('assets/aim/aim.png');
       if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] Loading aim.png...`);
     }
 
-    // Se l'immagine non è ancora caricata, non renderizzare nulla
+    // Se l'immagine non Ã¨ ancora caricata, non renderizzare nulla
     if (!this.aimImage || !this.aimImage.complete || this.aimImage.naturalWidth === 0) {
       if (!this.aimImage) {
         if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] aimImage is null`);
@@ -1066,18 +1066,18 @@ export class RenderSystem extends BaseSystem {
       size
     );
 
-    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] ✅ Aim RENDERED for NPC at (${screenX.toFixed(1)}, ${screenY.toFixed(1)})`);
+    if (PLAYTEST_CONFIG.ENABLE_DEBUG_MESSAGES) console.log(`[DEBUG_AIM] âœ… Aim RENDERED for NPC at (${screenX.toFixed(1)}, ${screenY.toFixed(1)})`);
     ctx.restore();
   }
 
   /**
    * Renderizza un cerchio rosso di debug che mostra il range di attacco del player
-   * Solo in modalità sviluppo (DEV)
+   * Solo in modalitÃ  sviluppo (DEV)
    */
 
 
   /**
-   * Renderizza il raggio di interesse di rete (5000 unità) intorno al player
+   * Renderizza il raggio di interesse di rete (5000 unitÃ ) intorno al player
    */
   private renderInterestRadius(ctx: CanvasRenderingContext2D, camera: Camera): void {
     const playerEntity = this.playerSystem.getPlayerEntity();
@@ -1117,7 +1117,7 @@ export class RenderSystem extends BaseSystem {
   }
 
   private renderResourceHitboxDebug(ctx: CanvasRenderingContext2D, camera: Camera): void {
-    const entities = this.ecs.getEntitiesWithComponents(Transform, ResourceNode);
+    const entities = this.ecs.getEntitiesWithComponentsReadOnly(Transform, ResourceNode);
     if (!entities.length) return;
 
     const { width, height } = this.displayManager.getLogicalSize();

@@ -46,13 +46,15 @@ export class PlayerStateUpdateHandler extends BaseMessageHandler {
     // AGGIORNA IL GAME CONTEXT CON STATO COMPLETO (server authoritative)
     // Nota: inventory può essere undefined per messaggi di riparazione che aggiornano solo HP/shield
     if (networkSystem.gameContext && inventory) {
-      // Aggiorna inventory nel GameContext
+      // Aggiorna inventory nel GameContext - conserva missileAmmo se già presente
       networkSystem.gameContext.playerInventory = {
+        ...networkSystem.gameContext.playerInventory,
         credits: inventory.credits,
         cosmos: inventory.cosmos,
         experience: inventory.experience,
         honor: inventory.honor,
-        ammo: normalizedAmmoInventory ?? networkSystem.gameContext.playerAmmoInventory ?? undefined,
+        ammo: normalizedAmmoInventory ?? networkSystem.gameContext.playerAmmoInventory ?? networkSystem.gameContext.playerInventory?.ammo,
+        missileAmmo: missileAmmo ?? networkSystem.gameContext.playerMissileInventory ?? networkSystem.gameContext.playerInventory?.missileAmmo,
         recentHonor: recentHonor // Includi RecentHonor se disponibile
       };
     }

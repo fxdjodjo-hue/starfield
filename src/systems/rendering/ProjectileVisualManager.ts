@@ -17,7 +17,7 @@ import { ProjectileLogger } from '../../core/utils/ProjectileLogger';
  * - Logging centralizzato degli stati visivi
  */
 export class ProjectileVisualManager extends BaseSystem {
-  private projectileEntities: Entity[] = [];
+  private projectileEntities: readonly Entity[] = [];
   private lastUpdateTime: number = 0;
 
   constructor(ecs: ECS) {
@@ -47,7 +47,7 @@ export class ProjectileVisualManager extends BaseSystem {
    * Aggiorna la cache delle entità proiettili
    */
   private updateProjectileCache(): void {
-    this.projectileEntities = this.ecs.getEntitiesWithComponents(Projectile, ProjectileVisualState);
+    this.projectileEntities = this.ecs.getEntitiesWithComponentsReadOnly(Projectile, ProjectileVisualState);
   }
 
   /**
@@ -299,7 +299,7 @@ export class ProjectileVisualManager extends BaseSystem {
    * Cleanup alla distruzione del sistema
    */
   destroy(): void {
-    this.projectileEntities.length = 0;
+    this.projectileEntities = [];
     LoggerWrapper.render('ProjectileVisualManager destroyed');
   }
 }

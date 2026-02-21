@@ -14,12 +14,43 @@ import { getPlayerDefinition } from '../../../../config/PlayerConfig';
  * Manages player statistics rendering and updates
  */
 export class UpgradeStatsManager {
+  // Element cache to avoid per-frame querySelector calls
+  private elementCache: Map<string, HTMLElement> = new Map();
+  // Value cache to avoid redundant DOM updates (memoization)
+  private lastValues: Map<string, string> = new Map();
+
   constructor(
     private readonly ecs: ECS,
     private readonly playerSystem: PlayerSystem | null,
     private readonly container: HTMLElement | null,
     private readonly calculateCost: (statType: string, currentLevel: number) => { credits: number, cosmos: number }
   ) { }
+
+  /**
+   * Helper to get or cache an element
+   */
+  private getElement(selector: string): HTMLElement | null {
+    if (!this.container) return null;
+    let element = this.elementCache.get(selector);
+    if (!element) {
+      element = this.container.querySelector(selector) as HTMLElement;
+      if (element) {
+        this.elementCache.set(selector, element);
+      }
+    }
+    return element;
+  }
+
+  /**
+   * Updates text content only if it has changed
+   */
+  private updateText(selector: string, value: string): void {
+    const element = this.getElement(selector);
+    if (element && this.lastValues.get(selector) !== value) {
+      element.textContent = value;
+      this.lastValues.set(selector, value);
+    }
+  }
 
   /**
    * Gets the initial value of a statistic
@@ -68,95 +99,57 @@ export class UpgradeStatsManager {
     if (playerUpgrades) {
       // Show real HP from server (already includes upgrades)
       if (health) {
-        const hpValue = this.container.querySelector('.stat-current-hp') as HTMLElement;
-        if (hpValue) {
-          hpValue.textContent = NumberFormatter.format(health.max);
-        }
+        this.updateText('.stat-current-hp', NumberFormatter.format(health.max));
       }
 
       // Show real Shield from server (already includes upgrades)
       if (shield) {
-        const shieldValue = this.container.querySelector('.stat-current-shield') as HTMLElement;
-        if (shieldValue) {
-          shieldValue.textContent = NumberFormatter.format(shield.max);
-        }
+        this.updateText('.stat-current-shield', NumberFormatter.format(shield.max));
       }
 
       // Update speed with bonus from upgrades and items
       const speedBonus = playerUpgrades.getSpeedBonus(inventory);
       const calculatedSpeed = Math.floor(playerDef.stats.speed * speedBonus);
-
-      const speedValue = this.container.querySelector('.stat-current-speed') as HTMLElement;
-      if (speedValue) {
-        speedValue.textContent = `${NumberFormatter.format(calculatedSpeed)} u/s`;
-      }
+      this.updateText('.stat-current-speed', `${NumberFormatter.format(calculatedSpeed)} u/s`);
 
       // Calculate and update damage with bonus from upgrades and items
       if (damage && playerDef.stats.damage) {
         const damageBonus = playerUpgrades.getDamageBonus(inventory);
         const calculatedDamage = Math.floor(playerDef.stats.damage * damageBonus);
-
-        const damageValue = this.container.querySelector('.stat-current-damage') as HTMLElement;
-        if (damageValue) {
-          damageValue.textContent = NumberFormatter.format(calculatedDamage);
-        }
+        this.updateText('.stat-current-damage', NumberFormatter.format(calculatedDamage));
       }
 
       // Update missile damage with bonus from upgrades and items
       const missileDamageBonus = playerUpgrades.getMissileDamageBonus(inventory);
       const baseMissileDamage = playerDef.stats.missileDamage || 100;
       const calculatedMissileDamage = Math.floor(baseMissileDamage * missileDamageBonus);
-
-      const missileDamageValue = this.container.querySelector('.stat-current-missileDamage') as HTMLElement;
-      if (missileDamageValue) {
-        missileDamageValue.textContent = NumberFormatter.format(calculatedMissileDamage);
-      }
+      this.updateText('.stat-current-missileDamage', NumberFormatter.format(calculatedMissileDamage));
 
       // Update displayed levels
-      const hpLevel = this.container.querySelector('.stat-level-hp') as HTMLElement;
-      if (hpLevel) hpLevel.textContent = `Lv.${playerUpgrades.hpUpgrades}`;
-
-      const shieldLevel = this.container.querySelector('.stat-level-shield') as HTMLElement;
-      if (shieldLevel) shieldLevel.textContent = `Lv.${playerUpgrades.shieldUpgrades}`;
-
-      const speedLevel = this.container.querySelector('.stat-level-speed') as HTMLElement;
-      if (speedLevel) speedLevel.textContent = `Lv.${playerUpgrades.speedUpgrades}`;
-
-      const damageLevel = this.container.querySelector('.stat-level-damage') as HTMLElement;
-      if (damageLevel) damageLevel.textContent = `Lv.${playerUpgrades.damageUpgrades}`;
-
-      const missileDamageLevel = this.container.querySelector('.stat-level-missileDamage') as HTMLElement;
-      if (missileDamageLevel) missileDamageLevel.textContent = `Lv.${playerUpgrades.missileDamageUpgrades}`;
+      this.updateText('.stat-level-hp', `Lv.${playerUpgrades.hpUpgrades}`);
+      this.updateText('.stat-level-shield', `Lv.${playerUpgrades.shieldUpgrades}`);
+      this.updateText('.stat-level-speed', `Lv.${playerUpgrades.speedUpgrades}`);
+      this.updateText('.stat-level-damage', `Lv.${playerUpgrades.damageUpgrades}`);
+      this.updateText('.stat-level-missileDamage', `Lv.${playerUpgrades.missileDamageUpgrades}`);
 
       // Update upgrade button states (enabled/disabled)
       this.updateButtons(playerUpgrades, playerDef.upgrades, this.calculateCost);
     }
 
     // Update current resources in the panel
-    if (this.playerSystem) {
-      const playerEntity = this.playerSystem.getPlayerEntity();
-      if (playerEntity) {
-        const credits = this.ecs.getComponent(playerEntity, Credits);
-        const cosmos = this.ecs.getComponent(playerEntity, Cosmos);
+    const credits = this.ecs.getComponent(playerEntity, Credits);
+    const cosmos = this.ecs.getComponent(playerEntity, Cosmos);
 
-        // Update current credits
-        if (credits) {
-          const creditsValue = this.container.querySelector('.current-credits') as HTMLElement;
-          if (creditsValue) {
-            const creditsAmount = credits.credits || 0;
-            creditsValue.textContent = NumberFormatter.format(creditsAmount);
-          }
-        }
+    // Update current credits
+    if (credits) {
+      const creditsAmount = credits.credits || 0;
+      this.updateText('.current-credits', NumberFormatter.format(creditsAmount));
+    }
 
-        // Update current cosmos
-        if (cosmos) {
-          const cosmosValue = this.container.querySelector('.current-cosmos') as HTMLElement;
-          if (cosmosValue) {
-            const cosmosAmount = cosmos.cosmos || 0;
-            cosmosValue.textContent = NumberFormatter.format(cosmosAmount);
-          }
-        }
-      }
+    // Update current cosmos
+    if (cosmos) {
+      const cosmosAmount = cosmos.cosmos || 0;
+      this.updateText('.current-cosmos', NumberFormatter.format(cosmosAmount));
     }
   }
 
@@ -185,7 +178,7 @@ export class UpgradeStatsManager {
       const maxValue = upgradeLimits[`max${statType.charAt(0).toUpperCase() + statType.slice(1)}Upgrades`];
 
       // Find the container and then the internal button
-      const container = uiContainer.querySelector(containerClass) as HTMLElement;
+      const container = this.getElement(containerClass);
       if (!container) return;
 
       const upgradeButton = container.querySelector('.ui-upgrade-btn') as HTMLElement;
@@ -196,21 +189,25 @@ export class UpgradeStatsManager {
 
       if (currentValue >= maxValue) {
         // Limit reached - disable button
-        upgradeButton.style.opacity = '0.5';
-        upgradeButton.style.pointerEvents = 'none';
-        upgradeButton.style.background = 'rgba(100, 100, 100, 0.3)';
-        upgradeButton.style.borderColor = 'rgba(100, 100, 100, 0.5)';
-        upgradeButton.textContent = 'MAX';
+        if (upgradeButton.textContent !== 'MAX') {
+          upgradeButton.style.opacity = '0.5';
+          upgradeButton.style.pointerEvents = 'none';
+          upgradeButton.style.background = 'rgba(100, 100, 100, 0.3)';
+          upgradeButton.style.borderColor = 'rgba(100, 100, 100, 0.5)';
+          upgradeButton.textContent = 'MAX';
+        }
 
         // Nascondi il costo
-        if (costLabel) {
+        if (costLabel && costLabel.style.display !== 'none') {
           costLabel.style.display = 'none';
         }
       } else {
         // Not at limit - enable button and update costs
-        upgradeButton.style.opacity = '1';
-        upgradeButton.style.pointerEvents = 'auto';
-        upgradeButton.textContent = 'UPGRADE';
+        if (upgradeButton.textContent !== 'UPGRADE') {
+          upgradeButton.style.opacity = '1';
+          upgradeButton.style.pointerEvents = 'auto';
+          upgradeButton.textContent = 'UPGRADE';
+        }
 
         // Update the cost
         if (costLabel) {
@@ -230,9 +227,12 @@ export class UpgradeStatsManager {
                 costLabel.appendChild(creditsLine);
               }
             }
-            creditsLine.textContent = `${NumberFormatter.format(newCost.credits)} Credits`;
-            creditsLine.style.display = 'block';
-          } else if (creditsLine) {
+            const creditsText = `${NumberFormatter.format(newCost.credits)} Credits`;
+            if (creditsLine.textContent !== creditsText) {
+              creditsLine.textContent = creditsText;
+            }
+            if (creditsLine.style.display !== 'block') creditsLine.style.display = 'block';
+          } else if (creditsLine && creditsLine.style.display !== 'none') {
             creditsLine.style.display = 'none';
           }
 
@@ -245,13 +245,16 @@ export class UpgradeStatsManager {
               cosmosLine.style.cssText = `font-size: 11px; color: #a78bfa; font-weight: 500;`;
               costLabel.appendChild(cosmosLine);
             }
-            cosmosLine.textContent = `${NumberFormatter.format(newCost.cosmos)} Cosmos`;
-            cosmosLine.style.display = 'block';
-          } else if (cosmosLine) {
+            const cosmosText = `${NumberFormatter.format(newCost.cosmos)} Cosmos`;
+            if (cosmosLine.textContent !== cosmosText) {
+              cosmosLine.textContent = cosmosText;
+            }
+            if (cosmosLine.style.display !== 'block') cosmosLine.style.display = 'block';
+          } else if (cosmosLine && cosmosLine.style.display !== 'none') {
             cosmosLine.style.display = 'none';
           }
 
-          costLabel.style.display = 'flex';
+          if (costLabel.style.display !== 'flex') costLabel.style.display = 'flex';
         }
       }
     });
@@ -259,8 +262,7 @@ export class UpgradeStatsManager {
 
   /**
    * Updates the player's physical statistics (HP, Shield, Speed) after an upgrade
-   * @deprecated Questo metodo non è più utilizzato. Mantenuto solo per backward compatibility.
-   * Da rimuovere in versione futura.
+   * @deprecated Questo metodo non è più utilizzato.
    */
   updatePlayerPhysicalStats(): void {
     if (!this.playerSystem) return;
@@ -268,11 +270,14 @@ export class UpgradeStatsManager {
     if (!playerEntity) return;
 
     const playerDef = getPlayerDefinition();
+    const health = this.ecs.getComponent(playerEntity, Health);
+    const shield = this.ecs.getComponent(playerEntity, Shield);
+    const damage = this.ecs.getComponent(playerEntity, Damage);
     const playerUpgrades = this.ecs.getComponent(playerEntity, PlayerUpgrades);
+
     if (!playerUpgrades) return;
 
     // Update HP
-    const health = this.ecs.getComponent(playerEntity, Health);
     if (health) {
       const newMaxHP = Math.floor(playerDef.stats.health * playerUpgrades.getHPBonus());
       const currentHPPercent = health.current / health.max;
@@ -281,7 +286,6 @@ export class UpgradeStatsManager {
     }
 
     // Update Shield
-    const shield = this.ecs.getComponent(playerEntity, Shield);
     if (shield && playerDef.stats.shield) {
       const newMaxShield = Math.floor(playerDef.stats.shield * playerUpgrades.getShieldBonus());
       const currentShieldPercent = shield.current / shield.max;
@@ -290,13 +294,10 @@ export class UpgradeStatsManager {
     }
 
     // Update Damage
-    const damage = this.ecs.getComponent(playerEntity, Damage);
     if (damage) {
       const bonus = playerUpgrades.getDamageBonus();
       const newDamage = Math.floor(playerDef.stats.damage * bonus);
       damage.damage = newDamage;
     }
-
-    // Speed is updated automatically by PlayerControlSystem
   }
 }

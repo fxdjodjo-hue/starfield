@@ -79,7 +79,7 @@ export class WelcomeHandler extends BaseMessageHandler {
     if (message.initialState) {
       const {
         position, health, maxHealth, shield, maxShield,
-        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank, leaderboardPodiumRank, shipSkins, resourceInventory, petState, ammo, ammoInventory
+        inventoryLazy, upgradesLazy, questsLazy, isAdministrator, rank, leaderboardPodiumRank, shipSkins, resourceInventory, petState, ammo, ammoInventory, missileAmmo
       } = message.initialState;
 
       // IMPORTANTE: Segna che abbiamo ricevuto il welcome
@@ -115,6 +115,14 @@ export class WelcomeHandler extends BaseMessageHandler {
         this.notifyPetStateUpdated(normalizedPetState);
         this.updatePetPanel(networkSystem, normalizedPetState);
         syncLocalPetCombatStats(networkSystem.getECS(), normalizedPetState);
+      }
+
+      if (missileAmmo) {
+        networkSystem.gameContext.playerMissileInventory = missileAmmo;
+        networkSystem.gameContext.playerInventory = {
+          ...networkSystem.gameContext.playerInventory,
+          missileAmmo
+        };
       }
 
       networkSystem.invalidatePositionCache();

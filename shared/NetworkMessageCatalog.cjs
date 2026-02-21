@@ -29,6 +29,7 @@ const CLIENT_TO_SERVER_MESSAGE_TYPES = Object.freeze([
   'quest_progress_update',
   'quest_accept',
   'quest_abandon',
+  'set_missile_tier',
 
   // Legacy typo kept only for backward compatibility checks.
   'equp_item'

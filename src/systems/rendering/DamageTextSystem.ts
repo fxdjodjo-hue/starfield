@@ -69,7 +69,7 @@ export class DamageTextSystem extends BaseSystem {
     const deltaTimeSeconds = deltaTime / 1000; // Converti in secondi
 
     // Trova tutte le entità con DamageText
-    const damageTextEntities = this.ecs.getEntitiesWithComponents(DamageText);
+    const damageTextEntities = this.ecs.getEntitiesWithComponentsReadOnly(DamageText);
 
 
     for (const entity of damageTextEntities) {

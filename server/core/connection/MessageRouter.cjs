@@ -2657,6 +2657,46 @@ function handleSetAmmoTier(data, sanitizedData, context) {
   }
 }
 
+function handleSetMissileTier(data, sanitizedData, context) {
+  const { ws, playerData: contextPlayerData, mapServer, playerDataManager } = context;
+  const playerData = contextPlayerData || mapServer.players.get(data.clientId);
+  if (!playerData) return;
+
+  const requestedTier = normalizeMissileTier(sanitizedData?.missileTier || data?.missileTier, 'm1');
+  const currentMissileInventory = normalizeMissileInventory(
+    playerData.inventory?.missileAmmo
+  );
+  const nextMissileInventory = setSelectedMissileTier(currentMissileInventory, requestedTier);
+
+  if (!playerData.inventory || typeof playerData.inventory !== 'object') {
+    playerData.inventory = {};
+  }
+
+  playerData.inventory.missileAmmo = nextMissileInventory;
+
+  ws.send(JSON.stringify({
+    type: 'player_state_update',
+    missileAmmo: nextMissileInventory,
+    source: 'set_missile_tier'
+  }));
+
+  // Persist selected missile tier quickly (debounced)
+  if (playerDataManager && typeof playerDataManager.savePlayerData === 'function') {
+    try {
+      if (playerData._missileTierSaveTimeout) {
+        clearTimeout(playerData._missileTierSaveTimeout);
+      }
+      playerData._missileTierSaveTimeout = setTimeout(() => {
+        playerDataManager.savePlayerData(playerData).catch((error) => {
+          logger.error('DATABASE', `Failed to persist missile tier for ${playerData.userId}: ${error.message}`);
+        });
+      }, 500);
+    } catch (error) {
+      logger.error('DATABASE', `Error scheduling missile tier save for ${playerData.userId}: ${error.message}`);
+    }
+  }
+}
+
 async function handleCraftItem(data, sanitizedData, context) {
   const { ws, playerData: contextPlayerData, mapServer, authManager, playerDataManager } = context;
   const playerData = contextPlayerData || mapServer.players.get(data.clientId);

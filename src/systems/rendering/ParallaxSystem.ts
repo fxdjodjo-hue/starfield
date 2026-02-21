@@ -240,7 +240,7 @@ export class ParallaxSystem extends BaseSystem {
 
     // Renderizza entità parallax esistenti (background, ecc.) PRIMA delle stelle
     // Ordina per zIndex per controllare l'ordine di rendering
-    const parallaxEntities = this.ecs.getEntitiesWithComponents(Transform, ParallaxLayer);
+    const parallaxEntities = this.ecs.getEntitiesWithComponentsReadOnly(Transform, ParallaxLayer);
 
     const sortedEntities = parallaxEntities.slice().sort((a, b) => {
       const parallaxA = this.ecs.getComponent(a, ParallaxLayer);
@@ -397,7 +397,7 @@ export class ParallaxSystem extends BaseSystem {
    * Aggiorna gli offset degli elementi parallax
    */
   private updateParallaxElements(deltaX: number, deltaY: number): void {
-    const parallaxEntities = this.ecs.getEntitiesWithComponents(Transform, ParallaxLayer);
+    const parallaxEntities = this.ecs.getEntitiesWithComponentsReadOnly(Transform, ParallaxLayer);
 
     for (const entity of parallaxEntities) {
       const parallax = this.ecs.getComponent(entity, ParallaxLayer);

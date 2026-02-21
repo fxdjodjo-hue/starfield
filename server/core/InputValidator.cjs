@@ -803,6 +803,30 @@ class ServerInputValidator {
             }
           };
 
+        case 'set_missile_tier':
+          const setMissileTierErrors = [];
+          const allowedMissileTiers = ['m1', 'm2', 'm3'];
+          const normalizedMissileTier = String(data.missileTier ?? '').trim().toLowerCase();
+
+          if (!data.clientId || typeof data.clientId !== 'string') {
+            setMissileTierErrors.push('Invalid or missing clientId');
+          } else if (data.clientId.length > this.LIMITS.IDENTIFIERS.MAX_ID_LENGTH) {
+            setMissileTierErrors.push('Client ID too long');
+          }
+
+          if (!allowedMissileTiers.includes(normalizedMissileTier)) {
+            setMissileTierErrors.push('Invalid missileTier (must be m1, m2, or m3)');
+          }
+
+          return {
+            isValid: setMissileTierErrors.length === 0,
+            errors: setMissileTierErrors,
+            sanitizedData: {
+              clientId: data.clientId,
+              missileTier: normalizedMissileTier
+            }
+          };
+
         case 'set_pet_nickname':
           const petNicknameErrors = [];
           const rawPetNickname = String(data.petNickname ?? '').trim();

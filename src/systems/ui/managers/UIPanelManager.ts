@@ -315,12 +315,34 @@ export class UIPanelManager {
   private submitAmmoTierUpdate(ammoTier: AmmoTier): void {
     const networkSystem = this.clientNetworkSystem;
     if (!networkSystem) return;
+
+    // Optimistic update to prevent UI reset before server acknowledgement
+    if (networkSystem.gameContext) {
+      if (networkSystem.gameContext.playerAmmoInventory) {
+        networkSystem.gameContext.playerAmmoInventory.selectedTier = ammoTier;
+      }
+      if (networkSystem.gameContext.playerInventory?.ammo) {
+        networkSystem.gameContext.playerInventory.ammo.selectedTier = ammoTier;
+      }
+    }
+
     networkSystem.sendAmmoTierUpdateRequest(ammoTier);
   }
 
   private submitMissileTierUpdate(missileTier: MissileTier): void {
     const networkSystem = this.clientNetworkSystem;
     if (!networkSystem) return;
+
+    // Optimistic update to prevent UI reset before server acknowledgement
+    if (networkSystem.gameContext) {
+      if (networkSystem.gameContext.playerMissileInventory) {
+        networkSystem.gameContext.playerMissileInventory.selectedTier = missileTier;
+      }
+      if (networkSystem.gameContext.playerInventory?.missileAmmo) {
+        networkSystem.gameContext.playerInventory.missileAmmo.selectedTier = missileTier;
+      }
+    }
+
     // Check if method exists (it should now, but for safety/TS check)
     if (typeof networkSystem.sendMissileTierUpdateRequest === 'function') {
       networkSystem.sendMissileTierUpdateRequest(missileTier);
