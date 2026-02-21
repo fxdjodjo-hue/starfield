@@ -3,13 +3,7 @@ import type { Entity } from '../../../infrastructure/ecs/Entity';
 import type { ClientNetworkSystem } from '../../../multiplayer/client/ClientNetworkSystem';
 import { Explosion } from '../../../entities/combat/Explosion';
 import { Transform } from '../../../entities/spatial/Transform';
-import { Health } from '../../../entities/combat/Health';
-import { Shield } from '../../../entities/combat/Shield';
-import { Damage } from '../../../entities/combat/Damage';
-import { DamageTaken } from '../../../entities/combat/DamageTaken';
-import { SelectedNpc } from '../../../entities/combat/SelectedNpc';
 import { Npc } from '../../../entities/ai/Npc';
-import { Velocity } from '../../../entities/spatial/Velocity';
 import { AtlasParser } from '../../../core/utils/AtlasParser';
 import { LifeState, LifeStateType } from '../../../entities/combat/LifeState';
 import { Active } from '../../../entities/tags/Active';
@@ -20,6 +14,7 @@ import { Active } from '../../../entities/tags/Active';
 export class CombatExplosionManager {
   private explosionFrames: HTMLImageElement[] | null = null;
   private explodingEntities: Set<number> = new Set();
+  private poolCursor: number = 0;
 
   constructor(
     private readonly ecs: ECS,
@@ -80,22 +75,65 @@ export class CombatExplosionManager {
         active.isEnabled = false;
       }
 
-      // Create separate explosion entity (avoids component churn on original NPC)
-      const explosionEntity = this.ecs.createEntity();
-      const transform = this.ecs.getComponent(entity, Transform);
-      if (transform) {
-        // Add transform so it renders at the same place
-        this.ecs.addComponent(explosionEntity, Transform, new Transform(
-          transform.x,
-          transform.y,
-          transform.rotation,
-          transform.scaleX,
-          transform.scaleY
-        ));
+      // Create or reuse separate explosion entity
+      const allExplosions = this.ecs.getEntitiesWithComponentsReadOnly(Active, Explosion);
+      let explosionEntity: Entity | null = null;
+      const len = allExplosions.length;
+
+      // Find an inactive explosion entity to reuse using round-robin cursor (O(1) amortized)
+      if (len > 0) {
+        for (let i = 0; i < len; i++) {
+          const idx = (this.poolCursor + i) % len;
+          const e = allExplosions[idx];
+          const active = this.ecs.getComponent(e, Active);
+          if (active && !active.isEnabled) {
+            explosionEntity = e;
+            this.poolCursor = (idx + 1) % len;
+            break;
+          }
+        }
       }
 
-      const explosion = new Explosion(frames, 20, 1);
-      this.ecs.addComponent(explosionEntity, Explosion, explosion);
+      if (explosionEntity) {
+        // Reuse existing entity
+        const transform = this.ecs.getComponent(entity, Transform);
+        const explosionTransform = this.ecs.getComponent(explosionEntity, Transform);
+        if (transform && explosionTransform) {
+          explosionTransform.x = transform.x;
+          explosionTransform.y = transform.y;
+          explosionTransform.rotation = transform.rotation;
+          explosionTransform.scaleX = transform.scaleX;
+          explosionTransform.scaleY = transform.scaleY;
+        }
+
+        const explosion = this.ecs.getComponent(explosionEntity, Explosion);
+        if (explosion) {
+          explosion.frames = frames;
+          explosion.reset();
+        }
+
+        const active = this.ecs.getComponent(explosionEntity, Active);
+        if (active) {
+          active.isEnabled = true;
+        }
+      } else {
+        // Create new explosion entity
+        explosionEntity = this.ecs.createEntity();
+        const transform = this.ecs.getComponent(entity, Transform);
+        if (transform) {
+          this.ecs.addComponent(explosionEntity, Transform, new Transform(
+            transform.x,
+            transform.y,
+            transform.rotation,
+            transform.scaleX,
+            transform.scaleY
+          ));
+        }
+
+        const explosion = new Explosion(frames, 20, 1);
+        this.ecs.addComponent(explosionEntity, Explosion, explosion);
+        this.ecs.addComponent(explosionEntity, Active, new Active(true));
+      }
 
       // Notifica il sistema di rete per sincronizzazione multiplayer
       const clientNetworkSystem = this.getClientNetworkSystem();

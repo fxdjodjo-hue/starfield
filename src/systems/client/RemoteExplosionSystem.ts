@@ -14,6 +14,7 @@ export class RemoteExplosionSystem extends BaseSystem {
   private audioSystem: any = null;
   private pendingMissileSounds: Map<string, any> = new Map(); // Key -> TimeoutID
   private pendingExplosions: Map<string, any> = new Map(); // Key -> TimeoutID (for entity explosions)
+  private poolCursor: number = 0;
 
   constructor(ecs: ECS, gameContext: GameContext) {
     super(ecs);
@@ -65,9 +66,6 @@ export class RemoteExplosionSystem extends BaseSystem {
     explosionType: 'entity_death' | 'projectile_impact' | 'special';
   }): Promise<void> {
     try {
-      // Crea entità temporanea per l'esplosione
-      const explosionEntity = this.ecs.createEntity();
-
       // Usa i frame cachati o caricali
       let explosionFrames = this.explosionFramesCache.get(message.explosionType);
       if (!explosionFrames) {
@@ -79,17 +77,66 @@ export class RemoteExplosionSystem extends BaseSystem {
         return;
       }
 
-      // Import componenti (lazy loading per performance)
+      // Import componenti
       const { Explosion } = await import('../../entities/combat/Explosion');
       const { Transform } = await import('../../entities/spatial/Transform');
+      const { Active } = await import('../../entities/tags/Active');
 
-      // Crea componenti
-      const transform = new Transform(message.position.x, message.position.y, 0);
-      const explosion = new Explosion(explosionFrames, 20, 1); // 20ms per frame
+      // Crea or reuse entità temporanea per l'esplosione
+      const allExplosions = this.ecs.getEntitiesWithComponentsReadOnly(Active, Explosion);
+      let explosionEntity: Entity | null = null;
+      const len = allExplosions.length;
 
-      // Aggiungi componenti all'entità
-      this.ecs.addComponent(explosionEntity, Transform, transform);
-      this.ecs.addComponent(explosionEntity, Explosion, explosion);
+      if (len > 0) {
+        for (let i = 0; i < len; i++) {
+          const idx = (this.poolCursor + i) % len;
+          const e = allExplosions[idx];
+          const active = this.ecs.getComponent(e, Active);
+          if (active && !active.isEnabled) {
+            explosionEntity = e;
+            this.poolCursor = (idx + 1) % len;
+            break;
+          }
+        }
+      }
+
+      if (explosionEntity) {
+        const transform = this.ecs.getComponent(explosionEntity, Transform);
+        if (transform) {
+          transform.x = message.position.x;
+          transform.y = message.position.y;
+        }
+
+        const explosion = this.ecs.getComponent(explosionEntity, Explosion);
+        if (explosion) {
+          explosion.frames = explosionFrames;
+
+          if (typeof explosion.reset === 'function') {
+            explosion.reset();
+          } else {
+            explosion.currentFrame = 0;
+            explosion.frameTime = 0;
+            explosion.currentLoop = 0;
+            explosion.isFinished = false;
+          }
+        }
+
+        const active = this.ecs.getComponent(explosionEntity, Active);
+        if (active) {
+          active.isEnabled = true;
+        }
+      } else {
+        // Create new
+        explosionEntity = this.ecs.createEntity();
+        const transform = new Transform(message.position.x, message.position.y, 0);
+        const explosion = new Explosion(explosionFrames, 20, 1); // 20ms per frame
+        const active = new Active(true);
+
+        // Aggiungi componenti all'entità
+        this.ecs.addComponent(explosionEntity, Transform, transform);
+        this.ecs.addComponent(explosionEntity, Explosion, explosion);
+        this.ecs.addComponent(explosionEntity, Active, active);
+      }
 
       // Riproduci suono esplosione sincronizzato con prioritizzazione
       if (this.audioSystem) {

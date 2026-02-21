@@ -1,5 +1,9 @@
 import { ECS } from '../../../infrastructure/ecs/ECS';
 import { LogSystem } from '../../../systems/rendering/LogSystem';
+import { Transform } from '../../../entities/spatial/Transform';
+import { Health } from '../../../entities/combat/Health';
+import { Active } from '../../../entities/tags/Active';
+import { DamageText } from '../../../entities/combat/DamageText';
 
 /**
  * PerformanceMonitor - Utility for tracking and logging game performance metrics.
@@ -9,12 +13,71 @@ export class PerformanceMonitor {
     private readonly logInterval: number = 1000; // Log every 1 second
     private startTime: number = Date.now();
 
+    private lastSanityCheckTime: number = 0;
+    private readonly sanityCheckInterval: number = 30000; // Log sanity check every 30 seconds
+
     constructor(
         private readonly ecs: ECS,
         private readonly logSystem: LogSystem
     ) {
         console.log('[PerformanceMonitor] Initialized');
         this.printCSVHeader();
+        this.initSoakTest();
+    }
+
+    private initSoakTest(): void {
+        (window as any).runSoakTest = (durationMs: number = 600000, entitiesCount: number = 1000) => {
+            console.log(`🚀 Starting Soak Test for ${durationMs / 1000}s with ${entitiesCount} baseline entities...`);
+
+            // Spawn dummy entities
+            const testEntities: any[] = [];
+            for (let i = 0; i < entitiesCount; i++) {
+                const e = this.ecs.createEntity();
+                this.ecs.addComponent(e, Transform, new Transform(0, 0, 0));
+                this.ecs.addComponent(e, Health, new Health(100, 100));
+                this.ecs.addComponent(e, Active, new Active(true));
+                testEntities.push(e);
+            }
+
+            console.log(`✅ Spawned ${entitiesCount} entities. Starting mutation churn...`);
+
+            // Churn interval
+            const interval = setInterval(() => {
+                const churnCount = Math.floor(entitiesCount * 0.1); // 10% churn per tick
+                for (let i = 0; i < churnCount; i++) {
+                    const idx = Math.floor(Math.random() * entitiesCount);
+                    const e = testEntities[idx];
+
+                    // Toggle Active state (in-place mutation, no structural churn)
+                    const active = this.ecs.getComponent(e, Active);
+                    if (active) {
+                        active.isEnabled = !active.isEnabled;
+                    }
+
+                    // Mutate Health (in-place mutation)
+                    const health = this.ecs.getComponent(e, Health);
+                    if (health) {
+                        health.setHealth(Math.random() * 100);
+                    }
+
+                    // Note: We avoid testing structural create/removeEntity loops here 
+                    // because the new architecture specifically avoids them in hot paths.
+                    // If a structural churn test is explicitly needed, use a separate test.
+                }
+            }, 100);
+
+            // Cleanup timeout
+            setTimeout(() => {
+                clearInterval(interval);
+                console.log(`🛑 Soak Test Finished. Cleaning up ${testEntities.length} entities...`);
+                for (const e of testEntities) {
+                    this.ecs.removeEntity(e);
+                }
+                this.runSanityCheck();
+                console.log(`✅ Cleanup complete. Check ECS Sanity Check logs above.`);
+            }, durationMs);
+        };
+        console.log(`🧪 [Soak Test] Available via console: window.runSoakTest(durationMs, entitiesCount)`);
     }
 
     private printCSVHeader(): void {
@@ -40,6 +103,29 @@ export class PerformanceMonitor {
 
         const metrics = this.collectMetrics();
         this.logMetricsCSV(metrics);
+
+        if (now - this.lastSanityCheckTime >= this.sanityCheckInterval) {
+            this.lastSanityCheckTime = now;
+            this.runSanityCheck();
+        }
+    }
+
+    private runSanityCheck(): void {
+        const stats = this.ecs.queryCache.getCacheStats();
+        console.log(`\n--- [ECS Sanity Check] ---`);
+        console.log(`Cache Size: ${stats.cacheSize}`);
+        console.log(`Query Components Size: ${stats.queryComponentsSize}`);
+        console.log(`Reverse Index Total Size: ${stats.reverseIndexTotalSize}`);
+
+        const top5Str = stats.top5ReverseIndex
+            .map(s => `${s.key} (${s.size})`)
+            .join(' | ');
+        console.log(`Top 5 Reverse Index Keys:\n  ${top5Str}`);
+
+        if (stats.reverseIndexTotalSize > (stats.cacheSize + stats.queryComponentsSize) * 3) {
+            console.warn(`[ECS WARNING] Reverse Index is growing much larger than Cache! Check for stale keys.`);
+        }
+        console.log(`--------------------------\n`);
     }
 
     private collectMetrics(): any {

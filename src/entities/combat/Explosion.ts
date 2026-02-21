@@ -79,4 +79,14 @@ export class Explosion extends Component {
   isAnimationFinished(): boolean {
     return this.isFinished;
   }
+
+  /**
+   * Resetta l'esplosione per il pooling
+   */
+  reset(): void {
+    this.currentFrame = 0;
+    this.frameTime = 0;
+    this.currentLoop = 0;
+    this.isFinished = false;
+  }
 }

@@ -177,6 +177,26 @@ class EntityQueryCache {
     return (this.getEntitiesWithComponentsReadOnly(ecs, componentTypes) as Entity[]).slice();
   }
 
+  getCacheStats(): { cacheSize: number, queryComponentsSize: number, reverseIndexTotalSize: number, top5ReverseIndex: { key: string, size: number }[] } {
+    let reverseIndexTotalSize = 0;
+    const reverseIndexDetails: { key: string, size: number }[] = [];
+
+    for (const [key, set] of this.reverseIndex.entries()) {
+      reverseIndexTotalSize += set.size;
+      reverseIndexDetails.push({ key, size: set.size });
+    }
+
+    reverseIndexDetails.sort((a, b) => b.size - a.size);
+    const top5ReverseIndex = reverseIndexDetails.slice(0, 5);
+
+    return {
+      cacheSize: this.cache.size,
+      queryComponentsSize: this.queryComponents.size,
+      reverseIndexTotalSize,
+      top5ReverseIndex
+    };
+  }
+
   private getCacheKey(componentTypes: (new (...args: any[]) => Component)[]): string {
     if (componentTypes.length === 0) return "__all__";
     return componentTypes.map(type => type.name).sort().join(',');
