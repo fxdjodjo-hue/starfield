@@ -130,9 +130,9 @@ export class CombatSystem extends BaseSystem {
   /**
    * Crea un testo di danno (chiamato dal ProjectileSystem quando applica danno)
    */
-  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3'): void {
+  createDamageText(targetEntity: Entity, damage: number, isShieldDamage: boolean = false, isBoundsDamage: boolean = false, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3', worldX?: number, worldY?: number): void {
     this.initializeManagers();
-    this.damageManager.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType);
+    this.damageManager.createDamageText(targetEntity, damage, isShieldDamage, isBoundsDamage, projectileType, worldX, worldY);
   }
 
   /**
@@ -141,6 +141,19 @@ export class CombatSystem extends BaseSystem {
   public decrementDamageTextCount(targetEntityId: number, projectileType?: 'laser' | 'pet_laser' | 'npc_laser' | 'missile' | 'lb1' | 'lb2' | 'lb3' | 'm1' | 'm2' | 'm3'): void {
     this.initializeManagers();
     this.damageManager.decrementDamageTextCount(targetEntityId, projectileType);
+  }
+
+  /**
+   * Triggers a shield hit visual effect
+   */
+  public triggerShieldHitEffect(
+    targetEntity: Entity,
+    impactPosition?: { x: number; y: number },
+    attackerPosition?: { x: number; y: number }
+  ): void {
+    this.initializeManagers();
+    console.log(`[COMBAT_SYSTEM_DEBUG] triggerShieldHitEffect called for entity ID: ${targetEntity.id}`);
+    void this.explosionManager.triggerShieldHitEffect(targetEntity, impactPosition, attackerPosition);
   }
 
   /**

@@ -421,6 +421,9 @@ export class ProjectileSystem extends BaseSystem {
           continue; // Non rimuovere, continua a volare
         }
 
+        // Local prediction: notify combat system of damage/visuals
+        this.notifyCombatSystemOfDamage(targetEntity, projectile.damage, projectile, { x: endX, y: endY });
+
         // Colpito il target corretto - il server dovrebbe averlo già rimosso,
         // ma per sicurezza rimuoviamo anche localmente
         this.ecs.removeEntity(projectileEntity);
@@ -618,7 +621,7 @@ export class ProjectileSystem extends BaseSystem {
   /**
    * Notifica il CombatSystem quando viene applicato danno
    */
-  private notifyCombatSystemOfDamage(targetEntity: any, damage: number, projectile?: Projectile): void {
+  private notifyCombatSystemOfDamage(targetEntity: any, damage: number, projectile?: Projectile, impactPosition?: { x: number; y: number }): void {
     // Cerca il CombatSystem nell'ECS (robusto contro minificazione)
     const systems = this.ecs.getSystems();
     const combatSystem = systems.find((system): system is CombatSystem =>
@@ -639,6 +642,13 @@ export class ProjectileSystem extends BaseSystem {
       if (targetShield && targetShield.isActive()) {
         const shieldDamage = Math.min(damage, targetShield.current);
         combatSystem.createDamageText(targetEntity, shieldDamage, true, false, projectileType); // true = shield damage
+
+        // Visual effect for shield hit: ONLY for players (exclude NPCs)
+        if (!this.ecs.hasComponent(targetEntity, Npc)) {
+          console.log(`[PROJECTILE_SYSTEM_DEBUG] Local trigger for player entity ${targetEntity.id}`);
+          combatSystem.triggerShieldHitEffect(targetEntity, impactPosition);
+        }
+
         damageToHp = damage - shieldDamage;
       }
 

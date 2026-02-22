@@ -28,6 +28,8 @@ import { ProjectileFactory } from '../../core/domain/ProjectileFactory';
 import { ProjectileVisualState } from '../../entities/combat/ProjectileVisualState';
 import { CONFIG } from '../../core/utils/config/GameConfig';
 import npcConfig from '../../../shared/npc-config.json';
+import { CombatExplosionManager } from './managers/CombatExplosionManager';
+import { CombatDamageManager } from './managers/CombatDamageManager';
 
 /**
  * Sistema dedicato alla gestione dello stato del combattimento
@@ -43,6 +45,10 @@ export class CombatStateSystem extends BaseSystem {
   private assetManager: AssetManager | null = null;
   private logSystem: LogSystem | null = null;
   private damageSystem: any = null;
+  private explosionManager!: CombatExplosionManager;
+  private damageManager!: CombatDamageManager;
+  private managersInitialized: boolean = false;
+  private explosionFrames: HTMLImageElement[] | null = null;
 
   // Stato del combattimento
   private currentAttackTarget: number | null = null;
@@ -98,6 +104,24 @@ export class CombatStateSystem extends BaseSystem {
 
   constructor(ecs: ECS) {
     super(ecs);
+    this.initializeManagers();
+  }
+
+  /**
+   * Initializes internal managers
+   */
+  private initializeManagers(): void {
+    if (this.managersInitialized) return;
+
+    this.explosionManager = new CombatExplosionManager(
+      this.ecs,
+      () => this.clientNetworkSystem,
+      () => this.explosionFrames,
+      (frames) => { this.explosionFrames = frames; }
+    );
+
+    this.damageManager = new CombatDamageManager(this.ecs, (this as any).playerSystem || null);
+    this.managersInitialized = true;
   }
 
   /**
@@ -1158,9 +1182,24 @@ export class CombatStateSystem extends BaseSystem {
   }
 
   /**
+   * Triggers a shield hit visual effect
+   */
+  public triggerShieldHitEffect(
+    targetEntity: Entity,
+    impactPosition?: { x: number; y: number },
+    attackerPosition?: { x: number; y: number }
+  ): void {
+    this.initializeManagers();
+    console.log(`[COMBAT_STATE_SYSTEM_DEBUG] triggerShieldHitEffect called for entity ID: ${targetEntity.id}`);
+    void this.explosionManager.triggerShieldHitEffect(targetEntity, impactPosition, attackerPosition);
+  }
+
+  /**
    * Cleanup delle risorse
    */
   public destroy(): void {
+    this.explosionManager?.clear();
+    this.damageManager?.clear();
     // Rimuovi tutti i laser beam attivi
     this.removeAllActiveBeams();
 
