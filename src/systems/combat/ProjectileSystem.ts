@@ -645,7 +645,6 @@ export class ProjectileSystem extends BaseSystem {
 
         // Visual effect for shield hit: ONLY for players (exclude NPCs)
         if (!this.ecs.hasComponent(targetEntity, Npc)) {
-          console.log(`[PROJECTILE_SYSTEM_DEBUG] Local trigger for player entity ${targetEntity.id}`);
           combatSystem.triggerShieldHitEffect(targetEntity, impactPosition);
         }
 

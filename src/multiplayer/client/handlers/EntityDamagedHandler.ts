@@ -100,9 +100,6 @@ export class EntityDamagedHandler extends BaseMessageHandler {
     }
 
     const combatSystem = this.findCombatSystem(ecs);
-    console.log(`[SHIELD_HIT_HANDLER_DEBUG] Message: entityType=${message.entityType}, entityId=${message.entityId}, attackerId=${message.attackerId}`);
-    console.log(`[SHIELD_HIT_HANDLER_DEBUG] Systems: combatSystem=${!!combatSystem}, targetEntity=${!!targetEntity}`);
-
     if (combatSystem && targetEntity) {
       const entityKey = `${message.entityType}:${String(message.entityId)}`;
       const trackedShieldBefore = this.shieldStateByEntity.get(entityKey);
@@ -118,7 +115,6 @@ export class EntityDamagedHandler extends BaseMessageHandler {
       // Trigger Shield Hit Effect via CombatSystem centrality
       // ONLY for player entities (as requested: "non dovrebbe esserci su npc")
       if (message.entityType === 'player' && previousShield !== null && previousShield > nextShield) {
-        console.log(`[SHIELD_HIT_HANDLER] Triggering shield hit! Target: ${entityKey}, Shield: ${previousShield} -> ${nextShield}`);
         const attackerPosition = this.resolveAttackerWorldPosition(ecs, networkSystem, message.attackerId);
         combatSystem.triggerShieldHitEffect(targetEntity, message.position, attackerPosition || undefined);
       }

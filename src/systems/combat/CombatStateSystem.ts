@@ -1190,7 +1190,6 @@ export class CombatStateSystem extends BaseSystem {
     attackerPosition?: { x: number; y: number }
   ): void {
     this.initializeManagers();
-    console.log(`[COMBAT_STATE_SYSTEM_DEBUG] triggerShieldHitEffect called for entity ID: ${targetEntity.id}`);
     void this.explosionManager.triggerShieldHitEffect(targetEntity, impactPosition, attackerPosition);
   }
 

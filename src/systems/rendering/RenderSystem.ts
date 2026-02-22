@@ -989,22 +989,10 @@ export class RenderSystem extends BaseSystem {
         ctx.translate(centerX, centerY);
         ctx.rotate(rotation);
         ctx.drawImage(params.image, -params.width / 2, -params.height / 2, params.width, params.height);
-
-        // Debug: Log once per second per explosion entity
-        if (Math.random() < 0.05) {
-          console.log(`[RENDER_DEBUG] Explosion RENDERED! Frame: ${explosion.currentFrame}, Pos: (${screenX.toFixed(1)}, ${screenY.toFixed(1)})`);
-        }
       } else {
         ctx.drawImage(params.image, params.x, params.y, params.width, params.height);
       }
       ctx.restore();
-    } else if (params) {
-      // Diagnostic fallback: if image is missing but params exist, draw a bright square
-      ctx.save();
-      ctx.fillStyle = 'rgba(255, 0, 255, 0.5)';
-      ctx.fillRect(params.x, params.y, params.width, params.height);
-      ctx.restore();
-      console.warn(`[SHIELD_HIT_RENDER_DEBUG] Render params exist but image is missing for explosion frame ${explosion.currentFrame}`);
     }
   }
 
